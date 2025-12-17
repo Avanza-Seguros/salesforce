@@ -123,5 +123,43 @@ public with sharing class EnvioBajas {
         '7z' => 'application/x-7z-compressed'
     };
 
+    public static Messaging.SingleEmailMessage buildEmail(Items_Cases__c objItem) {
+        if (objItem.Contacto__c == null) return null;
+
+        Messaging.SingleEmailMessage email =
+            new Messaging.SingleEmailMessage();
+
+        Asigacion_de_plantilla__c asg = [
+            SELECT ID_de_la_plantilla__c
+            FROM Asigacion_de_plantilla__c
+            WHERE Empresa__c = :objItem.Nombre_cuenta__c
+            LIMIT 1
+        ];
+
+        EmailTemplate et = [
+            SELECT Id
+            FROM EmailTemplate
+            WHERE DeveloperName = :asg.ID_de_la_plantilla__c
+            LIMIT 1
+        ];
+
+        email.setTemplateId(et.Id);
+
+        // 🔥 CLAVE
+        email.setTargetObjectId(objItem.Contacto__c);
+        email.setWhatId(objItem.Id);
+
+        Id owaId = [
+            SELECT Id
+            FROM OrgWideEmailAddress
+            WHERE Address = 'info@avanzaseguro.com'
+            LIMIT 1
+        ].Id;
+
+        email.setOrgWideEmailAddressId(owaId);
+        email.setSaveAsActivity(false);
+
+        return email;
+    }
 
 }

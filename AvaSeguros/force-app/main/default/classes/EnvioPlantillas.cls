@@ -1,5 +1,5 @@
 public with sharing class EnvioPlantillas {
-    
+
     public static void EnvioEmail(Id objItemId) {
         Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage();
         Id senderEmailId = [SELECT Id FROM OrgWideEmailAddress WHERE Address = 'info@avanzaseguro.com' LIMIT 1].Id;
@@ -20,42 +20,47 @@ public with sharing class EnvioPlantillas {
             }
 
             List<Asigacion_de_plantilla__c> asgList = [SELECT ID_de_la_plantilla__c, Categoria__c FROM Asigacion_de_plantilla__c WHERE Empresa__c = :acc.Id AND Categoria__c = :objItem.Categorias__c LIMIT 1];
-            if (asgList.size() > 0) {
-                Asigacion_de_plantilla__c asg = asgList[0];
-                EmailTemplate et = [SELECT Id, Subject, Body FROM EmailTemplate WHERE DeveloperName = :asg.ID_de_la_plantilla__c LIMIT 1];
+            EmailTemplate et = new EmailTemplate();
+            Asigacion_de_plantilla__c asg = new Asigacion_de_plantilla__c();
+            try {
+                asg = asgList[0];
+                et = [SELECT Id, Subject, Body FROM EmailTemplate WHERE DeveloperName = :asg.ID_de_la_plantilla__c LIMIT 1];
+            }catch (Exception e) {
+                asg = null;
+                et = null;
+            }
+            
 
-                if (objItem.Categorias__c == asg.Categoria__c) {
-                    // 1. Enviar a Correo_electronico__c como destinatario principal
-                    message.setToAddresses(new String[] { objItem.Correo_electronico__c });
+            // 1. Enviar a Correo_electronico__c como destinatario principal
+            message.setToAddresses(new String[] { objItem.Correo_electronico__c });
 
-                    // 2. Enviar al contacto relacionado (Contacto__c)
-                    message.setTargetObjectId(objItem.Contacto__c);
+            // 2. Enviar al contacto relacionado (Contacto__c)
+            message.setTargetObjectId(objItem.Contacto__c);
 
-                    // 3. Si Correo_Copia__c no es nulo, se agrega en CC; si es nulo, no se hace nada
-                    if (objItem.Correo_Copia__c != null) {
-                        message.setCcAddresses(new String[] { objItem.Correo_Copia__c });
-                    }
-                    message.setTemplateId(et.Id);
-                    message.setOrgWideEmailAddressId(senderEmailId);
-                    message.setWhatId(objItem.Id);
-                    message.setSaveAsActivity(false);
-                    message.setTargetObjectId(objItem.Contacto__c);
-                    message.setUseSignature(true);
-                    message.setFileAttachments(getAttachmentForEmail(getRelatedFilesByRecordId(objItem.Id)));
-                    message.setHtmlBody(et.Body);
+            // 3. Si Correo_Copia__c no es nulo, se agrega en CC; si es nulo, no se hace nada
+            if (objItem.Correo_Copia__c != null) {
+                message.setCcAddresses(new String[] { objItem.Correo_Copia__c });
+            }
+            if(asgList != null && asgList.size() > 0) {
+                message.setTemplateId(et.Id);
+                message.setHtmlBody(et.Body);
+            }else {
+                message.setHtmlBody('No se ha asignado una plantilla para este caso');
+            }
+            message.setOrgWideEmailAddressId(senderEmailId);
+            message.setWhatId(objItem.Id);
+            message.setSaveAsActivity(false);
+            message.setTargetObjectId(objItem.Contacto__c);
+            message.setUseSignature(true);
+            message.setFileAttachments(getAttachmentForEmail(getRelatedFilesByRecordId(objItem.Id)));
+            
 
-                    Messaging.SendEmailResult[] results = Messaging.sendEmail(new Messaging.SingleEmailMessage[] { message });
+            Messaging.SendEmailResult[] results = Messaging.sendEmail(new Messaging.SingleEmailMessage[] { message });
 
-                    if (results[0].success) {
-                        System.debug('The email was sent successfully.');
-                    } else {
-                        System.debug('The email failed to send: ' + results[0].errors[0].message);
-                    }
-                } else {
-                    System.debug('The category in Items_Cases__c does not match the category in Asigacion_de_plantilla__c.');
-                }
+            if (results[0].success) {
+                System.debug('The email was sent successfully.');
             } else {
-                System.debug('No Asigacion_de_plantilla__c found for the account.');
+                System.debug('The email failed to send: ' + results[0].errors[0].message);
             }
         } else {
             System.debug('The email address is null or the Items_Cases__c record does not exist.');
@@ -147,4 +152,58 @@ public with sharing class EnvioPlantillas {
     };
 
 
+    public static Messaging.SingleEmailMessage EnvioEmailMasivo(Id objItemId) {
+        Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage();
+        Id senderEmailId = [SELECT Id FROM OrgWideEmailAddress WHERE Address = 'info@avanzaseguro.com' LIMIT 1].Id;
+
+        Items_Cases__c objItem = [SELECT Id, Nombre_cuenta__c, Contacto__c, Correo_electronico__c,Correo_Copia__c, Categorias__c FROM Items_Cases__c WHERE Id = :objItemId LIMIT 1];
+
+        Account acc = [SELECT Name FROM Account WHERE Id = :objItem.Nombre_cuenta__c LIMIT 1];
+
+        String[] plantillaRecordTypeNames = new String[]{'Plantilla de correo electrónico'};
+        Set<Id> plantillaRecordTypeIds = new Set<Id>();
+
+        for (String recordTypeName : plantillaRecordTypeNames) {
+            Schema.RecordTypeInfo recordTypeInfo = Schema.SObjectType.EmailTemplate.getRecordTypeInfosByName().get(recordTypeName);
+            if (recordTypeInfo != null) {
+                plantillaRecordTypeIds.add(recordTypeInfo.getRecordTypeId());
+            }
+        }
+
+        List<Asigacion_de_plantilla__c> asgList = [SELECT ID_de_la_plantilla__c, Categoria__c FROM Asigacion_de_plantilla__c WHERE Empresa__c = :acc.Id AND Categoria__c = :objItem.Categorias__c LIMIT 1];
+        EmailTemplate et = new EmailTemplate();
+        Asigacion_de_plantilla__c asg = new Asigacion_de_plantilla__c();
+        try {
+            asg = asgList[0];
+            et = [SELECT Id, Subject, Body FROM EmailTemplate WHERE DeveloperName = :asg.ID_de_la_plantilla__c LIMIT 1];
+        }catch (Exception e) {
+            asg = null;
+            et = null;
+        }
+        
+
+        // 1. Enviar a Correo_electronico__c como destinatario principal
+        message.setToAddresses(new String[] { objItem.Correo_electronico__c });
+
+        // 2. Enviar al contacto relacionado (Contacto__c)
+
+        // 3. Si Correo_Copia__c no es nulo, se agrega en CC; si es nulo, no se hace nada
+        if (objItem.Correo_Copia__c != null) {
+            message.setCcAddresses(new String[] { objItem.Correo_Copia__c });
+        }
+        if(et.Id != null) {
+            message.setTemplateId(et.Id);
+            message.setHtmlBody(et.Body);
+            message.setTargetObjectId(objItem.Contacto__c);
+        }else {
+            message.setHtmlBody('No se ha asignado una plantilla para este caso');
+        }
+        message.setOrgWideEmailAddressId(senderEmailId);
+        message.setWhatId(objItem.Id);
+        message.setSaveAsActivity(false);
+        message.setUseSignature(true);
+        message.setFileAttachments(getAttachmentForEmail(getRelatedFilesByRecordId(objItem.Id)));
+        
+        return message;
+    }
 }

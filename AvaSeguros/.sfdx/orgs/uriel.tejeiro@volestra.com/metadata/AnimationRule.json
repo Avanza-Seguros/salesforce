@@ -1,0 +1,125 @@
+{
+  "status": 0,
+  "result": [
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2023-06-23T20:20:21.000Z",
+      "fileName": "animationRules/Default_Opportunity.animationRule",
+      "fullName": "Default_Opportunity",
+      "id": "4Zu8a0000004EBGCA2",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2025-07-15T22:22:36.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000KbdFqAAJ",
+      "createdByName": "Abraham Gonzalez",
+      "createdDate": "2022-11-15T19:00:58.000Z",
+      "fileName": "animationRules/Agente.animationRule",
+      "fullName": "Agente",
+      "id": "4Zu8a000000PEd0CAG",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2023-10-10T17:06:46.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2024-04-19T19:44:30.000Z",
+      "fileName": "animationRules/Cotizacion.animationRule",
+      "fullName": "Cotizacion",
+      "id": "4ZuUn00000001nJKAQ",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2024-04-19T19:44:30.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2023-08-09T21:38:59.000Z",
+      "fileName": "animationRules/Revision_de_Vacaciones.animationRule",
+      "fullName": "Revision_de_Vacaciones",
+      "id": "4Zu8a000000kC0uCAE",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2023-08-09T21:38:59.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2023-06-09T21:53:48.000Z",
+      "fileName": "animationRules/Proceso_de_Marketing.animationRule",
+      "fullName": "Proceso_de_Marketing",
+      "id": "4Zu8a0000004EBBCA2",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2023-06-09T21:53:48.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000KbdFqAAJ",
+      "createdByName": "Abraham Gonzalez",
+      "createdDate": "2022-06-30T20:51:56.000Z",
+      "fileName": "animationRules/Ruta_referidos.animationRule",
+      "fullName": "Ruta_referidos",
+      "id": "4Zu8a000000CdwcCAC",
+      "lastModifiedById": "0058a00000KbdFqAAJ",
+      "lastModifiedByName": "Abraham Gonzalez",
+      "lastModifiedDate": "2022-06-30T20:51:56.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000KbdFqAAJ",
+      "createdByName": "Abraham Gonzalez",
+      "createdDate": "2022-06-08T16:41:14.000Z",
+      "fileName": "animationRules/Estatus_Movimiento.animationRule",
+      "fullName": "Estatus_Movimiento",
+      "id": "4Zu8a000000Cd3RCAS",
+      "lastModifiedById": "0058a00000KbdFqAAJ",
+      "lastModifiedByName": "Abraham Gonzalez",
+      "lastModifiedDate": "2022-06-08T16:41:14.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2024-10-14T00:11:04.000Z",
+      "fileName": "animationRules/Actuaria.animationRule",
+      "fullName": "Actuaria",
+      "id": "4ZuUn00000008nBKAQ",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2024-10-14T00:11:04.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2024-06-04T22:25:52.000Z",
+      "fileName": "animationRules/Peticiones_de_Mantenimiento.animationRule",
+      "fullName": "Peticiones_de_Mantenimiento",
+      "id": "4ZuUn000000037ZKAQ",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2024-06-04T22:25:52.000Z",
+      "type": "AnimationRule"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "2023-10-30T19:08:33.000Z",
+      "fileName": "animationRules/Alta_con_dependientes.animationRule",
+      "fullName": "Alta_con_dependientes",
+      "id": "4Zu8a000000L0fwCAC",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "2023-10-30T19:08:33.000Z",
+      "type": "AnimationRule"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "status": 0,
+  "result": [
+    {
+      "createdById": "005cX000009tDKSQA2",
+      "createdByName": "Sergio Uribe",
+      "createdDate": "1970-01-01T00:00:00.000Z",
+      "fileName": "apexEmailNotifications/apexEmailNotifications.notifications",
+      "fullName": "apexEmailNotifications",
+      "id": "",
+      "lastModifiedById": "005cX000009tDKSQA2",
+      "lastModifiedByName": "Sergio Uribe",
+      "lastModifiedDate": "1970-01-01T00:00:00.000Z",
+      "namespacePrefix": "",
+      "type": "ApexEmailNotifications"
+    }
+  ]
+}

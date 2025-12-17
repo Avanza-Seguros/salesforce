@@ -173,6 +173,30 @@
       "xmlName": "ExternalDataSource"
     },
     {
+      "directoryName": "catalogedApiArtifactVersionInfos",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "catalogedApiArtifactVersionInfo",
+      "xmlName": "CatalogedApiArtifactVersionInfo",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "catalogedApis",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "catalogedApi",
+      "xmlName": "CatalogedApi",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "catalogedApiVersions",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "catalogedApiVersion",
+      "xmlName": "CatalogedApiVersion",
+      "childXmlNames": []
+    },
+    {
       "directoryName": "externalServiceRegistrations",
       "inFolder": false,
       "metaFile": false,
@@ -240,6 +264,14 @@
       "xmlName": "CustomObject"
     },
     {
+      "directoryName": "objectbindings",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "objectbinding",
+      "xmlName": "CustomObjectBinding",
+      "childXmlNames": []
+    },
+    {
       "directoryName": "reportTypes",
       "inFolder": false,
       "metaFile": false,
@@ -278,6 +310,16 @@
       "suffix": "feedFilter",
       "xmlName": "CustomFeedFilter",
       "childXmlNames": []
+    },
+    {
+      "childXmlNames": [
+        "Tag"
+      ],
+      "directoryName": "tagSet",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "tagSet",
+      "xmlName": "TagSet"
     },
     {
       "directoryName": "layouts",
@@ -662,6 +704,14 @@
       "childXmlNames": []
     },
     {
+      "directoryName": "userAuthCertificates",
+      "inFolder": false,
+      "metaFile": true,
+      "suffix": "userAuthCertificate",
+      "xmlName": "UserAuthCertificate",
+      "childXmlNames": []
+    },
+    {
       "directoryName": "notificationtypes",
       "inFolder": false,
       "metaFile": false,
@@ -1038,14 +1088,6 @@
       "childXmlNames": []
     },
     {
-      "directoryName": "IPAddressRanges",
-      "inFolder": false,
-      "metaFile": false,
-      "suffix": "IPAddressRange",
-      "xmlName": "IPAddressRange",
-      "childXmlNames": []
-    },
-    {
       "directoryName": "recordAlertCategories",
       "inFolder": false,
       "metaFile": false,
@@ -1107,6 +1149,30 @@
       "metaFile": false,
       "suffix": "notifications",
       "xmlName": "ApexEmailNotifications",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "IPAddressRanges",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "IPAddressRange",
+      "xmlName": "IPAddressRange",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "dgtAssetMgmtProviders",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "dgtAssetMgmtProvider",
+      "xmlName": "DgtAssetMgmtProvider",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "dgtAssetMgmtPrvdLghtCpnts",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "dgtAssetMgmtPrvdLghtCpnt",
+      "xmlName": "DgtAssetMgmtPrvdLghtCpnt",
       "childXmlNames": []
     },
     {
@@ -2345,6 +2411,14 @@
       "childXmlNames": []
     },
     {
+      "directoryName": "useraccesspolicies",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "useraccesspolicy",
+      "xmlName": "UserAccessPolicy",
+      "childXmlNames": []
+    },
+    {
       "directoryName": "searchCustomizations",
       "inFolder": false,
       "metaFile": false,
@@ -2374,6 +2448,21 @@
       "metaFile": false,
       "suffix": "omniSupervisorConfig",
       "xmlName": "OmniSupervisorConfig",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "invocableactionextensions",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "invocableactionextension",
+      "xmlName": "InvocableActionExtension",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "aiAuthoringBundles",
+      "inFolder": false,
+      "metaFile": false,
+      "xmlName": "AiAuthoringBundle",
       "childXmlNames": []
     },
     {
@@ -2438,6 +2527,14 @@
       "metaFile": false,
       "suffix": "mobSecurityCertPinConfig",
       "xmlName": "MobSecurityCertPinConfig",
+      "childXmlNames": []
+    },
+    {
+      "directoryName": "lightningOutApp",
+      "inFolder": false,
+      "metaFile": false,
+      "suffix": "lightningOutApp",
+      "xmlName": "LightningOutApp",
       "childXmlNames": []
     },
     {

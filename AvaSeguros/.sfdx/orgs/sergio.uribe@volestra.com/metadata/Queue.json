@@ -1,0 +1,173 @@
+{
+  "status": 0,
+  "result": [
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:51:06.000Z",
+      "fileName": "queues/ContratacionesEmpresas.queue",
+      "fullName": "ContratacionesEmpresas",
+      "id": "00G8a000004T1rDEAS",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-09T16:51:06.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:47:53.000Z",
+      "fileName": "queues/SeguroColecInfoPoliza.queue",
+      "fullName": "SeguroColecInfoPoliza",
+      "id": "00G8a000004T1r8EAC",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-09T16:47:53.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:52:16.000Z",
+      "fileName": "queues/ContratacionesIndividuales.queue",
+      "fullName": "ContratacionesIndividuales",
+      "id": "00G8a000004T1rIEAS",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-09T16:52:16.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-09-07T15:15:23.000Z",
+      "fileName": "queues/cola_Servicio_Avanza.queue",
+      "fullName": "cola_Servicio_Avanza",
+      "id": "00G8a000003DIeHEAW",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-14T20:00:53.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:45:29.000Z",
+      "fileName": "queues/RequisitosTramites.queue",
+      "fullName": "RequisitosTramites",
+      "id": "00G8a000004T1r3EAC",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-09T16:49:22.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Misael Velarde Leon",
+      "createdDate": "2024-04-23T18:28:19.000Z",
+      "fileName": "queues/Aspiria.queue",
+      "fullName": "Aspiria",
+      "id": "00GUn000003zGZBMA2",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Misael Velarde Leon",
+      "lastModifiedDate": "2024-04-23T18:28:19.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Misael Velarde Leon",
+      "createdDate": "2024-02-16T23:48:37.000Z",
+      "fileName": "queues/Hand_Cloud.queue",
+      "fullName": "Hand_Cloud",
+      "id": "00GUn000001AkAfMAK",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Misael Velarde Leon",
+      "lastModifiedDate": "2024-02-16T23:48:37.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:07:44.000Z",
+      "fileName": "queues/SeguroIndInfoPoliza.queue",
+      "fullName": "SeguroIndInfoPoliza",
+      "id": "00G8a000004T1qyEAC",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-19T19:27:24.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:55:03.000Z",
+      "fileName": "queues/ServicioEmpresas.queue",
+      "fullName": "ServicioEmpresas",
+      "id": "00G8a000004T1rSEAS",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-09T16:55:03.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Misael Velarde Leon",
+      "createdDate": "2023-08-31T18:20:27.000Z",
+      "fileName": "queues/Almex.queue",
+      "fullName": "Almex",
+      "id": "00G8a0000032ZJwEAM",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Misael Velarde Leon",
+      "lastModifiedDate": "2023-08-31T18:21:54.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Misael Velarde Leon",
+      "createdDate": "2023-03-21T21:51:30.000Z",
+      "fileName": "queues/Unosquare.queue",
+      "fullName": "Unosquare",
+      "id": "00G8a000004T87iEAC",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Misael Velarde Leon",
+      "lastModifiedDate": "2024-04-11T16:26:59.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LixOjAAJ",
+      "createdByName": "elena kleemann",
+      "createdDate": "2022-12-09T16:53:43.000Z",
+      "fileName": "queues/Asesor.queue",
+      "fullName": "Asesor",
+      "id": "00G8a000004T1rNEAS",
+      "lastModifiedById": "0058a00000LixOjAAJ",
+      "lastModifiedByName": "elena kleemann",
+      "lastModifiedDate": "2022-12-09T16:53:43.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Misael Velarde Leon",
+      "createdDate": "2024-07-22T18:14:19.000Z",
+      "fileName": "queues/DMD.queue",
+      "fullName": "DMD",
+      "id": "00GUn000007cOA9MAM",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Misael Velarde Leon",
+      "lastModifiedDate": "2024-07-22T18:14:19.000Z",
+      "type": "Queue"
+    },
+    {
+      "createdById": "0058a00000KmgKrAAJ",
+      "createdByName": "Automated Process",
+      "createdDate": "2023-07-17T15:46:05.000Z",
+      "fileName": "queues/Service_Case.queue",
+      "fullName": "Service_Case",
+      "id": "00G8a000003wyfeEAA",
+      "lastModifiedById": "0058a00000KmgKrAAJ",
+      "lastModifiedByName": "Automated Process",
+      "lastModifiedDate": "2023-07-17T15:46:05.000Z",
+      "type": "Queue"
+    }
+  ]
+}

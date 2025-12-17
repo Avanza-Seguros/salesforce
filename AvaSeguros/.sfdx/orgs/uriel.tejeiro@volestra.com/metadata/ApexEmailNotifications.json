@@ -1,0 +1,18 @@
+{
+  "status": 0,
+  "result": [
+    {
+      "createdById": "0058a00000LwEoaAAF",
+      "createdByName": "Administrador Avanza",
+      "createdDate": "1970-01-01T00:00:00.000Z",
+      "fileName": "apexEmailNotifications/apexEmailNotifications.notifications",
+      "fullName": "apexEmailNotifications",
+      "id": "",
+      "lastModifiedById": "0058a00000LwEoaAAF",
+      "lastModifiedByName": "Administrador Avanza",
+      "lastModifiedDate": "1970-01-01T00:00:00.000Z",
+      "namespacePrefix": "",
+      "type": "ApexEmailNotifications"
+    }
+  ]
+}
