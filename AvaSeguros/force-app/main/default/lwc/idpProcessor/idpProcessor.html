@@ -1,0 +1,142 @@
+<template>
+    <lightning-card title="Procesador de PDFs" icon-name="standard:document">
+        <div class="slds-p-around_medium">
+            
+            <!-- Paso 1: Subir archivo -->
+            <div class="slds-box slds-m-bottom_medium">
+                <h2 class="slds-text-heading_small slds-m-bottom_small">1. Seleccionar archivo PDF</h2>
+                
+                <div class="slds-form-element">
+                    <label class="slds-form-element__label">
+                        Subir PDF <span class="slds-required">*</span>
+                        <span class="slds-text-color_weak"> (máximo {maxFileSize}MB)</span>
+                    </label>
+                    <div class="slds-form-element__control">
+                        <input 
+                            type="file" 
+                            class="slds-file-selector__input slds-input" 
+                            accept=".pdf, application/pdf"
+                            onchange={handleFileUpload}
+                            disabled={isProcessing} />
+                    </div>
+                </div>
+                
+                <template if:true={fileName}>
+                    <div class="slds-box slds-box_small slds-m-top_small">
+                        <strong>Archivo seleccionado:</strong> {fileName}
+                        <div class="slds-m-top_x-small">
+                            <lightning-button 
+                                label="Eliminar" 
+                                icon-name="utility:delete"
+                                onclick={clearFile}
+                                variant="destructive"
+                                size="small">
+                            </lightning-button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Paso 2: Configuración -->
+            <div class="slds-box slds-m-bottom_medium">
+                <h2 class="slds-text-heading_small slds-m-bottom_small">2. Configuración</h2>
+                
+                <lightning-input
+                    type="text"
+                    label="Nombre del archivo"
+                    value={customFileName}
+                    onchange={handleFileNameChange}
+                    disabled={isProcessing}
+                    class="slds-m-bottom_small">
+                </lightning-input>
+                
+                <lightning-input
+                    type="text"
+                    label="Tipo de documento"
+                    value={documentType}
+                    onchange={handleDocumentTypeChange}
+                    disabled={isProcessing}
+                    class="slds-m-bottom_small">
+                </lightning-input>
+                
+                <lightning-input
+                    type="checkbox"
+                    label="Extraer tablas"
+                    checked={extractTables}
+                    onchange={handleExtractTablesChange}
+                    disabled={isProcessing}>
+                </lightning-input>
+            </div>
+            
+            <!-- Paso 3: Procesar -->
+            <div class="slds-box slds-m-bottom_medium">
+                <h2 class="slds-text-heading_small slds-m-bottom_small">3. Procesar documento</h2>
+                
+                <div class="slds-align_absolute-center slds-m-vertical_medium">
+                    <lightning-button 
+                        variant="brand"
+                        label="Procesar PDF"
+                        onclick={processPDF}
+                        disabled={processButton}>
+                    </lightning-button>
+                    
+                    <lightning-button 
+                        variant="neutral"
+                        label="Limpiar todo"
+                        onclick={clearAll}
+                        disabled={isProcessing}
+                        class="slds-m-left_small">
+                    </lightning-button>
+                </div>
+                
+                <template if:true={isProcessing}>
+                    <div class="slds-align_absolute-center slds-m-vertical_medium">
+                        <lightning-spinner alternative-text="Procesando..."></lightning-spinner>
+                        <div class="slds-m-left_small">{processingMessage}</div>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Resultados -->
+            <template if:true={showResults}>
+                <div class="slds-box">
+                    <h2 class="slds-text-heading_small slds-m-bottom_small">Resultados</h2>
+                    
+                    <div class="slds-notification slds-notification_light slds-m-bottom_medium">
+                        <div class="slds-notification__body">
+                            <div class="slds-grid slds-grid_align-spread">
+                                <div>
+                                    <h3 class="slds-text-heading_small">
+                                        Procesamiento completado
+                                    </h3>
+                                    <div class="slds-text-color_weak">Tiempo: {processingTime}s</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <template if:true={hasExtractedData}>
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Datos extraídos</h3>
+                        <div class="slds-box slds-m-bottom_small">
+                            <pre>{formattedExtractedData}</pre>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            
+            <!-- Errores -->
+            <template if:true={showError}>
+                <div class="slds-notify slds-notify_alert slds-theme_error slds-m-top_medium" role="alert">
+                    <span class="slds-icon_container slds-m-right_x-small">
+                        <lightning-icon icon-name="utility:error"></lightning-icon>
+                    </span>
+                    <h2>{errorTitle}</h2>
+                    <div class="slds-m-top_x-small">{errorMessage}</div>
+                    <button class="slds-button slds-notify__close slds-button_icon" onclick={clearError}>
+                        <lightning-icon icon-name="utility:close"></lightning-icon>
+                    </button>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

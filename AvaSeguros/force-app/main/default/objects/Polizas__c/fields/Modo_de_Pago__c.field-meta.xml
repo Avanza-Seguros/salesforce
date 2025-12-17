@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Modo_de_Pago__c</fullName>
+    <label>Modo de Pago</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Agente</fullName>
+                <default>false</default>
+                <label>Agente</label>
+            </value>
+            <value>
+                <fullName>Directo</fullName>
+                <default>false</default>
+                <label>Directo</label>
+            </value>
+            <value>
+                <fullName>MSI</fullName>
+                <default>false</default>
+                <label>MSI</label>
+            </value>
+            <value>
+                <fullName>TDC</fullName>
+                <default>false</default>
+                <label>TDC</label>
+            </value>
+            <value>
+                <fullName>TDD</fullName>
+                <default>false</default>
+                <label>TDD</label>
+            </value>
+            <value>
+                <fullName>Transferencia</fullName>
+                <default>false</default>
+                <label>Transferencia</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

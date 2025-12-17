@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Estatus__c</fullName>
+    <label>Estatus</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>No tomada</fullName>
+                <default>false</default>
+                <label>No tomada</label>
+            </value>
+            <value>
+                <fullName>Vigor</fullName>
+                <default>false</default>
+                <label>Vigor</label>
+            </value>
+            <value>
+                <fullName>Traspaso</fullName>
+                <default>false</default>
+                <label>Traspaso</label>
+            </value>
+            <value>
+                <fullName>Vigor Prorrogado</fullName>
+                <default>false</default>
+                <label>Vigor prorrogado</label>
+            </value>
+            <value>
+                <fullName>Vencida</fullName>
+                <default>false</default>
+                <label>Vencida</label>
+            </value>
+            <value>
+                <fullName>Anulada cambio A</fullName>
+                <default>false</default>
+                <label>Anulada cambio A</label>
+            </value>
+            <value>
+                <fullName>Vigor sin Pago de Primas</fullName>
+                <default>false</default>
+                <label>Vigor sin Pago de Primas</label>
+            </value>
+            <value>
+                <fullName>Cancelada</fullName>
+                <default>false</default>
+                <label>Cancelada</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

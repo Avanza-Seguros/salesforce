@@ -1,0 +1,1133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Plan_Producto__c</fullName>
+    <label>Plan/Producto</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <controllingField>Aseguradora__c</controllingField>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Accidentes</fullName>
+                <default>false</default>
+                <label>Accidentes</label>
+            </value>
+            <value>
+                <fullName>Accidentes Grupo</fullName>
+                <default>false</default>
+                <label>Accidentes Grupo</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Flex A</fullName>
+                <default>false</default>
+                <label>Alfa Medical Flex A</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Flex B</fullName>
+                <default>false</default>
+                <label>Alfa Medical Flex B</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Integro</fullName>
+                <default>false</default>
+                <label>Alfa Medical Integro</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Internacional</fullName>
+                <default>false</default>
+                <label>Alfa Medical Internacional</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Pleno</fullName>
+                <default>false</default>
+                <label>Alfa Medical Pleno</label>
+            </value>
+            <value>
+                <fullName>Amplia</fullName>
+                <default>false</default>
+                <label>Amplia</label>
+            </value>
+            <value>
+                <fullName>Automovil</fullName>
+                <default>false</default>
+                <label>Automovil</label>
+            </value>
+            <value>
+                <fullName>Autos</fullName>
+                <default>false</default>
+                <label>Autos</label>
+            </value>
+            <value>
+                <fullName>Avanzado</fullName>
+                <default>false</default>
+                <label>Avanzado</label>
+            </value>
+            <value>
+                <fullName>BLACK</fullName>
+                <default>false</default>
+                <label>BLACK</label>
+            </value>
+            <value>
+                <fullName>Capitaliza</fullName>
+                <default>false</default>
+                <label>Capitaliza</label>
+            </value>
+            <value>
+                <fullName>Conexión</fullName>
+                <default>false</default>
+                <label>Conexión</label>
+            </value>
+            <value>
+                <fullName>Consolida</fullName>
+                <default>false</default>
+                <label>Consolida</label>
+            </value>
+            <value>
+                <fullName>Contactado</fullName>
+                <default>false</default>
+                <label>Contactado</label>
+            </value>
+            <value>
+                <fullName>Daños</fullName>
+                <default>false</default>
+                <label>Daños</label>
+            </value>
+            <value>
+                <fullName>Dental</fullName>
+                <default>false</default>
+                <label>Dental</label>
+            </value>
+            <value>
+                <fullName>Dotal</fullName>
+                <default>false</default>
+                <label>Dotal</label>
+            </value>
+            <value>
+                <fullName>Dotal 10</fullName>
+                <default>false</default>
+                <label>Dotal 10</label>
+            </value>
+            <value>
+                <fullName>Dotal 20</fullName>
+                <default>false</default>
+                <label>Dotal 20</label>
+            </value>
+            <value>
+                <fullName>Dotal 20 Udis</fullName>
+                <default>false</default>
+                <label>Dotal 20 Udis</label>
+            </value>
+            <value>
+                <fullName>Educacion</fullName>
+                <default>false</default>
+                <label>Educacion</label>
+            </value>
+            <value>
+                <fullName>Elige</fullName>
+                <default>false</default>
+                <label>Elige</label>
+            </value>
+            <value>
+                <fullName>ELITE</fullName>
+                <default>false</default>
+                <label>ELITE</label>
+            </value>
+            <value>
+                <fullName>Escencial</fullName>
+                <default>false</default>
+                <label>Escencial</label>
+            </value>
+            <value>
+                <fullName>Estándar</fullName>
+                <default>false</default>
+                <label>Estándar</label>
+            </value>
+            <value>
+                <fullName>Flex</fullName>
+                <default>false</default>
+                <label>Flex</label>
+            </value>
+            <value>
+                <fullName>Flex A</fullName>
+                <default>false</default>
+                <label>Flex A</label>
+            </value>
+            <value>
+                <fullName>Flex Ambar</fullName>
+                <default>false</default>
+                <label>Flex Ambar</label>
+            </value>
+            <value>
+                <fullName>Flex B</fullName>
+                <default>false</default>
+                <label>Flex B</label>
+            </value>
+            <value>
+                <fullName>Flex Cuarzo</fullName>
+                <default>false</default>
+                <label>Flex Cuarzo</label>
+            </value>
+            <value>
+                <fullName>Flexible Óptimo</fullName>
+                <default>false</default>
+                <label>Flexible Óptimo</label>
+            </value>
+            <value>
+                <fullName>Flex Indigo</fullName>
+                <default>false</default>
+                <label>Flex Indigo</label>
+            </value>
+            <value>
+                <fullName>Flex Plus</fullName>
+                <default>false</default>
+                <label>Flex Plus</label>
+            </value>
+            <value>
+                <fullName>Flotilla</fullName>
+                <default>false</default>
+                <label>Flotilla</label>
+            </value>
+            <value>
+                <fullName>Gastos Medicos Menores</fullName>
+                <default>false</default>
+                <label>Gastos Medicos Menores</label>
+            </value>
+            <value>
+                <fullName>Gmm</fullName>
+                <default>false</default>
+                <label>Gmm</label>
+            </value>
+            <value>
+                <fullName>Gmm Colectivo</fullName>
+                <default>false</default>
+                <label>Gmm Colectivo</label>
+            </value>
+            <value>
+                <fullName>Golden salud</fullName>
+                <default>false</default>
+                <label>Golden salud</label>
+            </value>
+            <value>
+                <fullName>Hogar</fullName>
+                <default>false</default>
+                <label>Hogar</label>
+            </value>
+            <value>
+                <fullName>Hogar Flexible Apex</fullName>
+                <default>false</default>
+                <label>Hogar Flexible Apex</label>
+            </value>
+            <value>
+                <fullName>Hogar Versatil</fullName>
+                <default>false</default>
+                <label>Hogar Versail</label>
+            </value>
+            <value>
+                <fullName>Hombre Clave</fullName>
+                <default>false</default>
+                <label>Hombre Clave</label>
+            </value>
+            <value>
+                <fullName>Imagina Ser</fullName>
+                <default>false</default>
+                <label>Imagina Ser</label>
+            </value>
+            <value>
+                <fullName>Imagina Ser +</fullName>
+                <default>false</default>
+                <label>Imagina Ser +</label>
+            </value>
+            <value>
+                <fullName>Imagina Ser 55</fullName>
+                <default>false</default>
+                <label>Imagina Ser 55</label>
+            </value>
+            <value>
+                <fullName>Imagina Ser 60</fullName>
+                <default>false</default>
+                <label>Imagina Ser 60</label>
+            </value>
+            <value>
+                <fullName>Imagina Ser 65</fullName>
+                <default>false</default>
+                <label>Imagina Ser 65</label>
+            </value>
+            <value>
+                <fullName>Imagina Ser 70</fullName>
+                <default>false</default>
+                <label>Imagina Ser 70</label>
+            </value>
+            <value>
+                <fullName>Impulsa</fullName>
+                <default>false</default>
+                <label>Impulsa</label>
+            </value>
+            <value>
+                <fullName>Individual</fullName>
+                <default>false</default>
+                <label>Individual</label>
+            </value>
+            <value>
+                <fullName>Integral</fullName>
+                <default>false</default>
+                <label>Integral</label>
+            </value>
+            <value>
+                <fullName>Integro</fullName>
+                <default>false</default>
+                <label>Integro</label>
+            </value>
+            <value>
+                <fullName>Intermedio</fullName>
+                <default>false</default>
+                <label>Intermedio</label>
+            </value>
+            <value>
+                <fullName>Internacional</fullName>
+                <default>false</default>
+                <label>Internacional</label>
+            </value>
+            <value>
+                <fullName>Legado</fullName>
+                <default>false</default>
+                <label>Legado</label>
+            </value>
+            <value>
+                <fullName>Maxima</fullName>
+                <default>false</default>
+                <label>Maxima</label>
+            </value>
+            <value>
+                <fullName>Mi Doc Deducible</fullName>
+                <default>false</default>
+                <label>Mi Doc Deducible</label>
+            </value>
+            <value>
+                <fullName>Multiple Familiar Civil</fullName>
+                <default>false</default>
+                <label>Multiple Familiar Civil</label>
+            </value>
+            <value>
+                <fullName>Negocio Protegido</fullName>
+                <default>false</default>
+                <label>Negocio Protegido</label>
+            </value>
+            <value>
+                <fullName>Nuevo Plenitud</fullName>
+                <default>false</default>
+                <label>Nuevo Plenitud</label>
+            </value>
+            <value>
+                <fullName>Nuevo Plenitud 55 15</fullName>
+                <default>false</default>
+                <label>Nuevo Plenitud 55 15</label>
+            </value>
+            <value>
+                <fullName>Nuevo Plenitud 60</fullName>
+                <default>false</default>
+                <label>Nuevo Plenitud 60</label>
+            </value>
+            <value>
+                <fullName>Objetivo Vida S. A. F.</fullName>
+                <default>false</default>
+                <label>Objetivo Vida S. A. F.</label>
+            </value>
+            <value>
+                <fullName>Optimo</fullName>
+                <default>false</default>
+                <label>Optimo</label>
+            </value>
+            <value>
+                <fullName>Ordinario</fullName>
+                <default>false</default>
+                <label>Ordinario</label>
+            </value>
+            <value>
+                <fullName>Orvi</fullName>
+                <default>false</default>
+                <label>Orvi</label>
+            </value>
+            <value>
+                <fullName>Orvi 10</fullName>
+                <default>false</default>
+                <label>Orvi 10</label>
+            </value>
+            <value>
+                <fullName>Orvi 15</fullName>
+                <default>false</default>
+                <label>Orvi 15</label>
+            </value>
+            <value>
+                <fullName>Orvi 20</fullName>
+                <default>false</default>
+                <label>Orvi 20</label>
+            </value>
+            <value>
+                <fullName>Orvi 6</fullName>
+                <default>false</default>
+                <label>Orvi 6</label>
+            </value>
+            <value>
+                <fullName>Orvi 99 10</fullName>
+                <default>false</default>
+                <label>Orvi 99 10</label>
+            </value>
+            <value>
+                <fullName>Orvi 99 10 Udis</fullName>
+                <default>false</default>
+                <label>Orvi 99 10 Udis</label>
+            </value>
+            <value>
+                <fullName>Orvi 99 15</fullName>
+                <default>false</default>
+                <label>Orvi 99 15</label>
+            </value>
+            <value>
+                <fullName>Orvi 99 20</fullName>
+                <default>false</default>
+                <label>Orvi 99 20</label>
+            </value>
+            <value>
+                <fullName>Orvi 99 6</fullName>
+                <default>false</default>
+                <label>Orvi 99 6</label>
+            </value>
+            <value>
+                <fullName>PLANITO</fullName>
+                <default>false</default>
+                <label>PLANITO</label>
+            </value>
+            <value>
+                <fullName>Planmed Hibrido</fullName>
+                <default>false</default>
+                <label>Planmed Hibrido</label>
+            </value>
+            <value>
+                <fullName>Planmed Optimo</fullName>
+                <default>false</default>
+                <label>Planmed Optimo</label>
+            </value>
+            <value>
+                <fullName>Planprotege Vida</fullName>
+                <default>false</default>
+                <label>Planprotege Vida</label>
+            </value>
+            <value>
+                <fullName>Platino</fullName>
+                <default>false</default>
+                <label>Platino</label>
+            </value>
+            <value>
+                <fullName>Platino Universa</fullName>
+                <default>false</default>
+                <label>Platino Universa</label>
+            </value>
+            <value>
+                <fullName>Pleno</fullName>
+                <default>false</default>
+                <label>Pleno</label>
+            </value>
+            <value>
+                <fullName>PLUS</fullName>
+                <default>false</default>
+                <label>PLUS</label>
+            </value>
+            <value>
+                <fullName>Practico</fullName>
+                <default>false</default>
+                <label>Practico</label>
+            </value>
+            <value>
+                <fullName>Premier 200 Tempus</fullName>
+                <default>false</default>
+                <label>Premier 200 Tempus</label>
+            </value>
+            <value>
+                <fullName>Premier 300 Omnia</fullName>
+                <default>false</default>
+                <label>Premier 300 Omnia</label>
+            </value>
+            <value>
+                <fullName>Premier 300 Tempus</fullName>
+                <default>false</default>
+                <label>Premier 300 Tempus</label>
+            </value>
+            <value>
+                <fullName>Premium</fullName>
+                <default>false</default>
+                <label>Premium</label>
+            </value>
+            <value>
+                <fullName>Privilegio</fullName>
+                <default>false</default>
+                <label>Privilegio</label>
+            </value>
+            <value>
+                <fullName>Privilegio Universal</fullName>
+                <default>false</default>
+                <label>Privilegio Universal</label>
+            </value>
+            <value>
+                <fullName>Proyecta</fullName>
+                <default>false</default>
+                <label>Proyecta</label>
+            </value>
+            <value>
+                <fullName>Realiza</fullName>
+                <default>false</default>
+                <label>Realiza</label>
+            </value>
+            <value>
+                <fullName>Realiza Creciente</fullName>
+                <default>false</default>
+                <label>Realiza Creciente</label>
+            </value>
+            <value>
+                <fullName>Responsabilidad Civil</fullName>
+                <default>false</default>
+                <label>Responsabilidad Civil</label>
+            </value>
+            <value>
+                <fullName>Se Adapta</fullName>
+                <default>false</default>
+                <label>Se Adapta</label>
+            </value>
+            <value>
+                <fullName>Segubeca</fullName>
+                <default>false</default>
+                <label>Segubeca</label>
+            </value>
+            <value>
+                <fullName>Segubeca 18</fullName>
+                <default>false</default>
+                <label>Segubeca 18</label>
+            </value>
+            <value>
+                <fullName>Segubeca 18 Udi</fullName>
+                <default>false</default>
+                <label>Segubeca 18 Udi</label>
+            </value>
+            <value>
+                <fullName>Segubeca 18 Udi Prima Constante</fullName>
+                <default>false</default>
+                <label>Segubeca 18 Udi Prima Constante</label>
+            </value>
+            <value>
+                <fullName>Seguro de Automóviles</fullName>
+                <default>false</default>
+                <label>Seguro de Automóviles</label>
+            </value>
+            <value>
+                <fullName>Seguro de Viaje</fullName>
+                <default>false</default>
+                <label>Seguro de Viaje</label>
+            </value>
+            <value>
+                <fullName>Sl Alfa Medical Flex</fullName>
+                <default>false</default>
+                <label>Sl Alfa Medical Flex</label>
+            </value>
+            <value>
+                <fullName>Sl Integro</fullName>
+                <default>false</default>
+                <label>Sl Integro</label>
+            </value>
+            <value>
+                <fullName>Sl Practico</fullName>
+                <default>false</default>
+                <label>Sl Practico</label>
+            </value>
+            <value>
+                <fullName>Temporal</fullName>
+                <default>false</default>
+                <label>Temporal</label>
+            </value>
+            <value>
+                <fullName>Temporal 10</fullName>
+                <default>false</default>
+                <label>Temporal 10</label>
+            </value>
+            <value>
+                <fullName>Temporal 1 Renovable Star</fullName>
+                <default>false</default>
+                <label>Temporal 1 Renovable Star</label>
+            </value>
+            <value>
+                <fullName>Temporal 20</fullName>
+                <default>false</default>
+                <label>Temporal 20</label>
+            </value>
+            <value>
+                <fullName>Trasciende</fullName>
+                <default>false</default>
+                <label>Trasciende</label>
+            </value>
+            <value>
+                <fullName>Transportes</fullName>
+                <default>false</default>
+                <label>Transportes</label>
+            </value>
+            <value>
+                <fullName>Versatil</fullName>
+                <default>false</default>
+                <label>Versatil</label>
+            </value>
+            <value>
+                <fullName>Vida</fullName>
+                <default>false</default>
+                <label>Vida</label>
+            </value>
+            <value>
+                <fullName>Vida A Tus Sueños</fullName>
+                <default>false</default>
+                <label>Vida A Tus Sueños</label>
+            </value>
+            <value>
+                <fullName>Vida Grupo</fullName>
+                <default>false</default>
+                <label>Vida Grupo</label>
+            </value>
+            <value>
+                <fullName>Vida Individual Vitalicio</fullName>
+                <default>false</default>
+                <label>Vida Individual Vitalicio</label>
+            </value>
+            <value>
+                <fullName>Vida Inversion</fullName>
+                <default>false</default>
+                <label>Vida Inversion</label>
+            </value>
+            <value>
+                <fullName>Vida Mujer</fullName>
+                <default>false</default>
+                <label>Vida Mujer</label>
+            </value>
+            <value>
+                <fullName>Vida Mujer Ahorro</fullName>
+                <default>false</default>
+                <label>Vida Mujer Ahorro</label>
+            </value>
+            <value>
+                <fullName>Vision</fullName>
+                <default>false</default>
+                <label>Vision</label>
+            </value>
+            <value>
+                <fullName>Vision Plus</fullName>
+                <default>false</default>
+                <label>Vision Plus</label>
+            </value>
+            <value>
+                <fullName>PROFECIONAL</fullName>
+                <default>false</default>
+                <label>PROFECIONAL</label>
+            </value>
+            <value>
+                <fullName>Conexión Médica</fullName>
+                <default>false</default>
+                <label>Conexión Médica</label>
+            </value>
+            <value>
+                <fullName>Mi Mascota</fullName>
+                <default>false</default>
+                <label>Mi Mascota</label>
+            </value>
+            <value>
+                <fullName>Profesional</fullName>
+                <default>false</default>
+                <label>Profesional</label>
+            </value>
+            <value>
+                <fullName>Profesional Abuelos</fullName>
+                <default>false</default>
+                <label>Profesional Abuelos</label>
+            </value>
+            <value>
+                <fullName>Vital</fullName>
+                <default>false</default>
+                <label>Vital</label>
+            </value>
+            <value>
+                <fullName>Fianzas</fullName>
+                <default>false</default>
+                <label>Fianzas</label>
+            </value>
+            <value>
+                <fullName>Qsalud</fullName>
+                <default>false</default>
+                <label>Qsalud</label>
+            </value>
+            <value>
+                <fullName>Qsalud Colectivo</fullName>
+                <default>false</default>
+                <label>Qsalud Colectivo</label>
+            </value>
+            <value>
+                <fullName>Daños Avyna</fullName>
+                <default>false</default>
+                <label>Daños Avyna</label>
+            </value>
+            <value>
+                <fullName>Nacional Vital</fullName>
+                <default>false</default>
+                <label>Nacional Vital</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER 60.</fullName>
+                <default>false</default>
+                <label>IMAGINA SER 60.</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER 65 PAGOS LIMITADOS 15</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>IMAGINA SER 65 PAGOS LIMITADOS 15</label>
+            </value>
+            <value>
+                <fullName>Transciende</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Transciende</label>
+            </value>
+        </valueSetDefinition>
+        <valueSettings>
+            <controllingFieldValue>Berkley</controllingFieldValue>
+            <controllingFieldValue>Sofimex</controllingFieldValue>
+            <controllingFieldValue>Aserta</controllingFieldValue>
+            <valueName>Fianzas</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Allianz</controllingFieldValue>
+            <controllingFieldValue>Bx+</controllingFieldValue>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <controllingFieldValue>Plan Seguro</controllingFieldValue>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Gmm Colectivo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Allianz</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <valueName>Vida</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Bupa</controllingFieldValue>
+            <controllingFieldValue>VRIM</controllingFieldValue>
+            <valueName>PLUS</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Bupa</controllingFieldValue>
+            <valueName>Vital</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Bupa</controllingFieldValue>
+            <valueName>Nacional Vital</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Terrawin</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <valueName>Seguro de Viaje</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Banorte</controllingFieldValue>
+            <controllingFieldValue>Afirme</controllingFieldValue>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <valueName>Daños</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Banorte</controllingFieldValue>
+            <valueName>Daños Avyna</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>CHUBB</controllingFieldValue>
+            <controllingFieldValue>HDI</controllingFieldValue>
+            <controllingFieldValue>ATLAS</controllingFieldValue>
+            <controllingFieldValue>AIG</controllingFieldValue>
+            <controllingFieldValue>INBURSA</controllingFieldValue>
+            <controllingFieldValue>SISNOVA</controllingFieldValue>
+            <controllingFieldValue>Zurich</controllingFieldValue>
+            <controllingFieldValue>Sura</controllingFieldValue>
+            <controllingFieldValue>Afirme</controllingFieldValue>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <controllingFieldValue>QUALITAS</controllingFieldValue>
+            <valueName>Autos</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>CHUBB</controllingFieldValue>
+            <controllingFieldValue>HDI</controllingFieldValue>
+            <controllingFieldValue>ATLAS</controllingFieldValue>
+            <controllingFieldValue>AIG</controllingFieldValue>
+            <controllingFieldValue>INBURSA</controllingFieldValue>
+            <controllingFieldValue>SISNOVA</controllingFieldValue>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <controllingFieldValue>QUALITAS</controllingFieldValue>
+            <valueName>Flotilla</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>CHUBB</controllingFieldValue>
+            <controllingFieldValue>HDI</controllingFieldValue>
+            <controllingFieldValue>Sura</controllingFieldValue>
+            <controllingFieldValue>Afirme</controllingFieldValue>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <valueName>Hogar</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>CHUBB</controllingFieldValue>
+            <controllingFieldValue>HDI</controllingFieldValue>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Negocio Protegido</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>HDI</controllingFieldValue>
+            <controllingFieldValue>Bx+</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <valueName>Gmm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>HDI</controllingFieldValue>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>GMX</controllingFieldValue>
+            <valueName>Responsabilidad Civil</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Dentegra</controllingFieldValue>
+            <valueName>Dental</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Dentegra</controllingFieldValue>
+            <valueName>Gastos Medicos Menores</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Dentegra</controllingFieldValue>
+            <valueName>Vision</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>VRIM</controllingFieldValue>
+            <valueName>BLACK</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>VRIM</controllingFieldValue>
+            <valueName>ELITE</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>VRIM</controllingFieldValue>
+            <valueName>PLANITO</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Sura</controllingFieldValue>
+            <valueName>Multiple Familiar Civil</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Afirme</controllingFieldValue>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <controllingFieldValue>Insignia</controllingFieldValue>
+            <valueName>Vida Grupo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <valueName>Flex Plus</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <valueName>Planmed Hibrido</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <valueName>Planmed Optimo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>AXA</controllingFieldValue>
+            <valueName>Planprotege Vida</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Accidentes Grupo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Amplia</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Capitaliza</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Conexión</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Consolida</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Dotal</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Educacion</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Elige</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Flex Ambar</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Flex Cuarzo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Flex Indigo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Hogar Versatil</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Impulsa</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Internacional</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Ordinario</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Platino</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Platino Universa</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Premier 200 Tempus</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Premier 300 Omnia</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Premier 300 Tempus</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Premium</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Privilegio</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Privilegio Universal</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Proyecta</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Seguro de Automóviles</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Trasciende</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Transportes</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Versatil</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Vida A Tus Sueños</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Vida Inversion</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Vision Plus</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Mi Mascota</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Profesional</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>GNP</controllingFieldValue>
+            <valueName>Profesional Abuelos</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Mapfre</controllingFieldValue>
+            <valueName>Accidentes</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Plan Seguro</controllingFieldValue>
+            <valueName>Avanzado</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Plan Seguro</controllingFieldValue>
+            <valueName>Escencial</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Plan Seguro</controllingFieldValue>
+            <valueName>Integral</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Plan Seguro</controllingFieldValue>
+            <valueName>Intermedio</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Plan Seguro</controllingFieldValue>
+            <valueName>Optimo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Alfa Medical Flex A</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Alfa Medical Flex B</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Alfa Medical Integro</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Flex A</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Imagina Ser</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Imagina Ser +</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Imagina Ser 55</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Imagina Ser 60</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Imagina Ser 65</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Imagina Ser 70</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Integro</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Nuevo Plenitud</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Objetivo Vida S. A. F.</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Orvi</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Orvi 10</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Orvi 15</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Orvi 20</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Orvi 6</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Pleno</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Practico</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Realiza</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Segubeca</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <controllingFieldValue>Insignia</controllingFieldValue>
+            <valueName>Temporal</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>SMNYL</controllingFieldValue>
+            <valueName>Vida Mujer</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Insignia</controllingFieldValue>
+            <valueName>Hombre Clave</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Insignia</controllingFieldValue>
+            <valueName>Vida Individual Vitalicio</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>QUALITAS</controllingFieldValue>
+            <valueName>Qsalud</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>QUALITAS</controllingFieldValue>
+            <valueName>Qsalud Colectivo</valueName>
+        </valueSettings>
+    </valueSet>
+</CustomField>

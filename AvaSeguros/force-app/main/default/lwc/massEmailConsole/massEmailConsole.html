@@ -1,0 +1,42 @@
+<template>
+    <lightning-card title="Envío Masivo de Correos">
+        <div class="slds-p-around_medium">
+            <lightning-layout horizontal-align="spread">
+                <lightning-layout-item>
+                    <lightning-badge label="Pendientes" class="badge badge-warning"></lightning-badge>
+                    <p class="metric">{pending}</p>
+                </lightning-layout-item>
+
+                <lightning-layout-item>
+                    <lightning-badge label="Enviados hoy" class="badge badge-success"></lightning-badge>
+                    <p class="metric">{sentToday}</p>
+                </lightning-layout-item>
+            </lightning-layout>
+            <div class="slds-var-m-top_large">
+                <lightning-button 
+                    label="Ejecutar envío masivo"
+                    variant="brand"
+                    onclick={handleRun}
+                    disabled={loading}>
+                </lightning-button>
+                <lightning-button 
+                    label="Actualizar"
+                    class="slds-var-m-left_small"
+                    variant="neutral"
+                    onclick={refreshData}
+                    disabled={loading}>
+                </lightning-button>
+            </div>
+            <template if:true={loading}>
+                <div class="slds-var-m-top_medium">
+                    <lightning-spinner alternative-text="Cargando..."></lightning-spinner>
+                </div>
+            </template>
+            <template if:true={status}>
+                <p class="slds-text-color_success slds-var-m-top_medium">
+                    {status}
+                </p>
+            </template>
+        </div>
+    </lightning-card>
+</template>

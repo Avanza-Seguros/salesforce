@@ -1,0 +1,21 @@
+<template>
+    <lightning-card title="Cargar PDFs">
+        <div class="slds-p-around_medium">
+            <lightning-input 
+                type="file"
+                label="Selecciona PDF"
+                accept=".pdf"
+                onchange={handleFileChange}
+                multiple>
+            </lightning-input>
+            <template if:true={isUploading}>
+                <lightning-spinner alternative-text="Cargando..."></lightning-spinner>
+            </template>
+            <template if:true={uploadMessages}>
+                <template for:each={uploadMessages} for:item="msg">
+                    <p key={msg.id}>{msg.text}</p>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

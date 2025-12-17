@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Dias_Gracia__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(TEXT(Aseguradora__c) = &quot;ALLIANZ&quot;, 
+    IF(TEXT(Ramo__c) = &quot;Auto&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 15, 0), 
+    IF(TEXT(Ramo__c) = &quot;Vida&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;GMM&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 30, 0), 0))), 
+IF(TEXT(Aseguradora__c) = &quot;AFIRME&quot;, 
+    IF(TEXT(Ramo__c) = &quot;Danos&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Auto&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 15, 0), 0)), 
+IF(TEXT(Aseguradora__c) = &quot;AXA&quot;, 
+    IF(TEXT(Ramo__c) = &quot;Gmm Tradicional&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Danos&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Vida&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Auto&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 15, 0), 0)))), 
+IF(TEXT(Aseguradora__c) = &quot;GNP&quot;, 
+    IF(TEXT(Ramo__c) = &quot;Vida&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Gmm Tradicional&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Danos&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Auto&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 15, 0), 0)))), 
+IF(TEXT(Aseguradora__c) = &quot;MAPFRE&quot;, 
+    IF(TEXT(Ramo__c) = &quot;Gmm Tradicional&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Danos&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 30, 0), 
+    IF(TEXT(Ramo__c) = &quot;Auto&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 15, 0), 
+    IF(TEXT(Ramo__c) = &quot;Vida&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 30, 0), 
+    IF(TEXT(Ramo__c) = &quot;Mascota&quot;, 0, 0))))), 
+IF(TEXT(Aseguradora__c) = &quot;SURA&quot;, 
+    IF(TEXT(Ramo__c) = &quot;Danos&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Gmm Tradicional&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Vida&quot;, 30, 
+    IF(TEXT(Ramo__c) = &quot;Auto&quot;, IF(TEXT(Numero_de_Pago__c) = &quot;1&quot;, 15, 0), 0)))), 
+0))))))</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Dias Gracia</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

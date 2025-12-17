@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Proximo_Pago__c</fullName>
+    <formula>CASE(
+     Modo_de_Pago__c,
+    &quot;Mensual&quot;, DATE(YEAR(TODAY()), MONTH(  Fecha_de_Emision_scr__c ) + 1, DAY(Fecha_de_Emision_scr__c )),
+    &quot;Anual&quot;, DATE(YEAR(TODAY()) + 1, MONTH(Fecha_de_Emision_scr__c ), DAY(Fecha_de_Emision_scr__c )),
+    &quot;Trimestral&quot;, DATE(YEAR(TODAY()), MONTH(Fecha_de_Emision_scr__c ) + 3, DAY(Fecha_de_Emision_scr__c )),
+    &quot;Semestral&quot;, DATE(YEAR(TODAY()), MONTH(Fecha_de_Emision_scr__c ) + 6, DAY(Fecha_de_Emision_scr__c )),
+    NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Proximo Pago</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

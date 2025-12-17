@@ -1,0 +1,13 @@
+.metric {
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+.badge-warning {
+    background: orange;
+    color: white;
+}
+.badge-success {
+    background: green;
+    color: white;
+}

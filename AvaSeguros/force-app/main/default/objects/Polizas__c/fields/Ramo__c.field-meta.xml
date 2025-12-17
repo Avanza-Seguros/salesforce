@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ramo__c</fullName>
+    <label>Ramo</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Accidentes</fullName>
+                <default>false</default>
+                <label>Accidentes</label>
+            </value>
+            <value>
+                <fullName>Auto</fullName>
+                <default>false</default>
+                <label>Auto</label>
+            </value>
+            <value>
+                <fullName>Danos</fullName>
+                <default>false</default>
+                <label>Daños</label>
+            </value>
+            <value>
+                <fullName>Gastos medicos</fullName>
+                <default>false</default>
+                <label>Gastos médicos</label>
+            </value>
+            <value>
+                <fullName>Gmm Flex</fullName>
+                <default>false</default>
+                <label>Gmm Flex</label>
+            </value>
+            <value>
+                <fullName>Gmm Tradicional</fullName>
+                <default>false</default>
+                <label>Gmm Tradicional</label>
+            </value>
+            <value>
+                <fullName>RC</fullName>
+                <default>false</default>
+                <label>RC</label>
+            </value>
+            <value>
+                <fullName>Viajes</fullName>
+                <default>false</default>
+                <label>Viajes</label>
+            </value>
+            <value>
+                <fullName>Vida</fullName>
+                <default>false</default>
+                <label>Vida</label>
+            </value>
+            <value>
+                <fullName>Vida DLL</fullName>
+                <default>false</default>
+                <label>Vida DLL</label>
+            </value>
+            <value>
+                <fullName>Vida Udi</fullName>
+                <default>false</default>
+                <label>Vida Udi</label>
+            </value>
+            <value>
+                <fullName>Administrativa</fullName>
+                <default>false</default>
+                <label>Administrativa</label>
+            </value>
+            <value>
+                <fullName>Fianzas</fullName>
+                <default>false</default>
+                <label>Fianzas</label>
+            </value>
+            <value>
+                <fullName>Dental</fullName>
+                <default>false</default>
+                <label>Dental</label>
+            </value>
+            <value>
+                <fullName>Daño</fullName>
+                <default>false</default>
+                <label>Daño</label>
+            </value>
+            <value>
+                <fullName>Mascota</fullName>
+                <default>false</default>
+                <label>Mascota</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

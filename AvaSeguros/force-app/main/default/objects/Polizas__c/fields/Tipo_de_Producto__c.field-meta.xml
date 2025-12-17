@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tipo_de_Producto__c</fullName>
+    <label>Tipo de Producto</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Estandar</fullName>
+                <default>false</default>
+                <label>Estandar</label>
+            </value>
+            <value>
+                <fullName>Optima</fullName>
+                <default>false</default>
+                <label>Optima</label>
+            </value>
+            <value>
+                <fullName>Maxima</fullName>
+                <default>false</default>
+                <label>Maxima</label>
+            </value>
+            <value>
+                <fullName>Estandar</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Estandar</label>
+            </value>
+            <value>
+                <fullName>Optima</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Optima</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

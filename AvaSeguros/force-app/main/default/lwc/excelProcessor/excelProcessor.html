@@ -1,0 +1,170 @@
+<template>
+    <lightning-card title="Cargar archivo CSV">
+        <div class="slds-p-around_medium">
+            
+            <!-- Carga de Archivo -->
+            <div class="slds-box slds-m-bottom_medium">
+                <h3 class="slds-text-heading_small slds-m-bottom_small">Paso 1: Cargar Archivo Excel</h3>
+                <div class="slds-form-element">
+                    <label class="slds-form-element__label" for="fileInput">
+                        Seleccionar Archivo (Excel, CSV, TXT)
+                    </label>
+                    <div class="slds-form-element__control">
+                        <input 
+                            type="file" 
+                            id="fileInput" 
+                            class="slds-file-selector__input slds-assistive-text" 
+                            accept=".csv"
+                            onchange={handleFileUpload}
+                            disabled={isLoading}
+                        />
+                        <label class="slds-file-selector__body" for="fileInput">
+                            <span class="slds-file-selector__button slds-button slds-button_neutral">
+                                <lightning-icon icon-name="utility:upload" size="x-small" class="slds-button__icon"></lightning-icon>
+                                Buscar Archivo
+                            </span>
+                            <span class="slds-file-selector__text slds-medium-show">
+                                {fileName}
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de Pólizas -->
+            <template if:true={showResults}>
+                <div class="slds-box slds-m-bottom_medium">
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">Paso 2: Resumen de Datos</h3>
+                    
+                    <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_medium">
+                        <div class="slds-col slds-size_1-of-1 recordCountslds-medium-size_1-of-3">
+                            <!--<div class="slds-text-heading_medium slds-text-color_success">{registrosTotales}</div>-->
+                            <div class="slds-text-body_small">Registros Totales</div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <!--<div class="slds-text-heading_medium slds-text-color_success">{polizasEncontradas}</div>-->
+                            <div class="slds-text-body_small">Pólizas Encontradas</div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <!--<div class="slds-text-heading_medium slds-text-color_success">{casosEncontrados}</div>-->
+                            <div class="slds-text-body_small">Caso por Póliza</div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de pólizas -->
+                    <h4 class="slds-text-heading_small slds-m-bottom_small">Pólizas a procesar:</h4>
+                    <ul class="slds-list_dotted">
+                        <template for:each={policySummary} for:item="policy">
+                            <li key={policy.policyNumber}>
+                                <strong>{policy.policyNumber}</strong> - {policy.recordCount} registro(s)
+                            </li>
+                        </template>
+                    </ul>
+
+                    <!-- Botón Procesar -->
+                    <div class="slds-m-top_medium">
+                        <lightning-button
+                            label="Procesar Datos y Crear Casos"
+                            variant="brand"
+                            onclick={processAllData}
+                            disabled={isLoading}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Resultado del Proceso -->
+            <template if:true={hasProcessResult}>
+                <div class="slds-box slds-theme_success">
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">Proceso Completado</h3>
+                    
+                    <div class="slds-grid slds-wrap slds-gutters">
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                            <!--<div class="slds-text-heading_medium">{registrosTotales}</div>-->
+                            <div class="slds-text-body_small">Registros</div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                            <!--<div class="slds-text-heading_medium">{processResult.policiesProcessed}</div>-->
+                            <div class="slds-text-body_small">Pólizas</div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                            <!--<div class="slds-text-heading_medium">{polizasEncontradas}</div>-->
+                            <div class="slds-text-body_small">Casos</div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                            <!--<div class="slds-text-heading_medium">{processResult.itemsCreated}</div>-->
+                            <div class="slds-text-body_small">Items</div>
+                        </div>
+                    </div>
+
+                    <template if:true={casosCreados}>
+                        <div class="slds-m-top_small">
+                            <h4 class="slds-text-heading_small">Números de Caso creados:</h4>
+                            <ul class="slds-list_dotted">
+                                <template for:each={processResult.caseNumbers} for:item="caseNum">
+                                    <li key={caseNum}>{caseNum}</li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Vista Previa de Datos -->
+            <template if:true={showResults}>
+                <div class="slds-box">
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">
+                        Vista Previa de Datos ({recordCount} registros)
+                    </h3>
+                    <div class="slds-scrollable_y" style="max-height: 400px;">
+                        <table class="slds-table slds-table_bordered slds-table_striped slds-table_cell-buffer">
+                            <thead>
+                                <tr class="slds-text-title_caps">
+                                    <th scope="col">Póliza</th>
+                                    <th scope="col">Certificado</th>
+                                    <th scope="col">Categoría</th>
+                                    <th scope="col">Apellido Paterno</th>
+                                    <th scope="col">Apellido Materno</th>
+                                    <th scope="col">Nombre</th>
+                                    <th scope="col">Fecha Nacimiento</th>
+                                    <th scope="col">Fecha Peticion</th>
+                                    <th scope="col">Sexo</th>
+                                    <th scope="col">Fecha Solicitud</th>
+                                    <th scope="col">Beneficiario</th>
+                                    <th scope="col">Email</th>
+                                    <th scope="col">Parentesco</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={processResult} for:item="row">
+                                    <tr key={row.certificate}>
+                                        <td>{row.policy}</td>
+                                        <td>{row.certificate}</td>
+                                        <td>{row.category}</td>
+                                        <td>{row.fatherLastName}</td>
+                                        <td>{row.motherLastName}</td>
+                                        <td>{row.firstName}</td>
+                                        <td>{row.birthDate}</td>
+                                        <td>{row.certificateDate}</td>
+                                        <td>{row.gender}</td>
+                                        <td>{row.entryDate}</td>
+                                        <td>{row.beneficiary}</td>
+                                        <td>{row.email}</td>
+                                        <td>{row.parently}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Loading Spinner -->
+            <template if:true={isLoading}>
+                <div class="slds-align_absolute-center slds-m-vertical_large">
+                    <lightning-spinner alternative-text="Procesando..."></lightning-spinner>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

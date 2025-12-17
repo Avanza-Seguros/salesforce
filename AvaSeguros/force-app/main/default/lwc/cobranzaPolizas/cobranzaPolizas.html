@@ -1,0 +1,186 @@
+<!-- cobranzaPolizas/cobranzaPolizas.html -->
+<template>
+    <div class="slds-container_center slds-container_large">
+        <!-- Header con KPI -->
+        <div class="header-container slds-m-bottom_large">
+            <div class="slds-grid slds-wrap slds-gutters">
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="kpi-card slds-card slds-card_boundary">
+                        <div class="slds-card__body slds-card__body_inner">
+                            <div class="kpi-content">
+                                <span class="kpi-icon slds-icon_container slds-icon-custom-custom70">
+                                    <lightning-icon icon-name="custom:custom70" size="small"></lightning-icon>
+                                </span>
+                                <div class="kpi-text">
+                                    <h3 class="slds-text-heading_small slds-text-color_weak">Total Pólizas</h3>
+                                    <span class="slds-text-heading_medium">{totalPolizas}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="kpi-card slds-card slds-card_boundary kpi-vigentes">
+                        <div class="slds-card__body slds-card__body_inner">
+                            <div class="kpi-content">
+                                <span class="kpi-icon slds-icon_container slds-icon-custom-custom18">
+                                    <lightning-icon icon-name="custom:custom18" size="small"></lightning-icon>
+                                </span>
+                                <div class="kpi-text">
+                                    <h3 class="slds-text-heading_small slds-text-color_weak">En Vigor</h3>
+                                    <span class="slds-text-heading_medium">{polizasVigentes}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="kpi-card slds-card slds-card_boundary kpi-pendientes">
+                        <div class="slds-card__body slds-card__body_inner">
+                            <div class="kpi-content">
+                                <span class="kpi-icon slds-icon_container slds-icon-custom-custom11">
+                                    <lightning-icon icon-name="custom:custom11" size="small"></lightning-icon>
+                                </span>
+                                <div class="kpi-text">
+                                    <h3 class="slds-text-heading_small slds-text-color_weak">Vencidas</h3>
+                                    <span class="slds-text-heading_medium">{polizasTraspasadas}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="kpi-card slds-card slds-card_boundary kpi-canceladas">
+                        <div class="slds-card__body slds-card__body_inner">
+                            <div class="kpi-content">
+                                <span class="kpi-icon slds-icon_container slds-icon-custom-custom89">
+                                    <lightning-icon icon-name="custom:custom89" size="small"></lightning-icon>
+                                </span>
+                                <div class="kpi-text">
+                                    <h3 class="slds-text-heading_small slds-text-color_weak">Canceladas</h3>
+                                    <span class="slds-text-heading_medium">{polizasCanceladas}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters-container slds-m-bottom_medium">
+            <div class="slds-card slds-card_boundary">
+                <div class="slds-card__body slds-card__body_inner">
+                    <div class="slds-grid slds-wrap slds-gutters">
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-input
+                                type="date"
+                                label="Fecha Desde"
+                                value={fechaDesde}
+                                onchange={handleFechaDesdeChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-input
+                                type="date"
+                                label="Fecha Hasta"
+                                value={fechaHasta}
+                                onchange={handleFechaHastaChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-combobox
+                                name="estado"
+                                label="Estado"
+                                value={filtroEstado}
+                                placeholder="Selecciona Estado"
+                                options={opcionesEstado}
+                                onchange={handleEstadoChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <div class="slds-m-top_large">
+                                <lightning-button
+                                    label="Aplicar Filtros"
+                                    variant="brand"
+                                    onclick={aplicarFiltros}
+                                    class="slds-m-right_x-small">
+                                </lightning-button>
+                                <lightning-button
+                                    label="Limpiar"
+                                    variant="neutral"
+                                    onclick={limpiarFiltros}>
+                                </lightning-button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs de Navegación -->
+        <div class="tabs-container">
+            <lightning-tabset variant="scoped" onactive={handleTabActive}>
+                <lightning-tab label="Todas las Pólizas" data-id="todas">
+                    <div class="slds-m-top_medium">
+                        <c-poliza-listado 
+                            polizas={polizasFiltradas}
+                            estado-filtro="todas"
+                            onactualizardatos={handleActualizarDatos}>
+                        </c-poliza-listado>
+                    </div>
+                </lightning-tab>
+                <lightning-tab label="Pagadas" data-id="pagadas">
+                    <div class="slds-m-top_medium">
+                        <c-poliza-listado 
+                            polizas={polizasPagadas}
+                            estado-filtro="pagadas"
+                            onactualizardatos={handleActualizarDatos}>
+                        </c-poliza-listado>
+                    </div>
+                </lightning-tab>
+                <lightning-tab label="Por Pagar" data-id="pendientes">
+                    <div class="slds-m-top_medium">
+                        <c-poliza-listado 
+                            polizas={polizasPorPagar}
+                            estado-filtro="pendientes"
+                            onactualizardatos={handleActualizarDatos}>
+                        </c-poliza-listado>
+                    </div>
+                </lightning-tab>
+                <lightning-tab label="En Vigor" data-id="vigentes">
+                    <div class="slds-m-top_medium">
+                        <c-poliza-listado 
+                            polizas={polizasVigentesLista}
+                            estado-filtro="vigentes"
+                            onactualizardatos={handleActualizarDatos}>
+                        </c-poliza-listado>
+                    </div>
+                </lightning-tab>
+                <lightning-tab label="Canceladas" data-id="canceladas">
+                    <div class="slds-m-top_medium">
+                        <c-poliza-listado 
+                            polizas={polizasCanceladasLista}
+                            estado-filtro="canceladas"
+                            onactualizardatos={handleActualizarDatos}>
+                        </c-poliza-listado>
+                    </div>
+                </lightning-tab>
+            </lightning-tabset>
+        </div>
+    </div>
+
+    <!-- Modal para Detalles -->
+    <template if:true={mostrarModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <c-poliza-listado 
+                    poliza-id={polizaSeleccionadaId}
+                    oncerrar={cerrarModal}
+                    onactualizardatos={handleActualizarDatos}>
+                </c-poliza-listado>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

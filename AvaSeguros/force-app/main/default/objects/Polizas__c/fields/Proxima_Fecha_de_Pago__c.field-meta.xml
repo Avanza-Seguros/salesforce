@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Proxima_Fecha_de_Pago__c</fullName>
+    <formula>IF(
+TEXT(Estatus__c) = &quot;Vigor&quot;,
+IF(
+(Fecha_de_Emision__c +
+(CASE(
+TEXT(Forma_de_pago__c),
+&quot;Mensual&quot;, 30,
+&quot;Trimestral&quot;, 90,
+&quot;Semestral&quot;, 180,
+&quot;Anual&quot;, 365,
+0
+) * CEILING((TODAY() - Fecha_de_Emision__c) /
+CASE(
+TEXT(Forma_de_pago__c),
+&quot;Mensual&quot;, 30,
+&quot;Trimestral&quot;, 90,
+&quot;Semestral&quot;, 180,
+&quot;Anual&quot;, 365,
+1
+)))
+) &gt;= TODAY(),
+Fecha_de_Emision__c +
+(CASE(
+TEXT(Forma_de_pago__c),
+&quot;Mensual&quot;, 30,
+&quot;Trimestral&quot;, 90,
+&quot;Semestral&quot;, 180,
+&quot;Anual&quot;, 365,
+0
+) * CEILING((TODAY() - Fecha_de_Emision__c) /
+CASE(
+TEXT(Forma_de_pago__c),
+&quot;Mensual&quot;, 30,
+&quot;Trimestral&quot;, 90,
+&quot;Semestral&quot;, 180,
+&quot;Anual&quot;, 365,
+1
+))),
+NULL
+),
+NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Proxima Fecha de Pago</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

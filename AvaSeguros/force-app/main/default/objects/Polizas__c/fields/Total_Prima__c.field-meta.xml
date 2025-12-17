@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Total_Prima__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    Tradicional__c,
+    (Prima_del_Beneficio_1__c +
+    Porcentaje_de_beneficio2_c__c +
+    Prima_del_Beneficio_3__c +
+    Prima_del_Beneficio_4__c +
+    Prima_del_Beneficio_5__c +
+    Prima_del_Beneficio_6__c +
+    Prima_del_Beneficio_7__c +
+    Prima_del_Beneficio_8__c +
+    Prima_del_Beneficio_9__c + 
+    Prima_del_Beneficio_10__c +
+    Prima_del_Beneficio_11__c +
+    Prima_del_Beneficio_12__c +
+    Prima_del_Beneficio_13__c) * value(Pagos__c),
+    Prima_del_Beneficio_1__c +
+    Porcentaje_de_beneficio2_c__c +
+    Prima_del_Beneficio_3__c +
+    Prima_del_Beneficio_4__c +
+    Prima_del_Beneficio_5__c +
+    Prima_del_Beneficio_6__c +
+    Prima_del_Beneficio_7__c +
+    Prima_del_Beneficio_8__c +
+    Prima_del_Beneficio_9__c + 
+    Prima_del_Beneficio_10__c +
+    Prima_del_Beneficio_11__c +
+    Prima_del_Beneficio_12__c +
+    Prima_del_Beneficio_13__c
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Prima Comisionable</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mercado__c</fullName>
+    <label>Mercado</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>ALEN</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>ALEN</label>
+            </value>
+            <value>
+                <fullName>AMCO</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>AMCO</label>
+            </value>
+            <value>
+                <fullName>Amistad</fullName>
+                <default>false</default>
+                <label>Amistad</label>
+            </value>
+            <value>
+                <fullName>Arquitectos</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Arquitectos</label>
+            </value>
+            <value>
+                <fullName>Asesores En Alianza</fullName>
+                <default>false</default>
+                <label>Asesores En Alianza</label>
+            </value>
+            <value>
+                <fullName>Aspiria</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Aspiria</label>
+            </value>
+            <value>
+                <fullName>Avyna</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Avyna</label>
+            </value>
+            <value>
+                <fullName>Botica</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Botica</label>
+            </value>
+            <value>
+                <fullName>Campaña Mailing</fullName>
+                <default>false</default>
+                <label>Campaña Mailing</label>
+            </value>
+            <value>
+                <fullName>Canadian</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Canadian</label>
+            </value>
+            <value>
+                <fullName>Carnes Jimenez</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Carnes Jimenez</label>
+            </value>
+            <value>
+                <fullName>COA</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>COA</label>
+            </value>
+            <value>
+                <fullName>DMIM</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>DMIM</label>
+            </value>
+            <value>
+                <fullName>Eduintegral</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Eduintegral</label>
+            </value>
+            <value>
+                <fullName>Entrega Póliza</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Entrega Póliza</label>
+            </value>
+            <value>
+                <fullName>Familiar</fullName>
+                <default>false</default>
+                <label>Familiar</label>
+            </value>
+            <value>
+                <fullName>FINVIVIR</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>FINVIVIR</label>
+            </value>
+            <value>
+                <fullName>Frio</fullName>
+                <default>false</default>
+                <label>Frio</label>
+            </value>
+            <value>
+                <fullName>GERA</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>GERA</label>
+            </value>
+            <value>
+                <fullName>GLOBAL</fullName>
+                <default>false</default>
+                <label>GLOBAL</label>
+            </value>
+            <value>
+                <fullName>Grupo Armstrong</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Grupo Armstrong</label>
+            </value>
+            <value>
+                <fullName>Grupo DMI</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Grupo DMI</label>
+            </value>
+            <value>
+                <fullName>Handcloud</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Handcloud</label>
+            </value>
+            <value>
+                <fullName>Hortifrut</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Hortifrut</label>
+            </value>
+            <value>
+                <fullName>Jesica</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Jesica</label>
+            </value>
+            <value>
+                <fullName>Kenko</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Kenko</label>
+            </value>
+            <value>
+                <fullName>L</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>L</label>
+            </value>
+            <value>
+                <fullName>Landeros</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Landeros</label>
+            </value>
+            <value>
+                <fullName>Linkedin</fullName>
+                <default>false</default>
+                <label>Linkedin</label>
+            </value>
+            <value>
+                <fullName>Lolly Pops</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Lolly Pops</label>
+            </value>
+            <value>
+                <fullName>Luxift</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Luxift</label>
+            </value>
+            <value>
+                <fullName>Luxoft</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Luxoft</label>
+            </value>
+            <value>
+                <fullName>Muebleria</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Muebleria</label>
+            </value>
+            <value>
+                <fullName>Natural</fullName>
+                <default>false</default>
+                <label>Natural</label>
+            </value>
+            <value>
+                <fullName>Networking</fullName>
+                <default>false</default>
+                <label>Networking</label>
+            </value>
+            <value>
+                <fullName>OCP</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>OCP</label>
+            </value>
+            <value>
+                <fullName>Personal</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Personal</label>
+            </value>
+            <value>
+                <fullName>Platica</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Platica</label>
+            </value>
+            <value>
+                <fullName>Platica Global</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Platica Global</label>
+            </value>
+            <value>
+                <fullName>Pláticas Empresariales</fullName>
+                <default>false</default>
+                <label>Pláticas Empresariales</label>
+            </value>
+            <value>
+                <fullName>Platicas Unosquare</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Platicas Unosquare</label>
+            </value>
+            <value>
+                <fullName>Platica UNI</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Platica UNI</label>
+            </value>
+            <value>
+                <fullName>Play5</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Play5</label>
+            </value>
+            <value>
+                <fullName>Policultores</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Policultores</label>
+            </value>
+            <value>
+                <fullName>Redes Sociales</fullName>
+                <default>false</default>
+                <label>Redes Sociales</label>
+            </value>
+            <value>
+                <fullName>Referido</fullName>
+                <default>false</default>
+                <label>Referido</label>
+            </value>
+            <value>
+                <fullName>Referido Gera</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Referido Gera</label>
+            </value>
+            <value>
+                <fullName>Referido Rifa</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Referido Rifa</label>
+            </value>
+            <value>
+                <fullName>Rifa PS5</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Rifa PS5</label>
+            </value>
+            <value>
+                <fullName>Rifas</fullName>
+                <default>false</default>
+                <label>Rifas</label>
+            </value>
+            <value>
+                <fullName>Servicio</fullName>
+                <default>false</default>
+                <label>Servicio</label>
+            </value>
+            <value>
+                <fullName>Siniestro Accidente</fullName>
+                <default>false</default>
+                <label>Siniestro Accidente</label>
+            </value>
+            <value>
+                <fullName>Siniestro Enfermedad</fullName>
+                <default>false</default>
+                <label>Siniestro Enfermedad</label>
+            </value>
+            <value>
+                <fullName>Siniestros</fullName>
+                <default>false</default>
+                <label>Siniestros</label>
+            </value>
+            <value>
+                <fullName>Siniestros Luxoft</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Siniestros Luxoft</label>
+            </value>
+            <value>
+                <fullName>Siniestros Maternidad</fullName>
+                <default>false</default>
+                <label>Siniestros Maternidad</label>
+            </value>
+            <value>
+                <fullName>Siniestros Unos</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Siniestros Unos</label>
+            </value>
+            <value>
+                <fullName>Siniestros Unosquare</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Siniestros Unosquare</label>
+            </value>
+            <value>
+                <fullName>Smart Bamboo</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Smart Bamboo</label>
+            </value>
+            <value>
+                <fullName>Tequila Atanasio</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Tequila Atanasio</label>
+            </value>
+            <value>
+                <fullName>Transportistas</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Transportistas</label>
+            </value>
+            <value>
+                <fullName>Traspaso</fullName>
+                <default>false</default>
+                <label>Traspaso</label>
+            </value>
+            <value>
+                <fullName>Unosquare</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Unosquare</label>
+            </value>
+            <value>
+                <fullName>Xifra</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Xifra</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Despacho_Porcentaje__c</fullName>
+    <formula>IF(
+  CONTAINS(Agente_Staff__r.Id_del_Agente__c , &quot;A-&quot;), 0.286,
+  IF(
+    CONTAINS(Agente_Staff__r.Id_del_Agente__c, &quot;C-&quot;), 0.40,
+    IF(
+      CONTAINS(Agente_Staff__r.Id_del_Agente__c, &quot;S-&quot;), 0.70,
+      IF(
+        CONTAINS(Agente_Staff__r.Id_del_Agente__c, &quot;G-&quot;), 0.30,
+        IF(
+          CONTAINS(Agente_Staff__r.Id_del_Agente__c, &quot;V-&quot;), 0.30,
+          NULL
+        )
+      )
+    )
+  )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Despacho Porcentaje</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Percent</type>
+</CustomField>

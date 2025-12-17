@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Emitida_y_pagada_en_el_mes__c</fullName>
+    <formula>AND(
+   NOT(ISBLANK( Fecha_de_Aplicaci_n_del_pago__c )),
+   NOT(ISBLANK(Poliza__r.Fecha_de_Emision__c)),
+   MONTH(Fecha_de_Aplicaci_n_del_pago__c) = MONTH(Poliza__r.Fecha_de_Emision__c),
+   YEAR(Fecha_de_Aplicaci_n_del_pago__c) = YEAR(Poliza__r.Fecha_de_Emision__c)
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Emitida y pagada en el mes</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

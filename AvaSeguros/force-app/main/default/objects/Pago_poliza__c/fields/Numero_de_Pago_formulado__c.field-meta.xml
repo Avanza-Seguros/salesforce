@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Numero_de_Pago_formulado__c</fullName>
+    <externalId>false</externalId>
+    <formula>FLOOR(
+    (TODAY() - Poliza__r.Fecha_de_Emision__c) /
+    CASE(
+        Poliza__r.Forma_de_pago__c,
+        &quot;Mensual&quot;, 30,
+        &quot;Trimestral&quot;, 90,
+        &quot;Semestral&quot;, 180,
+        &quot;Anual&quot;, 365,
+        30
+    )
+) + 1</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Numero de Pago</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
