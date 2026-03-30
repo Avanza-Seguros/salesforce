@@ -1,0 +1,239 @@
+<template>
+    <lightning-card>
+        
+        <div class="kpi-bar slds-m-horizontal_medium slds-m-top_medium">
+            <template for:each={kpiCards} for:item="kpi">
+                <c-kpi-card
+                key={kpi.key}
+                variant={kpi.variant}
+                label={kpi.label}
+                value={kpi.value}
+                count={kpi.count}>
+                </c-kpi-card>
+            </template>
+        </div>
+
+        <div class="filtros-wrapper slds-m-horizontal_medium slds-m-top_small">
+            <div class="vista-toggle">
+                <div class="tabs-container">
+                    <lightning-button
+                        label="Vista Mensual"
+                        variant={btnMensual}
+                        class="tab-button"
+                        onclick={setVistaMensual}>
+                    </lightning-button>
+
+                    <lightning-button
+                        label="Matriz"
+                        variant={btnMatriz}
+                        class="tab-button"
+                        onclick={setVistaMatriz}>
+                    </lightning-button>
+                </div>
+            </div>
+
+            <div class="filtros-card slds-m-top_medium">
+                <div class="slds-grid slds-gutters slds-wrap slds-m-bottom_medium">
+
+                    <div class="slds-col slds-size_1-of-5">
+                        <lightning-record-picker
+                            label="Póliza"
+                            object-api-name="Polizas__c"
+                            placeholder="Buscar póliza..."
+                            value={filtroPolizaId}
+                            onchange={handlePolizaChange}>
+                        </lightning-record-picker>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-5">
+                        <lightning-record-picker
+                            label="Asegurado"
+                            object-api-name="Account"
+                            placeholder="Buscar asegurado..."
+                            value={filtroAseguradoId}
+                            onchange={handleAseguradoChange}>
+                        </lightning-record-picker>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-5">
+                        <lightning-combobox
+                            label="Aseguradora"
+                            data-field="aseguradora"
+                            options={aseguradorasOptions}
+                            onchange={handleAseguradoraChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-5">
+                        <lightning-combobox
+                            label="Estatus Póliza"
+                            data-field="estatusPoliza"
+                            options={estatusPolizaOptions}
+                            onchange={handleFiltroEstatusPolizaChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <template if:true={esMensual}>
+                        <div class="slds-col slds-size_1-of-5">
+                            <lightning-combobox
+                                label="Estatus Recibo"
+                                value={filtroEstatusRecibo}
+                                options={estatusReciboOptions}
+                                onchange={handleEstatusReciboChange}>
+                            </lightning-combobox>
+                        </div>
+                    </template>
+
+                </div>
+
+                <div class="slds-grid slds-gutters slds-wrap slds-border_top slds-p-top_medium">
+
+                    <template if:true={esMatriz}>
+                        <div class="slds-col slds-size_1-of-5">
+                            <lightning-combobox
+                                label="Cantidad de Meses"
+                                value={cantidadMeses}
+                                options={opcionesMeses}
+                                onchange={handleMesesChange}>
+                            </lightning-combobox>
+                        </div>
+                    </template>
+
+                    <div class="slds-col slds-size_1-of-5">
+                        <lightning-combobox
+                            label={labelMesSeleccionado}
+                            value={mesSeleccionado}
+                            options={meses}
+                            onchange={handleMesChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-5">
+                        <lightning-combobox
+                            label={labelAnioSeleccionado}
+                            value={anioSeleccionado}
+                            options={anios}
+                            onchange={handleAnioChange}>
+                        </lightning-combobox>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <template if:true={esMensual}>
+            <div class="vista-animada">
+                <div class="slds-p-around_medium">
+                    <lightning-datatable
+                        key-field="rowKey"
+                        data={dataMensualPaginada}
+                        columns={columnsMensual}
+                        is-loading={isLoading}
+                        hide-checkbox-column
+                        onrowaction={handleRowAction}>
+                    </lightning-datatable>
+                </div>
+            </div>
+
+        </template>
+
+        <template if:true={esMatriz}>
+            <div class="vista-animada">
+                <div class="slds-p-around_medium">
+                    <div class="slds-p-around_medium matriz-container slds-grid slds-gutters">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                            <thead>  
+                                <tr>
+                                    <th>Detales</th>
+                                    <th>Póliza</th>
+                                    <th>Asegurado</th>
+                                    <th>Aseguradora</th>
+                                    <th>Forma de Pago</th>
+                                    <th>Estatus Poliza</th>
+                                    <th>Último Pago</th>
+                                    <template for:each={mesesMatriz} for:item="mes">
+                                        <th key={mes.key}>{mes.label}</th>
+                                    </template>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <template for:each={dataMatrizPaginada} for:item="row">
+                                    <tr key={row.polizaId} class={row.rowClass}>
+                                        <td>
+                                            <lightning-button-icon
+                                                icon-name="utility:preview"
+                                                alternative-text="Ver pagos"
+                                                title="Ver pagos"
+                                                variant="border-filled"
+                                                data-poliza={row.numeroPoliza}
+                                                onclick={abrirDetallePoliza}>
+                                            </lightning-button-icon>
+                                        </td>
+                                        <td>{row.numeroPoliza}</td>
+                                        <td>{row.asegurado}</td>
+                                        <td>{row.aseguradora}</td>
+                                        <td>{row.formaPago}</td>
+                                        <td>{row.estatusPoliza}</td>
+                                        <td>{row.fechaUltimoPago}</td>
+
+                                        <template for:each={row.celdas} for:item="celda">
+                                            <td key={celda.key} class={celda.clase}>
+                                                <template if:true={celda.tieneValor}>
+                                                    {celda.montoDisplay}
+                                                </template>
+                                                <template if:false={celda.tieneValor}>
+                                                    —
+                                                </template>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <div class="slds-p-horizontal_medium slds-m-top_medium ">
+            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-wrap">
+
+                <div class="slds-text-body_regular">
+                    Mostrando {mostrandoDesde} - {mostrandoHasta} de {totalRegistrosVista} registros
+                </div>
+
+                <div class="slds-grid slds-grid_vertical-align-center slds-gutters_small slds-p-horizontal_medium">
+
+                    <lightning-button
+                        label="Anterior"
+                        onclick={irAnterior}
+                        disabled={deshabilitarAnterior}>
+                    </lightning-button>
+
+                    <span class="slds-m-horizontal_small">
+                        Página {paginaActualVista} de {totalPaginas}
+                    </span>
+
+                    <lightning-button
+                        label="Siguiente"
+                        onclick={irSiguiente}
+                        disabled={deshabilitarSiguiente}>
+                    </lightning-button>
+
+                    <div class="slds-m-left_medium" style="min-width:130px;">
+                        <lightning-combobox
+                            variant="label-hidden"
+                            value={tamanoPaginaActual}
+                            options={opcionesTamano}
+                            onchange={handleTamanoChange}>
+                        </lightning-combobox>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <c-cobranza-poliza-pagos-modal></c-cobranza-poliza-pagos-modal>
+
+    </lightning-card>
+</template>

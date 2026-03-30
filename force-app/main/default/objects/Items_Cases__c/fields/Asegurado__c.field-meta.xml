@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Asegurado__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Asegurado</label>
+    <lookupFilter>
+        <active>true</active>
+        <booleanFilter>(1 OR 2 OR 3) AND 4</booleanFilter>
+        <filterItems>
+            <field>Contact.Poliza_GMM__c</field>
+            <operation>equals</operation>
+            <valueField>$Source.Poliza__c</valueField>
+        </filterItems>
+        <filterItems>
+            <field>Contact.Poliza_Vida__c</field>
+            <operation>equals</operation>
+            <valueField>$Source.Poliza__c</valueField>
+        </filterItems>
+        <filterItems>
+            <field>Contact.Poliza_Adicional__c</field>
+            <operation>equals</operation>
+            <valueField>$Source.Poliza__c</valueField>
+        </filterItems>
+        <filterItems>
+            <field>$Source.Poliza__c</field>
+            <operation>notEqual</operation>
+            <value></value>
+        </filterItems>
+        <isOptional>true</isOptional>
+    </lookupFilter>
+    <referenceTo>Contact</referenceTo>
+    <relationshipLabel>Peticiones</relationshipLabel>
+    <relationshipName>Peticiones</relationshipName>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

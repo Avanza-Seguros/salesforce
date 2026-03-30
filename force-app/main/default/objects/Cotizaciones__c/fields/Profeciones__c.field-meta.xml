@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Profeciones__c</fullName>
+    <label>Profeciones</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Agentes de Seguros y/o de Fianzas</fullName>
+                <default>false</default>
+                <label>Agentes de Seguros y/o de Fianzas</label>
+            </value>
+            <value>
+                <fullName>Profesionistas de la Salud y Veterinarios</fullName>
+                <default>false</default>
+                <label>Profesionistas de la Salud y Veterinarios</label>
+            </value>
+            <value>
+                <fullName>Ingenieros y/o Arquitectos</fullName>
+                <default>false</default>
+                <label>Ingenieros y/o Arquitectos</label>
+            </value>
+            <value>
+                <fullName>Otras profesiones</fullName>
+                <default>false</default>
+                <label>Otras profesiones</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

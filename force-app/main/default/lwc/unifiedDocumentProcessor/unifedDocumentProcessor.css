@@ -1,0 +1,29 @@
+/* unifiedDocumentProcessor.css */
+.success-badge {
+    --slds-c-badge-color-background: #4BCA81;
+    --slds-c-badge-text-color: #FFFFFF;
+}
+
+.error-badge {
+    --slds-c-badge-color-background: #EA001E;
+    --slds-c-badge-text-color: #FFFFFF;
+}
+
+.warning-badge {
+    --slds-c-badge-color-background: #FE9339;
+    --slds-c-badge-text-color: #FFFFFF;
+}
+
+.slds-tabs_default__link[aria-selected="true"] {
+    background-color: #0176D3;
+    color: white;
+    border-color: #0176D3;
+}
+
+.loading-container {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}

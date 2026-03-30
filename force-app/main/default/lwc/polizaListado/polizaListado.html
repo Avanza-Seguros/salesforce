@@ -1,0 +1,37 @@
+<!-- polizaListado/polizaListado.html -->
+<template>
+    <div class="listado-container">
+        <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium">
+            <h2 class="slds-text-heading_medium">{tituloListado}</h2>
+            <lightning-button
+                label="Exportar"
+                variant="neutral"
+                onclick={exportarDatos}
+                class="slds-m-left_small">
+            </lightning-button>
+        </div>
+
+        <div class="slds-card">
+            <div class="slds-card__body">
+                <lightning-datatable
+                    key-field="id"
+                    data={polizas}
+                    columns={columns}
+                    onrowaction={handleRowAction}
+                    hide-checkbox-column
+                    sorted-by={sortedBy}
+                    sorted-direction={sortedDirection}
+                    onsort={handleSort}
+                    default-sort-direction={defaultSortDirection}
+                    is-loading={cargando}>
+                </lightning-datatable>
+            </div>
+        </div>
+
+        <div class="slds-grid slds-grid_align-center slds-m-top_medium">
+            <div class="slds-text-body_regular">
+                Mostrando {polizas.length} de {totalRegistros} registros
+            </div>
+        </div>
+    </div>
+</template>

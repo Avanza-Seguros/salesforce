@@ -1,0 +1,300 @@
+<template>
+    <lightning-card title="Dashboard de Cobranza" icon-name="standard:chart">
+        <div class="slds-p-around_medium">
+            <div class="slds-m-bottom_small slds-text-align_right slds-align-top">
+                <lightning-button
+                    variant="neutral"
+                    label={textoBotonGrafica}
+                    icon-name="utility:chart"
+                    onclick={handleToggleGrafica}>
+                </lightning-button>
+            </div>
+            <div class={graficaClass}>
+                <!-- Panel de Filtros para Gráficas -->
+                <div class="filtros-panel slds-margin-bottom_medium">
+                    <div class="slds-grid slds-wrap slds-gutters">
+                        <!-- Selector de Rango Rápido -->
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                            <lightning-combobox
+                                name="rangoRapido"
+                                label="Rango de Fechas"
+                                value={filtrosGrafica.rangoFechas}
+                                placeholder="Seleccionar rango..."
+                                options={opcionesRango}
+                                onchange={handleRangoRapidoChange}>
+                            </lightning-combobox>
+                        </div>
+                        <!-- Información del Rango Actual -->
+                        <div class="slds-margin-top_small slds-text-align_center">
+                            <template if:true={filtros.fechaDesde}>
+                                <span class="slds-badge slds-theme_info">
+                                    <lightning-icon icon-name="utility:date_input" size="xx-small"></lightning-icon>
+                                    Rango: {fechaDesdeFormateada} a {fechaHastaFormateada}
+                                </span>
+                            </template>
+                            <template if:false={filtros.fechaDesde}>
+                                <span class="slds-badge slds-theme_warning">
+                                    <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                                    Mostrando todos los datos (sin filtro de fecha)
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfica -->
+                <template if:true={chartLoaded}>
+                    <div class="contenedor-grafica">
+                        <canvas class="mi-grafica" lwc:dom="manual"></canvas>
+                    </div>
+
+                    <template if:false={hayDatosParaGrafica}>
+                        <div class="slds-align_absolute-center slds-p-vertical_large">
+                            <div class="slds-box slds-box_small slds-theme_warning">
+                                <p class="slds-text-color_weak">
+                                    No hay datos suficientes para mostrar la gráfica
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+            </div>
+            <!-- Panel de Estadísticas -->
+            <div class="estadisticas-container slds-margin-bottom_medium">
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="tarjeta-estadistica pendiente">
+                            <div class="slds-media">
+                                <div class="slds-media__figure">
+                                    <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
+                                </div>
+                                <div class="slds-media__body">
+                                    <h3 class="slds-text-heading_small">{estadisticas.totalPendientes}</h3>
+                                    <p class="slds-text-body_small">Pendientes</p>
+                                    <p class="slds-text-heading_small">$<lightning-formatted-number value={estadisticas.montoTotalPendiente} class="currency" currency-code="MXN"></lightning-formatted-number></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="tarjeta-estadistica vencido">
+                            <div class="slds-media">
+                                <div class="slds-media__figure">
+                                    <lightning-icon icon-name="utility:error" size="small"></lightning-icon>
+                                </div>
+                                <div class="slds-media__body">
+                                    <h3 class="slds-text-heading_small">{estadisticas.totalVencidos}</h3>
+                                    <p class="slds-text-body_small">Vencidos</p>
+                                    <p class="slds-text-heading_small">$<lightning-formatted-number value={estadisticas.montoTotalVencido} class="currency" currency-code="MXN"></lightning-formatted-number></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="tarjeta-estadistica pagado">
+                            <div class="slds-media">
+                                <div class="slds-media__figure">
+                                    <lightning-icon icon-name="utility:check" size="small"></lightning-icon>
+                                </div>
+                                <div class="slds-media__body">
+                                    <h3 class="slds-text-heading_small">{estadisticas.totalPagados}</h3>
+                                    <p class="slds-text-body_small">Pagados</p>
+                                    <p class="slds-text-heading_small">$<lightning-formatted-number value={estadisticas.montoTotalPagado} class="currency" currency-code="MXN"></lightning-formatted-number></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="tarjeta-estadistica cancelado">
+                            <div class="slds-media">
+                                <div class="slds-media__figure">
+                                    <lightning-icon icon-name="utility:clear" size="small"></lightning-icon>
+                                </div>
+                                <div class="slds-media__body">
+                                    <h3 class="slds-text-heading_small">{estadisticas.totalCancelados}</h3>
+                                    <p class="slds-text-body_small">Cancelados</p>
+                                    <p class="slds-text-heading_small">$<lightning-formatted-number value={estadisticas.montoTotalCancelado} class="currency" currency-code="MXN"></lightning-formatted-number></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de Herramientas para Tabla -->
+            <!-- Filtros -->
+            <div class="filtros-container slds-m-bottom_large">
+                <div class="slds-grid slds-wrap slds-gutters slds-align-end">
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <lightning-input
+                            type="search"
+                            value={searchTerm}
+                            onchange={handleSearch}
+                            placeholder="Buscar..."
+                            label="Búsqueda">
+                        </lightning-input>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <lightning-combobox
+                            name="estatus"
+                            value={filtros.estatus}
+                            placeholder="Estatus recibo"
+                            label="Estatus recibo"
+                            options={estatusOpciones}
+                            onchange={handleFilterChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <lightning-combobox
+                            name="estatusPoliza"
+                            value={filtros.estatusPoliza}
+                            placeholder="Estatus póliza"
+                            label="Estatus póliza"
+                            options={estatusPolizaOpciones}
+                            onchange={handleFilterChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <lightning-combobox
+                            name="aseguradora"
+                            value={filtros.aseguradora}
+                            placeholder="Aseguradora"
+                            label="Aseguradora"
+                            options={aseguradoraOpciones}
+                            onchange={handleFilterChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <lightning-input
+                            type="date"
+                            name="fechaDesde"
+                            value={filtros.fechaDesde}
+                            label="Desde (Próximo Pago)"
+                            onchange={handleFilterChange}>
+                        </lightning-input>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <lightning-input
+                            type="date"
+                            name="fechaHasta"
+                            value={filtros.fechaHasta}
+                            label="Hasta (Próximo Pago)"
+                            onchange={handleFilterChange}>
+                        </lightning-input>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-7">
+                        <div class="checkbox-filtro">
+                            <label class="slds-form-element__label">Solo sin póliza</label>
+                            <lightning-input
+                                type="checkbox"
+                                name="sinPoliza"
+                                checked={filtros.sinPoliza}
+                                variant="label-hidden"
+                                onchange={handleFilterChange}>
+                            </lightning-input>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Tabla de Pagos -->
+            <div class="tabla-container">
+                <lightning-datatable
+                    key-field="Id"
+                    data={paginatedData}
+                    columns={columns}
+                    onrowaction={handleRowAction}
+                    hide-checkbox-column="false"
+                    onsort={handleSort}
+                    sorted-by={sortedBy}
+                    sorted-direction={sortedDirection}
+                    is-loading={isLoading}
+                    suppress-bottom-bar="false">
+                </lightning-datatable>
+            </div>
+            <!-- Paginación -->
+            <div class="slds-margin-bottom_small">
+                <div class="slds-grid slds-gutters slds-grid_align-spread">
+                    <div class="slds-col">
+                        <span class="slds-text-color_weak">{paginationInfo}</span>
+                    </div>
+                    <div class="slds-col slds-text-align_right">
+                        <div class="slds-grid slds-gutters slds-grid_align-center">
+                            <div class="slds-col">
+                                <lightning-button
+                                    label="Anterior"
+                                    variant="neutral"
+                                    onclick={handlePreviousPage}
+                                    disabled={paginaAnterior}>
+                                </lightning-button>
+                            </div>
+                            <div class="slds-col">
+                                <span class="slds-text-body_regular">
+                                    Página {currentPage} de {totalPages}
+                                </span>
+                            </div>
+                            <div class="slds-col">
+                                <lightning-button
+                                    label="Siguiente"
+                                    variant="neutral"
+                                    onclick={handleNextPage}
+                                    disabled={paginaSiguiente}>
+                                </lightning-button>
+                            </div>
+                            <div class="slds-col">
+                                <select class="slds-select" onchange={handlePageSizeChange}>
+                                    <option value="10">10 por página</option>
+                                    <option value="25">25 por página</option>
+                                    <option value="50">50 por página</option>
+                                    <option value="100">100 por página</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Loading Spinner -->
+        <template if:true={isLoading}>
+            <div class="slds-align_absolute-center slds-margin-top_large">
+                <lightning-spinner alternative-text="Cargando..."></lightning-spinner>
+            </div>
+        </template>
+
+    </lightning-card>
+    <!-- Modal para Detalles -->
+    <template if:true={showDetallesModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open slds-modal_large modal-responsive">
+            <div class="slds-modal__container modal-responsive-container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Cerrar" onclick={handleModalClose}>
+                        <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        <span class="slds-assistive-text">Cerrar</span>
+                    </button>
+                    <h2 class="slds-text-heading_medium slds-hyphenate">{detallePago}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium modal-content-full">
+                    <c-cobranza-poliza-modal 
+                        pago-data={modalData}
+                        onclose={handleModalClose}
+                        show-detalles-modal={showDetallesModal}>
+                    </c-cobranza-poliza-modal>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

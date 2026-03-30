@@ -1,0 +1,195 @@
+<apex:page standardController="Polizas__c">
+    <apex:form >
+        <style>
+            body {
+                background-color: #eaf4f9;
+            }
+
+            .table-style {
+                border-collapse: collapse;
+                width: 100%;
+            }
+
+            .table-style th,
+            .table-style td {
+                border: 1px solid #12b2c7;
+                padding: 12px;
+                text-align: left;
+            }
+
+            .table-style th {
+                background-color: #12b2c7;
+                font-weight: bold;
+            }
+
+            .no-data-text {
+                font-style: italic;
+                color: #12b2c7;
+            }
+
+            .container {
+                margin: 40px;
+            }
+
+            .save-button {
+                margin-top: 20px;
+            }
+        </style>
+
+        <div class="container">
+            <apex:pageBlock >
+                <apex:pageBlockSection >
+                    <apex:pageBlockTable value="{!Polizas__c}" var="poliza" styleClass="table-style">
+                            <apex:column headerValue="Cobertura" style="width: 100%">                    
+                        <tr>
+                            <apex:inputField value="{!poliza.Cobertura_Basica__c}" />
+                            <apex:outputText value="Invalidez Total y Permanente" />
+                        </tr>
+                            <apex:inputField value="{!poliza.Invalidez_Total_y_permanente__c}" />
+                            <apex:outputText value="Extensión Pago Primas por Invalidez" />
+                            <apex:inputField value="{!poliza.Extencion_Pago_Primas_por_Invalidez__c}" />
+                            <apex:outputText value="Beneficio Muerte accidental" />
+                            <apex:inputField value="{!poliza.Beneficio_Muerte_Accidental__c}" />
+                            <apex:outputText value="Derecho de conversión" />
+                            <apex:inputField value="{!poliza.Derecho_de_conversi_n__c}" />||
+                            <apex:outputText value="Protección absoluta" />
+                            <apex:inputField value="{!poliza.Protecci_n_absoluta__c}" />
+                            <apex:outputText value="Garantia de contratación" />
+                            <apex:inputField value="{!poliza.Garantia_de_contrataci_n__c}" />
+                            <apex:outputText value="Excención pago primas desempleo" />
+                            <apex:inputField value="{!poliza.Excenci_n_pago_primas_desempleo__c}" />
+                            <apex:outputText value="Beneficio Asistencia Médica" />
+                            <apex:inputField value="{!poliza.Beneficio_Asistencia_M_dica__c}" />
+                            <apex:outputText value="Apoyo en Vida" />
+                            <apex:inputField value="{!poliza.Apoyo_en_Vida__c}" />                                    
+                        </apex:column>
+                        <apex:column headerValue="Prima Anual" style="width: 100%">
+                            <apex:outputText value="Prima Anual Básica" />
+                            <apex:inputField value="{!poliza.Prima_anual_basica__c}" />
+                            <apex:outputText value="Prima Anual Invalidez" />
+                            <apex:inputField value="{!poliza.Prima_Anual_Invalidez__c}"/>
+                            <apex:outputText value="Prima Anual Pago Primas"/>
+                            <apex:inputField value="{!poliza.Prima_anual_Pago_primas__c}"/>
+                            <apex:outputText value="Protección absoluta"/>
+                            <apex:inputField value="{!poliza.Prima_anual_de_Proteccion__c}"/>
+                            <apex:outputText value="Prima anual Accidental"/>
+                            <apex:inputField value="{!poliza.Prima_anual_Accidental__c}"/>
+                            <apex:outputText value="Prima anual de convercion"/>
+                            <apex:inputField value="{!poliza.Prima_anual_de_convercion__c}"/>
+                            <apex:outputText value="Prima anual de contratacion"/>
+                            <apex:inputField value="{!poliza.Prima_anual_de_contratacion__c}"/>
+                            <apex:outputText value="Excención pago primas desempleo"/>
+                            <apex:inputField value="{!poliza.Prima_anual_desempleo__c}"/>
+                            <apex:outputText value="Prima anual Asistencia medica"/>
+                            <apex:inputField value="{!poliza.Prima_anual_Asistencia_medica__c}"/>
+                            <apex:outputText value="Prima anual ayuda vida"/>
+                            <apex:inputField value="{!poliza.Prima_anual_ayuda_vida__c}"/>
+                            <br>
+                            <table>
+                                <tr>
+                                  <td style="background-color: rgb(136, 197, 244);">
+                                    <apex:outputText value="Prima Total"/>
+                                  </td>
+                                </tr>
+                              </table>                          
+                            </br>  
+                            <br>
+                            <table>
+                                <tr>
+                                  <td style="background-color: rgb(248, 252, 255);">
+                                    <apex:outputField value="{!poliza.Total_Prima__c}"/>
+                                  </td>
+                                </tr>
+                              </table>                          
+                            </br>        
+                        </apex:column>
+                        <apex:column headerValue="Comisión" style="width: 100%">
+                            <apex:inputField value="{!poliza.CB__c}" />
+                            <apex:outputText value="Comisión Invalidez Total"/>
+                            <apex:inputField value="{!poliza.Comision_Invalidez_total__c}"/>
+                            <apex:outputText value="Comisión Extensión Pago"/>
+                            <apex:inputField value="{!poliza.Comision_Extencion_Pago__c}"/>
+                            <apex:outputText value="Comision Muerte accidental"/>
+                            <apex:inputField value="{!poliza.Comision_Muerte_accidental__c}"/>
+                            <apex:outputText value="Comision de Conversion"/>
+                            <apex:inputField value="{!poliza.Comision_de_Conversion__c}"/>
+                            <apex:outputText value="Comision proteccion absoluta"/>
+                            <apex:inputField value="{!poliza.Comision_proteccion_absoluta__c}"/>
+                            <apex:outputText value="Comision Garantia Contratacion"/>
+                            <apex:inputField value="{!poliza.Comision_Garantia_Contratacion__c}"/>
+                            <apex:outputText value="Comision Desempleo"/>
+                            <apex:inputField value="{!poliza.Comision_Desempleo__c}"/>  
+                            <apex:outputText value="Comision Asistencia medica"/>
+                            <apex:inputField value="{!poliza.Comision_Asistencia_medica__c}"/>
+                            <apex:outputText value="Comision apoyo vida"/>
+                            <apex:inputField value="{!poliza.Comision_apoyo_vida__c}"/>
+                            <br>
+                            <table>
+                                <tr>
+                                  <td style="background-color:rgb(107, 167, 213)">
+                                    <apex:outputText value="Comision total"/>
+                                  </td>
+                                </tr>
+                              </table>                          
+                            </br>  
+                            <br>
+                            <table>
+                                <tr>
+                                  <td style="background-color:rgb(255, 255, 255)">
+                                    <apex:outputField value="{!poliza.Comision_Total__c}"/>
+                                  </td>
+                                </tr>
+                              </table>                          
+                            </br>                                   
+                        </apex:column>
+                        <apex:column headerValue="Prima FP" style="width: 100%">
+                            <apex:outputText value="Prima FP Básica" />
+                            <apex:inputField value="{!poliza.Prima_Fp_Basica__c}" />
+                            <apex:outputText value="Prima FP Invalidez"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Invalidez__c}"/>
+                            <apex:outputText value="Prima FP Extensión Pago"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Extencion_Pago__c}"/>
+                            <apex:outputText value="Prima FP Muerte accidental"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Muerte_accidental__c}"/>
+                            <apex:outputText value="Prima FP Conversion"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Conversion__c}"/>
+                            <apex:outputText value="Prima FP Absoluta"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Absoluta__c}"/>
+                            <apex:outputText value="Prima FP Contratacion"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Contratacion__c}"/>
+                            <apex:outputText value="Prima FP Desempleo"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Desempleo__c}"/>
+                            <apex:outputText value="Prima FP Asistencia Medica"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Asistencia_Medica__c}"/>
+                            <apex:outputText value="Prima FP Apoyo Vida"/>
+                            <apex:inputField value="{!poliza.Prima_FP_Apoyo_Vida__c}"/>                                    
+                        </apex:column>
+                        <apex:column headerValue="Comisión 2" style="width: 100%">
+                            <apex:outputText value="Comisión 2 Básica" />
+                            <apex:inputField value="{!poliza.Comision_2_Basica__c}" />
+                            <apex:outputText value="Comisión 2 Invalidez Total"/>
+                            <apex:inputField value="{!poliza.Comision_2_Invalidez_total__c}"/>
+                            <apex:outputText value="Comisión 2 Extensión Pago"/>
+                            <apex:inputField value="{!poliza.Comision_2_Extencion_pago__c}"/>
+                            <apex:outputText value="Comision 2 Muerte accidental"/>
+                            <apex:inputField value="{!poliza.Comision_2_Muerte_accidental__c}"/>
+                            <apex:outputText value="Comision 2 Conversion"/>
+                            <apex:inputField value="{!poliza.Comision_2_Conversion__c}"/>
+                            <apex:outputText value="Comision 2 Absoluta"/>
+                            <apex:inputField value="{!poliza.Comision_2_Absoluta__c}"/>
+                            <apex:outputText value="Comision 2 Contratacion"/>
+                            <apex:inputField value="{!poliza.Comision_2_Contratacion__c}"/>
+                            <apex:outputText value="Comision 2 Primas Desempleo"/>
+                            <apex:inputField value="{!poliza.Comision_2_Primas_Desempleo__c}"/>
+                            <apex:outputText value="Comision 2 Asistencia Medica"/>
+                            <apex:inputField value="{!poliza.Comision_2_Asistencia_Medica__c}"/>
+                            <apex:outputText value="Comision 2 Apoyo vida"/>
+                            <apex:inputField value="{!poliza.Comision_2_Apoyo_vida__c}"/>                                    
+                        </apex:column>
+                    </apex:pageBlockTable>
+                  <apex:commandButton value="Guardar" action="{!save}"/>
+                </apex:pageBlockSection>
+            </apex:pageBlock>
+        </div>
+    </apex:form>
+</apex:page>

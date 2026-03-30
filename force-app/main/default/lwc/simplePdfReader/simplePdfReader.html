@@ -1,0 +1,143 @@
+<template>
+    <lightning-card title="Procesador de PDFs" icon-name="doctype:pdf">
+        <div class="slds-p-around_medium">
+            <!-- Área de Drag & Drop -->
+            <div class="dropzone" data-dropzone>
+                <div class="drop-content">
+                    <lightning-icon icon-name="utility:upload" size="large" class="slds-m-bottom_small"></lightning-icon>
+                    <h2 class="slds-text-heading_medium slds-m-bottom_small">
+                        Arrastra y suelta tus archivos PDF aquí
+                    </h2>
+                    <p class="slds-text-body_regular slds-m-bottom_medium">
+                        o haz clic para seleccionar archivos
+                    </p>
+                    <lightning-button label="Seleccionar Archivos" 
+                                    onclick={openFileSelector}
+                                    variant="brand"
+                                    class="slds-m-bottom_small">
+                    </lightning-button>
+                    <p class="slds-text-body_small slds-text-color_weak">
+                        Máximo {MAX_FILES} archivos, {maxFile} MB por archivo
+                    </p>
+                </div>
+            </div>  
+            <!-- Input de archivo oculto -->
+            <input type="file" 
+                    class="slds-hide" 
+                    multiple 
+                    accept=".pdf,application/pdf" 
+                    onchange={handleFileChange}
+            />
+
+            <!-- Progreso de procesamiento -->
+            <template if:true={isProcessing}>
+                <div class="slds-m-top_large">
+                    <div class="slds-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress.percent}>
+                        <span class="slds-progress-bar__value {progressStyle} slds-assistive-text">
+                            Progreso: {progress.percent}%
+                        </span>
+                    </div>
+                    <div class="slds-grid slds-wrap slds-gutters slds-m-top_small">
+                        <div class="slds-col slds-size_1-of-1">
+                            <p class="slds-text-body_small">
+                                Procesando: {progress.currentFileName} 
+                                ({progress.current} de {progress.total})
+                            </p>
+                            <p class="slds-text-body_small slds-text-color_weak">
+                                {progress.percent}% completado
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Botones de acción -->
+            <div class="slds-m-top_large slds-grid slds-wrap slds-gutters">
+                <div class="slds-col slds-size_1-of-1 slds-small-size_6-of-12">
+                    <lightning-button label="Procesar Archivos" 
+                                     onclick={processAllFiles}
+                                     variant="brand"
+                                     disabled={disabledProcess}
+                                     class="slds-m-bottom_small slds-size_full">
+                    </lightning-button>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-small-size_6-of-12">
+                    <lightning-button label="Guardar Archivos" 
+                                     onclick={handleSaveFiles}
+                                     variant="success"
+                                     disabled={disableFile}
+                                     class="slds-m-bottom_small slds-size_full">
+                    </lightning-button>
+                </div>
+            </div>
+
+            <!-- Lista de archivos seleccionados -->
+            <template if:false={showResults}>
+                <div class="slds-m-top_large">
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">
+                        Archivos seleccionados ({files.length})
+                    </h3>
+                    <ul class="slds-list_dotted">
+                        <template for:each={files} for:item="file">
+                            <li key={file.id} class="slds-item slds-m-bottom_x-small">
+                                <div class="slds-grid slds-wrap slds-gutters">
+                                    <div class="slds-col slds-size_1-of-1 slds-small-size_8-of-12">
+                                        <span class="slds-truncate" title={file.name}>
+                                            {file.name}
+                                        </span>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-1 slds-small-size_4-of-12 slds-text-align_right">
+                                        <lightning-button-icon 
+                                            icon-name="utility:close" 
+                                            variant="border-filled" 
+                                            alternative-text="Eliminar"
+                                            onclick={removeFile}
+                                            data-id={file.id}
+                                            class="slds-m-left_x-small">
+                                        </lightning-button-icon>
+                                    </div>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </template>
+
+            <!-- Mensajes de estado -->
+            <template if:true={pdfJsError}>
+                <div class="slds-notify slds-notify_alert slds-theme_error slds-m-top_medium" role="alert">
+                    <span class="slds-assistive-text">Error</span>
+                    <span class="slds-icon_container slds-icon-utility-error slds-m-right_x-small" title="Error">
+                        <lightning-icon icon-name="utility:error" size="x-small"></lightning-icon>
+                    </span>
+                    <h2>Error cargando PDF.js. Recarga la página.</h2>
+                    <button class="slds-button slds-button_icon slds-notify__close slds-button_icon-inverse" title="Cerrar">
+                        <lightning-icon icon-name="utility:close" onclick={reloadPdfJs}></lightning-icon>
+                        <span class="slds-assistive-text">Cerrar</span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Resultados -->
+            <template if:true={showResults}>
+                <div class="slds-m-top_large">
+                    <lightning-datatable
+                        key-field="id"
+                        data={pdfData}
+                        columns={columns}
+                        hide-checkbox-column="true"
+                        sorted-by="policy"
+                        sorted-direction="asc">
+                    </lightning-datatable>
+                </div>
+            </template>
+
+            <!-- Loading Spinner -->
+            <template if:true={isLoading}>
+                <div class="slds-align_absolute-center slds-m-vertical_large">
+                    <lightning-spinner alternative-text="Procesando..."></lightning-spinner>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

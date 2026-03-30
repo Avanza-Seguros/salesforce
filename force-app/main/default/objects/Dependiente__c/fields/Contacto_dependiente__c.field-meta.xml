@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Contacto_dependiente__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Contacto dependiente</label>
+    <referenceTo>Contact</referenceTo>
+    <relationshipLabel>Dependiente de pólizas</relationshipLabel>
+    <relationshipName>Dependientes</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

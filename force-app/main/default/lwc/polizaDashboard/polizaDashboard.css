@@ -1,0 +1,229 @@
+/* Estilos para el resumen dinámico */
+.estatus-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #f3f3f3;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.estatus-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 80px;
+    text-align: center;
+    display: inline-block;
+}
+
+.estatus-cantidad {
+    font-weight: bold;
+    color: #080707;
+    font-size: 1.1rem;
+    background: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    min-width: 30px;
+    text-align: center;
+}
+
+/* Estados de pólizas - Badges */
+.estado-activa {
+    background-color: #2e844a;
+    color: white;
+    border: 1px solid #2e844a;
+}
+
+.estado-vencida {
+    background-color: #ea001e;
+    color: white;
+    border: 1px solid #ea001e;
+}
+
+.estado-pagada {
+    background-color: #0176d3;
+    color: white;
+    border: 1px solid #0176d3;
+}
+
+.estado-pendiente {
+    background-color: #fe9339;
+    color: white;
+    border: 1px solid #fe9339;
+}
+
+.estado-default {
+    background-color: #747474;
+    color: white;
+    border: 1px solid #747474;
+}
+
+/* Estados adicionales por si los necesitas */
+.estado-cancelada {
+    background-color: #5642a6;
+    color: white;
+    border: 1px solid #5642a6;
+}
+
+.estado-sin-estatus {
+    background-color: #939393;
+    color: white;
+    border: 1px solid #939393;
+}
+
+/* Efectos hover para mejor interactividad */
+.estatus-item:hover {
+    background: #f3f3f3;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* KPI Cards */
+.kpi-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 4px solid transparent;
+    height: 100%;
+}
+
+.kpi-card.total {
+    border-left-color: #0176d3;
+}
+
+.kpi-card.pendiente {
+    border-left-color: #ea001e;
+}
+
+.kpi-card.cantidad {
+    border-left-color: #2e844a;
+}
+
+.kpi-card.asegurada {
+    border-left-color: #8e4ec6;
+}
+
+.kpi-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.kpi-icon {
+    background: #f3f3f3;
+    border-radius: 50%;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kpi-info {
+    flex: 1;
+}
+
+.kpi-label {
+    font-size: 0.875rem;
+    color: #706e6b;
+    margin-bottom: 0.25rem;
+}
+
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #080707;
+}
+
+.kpi-subtext {
+    font-size: 0.75rem;
+    color: #706e6b;
+    margin-top: 0.25rem;
+}
+
+/* Colores de texto para tablas */
+.slds-text-color_error {
+    color: #ea001e;
+    font-weight: bold;
+}
+
+.slds-text-color_success {
+    color: #2e844a;
+    font-weight: bold;
+}
+
+.slds-text-color_default {
+    color: #080707;
+    font-weight: bold;
+}
+
+.slds-text-color_weak {
+    color: #706e6b;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .estatus-item {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+    
+    .estatus-badge {
+        min-width: 70px;
+        font-size: 0.7rem;
+    }
+    
+    .estatus-cantidad {
+        font-size: 1rem;
+    }
+    
+    .kpi-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .kpi-value {
+        font-size: 1.25rem;
+    }
+}
+
+/* Estilos específicos para cobranza */
+.kpi-card.vencidas {
+    border-left-color: #fe9339;
+}
+
+/* Badge para días de vencimiento */
+.estado-vencida {
+    background-color: #ea001e;
+    color: white;
+}
+
+.estado-pendiente {
+    background-color: #2e844a;
+    color: white;
+}
+
+/* Estilos para la tabla de cobranza */
+.slds-table td .slds-text-color_error {
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+/* Responsive para tabla de cobranza */
+@media (max-width: 768px) {
+    .slds-table th:nth-child(6),
+    .slds-table td:nth-child(6),
+    .slds-table th:nth-child(7),
+    .slds-table td:nth-child(7) {
+        display: none;
+    }
+}

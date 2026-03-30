@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PathAssistant xmlns="http://soap.sforce.com/2006/04/metadata">
+    <active>true</active>
+    <entityName>Items_Cases__c</entityName>
+    <fieldName>Estatus__c</fieldName>
+    <masterLabel>Peticion alta</masterLabel>
+    <recordTypeName>Alta</recordTypeName>
+</PathAssistant>

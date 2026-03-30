@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Beneficio_2__c</fullName>
+    <label>Beneficio</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>APOYO EN VIDA</fullName>
+                <default>false</default>
+                <label>APOYO EN VIDA</label>
+            </value>
+            <value>
+                <fullName>BAIT SB</fullName>
+                <default>false</default>
+                <label>BAIT SB</label>
+            </value>
+            <value>
+                <fullName>BAM</fullName>
+                <default>false</default>
+                <label>BAM</label>
+            </value>
+            <value>
+                <fullName>BENEFICIO MUERTE ACCIDENTAL 1</fullName>
+                <default>false</default>
+                <label>BENEFICIO MUERTE ACCIDENTAL 1</label>
+            </value>
+            <value>
+                <fullName>BENEFICIO MUERTE ACCIDENTAL 2</fullName>
+                <default>false</default>
+                <label>BENEFICIO MUERTE ACCIDENTAL 2</label>
+            </value>
+            <value>
+                <fullName>BENEFICIO MUERTE ACCIDENTAL 3</fullName>
+                <default>false</default>
+                <label>BENEFICIO MUERTE ACCIDENTAL 3</label>
+            </value>
+            <value>
+                <fullName>BENEFICIO MUERTE ACCIDENTAL 4</fullName>
+                <default>false</default>
+                <label>BENEFICIO MUERTE ACCIDENTAL 4</label>
+            </value>
+            <value>
+                <fullName>BENEFICIO MUERTE ACCIDENTAL</fullName>
+                <default>false</default>
+                <label>BENEFICIO MUERTE ACCIDENTAL</label>
+            </value>
+            <value>
+                <fullName>BITAE 1</fullName>
+                <default>false</default>
+                <label>BITAE 1</label>
+            </value>
+            <value>
+                <fullName>BITAE 2</fullName>
+                <default>false</default>
+                <label>BITAE 2</label>
+            </value>
+            <value>
+                <fullName>BITAE 3</fullName>
+                <default>false</default>
+                <label>BITAE 3</label>
+            </value>
+            <value>
+                <fullName>CERTIFICADO GARANTIA DE CONTRATACION</fullName>
+                <default>false</default>
+                <label>CERTIFICADO GARANTIA DE CONTRATACION</label>
+            </value>
+            <value>
+                <fullName>CL TEMPORAL</fullName>
+                <default>false</default>
+                <label>CL TEMPORAL</label>
+            </value>
+            <value>
+                <fullName>CLAUSULA DE PROTECCION ABSOLUTA</fullName>
+                <default>false</default>
+                <label>CLAUSULA DE PROTECCION ABSOLUTA</label>
+            </value>
+            <value>
+                <fullName>DERECHO DE CONVERSION DE BENEFICIO</fullName>
+                <default>false</default>
+                <label>DERECHO DE CONVERSION DE BENEFICIO</label>
+            </value>
+            <value>
+                <fullName>EXENCION PAGO DE PRIMAS POR INV 1</fullName>
+                <default>false</default>
+                <label>EXENCION PAGO DE PRIMAS POR INV 1</label>
+            </value>
+            <value>
+                <fullName>EXENCION PAGO DE PRIMAS POR INV 2</fullName>
+                <default>false</default>
+                <label>EXENCION PAGO DE PRIMAS POR INV 2</label>
+            </value>
+            <value>
+                <fullName>EXENCION PAGO DE PRIMAS POR INV 3</fullName>
+                <default>false</default>
+                <label>EXENCION PAGO DE PRIMAS POR INV 3</label>
+            </value>
+            <value>
+                <fullName>EXENCION PAGO PRIMAS POR INVALIDEZ</fullName>
+                <default>false</default>
+                <label>EXENCION PAGO PRIMAS POR INVALIDEZ</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER +</fullName>
+                <default>false</default>
+                <label>IMAGINA SER +</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER 55</fullName>
+                <default>false</default>
+                <label>IMAGINA SER 55</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER 60</fullName>
+                <default>false</default>
+                <label>IMAGINA SER 60</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER 65</fullName>
+                <default>false</default>
+                <label>IMAGINA SER 65</label>
+            </value>
+            <value>
+                <fullName>IMAGINA SER 70</fullName>
+                <default>false</default>
+                <label>IMAGINA SER 70</label>
+            </value>
+            <value>
+                <fullName>LEGADO MN</fullName>
+                <default>false</default>
+                <label>LEGADO MN</label>
+            </value>
+            <value>
+                <fullName>NUEVO PLENITUD</fullName>
+                <default>false</default>
+                <label>NUEVO PLENITUD</label>
+            </value>
+            <value>
+                <fullName>ORVI 99 10</fullName>
+                <default>false</default>
+                <label>ORVI 99 10</label>
+            </value>
+            <value>
+                <fullName>ORVI 99 15</fullName>
+                <default>false</default>
+                <label>ORVI 99 15</label>
+            </value>
+            <value>
+                <fullName>ORVI 99 20</fullName>
+                <default>false</default>
+                <label>ORVI 99 20</label>
+            </value>
+            <value>
+                <fullName>ORVI 99 6</fullName>
+                <default>false</default>
+                <label>ORVI 99 6</label>
+            </value>
+            <value>
+                <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL 1</fullName>
+                <default>false</default>
+                <label>PAGO ANTICIPADO POR INVALIDEZ TOTAL 1</label>
+            </value>
+            <value>
+                <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL  2</fullName>
+                <default>false</default>
+                <label>PAGO ANTICIPADO POR INVALIDEZ TOTAL  2</label>
+            </value>
+            <value>
+                <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL  3</fullName>
+                <default>false</default>
+                <label>PAGO ANTICIPADO POR INVALIDEZ TOTAL  3</label>
+            </value>
+            <value>
+                <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL  4</fullName>
+                <default>false</default>
+                <label>PAGO ANTICIPADO POR INVALIDEZ TOTAL  4</label>
+            </value>
+            <value>
+                <fullName>PAGO PRIMAS  INVALIDEZ MUERTE1</fullName>
+                <default>false</default>
+                <label>PAGO PRIMAS  INVALIDEZ MUERTE1</label>
+            </value>
+            <value>
+                <fullName>PAGO PRIMAS  INVALIDEZ MUERTE2</fullName>
+                <default>false</default>
+                <label>PAGO PRIMAS  INVALIDEZ MUERTE2</label>
+            </value>
+            <value>
+                <fullName>PROTECCION COMBINACION DE EMBARAZO Y PADECIMIENTOS FEMENINO</fullName>
+                <default>false</default>
+                <label>PROTECCION COMBINACION DE EMBARAZO Y PADECIMIENTOS FEMENINO</label>
+            </value>
+            <value>
+                <fullName>PROTECCION DE CANCER FEMENINO</fullName>
+                <default>false</default>
+                <label>PROTECCION DE CANCER FEMENINO</label>
+            </value>
+            <value>
+                <fullName>REALIZA CRECIENTE</fullName>
+                <default>false</default>
+                <label>REALIZA CRECIENTE</label>
+            </value>
+            <value>
+                <fullName>SAIT SB</fullName>
+                <default>false</default>
+                <label>SAIT SB</label>
+            </value>
+            <value>
+                <fullName>SE ADAPTA</fullName>
+                <default>false</default>
+                <label>SE ADAPTA</label>
+            </value>
+            <value>
+                <fullName>SEGUBECA 18 PRIMA CONSTANTE</fullName>
+                <default>false</default>
+                <label>SEGUBECA 18 PRIMA CONSTANTE</label>
+            </value>
+            <value>
+                <fullName>SEGUBECA 18 PRIMA CRECIENTE 1</fullName>
+                <default>false</default>
+                <label>SEGUBECA 18 PRIMA CRECIENTE 1</label>
+            </value>
+            <value>
+                <fullName>SEGUBECA 18 PRIMA CRECIENTE 2</fullName>
+                <default>false</default>
+                <label>SEGUBECA 18 PRIMA CRECIENTE 2</label>
+            </value>
+            <value>
+                <fullName>TEMPORAL 10 AÑOS</fullName>
+                <default>false</default>
+                <label>TEMPORAL 10 AÑOS</label>
+            </value>
+            <value>
+                <fullName>VIDA MUJER</fullName>
+                <default>false</default>
+                <label>VIDA MUJER</label>
+            </value>
+            <value>
+                <fullName>VIDA MUJER AHORRO</fullName>
+                <default>false</default>
+                <label>VIDA MUJER AHORRO</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Flex A</fullName>
+                <default>false</default>
+                <label>Alfa Medical Flex A</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Flex B</fullName>
+                <default>false</default>
+                <label>Alfa Medical Flex B</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Integro</fullName>
+                <default>false</default>
+                <label>Alfa Medical Integro</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Internacional</fullName>
+                <default>false</default>
+                <label>Alfa Medical Internacional</label>
+            </value>
+            <value>
+                <fullName>Alfa Medical Pleno</fullName>
+                <default>false</default>
+                <label>Alfa Medical Pleno</label>
+            </value>
+            <value>
+                <fullName>Conexión</fullName>
+                <default>false</default>
+                <label>Conexión</label>
+            </value>
+            <value>
+                <fullName>Accidentes Colectivo</fullName>
+                <default>false</default>
+                <label>Accidentes Colectivo</label>
+            </value>
+            <value>
+                <fullName>Vida Grupo</fullName>
+                <default>false</default>
+                <label>Vida Grupo</label>
+            </value>
+            <value>
+                <fullName>Gastos Medicos Mayores</fullName>
+                <default>false</default>
+                <label>Gastos Medicos Mayores</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

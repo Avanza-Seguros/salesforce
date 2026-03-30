@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tipo_de_Cotizacion__c</fullName>
+    <label>Tipo de  Cotizacion</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Auto</fullName>
+                <default>false</default>
+                <label>Auto</label>
+            </value>
+            <value>
+                <fullName>Mascota</fullName>
+                <default>false</default>
+                <label>Mascota</label>
+            </value>
+            <value>
+                <fullName>Hogar</fullName>
+                <default>false</default>
+                <label>Hogar</label>
+            </value>
+            <value>
+                <fullName>Gatos Medicos Mayores</fullName>
+                <default>false</default>
+                <label>Gatos Medicos Mayores</label>
+            </value>
+            <value>
+                <fullName>Negocio</fullName>
+                <default>false</default>
+                <label>Negocio</label>
+            </value>
+            <value>
+                <fullName>RC</fullName>
+                <default>false</default>
+                <label>RC</label>
+            </value>
+            <value>
+                <fullName>RC Profecional</fullName>
+                <default>false</default>
+                <label>RC Profecional</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

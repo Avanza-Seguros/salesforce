@@ -1,0 +1,40 @@
+<aura:component implements="forceCommunity:availableForAllPageTypes" access="global" description="" controller="ETC_ControllerBanxico">
+
+	<aura:attribute name="usdChange" type="Decimal" access="global" default="0.0" />
+	<aura:attribute name="udiChange" type="Decimal" access="global" default="0.0" />
+
+	<aura:handler name="init" value="{!this}" action="{!c.onInitHandler}" />
+
+	<aura:attribute name="isLoading" type="Boolean" access="global" default="true" />
+
+	<div class="slds-box slds-theme_default slds-is-relative fill">
+		<aura:if isTrue="{!v.isLoading}">
+			<div class="backgroundInverse">
+				<lightning:spinner alternativeText="Loading" variant="inverse" />
+			</div>
+		</aura:if>
+	
+	<div class="slds-grid slds-wrap">
+
+		<div class="slds-col slds-size_3-of-12">
+		</div>
+		<div class="slds-col slds-size_6-of-12">
+			<h1 class="slds-align_absolute-center">
+				<b>
+					Tipo de cambio:
+				</b>
+			</h1>
+			<h2 class="slds-align_absolute-center">
+				$1 USD = ${!v.usdChange} MXN
+			</h2>
+			<br />
+			<h2 class="slds-align_absolute-center">
+				$1 UDI = ${!v.udiChange} MXN
+			</h2>
+			<br />
+		</div>
+		<div class="slds-col slds-size_3-of-12">
+		</div>
+	</div>
+</div>
+</aura:component>

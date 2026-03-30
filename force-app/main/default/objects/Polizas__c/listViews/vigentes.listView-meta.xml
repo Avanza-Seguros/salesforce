@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>vigentes</fullName>
+    <columns>NAME</columns>
+    <columns>Asegurado__c</columns>
+    <columns>Forma_de_pago__c</columns>
+    <columns>Tipo__c</columns>
+    <columns>Fecha_de_Emision__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Aseguradora__c</columns>
+    <filterScope>Mine</filterScope>
+    <filters>
+        <field>Estatus__c</field>
+        <operation>equals</operation>
+        <value>Vigor</value>
+    </filters>
+    <label>Vigentes.</label>
+    <sharedTo>
+        <portalRole>AgentesAvanzaSocioUsuario</portalRole>
+    </sharedTo>
+</ListView>

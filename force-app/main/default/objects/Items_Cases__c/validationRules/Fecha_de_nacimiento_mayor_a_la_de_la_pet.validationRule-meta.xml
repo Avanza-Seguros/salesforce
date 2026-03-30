@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fecha_de_nacimiento_mayor_a_la_de_la_pet</fullName>
+    <active>true</active>
+    <errorConditionFormula>Fecha_de_nacimiento__c &gt; Fecha_de_peticion__c</errorConditionFormula>
+    <errorMessage>Fecha de nacimiento mayor a la de la peticion</errorMessage>
+</ValidationRule>

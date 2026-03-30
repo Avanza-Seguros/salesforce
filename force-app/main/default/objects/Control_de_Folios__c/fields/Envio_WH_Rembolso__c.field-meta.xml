@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Envio_WH_Rembolso__c</fullName>
+    <formula>AND(
+    TEXT(Movimiento__c) = &quot;Reembolso&quot;,
+    TEXT(Estatus__c) = &quot;Aceptado&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Envio WH Rembolso</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

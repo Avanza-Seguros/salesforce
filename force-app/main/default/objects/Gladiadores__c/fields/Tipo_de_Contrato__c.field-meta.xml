@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tipo_de_Contrato__c</fullName>
+    <label>Tipo de Contrato</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Fundador</fullName>
+                <default>false</default>
+                <label>Fundador</label>
+            </value>
+            <value>
+                <fullName>Colaborador</fullName>
+                <default>false</default>
+                <label>Colaborador</label>
+            </value>
+            <value>
+                <fullName>Becario</fullName>
+                <default>false</default>
+                <label>Becario</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

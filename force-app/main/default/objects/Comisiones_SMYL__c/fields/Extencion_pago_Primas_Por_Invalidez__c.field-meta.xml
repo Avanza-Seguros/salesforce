@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Extencion_pago_Primas_Por_Invalidez__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Extencion pago Primas Por Invalidez</label>
+    <referenceTo>Beneficios__c</referenceTo>
+    <relationshipLabel>Extencion pago Primas Por Invalidez</relationshipLabel>
+    <relationshipName>Comisiones1</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

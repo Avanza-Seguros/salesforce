@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Agentes_p_liza_de_RC_en_riesgo_o_vencida</fullName>
+    <columns>Id_del_Agente__c</columns>
+    <columns>NAME</columns>
+    <columns>Status__c</columns>
+    <columns>Vigencia_de_poliza_de_RC__c</columns>
+    <columns>Indicador_vigencia_de_poliza_RC__c</columns>
+    <columns>Status_vigencia_poliza_RC__c</columns>
+    <columns>Prospectador_asignado__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status_vigencia_poliza_RC__c</field>
+        <operation>equals</operation>
+        <value>en riesgo,vencido</value>
+    </filters>
+    <filters>
+        <field>Status__c</field>
+        <operation>notEqual</operation>
+        <value>Descartado,Inactivo</value>
+    </filters>
+    <label>Agentes póliza de RC en riesgo o vencida</label>
+</ListView>

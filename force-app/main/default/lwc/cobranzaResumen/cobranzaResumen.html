@@ -1,0 +1,153 @@
+<template>
+    <lightning-card title="Resumen de Cobranza" icon-name="custom:custom63">
+        <div class="slds-p-horizontal_medium slds-p-vertical_small">
+
+            <!-- Filtros -->
+            <div class="slds-grid slds-wrap slds-m-bottom_medium">
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-input type="date" label="Fecha Inicio" value={fechaInicio} onchange={handleFechaInicio}></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-input type="date" label="Fecha Fin" value={fechaFin} onchange={handleFechaFin}></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-3">
+                    <lightning-combobox label="Frecuencia" options={frecuencias} value={frecuencia} onchange={handleFrecuencia}></lightning-combobox>
+                </div>
+            </div>
+
+            <div class="slds-align_absolute-center slds-m-bottom_medium">
+                <lightning-button variant="brand" label="Consultar" onclick={cargarDatos} disabled={cargando}></lightning-button>
+            </div>
+
+            <template if:true={cargando}>
+                <lightning-spinner alternative-text="Cargando..." size="medium"></lightning-spinner>
+            </template>
+
+            <template if:true={resumen.totalPolizas}>
+                <!-- Tarjetas de Métricas -->
+                <div class="slds-grid slds-wrap slds-m-bottom_large">
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="metric-card slds-box slds-box_small slds-text-align_center">
+                            <div class="slds-text-heading_small">Total Pólizas</div>
+                            <div class="slds-text-heading_medium slds-m-top_x-small">{resumen.totalPolizas}</div>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="metric-card slds-box slds-box_small slds-text-align_center">
+                            <div class="slds-text-heading_small">Monto Total</div>
+                            <div class="slds-text-heading_medium slds-m-top_x-small">{montoTotalFormateado}</div>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="metric-card slds-box slds-box_small slds-text-align_center">
+                            <div class="slds-text-heading_small">Al Corriente</div>
+                            <div class="slds-text-heading_medium slds-m-top_x-small success-text">{resumen.corrientes}</div>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="metric-card slds-box slds-box_small slds-text-align_center">
+                            <div class="slds-text-heading_small">Vencidas</div>
+                            <div class="slds-text-heading_medium slds-m-top_x-small error-text">{resumen.vencidas}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico con Componentes Lightning -->
+                <div class="slds-grid slds-wrap">
+                    <div class="slds-col slds-size_1-of-2">
+                        <lightning-card title="Distribución por Estado" icon-name="utility:chart">
+                            <div class="slds-p-around_medium">
+                                <!-- Anillos de Progreso para cada estado -->
+                                <div class="slds-grid slds-wrap slds-gutters">
+                                    <div class="slds-col slds-size_1-of-3 slds-text-align_center">
+                                        <lightning-progress-ring
+                                            value={porcentajeCorrientes}
+                                            variant="success"
+                                            size="large">
+                                        </lightning-progress-ring>
+                                        <div class="slds-text-heading_small slds-m-top_x-small">Al Corriente</div>
+                                        <div class="slds-text-body_small">{resumen.corrientes} ({porcentajeCorrientes}%)</div>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3 slds-text-align_center">
+                                        <lightning-progress-ring
+                                            value={porcentajePorVencer}
+                                            variant="warning"
+                                            size="large">
+                                        </lightning-progress-ring>
+                                        <div class="slds-text-heading_small slds-m-top_x-small">Por Vencer</div>
+                                        <div class="slds-text-body_small">{resumen.porVencer} ({porcentajePorVencer}%)</div>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3 slds-text-align_center">
+                                        <lightning-progress-ring
+                                            value={porcentajeVencidas}
+                                            variant="error"
+                                            size="large">
+                                        </lightning-progress-ring>
+                                        <div class="slds-text-heading_small slds-m-top_x-small">Vencidas</div>
+                                        <div class="slds-text-body_small">{resumen.vencidas} ({porcentajeVencidas}%)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </lightning-card>
+                    </div>
+
+                    <div class="slds-col slds-size_1-of-2">
+                        <lightning-card title="Progreso por Estado" icon-name="utility:progress">
+                            <div class="slds-p-around_medium">
+                                <!-- Barras de progreso verticales -->
+                                <div class="progress-bars-container">
+                                    <div class="progress-item">
+                                        <div class="progress-label">Al Corriente ({porcentajeCorrientes}%)</div>
+                                        <lightning-progress-bar value={porcentajeCorrientes} size="medium" variant="success"></lightning-progress-bar>
+                                        <div class="progress-count">{resumen.corrientes} pólizas</div>
+                                    </div>
+                                    
+                                    <div class="progress-item slds-m-top_medium">
+                                        <div class="progress-label">Por Vencer ({porcentajePorVencer}%)</div>
+                                        <lightning-progress-bar value={porcentajePorVencer} size="medium" variant="warning"></lightning-progress-bar>
+                                        <div class="progress-count">{resumen.porVencer} pólizas</div>
+                                    </div>
+                                    
+                                    <div class="progress-item slds-m-top_medium">
+                                        <div class="progress-label">Vencidas ({porcentajeVencidas}%)</div>
+                                        <lightning-progress-bar value={porcentajeVencidas} size="medium" variant="error"></lightning-progress-bar>
+                                        <div class="progress-count">{resumen.vencidas} pólizas</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </lightning-card>
+                    </div>
+                </div>
+
+                <!-- Distribución por Frecuencia -->
+                <div class="slds-m-top_large">
+                    <lightning-card title="Distribución por Frecuencia de Pago" icon-name="utility:clock">
+                        <div class="slds-p-around_medium">
+                            <div class="slds-grid slds-wrap">
+                                <template for:each={resumen.porFrecuencia} for:item="freq">
+                                    <div key={freq.frecuencia} class="slds-col slds-size_1-of-4 slds-m-bottom_small">
+                                        <div class="freq-card slds-box slds-box_x-small">
+                                            <div class="slds-text-heading_small">{freq.frecuencia}</div>
+                                            <div class="slds-text-heading_medium slds-m-top_x-small">{freq.cantidad}</div>
+                                            <div class="slds-text-body_small">{freq.monto}</div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </lightning-card>
+                </div>
+            </template>
+
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-theme_error slds-m-top_medium" role="alert">
+                    <span class="slds-assistive-text">Error</span>
+                    <span class="slds-icon_container slds-icon-utility-error slds-m-right_x-small" title="Error">
+                        <lightning-icon icon-name="utility:error" size="x-small"></lightning-icon>
+                    </span>
+                    <h2>Error al cargar los datos: {error.message}</h2>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

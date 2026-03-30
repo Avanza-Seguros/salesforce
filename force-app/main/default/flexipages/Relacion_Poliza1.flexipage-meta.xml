@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
+    <flexiPageRegions>
+        <name>header</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <name>main</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <masterLabel>Relacion Poliza</masterLabel>
+    <sobjectType>Relacion_Poliza__c</sobjectType>
+    <template>
+        <name>flexipage:recordHomeSimpleViewTemplate</name>
+        <properties>
+            <name>actionNames</name>
+        </properties>
+        <properties>
+            <name>enablePageActionConfig</name>
+            <value>false</value>
+        </properties>
+    </template>
+    <type>RecordPage</type>
+</FlexiPage>

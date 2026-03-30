@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tipo_de_Evento__c</fullName>
+    <label>Tipo de Evento</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Accidente</fullName>
+                <default>false</default>
+                <label>Accidente</label>
+            </value>
+            <value>
+                <fullName>Enfermedad</fullName>
+                <default>false</default>
+                <label>Enfermedad</label>
+            </value>
+            <value>
+                <fullName>Maternidad</fullName>
+                <default>false</default>
+                <label>Maternidad</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

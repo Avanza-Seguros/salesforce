@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>63.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <environments>Default</environments>
+    <formulas>
+        <name>FechaHoy</name>
+        <dataType>Date</dataType>
+        <expression>NOW()</expression>
+    </formulas>
+    <interviewLabel>Actualizar canceladas| {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Actualizar canceladas</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>actualizar_canceladas</name>
+        <label>actualizar canceladas</label>
+        <locationX>176</locationX>
+        <locationY>252</locationY>
+        <filterLogic>1 and( 2 OR 3 OR 4)</filterLogic>
+        <filters>
+            <field>Fecha_de_de_Vencimiento__c</field>
+            <operator>GreaterThanOrEqualTo</operator>
+            <value>
+                <elementReference>FechaHoy</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>Estatus_del_Pago__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Pendiente</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>Estatus_del_Pago__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>POR VENCER</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>Estatus_del_Pago__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>En proceso de cobro</stringValue>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>Estatus_del_Pago__c</field>
+            <value>
+                <stringValue>Cancelada</stringValue>
+            </value>
+        </inputAssignments>
+        <object>Pago_poliza__c</object>
+    </recordUpdates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>actualizar_canceladas</targetReference>
+        </connector>
+        <object>Pago_poliza__c</object>
+        <schedule>
+            <frequency>Daily</frequency>
+            <startDate>2025-03-03</startDate>
+            <startTime>10:30:00.000Z</startTime>
+        </schedule>
+        <triggerType>Scheduled</triggerType>
+    </start>
+    <status>Draft</status>
+</Flow>

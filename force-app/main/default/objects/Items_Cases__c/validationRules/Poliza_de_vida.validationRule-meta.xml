@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Poliza_de_vida</fullName>
+    <active>false</active>
+    <errorConditionFormula>ISPICKVAL(Poliza__r.Ramo__c, &quot;Gastos medicos&quot;)  &amp;&amp;  (NOT(ISBLANK( Nombre_Beneficiario_1__c))  ||  NOT(ISBLANK( Nombre_Beneficiario_2__c)) || NOT(ISBLANK( Nombre_Beneficiario_3__c)) || NOT(ISBLANK(  AM_Beneficiario_1__c ))|| NOT(ISBLANK(AM_Beneficiario_2__c))|| NOT(ISBLANK(AM_Beneficiario_3__c)) || NOT(ISBLANK(AP_Beneficiario_1__c))|| NOT(ISBLANK(AP_Beneficiario_2__c))|| NOT(ISBLANK(AP_Beneficiario_3__c)) || NOT(ISPICKVAL( Parentesco_Beneficiario_1__c,&quot;&quot;)) || NOT(ISPICKVAL( Parentesco_Beneficiario_2__c,&quot;&quot;)) || NOT(ISPICKVAL( Parentesco_Beneficiario_3__c,&quot;&quot;))  )</errorConditionFormula>
+    <errorMessage>Solo las pólizas de vida pueden contener beneficiarios</errorMessage>
+</ValidationRule>

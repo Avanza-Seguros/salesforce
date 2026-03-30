@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Control_de_Folios</fullName>
+    <columns>NAME</columns>
+    <columns>Folio__c</columns>
+    <columns>Asegurado_afectado__c</columns>
+    <columns>Movimiento__c</columns>
+    <columns>Tipo_de_Evento__c</columns>
+    <columns>Siniestro__c</columns>
+    <columns>Diagnostico__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Fecha__c</columns>
+    <columns>Certificado__c</columns>
+    <columns>Poliza__c</columns>
+    <columns>Tipo__c</columns>
+    <columns>Ejecutivo__c</columns>
+    <columns>RECORDTYPE</columns>
+    <filterScope>Mine</filterScope>
+    <label>Control de Folios</label>
+    <sharedTo>
+        <portalRole>AgentesAvanzaSocioUsuario</portalRole>
+    </sharedTo>
+</ListView>

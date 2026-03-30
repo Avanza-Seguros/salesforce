@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TIpo_de_Permiso__c</fullName>
+    <label>TIpo de Permiso</label>
+    <required>true</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Vacaciones</fullName>
+                <default>false</default>
+                <label>Vacaciones</label>
+            </value>
+            <value>
+                <fullName>Ausentismo por salud</fullName>
+                <default>false</default>
+                <label>Ausentismo por salud</label>
+            </value>
+            <value>
+                <fullName>Permiso especial</fullName>
+                <default>false</default>
+                <label>Permiso especial</label>
+            </value>
+            <value>
+                <fullName>Ausentarse por Horas</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Ausentarse por Horas</label>
+            </value>
+            <value>
+                <fullName>Ausentismo</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Ausentismo</label>
+            </value>
+            <value>
+                <fullName>Entrada Tarde</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Entrada Tarde</label>
+            </value>
+            <value>
+                <fullName>Salida Temprano</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Salida Temprano</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

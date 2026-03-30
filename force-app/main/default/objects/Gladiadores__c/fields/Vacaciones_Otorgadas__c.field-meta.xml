@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Vacaciones_Otorgadas__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(A_os_Laborados__c = 1, 12,
+    IF(A_os_Laborados__c = 2, 14,
+        IF(A_os_Laborados__c = 3, 16,
+            IF(A_os_Laborados__c = 4, 18,
+                IF(A_os_Laborados__c = 5, 20,
+                    IF(AND(A_os_Laborados__c &gt;= 6, A_os_Laborados__c &lt;= 10), 22,
+                        IF(AND(A_os_Laborados__c &gt;= 11, A_os_Laborados__c &lt;= 15), 24,
+                            IF(AND(A_os_Laborados__c &gt;= 16, A_os_Laborados__c &lt;= 20), 26,
+                                IF(AND(A_os_Laborados__c &gt;= 21, A_os_Laborados__c &lt;= 25), 28,
+                                    IF(AND(A_os_Laborados__c &gt;= 26, A_os_Laborados__c &lt;= 30), 30,
+                                        IF(AND(A_os_Laborados__c &gt;= 31, A_os_Laborados__c &lt;= 36), 32, 0)
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Vacaciones Otorgadas</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

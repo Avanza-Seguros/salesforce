@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Formula_Renovacion__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+   AND(
+      MONTH(Poliza__r.Fecha_de_Emision__c) = MONTH(Fecha_de_de_Vencimiento__c),
+      YEAR(Fecha_de_de_Vencimiento__c) = YEAR(Poliza__r.Fecha_de_Emision__c) + 1
+   ),
+   &quot;Renovación&quot;,
+   &quot;&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Formula Renovacion</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

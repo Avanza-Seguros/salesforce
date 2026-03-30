@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>GMM</fullName>
+    <columns>NAME</columns>
+    <columns>Indicador_Fecha_de_Acuse__c</columns>
+    <columns>Folio__c</columns>
+    <columns>Asegurado_afectado__c</columns>
+    <columns>Movimiento__c</columns>
+    <columns>Tipo_de_Evento__c</columns>
+    <columns>Siniestro__c</columns>
+    <columns>Diagnostico__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Estatus_previo__c</columns>
+    <columns>Fecha__c</columns>
+    <columns>Fecha_de_Acuse__c</columns>
+    <columns>Certificado__c</columns>
+    <columns>Poliza__c</columns>
+    <columns>Tipo__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>RECORDTYPE</field>
+        <operation>equals</operation>
+        <value>Control_de_Folios__c.Siniestros</value>
+    </filters>
+    <label>GMM</label>
+    <sharedTo>
+        <role>Personal_Avanza</role>
+    </sharedTo>
+</ListView>

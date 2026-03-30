@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RC_Profecional</fullName>
+    <active>true</active>
+    <label>RC Profecional</label>
+    <picklistValues>
+        <picklist>Estatus__c</picklist>
+        <values>
+            <fullName>En proceso</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Solicitado</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Terminado</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Industrias_Giros__c</picklist>
+        <values>
+            <fullName>Comercio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Comercio al por Mayor</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Comercio al por Menor</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Construcción</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Estacionamientos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hoteleria</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Industria</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Industria de Semillas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Restaurantes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Servicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Servicio para%C2%A0las%C2%A0personas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Servicios personales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Taller Automotriz</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Profeciones__c</picklist>
+        <values>
+            <fullName>Agentes de Seguros y%2Fo de Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ingenieros y%2Fo Arquitectos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Otras%C2%A0profesiones</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesionistas de la Salud y Veterinarios</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Sexo__c</picklist>
+        <values>
+            <fullName>Hembra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Macho</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo_de_Cotizacion__c</picklist>
+        <values>
+            <fullName>Auto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gatos Medicos Mayores</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mascota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Negocio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RC Profecional</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

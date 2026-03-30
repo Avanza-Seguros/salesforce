@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>fecha_de_peticion2</fullName>
+    <active>true</active>
+    <errorConditionFormula>ISBLANK(Fecha_de_peticion__c)</errorConditionFormula>
+    <errorMessage>Debes ingresar una Fecha de Petición antes de guardar el registro</errorMessage>
+</ValidationRule>

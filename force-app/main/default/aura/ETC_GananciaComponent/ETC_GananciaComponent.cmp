@@ -1,0 +1,51 @@
+<!--
+  @description       : 
+  @author            : MRHE
+  @group             : 
+  @last modified on  : 05-19-2023
+  @last modified by  : MRHE
+-->
+<aura:component implements="forceCommunity:availableForAllPageTypes" access="global" description="" controller="ETC_GananciaController">
+
+    <aura:attribute name="comisionActual" type="Decimal" default="0.00"  />
+    <aura:attribute name="comisionAnterior" type="Decimal" default="0.00"  />
+
+    <aura:attribute name="recordId" type="String"/>
+
+    <aura:handler name="init" value="{!this}" action="{!c.onInitHandler}" />
+
+	<aura:attribute name="isLoading" type="Boolean" access="global" default="true" />
+
+	<div class="slds-box slds-theme_default slds-is-relative fill">
+		<aura:if isTrue="{!v.isLoading}">
+			<div class="backgroundInverse">
+				<lightning:spinner alternativeText="Loading" variant="inverse" />
+			</div>
+		</aura:if>
+	
+	<div class="slds-grid slds-wrap">
+        {!v.recordId}
+		<div class="slds-col slds-size_3-of-12">
+		</div>
+		<div class="slds-col slds-size_6-of-12">
+			<h1 class="slds-align_absolute-center">
+				<b>
+					Resumen Comisión:
+				</b>
+			</h1>
+			<h2 class="slds-align_absolute-center">
+				<b>Comision Anterior:&nbsp;</b> <lightning:formattedNumber value="{!v.comisionAnterior}" style="currency"/>
+				
+			</h2>
+			<br />
+			<h2 class="slds-align_absolute-center">
+				<b>Comision Actual:&nbsp;</b>
+				<lightning:formattedNumber value="{!v.comisionActual}" style="currency"/>
+			</h2>
+			<br />
+		</div>
+		<div class="slds-col slds-size_3-of-12">
+		</div>
+	</div>
+</div>
+</aura:component>

@@ -1,0 +1,46 @@
+<template>
+    <template if:true={showModal}>
+        <div class="modal-overlay" onclick={handleOverlayClick}>
+            <div class="modal-container" role="dialog" aria-modal="true" onclick={handleDialogClick}>
+                <div class="modal-header">
+                    <h2>{titulo}</h2>
+                    <lightning-button-icon 
+                        icon-name="utility:close"
+                        alternative-text="Cerrar"
+                        onclick={handleCancel}>
+                    </lightning-button-icon>
+                </div>
+                
+                <div class="modal-content">
+                    <div class="slds-align_absolute-center">
+                        <lightning-icon 
+                            icon-name="utility:warning"
+                            size="large"
+                            class="slds-icon-text-warning slds-margin-bottom_medium">
+                        </lightning-icon>
+                        <p class="slds-text-heading_medium slds-text-align_center">{mensaje}</p>
+                        
+                        <template if:true={confirmData.pagoIds}>
+                            <p class="slds-text-color_weak slds-margin-top_small">
+                                Pagos afectados: {confirmData.pagoIds.length}
+                            </p>
+                        </template>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <lightning-button 
+                        label="Cancelar"
+                        variant="neutral"
+                        onclick={handleCancel}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="Confirmar"
+                        variant="brand"
+                        onclick={handleConfirm}>
+                    </lightning-button>
+                </div>
+            </div>
+        </div>
+    </template>
+</template>

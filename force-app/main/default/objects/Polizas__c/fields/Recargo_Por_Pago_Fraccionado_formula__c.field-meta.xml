@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Recargo_Por_Pago_Fraccionado_formula__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(AND(ISPICKVAL(Ramo__c, &apos;Gastos Medicos&apos;), ISPICKVAL(Aseguradora__c, &apos;SMNYL&apos;), ISPICKVAL(Tipo_de_poliza__c, &apos;Individual&apos;)), 
+    (Total_Prima__c + Derecho_de_p_liza__c) * Recargo_por_Pago_Fraccionado__c, 
+    IF(Tradicional__c, 
+        0, 
+        Recargo_por_Pago_Fraccionado__c * Total_Prima__c
+    )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Recargo Por Pago Fraccionado</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

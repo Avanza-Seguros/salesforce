@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <defaultLandingTab>standard-home</defaultLandingTab>
+    <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
+    <isNavPersonalizationDisabled>false</isNavPersonalizationDisabled>
+    <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
+    <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
+    <tabs>standard-Chatter</tabs>
+    <tabs>standard-Workspace</tabs>
+    <tabs>standard-ContentSearch</tabs>
+    <tabs>standard-ContentSubscriptions</tabs>
+    <tabs>Marketing__c</tabs>
+    <tabs>Comisiones_SMYL__c</tabs>
+    <tabs>RegistroDiarioUDI__c</tabs>
+    <tabs>Inventario__c</tabs>
+    <tabs>RegistroDiarioDLL__c</tabs>
+    <tabs>Aseguradora__c</tabs>
+    <tabs>Ramo__c</tabs>
+    <tabs>Cumplea_os__c</tabs>
+    <tabs>et4ae5__Configuration__c</tabs>
+    <tabs>Gladiadores__c</tabs>
+    <tabs>Solicitudes_de_Vacaciones__c</tabs>
+    <tabs>Asigacion_de_plantilla__c</tabs>
+    <tabs>Automovil__c</tabs>
+    <tabs>Beneficios__c</tabs>
+    <tabs>Vigencia__c</tabs>
+    <tabs>Movimientos_de_VIgencia__c</tabs>
+    <tabs>Cotizaciones__c</tabs>
+    <tabs>Peticiones_De_Mantenimiento__c</tabs>
+    <tabs>Actuaria__c</tabs>
+    <tabs>Relacion_Poliza__c</tabs>
+</CustomApplication>

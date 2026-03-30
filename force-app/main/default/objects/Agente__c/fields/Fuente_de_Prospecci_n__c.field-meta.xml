@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fuente_de_Prospecci_n__c</fullName>
+    <label>Fuente de Prospección</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>RDA Agentes</fullName>
+                <default>false</default>
+                <label>RDA Agentes</label>
+            </value>
+            <value>
+                <fullName>Redes</fullName>
+                <default>false</default>
+                <label>Redes</label>
+            </value>
+            <value>
+                <fullName>RDA Staff</fullName>
+                <default>false</default>
+                <label>RDA Staff</label>
+            </value>
+            <value>
+                <fullName>Natural</fullName>
+                <default>false</default>
+                <label>Natural</label>
+            </value>
+            <value>
+                <fullName>Centro Influencia</fullName>
+                <default>false</default>
+                <label>Centro Influencia</label>
+            </value>
+            <value>
+                <fullName>Página Web</fullName>
+                <default>false</default>
+                <label>Página web</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

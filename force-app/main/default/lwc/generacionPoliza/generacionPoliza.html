@@ -1,0 +1,90 @@
+<template>
+    <lightning-card title="Generar Relaciones de Póliza" icon-name="custom:custom18">
+        <div class="slds-p-around_medium">
+            
+            <!-- Campo para ingresar IDs de pólizas -->
+            <div class="slds-form-element">
+                <label class="slds-form-element__label" for="polizaIds">
+                    IDs de Pólizas (separados por coma)
+                </label>
+                <div class="slds-form-element__control">
+                    <textarea
+                        id="polizaIds"
+                        class="slds-textarea"
+                        placeholder="Ej: a0B3h00000A1B2C3, a0B3h00000D4E5F6G"
+                        value={polizaIds}
+                        onchange={handlePolizaIdsChange}>
+                    </textarea>
+                </div>
+                <div class="slds-form-element__help">
+                    Ingresa los IDs de las pólizas separados por comas
+                </div>
+            </div>
+
+            <!-- Botón para generar relaciones -->
+            <div class="slds-m-top_medium">
+                <lightning-button
+                    label="Generar Relaciones"
+                    variant="brand"
+                    onclick={handleGenerarRelaciones}
+                    disabled={relacionesColumns}>
+                </lightning-button>
+            </div>
+
+            <!-- Spinner de carga -->
+            <template if:true={isLoading}>
+                <div class="slds-m-top_medium">
+                    <lightning-spinner alternative-text="Generando relaciones...">
+                    </lightning-spinner>
+                    <span class="slds-m-left_small">Procesando pólizas...</span>
+                </div>
+            </template>
+
+            <!-- Mostrar resultado exitoso -->
+            <template if:true={resultado}>
+                <div class="slds-m-top_medium slds-theme_success slds-p-around_small">
+                    <lightning-icon icon-name="utility:success" size="small"></lightning-icon>
+                    <strong> {resultado}</strong>
+                </div>
+            </template>
+
+            <!-- Mostrar error -->
+            <template if:true={error}>
+                <div class="slds-m-top_medium slds-theme_error slds-p-around_small">
+                    <lightning-icon icon-name="utility:error" size="small"></lightning-icon>
+                    <strong> Error: {error.body.message}</strong>
+                </div>
+            </template>
+
+            <!-- Mostrar lista de relaciones creadas -->
+            <template if:true={hasRelacionesCreadas}>
+                <div class="slds-m-top_large">
+                    <h3 class="slds-section-title--divider">Relaciones Creadas</h3>
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                        <thead>
+                            <tr class="slds-text-title_caps">
+                                <th scope="col">ID</th>
+                                <th scope="col">Póliza</th>
+                                <th scope="col">Asegurado</th>
+                                <th scope="col">Pago</th>
+                                <th scope="col">Histórico</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={relacionesCreadas} for:item="relacion">
+                                <tr key={relacion.Id}>
+                                    <td>{relacion.Id}</td>
+                                    <td>{relacion.Poliza__c}</td>
+                                    <td>{relacion.Asegurado__c}</td>
+                                    <td>{relacion.Pago__c}</td>
+                                    <td>{relacion.Historico__c}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+
+        </div>
+    </lightning-card>
+</template>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Motivos_De_Ausencia__c</fullName>
+    <label>Motivos De Ausencia</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Vacuna</fullName>
+                <default>false</default>
+                <label>Vacuna</label>
+            </value>
+            <value>
+                <fullName>Estudios Médicos</fullName>
+                <default>false</default>
+                <label>Estudios Médicos</label>
+            </value>
+            <value>
+                <fullName>Renovación licencia/Ine/Pasaporte/ Visa</fullName>
+                <default>false</default>
+                <label>Renovación licencia/Ine/Pasaporte/ Visa</label>
+            </value>
+            <value>
+                <fullName>Trámites SAT</fullName>
+                <default>false</default>
+                <label>Trámites SAT</label>
+            </value>
+            <value>
+                <fullName>Trámites legales personales</fullName>
+                <default>false</default>
+                <label>Trámites legales personales</label>
+            </value>
+            <value>
+                <fullName>Actividades escolares</fullName>
+                <default>false</default>
+                <label>Actividades escolares</label>
+            </value>
+            <value>
+                <fullName>Otro</fullName>
+                <default>false</default>
+                <label>Otro</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

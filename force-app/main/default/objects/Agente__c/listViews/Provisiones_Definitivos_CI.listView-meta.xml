@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Provisiones_Definitivos_CI</fullName>
+    <columns>Id_del_Agente__c</columns>
+    <columns>NAME</columns>
+    <columns>Status__c</columns>
+    <columns>Telefono__c</columns>
+    <columns>Email__c</columns>
+    <columns>Fecha_de_contrato_provisional__c</columns>
+    <columns>Cumplea_os__c</columns>
+    <columns>Banco__c</columns>
+    <columns>Cuenta_bancaria__c</columns>
+    <columns>Regimen_fiscal__c</columns>
+    <columns>Indicador_vigencia_de_poliza_RC__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status__c</field>
+        <operation>equals</operation>
+        <value>Provisional,Centro de Influencia,Definitivo</value>
+    </filters>
+    <label>Provisionales+ Definitivos +CI</label>
+</ListView>

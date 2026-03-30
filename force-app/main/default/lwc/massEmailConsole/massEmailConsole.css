@@ -1,0 +1,43 @@
+.metric {
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+.badge-warning {
+    background-color: #ffb75d;
+    color: #000;
+}
+
+.badge-success {
+    background-color: #4bca81;
+    color: #000;
+}
+
+.selected-cases-container {
+    border: 1px solid #dddbda;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.selected-case {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #f3f2f2;
+}
+
+.selected-case:last-child {
+    border-bottom: none;
+}
+
+.status-success {
+    color: #4bca81;
+    font-weight: bold;
+}
+
+.status-error {
+    color: #c23934;
+    font-weight: bold;
+}

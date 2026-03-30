@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Establecer_hora__c</fullName>
+    <label>Establecer hora</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <controllingField>Motivo_Inexcusable__c</controllingField>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>9:00 am</fullName>
+                <default>false</default>
+                <label>9:00 am</label>
+            </value>
+            <value>
+                <fullName>9:30 am</fullName>
+                <default>false</default>
+                <label>9:30 am</label>
+            </value>
+            <value>
+                <fullName>10:00 am</fullName>
+                <default>false</default>
+                <label>10:00 am</label>
+            </value>
+            <value>
+                <fullName>10:30 am</fullName>
+                <default>false</default>
+                <label>10:30 am</label>
+            </value>
+            <value>
+                <fullName>11:00 am</fullName>
+                <default>false</default>
+                <label>11:00 am</label>
+            </value>
+            <value>
+                <fullName>11:30 am</fullName>
+                <default>false</default>
+                <label>11:30 am</label>
+            </value>
+            <value>
+                <fullName>12:00 pm</fullName>
+                <default>false</default>
+                <label>12:00 pm</label>
+            </value>
+            <value>
+                <fullName>12:30 pm</fullName>
+                <default>false</default>
+                <label>12:30 pm</label>
+            </value>
+            <value>
+                <fullName>01:00 pm</fullName>
+                <default>false</default>
+                <label>01:00 pm</label>
+            </value>
+            <value>
+                <fullName>01:30 pm</fullName>
+                <default>false</default>
+                <label>01:30 pm</label>
+            </value>
+            <value>
+                <fullName>02:00 pm</fullName>
+                <default>false</default>
+                <label>02:00 pm</label>
+            </value>
+            <value>
+                <fullName>02:30 pm</fullName>
+                <default>false</default>
+                <label>02:30 pm</label>
+            </value>
+            <value>
+                <fullName>03:00 pm</fullName>
+                <default>false</default>
+                <label>03:00 pm</label>
+            </value>
+            <value>
+                <fullName>03:30 pm</fullName>
+                <default>false</default>
+                <label>03:30 pm</label>
+            </value>
+            <value>
+                <fullName>04:00 pm</fullName>
+                <default>false</default>
+                <label>04:00 pm</label>
+            </value>
+            <value>
+                <fullName>04:30 pm</fullName>
+                <default>false</default>
+                <label>04:30 pm</label>
+            </value>
+            <value>
+                <fullName>05:00 pm</fullName>
+                <default>false</default>
+                <label>05:00 pm</label>
+            </value>
+            <value>
+                <fullName>09:00 am</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>09:00 am</label>
+            </value>
+            <value>
+                <fullName>09:30 am</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>09:30 am</label>
+            </value>
+        </valueSetDefinition>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>9:00 am</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>9:30 am</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>10:00 am</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>10:30 am</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>11:00 am</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>11:30 am</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>12:00 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>12:30 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>01:00 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>01:30 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>02:00 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>02:30 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>03:00 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>03:30 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>04:00 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>04:30 pm</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Salida Temprano</controllingFieldValue>
+            <controllingFieldValue>Entrada Tarde</controllingFieldValue>
+            <valueName>05:00 pm</valueName>
+        </valueSettings>
+    </valueSet>
+</CustomField>

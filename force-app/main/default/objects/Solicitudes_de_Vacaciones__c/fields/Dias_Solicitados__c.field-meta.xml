@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Dias_Solicitados__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    NOT(ISBLANK(Dias_Desde__c)) &amp;&amp; NOT(ISBLANK(Dias_Hasta__c)),
+    VALUE(TEXT(Dias_Hasta__c - Dias_Desde__c)),
+    0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Dias Solicitados</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

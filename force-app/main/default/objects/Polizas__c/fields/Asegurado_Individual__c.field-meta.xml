@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Asegurado_Individual__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Asegurado</label>
+    <lookupFilter>
+        <active>false</active>
+        <filterItems>
+            <field>Account.Type</field>
+            <operation>equals</operation>
+            <value>Individual</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Account</referenceTo>
+    <relationshipLabel>Polizas individuales</relationshipLabel>
+    <relationshipName>Polizas</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

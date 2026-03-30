@@ -1,0 +1,153 @@
+<template>
+    <div class="modal-overlay" onclick={handleOverlayClick}>
+        <lightning-modal-body class="modal-body">
+            <!-- Información Principal de la Póliza -->
+            <div class="seccion slds-m-bottom_medium">
+                <div class="slds-text-heading_small slds-m-bottom_small">Información de la Póliza</div>
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <div class="slds-col slds-size_1-of-2">
+                        <div class="info-item">
+                            <span class="info-label">Número de Póliza:</span>
+                                <span class="info-value">{poliza.Name}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Asegurado:</span>
+                                <span class="info-value">{poliza.Asegurado__r.Name}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Aseguradora:</span>
+                                <span class="info-value">{poliza.Aseguradora__c}</span>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2">
+                        <div class="info-item">
+                            <span class="info-label">Frecuencia de Pago:</span>
+                                <span class="info-value">{poliza.Forma_de_pago__c}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Estatus:</span>
+                                <span class="info-value {poliza.Estatus__c?.toLowerCase()}">{poliza.Estatus__c}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Agente:</span>
+                                <span class="info-value">{poliza.Agente__c}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de Cobranza -->
+            <div class="seccion slds-m-bottom_medium">
+                <div class="slds-text-heading_small slds-m-bottom_small">Información de Cobranza</div>
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <div class="slds-col slds-size_1-of-3">
+                        <div class="metric-card"> 
+                            <div class="metric-label">Ultimo Pago</div>
+                                <div class="metric-value">{proximoPago}</div>
+                                <div class="metric-date">{fechaProximoPago}</div>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Prima Anual</div>
+                                <div class="metric-value">{poliza.Prima_Anual__c}</div>
+                            <div class="metric-subtext">Total del año</div>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Días de Vencimiento</div>
+                                <div class="metric-value {diasVencimientoClass}">
+                                    {diasVencimientoHoy}
+                                </div>
+                            <div class="metric-subtext">días</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historial de Pagos -->
+            <div class="seccion">
+                <div class="seccion-header">
+                    <div class="slds-text-heading_small">Historial de Pagos</div>
+                    <lightning-button label="Nuevo Pago" variant="brand" onclick={handleNuevoPago}></lightning-button>
+                </div>
+                
+                <div class="pagos-table-container">
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                        <thead>
+                            <tr class="slds-text-title_caps">
+                                <th scope="col">Fecha Vencimiento</th>
+                                <th scope="col">Fecha Pago</th>
+                                <th scope="col">Monto</th>
+                                <th scope="col">Estatus</th>
+                                <th scope="col">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={pagos} for:item="pago">
+                                <tr key={pago.Id} class="pago-row">
+                                        <td>{pago.Fecha_de_de_Vencimiento__c}</td>
+                                        <td>{pago.Fecha_de_Aplicaci_n_del_pago__c}</td>
+                                        <td class="monto-cell">{pago.Pago_en_MXN__c}</td>
+                                    <td>
+                                        <span class="estado-badge {pago.Estatus_pago__c?.toLowerCase()}">
+                                                {pago.Estatus_pago__c}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <lightning-button-icon 
+                                            icon-name="utility:edit" 
+                                            alternative-text="Editar" 
+                                            onclick={handleEditarPago}
+                                            data-pago-id={pago.Id}>
+                                        </lightning-button-icon>
+                                        <lightning-button-icon 
+                                            icon-name="utility:delete" 
+                                            alternative-text="Eliminar" 
+                                            variant="destructive"
+                                            onclick={handleEliminarPago}
+                                            data-pago-id={pago.Id}>
+                                        </lightning-button-icon>
+                                    </td>
+                                </tr>
+                            </template>
+                            <template if:true={noTienePagos}>
+                                <tr>
+                                    <td colspan="5" class="slds-text-align_center">
+                                        No hay pagos registrados para esta póliza
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Información de Vigencia -->
+            <div class="seccion slds-m-top_medium">
+                <div class="slds-text-heading_small slds-m-bottom_small">Periodo de Vigencia</div>
+                <div class="vigencia-container">
+                    <div class="timeline">
+                        <div class="timeline-item inicio">
+                                <div class="timeline-date">{poliza.Vigencia_desde__c}</div>
+                            <div class="timeline-label">Inicio de Vigencia</div>
+                        </div>
+                        <div class="timeline-item hoy">
+                            <div class="timeline-date">{hoy}</div>
+                            <div class="timeline-label">Hoy</div>
+                        </div>
+                        <div class="timeline-item fin">
+                                <div class="timeline-date">{poliza.Vigencia_hasta__c}</div>
+                            <div class="timeline-label">Fin de Vigencia</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </lightning-modal-body>
+        
+        <lightning-modal-footer>
+            <lightning-button label="Cerrar" onclick={handleClose}></lightning-button>
+        </lightning-modal-footer>
+    </div>
+</template>

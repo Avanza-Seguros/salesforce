@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workflow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <alerts>
+        <fullName>Disosa</fullName>
+        <description>Disosa</description>
+        <protected>false</protected>
+        <recipients>
+            <field>Correo_electronico__c</field>
+            <type>email</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>Empresas/Disosa_Final</template>
+    </alerts>
+    <alerts>
+        <fullName>Disosa_Final</fullName>
+        <description>Disosa Final</description>
+        <protected>false</protected>
+        <recipients>
+            <field>Correo_electronico__c</field>
+            <type>email</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>Empresas/General_Estandar_Disosa</template>
+    </alerts>
+    <alerts>
+        <fullName>General_Optima</fullName>
+        <description>General Optima</description>
+        <protected>false</protected>
+        <recipients>
+            <field>Correo_electronico__c</field>
+            <type>email</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>Empresas/General_Optima_dental</template>
+    </alerts>
+    <alerts>
+        <fullName>Luxoft</fullName>
+        <description>Luxoft</description>
+        <protected>false</protected>
+        <recipients>
+            <field>Correo_electronico__c</field>
+            <type>email</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>Empresas/Luxoft_Altas</template>
+    </alerts>
+    <alerts>
+        <fullName>Movimiento_cerrado</fullName>
+        <description>Movimiento cerrado</description>
+        <protected>false</protected>
+        <recipients>
+            <type>creator</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>unfiled$public/Movimiento_concluido</template>
+    </alerts>
+    <alerts>
+        <fullName>Peticion_aceptada</fullName>
+        <description>Petición aceptada</description>
+        <protected>false</protected>
+        <recipients>
+            <type>creator</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>unfiled$public/peticion_aceptada</template>
+    </alerts>
+    <alerts>
+        <fullName>Peticion_concluida</fullName>
+        <description>Petición concluida</description>
+        <protected>false</protected>
+        <recipients>
+            <type>creator</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>unfiled$public/peticion_completada</template>
+    </alerts>
+    <alerts>
+        <fullName>Peticion_rechazada</fullName>
+        <description>Petición rechazada</description>
+        <protected>false</protected>
+        <recipients>
+            <type>creator</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>unfiled$public/peticion_rechazada</template>
+    </alerts>
+</Workflow>

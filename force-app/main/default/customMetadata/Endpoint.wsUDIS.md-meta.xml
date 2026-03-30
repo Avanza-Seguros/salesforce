@@ -1,0 +1,536 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>wsUDIS</label>
+    <protected>false</protected>
+    <values>
+        <field>Endpoint__c</field>
+        <value xsi:type="xsd:string">https://www.banxico.org.mx</value>
+    </values>
+    <values>
+        <field>Method__c</field>
+        <value xsi:type="xsd:string">GET</value>
+    </values>
+    <values>
+        <field>Relative_Endpoint__c</field>
+        <value xsi:type="xsd:string">/SieAPIRest/service/v1/series/SP68257/datos</value>
+    </values>
+    <values>
+        <field>Request__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Response__c</field>
+        <value xsi:type="xsd:string">{
+    &quot;bmx&quot;: {
+        &quot;series&quot;: [
+            {
+                &quot;idSerie&quot;: &quot;SP68257&quot;,
+                &quot;titulo&quot;: &quot;Valor de UDIS&quot;,
+                &quot;datos&quot;: [
+                    {
+                        &quot;fecha&quot;: &quot;01/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.648664&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;02/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.650525&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;03/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.652386&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.654247&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;05/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.656109&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;06/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.657971&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;07/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.659834&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;08/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.661698&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;09/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.663561&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;10/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.665425&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;11/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.665918&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;12/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.666411&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;13/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.666904&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;14/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.667397&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;15/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.667891&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;16/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.668384&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;17/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.668877&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;18/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.669370&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;19/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.669863&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;20/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.670356&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;21/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.670850&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;22/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.671343&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;23/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.671836&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;24/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.672330&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;25/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.672823&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;26/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.675005&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;27/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.677188&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;28/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.679371&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;29/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.681555&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;30/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.683739&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;31/01/2023&quot;,
+                        &quot;dato&quot;: &quot;7.685924&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;01/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.688110&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;02/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.690297&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;03/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.692484&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.694671&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;05/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.696859&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;06/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.699048&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;07/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.701238&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;08/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.703428&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;09/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.705619&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;10/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.707810&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;11/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.709586&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;12/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.711362&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;13/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.713139&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;14/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.714916&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;15/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.716693&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;16/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.718471&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;17/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.720249&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;18/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.722028&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;19/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.723807&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;20/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.725586&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;21/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.727366&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;22/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.729147&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;23/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.730927&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;24/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.732708&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;25/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.734490&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;26/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.736288&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;27/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.738086&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;28/02/2023&quot;,
+                        &quot;dato&quot;: &quot;7.739885&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;01/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.741684&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;02/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.743484&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;03/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.745284&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.747084&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;05/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.748885&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;06/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.750686&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;07/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.752488&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;08/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.754290&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;09/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.756092&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;10/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.757895&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;11/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.758740&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;12/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.759584&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;13/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.760428&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;14/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.761273&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;15/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.762117&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;16/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.762962&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;17/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.763807&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;18/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.764652&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;19/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.765497&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;20/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.766342&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;21/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.767187&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;22/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.768032&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;23/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.768877&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;24/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.769723&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;25/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.770568&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;26/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.771288&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;27/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.772007&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;28/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.772727&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;29/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.773447&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;30/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.774167&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;31/03/2023&quot;,
+                        &quot;dato&quot;: &quot;7.774887&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;01/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.775607&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;02/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.776327&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;03/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.777047&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.777767&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;05/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.778487&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;06/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.779207&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;07/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.779928&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;08/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.780648&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;09/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.781369&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;10/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.782089&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;11/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.782477&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;12/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.782865&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;13/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.783253&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;14/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.783641&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;15/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.784029&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;16/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.784417&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;17/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.784805&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;18/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.785193&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;19/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.785581&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;20/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.785969&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;21/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.786358&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;22/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.786746&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;23/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.787134&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;24/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.787522&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;25/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.787910&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;26/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.787069&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;27/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.786227&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;28/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.785386&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;29/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.784545&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;30/04/2023&quot;,
+                        &quot;dato&quot;: &quot;7.783704&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;01/05/2023&quot;,
+                        &quot;dato&quot;: &quot;7.782863&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;02/05/2023&quot;,
+                        &quot;dato&quot;: &quot;7.782022&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;03/05/2023&quot;,
+                        &quot;dato&quot;: &quot;7.781181&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/05/2023&quot;,
+                        &quot;dato&quot;: &quot;7.780340&quot;
+                    }
+                ]
+            }
+        ]
+    }
+}</value>
+    </values>
+    <values>
+        <field>Token__c</field>
+        <value xsi:type="xsd:string">b894a495e7e5a116403ba6278cc6cbb944df9ba141608630222700131658be48</value>
+    </values>
+</CustomMetadata>

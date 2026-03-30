@@ -1,0 +1,1855 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Colectivo</fullName>
+    <active>true</active>
+    <label>Colectivo</label>
+    <picklistValues>
+        <picklist>Agente__c</picklist>
+        <values>
+            <fullName>Abraham Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Adriana Franco</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ana Chavez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Arturo Viniegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Avanza Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carlos Buenrostro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Echegaray</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Plascencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Rea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diego Retano</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Olavarría</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elena Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elsi Casillas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Esmeralda Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fabiola Guadalupe%C2%A0López%C2%A0Aguilar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fernanda Navarro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gerardo Salazar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hilda Ibarra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Delgado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Magallon</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jesica Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jissell Castañeda</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Josuetl Sandoval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Pablo Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Santana</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Larissa Mendoza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lilia Ruiz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lily Vargas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Luis Felipe Gutierrez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Miriam Jazheel Pérez Vazquez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Misael Velarde</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rafael Perez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Raquel Sandoval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ricardo Urrea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ruth Magallón</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sergio Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Teresa Solís</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Victor Nava</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viridiana Rodriguez</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Aseguradora__c</picklist>
+        <values>
+            <fullName>AIG</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ATLAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AXA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Afirme</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Allianz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Aserta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Banorte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Berkley</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bupa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bx%2B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CHUBB</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dentegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GNP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HDI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INBURSA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Insignia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mapfre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Metlife</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Plan Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Prudential</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>QUALITAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SISNOVA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMNYL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Safelink Chubb</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sofimex</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sura</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Terrawin</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VRIM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Zurich</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Banco__c</picklist>
+        <values>
+            <fullName>AMERICAN EXPRESS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AZTECA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANAMEX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCO AZTECA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCO INVEX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCO NACIONAL DE MEXICO%2C S%2EA%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCOMER</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCOMER S%2EA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCOMER S%2EA%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCOPPEL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANJIO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANORTE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANREGIO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BBV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BBVA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BITAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Banco del Bajio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HSBC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INBURSA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INVERLAT</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IXE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Multiva</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>OTROS BANCOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SANTANDER</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SANTANDER MEXICANO S%2EA%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SERFIN</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Scotiabank Inverlat</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Beneficio_2__c</picklist>
+        <values>
+            <fullName>APOYO EN VIDA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Accidentes Colectivo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Flex A</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Flex B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Integro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Internacional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Pleno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BAIT SB</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BAM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BENEFICIO MUERTE ACCIDENTAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BENEFICIO MUERTE ACCIDENTAL 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BENEFICIO MUERTE ACCIDENTAL 2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BENEFICIO MUERTE ACCIDENTAL 3</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BENEFICIO MUERTE ACCIDENTAL 4</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BITAE 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BITAE 2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BITAE 3</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CERTIFICADO GARANTIA DE CONTRATACION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CL TEMPORAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CLAUSULA DE PROTECCION ABSOLUTA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Conexión</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>DERECHO DE CONVERSION DE BENEFICIO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>EXENCION PAGO DE PRIMAS POR INV 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>EXENCION PAGO DE PRIMAS POR INV 2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>EXENCION PAGO DE PRIMAS POR INV 3</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>EXENCION PAGO PRIMAS POR INVALIDEZ</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos Medicos Mayores</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IMAGINA SER %2B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IMAGINA SER 55</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IMAGINA SER 60</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IMAGINA SER 65</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IMAGINA SER 70</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>LEGADO MN</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>NUEVO PLENITUD</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ORVI 99 10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ORVI 99 15</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ORVI 99 20</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ORVI 99 6</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL  2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL  3</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL  4</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAGO ANTICIPADO POR INVALIDEZ TOTAL 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAGO PRIMAS  INVALIDEZ MUERTE1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAGO PRIMAS  INVALIDEZ MUERTE2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PROTECCION COMBINACION DE EMBARAZO Y PADECIMIENTOS FEMENINO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PROTECCION DE CANCER FEMENINO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>REALIZA CRECIENTE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SAIT SB</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SE ADAPTA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SEGUBECA 18 PRIMA CONSTANTE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SEGUBECA 18 PRIMA CRECIENTE 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SEGUBECA 18 PRIMA CRECIENTE 2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TEMPORAL 10 AÑOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VIDA MUJER</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VIDA MUJER AHORRO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida Grupo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Estado_civil__c</picklist>
+        <values>
+            <fullName>Casado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Separado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Soltero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Union libre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viudo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Estatus__c</picklist>
+        <values>
+            <fullName>Cancelada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No tomada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Renovada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Se cambio de agente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vencida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vigor</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Vigor Prorrogado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vigor sin Pago de Primas</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Forma_de_pago__c</picklist>
+        <values>
+            <fullName>Anual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mensual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Semestral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trimestral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Unica</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Mercado__c</picklist>
+        <values>
+            <fullName>Amistad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Asesores En Alianza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Campaña Mailing</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Familiar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Frio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Linkedin</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Natural</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Networking</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pláticas Empresariales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Redes Sociales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Referido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rifas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Servicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Siniestro Accidente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Siniestro Enfermedad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Siniestros</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Siniestros Maternidad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Traspaso</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Mes_de_Emision__c</picklist>
+        <values>
+            <fullName>Abril</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Agosto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diciembre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Enero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Febrero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Julio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Junio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Marzo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mayo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Noviembre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Octubre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Septiembre</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Modo_de_Pago__c</picklist>
+        <values>
+            <fullName>Agente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Directo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MSI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TDC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TDD</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transferencia</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Moneda__c</picklist>
+        <values>
+            <fullName>DLLS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pesos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMGM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>UDI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>UDIS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Umam</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Motivo_de_cancelaci_n__c</picklist>
+        <values>
+            <fullName>Error de captura</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Falta de fondos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Por solicitud de cliente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Venta de vehículos</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Numero_de_Pago__c</picklist>
+        <values>
+            <fullName>1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>12</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>4</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_2__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_3__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_4__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_5__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_6__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_7__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_8__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal_9__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Observacion_Dotal__c</picklist>
+        <values>
+            <fullName>Mixto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago Primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro De efectivo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Plan_Producto_Colectivo__c</picklist>
+        <values>
+            <fullName>Accidente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Colectividad autos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daños</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flotilla autos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos médicos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Responsabilidad Civil</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Plan_Producto__c</picklist>
+        <values>
+            <fullName>Accidentes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Accidentes Grupo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Flex A</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Flex B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Integro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Internacional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alfa Medical Pleno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Amplia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Automovil</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Autos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Avanzado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BLACK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Capitaliza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Conexión</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Conexión Médica</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Consolida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Contactado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daños</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daños Avyna</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dotal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dotal 10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dotal 20</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dotal 20 Udis</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ELITE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Educacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elige</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Escencial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Estándar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex A</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex Ambar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex Cuarzo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex Indigo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flex Plus</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flexible Óptimo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Flotilla</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos Medicos Menores</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gmm</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gmm Colectivo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Golden salud</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar Flexible Apex</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar Versatil</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hombre Clave</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Imagina Ser</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Imagina Ser %2B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Imagina Ser 55</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Imagina Ser 60</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Imagina Ser 65</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Imagina Ser 70</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Impulsa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Integral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Integro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Intermedio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Internacional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Legado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Maxima</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mi Doc Deducible</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mi Mascota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Multiple Familiar Civil</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nacional Vital</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Negocio Protegido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nuevo Plenitud</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nuevo Plenitud 55 15</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nuevo Plenitud 60</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Objetivo Vida S%2E A%2E F%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Optimo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ordinario</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 15</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 20</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 6</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 99 10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 99 10 Udis</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 99 15</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 99 20</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orvi 99 6</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PLANITO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PLUS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PROFECIONAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Planmed Hibrido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Planmed Optimo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Planprotege%C2%A0Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Platino</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Platino Universa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pleno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Practico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Premier 300 Omnia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Premier 300 Tempus</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Premium</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Privilegio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Privilegio Universal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesional Abuelos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Proyecta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Qsalud</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Qsalud Colectivo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Realiza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Realiza Creciente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Se Adapta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Segubeca</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Segubeca 18</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Segubeca 18 Udi</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Segubeca 18 Udi Prima Constante</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Seguro de Automóviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sl Alfa Medical Flex</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sl Integro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sl Practico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Temporal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Temporal 1 Renovable Star</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Temporal 10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Temporal 20</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trasciende</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Versatil</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida A Tus Sueños</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida Grupo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida Individual Vitalicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida Inversion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida Mujer</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida Mujer Ahorro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision Plus</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vital</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Prospectador__c</picklist>
+        <values>
+            <fullName>Abraham Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Adriana Franco</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Arturo Viniegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Avanza Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carlos Abraham Gonzalez Covaburribas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Rea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Denisse Castellanos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diego Retano</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Olavarría</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Rodriguez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elena Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elsi Casillas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Esmeralda Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gerardo Salazar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Delgado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Magallon</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jesica Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jissell Castañeda</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Josuetl Sandoval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Pablo Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Santana</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Larissa Mendoza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lilia Ruiz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lily Vargas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Luis Felipe Gutierrez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nestor Rolando Ruiz Gomez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rafael Perez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ricardo Urrea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rodrigo Ojeda</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sergio Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Teresa Solís</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Victor Nava</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viridiana Rodriguez</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Ramo__c</picklist>
+        <values>
+            <fullName>Accidentes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Administrativa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daño</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos medicos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Sexo__c</picklist>
+        <values>
+            <fullName>Femenino</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Masculino</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Subproducto__c</picklist>
+        <values>
+            <fullName>algo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo__c</picklist>
+        <values>
+            <fullName>Auto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dentegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos médicos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mascota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pyme</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sisnova</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transporte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VIDA</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo_de_Producto__c</picklist>
+        <values>
+            <fullName>Estandar%C2%A0</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Maxima</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Optima%C2%A0%C2%A0</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo_de_poliza__c</picklist>
+        <values>
+            <fullName>Colectivo</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+</RecordType>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Provisionales</fullName>
+    <columns>Id_del_Agente__c</columns>
+    <columns>NAME</columns>
+    <columns>Status__c</columns>
+    <columns>Fecha_de_contrato_provisional__c</columns>
+    <columns>Email__c</columns>
+    <columns>Prospectador_asignado__c</columns>
+    <columns>Reclutador__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status__c</field>
+        <operation>equals</operation>
+        <value>Provisional</value>
+    </filters>
+    <label>Provisionales</label>
+</ListView>

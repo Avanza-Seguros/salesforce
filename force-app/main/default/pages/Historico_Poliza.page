@@ -1,0 +1,161 @@
+<apex:page standardController="Polizas__c" extensions="PolizasExtension">
+   <style>
+      body {
+         font-family: Arial, sans-serif;
+         background-color: #f4f4f4;
+         margin: 0;
+         padding: 0;
+      }
+
+      .table-container {
+         max-width: 1200px;
+         margin: 20px auto;
+         padding: 20px;
+         background-color: #fff;
+         box-shadow: 0 0 10px rgba(0,0,0,0.1);
+         border-radius: 8px;
+         overflow-x: auto; /* Para asegurar que la tabla se despliegue correctamente en pantallas pequeñas */
+      }
+
+      .table-style {
+         width: 100%;
+         border-collapse: collapse;
+         margin: 20px 0;
+         font-size: 16px;
+         text-align: left;
+         min-width: 600px; /* Para evitar que la tabla se encoja demasiado */
+      }
+
+      .table-style thead tr {
+         background-color: #009879;
+         color: #ffffff;
+         text-align: left;
+         font-weight: bold;
+      }
+
+      .table-style th, .table-style td {
+         padding: 12px 15px;
+         border: 1px solid #ddd;
+      }
+
+      .table-style tbody tr {
+         border-bottom: 1px solid #dddddd;
+      }
+
+      .table-style tbody tr:nth-of-type(even) {
+         background-color: #f3f3f3;
+      }
+
+      .table-style tbody tr:last-of-type {
+         border-bottom: 2px solid #009879;
+      }
+
+      .no-data-text {
+         font-style: italic;
+         color: #888;
+         text-align: center;
+         padding: 20px;
+      }
+
+      .command-button {
+         display: block;
+         width: 100%;
+         padding: 10px;
+         background-color: #009879;
+         color: #ffffff;
+         border: none;
+         border-radius: 5px;
+         cursor: pointer;
+         font-size: 16px;
+         text-align: center;
+         text-decoration: none;
+         margin-top: 10px;
+      }
+
+      .command-button:hover {
+         background-color: #007a63;
+      }
+
+      @media (max-width: 768px) {
+         .table-style, .table-style thead, .table-style tbody, .table-style th, .table-style td, .table-style tr {
+            display: block;
+         }
+
+         .table-style thead tr {
+            display: none;
+         }
+
+         .table-style tr {
+            margin-bottom: 15px;
+         }
+
+         .table-style td {
+            text-align: right;
+            padding-left: 50%;
+            position: relative;
+         }
+
+         .table-style td::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 0;
+            width: 50%;
+            padding-left: 15px;
+            font-weight: bold;
+            text-align: left;
+         }
+      }
+   </style>
+   <script>
+      function refreshPage() {
+         location.reload();
+      }
+   </script>
+   <apex:pageBlock >
+      <div class="table-container">
+         <apex:form id="form">
+            <apex:variable var="relatedPagos" value="{!Polizas__c.Pagos_Polizas__r}" />
+            <apex:commandButton value="Eliminar todos los registros" action="{!eliminarRegistrosRelacionados}" rerender="table" oncomplete="refreshPage()" styleClass="command-button" />
+            <table class="table-style" id="table" rendered="{!NOT(ISNULL(relatedPagos))}">
+               <thead>
+                  <tr>
+                     <th>Nombre</th>
+                     <th>Fecha Aproximada de Pago</th>
+                     <th>Fecha de Pago</th>
+                     <th>Poliza</th>
+                     <th>Monto</th>
+                     <th>Comision</th>
+                     <th>Pago en moneda</th>
+                     <th>Estatus del Pago</th>
+                     <!-- Agrega más columnas aquí para los campos relacionados que desees mostrar -->
+                  </tr>
+               </thead>
+               <tbody>
+                  <apex:repeat value="{!relatedPagos}" var="pago">
+                     <tr>
+                        <td data-label="Nombre"><a href="/{!pago.Id}">{!pago.Name}</a></td>
+                        <td data-label="Fecha Aproximada de Pago">
+                           <apex:outputText value="{0,date,dd/MM/yyyy}">
+                              <apex:param value="{!pago.Fecha_de_de_Vencimiento__c}" />
+                           </apex:outputText>
+                        </td>
+                        <td data-label="Fecha de Pago">
+                           <apex:outputText value="{0,date,dd/MM/yyyy}">
+                              <apex:param value="{!pago.Fecha_de_Aplicaci_n_del_pago__c}" />
+                           </apex:outputText>
+                        </td>
+                        <td data-label="Poliza">{!pago.Poliza__r.Name}</td>
+                        <td data-label="Pago en MXN">{!pago.Monto__c}</td>
+                        <td data-label="Comision">{!pago.Comision_Total__c}</td>
+                        <td data-label="Pago en moneda">{!pago.Pago_en_Moneda__c}</td>
+                        <td data-label="Estatus">{!pago.Estatus_del_Pago__c}</td>
+                        <!-- Agrega más columnas aquí para los campos relacionados que desees mostrar -->
+                     </tr>
+                  </apex:repeat>
+               </tbody>
+            </table>
+            <div class="no-data-text" rendered="{!(ISNULL(relatedPagos))}">No hay registros relacionados</div>
+         </apex:form>
+      </div>
+   </apex:pageBlock>
+</apex:page>

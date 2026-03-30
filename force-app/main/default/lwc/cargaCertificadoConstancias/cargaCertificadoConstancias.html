@@ -1,0 +1,59 @@
+<template>
+    <div class="slds-p-around_medium">
+        <div class="slds-tabs_default">
+            <ul class="slds-tabs_default__nav" role="tablist">
+                <li class="slds-tabs_default__item slds-is-active" 
+                    data-tab="excel"
+                    onclick={switchTab}>
+                    <a class="slds-tabs_default__link" 
+                       role="tab"
+                       data-tab="excel">
+                        <lightning-icon icon-name="doctype:excel" size="small" 
+                                       class="slds-m-right_small">
+                        </lightning-icon>
+                        Cargar CSV
+                    </a>
+                </li>
+                <li class="slds-tabs_default__item slds-is-active" 
+                    data-tab="pdf"
+                    onclick={switchTab}>
+                    <a class="slds-tabs_default__link" 
+                       role="tab"
+                       data-tab="pdf">
+                        <lightning-icon icon-name="doctype:pdf" size="small" 
+                                       class="slds-m-right_small">
+                        </lightning-icon>
+                        Cargar/Procesar PDFs
+                    </a>
+                </li>
+                <li class="slds-tabs_default__item slds-is-active" 
+                    data-tab="correo"
+                    onclick={switchTab}>
+                    <a class="slds-tabs_default__link" 
+                       role="tab"
+                       data-tab="correo">
+                        <lightning-icon icon-name="doctype:attachment" size="small" 
+                                       class="slds-m-right_small">
+                        </lightning-icon>
+                        Completar peticiones/Enviar correos
+                    </a>
+                </li>
+            </ul>
+            
+            <div data-tab-content="excel" 
+                 class="slds-tabs_default__content slds-show">
+                <c-excel-processor></c-excel-processor>
+            </div>
+            
+            <div data-tab-content="pdf" 
+                 class="slds-tabs_default__content slds-hide">
+                <c-simple-pdf-reader></c-simple-pdf-reader>
+            </div>
+                        
+            <div data-tab-content="correo" 
+                 class="slds-tabs_default__content slds-hide">
+                <c-mass-email-console></c-mass-email-console>
+            </div>
+        </div>
+    </div>
+</template>

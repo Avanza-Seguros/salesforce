@@ -1,0 +1,97 @@
+<apex:page standardController="Polizas__c">
+   <apex:form >
+      <apex:pageBlock >
+         <apex:pageBlockTable value="{!Polizas__c}" var="poliza" columns="5" cellpadding="10" style="border: 5px solid black;">
+            <apex:column headerValue="">                  
+               <apex:outputText value="Gastos_medicos_Basica__c"/>
+               <apex:inputField value="{!poliza.Gastos_medicos_Basica__c}"/>                             
+               <apex:outputText value="Eliminacion deducible por accidente"/>
+               <apex:inputField value="{!poliza.Eliminacion_deducible_por_accidente__c}"/>                         
+               <apex:outputText value="Alfa Medical"/>
+               <apex:inputField value="{!poliza.Alfa_Medical__c}"/>                              
+               <apex:outputText value="Proteccion Fallecimiento"/>
+               <apex:inputField value="{!poliza.Proteccion_Fallecimiento__c}"/>              
+               <apex:outputText value="Asistencia en el Extranjero"/>
+               <apex:inputField value="{!poliza.Asistencia_en_el_Extranjero__c}"/>             
+               <apex:outputText value="Extension en el extranjero"/>
+               <apex:inputField value="{!poliza.Extension_en_el_extranjero__c}"/>                             
+               <apex:outputText value="Temporales en el Extranjero"/>
+               <apex:inputField value="{!poliza.Temporales_en_el_Extranjero__c}"/>                              
+               <apex:outputText value="Dental Premium"/>
+               <apex:inputField value="{!poliza.Dental_Premium__c}"/>                                           
+            </apex:column>
+            <apex:column headerValue="">
+               <apex:outputText value="Prima Basica"/>
+               <apex:inputField value="{!poliza.Prima_Basica__c}"/>
+               <apex:outputText value="Prima Deducible por accidente"/>
+               <apex:inputField value="{!poliza.Prima_Deducible_por_accidente__c}"/>
+               <apex:outputText value="Prima Alfa Medical"/>
+               <apex:inputField value="{!poliza.Prima_Alfa_Medical__c}"/>
+               <apex:outputText value="Prima por Fallecimiento"/>
+               <apex:inputField value="{!poliza.Prima_por_Fallecimiento__c}"/>
+               <apex:outputText value="Prima Por asistencia en el extranjero"/>
+               <apex:inputField value="{!poliza.Prima_Por_asistencia_en_el_extranjero__c}"/>
+               <apex:outputText value="Prima Temporales en el Extranjero"/>
+               <apex:inputField value="{!poliza.Prima_Temporales_en_el_Extranjero__c}"/>
+               <apex:outputText value="Prima Dental Premium"/>
+               <apex:inputField value="{!poliza.Prima_Dental_Premium__c}"/>
+            </apex:column>
+            <apex:column headerValue="">
+               <apex:outputText value="Comision Basica Individual"/>
+               <apex:inputField value="{!poliza.Comision_Basica_Individual__c}"/>
+               <apex:outputText value="Comision deducible por accidente"/>
+               <apex:inputField value="{!poliza.Comision_deducible_por_accidente__c}"/>
+               <apex:outputText value="Comision Alfa Medical"/>
+               <apex:inputField value="{!poliza.Comision_Alfa_Medical__c}"/>
+               <apex:outputText value="Comision Proteccion por fallecimiento"/>
+               <apex:inputField value="{!poliza.Comision_Proteccion_por_fallecimiento__c}"/>
+               <apex:outputText value="Comision Asistencia Extranjero"/>
+               <apex:inputField value="{!poliza.Comision_Asistencia_Extranjero__c}"/>
+               <apex:outputText value="Comision Ectencion Extranjero"/>
+               <apex:inputField value="{!poliza.Comision_Ectencion_Extranjero__c}"/>
+               <apex:outputText value="Comision Temporales Extranjero"/>
+               <apex:inputField value="{!poliza.Comision_Temporales_Extranjero__c}"/>
+               <apex:outputText value="Comision Dental Premium"/>
+               <apex:inputField value="{!poliza.Comision_Dental_Premium__c}"/>
+            </apex:column>
+            <apex:column headerValue="">
+               <apex:outputText value="Prima FP Basica Individual"/>
+               <apex:inputField value="{!poliza.Prima_FP_Basica_Individual__c}"/>
+               <apex:outputText value="Prima FP Deducible Accidente"/>
+               <apex:inputField value="{!poliza.Prima_FP_Deducible_Accidente__c}"/>
+               <apex:outputText value="Prima FP Alfa Medical"/>
+               <apex:inputField value="{!poliza.Prima_FP_Alfa_Medical__c}"/>
+               <apex:outputText value="Prima FP Proteccion Fallecimiento"/>
+               <apex:inputField value="{!poliza.Prima_FP_Proteccion_Fallecimiento__c}"/>
+               <apex:outputText value="Prima FP Asistencia Extrangero"/>
+               <apex:inputField value="{!poliza.Prima_FP_Asistencia_Extrangero__c}"/>
+               <apex:outputText value="Prima FP Extencion Extrangero"/>
+               <apex:inputField value="{!poliza.Prima_FP_Extencion_Extrangero__c}"/>
+               <apex:outputText value="Prima FP Temporales Extrangero"/>
+               <apex:inputField value="{!poliza.Prima_FP_Temporales_Extrangero__c}"/>
+               <apex:outputText value="Prima FP Dental Premium"/>
+               <apex:inputField value="{!poliza.Prima_FP_Dental_Premium__c}"/>     
+            </apex:column>
+            <apex:column headerValue="">
+               <apex:outputText value="Comision FP Basica Individual"/>
+               <apex:inputField value="{!poliza.Comision_FP_Basica_Individual__c}"/>
+               <apex:outputText value="Comision FP Deducible Accindete"/>
+               <apex:inputField value="{!poliza.Comision_FP_Deducible_Accindete__c}"/>
+               <apex:outputText value="Comision FP Alfa Medical"/>
+               <apex:inputField value="{!poliza.Comision_FP_Alfa_Medical__c}"/>
+               <apex:outputText value="Comision FP Proteccion Fallecimiento"/>
+               <apex:inputField value="{!poliza.Comision_FP_Proteccion_Fallecimiento__c}"/>
+               <apex:outputText value="Comision FP Asistencia Extrangero"/>
+               <apex:inputField value="{!poliza.Comision_FP_Asistencia_Extrangero__c}"/>
+               <apex:outputText value="Comision FP Extencion Extrangero"/>
+               <apex:inputField value="{!poliza.Comision_FP_Extencion_Extrangero__c}"/>
+               <apex:outputText value="Comision FP Temporales Extrangero"/>
+               <apex:inputField value="{!poliza.Comision_FP_Temporales_Extrangero__c}"/>
+               <apex:outputText value="Comision FP Dental Premium"/>
+               <apex:inputField value="{!poliza.Comision_FP_Dental_Premium__c}"/>
+            </apex:column>
+         </apex:pageBlockTable>
+         <apex:commandButton value="Guardar" action="{!save}"/>
+      </apex:pageBlock>
+   </apex:form>
+</apex:page>

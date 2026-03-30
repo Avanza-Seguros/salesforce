@@ -1,0 +1,150 @@
+<template>
+        <div class="slds-card slds-theme_shade">
+            <lightning-card title="Archivos Adjuntos">
+                <article class="slds-card">
+                    <div class="slds-card__header slds-grid">
+                    </div>
+                    <div class="slds-card__body">
+                      <table class="slds-table slds-table_cell-buffer slds-no-row-hover slds-table_bordered slds-table_fixed-layout" role="grid" aria-label="Example table in a Card">
+                        <thead>
+                          <tr class="slds-line-height_reset">
+                            <th class="" scope="col">
+                              <div class="slds-truncate" title="Nombre Archivo">Nombre Archivo</div>
+                            </th>
+                            <th class="" scope="col">
+                              <div class="slds-truncate" title="Tipo">Tipo</div>
+                            </th>  
+                            <th class="" scope="col">
+                              <div class="slds-truncate" title="Modificado Por">Modificado Por</div>
+                            </th>  
+                            <th class="" scope="col">
+                              <div class="slds-truncate" title="Fecha">Fecha</div>
+                            </th>    
+                          </tr>
+                        </thead>
+                      <tbody>
+
+        <template if:true={filesListNormal} for:each={filesListNormal} for:item="acc">
+                          <tr class="slds-hint-parent" key={acc.Id}>
+                            <td role="gridcell">
+                                
+                              <div class="slds-truncate" title="Name">
+                                <template if:true={acc.Id}>
+                                  <lightning-button variant="Base" label={acc.label} value={acc.ContentDocumentId} data-id={acc.ContentDocumentId} onclick={viewRecord}></lightning-button>
+                                </template>
+                               
+                              </div>
+                            </td>
+
+                            <th scope="row">
+                              <div class="slds-truncate" title="Tipo">
+                                {acc.Extension}
+                              </div>
+                            </th>
+
+                            <th scope="row">
+                              <div class="slds-truncate" title="Modificado Por">
+                                {acc.ModifiedBy}
+                              </div>
+                            </th>
+
+                            <th scope="row">
+                              <div class="slds-truncate" title="Fecha">
+                                <lightning-formatted-date-time value={acc.Date}></lightning-formatted-date-time></p>
+                              </div>
+                            </th>
+                          </tr>
+        </template>
+                        </tbody>
+                      </table>
+                    </div>
+                    <footer class="slds-card__footer">
+                    </footer>
+                  </article>
+        </lightning-card>
+      <div class="slds-align_absolute-center" style="height:5rem">
+            <lightning-file-upload
+            label="Subir Archivos"
+            name="fileUploader"
+            accpet=".csv, .png, .doc, .docx, .xls, .xlsx, .ods, .txt, .pdf, .jpg, .zip, .ppt, .pptx, .tiff"
+            record-id={recordId}
+            onuploadfinished={reloadPageNormalFiles}
+            multiple
+            ></lightning-file-upload>
+    </div>
+</div>
+
+  <div class="slds-card slds-theme_shade">
+      <lightning-card title="Cartas de Autorizacion">
+          <article class="slds-card">
+              <div class="slds-card__header slds-grid">
+              </div>
+              <div class="slds-card__body">
+                <table class="slds-table slds-table_cell-buffer slds-no-row-hover slds-table_bordered slds-table_fixed-layout" role="grid" aria-label="Example table in a Card">
+                  <thead>
+                    <tr class="slds-line-height_reset">
+                      <th class="" scope="col">
+                        <div class="slds-truncate" title="Nombre Archivo">Nombre Archivo</div>
+                      </th>
+                      <th class="" scope="col">
+                        <div class="slds-truncate" title="Tipo">Tipo</div>
+                      </th>  
+                      <th class="" scope="col">
+                        <div class="slds-truncate" title="Modificado Por">Modificado Por</div>
+                      </th>  
+                      <th class="" scope="col">
+                        <div class="slds-truncate" title="Fecha">Fecha</div>
+                      </th>    
+                    </tr>
+                  </thead>
+                <tbody>
+
+  <template if:true={filesList} for:each={filesList} for:item="acc">
+                    <tr class="slds-hint-parent" key={acc.Id}>
+                      <td role="gridcell">
+                          
+                        <div class="slds-truncate" title="Name">
+                          <template if:true={acc.Id}>
+                            <lightning-button variant="Base" label={acc.label} value={acc.ContentDocumentId} data-id={acc.ContentDocumentId} onclick={viewRecord}></lightning-button>
+                          </template>
+                         
+                        </div>
+                      </td>
+
+                      <th scope="row">
+                        <div class="slds-truncate" title="Tipo">
+                          {acc.Extension}
+                        </div>
+                      </th>
+                      <th scope="row">
+                        <div class="slds-truncate" title="Modificado Por">
+                          {acc.ModifiedBy}
+                        </div>
+                      </th>
+
+                      <th scope="row">
+                        <div class="slds-truncate" title="Fecha">
+                          <lightning-formatted-date-time value={acc.Date}></lightning-formatted-date-time></p>
+                        </div>
+                      </th>
+                    </tr>
+  </template>
+                  </tbody>
+                </table>
+              </div>
+              <footer class="slds-card__footer">
+              </footer>
+            </article>
+  </lightning-card>
+<div class="slds-align_absolute-center" style="height:5rem">
+      <lightning-file-upload
+      label="Subir Archivos"
+      name="fileUploader"
+      accpet=".csv, .png, .doc, .docx, .xls, .xlsx, .ods, .txt, .pdf, .jpg, .zip, .ppt, .pptx, .tiff"
+      record-id={recordId}
+      onuploadfinished={reloadPage}
+      multiple
+      ></lightning-file-upload>
+</div>
+</div>
+</template>

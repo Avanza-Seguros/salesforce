@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Banxico_API</label>
+    <protected>false</protected>
+    <values>
+        <field>AcceptHeader__c</field>
+        <value xsi:type="xsd:string">application/json</value>
+    </values>
+    <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>AuthHeaderName__c</field>
+        <value xsi:type="xsd:string">Bmx-Token</value>
+    </values>
+    <values>
+        <field>AuthToken__c</field>
+        <value xsi:type="xsd:string">ac14f32941ea8b61d77dfb8303760d1ef130dc8f0eb1fc736e94e9288ab164aa</value>
+    </values>
+    <values>
+        <field>BasePath__c</field>
+        <value xsi:type="xsd:string">/SieAPIRest/service/v1/series</value>
+    </values>
+    <values>
+        <field>BaseURL__c</field>
+        <value xsi:type="xsd:string">https://www.banxico.org.mx</value>
+    </values>
+    <values>
+        <field>ContentType__c</field>
+        <value xsi:type="xsd:string">application/json</value>
+    </values>
+    <values>
+        <field>HTTPMethod__c</field>
+        <value xsi:type="xsd:string">GET</value>
+    </values>
+    <values>
+        <field>TimeoutMs__c</field>
+        <value xsi:type="xsd:double">120000.0</value>
+    </values>
+</CustomMetadata>

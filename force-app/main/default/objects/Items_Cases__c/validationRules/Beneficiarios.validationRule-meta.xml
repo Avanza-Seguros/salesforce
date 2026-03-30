@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Beneficiarios</fullName>
+    <active>false</active>
+    <errorConditionFormula>ISPICKVAL(Poliza__r.Ramo__c, &quot;Vida&quot;)  &amp;&amp;  RecordType.Name =&quot;Alta&quot; &amp;&amp; (ISBLANK(Nombre_Beneficiario_1__c) || ISBLANK(AP_Beneficiario_1__c)|| 
+ISBLANK(Porcentaje_Beneficiario_1__c)|| 
+ISPICKVAL( Parentesco_Beneficiario_1__c,&quot;&quot;))</errorConditionFormula>
+    <errorDisplayField>Apellido_materno__c</errorDisplayField>
+    <errorMessage>La póliza debe incluir al menos un beneficiario</errorMessage>
+</ValidationRule>

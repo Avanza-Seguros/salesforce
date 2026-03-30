@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Definir_horas_validacion</fullName>
+    <active>true</active>
+    <errorConditionFormula>ISPICKVAL(Motivo_Inexcusable__c, &apos;Ausentarse por horas&apos;) &amp;&amp; (ISPICKVAL( Hora_regreso_solicitada__c , &apos;&apos;) || ISPICKVAL(Hora_salida_solicitada__c , &apos;&apos;))</errorConditionFormula>
+    <errorMessage>Definir hora de salida y hora de regreso son campos requeridos</errorMessage>
+</ValidationRule>

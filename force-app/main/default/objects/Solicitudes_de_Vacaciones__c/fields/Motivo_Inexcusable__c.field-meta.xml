@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Motivo_Inexcusable__c</fullName>
+    <label>Motivo Inexcusable</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <controllingField>Motivo_Ausencia__c</controllingField>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Actividades escolares</fullName>
+                <default>false</default>
+                <label>Actividades escolares</label>
+            </value>
+            <value>
+                <fullName>Ausentarse por horas</fullName>
+                <default>false</default>
+                <label>Ausentarse por horas</label>
+            </value>
+            <value>
+                <fullName>Ausentismo Personal</fullName>
+                <default>false</default>
+                <label>Ausentismo Personal</label>
+            </value>
+            <value>
+                <fullName>Entrada Tarde</fullName>
+                <default>false</default>
+                <label>Entrada Tarde</label>
+            </value>
+            <value>
+                <fullName>Renovación INE</fullName>
+                <default>false</default>
+                <label>Renovación INE</label>
+            </value>
+            <value>
+                <fullName>Renovación licencia</fullName>
+                <default>false</default>
+                <label>Renovación licencia</label>
+            </value>
+            <value>
+                <fullName>Renovación pasaporte</fullName>
+                <default>false</default>
+                <label>Renovación pasaporte</label>
+            </value>
+            <value>
+                <fullName>Salida Temprano</fullName>
+                <default>false</default>
+                <label>Salida Temprano</label>
+            </value>
+            <value>
+                <fullName>Tramites legales</fullName>
+                <default>false</default>
+                <label>Tramites legales</label>
+            </value>
+            <value>
+                <fullName>Tramites SAT</fullName>
+                <default>false</default>
+                <label>Tramites SAT</label>
+            </value>
+        </valueSetDefinition>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Actividades escolares</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Ausentarse por horas</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Ausentismo Personal</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Entrada Tarde</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Renovación INE</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Renovación licencia</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Renovación pasaporte</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Salida Temprano</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Tramites legales</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Inexcusable</controllingFieldValue>
+            <valueName>Tramites SAT</valueName>
+        </valueSettings>
+    </valueSet>
+</CustomField>

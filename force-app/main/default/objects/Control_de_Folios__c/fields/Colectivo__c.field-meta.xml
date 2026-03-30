@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Colectivo__c</fullName>
+    <label>Colectivo</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>ADMINISTRADORA CENTRO COMERCIAL ANDARES SC</fullName>
+                <default>false</default>
+                <label>ADMINISTRADORA CENTRO COMERCIAL ANDARES SC</label>
+            </value>
+            <value>
+                <fullName>ADMINISTRADORA EL MOLINO AC</fullName>
+                <default>false</default>
+                <label>ADMINISTRADORA EL MOLINO AC</label>
+            </value>
+            <value>
+                <fullName>ADMINISTRADORA INMOBILIARIA DEL BAJIO S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>ADMINISTRADORA INMOBILIARIA DEL BAJIO S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>ADMINISTRADORA INMOBILIARIA DEL BAJIO S.A. DE C.V. (QUERETARO</fullName>
+                <default>false</default>
+                <label>ADMINISTRADORA INMOBILIARIA DEL BAJIO S.A. DE C.V. (QUERETARO</label>
+            </value>
+            <value>
+                <fullName>ADMINISTRADORA INMOBILIARIA DEL BAJIO SA DE CV (VERACRUZ)</fullName>
+                <default>false</default>
+                <label>ADMINISTRADORA INMOBILIARIA DEL BAJIO SA DE CV (VERACRUZ)</label>
+            </value>
+            <value>
+                <fullName>ADVANCED METHODS CO, S DE RL DE CV</fullName>
+                <default>false</default>
+                <label>ADVANCED METHODS CO, S DE RL DE CV</label>
+            </value>
+            <value>
+                <fullName>AGRICOLA LOS REYES S DE RL DE CV</fullName>
+                <default>false</default>
+                <label>AGRICOLA LOS REYES S DE RL DE CV</label>
+            </value>
+            <value>
+                <fullName>ANGELICA SANCHEZ IBARRA</fullName>
+                <default>false</default>
+                <label>ANGELICA SANCHEZ IBARRA</label>
+            </value>
+            <value>
+                <fullName>ASOCIACION LOCAL DE PORCICULTORES DE TEPATITLAN</fullName>
+                <default>false</default>
+                <label>ASOCIACION LOCAL DE PORCICULTORES DE TEPATITLAN</label>
+            </value>
+            <value>
+                <fullName>ASOCIACION LOCAL DE PORCICULTORES DE TEPATITLAN DE</fullName>
+                <default>false</default>
+                <label>ASOCIACION LOCAL DE PORCICULTORES DE TEPATITLAN DE</label>
+            </value>
+            <value>
+                <fullName>ASOC MEXICANA DE VETERINARIOS ESP EN CERDOS</fullName>
+                <default>false</default>
+                <label>ASOC MEXICANA DE VETERINARIOS ESP EN CERDOS</label>
+            </value>
+            <value>
+                <fullName>COA INTERNACIONAL, S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>COA INTERNACIONAL, S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>COMERCIALIZADORA DE CARNES JIMENEZ S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>COMERCIALIZADORA DE CARNES JIMENEZ S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>COMERCIALIZADORA DE CARNES JIMENEZ SA DE CV</fullName>
+                <default>false</default>
+                <label>COMERCIALIZADORA DE CARNES JIMENEZ SA DE CV</label>
+            </value>
+            <value>
+                <fullName>CORPORATIVO TELMODAS SA DE CV</fullName>
+                <default>false</default>
+                <label>CORPORATIVO TELMODAS SA DE CV</label>
+            </value>
+            <value>
+                <fullName>ELECTRICA INDUSTRIAL ALEN, SA DE CV</fullName>
+                <default>false</default>
+                <label>ELECTRICA INDUSTRIAL ALEN, SA DE CV</label>
+            </value>
+            <value>
+                <fullName>EL MOLINO CLUB GOLF</fullName>
+                <default>false</default>
+                <label>EL MOLINO CLUB GOLF</label>
+            </value>
+            <value>
+                <fullName>FUNDACION EDUCACION Y SALUD, A.C.</fullName>
+                <default>false</default>
+                <label>FUNDACION EDUCACION Y SALUD, A.C.</label>
+            </value>
+            <value>
+                <fullName>GLOBAL STANDARDS SC</fullName>
+                <default>false</default>
+                <label>GLOBAL STANDARDS SC</label>
+            </value>
+            <value>
+                <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (GUADALAJARA</fullName>
+                <default>false</default>
+                <label>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (GUADALAJARA</label>
+            </value>
+            <value>
+                <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (LEON)</fullName>
+                <default>false</default>
+                <label>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (LEON)</label>
+            </value>
+            <value>
+                <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (QUERETARO)</fullName>
+                <default>false</default>
+                <label>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (QUERETARO)</label>
+            </value>
+            <value>
+                <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (VERACEUZ)</fullName>
+                <default>false</default>
+                <label>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV (VERACEUZ)</label>
+            </value>
+            <value>
+                <fullName>HAND CLOUD, S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>HAND CLOUD, S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>HF SARBANAND S. DE R.L. DE C.V</fullName>
+                <default>false</default>
+                <label>HF SARBANAND S. DE R.L. DE C.V</label>
+            </value>
+            <value>
+                <fullName>HORTIFRUT-ABA S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>HORTIFRUT-ABA S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>HORTIFRUT S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>HORTIFRUT S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>INDIVIDUAL</fullName>
+                <default>false</default>
+                <label>INDIVIDUAL</label>
+            </value>
+            <value>
+                <fullName>LUXOFT MEXICO S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>LUXOFT MEXICO S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>MAYAKOBA COUNTRY CLUB SA DE CV</fullName>
+                <default>false</default>
+                <label>MAYAKOBA COUNTRY CLUB SA DE CV</label>
+            </value>
+            <value>
+                <fullName>MEJORAMIENTO JUGUETES</fullName>
+                <default>false</default>
+                <label>MEJORAMIENTO JUGUETES</label>
+            </value>
+            <value>
+                <fullName>MH TAYLOR REAL ESTATE SA DE CV</fullName>
+                <default>false</default>
+                <label>MH TAYLOR REAL ESTATE SA DE CV</label>
+            </value>
+            <value>
+                <fullName>NATO ARQUITECTOS SA DE CV</fullName>
+                <default>false</default>
+                <label>NATO ARQUITECTOS SA DE CV</label>
+            </value>
+            <value>
+                <fullName>OCP-OBRAS CIVILES Y PROYECTOS DE MEXICO SA DE CV</fullName>
+                <default>false</default>
+                <label>OCP-OBRAS CIVILES Y PROYECTOS DE MEXICO SA DE CV</label>
+            </value>
+            <value>
+                <fullName>OJOS ABIERTOS JALISCO, S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>OJOS ABIERTOS JALISCO, S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>OPERADORA DE CLUBS DEPORTIVOS LOS ROBLES, A.C.</fullName>
+                <default>false</default>
+                <label>OPERADORA DE CLUBS DEPORTIVOS LOS ROBLES, A.C.</label>
+            </value>
+            <value>
+                <fullName>PRO SALON SA DE CV</fullName>
+                <default>false</default>
+                <label>PRO SALON SA DE CV</label>
+            </value>
+            <value>
+                <fullName>REUVEN ROZENMAN</fullName>
+                <default>false</default>
+                <label>REUVEN ROZENMAN</label>
+            </value>
+            <value>
+                <fullName>SERVICIOS INTELIGENTES INMOBILIARIOS, S.C.</fullName>
+                <default>false</default>
+                <label>SERVICIOS INTELIGENTES INMOBILIARIOS, S.C.</label>
+            </value>
+            <value>
+                <fullName>SILVIA INES OÑATE AGURRE</fullName>
+                <default>false</default>
+                <label>SILVIA INES OÑATE AGURRE</label>
+            </value>
+            <value>
+                <fullName>SOLUCIONES KENKO SA DE CV</fullName>
+                <default>false</default>
+                <label>SOLUCIONES KENKO SA DE CV</label>
+            </value>
+            <value>
+                <fullName>SWEETS´N LOLLY POPS, S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>SWEETS´N LOLLY POPS, S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>SWEETS´N LOLLY POPS S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>SWEETS´N LOLLY POPS S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>TRANSPORTES ESPECIALIZADOS RAFNEL SA DE CV</fullName>
+                <default>false</default>
+                <label>TRANSPORTES ESPECIALIZADOS RAFNEL SA DE CV</label>
+            </value>
+            <value>
+                <fullName>UNOSQUARE S.A. DE C.V.</fullName>
+                <default>false</default>
+                <label>UNOSQUARE S.A. DE C.V.</label>
+            </value>
+            <value>
+                <fullName>UNOSQUARE SA DE CV</fullName>
+                <default>false</default>
+                <label>UNOSQUARE SA DE CV</label>
+            </value>
+            <value>
+                <fullName>VALLE NUEVO DE TECOMAN, S. P. R. DE R. L.</fullName>
+                <default>false</default>
+                <label>VALLE NUEVO DE TECOMAN, S. P. R. DE R. L.</label>
+            </value>
+            <value>
+                <fullName>VGDV CAPITAL SAPI DE CV</fullName>
+                <default>false</default>
+                <label>VGDV CAPITAL SAPI DE CV</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

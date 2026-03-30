@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomNotificationType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customNotifTypeName>Contacto de Alta Existente</customNotifTypeName>
+    <description>Contacto Dado de Alta Ya existente</description>
+    <desktop>true</desktop>
+    <masterLabel>Contacto de Alta Existente</masterLabel>
+    <mobile>true</mobile>
+    <slack>false</slack>
+</CustomNotificationType>

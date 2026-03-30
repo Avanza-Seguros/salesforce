@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Comision_MXN__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(Tradicional__c, 
+   Comision_Total_2__c * Moneda_Hoy__c * VALUE(Pagos__c),
+   Comision_Total_2__c * Moneda_Hoy__c
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Comision MXN</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

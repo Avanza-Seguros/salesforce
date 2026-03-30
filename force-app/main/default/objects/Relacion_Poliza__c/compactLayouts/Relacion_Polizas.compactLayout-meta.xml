@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Relacion_Polizas</fullName>
+    <fields>Asegurado__c</fields>
+    <fields>Historico__c</fields>
+    <fields>Pago__c</fields>
+    <fields>Poliza__c</fields>
+    <fields>Name</fields>
+    <label>Relacion Polizas</label>
+</CompactLayout>

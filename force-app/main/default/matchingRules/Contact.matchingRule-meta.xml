@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MatchingRules xmlns="http://soap.sforce.com/2006/04/metadata">
+    <matchingRules>
+        <fullName>Contact_Full_Name</fullName>
+        <description>Esta regla identifica posibles contactos duplicados cuando los campos de nombre y apellidos (primer nombre, segundo nombre, apellido paterno y apellido materno) coinciden exactamente entre dos registros y ninguno de estos campos se encuentra en blanco.</description>
+        <label>Contact Full Name</label>
+        <matchingRuleItems>
+            <blankValueBehavior>NullNotAllowed</blankValueBehavior>
+            <fieldName>FirstName</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <matchingRuleItems>
+            <blankValueBehavior>NullNotAllowed</blankValueBehavior>
+            <fieldName>MiddleName</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <matchingRuleItems>
+            <blankValueBehavior>NullNotAllowed</blankValueBehavior>
+            <fieldName>Apellido_paterno__c</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <matchingRuleItems>
+            <blankValueBehavior>NullNotAllowed</blankValueBehavior>
+            <fieldName>Apellido_materno__c</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <ruleStatus>Inactive</ruleStatus>
+    </matchingRules>
+    <matchingRules>
+        <fullName>Contactos</fullName>
+        <label>Contactos</label>
+        <matchingRuleItems>
+            <blankValueBehavior>MatchBlanks</blankValueBehavior>
+            <fieldName>FirstName</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <matchingRuleItems>
+            <blankValueBehavior>MatchBlanks</blankValueBehavior>
+            <fieldName>MiddleName</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <matchingRuleItems>
+            <blankValueBehavior>MatchBlanks</blankValueBehavior>
+            <fieldName>Apellido_paterno__c</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <matchingRuleItems>
+            <blankValueBehavior>MatchBlanks</blankValueBehavior>
+            <fieldName>Apellido_materno__c</fieldName>
+            <matchingMethod>Exact</matchingMethod>
+        </matchingRuleItems>
+        <ruleStatus>Active</ruleStatus>
+    </matchingRules>
+</MatchingRules>

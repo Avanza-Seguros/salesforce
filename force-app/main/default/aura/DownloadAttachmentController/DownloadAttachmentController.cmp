@@ -1,0 +1,6 @@
+<aura:component implements="force:lightningQuickaction,force:hasRecordId" controller="DownloadAttachmentController">
+     <aura:attribute name="recordId" type="String" />
+
+    <lightning:button label="Descargar Archivos" onclick="{!c.downloadAttachments}" />
+    
+</aura:component>
