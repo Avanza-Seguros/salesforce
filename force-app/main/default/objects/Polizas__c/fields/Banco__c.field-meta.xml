@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Banco__c</fullName>
+    <label>Banco</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>AMERICAN EXPRESS</fullName>
+                <default>false</default>
+                <label>AMERICAN EXPRESS</label>
+            </value>
+            <value>
+                <fullName>AZTECA</fullName>
+                <default>false</default>
+                <label>AZTECA</label>
+            </value>
+            <value>
+                <fullName>BANAMEX</fullName>
+                <default>false</default>
+                <label>BANAMEX</label>
+            </value>
+            <value>
+                <fullName>BANCO AZTECA</fullName>
+                <default>false</default>
+                <label>BANCO AZTECA</label>
+            </value>
+            <value>
+                <fullName>Banco del Bajio</fullName>
+                <default>false</default>
+                <label>Banco del Bajio</label>
+            </value>
+            <value>
+                <fullName>BANCO INVEX</fullName>
+                <default>false</default>
+                <label>BANCO INVEX</label>
+            </value>
+            <value>
+                <fullName>BANCOMER</fullName>
+                <default>false</default>
+                <label>BANCOMER</label>
+            </value>
+            <value>
+                <fullName>BANCOMER S.A</fullName>
+                <default>false</default>
+                <label>BANCOMER S.A</label>
+            </value>
+            <value>
+                <fullName>BANCOMER S.A.</fullName>
+                <default>false</default>
+                <label>BANCOMER S.A.</label>
+            </value>
+            <value>
+                <fullName>BANCO NACIONAL DE MEXICO, S.A.</fullName>
+                <default>false</default>
+                <label>BANCO NACIONAL DE MEXICO, S.A.</label>
+            </value>
+            <value>
+                <fullName>BANCOPPEL</fullName>
+                <default>false</default>
+                <label>BANCOPPEL</label>
+            </value>
+            <value>
+                <fullName>BANJIO</fullName>
+                <default>false</default>
+                <label>BANJIO</label>
+            </value>
+            <value>
+                <fullName>BANORTE</fullName>
+                <default>false</default>
+                <label>BANORTE</label>
+            </value>
+            <value>
+                <fullName>BANREGIO</fullName>
+                <default>false</default>
+                <label>BANREGIO</label>
+            </value>
+            <value>
+                <fullName>BBV</fullName>
+                <default>false</default>
+                <label>BBV</label>
+            </value>
+            <value>
+                <fullName>BBVA</fullName>
+                <default>false</default>
+                <label>BBVA</label>
+            </value>
+            <value>
+                <fullName>BITAL</fullName>
+                <default>false</default>
+                <label>BITAL</label>
+            </value>
+            <value>
+                <fullName>HSBC</fullName>
+                <default>false</default>
+                <label>HSBC</label>
+            </value>
+            <value>
+                <fullName>INBURSA</fullName>
+                <default>false</default>
+                <label>INBURSA</label>
+            </value>
+            <value>
+                <fullName>INVERLAT</fullName>
+                <default>false</default>
+                <label>INVERLAT</label>
+            </value>
+            <value>
+                <fullName>IXE</fullName>
+                <default>false</default>
+                <label>IXE</label>
+            </value>
+            <value>
+                <fullName>Multiva</fullName>
+                <default>false</default>
+                <label>Multiva</label>
+            </value>
+            <value>
+                <fullName>OTROS BANCOS</fullName>
+                <default>false</default>
+                <label>OTROS BANCOS</label>
+            </value>
+            <value>
+                <fullName>SANTANDER</fullName>
+                <default>false</default>
+                <label>SANTANDER</label>
+            </value>
+            <value>
+                <fullName>SANTANDER MEXICANO S.A.</fullName>
+                <default>false</default>
+                <label>SANTANDER MEXICANO S.A.</label>
+            </value>
+            <value>
+                <fullName>Scotiabank Inverlat</fullName>
+                <default>false</default>
+                <label>Scotiabank Inverlat</label>
+            </value>
+            <value>
+                <fullName>SERFIN</fullName>
+                <default>false</default>
+                <label>SERFIN</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

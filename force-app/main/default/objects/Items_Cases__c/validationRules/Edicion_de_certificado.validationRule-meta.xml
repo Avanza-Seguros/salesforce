@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Edicion_de_certificado</fullName>
+    <active>true</active>
+    <errorConditionFormula>$User.ProfileId = &quot;00e8a000002ILoB&quot;  &amp;&amp; 
+(ISPICKVAL( Estatus__c , &quot;En proceso&quot;)  || ISPICKVAL( Estatus__c , &quot;Rechazado&quot;)  ||  ISPICKVAL(  Estatus__c , &quot;Concluido&quot;))  &amp;&amp; 
+(RecordType.DeveloperName =&quot;Alta_solicitada&quot;  || RecordType.DeveloperName = &quot;Baja_solicitada&quot;  || RecordType.DeveloperName =&quot;Cambio_solicitado&quot;)</errorConditionFormula>
+    <errorDisplayField>Certificado__c</errorDisplayField>
+    <errorMessage>El movimiento fue enviado, no puede editar el certificado</errorMessage>
+</ValidationRule>

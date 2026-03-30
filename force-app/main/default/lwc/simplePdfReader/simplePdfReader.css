@@ -1,0 +1,208 @@
+/* 🎨 Estilos personalizados para simplePdfReader */
+
+:host {
+    display: block;
+    background-color: #f3f6f9;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    padding: 1rem;
+}
+
+/* 📄 Encabezado */
+lightning-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 0.75rem;
+}
+
+/* 🔵 Botón principal */
+lightning-button[variant="brand"] {
+    --slds-c-button-brand-color-background: #0176d3;
+    --slds-c-button-brand-color-border: #0176d3;
+    --slds-c-button-brand-color-background-hover: #0b5cab;
+    --slds-c-button-brand-color-border-hover: #0b5cab;
+    --slds-c-button-brand-color-background-active: #014486;
+    --slds-c-button-brand-color-border-active: #014486;
+    transition: all 0.2s ease-in-out;
+}
+
+/* 📁 Selector de archivo */
+lightning-input[type="file"] {
+    border-radius: 0.5rem;
+    background-color: #ffffff;
+    padding: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 📊 Barra de progreso */
+.slds-progress-bar {
+    height: 10px;
+    background-color: #e5e5e5;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+    width: 100%;
+}
+
+.slds-progress-bar__value {
+    height: 100%;
+    background: linear-gradient(90deg, #0070d2, #00a1e0);
+    transition: width 0.4s ease-in-out;
+    border-radius: 5px;
+}
+
+/* ✅ Tabla de resultados */
+lightning-datatable {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+lightning-card[title="Resultados extraídos"] {
+    margin-top: 1rem;
+    border: 1px solid #e5e5e5;
+    background-color: #ffffff;
+}
+
+/* 🟢 Mensajes */
+.slds-text-color_success {
+    font-weight: 600;
+    color: #0b5cab !important;
+}
+
+.slds-text-color_error {
+    font-weight: 600;
+    color: #ba0517 !important;
+}
+
+/* 🕐 Centrados y márgenes */
+.slds-text-align_center {
+    text-align: center;
+}
+
+.slds-m-top_medium {
+    margin-top: 1rem;
+}
+
+.slds-m-top_large {
+    margin-top: 2rem;
+}
+
+/* En un archivo .css o dentro de <style> en el template */
+.drag-drop-area {
+    border: 2px dashed #dddbda;
+    border-radius: 8px;
+    background-color: #f3f2f2;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.drag-drop-area:hover {
+    border-color: #006dcc;
+    background-color: #f0f8fc;
+}
+
+.drag-drop-area.drag-over {
+    border-color: #1589ee;
+    background-color: #e1f5fe;
+    box-shadow: 0 0 0 1px #1589ee;
+}
+
+.drag-drop-area i {
+    color: #706e6b;
+}
+
+.drag-drop-area:hover i {
+    color: #006dcc;
+}
+
+.drag-drop-area.drag-over i {
+    color: #1589ee;
+}
+
+.status-badge {
+    font-size: 0.625rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.status-pending {
+    background-color: #ffb75d;
+    color: #000;
+}
+
+.status-processing {
+    background-color: #706e6b;
+    color: #fff;
+}
+
+.status-completed {
+    background-color: #4bca81;
+    color: #000;
+}
+
+.status-error {
+    background-color: #c23934;
+    color: #fff;
+}
+
+.slds-list_dotted li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #dddbda;
+}
+
+.slds-list_dotted li:last-child {
+    border-bottom: none;
+}
+
+/* Agrega estos estilos en tu CSS */
+.drop-zone {
+    transition: all 0.3s ease;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drop-zone.drag-over {
+    border-color: #1589ee !important;
+    background-color: #f0f8ff;
+    transform: scale(1.02);
+}
+
+.drop-content {
+    pointer-events: none; /* Esto evita interferencias con los eventos de drag */
+}
+
+/* Agregar en el componente */
+:host {
+    display: block;
+}
+
+.dropzone {
+    border: 2px dashed #d8dde6;
+    border-radius: 0.25rem;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f3f3f3;
+}
+
+.dropzone.drag-over {
+    border-color: #1589ee;
+    background: #f0f8ff;
+}
+
+.dropzone:hover {
+    border-color: #1589ee;
+    background: #f7f9fb;
+}
+
+.drop-content {
+    pointer-events: none; /* Evitar que los hijos interfieran con el drag */
+}

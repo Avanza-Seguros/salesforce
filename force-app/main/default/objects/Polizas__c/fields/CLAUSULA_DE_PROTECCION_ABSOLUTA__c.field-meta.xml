@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CLAUSULA_DE_PROTECCION_ABSOLUTA__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>CLAUSULA DE PROTECCION ABSOLUTA</label>
+    <referenceTo>Beneficios__c</referenceTo>
+    <relationshipLabel>Polizas (CLAUSULA DE PROTECCION ABSOLUTA)</relationshipLabel>
+    <relationshipName>Polizas6</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

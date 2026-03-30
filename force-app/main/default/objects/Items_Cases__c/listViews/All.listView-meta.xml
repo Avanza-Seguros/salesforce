@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All</fullName>
+    <columns>NAME</columns>
+    <columns>CREATED_DATE</columns>
+    <columns>Fecha_de_peticion__c</columns>
+    <columns>Asunto_del_Movimiento__c</columns>
+    <columns>Caso__c</columns>
+    <columns>Tipo_de_peticion__c</columns>
+    <columns>Poliza__c</columns>
+    <columns>Nombre_completo__c</columns>
+    <columns>Asegurado__c</columns>
+    <columns>Nombre_cuenta__c</columns>
+    <filterScope>Mine</filterScope>
+    <label>Mis Peticiones</label>
+</ListView>

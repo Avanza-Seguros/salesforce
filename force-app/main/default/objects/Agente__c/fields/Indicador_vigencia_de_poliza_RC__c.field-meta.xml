@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Indicador_vigencia_de_poliza_RC__c</fullName>
+    <externalId>false</externalId>
+    <formula>IMAGE( 
+				IF( Vigencia_de_poliza_de_RC__c - TODAY() &lt;= 0, &quot;/img/samples/flag_red.gif&quot;,  
+							    IF( Vigencia_de_poliza_de_RC__c - TODAY() &lt;= 30 , &quot;/img/samples/flag_yellow.gif&quot;, 
+							        IF( Vigencia_de_poliza_de_RC__c - TODAY() &gt; 30, &quot;/img/samples/flag_green.gif&quot; , &quot;Sin datos&quot;))),
+				&quot;Sin datos&quot;
+)</formula>
+    <label>Indicador vigencia de póliza RC</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

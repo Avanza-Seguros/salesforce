@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Mixto</fullName>
+        <default>false</default>
+        <label>Mixto</label>
+    </customValue>
+    <customValue>
+        <fullName>Pago Primas</fullName>
+        <default>false</default>
+        <label>Pago Primas</label>
+    </customValue>
+    <customValue>
+        <fullName>Retiro De efectivo</fullName>
+        <default>false</default>
+        <label>Retiro De efectivo</label>
+    </customValue>
+    <customValue>
+        <fullName>Ingreso a Aves</fullName>
+        <default>false</default>
+        <label>Ingreso a Aves</label>
+    </customValue>
+    <masterLabel>Dotales</masterLabel>
+    <sorted>true</sorted>
+</GlobalValueSet>

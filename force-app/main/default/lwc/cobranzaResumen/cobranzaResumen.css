@@ -1,0 +1,71 @@
+.metric-card {
+    border-left: 4px solid #0070d2;
+    background: #f3f3f3;
+    transition: transform 0.2s ease-in-out;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.success-text {
+    color: #2e844a;
+}
+
+.warning-text {
+    color: #fe9339;
+}
+
+.error-text {
+    color: #ea001e;
+}
+
+.progress-bars-container {
+    padding: 0.5rem;
+}
+
+.progress-item {
+    margin-bottom: 1.5rem;
+}
+
+.progress-label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #2c2c2c;
+}
+
+.progress-count {
+    font-size: 0.875rem;
+    color: #666;
+    margin-top: 0.25rem;
+    text-align: right;
+}
+
+.freq-card {
+    text-align: center;
+    background: #f8f9fa;
+    border: 1px solid #dddbda;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.freq-card:hover {
+    background: #eef4ff;
+    border-color: #0070d2;
+}
+
+/* Estilos para los anillos de progreso */
+lightning-progress-ring {
+    display: block;
+    margin: 0 auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .slds-col.slds-size_1-of-3,
+    .slds-col.slds-size_1-of-4 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}

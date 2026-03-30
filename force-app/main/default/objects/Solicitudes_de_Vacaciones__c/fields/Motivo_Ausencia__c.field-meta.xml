@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Motivo_Ausencia__c</fullName>
+    <label>Motivo Ausencia</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <controllingField>TIpo_de_Permiso__c</controllingField>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Matrimonio</fullName>
+                <default>false</default>
+                <label>Matrimonio</label>
+            </value>
+            <value>
+                <fullName>Mudanza</fullName>
+                <default>false</default>
+                <label>Mudanza</label>
+            </value>
+            <value>
+                <fullName>Nacimiento</fullName>
+                <default>false</default>
+                <label>Nacimiento</label>
+            </value>
+            <value>
+                <fullName>Fallecimiento</fullName>
+                <default>false</default>
+                <label>Fallecimiento</label>
+            </value>
+            <value>
+                <fullName>Familiar enfermo</fullName>
+                <default>false</default>
+                <label>Familiar enfermo</label>
+            </value>
+            <value>
+                <fullName>Enfermedad</fullName>
+                <default>false</default>
+                <label>Enfermedad</label>
+            </value>
+            <value>
+                <fullName>Inexcusable</fullName>
+                <default>false</default>
+                <label>Inexcusable</label>
+            </value>
+            <value>
+                <fullName>Cita Medica</fullName>
+                <default>false</default>
+                <label>Cita Medica</label>
+            </value>
+            <value>
+                <fullName>Lactancia</fullName>
+                <default>false</default>
+                <label>Lactancia</label>
+            </value>
+            <value>
+                <fullName>Hijo prematuro</fullName>
+                <default>false</default>
+                <label>Hijo prematuro</label>
+            </value>
+            <value>
+                <fullName>Motivo Personal</fullName>
+                <default>false</default>
+                <label>Motivo Personal</label>
+            </value>
+        </valueSetDefinition>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Matrimonio</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Mudanza</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Nacimiento</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Fallecimiento</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Familiar enfermo</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Enfermedad</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Inexcusable</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Cita Medica</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Lactancia</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Permiso especial</controllingFieldValue>
+            <valueName>Hijo prematuro</valueName>
+        </valueSettings>
+    </valueSet>
+</CustomField>

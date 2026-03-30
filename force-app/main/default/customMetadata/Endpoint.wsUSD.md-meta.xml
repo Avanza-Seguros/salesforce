@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>wsUSD</label>
+    <protected>false</protected>
+    <values>
+        <field>Endpoint__c</field>
+        <value xsi:type="xsd:string">https://www.banxico.org.mx</value>
+    </values>
+    <values>
+        <field>Method__c</field>
+        <value xsi:type="xsd:string">GET</value>
+    </values>
+    <values>
+        <field>Relative_Endpoint__c</field>
+        <value xsi:type="xsd:string">/SieAPIRest/service/v1/series/SF343410/datos</value>
+    </values>
+    <values>
+        <field>Request__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Response__c</field>
+        <value xsi:type="xsd:string">{
+    &quot;bmx&quot;: {
+        &quot;series&quot;: [
+            {
+                &quot;idSerie&quot;: &quot;SF343410&quot;,
+                &quot;titulo&quot;: &quot;Tipo de Cambio Cierre de Jornada&quot;,
+                &quot;datos&quot;: [
+                    {
+                        &quot;fecha&quot;: &quot;03/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0539&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.1309&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;05/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.3059&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;10/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.1661&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;11/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.1865&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;12/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0943&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;13/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0023&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;14/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0260&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;17/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0282&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;18/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0435&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;19/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0444&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;20/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0063&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;21/04/2023&quot;,
+                        &quot;dato&quot;: &quot;17.9855&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;24/04/2023&quot;,
+                        &quot;dato&quot;: &quot;17.9770&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;25/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0932&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;26/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.1485&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;27/04/2023&quot;,
+                        &quot;dato&quot;: &quot;18.0465&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;28/04/2023&quot;,
+                        &quot;dato&quot;: &quot;17.9882&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;02/05/2023&quot;,
+                        &quot;dato&quot;: &quot;17.9714&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;03/05/2023&quot;,
+                        &quot;dato&quot;: &quot;17.9251&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;04/05/2023&quot;,
+                        &quot;dato&quot;: &quot;17.9076&quot;
+                    },
+                    {
+                        &quot;fecha&quot;: &quot;05/05/2023&quot;,
+                        &quot;dato&quot;: &quot;17.7796&quot;
+                    }
+                ]
+            }
+        ]
+    }
+}</value>
+    </values>
+    <values>
+        <field>Token__c</field>
+        <value xsi:type="xsd:string">b894a495e7e5a116403ba6278cc6cbb944df9ba141608630222700131658be48</value>
+    </values>
+</CustomMetadata>

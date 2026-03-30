@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Historico_Aportacion</fullName>
+    <fields>Poliza__c</fields>
+    <fields>Anualidad__c</fields>
+    <fields>Desde__c</fields>
+    <fields>Hasta__c</fields>
+    <fields>PagosIngresados__c</fields>
+    <fields>PrimaAdicional__c</fields>
+    <fields>PrimaBasica__c</fields>
+    <label>Historico Aportacion</label>
+</CompactLayout>

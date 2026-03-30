@@ -1,0 +1,242 @@
+<template>
+    <lightning-card title="Reporte de Cobranza" icon-name="standard:orders">
+        <div class="slds-p-around_medium">
+            
+            <!-- Mensaje de Error -->
+            <template if:true={errorMessage}>
+                <div class="slds-notice slds-notice_alert slds-theme_error slds-m-bottom_medium">
+                    <div class="slds-notice__content">
+                        <lightning-icon icon-name="utility:error" size="x-small"></lightning-icon>
+                        <div class="slds-notice__message">
+                            <span>{errorMessage}</span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Controles de Filtro -->
+            <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_medium">
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                    <lightning-combobox
+                        label="Período de Cobranza"
+                        value={selectedPeriodo}
+                        options={periodos}
+                        onchange={handlePeriodoChange}>
+                    </lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                    <div class="slds-text-body_regular slds-text-color_weak">
+                        <strong>Período:</strong> {periodoDisplay} | 
+                        <strong>Rango:</strong> {fechaInicio} - {fechaFin}
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Cards para Cobranza -->
+            <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_large">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <div class="kpi-card pendiente">
+                        <div class="kpi-content">
+                            <div class="kpi-icon">
+                                <lightning-icon icon-name="utility:moneybag" size="small"></lightning-icon>
+                            </div>
+                            <div class="kpi-info">
+                                <div class="kpi-label">Total por Cobrar</div>
+                                <div class="kpi-value">{formattedTotalPendiente}</div>
+                                <div class="kpi-subtext">{periodoDisplay}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <div class="kpi-card cantidad">
+                        <div class="kpi-content">
+                            <div class="kpi-icon">
+                                <lightning-icon icon-name="utility:topic" size="small"></lightning-icon>
+                            </div>
+                            <div class="kpi-info">
+                                <div class="kpi-label">Pólizas por Cobrar</div>
+                                <div class="kpi-value">{totalPolizas}</div>
+                                <div class="kpi-subtext">En período</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <div class="kpi-card vencidas">
+                        <div class="kpi-content">
+                            <div class="kpi-icon">
+                                <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
+                            </div>
+                            <div class="kpi-info">
+                                <div class="kpi-label">Pólizas Vencidas</div>
+                                <div class="kpi-value">{cantidadPolizasVencidas}</div>
+                                <div class="kpi-subtext">{formattedTotalVencido} vencido</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen por Estatus -->
+            <template if:true={resumenEstatusSize}>
+                <div class="slds-card slds-m-bottom_medium">
+                    <div class="slds-card__header">
+                        <h3 class="slds-text-heading_small">Distribución por Estatus</h3>
+                    </div>
+                    <div class="slds-card__body">
+                        <div class="slds-grid slds-wrap slds-gutters">
+                            <template for:each={resumenEstatusConClase} for:item="item">
+                                <div key={item.estatus} class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                                    <div class="estatus-item">
+                                        <span class={item.claseBadge}>
+                                            {item.estatus}
+                                        </span>
+                                        <span class="estatus-cantidad">{item.cantidad}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Botón para mostrar/ocultar pólizas vencidas -->
+            <template if:true={tienePolizasVencidas}>
+                <div class="slds-m-bottom_medium">
+                    <lightning-button
+                        label={labelDiasVencimiento}
+                        onclick={toggleVencidas}
+                        variant="neutral">
+                    </lightning-button>
+                </div>
+            </template>
+
+            <!-- Lista de Pólizas para Cobranza -->
+            <div class="slds-card">
+                <div class="slds-card__header">
+                    <div class="slds-grid slds-grid_align-spread">
+                        <h3 class="slds-text-heading_small">
+                            <template if:true={showVencidas}>
+                                Pólizas Vencidas ({cantidadPolizasVencidas} pólizas)
+                            </template>
+                            <template if:false={showVencidas}>
+                                Pólizas por Cobrar - {periodoDisplay} ({totalPolizas} pólizas)
+                            </template>
+                        </h3>
+                        <div class="slds-grid slds-grid_align-center">
+                            <span class="slds-text-body_small slds-m-right_small">
+                                Página {currentPage} de {totalPages}
+                            </span>
+                            <lightning-button-icon 
+                                icon-name="utility:chevronleft" 
+                                variant="border-filled"
+                                onclick={previousPage}
+                                class="slds-m-right_x-small">
+                            </lightning-button-icon>
+                            <lightning-button-icon 
+                                icon-name="utility:chevronright" 
+                                variant="border-filled"
+                                onclick={nextPage}>
+                            </lightning-button-icon>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-card__body">
+                    <template if:true={isLoading}>
+                        <div class="slds-align_absolute-center slds-p-vertical_large">
+                            <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+                            <div class="slds-m-top_small">Cargando pólizas...</div>
+                        </div>
+                    </template>
+                    <template if:false={isLoading}>
+                        <template if:true={noHayDatos}>
+                            <div class="slds-align_absolute-center slds-p-vertical_x-large">
+                                <lightning-icon icon-name="utility:check" size="large" class="slds-m-bottom_small"></lightning-icon>
+                                <div class="slds-text-heading_small slds-text-color_success">No hay pólizas pendientes de cobro</div>
+                                <div class="slds-text-color_weak slds-m-top_x-small">
+                                    <template if:true={showVencidas}>
+                                        No hay pólizas vencidas al momento.
+                                    </template>
+                                    <template if:false={showVencidas}>
+                                        No hay pólizas por cobrar en el período {periodoDisplay}.
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <template if:false={noHayDatos}>
+                            <div class="slds-table_container">
+                                <table class="slds-table slds-table_bordered slds-table_striped slds-table_cell-buffer">
+                                    <thead>
+                                        <tr class="slds-line-height_reset">
+                                            <th scope="col" class="slds-text-title_caps" data-field="Name" onclick={handleSort}>Nombre</th>
+                                            <th scope="col" class="slds-text-title_caps" data-field="Numero_Polizas__c" onclick={handleSort}>N° Póliza</th>
+                                            <th scope="col" class="slds-text-title_caps" data-field="Nombre_contratante__c" onclick={handleSort}>Contratante</th>
+                                            <th scope="col" class="slds-text-title_caps" data-field="Estatus__c" onclick={handleSort}>Estatus</th>
+                                            <th scope="col" class="slds-text-title_caps" data-field="Monto_Proximo_Pago__c" onclick={handleSort}>Monto por Cobrar</th>
+                                            <th scope="col" class="slds-text-title_caps" data-field="Fecha_Proximo_Pago__c" onclick={handleSort}>Fecha Próximo Pago</th>
+                                            <th scope="col" class="slds-text-title_caps">Días Vencimiento</th>
+                                            <th scope="col" class="slds-text-title_caps">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={polizasPaginadas} for:item="poliza">
+                                            <tr key={poliza.Id} class="slds-hint-parent">
+                                                <td>
+                                                    <div class="slds-truncate" title={poliza.Name}>{poliza.Name}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="slds-truncate" title={poliza.Numero_Polizas__c}>{poliza.Numero_Polizas__c}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="slds-truncate" title={poliza.Nombre_contratante__c}>{poliza.Nombre_contratante__c}</div>
+                                                </td>
+                                                <td>
+                                                    <lightning-badge 
+                                                        label={poliza.Estatus__c} 
+                                                        class={poliza.estatusClass}>
+                                                    </lightning-badge>
+                                                </td>
+                                                <td>
+                                                    <div class="slds-truncate slds-text-color_error slds-text-title_caps">
+                                                        {poliza.montoFormatted}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="slds-truncate">{poliza.fechaPagoFormatted}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="slds-truncate">
+                                                        <template if:true={poliza.diasVencimiento}>
+                                                            <lightning-badge 
+                                                                label={poliza.diasVencimiento} días
+                                                                class={classDiasVencimiento}>
+                                                            </lightning-badge>
+                                                        </template>
+                                                        <template if:false={poliza.diasVencimiento}>
+                                                            <lightning-badge label="Al día" class="estado-activa"></lightning-badge>
+                                                        </template>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <lightning-button-icon 
+                                                        icon-name="utility:preview"
+                                                        variant="border-filled"
+                                                        size="small"
+                                                        data-id={poliza.Id}
+                                                        onclick={navigateToRecord}
+                                                        title="Ver detalle">
+                                                    </lightning-button-icon>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </lightning-card>
+</template>

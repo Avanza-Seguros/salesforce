@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ejecutivo__c</fullName>
+    <label>Ejecutivo</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Abraham Gonzalez</fullName>
+                <default>false</default>
+                <label>Abraham Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Denisse Mendoza</fullName>
+                <default>false</default>
+                <label>Denisse Mendoza</label>
+            </value>
+            <value>
+                <fullName>Elsi Casillas</fullName>
+                <default>false</default>
+                <label>Elsi Casillas</label>
+            </value>
+            <value>
+                <fullName>Esmeralda Lopez</fullName>
+                <default>false</default>
+                <label>Esmeralda Lopez</label>
+            </value>
+            <value>
+                <fullName>Fernanda Itzel Juarez Vargas</fullName>
+                <default>false</default>
+                <label>Fernanda Itzel Juarez Vargas</label>
+            </value>
+            <value>
+                <fullName>Gerardo Salazar</fullName>
+                <default>false</default>
+                <label>Gerardo Salazar</label>
+            </value>
+            <value>
+                <fullName>Isabel Santoyo</fullName>
+                <default>false</default>
+                <label>Isabel Santoyo</label>
+            </value>
+            <value>
+                <fullName>Jazmín Delgado</fullName>
+                <default>false</default>
+                <label>Jazmín Delgado</label>
+            </value>
+            <value>
+                <fullName>Jesica Gonzalez</fullName>
+                <default>false</default>
+                <label>Jesica Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Josseline Nuñez</fullName>
+                <default>false</default>
+                <label>Josseline Nuñez</label>
+            </value>
+            <value>
+                <fullName>Karla Martello</fullName>
+                <default>false</default>
+                <label>Karla Martello</label>
+            </value>
+            <value>
+                <fullName>Larissa Mendoza</fullName>
+                <default>false</default>
+                <label>Larissa Mendoza</label>
+            </value>
+            <value>
+                <fullName>Lisset García</fullName>
+                <default>false</default>
+                <label>Lisset García</label>
+            </value>
+            <value>
+                <fullName>Nestor Ruiz</fullName>
+                <default>false</default>
+                <label>Nestor Ruiz</label>
+            </value>
+            <value>
+                <fullName>Paulina Gomez</fullName>
+                <default>false</default>
+                <label>Paulina Gomez</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

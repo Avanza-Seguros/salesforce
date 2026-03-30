@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConnectedApp xmlns="http://soap.sforce.com/2006/04/metadata">
+    <contactEmail>misael.velarde@avanzaseguro.com</contactEmail>
+    <label>SalesforceMulesoftIntegracion</label>
+    <oauthConfig>
+        <callbackUrl>http://localhost:8081/callback</callbackUrl>
+        <certificate>MIIErDCCA5SgAwIBAgIOAZS0JqJZAAAAAAalUGUwDQYJKoZIhvcNAQELBQAwgZAxKDAmBgNVBAMMH211bGVzb2Z0X2ludGVncmFjaW9uX3NhbGVzZm9yY2UxGDAWBgNVBAsMDzAwRDhhMDAwMDAxS1o5dzEXMBUGA1UECgwOU2FsZXNmb3JjZS5jb20xFjAUBgNVBAcMDVNhbiBGcmFuY2lzY28xCzAJBgNVBAgMAkNBMQwwCgYDVQQGEwNVU0EwHhcNMjUwMTI5MjIyMDE4WhcNMjYwMTI5MTIwMDAwWjCBkDEoMCYGA1UEAwwfbXVsZXNvZnRfaW50ZWdyYWNpb25fc2FsZXNmb3JjZTEYMBYGA1UECwwPMDBEOGEwMDAwMDFLWjl3MRcwFQYDVQQKDA5TYWxlc2ZvcmNlLmNvbTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzELMAkGA1UECAwCQ0ExDDAKBgNVBAYTA1VTQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAK1yIs8hywAFowRsfQ0FrA3WELSYDZDruWrdzOK1f9q39LwxNKhgFlw/1F55+xYJs0XYaSwgmq4ashtKVNGiri62/n+NjedyDDPz4qZlnybROqbifplgVlbV+ZdX+j1r4iCx0gpsLztW6xykuDEeSUH6fao9LV4Dha80TLCySyz+XGPwkAg72q+YmiYlaZOJoG+hj+yi5umf3ktafovTCR4WYSOoWmHpFxfSUcaZqCAij4JZBoZ687f2xy5Qy5n3XRRIyPs8oIRoDb003Wz0z7znhqLPkXit/ZbodpOe1mx1MpN0wV+Jfc5ubfWaovSt/0AvM/76axB4f3VDVYuKcD0CAwEAAaOCAQAwgf0wHQYDVR0OBBYEFIFxseGsaUr5yy/6NAW4KWRNEhDjMA8GA1UdEwEB/wQFMAMBAf8wgcoGA1UdIwSBwjCBv4AUgXGx4axpSvnLL/o0BbgpZE0SEOOhgZakgZMwgZAxKDAmBgNVBAMMH211bGVzb2Z0X2ludGVncmFjaW9uX3NhbGVzZm9yY2UxGDAWBgNVBAsMDzAwRDhhMDAwMDAxS1o5dzEXMBUGA1UECgwOU2FsZXNmb3JjZS5jb20xFjAUBgNVBAcMDVNhbiBGcmFuY2lzY28xCzAJBgNVBAgMAkNBMQwwCgYDVQQGEwNVU0GCDgGUtCaiWQAAAAAGpVBlMA0GCSqGSIb3DQEBCwUAA4IBAQCADrx6n7/zJz+gNOG633OSOyg2qEypqWJ5gWscf+wlGjrT3FTk0yZmdpNIXUxn+PyEJMfN/3Qusg7OSdfOm9olRzXBMPnVOqlEdAehqoQhORFaWzIC9BrbBuSNoAQriOtPC0NPbqe/irK+EjjuDdWyPnOaANTdfiAGhj5V39DAmQBquIzb0gRZcmLgPzQr9mj/kbQEbGTEWdu2/LWuN15jL+gEDHB8aDi3hBIxRpFouwVb2QgEM8uOeXxrYlA6uz3G00fmkoFYd39IPEaY8oCiJDp5er2kA7eFgJXTxcGj+SytU8LW4Daoa9MsPNctrAGh8/fRd16OaqDOwdEpYqX1</certificate>
+        <consumerKey>3MVG9FMtW0XJDLd1jlHLzjYFwvQ4WqtHH2l9qb.AnG52N_tTpjJh_uCyuNepegrIXcltwLUTpbScv.rvrveiL</consumerKey>
+        <isAdminApproved>true</isAdminApproved>
+        <isClientCredentialEnabled>false</isClientCredentialEnabled>
+        <isCodeCredentialEnabled>false</isCodeCredentialEnabled>
+        <isCodeCredentialPostOnly>false</isCodeCredentialPostOnly>
+        <isConsumerSecretOptional>true</isConsumerSecretOptional>
+        <isIntrospectAllTokens>false</isIntrospectAllTokens>
+        <isNamedUserJwtEnabled>false</isNamedUserJwtEnabled>
+        <isPkceRequired>false</isPkceRequired>
+        <isRefreshTokenRotationEnabled>false</isRefreshTokenRotationEnabled>
+        <isSecretRequiredForRefreshToken>false</isSecretRequiredForRefreshToken>
+        <isSecretRequiredForTokenExchange>false</isSecretRequiredForTokenExchange>
+        <isTokenExchangeEnabled>false</isTokenExchangeEnabled>
+        <scopes>Api</scopes>
+        <scopes>Web</scopes>
+        <scopes>Full</scopes>
+        <scopes>RefreshToken</scopes>
+    </oauthConfig>
+    <oauthPolicy>
+        <ipRelaxation>ENFORCE</ipRelaxation>
+        <isTokenExchangeFlowEnabled>false</isTokenExchangeFlowEnabled>
+        <refreshTokenPolicy>infinite</refreshTokenPolicy>
+    </oauthPolicy>
+    <profileName>Administrador del sistema</profileName>
+</ConnectedApp>

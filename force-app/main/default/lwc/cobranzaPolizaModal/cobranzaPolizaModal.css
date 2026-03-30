@@ -1,0 +1,232 @@
+.modal-header {
+    background: linear-gradient(135deg, #0070d2, #005fb2);
+    color: rgb(0, 38, 255);;
+    padding: 1rem 1.5rem;
+}
+
+.modal-header h1 {
+    color: rgb(0, 38, 255);
+    margin: 0;
+}
+
+.modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+    width: 90%;
+}
+
+.seccion {
+    border: 1px solid #dddbda;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.seccion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f3f3;
+}
+
+.info-label {
+    font-weight: bold;
+    color: #2c2c2c;
+}
+
+.info-value {
+    color: #444444;
+}
+
+.info-value.vigente {
+    color: #137333;
+    font-weight: bold;
+}
+
+.info-value.vencida {
+    color: #d93025;
+    font-weight: bold;
+}
+
+.info-value.cancelada {
+    color: #e67c00;
+    font-weight: bold;
+}
+
+.metric-card {
+    text-align: center;
+    padding: 1rem;
+    border: 1px solid #dddbda;
+    border-radius: 0.5rem;
+    background: #f8f9fa;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #666666;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c2c2c;
+    margin-bottom: 0.25rem;
+}
+
+.metric-date {
+    font-size: 0.875rem;
+    color: #0070d2;
+    font-weight: bold;
+}
+
+.metric-subtext {
+    font-size: 0.75rem;
+    color: #666666;
+}
+
+.dias-normal {
+    color: #137333;
+}
+
+.dias-por-vencer {
+    color: #e67c00;
+}
+
+.dias-vencido {
+    color: #d93025;
+}
+
+.pagos-table-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dddbda;
+    border-radius: 0.5rem;
+}
+
+.pago-row:hover {
+    background-color: #f3f3f3;
+}
+
+.monto-cell {
+    font-weight: bold;
+    color: #2c2c2c;
+}
+
+.estado-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.estado-badge.pagado {
+    background-color: #E6F4EA;
+    color: #137333;
+    border: 1px solid #137333;
+}
+
+.estado-badge.pendiente {
+    background-color: #FFF4E6;
+    color: #E67C00;
+    border: 1px solid #E67C00;
+}
+
+.estado-badge.vencido {
+    background-color: #FFE6E6;
+    color: #D93025;
+    border: 1px solid #D93025;
+}
+
+.estado-badge.cancelado {
+    background-color: #F3F3F3;
+    color: #666666;
+    border: 1px solid #666666;
+}
+
+.vigencia-container {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+.timeline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    padding: 1rem 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #0070d2;
+    z-index: 1;
+}
+
+.timeline-item {
+    text-align: center;
+    background: white;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    border: 2px solid #0070d2;
+    position: relative;
+    z-index: 2;
+    min-width: 120px;
+}
+
+.timeline-item.hoy {
+    border-color: #ff9f00;
+    background: #fff4e6;
+}
+
+.timeline-date {
+    font-weight: bold;
+    color: #2c2c2c;
+    margin-bottom: 0.25rem;
+}
+
+.timeline-label {
+    font-size: 0.875rem;
+    color: #666666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .modal-body {
+        padding: 1rem;
+    }
+    
+    .seccion {
+        padding: 1rem;
+    }
+    
+    .timeline {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .timeline::before {
+        display: none;
+    }
+    
+    .info-item {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}

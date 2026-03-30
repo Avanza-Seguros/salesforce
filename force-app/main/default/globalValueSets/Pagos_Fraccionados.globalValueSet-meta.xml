@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Anual</fullName>
+        <default>false</default>
+        <label>Anual</label>
+    </customValue>
+    <customValue>
+        <fullName>Semestral</fullName>
+        <default>false</default>
+        <label>Semestral</label>
+    </customValue>
+    <customValue>
+        <fullName>Trimestral</fullName>
+        <default>false</default>
+        <label>Trimestral</label>
+    </customValue>
+    <customValue>
+        <fullName>Mensual</fullName>
+        <default>false</default>
+        <label>Mensual</label>
+    </customValue>
+    <masterLabel>Pagos Fraccionados</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

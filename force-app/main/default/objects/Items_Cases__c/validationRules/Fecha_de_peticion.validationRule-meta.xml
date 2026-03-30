@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fecha_de_peticion</fullName>
+    <active>true</active>
+    <description>Valida que la fecha seleccionada no sea menor a 30 días o mayor de la fecha actual</description>
+    <errorConditionFormula>AND(
+    $User.ProfileId = &quot;00e8a000002ILoB&quot;,
+    NOT(ISBLANK(Fecha_de_peticion__c)),  
+    OR(
+        ABS(DATEVALUE(CreatedDate) - Fecha_de_peticion__c) &gt; 30,
+        DATEVALUE(CreatedDate) - Fecha_de_peticion__c &lt; 0
+    )
+)</errorConditionFormula>
+    <errorMessage>La fecha de petición no debe ser 30 días menor o mayor a la fecha de creación de la solicitud.</errorMessage>
+</ValidationRule>

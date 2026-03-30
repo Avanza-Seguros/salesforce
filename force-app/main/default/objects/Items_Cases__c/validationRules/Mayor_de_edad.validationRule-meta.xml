@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mayor_de_edad</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+    ISPICKVAL(Parentesco__c, &quot;Padre&quot;),
+    ISPICKVAL(Parentesco__c, &quot;Madre&quot;),
+    ISPICKVAL(Parentesco__c, &quot;01 Titular&quot;),
+    ISPICKVAL(Parentesco__c, &quot;02 Conyuge&quot;),
+    ISPICKVAL(Parentesco__c, &quot;02 Concubina&quot;),
+    OR(
+        ISBLANK(Fecha_de_nacimiento__c), 
+        TODAY() - Fecha_de_nacimiento__c &lt; 6570  
+    )
+)</errorConditionFormula>
+    <errorMessage>La fecha de nacimiento no indica una mayoria de edad</errorMessage>
+</ValidationRule>

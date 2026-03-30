@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Almex</fullName>
+    <columns>NAME</columns>
+    <columns>Caso__c</columns>
+    <columns>Poliza__c</columns>
+    <columns>Nombre_cuenta__c</columns>
+    <columns>Asegurado__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Fecha_de_creacion__c</columns>
+    <columns>Fecha_de_cierre__c</columns>
+    <columns>Tipo_de_peticion__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Nombre_cuenta__c</field>
+        <operation>contains</operation>
+        <value>almidones</value>
+    </filters>
+    <label>Almex</label>
+    <sharedTo>
+        <portalRole>AlmidonesMexicanosSAdeCVSocioUsuario</portalRole>
+    </sharedTo>
+</ListView>

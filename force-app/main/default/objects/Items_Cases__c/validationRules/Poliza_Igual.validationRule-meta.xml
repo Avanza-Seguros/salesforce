@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Poliza_Igual</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+    NOT(ISBLANK(Poliza__c)), 
+     Caso__r.Poliza__c  &lt;&gt; Poliza__c
+)</errorConditionFormula>
+    <errorMessage>El valor de Poliza debe ser igual al del caso</errorMessage>
+</ValidationRule>

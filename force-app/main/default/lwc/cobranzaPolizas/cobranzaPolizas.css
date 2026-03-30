@@ -1,0 +1,55 @@
+/* cobranzaPolizas/cobranzaPolizas.css */
+.header-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.kpi-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-left: 4px solid #0070d2;
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.kpi-vigentes {
+    border-left-color: #4bca81;
+}
+
+.kpi-pendientes {
+    border-left-color: #ffb75d;
+}
+
+.kpi-canceladas {
+    border-left-color: #d4504c;
+}
+
+.kpi-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.kpi-icon {
+    background: #f3f2f2;
+    border-radius: 50%;
+    padding: 0.5rem;
+}
+
+.kpi-text h3 {
+    margin-bottom: 0.25rem;
+}
+
+.filters-container {
+    background: white;
+    border-radius: 0.5rem;
+}
+
+.tabs-container {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

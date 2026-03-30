@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>56.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <assignments>
+        <name>asigna_no_existe</name>
+        <label>asigna no existe</label>
+        <locationX>314</locationX>
+        <locationY>398</locationY>
+        <assignmentItems>
+            <assignToReference>textoSalida</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>no existe</stringValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <assignments>
+        <name>Copia_1_de_asigna_no_existe</name>
+        <label>Copia 1 de asigna no existe</label>
+        <locationX>50</locationX>
+        <locationY>398</locationY>
+        <assignmentItems>
+            <assignToReference>textoSalida</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>si existe</stringValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <decisions>
+        <name>verifica_si_hay_poliza</name>
+        <label>verifica si hay poliza</label>
+        <locationX>182</locationX>
+        <locationY>278</locationY>
+        <defaultConnector>
+            <targetReference>asigna_no_existe</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>no existe poliza</defaultConnectorLabel>
+        <rules>
+            <name>si_existe_poliza</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>obtenerPoliza.Id</leftValueReference>
+                <operator>WasSet</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Copia_1_de_asigna_no_existe</targetReference>
+            </connector>
+            <label>si existe poliza</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <interviewLabel>Verificar existencia Poliza {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Verificar existencia Poliza</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>obtenerPoliza</name>
+        <label>obtenerPoliza</label>
+        <locationX>182</locationX>
+        <locationY>158</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>verifica_si_hay_poliza</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Name</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>numeroDePoliza</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Polizas__c</object>
+        <queriedFields>Id</queriedFields>
+        <sortField>Id</sortField>
+        <sortOrder>Asc</sortOrder>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <start>
+        <locationX>56</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>obtenerPoliza</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <name>numeroDePoliza</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>textoSalida</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+</Flow>

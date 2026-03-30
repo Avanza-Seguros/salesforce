@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>63.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <environments>Default</environments>
+    <formulas>
+        <name>IDAuto</name>
+        <dataType>String</dataType>
+        <expression>{!$Record.Oportunidad__r.Automovil__r.Id}</expression>
+    </formulas>
+    <interviewLabel>info Auto Poliza {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>info Auto Poliza</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>Agregar_info_Auto</name>
+        <label>Agregar info Auto</label>
+        <locationX>176</locationX>
+        <locationY>287</locationY>
+        <inputAssignments>
+            <field>Agente_Relacionado__c</field>
+            <value>
+                <elementReference>$Record.Oportunidad__r.Agente_Relacionado__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Prospectador_Agente__c</field>
+            <value>
+                <elementReference>$Record.Oportunidad__r.Prospectador_Agente__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Agregar_info_Auto</targetReference>
+        </connector>
+        <object>Polizas__c</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Obsolete</status>
+</Flow>

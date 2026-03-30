@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IntegrationConfig__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Integration Config</label>
+    <referenceTo>IntegrationConfig__mdt</referenceTo>
+    <relationshipLabel>Exchange Rate Series</relationshipLabel>
+    <relationshipName>Exchange_Rate_Series</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

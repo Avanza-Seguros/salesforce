@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Indicador_Fecha_de_Acuse__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    OR(
+        TEXT(Estatus__c) = &quot;Aceptado&quot;,
+        TEXT(Estatus__c) = &quot;Información&quot;,
+        TEXT(Estatus__c) = &quot;Concluido&quot;,
+        TEXT(Estatus__c) = &quot;Rechazado&quot;,
+        TEXT(Estatus__c) = &quot;Nuevo&quot;
+    ),
+    NULL,
+    IF(
+        AND(
+            NOT(ISBLANK(Fecha_de_Acuse__c)),  
+            TODAY() - DATEVALUE(Fecha_de_Acuse__c) &gt;= 5
+        ),
+        IMAGE(&quot;/img/samples/flag_red.gif&quot;, &quot;5-4 Dias&quot;),
+        IF(
+            AND(
+                NOT(ISBLANK(Fecha_de_Acuse__c)),  
+                TODAY() - DATEVALUE(Fecha_de_Acuse__c) &gt;= 2
+            ),
+            IMAGE(&quot;/img/samples/flag_yellow.gif&quot;, &quot;3-2 Dias&quot;),
+            IF(
+                AND(
+                    NOT(ISBLANK(Fecha_de_Acuse__c)),
+                    TODAY() - DATEVALUE(Fecha_de_Acuse__c) &gt;= 0
+                ),
+                IMAGE(&quot;/img/samples/flag_green.gif&quot;, &quot;1 Dia&quot;),
+                IMAGE(&quot;/img/samples/flag_green.gif&quot;, &quot;Vencido&quot;)
+            )
+        )
+     )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Indicador Fecha de Acuse</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

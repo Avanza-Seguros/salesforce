@@ -1,0 +1,12 @@
+<apex:page showHeader="false" sidebar="false">
+    <style>
+        /* Ajustar el tamaño del iframe según tus necesidades */
+        .iframe-container {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+    <div class="iframe-container">
+        <iframe src="https://www2.repuve.gob.mx:8443/ciudadania/" frameborder="0" width="100%" height="100%"></iframe>
+    </div>
+</apex:page>

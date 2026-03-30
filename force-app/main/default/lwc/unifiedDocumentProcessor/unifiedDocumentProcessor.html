@@ -1,0 +1,39 @@
+<template>
+    <div class="slds-p-around_medium">
+        <!-- Estado de diagnóstico -->
+        <div class="slds-m-bottom_medium">
+            <h2 class="slds-text-heading_small">Estado PDF.js: 
+                <span if:true={isPdfJsLoaded} class="slds-text-color_success">✅ Cargado</span>
+                <span if:false={isPdfJsLoaded} class="slds-text-color_error">❌ No cargado</span>
+            </h2>
+            <p if:true={pdfLoadError} class="slds-text-color_error">Error: {pdfLoadError}</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="slds-tabs_default">
+            <ul class="slds-tabs_default__nav" role="tablist">
+                <li class="slds-tabs_default__item" data-tab="pdf" onclick={handleTabChange}>
+                    <a class="slds-tabs_default__link" href="javascript:void(0);">Procesar PDF</a>
+                </li>
+                <li class="slds-tabs_default__item" data-tab="excel" onclick={handleTabChange}>
+                    <a class="slds-tabs_default__link" href="javascript:void(0);">Procesar Excel</a>
+                </li>
+            </ul>
+            
+            <!-- Contenido PDF -->
+            <div if:true={isPdfTab} class="slds-tabs_default__content">
+                <div class="slds-card">
+                    <div class="slds-card__header">
+                        <h3 class="slds-text-heading_small">Subir archivos PDF</h3>
+                    </div>
+                    <div class="slds-card__body">
+                        <input type="file" accept=".pdf" multiple onchange={handlePdfFileChange} />
+                        <div if:true={isProcessing} class="slds-m-top_medium">
+                            Procesando...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

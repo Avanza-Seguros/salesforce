@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Aviso_de_Estatus__c</fullName>
+    <externalId>false</externalId>
+    <formula>IMAGE(
+IF(  ISPICKVAL( Estatus__c , &quot;Rechazado&quot; ), &quot;/img/samples/light_red.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Pendiente de indormacion&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Ingresado&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Espera de primas&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Pendiente de pago&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Recibido&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Cancelado&quot; ), &quot;/img/samples/light_red.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Error&quot; ), &quot;/img/samples/light_red.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;En proceso&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Aviso RA medico&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Entregado&quot; ), &quot;/img/samples/light_green.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Concluido&quot; ), &quot;/img/samples/light_green.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Entrega de póliza&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Pendiente de informacion&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Captura&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;En tramite&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Espera de Documetación&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Nuevo&quot; ), &quot;/img/samples/light_yellow.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Aceptado&quot; ), &quot;/img/samples/light_green.gif&quot;,
+IF(  ISPICKVAL( Estatus__c , &quot;Validación&quot; ), &quot;/img/samples/light_yellow.gif&quot;,&quot;Sin Datos&quot;)))))))))))))))))))), &quot;Sin Datos&quot;)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Aviso de Estatus</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

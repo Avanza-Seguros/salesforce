@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <label>JBSystem_Pago_poliza_c_RecordFlow</label>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>JBSystemFlow_Pago_poliza_c</targetReference>
+        </connector>
+        <object>Pago_poliza__c</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+    <subflows>
+        <name>JBSystemFlow_Pago_poliza_c</name>
+        <label>JBSystemFlow_Pago_poliza_c</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <flowName>JBSystemFlow_Pago_poliza_c</flowName>
+        <inputAssignments>
+            <name>new_object</name>
+            <value>
+                <elementReference>$Record</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <name>old_object</name>
+            <value>
+                <elementReference>$Record__Prior</elementReference>
+            </value>
+        </inputAssignments>
+    </subflows>
+</Flow>

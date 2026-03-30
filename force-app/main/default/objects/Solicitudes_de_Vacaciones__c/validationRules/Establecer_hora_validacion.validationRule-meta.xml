@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Establecer_hora_validacion</fullName>
+    <active>true</active>
+    <errorConditionFormula>(ISPICKVAL(Motivo_Inexcusable__c, &apos;Entrada tarde&apos; ) ||
+ISPICKVAL(Motivo_Inexcusable__c, &apos;Salida Temprano&apos; )) &amp;&amp;
+ISPICKVAL( Establecer_hora__c , &apos;&apos; )</errorConditionFormula>
+    <errorMessage>El campo Establecer Hora es requerido.</errorMessage>
+</ValidationRule>

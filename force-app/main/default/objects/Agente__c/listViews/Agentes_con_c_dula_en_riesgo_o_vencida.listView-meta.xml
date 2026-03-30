@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Agentes_con_c_dula_en_riesgo_o_vencida</fullName>
+    <columns>Id_del_Agente__c</columns>
+    <columns>NAME</columns>
+    <columns>Status__c</columns>
+    <columns>Tipo_de_cedula__c</columns>
+    <columns>Vigencia_de_cedula__c</columns>
+    <columns>Indicador_vigencia_de_cedula__c</columns>
+    <columns>Status_vigencia_cedula__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status_vigencia_cedula__c</field>
+        <operation>equals</operation>
+        <value>En riesgo,Vencido</value>
+    </filters>
+    <filters>
+        <field>Status__c</field>
+        <operation>notEqual</operation>
+        <value>Descartado,Inactivo</value>
+    </filters>
+    <label>Agentes con cédula en riesgo o vencida</label>
+</ListView>

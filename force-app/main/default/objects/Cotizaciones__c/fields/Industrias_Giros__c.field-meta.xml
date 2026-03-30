@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Industrias_Giros__c</fullName>
+    <label>Industrias/Giros</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Servicio</fullName>
+                <default>false</default>
+                <label>Servicio</label>
+            </value>
+            <value>
+                <fullName>Construcción</fullName>
+                <default>false</default>
+                <label>Construcción</label>
+            </value>
+            <value>
+                <fullName>Industria</fullName>
+                <default>false</default>
+                <label>Industria</label>
+            </value>
+            <value>
+                <fullName>Estacionamientos</fullName>
+                <default>false</default>
+                <label>Estacionamientos</label>
+            </value>
+            <value>
+                <fullName>Industria de Semillas</fullName>
+                <default>false</default>
+                <label>Industria de Semillas</label>
+            </value>
+            <value>
+                <fullName>Hoteleria</fullName>
+                <default>false</default>
+                <label>Hoteleria</label>
+            </value>
+            <value>
+                <fullName>Comercio al por Menor</fullName>
+                <default>false</default>
+                <label>Comercio al por Menor</label>
+            </value>
+            <value>
+                <fullName>Servicios personales</fullName>
+                <default>false</default>
+                <label>Servicios personales</label>
+            </value>
+            <value>
+                <fullName>Comercio al por Mayor</fullName>
+                <default>false</default>
+                <label>Comercio al por Mayor</label>
+            </value>
+            <value>
+                <fullName>Restaurantes</fullName>
+                <default>false</default>
+                <label>Restaurantes</label>
+            </value>
+            <value>
+                <fullName>Comercio</fullName>
+                <default>false</default>
+                <label>Comercio</label>
+            </value>
+            <value>
+                <fullName>Taller Automotriz</fullName>
+                <default>false</default>
+                <label>Taller Automotriz</label>
+            </value>
+            <value>
+                <fullName>Servicio para las personas</fullName>
+                <default>false</default>
+                <label>Servicio para las personas</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

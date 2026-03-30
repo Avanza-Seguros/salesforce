@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Usuario_Unico</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+    ISCHANGED(Estatus__c),
+    NOT(ISBLANK(PRIORVALUE(Estatus__c))),
+    $User.Email &lt;&gt; &quot;misael.velarde@avanzaseguro.com&quot;,
+    TEXT(Estatus__c) &lt;&gt; &quot;Concluido&quot;,
+    
+    OR(
+        AND(
+            TEXT(PRIORVALUE(Estatus__c)) = &quot;En Proceso&quot;,
+            OR(
+                TEXT(Estatus__c) = &quot;Recibido&quot;,
+                TEXT(Estatus__c) = &quot;Pausado&quot;,
+                TEXT(Estatus__c) = &quot;Enviado&quot;
+            )
+        ),
+        AND(
+            TEXT(PRIORVALUE(Estatus__c)) = &quot;Recibido&quot;,
+            OR(
+                TEXT(Estatus__c) = &quot;Pausado&quot;,
+                TEXT(Estatus__c) = &quot;Enviado&quot;
+            )
+        ),
+        AND(
+            TEXT(PRIORVALUE(Estatus__c)) = &quot;Pausado&quot;,
+            TEXT(Estatus__c) = &quot;Enviado&quot;
+        )
+    )
+)</errorConditionFormula>
+    <errorMessage>No tienes permiso para regresar el estatus. Solo Misael Velarde puede realizar esta acción.</errorMessage>
+</ValidationRule>

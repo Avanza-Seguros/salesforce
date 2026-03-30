@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Concluir_Peticion</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+ISPICKVAL(Estatus__c, &quot;Concluido&quot;),
+Contacto__r.Email &lt;&gt; &quot;correos@avanzaseguro.com&quot;
+)</errorConditionFormula>
+    <errorMessage>No cuenta con los permisos necesarios para Concluir la petición. Favor de contactar a Avanza.</errorMessage>
+</ValidationRule>

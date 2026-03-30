@@ -1,0 +1,93 @@
+<apex:page showHeader="false" sidebar="false" controller="LoginController">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-image: url('https://img.freepik.com/vector-premium/fondo-moderno-color-azul-blanco_222229-3657.jpg?w=1060');
+            background-size: cover;
+            background-position: center;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .login-form {
+            width: 300px;
+            max-width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .login-container label {
+            font-weight: bold;
+            font-size: 16px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .login-container input[type="text"],
+        .login-container input[type="password"],
+        .login-container input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 3px;
+            font-size: 16px;
+        }
+        .login-container input[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: background-color 0.3s ease;
+            align-content: center;
+        }
+        .login-container input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        .login-container h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .login-container .salesforce-logo {
+            width: 200px;
+            margin-bottom: 20px;
+        }
+        .login-container .submit-container {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+    <div class="login-container">
+        <div class="login-form">
+            <apex:form >
+                <img class="salesforce-logo" src="https://na211.salesforce.com/brand-asset/CAAAAYidwJBsAAAAAAAAAAAAAAAAAAAAAAAA9G3LxmfxZABSOx77OqUdFmOa576MUrGN54YoZElU81S8SETTJVkZnUl8zdLKwWwUozd8C5HgkI5yG5ciyrY3VMZhxBqZT-HHEatAoX35b15b" alt="Salesforce" />
+                <h2>Bienvenido a Avanza Seguro Consultores</h2>
+                <br></br>
+                <br></br>
+                <br></br>
+                <label for="username">Usuario:</label>
+                <input type="text" id="username" name="username" required="true" />
+                <label for="password">Contraseña:</label>
+                <input type="password" id="password" name="password" required="true" />
+                <div class="submit-container">
+                    <input type="submit" value="Iniciar Sesión" />
+                </div>
+            </apex:form>
+        </div>
+    </div>
+</apex:page>

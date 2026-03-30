@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Vencida</fullName>
+        <default>false</default>
+        <label>Vencida</label>
+    </customValue>
+    <customValue>
+        <fullName>Vigor</fullName>
+        <default>false</default>
+        <label>Vigor</label>
+    </customValue>
+    <customValue>
+        <fullName>Vigor sin Pago de Primas</fullName>
+        <default>false</default>
+        <label>Vigor sin Pago de Primas</label>
+    </customValue>
+    <customValue>
+        <fullName>Cancelada</fullName>
+        <default>false</default>
+        <label>Cancelada</label>
+    </customValue>
+    <customValue>
+        <fullName>Se cambio de agente</fullName>
+        <default>false</default>
+        <label>Se cambio de agente</label>
+    </customValue>
+    <customValue>
+        <fullName>No tomada</fullName>
+        <default>false</default>
+        <label>No tomada</label>
+    </customValue>
+    <customValue>
+        <fullName>Renovada</fullName>
+        <default>false</default>
+        <label>Renovada</label>
+    </customValue>
+    <customValue>
+        <fullName>Vigor Prorrogado</fullName>
+        <default>false</default>
+        <label>Vigor Prorrogado</label>
+    </customValue>
+    <masterLabel>Estatus Poliza</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

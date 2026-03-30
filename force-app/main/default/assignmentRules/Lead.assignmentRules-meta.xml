@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AssignmentRules xmlns="http://soap.sforce.com/2006/04/metadata">
+    <assignmentRule>
+        <fullName>Asignasion Siniestros</fullName>
+        <active>false</active>
+        <ruleEntry>
+            <assignedTo>cotizaciones@avanzaseguro.com</assignedTo>
+            <assignedToType>User</assignedToType>
+            <criteriaItems>
+                <field>Lead.Mercado__c</field>
+                <operation>equals</operation>
+                <value>Siniestro Enfermedad</value>
+            </criteriaItems>
+        </ruleEntry>
+        <ruleEntry>
+            <assignedTo>gerardo.salazar@avanzaseguro.com</assignedTo>
+            <assignedToType>User</assignedToType>
+            <criteriaItems>
+                <field>Lead.Mercado__c</field>
+                <operation>equals</operation>
+                <value>Siniestro Accidente</value>
+            </criteriaItems>
+        </ruleEntry>
+        <ruleEntry>
+            <assignedTo>gerardo.salazar@avanzaseguro.com</assignedTo>
+            <assignedToType>User</assignedToType>
+            <criteriaItems>
+                <field>Lead.Mercado__c</field>
+                <operation>equals</operation>
+                <value>Siniestros Maternidad</value>
+            </criteriaItems>
+        </ruleEntry>
+    </assignmentRule>
+    <assignmentRule>
+        <fullName>Leads mkt</fullName>
+        <active>true</active>
+        <ruleEntry>
+            <assignedTo>gerardo.salazar@avanzaseguro.com</assignedTo>
+            <assignedToType>User</assignedToType>
+            <criteriaItems>
+                <field>Lead.LastName</field>
+                <operation>contains</operation>
+                <value>[no proporcionado]</value>
+            </criteriaItems>
+        </ruleEntry>
+    </assignmentRule>
+</AssignmentRules>

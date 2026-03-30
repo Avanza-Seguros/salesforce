@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Solicitante__c</fullName>
+    <label>Solicitante</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Abraham Gonzalez Gonalez&quot;</fullName>
+                <default>false</default>
+                <label>Abraham Gonzalez Gonalez&quot;</label>
+            </value>
+            <value>
+                <fullName>Beatriz Evelia Boix Escobar</fullName>
+                <default>false</default>
+                <label>Beatriz Evelia Boix Escobar</label>
+            </value>
+            <value>
+                <fullName>Dulce Guadalupe Godoy Plascencia&quot;</fullName>
+                <default>false</default>
+                <label>Dulce Guadalupe Godoy Plascencia&quot;</label>
+            </value>
+            <value>
+                <fullName>Elsi Karolina Casillas Ramos&quot;</fullName>
+                <default>false</default>
+                <label>Elsi Karolina Casillas Ramos&quot;</label>
+            </value>
+            <value>
+                <fullName>Gerardo Salvador Salazar Rodriguez</fullName>
+                <default>false</default>
+                <label>Gerardo Salvador Salazar Rodriguez</label>
+            </value>
+            <value>
+                <fullName>Gloria Esmeralda Lopez Aguirre&quot;</fullName>
+                <default>false</default>
+                <label>Gloria Esmeralda Lopez Aguirre&quot;</label>
+            </value>
+            <value>
+                <fullName>Jazmin Elizabeth Delgado</fullName>
+                <default>false</default>
+                <label>Jazmin Elizabeth Delgado</label>
+            </value>
+            <value>
+                <fullName>Jesica Andrea Gonzalez Gonzalez</fullName>
+                <default>false</default>
+                <label>Jesica Andrea Gonzalez Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Johana Isabel Fregoso Arteaga&quot;</fullName>
+                <default>false</default>
+                <label>Johana Isabel Fregoso Arteaga&quot;</label>
+            </value>
+            <value>
+                <fullName>Jose Misael Velarde Leon&quot;</fullName>
+                <default>false</default>
+                <label>Jose Misael Velarde Leon&quot;</label>
+            </value>
+            <value>
+                <fullName>Juarez Vargas Fernanda Itzel&quot;</fullName>
+                <default>false</default>
+                <label>Juarez Vargas Fernanda Itzel&quot;</label>
+            </value>
+            <value>
+                <fullName>Karla Gabriela Marttelo Alvarado&quot;</fullName>
+                <default>false</default>
+                <label>Karla Gabriela Marttelo Alvarado&quot;</label>
+            </value>
+            <value>
+                <fullName>Larissa Mendoza Sanchez&quot;</fullName>
+                <default>false</default>
+                <label>Larissa Mendoza Sanchez&quot;</label>
+            </value>
+            <value>
+                <fullName>Luis Fernando Frutos Villa&quot;</fullName>
+                <default>false</default>
+                <label>Luis Fernando Frutos Villa&quot;</label>
+            </value>
+            <value>
+                <fullName>Maria Fernanda Navarro Perez&quot;</fullName>
+                <default>false</default>
+                <label>Maria Fernanda Navarro Perez&quot;</label>
+            </value>
+            <value>
+                <fullName>Nestor Rolando Ruiz Gomez&quot;</fullName>
+                <default>false</default>
+                <label>Nestor Rolando Ruiz Gomez&quot;</label>
+            </value>
+            <value>
+                <fullName>Paola Fernanda Garcia Vasquez&quot;</fullName>
+                <default>false</default>
+                <label>Paola Fernanda Garcia Vasquez&quot;</label>
+            </value>
+            <value>
+                <fullName>Rodrigo Ojeda Alvarez Tostado&quot;</fullName>
+                <default>false</default>
+                <label>Rodrigo Ojeda Alvarez Tostado&quot;</label>
+            </value>
+            <value>
+                <fullName>Santoyo Flores Rosa Isabel&quot;</fullName>
+                <default>false</default>
+                <label>Santoyo Flores Rosa Isabel&quot;</label>
+            </value>
+            <value>
+                <fullName>Victoria Lizbeth Mayoral Herrera&quot;</fullName>
+                <default>false</default>
+                <label>Victoria Lizbeth Mayoral Herrera&quot;</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

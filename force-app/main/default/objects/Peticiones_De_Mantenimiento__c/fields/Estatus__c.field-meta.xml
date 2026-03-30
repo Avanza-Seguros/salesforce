@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Estatus__c</fullName>
+    <label>Estatus</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Enviado</fullName>
+                <default>true</default>
+                <label>Enviado</label>
+            </value>
+            <value>
+                <fullName>Pausado</fullName>
+                <default>false</default>
+                <label>Pausado</label>
+            </value>
+            <value>
+                <fullName>Recibido</fullName>
+                <default>false</default>
+                <label>Recibido</label>
+            </value>
+            <value>
+                <fullName>Mas Informacion</fullName>
+                <default>false</default>
+                <label>Mas Informacion</label>
+            </value>
+            <value>
+                <fullName>En Proceso</fullName>
+                <default>false</default>
+                <label>En Proceso</label>
+            </value>
+            <value>
+                <fullName>Revisar</fullName>
+                <default>false</default>
+                <label>Revisar</label>
+            </value>
+            <value>
+                <fullName>Concluido</fullName>
+                <default>false</default>
+                <label>Concluido</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

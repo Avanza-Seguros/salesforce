@@ -1,0 +1,876 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Siniestros</fullName>
+    <active>true</active>
+    <label>Siniestros</label>
+    <picklistValues>
+        <picklist>Aseguradora__c</picklist>
+        <values>
+            <fullName>ATLAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AXA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Afirme</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Allianz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BUPA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bx%2B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CHUBB</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dentegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GNP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HDI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INBURSA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Insignia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mapfre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Metlife</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Plan Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>QUALITAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMNYL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sura</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Zurich</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Avisar_a_Empresa__c</picklist>
+        <values>
+            <fullName>Avisado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Califica_a_Prospecto__c</picklist>
+        <values>
+            <fullName>No</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Si</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ya es Prospecto</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Colectivo__c</picklist>
+        <values>
+            <fullName>ADMINISTRADORA CENTRO COMERCIAL ANDARES SC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ADMINISTRADORA EL MOLINO AC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ADMINISTRADORA INMOBILIARIA DEL BAJIO S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ADMINISTRADORA INMOBILIARIA DEL BAJIO S%2EA%2E DE C%2EV%2E %28QUERETARO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ADMINISTRADORA INMOBILIARIA DEL BAJIO SA DE CV %28VERACRUZ%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ADVANCED METHODS CO%2C S DE RL DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AGRICOLA LOS REYES S DE RL DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ANGELICA SANCHEZ IBARRA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ASOC MEXICANA DE VETERINARIOS ESP EN CERDOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ASOCIACION LOCAL DE PORCICULTORES DE TEPATITLAN</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ASOCIACION LOCAL DE PORCICULTORES DE TEPATITLAN DE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COA INTERNACIONAL%2C S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COMERCIALIZADORA DE CARNES JIMENEZ S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COMERCIALIZADORA DE CARNES JIMENEZ SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CORPORATIVO TELMODAS SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>EL MOLINO CLUB GOLF</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ELECTRICA INDUSTRIAL ALEN%2C SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FUNDACION EDUCACION Y SALUD%2C A%2EC%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GLOBAL STANDARDS SC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV %28GUADALAJARA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV %28LEON%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV %28QUERETARO%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GRUPO NURBAN DE MEXICO CONSTRUCCIONES SA DE CV %28VERACEUZ%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HAND CLOUD%2C S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HF SARBANAND S%2E DE R%2EL%2E DE C%2EV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HORTIFRUT S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HORTIFRUT-ABA S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INDIVIDUAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>LUXOFT MEXICO S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MAYAKOBA COUNTRY CLUB SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MEJORAMIENTO JUGUETES</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MH TAYLOR REAL ESTATE SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>NATO ARQUITECTOS SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>OCP-OBRAS CIVILES Y PROYECTOS DE MEXICO SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>OJOS ABIERTOS JALISCO%2C S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>OPERADORA DE CLUBS DEPORTIVOS LOS ROBLES%2C A%2EC%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PRO SALON SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>REUVEN ROZENMAN</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SERVICIOS INTELIGENTES INMOBILIARIOS%2C S%2EC%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SILVIA INES OÑATE AGURRE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SOLUCIONES KENKO SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SWEETS%C2%B4N LOLLY POPS S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SWEETS%C2%B4N LOLLY POPS%2C S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TRANSPORTES ESPECIALIZADOS RAFNEL SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>UNOSQUARE S%2EA%2E DE C%2EV%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>UNOSQUARE SA DE CV</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VALLE NUEVO DE TECOMAN%2C S%2E P%2E R%2E DE R%2E L%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VGDV CAPITAL SAPI DE CV</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Documentacion_Ingresada__c</picklist>
+        <values>
+            <fullName>AVISO ACCIDENTE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BITACORA ASISTENCIA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CAMBIO DE HOSPITAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CAMBIO DE MEDICO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CARTA ASESOR</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CARTA DE AUTORIZACION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CARTA INFORMACION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CARTA RECHAZO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CARTA REMANENTE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COMPROBANTE DE DOMICILIO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COTIZACION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>DEDUCIBLE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>DESGLOSE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ESTADO DE CUENTA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ESTUDIOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FACTURAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FINIQUITO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FORMA DE PAGO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HISTORIAL CLINICO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IDENTIFICACION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INFORME MEDICO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MATERNIDAD ANTICIPADA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ORDEN DE ESTUDIOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RECETA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>REEMBOLSO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SOLICITUD INDIVIDUAL</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Ejecutivo__c</picklist>
+        <values>
+            <fullName>Abraham Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Denisse Mendoza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elsi Casillas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Esmeralda Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fernanda Itzel Juarez Vargas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gerardo Salazar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Isabel Santoyo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmín Delgado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jesica Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Josseline Nuñez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Karla Martello</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Larissa Mendoza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lisset García</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nestor Ruiz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Paulina Gomez</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Estatus__c</picklist>
+        <values>
+            <fullName>2nd Valoración</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Aceptado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Aviso RA medico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Concluido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>En proceso</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Entregado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Error</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Espera de primas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Información</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ingresado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ingreso Hospitalario</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nuevo</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Pendiente de informacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente de pago</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Recibido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Validacion</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Estatus_de_Segunda_Valoracion__c</picklist>
+        <values>
+            <fullName>No ha asistido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ya asistio</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Forma_de_Pago__c</picklist>
+        <values>
+            <fullName>Anual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mensual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Orden</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Semestral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transfer</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trimestral</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>MOV__c</picklist>
+        <values>
+            <fullName>Correo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Plataforma</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Motivo_De_Reproceso__c</picklist>
+        <values>
+            <fullName>Externo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Interno</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Motivo__c</picklist>
+        <values>
+            <fullName>INsatusfaccion de Servicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Padecimiento ICD</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Proceso de Venta Actual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tramite Aun no Cierra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ya es Cliente</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Movimiento__c</picklist>
+        <values>
+            <fullName>Aclaraciones Multiples</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alta de Asegurado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Alta de Recíen Nacido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Aplicación de Primas en depósito</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Aumento de Suma Asegurada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baja de Asegurado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio Forma de Pago</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio de Agente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio de Beneficiarios</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio de Coberturas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio de Contratante</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio de Prima Adicional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio de plan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelación de Póliza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cargo Automático</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Conducto de cobro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Correccion de datos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Datos Fiscales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Descobros</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Disminucíon de Suma Asegurada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Estado de cuenta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fallecimiento</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inclusión%2FExclusión de AVES</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ingreso Hospitalario</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Invalidez Total y Permanente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago de Primas con fondo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Programación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RETIRO DE DOTAL PARA PAGO DE POLIZA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reconocimiento de antigüedad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reembolso</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Refrendo de Cédula CNSF</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rehabilitación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rescate Total</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro de Aves y Dotales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Retiro de Fondo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Riesgo Preferente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vencimiento de Plan Tradicional</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Ramo__c</picklist>
+        <values>
+            <fullName>AUTO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>DAÑOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GASTOS MEDICOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TRANSPORTES</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VIDA</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Reprocesado__c</picklist>
+        <values>
+            <fullName>No</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Si</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Reviso__c</picklist>
+        <values>
+            <fullName>Abraham</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elena</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gerardo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jesica</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo__c</picklist>
+        <values>
+            <fullName>Colectivo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Complementario</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inicial</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo_de_Evento__c</picklist>
+        <values>
+            <fullName>Accidente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Enfermedad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Maternidad</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

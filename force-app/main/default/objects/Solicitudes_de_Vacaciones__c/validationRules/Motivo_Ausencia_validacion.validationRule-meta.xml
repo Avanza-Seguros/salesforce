@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Motivo_Ausencia_validacion</fullName>
+    <active>true</active>
+    <errorConditionFormula>ISPICKVAL(TIpo_de_Permiso__c, &apos;Permiso especial&apos;) &amp;&amp;  ISPICKVAL(Motivo_Ausencia__c, &apos;&apos;)</errorConditionFormula>
+    <errorDisplayField>Motivo_Ausencia__c</errorDisplayField>
+    <errorMessage>Motivo de ausencia es un campo requerido</errorMessage>
+</ValidationRule>

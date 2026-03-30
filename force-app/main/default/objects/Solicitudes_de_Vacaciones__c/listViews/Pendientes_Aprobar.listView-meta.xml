@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pendientes_Aprobar</fullName>
+    <columns>NAME</columns>
+    <columns>Gladiador__c</columns>
+    <columns>TIpo_de_Permiso__c</columns>
+    <columns>Etapa__c</columns>
+    <columns>Dias_Desde__c</columns>
+    <columns>Dias_Hasta__c</columns>
+    <columns>Dias_que_se_Solicitan__c</columns>
+    <columns>Fecha_de_Solicitud__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Etapa__c</field>
+        <operation>equals</operation>
+        <value>Solicitado,En Revision</value>
+    </filters>
+    <label>Pendientes Aprobar</label>
+    <sharedTo>
+        <roleAndSubordinatesInternal>Administrador</roleAndSubordinatesInternal>
+    </sharedTo>
+</ListView>

@@ -1,0 +1,58 @@
+<apex:page >
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-image: url('https://i.ibb.co/bWDNs3k/portal-1.jpg');
+            background-size: cover;
+            background-position: center;
+            color: #FFF; /* Cambio de color de las letras a blanco */
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        li:before {
+            content: "🎉";
+            color: #FFC107;
+            margin-right: 10px;
+            font-size: 20px;
+        }
+    </style>
+    
+    <h1>Integrantes de la Empresa</h1>
+    <ul>
+        <li>Misael Velarde - 5 de Marzo</li>
+        <li>Larissa Mendoza - 29 de Julio</li>
+        <li>Esmeralda Lopez - 21 de Junio</li>
+        <li>Abraham Gonzalez - 29 de Agosto</li>
+        <li>Elena Kleemann - 6 de Mayo</li>
+        <li>Jesica Gonzalez - 12 de Junio</li>
+        <li>Edith Rodriguez - 5 de Abril</li>
+        <li>Jazmin Delgado - 4 de Agosto</li>
+        <li>Pablo Kleemann - 19 de Febrero</li>
+        <li>Paula Olavarriaga - 8 de Agosto</li>
+        <li>Diana Tamez - 15 de Julio</li>
+         <li>Elsi - 5 de Diciembre</li>
+       
+    </ul>
+</apex:page>

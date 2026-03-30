@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prospectador__c</fullName>
+    <label>Prospectador</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Abraham Gonzalez</fullName>
+                <default>false</default>
+                <label>Abraham Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Adriana Franco</fullName>
+                <default>false</default>
+                <label>Adriana Franco</label>
+            </value>
+            <value>
+                <fullName>Arturo Viniegra</fullName>
+                <default>false</default>
+                <label>Arturo Viniegra</label>
+            </value>
+            <value>
+                <fullName>Avanza Seguro</fullName>
+                <default>false</default>
+                <label>Avanza Seguro</label>
+            </value>
+            <value>
+                <fullName>Carlos Abraham Gonzalez Covaburribas</fullName>
+                <default>false</default>
+                <label>Carlos Abraham Gonzalez Covaburribas</label>
+            </value>
+            <value>
+                <fullName>Carlota Villarreal</fullName>
+                <default>false</default>
+                <label>Carlota Villarreal</label>
+            </value>
+            <value>
+                <fullName>Daniel Rea</fullName>
+                <default>false</default>
+                <label>Daniel Rea</label>
+            </value>
+            <value>
+                <fullName>Denisse Castellanos</fullName>
+                <default>false</default>
+                <label>Denisse Castellanos</label>
+            </value>
+            <value>
+                <fullName>Diego Retano</fullName>
+                <default>false</default>
+                <label>Diego Retano</label>
+            </value>
+            <value>
+                <fullName>Edith Olavarría</fullName>
+                <default>false</default>
+                <label>Edith Olavarría</label>
+            </value>
+            <value>
+                <fullName>Edith Rodriguez</fullName>
+                <default>false</default>
+                <label>Edith Rodriguez</label>
+            </value>
+            <value>
+                <fullName>Elena Kleemann</fullName>
+                <default>false</default>
+                <label>Elena Kleemann</label>
+            </value>
+            <value>
+                <fullName>Elsi Casillas</fullName>
+                <default>false</default>
+                <label>Elsi Casillas</label>
+            </value>
+            <value>
+                <fullName>Esmeralda Lopez</fullName>
+                <default>false</default>
+                <label>Esmeralda Lopez</label>
+            </value>
+            <value>
+                <fullName>Fernanda Anton</fullName>
+                <default>false</default>
+                <label>Fernanda Anton</label>
+            </value>
+            <value>
+                <fullName>Gerardo Salazar</fullName>
+                <default>false</default>
+                <label>Gerardo Salazar</label>
+            </value>
+            <value>
+                <fullName>Jazmin Delgado</fullName>
+                <default>false</default>
+                <label>Jazmin Delgado</label>
+            </value>
+            <value>
+                <fullName>Jazmin Magallon</fullName>
+                <default>false</default>
+                <label>Jazmin Magallon</label>
+            </value>
+            <value>
+                <fullName>Jesica Gonzalez</fullName>
+                <default>false</default>
+                <label>Jesica Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Jissell Castañeda</fullName>
+                <default>false</default>
+                <label>Jissell Castañeda</label>
+            </value>
+            <value>
+                <fullName>Josuetl Sandoval</fullName>
+                <default>false</default>
+                <label>Josuetl Sandoval</label>
+            </value>
+            <value>
+                <fullName>Juan Pablo Kleemann</fullName>
+                <default>false</default>
+                <label>Juan Pablo Kleemann</label>
+            </value>
+            <value>
+                <fullName>Juan Santana</fullName>
+                <default>false</default>
+                <label>Juan Santana</label>
+            </value>
+            <value>
+                <fullName>Larissa Mendoza</fullName>
+                <default>false</default>
+                <label>Larissa Mendoza</label>
+            </value>
+            <value>
+                <fullName>Lilia Ruiz</fullName>
+                <default>false</default>
+                <label>Lilia Ruiz</label>
+            </value>
+            <value>
+                <fullName>Lily Vargas</fullName>
+                <default>false</default>
+                <label>Lily Vargas</label>
+            </value>
+            <value>
+                <fullName>Luis Felipe Gutierrez</fullName>
+                <default>false</default>
+                <label>Luis Felipe Gutierrez</label>
+            </value>
+            <value>
+                <fullName>Nestor Rolando Ruiz Gomez</fullName>
+                <default>false</default>
+                <label>Nestor Rolando Ruiz Gomez</label>
+            </value>
+            <value>
+                <fullName>Rafael Perez</fullName>
+                <default>false</default>
+                <label>Rafael Perez</label>
+            </value>
+            <value>
+                <fullName>Ricardo Urrea</fullName>
+                <default>false</default>
+                <label>Ricardo Urrea</label>
+            </value>
+            <value>
+                <fullName>Rodrigo Ojeda</fullName>
+                <default>false</default>
+                <label>Rodrigo Ojeda</label>
+            </value>
+            <value>
+                <fullName>Sergio Lopez</fullName>
+                <default>false</default>
+                <label>Sergio Lopez</label>
+            </value>
+            <value>
+                <fullName>Teresa Solís</fullName>
+                <default>false</default>
+                <label>Teresa Solís</label>
+            </value>
+            <value>
+                <fullName>Victor Nava</fullName>
+                <default>false</default>
+                <label>Victor Nava</label>
+            </value>
+            <value>
+                <fullName>Viridiana Rodriguez</fullName>
+                <default>false</default>
+                <label>Viridiana Rodriguez</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

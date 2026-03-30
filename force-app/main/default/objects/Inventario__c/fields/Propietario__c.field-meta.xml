@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Propietario__c</fullName>
+    <label>Propietario</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Jazmin Delgado</fullName>
+                <default>false</default>
+                <label>Jazmin Delgado</label>
+            </value>
+            <value>
+                <fullName>Misael Velarde</fullName>
+                <default>false</default>
+                <label>Misael Velarde</label>
+            </value>
+            <value>
+                <fullName>Larissa Mendoza</fullName>
+                <default>false</default>
+                <label>Larissa Mendoza</label>
+            </value>
+            <value>
+                <fullName>Juan Pablo Kleemann</fullName>
+                <default>false</default>
+                <label>Juan Pablo Kleemann</label>
+            </value>
+            <value>
+                <fullName>Elena Kleemann</fullName>
+                <default>false</default>
+                <label>Elena Kleemann</label>
+            </value>
+            <value>
+                <fullName>Jesica Gonzalez</fullName>
+                <default>false</default>
+                <label>Jesica Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Abraham Gonzalez</fullName>
+                <default>false</default>
+                <label>Abraham Gonzalez</label>
+            </value>
+            <value>
+                <fullName>Gerardo Salazar</fullName>
+                <default>false</default>
+                <label>Gerardo Salazar</label>
+            </value>
+            <value>
+                <fullName>Esmeralda Lopez</fullName>
+                <default>false</default>
+                <label>Esmeralda Lopez</label>
+            </value>
+            <value>
+                <fullName>Edith Rodriguez</fullName>
+                <default>false</default>
+                <label>Edith Rodriguez</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

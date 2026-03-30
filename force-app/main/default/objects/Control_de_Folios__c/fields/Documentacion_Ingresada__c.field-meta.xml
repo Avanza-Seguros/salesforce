@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Documentacion_Ingresada__c</fullName>
+    <label>Documentación Ingresada</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>MultiselectPicklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>IDENTIFICACION</fullName>
+                <default>false</default>
+                <label>IDENTIFICACION</label>
+            </value>
+            <value>
+                <fullName>ESTADO DE CUENTA</fullName>
+                <default>false</default>
+                <label>ESTADO DE CUENTA</label>
+            </value>
+            <value>
+                <fullName>INFORME MEDICO</fullName>
+                <default>false</default>
+                <label>INFORME MEDICO</label>
+            </value>
+            <value>
+                <fullName>AVISO ACCIDENTE</fullName>
+                <default>false</default>
+                <label>AVISO ACCIDENTE</label>
+            </value>
+            <value>
+                <fullName>FACTURAS</fullName>
+                <default>false</default>
+                <label>FACTURAS</label>
+            </value>
+            <value>
+                <fullName>ESTUDIOS</fullName>
+                <default>false</default>
+                <label>ESTUDIOS</label>
+            </value>
+            <value>
+                <fullName>DESGLOSE</fullName>
+                <default>false</default>
+                <label>DESGLOSE</label>
+            </value>
+            <value>
+                <fullName>RECETA</fullName>
+                <default>false</default>
+                <label>RECETA</label>
+            </value>
+            <value>
+                <fullName>CARTA REMANENTE</fullName>
+                <default>false</default>
+                <label>CARTA REMANENTE</label>
+            </value>
+            <value>
+                <fullName>CARTA ASESOR</fullName>
+                <default>false</default>
+                <label>CARTA ASESOR</label>
+            </value>
+            <value>
+                <fullName>BITACORA ASISTENCIA</fullName>
+                <default>false</default>
+                <label>BITACORA ASISTENCIA</label>
+            </value>
+            <value>
+                <fullName>FINIQUITO</fullName>
+                <default>false</default>
+                <label>FINIQUITO</label>
+            </value>
+            <value>
+                <fullName>CARTA RECHAZO</fullName>
+                <default>false</default>
+                <label>CARTA RECHAZO</label>
+            </value>
+            <value>
+                <fullName>CARTA INFORMACION</fullName>
+                <default>false</default>
+                <label>CARTA INFORMACION</label>
+            </value>
+            <value>
+                <fullName>COTIZACION</fullName>
+                <default>false</default>
+                <label>COTIZACION</label>
+            </value>
+            <value>
+                <fullName>HISTORIAL CLINICO</fullName>
+                <default>false</default>
+                <label>HISTORIAL CLINICO</label>
+            </value>
+            <value>
+                <fullName>REEMBOLSO</fullName>
+                <default>false</default>
+                <label>REEMBOLSO</label>
+            </value>
+            <value>
+                <fullName>COMPROBANTE DE DOMICILIO</fullName>
+                <default>false</default>
+                <label>COMPROBANTE DE DOMICILIO</label>
+            </value>
+            <value>
+                <fullName>ORDEN DE ESTUDIOS</fullName>
+                <default>false</default>
+                <label>ORDEN DE ESTUDIOS</label>
+            </value>
+            <value>
+                <fullName>MATERNIDAD ANTICIPADA</fullName>
+                <default>false</default>
+                <label>MATERNIDAD ANTICIPADA</label>
+            </value>
+            <value>
+                <fullName>CAMBIO DE MEDICO</fullName>
+                <default>false</default>
+                <label>CAMBIO DE MEDICO</label>
+            </value>
+            <value>
+                <fullName>DEDUCIBLE</fullName>
+                <default>false</default>
+                <label>DEDUCIBLE</label>
+            </value>
+            <value>
+                <fullName>CAMBIO DE HOSPITAL</fullName>
+                <default>false</default>
+                <label>CAMBIO DE HOSPITAL</label>
+            </value>
+            <value>
+                <fullName>FORMA DE PAGO</fullName>
+                <default>false</default>
+                <label>FORMA DE PAGO</label>
+            </value>
+            <value>
+                <fullName>SOLICITUD INDIVIDUAL</fullName>
+                <default>false</default>
+                <label>SOLICITUD INDIVIDUAL</label>
+            </value>
+            <value>
+                <fullName>ANTIGÜEDAD</fullName>
+                <default>false</default>
+                <label>ANTIGÜEDAD</label>
+            </value>
+            <value>
+                <fullName>CARTA DE AUTORIZACION</fullName>
+                <default>false</default>
+                <label>CARTA DE AUTORIZACION</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <visibleLines>4</visibleLines>
+</CustomField>

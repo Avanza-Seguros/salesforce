@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mis_Peticiones</fullName>
+    <columns>NAME</columns>
+    <columns>CREATEDBY_USER</columns>
+    <columns>Asunto__c</columns>
+    <columns>Descripcion__c</columns>
+    <columns>Indicador__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>CREATED_DATE</columns>
+    <columns>Fecha_de_Termino__c</columns>
+    <columns>Prioridad__c</columns>
+    <filterScope>Mine</filterScope>
+    <label>Mis Peticiones</label>
+</ListView>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Plan_Producto_Colectivo__c</fullName>
+    <label>Plan/Producto</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Vida</fullName>
+                <default>false</default>
+                <label>Vida</label>
+            </value>
+            <value>
+                <fullName>Gastos médicos</fullName>
+                <default>false</default>
+                <label>Gastos médicos</label>
+            </value>
+            <value>
+                <fullName>Flotilla autos</fullName>
+                <default>false</default>
+                <label>Flotilla autos</label>
+            </value>
+            <value>
+                <fullName>Colectividad autos</fullName>
+                <default>false</default>
+                <label>Colectividad autos</label>
+            </value>
+            <value>
+                <fullName>Accidente</fullName>
+                <default>false</default>
+                <label>Accidente</label>
+            </value>
+            <value>
+                <fullName>Daños</fullName>
+                <default>false</default>
+                <label>Daños</label>
+            </value>
+            <value>
+                <fullName>Responsabilidad Civil</fullName>
+                <default>false</default>
+                <label>Responsabilidad Civil</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

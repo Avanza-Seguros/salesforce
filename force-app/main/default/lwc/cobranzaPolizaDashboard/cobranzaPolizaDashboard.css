@@ -1,0 +1,136 @@
+.filtros-wrapper {
+    margin-bottom: 20px;
+}
+
+.vista-toggle {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.tabs-container {
+    display: flex;
+    background: #e9edf3;
+    padding: 5px;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.tab-button {
+    border-radius: 12px !important;
+    font-weight: 600;
+}
+
+.filtros-card {
+    background: linear-gradient(145deg, #ffffff, #f4f6f9);
+    border-radius: 18px;
+    padding: 20px;
+    border: 1px solid #e3e8ef;
+    box-shadow:
+        8px 8px 18px rgba(0,0,0,0.07),
+        -6px -6px 14px rgba(255,255,255,0.9);
+}
+
+.lightning-datatable-container {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+}
+
+.matriz-container {
+    overflow-x: auto;
+    background: #ffffff;
+    padding: 16px;
+    border-radius: 18px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+}
+
+.slds-table {
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.slds-table thead {
+    background: linear-gradient(145deg, #eef2f7, #ffffff);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.slds-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.slds-table tbody tr:hover {
+    background-color: #f4f8ff;
+}
+
+.monto-pagado,
+.mensual-pagado {
+    color: #2e844a;
+    font-weight: 700;
+}
+
+.monto-pendiente,
+.mensual-pendiente {
+    color: #ba0517;
+    font-weight: 700;
+}
+
+.monto-proyectado,
+.mensual-proyectado {
+    color: #222;
+    font-weight: 600;
+}
+
+.monto-pagado-pendiente {
+    background-color: #eef4ff;
+    color: #1b5297;
+    font-weight: 800;
+}
+
+.monto-proyectado-nueva-vigencia {
+    color: #dd7a01;
+    font-weight: 700;
+}
+
+.kpi-bar {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.vista-animada {
+    animation: fadeSlide 0.35s ease;
+}
+
+@keyframes fadeSlide {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fila-inactiva {
+    background-color: rgba(91, 91, 91, 0.12);
+    color: #ba0517;
+}
+
+.monto-cruce-nueva-vigencia {
+    background-color: #f3e8ff;
+    color: #6b21a8;
+    font-weight: 800;
+}
+
+.monto-arrastre {
+    background-color: #ffe4f3;
+    color: #a1005e;
+    font-weight: 900;
+}

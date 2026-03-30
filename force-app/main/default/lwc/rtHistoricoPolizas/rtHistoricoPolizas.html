@@ -1,0 +1,714 @@
+<template>
+    <div class="container slds-p-around_medium">
+        
+        <!-- 🎯 HEADER PRINCIPAL -->
+        <div class="slds-page-header slds-m-bottom_large">
+            <div class="slds-page-header__row">
+                <div class="slds-page-header__col-title">
+                    <div class="slds-media">
+                        <div class="slds-media__figure">
+                            <lightning-icon icon-name="standard:insurance_policy" size="medium" class="slds-icon-standard-insurance_policy"></lightning-icon>
+                        </div>
+                        <div class="slds-media__body">
+                            <h1 class="slds-page-header__title slds-truncate slds-align-middle">Gestión de Pólizas</h1>
+                            <p class="slds-text-body_small slds-text-color_weak">Busque y administre pólizas de seguros</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🔍 SECCIÓN DE BÚSQUEDA MEJORADA -->
+        <div class="search-section slds-box slds-theme_default slds-m-bottom_large">
+            <div class="slds-grid slds-wrap slds-gutters">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                    <div class="slds-grid slds-gutters_xx-small">
+                        <div class="slds-col slds-size_3-of-4">
+                            <div class="slds-form-element">
+                                <label class="slds-form-element__label" for="search-input">
+                                    Buscar póliza
+                                </label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-input-has-icon slds-input-has-icon_left">
+                                        <lightning-icon 
+                                            icon-name="utility:search" size="small" class="slds-input__icon slds-input__icon_left">
+                                        </lightning-icon> 
+                                        <input type="text" 
+                                               id="search-input"
+                                               class="slds-input" 
+                                               placeholder="Buscar por nombre, asegurado o histórico..."
+                                               value={searchTerm}
+                                               onchange={handleSearchChange}
+                                               onkeypress={handleKeyPress} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4 slds-grid slds-grid_align-end">
+                            <lightning-button
+                                label="Buscar"
+                                variant="brand"
+                                onclick={handleBuscar}
+                                class="slds-m-top_large">
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <div class="slds-grid slds-grid_vertical-align-center slds-grid_align-end slds-m-top_large">
+                        <div class="slds-col">
+                            <div class="slds-text-align_right">
+                                <span class="result-count slds-text-heading_small slds-text-color_strong">{totalResultados} póliza(s)</span>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-m-left_small">
+                            <lightning-button
+                                label="Limpiar"
+                                variant="neutral"
+                                onclick={handleLimpiar}
+                                disabled={noSearchTerm}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ⚠️ MENSAJES DE ESTADO -->
+        <template if:true={tieneError}>
+            <div class="slds-notice slds-notice_alert slds-theme_error slds-m-bottom_medium">
+                <div class="slds-notice__content">
+                    <span class="slds-icon_container slds-icon-utility-error slds-m-right_x-small" title="Error">
+                        <lightning-icon icon-name="utility:error" size="small"></lightning-icon>
+                    </span>
+                    <div>
+                        <h2 class="slds-text-heading_small slds-m-bottom_xx-small">Error en la búsqueda</h2>
+                        <p>{errorMessage}</p>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- 📊 RESULTADOS PRINCIPALES -->
+        <template if:true={mostrarTabla}>
+            
+            <!-- LOADING STATE -->
+            <template if:true={isLoading}>
+                <div class="slds-align_absolute-center slds-m-vertical_xx-large">
+                    <div class="slds-grid slds-grid_vertical slds-grid_align-center">
+                        <lightning-spinner alternative-text="Buscando pólizas..." size="large"></lightning-spinner>
+                        <p class="slds-text-heading_small slds-m-top_medium">Buscando pólizas...</p>
+                    </div>
+                </div>
+            </template>
+
+            <!-- RESULTADOS ENCONTRADOS -->
+            <template if:true={tieneResultados}>
+                <div class="results-card slds-card">
+                    <div class="slds-card__header slds-p-around_medium">
+                        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                            <div>
+                                <h2 class="slds-text-heading_medium slds-m-right_medium">Pólizas Encontradas</h2>
+                                <span class="slds-badge slds-badge_lightest">{totalResultados} resultados</span>
+                            </div>
+                            <div class="slds-text-body_regular slds-text-color_weak">
+                                {paginaInfo}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="slds-card__body slds-p-around_none">
+                        <div class="table-container slds-table_relative">
+                            <table class="slds-table slds-table_bordered slds-table_striped slds-table_cell-buffer slds-table_col-bordered">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col" class="slds-size_2-of-12">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Póliza">Póliza</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_1-of-12">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Relación">Relación</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_1-of-12">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Estatus">Estatus</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_2-of-12">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Asegurado">Asegurado</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_1-of-12 slds-text-align_right">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Suma Asegurada">Suma A.</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_1-of-12 slds-text-align_right">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Prima Total">Prima T.</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_2-of-12">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Fecha Emisión">Fecha Emisión</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="slds-size_2-of-12 slds-text-align_center">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <span class="slds-truncate" title="Acciones">Acciones</span>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={paginatedResults} for:item="relacion">
+                                        <tr key={relacion.relacionId} class="slds-hint-parent">
+                                            <td>
+                                                <div class="slds-grid slds-grid_vertical-align-center">
+                                                    <div class="slds-truncate" title={relacion.polizaNameSeguro}>
+                                                        <strong>{relacion.polizaNameSeguro}</strong>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="slds-truncate" title={relacion.relacionNameSeguro}>
+                                                    {relacion.relacionNameSeguro}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="slds-badge {relacion.estatusClass}">
+                                                    {relacion.estatusSeguro}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="slds-truncate" title={relacion.aseguradoNameSeguro}>
+                                                    {relacion.aseguradoNameSeguro}
+                                                </div>
+                                            </td>
+                                            <td class="slds-text-align_right">
+                                                <div class="slds-truncate" title={relacion.sumaAseguradaSeguro}>
+                                                    {relacion.sumaAseguradaSeguro}
+                                                </div>
+                                            </td>
+                                            <td class="slds-text-align_right">
+                                                <div class="slds-truncate" title={relacion.primaTotalSeguro}>
+                                                    {relacion.primaTotalSeguro}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="slds-truncate" title={relacion.fechaEmisionSegura}>
+                                                    {relacion.fechaEmisionSegura}
+                                                </div>
+                                            </td>
+                                            <td class="slds-text-align_center">
+                                                <button class="slds-button slds-button_outline-brand slds-button_stretch" 
+                                                        data-id={relacion.relacionId} 
+                                                        onclick={seleccionarRelacion}
+                                                        disabled={isLoading}>
+                                                    <lightning-icon icon-name="utility:preview" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                                    Ver Detalles
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- PAGINACIÓN MEJORADA -->
+                        <div class="slds-p-around_medium slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                            <div class="slds-grid slds-grid_vertical-align-center">
+                                <span class="slds-text-body_regular slds-m-right_small">Filas por página:</span>
+                                <div class="slds-select_container">
+                                    <select class="slds-select slds-select_small" value={pageSize} onchange={handlePageSizeChange}>
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                    </select>
+                                </div>
+                                <span class="slds-text-body_small slds-m-left_small slds-text-color_weak">
+                                    {firstItem}-{lastItem} de {totalResultados}
+                                </span>
+                            </div>
+                            
+                            <div class="slds-grid slds-grid_vertical-align-center">
+                                <div class="slds-button-group" role="group">
+                                    <button class="slds-button slds-button_icon slds-button_icon-border" 
+                                            onclick={primeraPagina} 
+                                            disabled={currentPageIsFirst}
+                                            title="Primera página">
+                                        <lightning-icon icon-name="utility:double_chevronleft" size="x-small"></lightning-icon>
+                                    </button>
+                                    <button class="slds-button slds-button_icon slds-button_icon-border" 
+                                            onclick={anteriorPagina} 
+                                            disabled={currentPageIsFirst}
+                                            title="Página anterior">
+                                        <lightning-icon icon-name="utility:left" size="x-small"></lightning-icon>
+                                    </button>
+                                    
+                                    <span class="slds-p-horizontal_x-small slds-grid slds-grid_vertical-align-center">
+                                        <span class="slds-text-body_regular slds-m-right_x-small">Página</span>
+                                        <input type="number" 
+                                            class="slds-input slds-input_bare slds-input_inline slds-text-align_center" 
+                                            value={currentPage} 
+                                            min="1" 
+                                            max={totalPages}
+                                            onchange={irAPagina}
+                                            style="width: 60px;" />
+                                        <span class="slds-text-body_regular slds-m-left_x-small">de {totalPages}</span>
+                                    </span>
+                                    
+                                    <button class="slds-button slds-button_icon slds-button_icon-border" 
+                                            onclick={siguientePagina} 
+                                            disabled={currentPageTotalPages}
+                                            title="Página siguiente">
+                                        <lightning-icon icon-name="utility:right" size="x-small"></lightning-icon>
+                                    </button>
+                                    <button class="slds-button slds-button_icon slds-button_icon-border" 
+                                            onclick={ultimaPagina} 
+                                            disabled={currentPageTotalPages}
+                                            title="Última página">
+                                        <lightning-icon icon-name="utility:double_chevronright" size="x-small"></lightning-icon>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- SIN RESULTADOS -->
+            <template if:false={tieneResultados}>
+                <div class="slds-align_absolute-center slds-m-vertical_xx-large">
+                    <div class="slds-box slds-box_small slds-text-align_center slds-theme_default">
+                        <div class="slds-m-bottom_medium">
+                            <lightning-icon icon-name="utility:search" size="large" class="slds-icon-text-weak"></lightning-icon>
+                        </div>
+                        <template if:true={searchTerm}>
+                            <h3 class="slds-text-heading_medium slds-m-bottom_small">No se encontraron pólizas</h3>
+                            <p class="slds-text-body_regular">No hay resultados para: "<strong>{searchTerm}</strong>"</p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">Intenta con otros términos de búsqueda</p>
+                        </template>
+                        <template if:false={searchTerm}>
+                            <h3 class="slds-text-heading_medium slds-m-bottom_small">No hay pólizas disponibles</h3>
+                            <p class="slds-text-body_regular">No se encontraron pólizas para mostrar en este momento.</p>
+                        </template>
+                        <div class="slds-m-top_medium">
+                            <lightning-button
+                                label="Limpiar búsqueda"
+                                variant="neutral"
+                                onclick={handleLimpiar}
+                                if:true={searchTerm}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </template>
+
+        <!-- 🧾 Detalle Completo de Póliza -->
+        <template if:true={mostrarDetalles}>
+            <template if:true={detalleCompleto}>
+                <div class="detail-box slds-box">
+                    <!-- Header del Detalle -->
+                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium">
+                        <div class="slds-col">
+                            <button class="slds-button slds-button_neutral" onclick={volverALista}>
+                                <lightning-icon icon-name="utility:left" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                Volver al Listado
+                            </button>
+                        </div>
+                        <div class="slds-col slds-text-align_center">
+                            <h1 class="slds-text-heading_large">Detalles de Póliza: {polizaProcesada.name}</h1>
+                        </div>
+                        <div class="slds-col slds-text-align_right">
+                            <button class="slds-button slds-button_icon slds-button_icon-border-filled" 
+                                    onclick={recargarDetalles} 
+                                    title="Recargar detalles"
+                                    disabled={isLoading}>
+                                <lightning-icon icon-name="utility:refresh" size="small"></lightning-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Análisis Financiero y Estado -->
+                    <div class="info-section slds-m-bottom_large">
+                        <h2 class="slds-text-heading_large slds-text-align_center slds-m-bottom_large slds-text-color_brand">📊 Análisis Financiero de la Póliza</h2>
+                        
+                        <!-- Tarjeta de Estado General -->
+                        <div class="estado-general-card {claseEstadoGeneral}">
+                            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                                <div class="slds-col">
+                                    <div class="slds-grid slds-grid_vertical slds-grid_align-start">
+                                        <h3 class="slds-text-heading_medium slds-text-color_inverse">ESTADO GENERAL</h3>
+                                        <p class="slds-text-heading_large slds-text-color_inverse slds-m-top_x-small">{resumenEjecutivo.estadoGeneral}</p>
+                                        <p class="slds-text-body_regular slds-text-color_inverse slds-m-top_x-small">{resumenEjecutivo.recomendacion}</p>
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-size_1-of-4 slds-text-align_center">
+                                    <div class="icono-grande">
+                                        <lightning-icon icon-name={iconoEstadoGeneral} 
+                                                    size="large"
+                                                    class="slds-icon-text-inverse">
+                                        </lightning-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tres Tarjetas Principales -->
+                        <div class="slds-grid slds-wrap slds-m-bottom_large">
+                            <!-- Estado de Vigencia -->
+                            <div class="slds-col slds-size_1-of-3 slds-p-around_x-small">
+                                <div class="tarjeta-destacada {claseColorVigencia}">
+                                    <div class="slds-grid slds-grid_vertical slds-grid_align-center slds-text-align_center">
+                                        <div class="icono-circular slds-m-bottom_small">
+                                            <lightning-icon icon-name={iconoEstadoVigencia} 
+                                                        size="large"
+                                                        class="slds-icon-text-inverse">
+                                            </lightning-icon>
+                                        </div>
+                                        <h3 class="slds-text-heading_small slds-text-color_inverse">VIGENCIA</h3>
+                                        <p class="slds-text-heading_medium slds-text-color_inverse slds-m-top_x-small">{estadoVigencia.estado}</p>
+                                        <p class="slds-text-body_small slds-text-color_inverse slds-m-top_x-small">{estadoVigencia.mensaje}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Estado Financiero -->
+                            <div class="slds-col slds-size_1-of-3 slds-p-around_x-small">
+                                <div class="tarjeta-destacada {claseColorFinanciero}">
+                                    <div class="slds-grid slds-grid_vertical slds-grid_align-center slds-text-align_center">
+                                        <div class="icono-circular slds-m-bottom_small">
+                                            <lightning-icon icon-name={iconoEstadoFinanciero} 
+                                                        size="large"
+                                                        class="slds-icon-text-inverse">
+                                            </lightning-icon>
+                                        </div>
+                                        <h3 class="slds-text-heading_small slds-text-color_inverse">FINANZAS</h3>
+                                        <p class="slds-text-heading_medium slds-text-color_inverse slds-m-top_x-small">{analisisFinanciero.estado}</p>
+                                        <p class="slds-text-body_small slds-text-color_inverse slds-m-top_x-small">{analisisFinanciero.mensaje}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DIFERENCIA -->
+                            <div class="slds-col slds-size_1-of-3 slds-p-around_x-small">
+                                <div class="tarjeta-principal">
+                                    <div class="slds-grid slds-grid_vertical slds-grid_align-center slds-text-align_center">
+                                        <div class="icono-grande-diferencia slds-m-bottom_small">
+                                            <lightning-icon if:true={analisisFinanciero.tieneAdeudo} 
+                                                        icon-name="utility:moneybag" 
+                                                        size="xx-large"
+                                                        class="slds-icon-text-inverse">
+                                            </lightning-icon>
+                                            <lightning-icon if:true={analisisFinanciero.alCorriente} 
+                                                        icon-name="action:approval" 
+                                                        size="xx-large"
+                                                        class="slds-icon-text-inverse">
+                                            </lightning-icon>
+                                            <lightning-icon if:true={analisisFinanciero.tieneExceso} 
+                                                        icon-name="utility:package" 
+                                                        size="xx-large"
+                                                        class="slds-icon-text-inverse">
+                                            </lightning-icon>
+                                        </div>
+                                        <h3 class="slds-text-heading_small slds-text-color_inverse">SALDO</h3>
+                                        <p class="slds-text-heading_large slds-text-color_inverse slds-m-top_x-small">
+                                            {diferenciaCompleta}
+                                        </p>
+                                        <p class="slds-text-body_small slds-text-color_inverse slds-m-top_x-small">
+                                            {textoSaldo}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Alertas de Vigencia -->
+                        <template if:true={mostrarAlertaPorVencer}>
+                            <div class="slds-notice slds-notice_alert slds-theme_alert-texture slds-theme_warning slds-m-top_small">
+                                <div class="slds-notice__content">
+                                    <span class="slds-icon_container slds-icon-utility-warning slds-m-right_x-small">
+                                        <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
+                                    </span>
+                                    <strong>Póliza por vencer:</strong> La vigencia de la póliza termina en {estadoVigencia.diffDays} días. 
+                                    Considerar el proceso de renovación.
+                                </div>
+                            </div>
+                        </template>
+
+                        <template if:true={mostrarAlertaVencida}>
+                            <div class="slds-notice slds-notice_alert slds-theme_alert-texture slds-theme_error slds-m-top_small">
+                                <div class="slds-notice__content">
+                                    <span class="slds-icon_container slds-icon-utility-error slds-m-right_x-small">
+                                        <lightning-icon icon-name="utility:error" size="small"></lightning-icon>
+                                    </span>
+                                    <strong>Póliza vencida:</strong> La póliza venció hace {estadoVigencia.diffDays} días. 
+                                    Se requiere atención inmediata para reactivar la cobertura.
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Lista de Asegurados -->
+                    <template if:true={tieneAsegurados}>
+                        <div class="info-section slds-m-bottom_large">
+                            <h2 class="slds-text-heading_medium slds-m-bottom_medium">Asegurados ({asegurados.length})</h2>
+                            <div class="slds-grid slds-wrap">
+                                <template for:each={aseguradosProcesados} for:item="asegurado">
+                                    <div key={asegurado.id} class="slds-col slds-size_1-of-3 slds-p-around_x-small">
+                                        <div class="slds-box slds-box_x-small">
+                                            <h3 class="slds-text-heading_small">{asegurado.name}</h3>
+                                            <div class="slds-m-top_x-small">
+                                                <p><strong>Email:</strong> {asegurado.email}</p>
+                                                <p><strong>Fecha Nacimiento:</strong> {asegurado.fechaNacimiento}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template if:false={tieneAsegurados}>
+                        <div class="info-section slds-m-bottom_large">
+                            <h2 class="slds-text-heading_medium slds-m-bottom_medium">Asegurados</h2>
+                            <div class="slds-box slds-box_small slds-text-align_center">
+                                <p>No hay asegurados asociados a esta póliza</p>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Lista de Históricos -->
+                    <template if:true={tieneHistoricos}>
+                        <div class="info-section slds-m-bottom_large">
+                            <h2 class="slds-text-heading_medium slds-m-bottom_medium">Históricos de Aportación ({historicos.length})</h2>
+                            <div class="slds-card">
+                                <div class="slds-card__header slds-p-around_medium">
+                                    <div class="slds-grid slds-grid_align-spread">
+                                        <h3 class="slds-text-heading_small">Registros de Aportación</h3>
+                                        <div class="slds-text-body_regular slds-text-color_weak">
+                                            {paginaInfoHistoricos}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slds-card__body">
+                                    <div class="slds-table_container">
+                                        <table class="slds-table slds-table_bordered slds-table_striped slds-table_cell-buffer">
+                                            <thead>
+                                                <tr class="slds-text-heading_label">
+                                                    <th scope="col" class="slds-size_2-of-12">Anualidad</th>
+                                                    <th scope="col" class="slds-size_2-of-12">Prima Básica</th>
+                                                    <th scope="col" class="slds-size_2-of-12">Prima Adicional</th>
+                                                    <th scope="col" class="slds-size_2-of-12">Prima Total</th>
+                                                    <th scope="col" class="slds-size_2-of-12">Pagos Ingresados</th>
+                                                    <th scope="col" class="slds-size_2-of-12">Período</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template for:each={historicosPaginados} for:item="historico">
+                                                    <tr key={historico.id} class="slds-hint-parent">
+                                                        <td>
+                                                            <div>
+                                                                {historico.anualidad}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="slds-text-align_center">
+                                                                {historico.primaBasica}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="slds-text-align_center">
+                                                                {historico.primaAdicional}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="slds-text-align_center">
+                                                                <strong>{historico.primaTotal}</strong>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="slds-text-align_center">
+                                                                {historico.pagosIngresados}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                {historico.periodo}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <!-- Paginación Históricos -->
+                                    <div if:true={totalPagesHistoricosIsGreaterThanOne} class="slds-p-around_medium slds-grid slds-grid_align-spread">
+                                        <div class="slds-grid slds-grid_vertical-align-center">
+                                            <span class="slds-text-body_regular slds-m-right_medium">Filas por página:</span>
+                                            <div class="slds-select_container">
+                                                <select class="slds-select" value={pageSizeHistoricos} onchange={handlePageSizeHistoricosChange}>
+                                                    <option value="5">5</option>
+                                                    <option value="10">10</option>
+                                                    <option value="20">20</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="slds-grid slds-grid_vertical-align-center">
+                                            <button class="slds-button slds-button_icon-border" 
+                                                    onclick={anteriorPaginaHistoricos} 
+                                                    disabled={currentPageHistoricosIsFirst}>
+                                                <lightning-icon icon-name="utility:left" size="x-small"></lightning-icon>
+                                            </button>
+                                            
+                                            <span class="slds-m-horizontal_small slds-text-body_regular">
+                                                Página 
+                                                <input type="number" 
+                                                    class="slds-input slds-input_bare slds-input_inline slds-text-align_center slds-m-horizontal_x-small" 
+                                                    value={currentPageHistoricos} 
+                                                    min="1" 
+                                                    max={totalPagesHistoricos}
+                                                    onchange={irAPaginaHistoricos}
+                                                    style="width: 50px;" />
+                                                de {totalPagesHistoricos}
+                                            </span>
+                                            
+                                            <button class="slds-button slds-button_icon-border" 
+                                                    onclick={siguientePaginaHistoricos} 
+                                                    disabled={currentPageHistoricosTotalPagesHistoricos}>
+                                                <lightning-icon icon-name="utility:right" size="x-small"></lightning-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Lista de Pagos -->
+                    <template if:true={tienePagos}>
+                        <div class="info-section slds-m-bottom_large">
+                            <h2 class="slds-text-heading_medium slds-m-bottom_medium">Pagos ({pagos.length})</h2>
+                            <div class="slds-card">
+                                <div class="slds-card__header slds-p-around_medium">
+                                    <div class="slds-grid slds-grid_align-spread">
+                                        <h3 class="slds-text-heading_small">Registros de Pagos</h3>
+                                        <div class="slds-text-body_regular slds-text-color_weak">
+                                            {paginaInfoPagos}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slds-card__body">
+                                    <div class="slds-table_container">
+                                        <table class="slds-table slds-table_bordered slds-table_striped slds-table_cell-buffer">
+                                            <thead>
+                                                <tr class="slds-text-heading_label">
+                                                    <th scope="col">Pago</th>
+                                                    <th scope="col">Importe</th>
+                                                    <th scope="col">Moneda</th>
+                                                    <th scope="col">Pago MXN</th>
+                                                    <th scope="col">Tipo de Pago</th>
+                                                    <th scope="col">Fecha</th>
+                                                    <th scope="col">Estatus</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template for:each={pagosPaginados} for:item="pago">
+                                                    <tr key={pago.id} class="slds-hint-parent">
+                                                        <td>
+                                                            <div title={pago.name}>
+                                                                <strong>{pago.name}</strong>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                {pago.importe}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                {pago.moneda}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                {pago.pagoMXN}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                {pago.tipoPago}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                {pago.fecha}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <span class="slds-badge {pago.estatusPagoClass}">
+                                                                {pago.estatusPago}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <!-- Paginación Pagos -->
+                                    <div if:true={totalPagesPagosIsGreaterThanOne} class="slds-p-around_medium slds-grid slds-grid_align-spread">
+                                        <div class="slds-grid slds-grid_vertical-align-center">
+                                            <span class="slds-text-body_regular slds-m-right_medium">Filas por página:</span>
+                                            <div class="slds-select_container">
+                                                <select class="slds-select" value={pageSizePagos} onchange={handlePageSizePagosChange}>
+                                                    <option value="5">5</option>
+                                                    <option value="10">10</option>
+                                                    <option value="20">20</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="slds-grid slds-grid_vertical-align-center">
+                                            <button class="slds-button slds-button_icon-border" 
+                                                    onclick={anteriorPaginaPagos} 
+                                                    disabled={currentPagePagosIsFirst}>
+                                                <lightning-icon icon-name="utility:left" size="x-small"></lightning-icon>
+                                            </button>
+                                            
+                                            <span class="slds-m-horizontal_small slds-text-body_regular">
+                                                Página 
+                                                <input type="number" 
+                                                    class="slds-input slds-input_bare slds-input_inline slds-text-align_center slds-m-horizontal_x-small" 
+                                                    value={currentPagePagos} 
+                                                    min="1" 
+                                                    max={totalPagesPagos}
+                                                    onchange={irAPaginaPagos}
+                                                    style="width: 50px;" />
+                                                de {totalPagesPagos}
+                                            </span>
+                                            
+                                            <button class="slds-button slds-button_icon-border" 
+                                                    onclick={siguientePaginaPagos} 
+                                                    disabled={currentPagePagosTotalPagesPagos}>
+                                                <lightning-icon icon-name="utility:right" size="x-small"></lightning-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

@@ -1,0 +1,5 @@
+<apex:page standardController="Items_Cases__c" extensions="EnviarCorreoController">
+    <apex:form >
+        <apex:commandButton value="Enviar Correo" action="{!enviarCorreo}" />
+    </apex:form>
+</apex:page>

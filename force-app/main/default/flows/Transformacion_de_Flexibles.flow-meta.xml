@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>63.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <environments>Default</environments>
+    <formulas>
+        <name>EstatusdelaPoliza</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  {!$Record.Meses_Transcurridos__c} = 
+    CASE(
+      {!$Record.Forma_pago__c},
+      &quot;Mensual&quot;, 0,
+      &quot;Bimestral&quot;, 1,
+      &quot;Trimestral&quot;, 2,
+      &quot;Semestral&quot;, 5,
+      &quot;Anual&quot;, 11,
+      0
+    ),
+  &quot;Pendiente&quot;,
+  &quot;Pagado&quot;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>FechadeVencimiento</name>
+        <dataType>Date</dataType>
+        <expression>ADDMONTHS(
+  {!$Record.Fecha_de_Ultima_Aportacion__c},
+  {!$Record.Meses_Transcurridos__c}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>MontoFlexible</name>
+        <dataType>Number</dataType>
+        <expression>$Record__Prior.Poliza__r.Prima_Anual__c / VALUE($Record__Prior.Poliza__r.Pagos__c)</expression>
+        <scale>2</scale>
+    </formulas>
+    <interviewLabel>Transformacion de Flexibles {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Transformacion de Flexibles</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>Valores</name>
+        <label>Valores</label>
+        <locationX>176</locationX>
+        <locationY>323</locationY>
+        <inputAssignments>
+            <field>Estatus_Poliza__c</field>
+            <value>
+                <elementReference>$Record.Estatus_de_La_Poliza__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Fecha_de_Aplicaci_n_del_pago__c</field>
+            <value>
+                <elementReference>$Record.Fecha_de_Ultima_Aportacion__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Fecha_de_de_Vencimiento__c</field>
+            <value>
+                <elementReference>FechadeVencimiento</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Monto__c</field>
+            <value>
+                <elementReference>MontoFlexible</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Valores</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Flexible__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Pago_poliza__c</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Draft</status>
+</Flow>

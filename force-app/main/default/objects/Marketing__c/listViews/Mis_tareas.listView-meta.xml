@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mis_tareas</fullName>
+    <columns>Asunto__c</columns>
+    <columns>NAME</columns>
+    <columns>Descripcion__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Indicador__c</columns>
+    <columns>CREATED_DATE</columns>
+    <columns>LAST_UPDATE</columns>
+    <columns>Deadline__c</columns>
+    <columns>Desarrollador__c</columns>
+    <filterScope>Mine</filterScope>
+    <label>Mis tareas</label>
+</ListView>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <environments>Default</environments>
+    <formulas>
+        <name>ApellidoMaterno</name>
+        <dataType>String</dataType>
+        <expression>RIGHT(
+  {!$Record.Account.Name},
+  LEN({!$Record.Account.Name}) - FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}) + 1) + 1)
+)</expression>
+    </formulas>
+    <formulas>
+        <name>Apellidopaterno</name>
+        <dataType>String</dataType>
+        <expression>MID(
+  {!$Record.Account.Name},
+  FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}) + 1) + 1,
+  FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}) + 1) + 1) - FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}) + 1) - 1
+)</expression>
+    </formulas>
+    <formulas>
+        <name>nombre</name>
+        <dataType>String</dataType>
+        <expression>LEFT({!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}, FIND(&quot; &quot;, {!$Record.Account.Name}) + 1) - 1)</expression>
+    </formulas>
+    <interviewLabel>cliente a Oportunidad {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>cliente a Oportunidad</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>traspaso_de_informacion</name>
+        <label>traspaso de informacion</label>
+        <locationX>176</locationX>
+        <locationY>323</locationY>
+        <inputAssignments>
+            <field>Apellido_materno_contratante__c</field>
+            <value>
+                <elementReference>ApellidoMaterno</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Apellido_paterno_contratante__c</field>
+            <value>
+                <elementReference>Apellidopaterno</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Correo__c</field>
+            <value>
+                <elementReference>$Record.Account.Correo_electronico__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Estado_civil__c</field>
+            <value>
+                <elementReference>$Record.Account.Estado_civil__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Fecha_de_nacimiento__c</field>
+            <value>
+                <elementReference>$Record.Account.Fecha_de_nacimiento__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Genero__c</field>
+            <value>
+                <elementReference>$Record.Account.Genero__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Nombre_contratante__c</field>
+            <value>
+                <elementReference>nombre</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Ocupacion__c</field>
+            <value>
+                <elementReference>$Record.Account.Ocupacion__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Telefono__c</field>
+            <value>
+                <elementReference>$Record.Account.Phone</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>traspaso_de_informacion</targetReference>
+        </connector>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>

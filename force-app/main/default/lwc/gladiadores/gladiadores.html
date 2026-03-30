@@ -1,0 +1,433 @@
+<template>
+    <div class="slds-card slds-theme_shade">
+      <template if:false={isAuthGladiador}>
+        <div class="slds-align_absolute-center">
+            <lightning-card title="Gestion Gladiadores">
+                <lightning-layout>
+                  <lightning-layout-item padding="around-small">
+                    <lightning-combobox
+                      data-id="comboUser"
+                      name="progress"
+                      label="Selecciona Gladiador"
+                      value={value}
+                      placeholder="Select Progress"
+                      options={options}
+                      onchange={comboboxGladiador}
+                      ></lightning-combobox>
+                  </lightning-layout-item>
+                  <lightning-layout-item padding="around-small">
+                    <lightning-input type="password" label="Password" data-id="passUser"> </lightning-input> 
+                  </lightning-layout-item>
+                </lightning-layout>
+                <div class="slds-align_absolute-center">
+                <lightning-button variant="brand" label="Login" title="Login" onclick={authenticate} class="slds-m-center_x-small"></lightning-button>
+                </div>
+              </br>
+            </lightning-card>
+          </div>
+      </template>
+
+  <template if:true={isAuthGladiador}>
+      <lightning-card title="Detalles Gladiador">        
+
+          <div class="slds-align_absolute-center">
+            <div slot="content">
+              <div class="slds-form" role="list">                          
+                  <div class="slds-form__row">
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Nombre</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                    {isAuthGladiador.Name}</div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Fecha Ingreso:</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        <lightning-formatted-date-time value={isAuthGladiador.Fecha_de_Alta__c} year="2-digit" month="short" day="2-digit" weekday="long"></lightning-formatted-date-time>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Fecha de Nacimiento:</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        <lightning-formatted-date-time value={isAuthGladiador.Fecha_de_Nacimiento__c}></lightning-formatted-date-time>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Mes de Nacimiento: </label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        {isAuthGladiador.Mes_de_Nacimiento__c}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Salario Diario:</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        {isAuthGladiador.Salario_Diario__c}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">NNS</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        {isAuthGladiador.NSS__c}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Curp</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        {isAuthGladiador.Curp__c}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Vacaciones otorgadas</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        {isAuthGladiador.Vacaciones_Otorgadas_2__c}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                              <label class="slds-form-element__label">Dias tomados</label>
+                              <div class="slds-form-element__control">
+                                  <div class="slds-form-element__static">
+                                      <div class="slds-form-element__static">
+                                        {isAuthGladiador.Dias_Tomados__c}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                        <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                            <label class="slds-form-element__label">Dias Vacaciones Restantes</label>
+                            <div class="slds-form-element__control">
+                                <div class="slds-form-element__static">
+                                    <div class="slds-form-element__static">
+                                      {isAuthGladiador.Dias_Restantes__c}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                      <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                          <label class="slds-form-element__label">Dias Especiales Disponibles</label>
+                          <div class="slds-form-element__control">
+                              <div class="slds-form-element__static">
+                                  <div class="slds-form-element__static">
+                                    {isAuthGladiador.Total_dias_especiales__c}
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+                  <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                    <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                        <label class="slds-form-element__label">Dias Especiales Restantes</label>
+                        <div class="slds-form-element__control">
+                            <div class="slds-form-element__static">
+                                <div class="slds-form-element__static">
+                                  {isAuthGladiador.Dias_tomados_especiales__c}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                  <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                      <label class="slds-form-element__label">Eventualidades Medicas</label>
+                      <div class="slds-form-element__control">
+                          <div class="slds-form-element__static">
+                              <div class="slds-form-element__static">
+                                {isAuthGladiador.Cita_medica__c}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+              <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                    <label class="slds-form-element__label">Numero Gladiador</label>
+                    <div class="slds-form-element__control">
+                        <div class="slds-form-element__static">
+                            <div class="slds-form-element__static">
+                              {isAuthGladiador.Numero_Gladiador__c}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+    </div>
+  </div>
+</lightning-card>
+
+
+  <lightning-card title="Dias especiales desgloce">
+   <div class="slds-align_absolute-center"> 
+    <div slot="content"> 
+      <div class="slds-form" role="list">                          
+          <div class="slds-form__row">
+            <div class="slds-form__item slds-size_1-of-3" role="listitem">
+              <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                  <label class="slds-form-element__label">Deberes Inexcusables</label>
+                  <div class="slds-form-element__control">
+                      <div class="slds-form-element__static">
+                        {DeberesInexcusables}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                    <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                        <label class="slds-form-element__label">Enfermedad Familiar</label>
+                        <div class="slds-form-element__control">
+                            <div class="slds-form-element__static">
+                              {EnfermedadGrave}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                  <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                      <label class="slds-form-element__label">Enfermedad Trabajador</label>
+                      <div class="slds-form-element__control">
+                          <div class="slds-form-element__static">
+                            {EnfermedadTrabajador}</div>
+                      </div>
+                  </div>
+              </div>
+              <div class="slds-form__item slds-size_1-of-3" role="listitem">
+                <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                    <label class="slds-form-element__label">Fallecimiento Directo</label>
+                    <div class="slds-form-element__control">
+                        <div class="slds-form-element__static">
+                          {FallecimientoDirecto}</div>
+                    </div>
+                </div>
+             </div>
+             <div class="slds-form__item slds-size_1-of-3" role="listitem">
+              <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                  <label class="slds-form-element__label">Hijos Prematuros</label>
+                  <div class="slds-form-element__control">
+                      <div class="slds-form-element__static">
+                        {HijosPrematuros}</div>
+                  </div>
+              </div>
+           </div>
+           <div class="slds-form__item slds-size_1-of-3" role="listitem">
+            <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+                <label class="slds-form-element__label">Lactancia Materna</label>
+                <div class="slds-form-element__control">
+                    <div class="slds-form-element__static">
+                      {LactanciaMaterna}</div>
+                </div>
+            </div>
+         </div>
+         <div class="slds-form__item slds-size_1-of-3" role="listitem">
+          <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+              <label class="slds-form-element__label">Nacimiento</label>
+              <div class="slds-form-element__control">
+                  <div class="slds-form-element__static">
+                    {Nacimiento}</div>
+              </div>
+          </div>
+       </div>
+       <div class="slds-form__item slds-size_1-of-3" role="listitem">
+        <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+            <label class="slds-form-element__label">Por Matrimonio</label>
+            <div class="slds-form-element__control">
+                <div class="slds-form-element__static">
+                  {PorMatrimonio}</div>
+            </div>
+        </div>
+     </div>
+     <div class="slds-form__item slds-size_1-of-3" role="listitem">
+      <div class="slds-form-element slds-form-element_readonly slds-form-element_stacked">
+          <label class="slds-form-element__label">Por Mudanza</label>
+          <div class="slds-form-element__control">
+              <div class="slds-form-element__static">
+                {PorMudanza}</div>
+          </div>
+      </div>
+   </div>
+              
+
+          </div>
+      </div>
+    </div> 
+</div>
+</lightning-card>
+
+            
+    
+    <div class="custom-box slds-box slds-p-around_medium slds-text-align_center"><lightning-button variant="brand" label="Crear Solicitud" title="Crear Solicitud"  class="slds-m-right_x-small" onclick={newSolicitud}></lightning-button></div>
+        <template if:true={isNewSolicitud}>
+          
+          <div class="slds-align_absolute-center">
+            <lightning-file-upload
+            label="Subir Archivo/Imagen/Comprobante (opcional)"
+            name="fileUploader"
+            accpet=".csv, .png, .doc, .docx, .xls, .xlsx, .ods, .txt, .pdf, .jpg, .zip, .ppt, .pptx, .tiff"
+            
+            onuploadfinished={catchFile}
+            multiple
+            ></lightning-file-upload> 
+          </div>
+
+          <div class="slds-align_absolute-center">
+                    <lightning-record-form
+                  object-api-name="Solicitudes_de_Vacaciones__c"
+                  fields={fields}
+                  onsubmit = {handleSubmit}
+                  onsuccess = {getTableValues}
+                  oncancel = {cancelForm}
+                 
+                >
+                </lightning-record-form>
+                
+          </div>
+      </template>
+
+<!-- T A B L E    C O N T E N T-->
+              <article class="slds-card">
+                <div class="slds-card__header slds-grid">
+                </div>
+                <div class="slds-card__body">
+            <table class="slds-table slds-table_cell-buffer slds-no-row-hover slds-table_bordered slds-table_fixed-layout" role="grid" aria-label="Example table in a Card">
+                    <thead>
+                      <tr class="slds-line-height_reset">
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Dias Solicitados">Dias Solicitados</div>
+                        </th>
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Fecha Solicitud">Fecha Solicitud</div>
+                        </th>  
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Desde">Desde</div>
+                        </th>  
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Hasta">Hasta</div>
+                        </th>  
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Etapa">Tipo Permiso</div>
+                        </th>  
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Etapa">Motivo de Ausencia</div>
+                        </th>  
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Etapa">Estatus</div>
+                        </th>
+                        <th class="" scope="col">
+                          <div class="slds-truncate" title="Acciones disponibles">Acciones disponibles</div>
+                        </th>    
+                      </tr>
+                    </thead>
+
+              <tbody>
+            <template if:true={recordsSolicitudVacaciones} for:each={recordsSolicitudVacaciones} for:item="solicitud">
+                      <tr class="slds-hint-parent" key={solicitud.Id}>
+                        <th scope="row">
+                          <div class="slds-truncate" title="Dias Solicitados">
+                            {solicitud.DiasSolicitados}
+                          </div>
+                        </th>
+
+                        <th scope="row">
+                          <div class="slds-truncate" title="Fecha Solicitud">
+                            <lightning-formatted-date-time value={solicitud.FechaSolicitud}></lightning-formatted-date-time>
+                          </div>
+                        </th>
+
+                        <th scope="row">
+                          <div class="slds-truncate" title="Desde">
+                            <lightning-formatted-date-time value={solicitud.diasDesde}></lightning-formatted-date-time>
+                          </div>
+                        </th>
+                        <th scope="row">
+                          <div class="slds-truncate" title="Hasta">
+                            <lightning-formatted-date-time value={solicitud.diasHasta}></lightning-formatted-date-time>
+                          </div>
+                        </th>
+                        <th scope="row">
+                          <div class="slds-truncate" title="Tipo Permiso">
+                            {solicitud.tipoPermiso}
+                          </div>
+                        </th>
+                        <th scope="row">
+                          <div class="slds-truncate" title="Motivo de Ausencia">
+                            {solicitud.motivoDeAusencia}
+                          </div>
+                        </th>
+                        <th scope="row">
+                          <div class="slds-truncate" title="Estatus">
+                            {solicitud.etapa}
+                          </div>
+                        </th>
+                        <th scope="row">
+                          <div class="slds-truncate" title="Acciones">
+                            <template if:true={solicitud.isSolicitado}> 
+                              <lightning-button variant="brand" label="Solicitar" title="Solicitar" onclick={handleSolicitarVacaciones} class="slds-m-right_x-small" value={solicitud.Id}></lightning-button>
+                            </template>
+                            <template if:true={solicitud.canBeDeleted}> 
+                            <lightning-button variant="brand" label="Eliminar" title="Eliminar" onclick={deleteSolicitudVacaciones} class="slds-m-right_x-small" value={solicitud.Id}></lightning-button>
+                          </template>
+                          </div>
+                        </th>
+                      </tr>
+            </template>
+                    </tbody>
+                  </table>
+                </div>
+                <footer class="slds-card__footer">
+                </footer>
+              </article>
+          
+        </template>
+</div>
+
+
+</template>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workflow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <alerts>
+        <fullName>Solicitud_Aprovada</fullName>
+        <description>Solicitud Aprovada</description>
+        <protected>false</protected>
+        <recipients>
+            <field>Email__c</field>
+            <type>email</type>
+        </recipients>
+        <senderType>CurrentUser</senderType>
+        <template>unfiled$public/Aprovacion_de_Solicitud_de_vacasiones</template>
+    </alerts>
+    <alerts>
+        <fullName>Solicitud_Negada</fullName>
+        <description>Solicitud Negada</description>
+        <protected>false</protected>
+        <recipients>
+            <field>Email__c</field>
+            <type>email</type>
+        </recipients>
+        <senderType>CurrentUser</senderType>
+        <template>unfiled$public/Rechazo_de_Solicitud_de_vacasiones</template>
+    </alerts>
+    <alerts>
+        <fullName>Solicitud_de_vacaciones</fullName>
+        <description>Solicitud de vacaciones</description>
+        <protected>false</protected>
+        <recipients>
+            <recipient>abraham.gonzalez@avanzaseguro.com</recipient>
+            <type>user</type>
+        </recipients>
+        <recipients>
+            <recipient>elena@avanzaseguro.com</recipient>
+            <type>user</type>
+        </recipients>
+        <recipients>
+            <recipient>uriel.tejeiro@volestra.com</recipient>
+            <type>user</type>
+        </recipients>
+        <senderAddress>info@avanzaseguro.com</senderAddress>
+        <senderType>OrgWideEmailAddress</senderType>
+        <template>unfiled$public/Plantilla_de_solicitud_de_vacaciones</template>
+    </alerts>
+    <fieldUpdates>
+        <fullName>Aprobar_SV</fullName>
+        <field>Etapa__c</field>
+        <literalValue>Aceptado</literalValue>
+        <name>Aprobar SV</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Rechazar_SV</fullName>
+        <field>Etapa__c</field>
+        <literalValue>Rechazado</literalValue>
+        <name>Rechazar SV</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+</Workflow>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Esta_a_menos_de_50m_de_un_lago_o_playa__c</fullName>
+    <defaultValue>false</defaultValue>
+    <label>Esta a menos de 50m. de un lago o playa</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

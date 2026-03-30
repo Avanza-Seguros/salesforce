@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Unosquare</fullName>
+    <columns>NAME</columns>
+    <columns>Caso__c</columns>
+    <columns>Poliza__c</columns>
+    <columns>Nombre_cuenta__c</columns>
+    <columns>Asegurado__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Fecha_de_creacion__c</columns>
+    <columns>Fecha_de_cierre__c</columns>
+    <columns>Tipo_de_peticion__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Poliza__c</field>
+        <operation>contains</operation>
+        <value>11663</value>
+    </filters>
+    <label>Unosquare</label>
+    <sharedTo>
+        <group>Unosquare</group>
+        <portalRole>UnosquareSaDeCvSocioUsuario</portalRole>
+    </sharedTo>
+</ListView>

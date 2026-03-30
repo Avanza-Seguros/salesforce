@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pago_en_MXN__c</fullName>
+    <externalId>false</externalId>
+    <formula>CASE(TEXT(Tipo_de_Moneda__c),
+  &quot;MXN&quot;, Monto__c,
+  &quot;USD&quot;, Monto__c * Valor_Moneda__c,
+  &quot;UDIS&quot;, Monto__c * Valor_Moneda__c,
+  Monto__c
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Pago en MXN</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

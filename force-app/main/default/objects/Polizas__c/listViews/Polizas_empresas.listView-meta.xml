@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_empresas</fullName>
+    <columns>NAME</columns>
+    <columns>Asegurado__c</columns>
+    <columns>Forma_de_pago__c</columns>
+    <columns>Tipo__c</columns>
+    <columns>Fecha_de_Emision__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>Ramo__c</columns>
+    <columns>Agente__c</columns>
+    <columns>Agente_asignado__c</columns>
+    <columns>Agente_Relacionado__c</columns>
+    <columns>Prospectador_Agente__c</columns>
+    <columns>Prospectadorr__c</columns>
+    <columns>Prospectador__c</columns>
+    <filterScope>Everything</filterScope>
+    <label>Polizas.</label>
+</ListView>

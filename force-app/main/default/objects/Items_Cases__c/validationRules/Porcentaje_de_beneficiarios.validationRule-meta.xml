@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Porcentaje_de_beneficiarios</fullName>
+    <active>true</active>
+    <errorConditionFormula>ISPICKVAL( Poliza__r.Ramo__c , &quot;Vida&quot;)&amp;&amp; RecordType.Name =&quot;Alta&quot;   &amp;&amp; (Porcentaje_Beneficiario_1__c +  Porcentaje_Beneficiario_2__c +  Porcentaje_Beneficiario_3__c + 	Porcentaje_beneficiario_4__c + 	Porcentaje_beneficiario_5__c) &lt;&gt; 100</errorConditionFormula>
+    <errorMessage>El porcentaje debe ser igual a 100%</errorMessage>
+</ValidationRule>

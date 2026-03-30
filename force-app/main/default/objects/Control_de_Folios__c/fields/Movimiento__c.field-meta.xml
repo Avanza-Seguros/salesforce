@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Movimiento__c</fullName>
+    <label>Movimiento</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Aclaraciones Multiples</fullName>
+                <default>false</default>
+                <label>Aclaraciones Multiples</label>
+            </value>
+            <value>
+                <fullName>Administración colectivo</fullName>
+                <default>false</default>
+                <label>Administración colectivo</label>
+            </value>
+            <value>
+                <fullName>Alta de Asegurado</fullName>
+                <default>false</default>
+                <label>Alta de Asegurado</label>
+            </value>
+            <value>
+                <fullName>Alta de Recíen Nacido</fullName>
+                <default>false</default>
+                <label>Alta de Recíen Nacido</label>
+            </value>
+            <value>
+                <fullName>Aplicación de Primas en depósito</fullName>
+                <default>false</default>
+                <label>Aplicación de Primas en depósito</label>
+            </value>
+            <value>
+                <fullName>Aumento de Suma Asegurada</fullName>
+                <default>false</default>
+                <label>Aumento de Suma Asegurada</label>
+            </value>
+            <value>
+                <fullName>Baja de Asegurado</fullName>
+                <default>false</default>
+                <label>Baja de Asegurado</label>
+            </value>
+            <value>
+                <fullName>Cambio de Agente</fullName>
+                <default>false</default>
+                <label>Cambio de Agente</label>
+            </value>
+            <value>
+                <fullName>Cambio de Beneficiarios</fullName>
+                <default>false</default>
+                <label>Cambio de Beneficiarios</label>
+            </value>
+            <value>
+                <fullName>Cambio de Coberturas</fullName>
+                <default>false</default>
+                <label>Cambio de Coberturas</label>
+            </value>
+            <value>
+                <fullName>Cambio de Contratante</fullName>
+                <default>false</default>
+                <label>Cambio de Contratante</label>
+            </value>
+            <value>
+                <fullName>Cambio de plan</fullName>
+                <default>false</default>
+                <label>Cambio de plan</label>
+            </value>
+            <value>
+                <fullName>Cambio de Prima Adicional</fullName>
+                <default>false</default>
+                <label>Cambio de Prima Adicional</label>
+            </value>
+            <value>
+                <fullName>Cambio Forma de Pago</fullName>
+                <default>false</default>
+                <label>Cambio Forma de Pago</label>
+            </value>
+            <value>
+                <fullName>Cancelación de Póliza</fullName>
+                <default>false</default>
+                <label>Cancelación de Póliza</label>
+            </value>
+            <value>
+                <fullName>Cargo Automático</fullName>
+                <default>false</default>
+                <label>Cargo Automático</label>
+            </value>
+            <value>
+                <fullName>Conducto de cobro</fullName>
+                <default>false</default>
+                <label>Conducto de cobro</label>
+            </value>
+            <value>
+                <fullName>Correccion de datos</fullName>
+                <default>false</default>
+                <label>Correccion de datos</label>
+            </value>
+            <value>
+                <fullName>Datos Fiscales</fullName>
+                <default>false</default>
+                <label>Datos Fiscales</label>
+            </value>
+            <value>
+                <fullName>Descobros</fullName>
+                <default>false</default>
+                <label>Descobros</label>
+            </value>
+            <value>
+                <fullName>Disminucíon de Suma Asegurada</fullName>
+                <default>false</default>
+                <label>Disminucíon de Suma Asegurada</label>
+            </value>
+            <value>
+                <fullName>Estado de cuenta</fullName>
+                <default>false</default>
+                <label>Estado de cuenta</label>
+            </value>
+            <value>
+                <fullName>Fallecimiento</fullName>
+                <default>false</default>
+                <label>Fallecimiento</label>
+            </value>
+            <value>
+                <fullName>Inclusión/Exclusión de AVES</fullName>
+                <default>false</default>
+                <label>Inclusión/Exclusión de AVES</label>
+            </value>
+            <value>
+                <fullName>Ingreso Hospitalario</fullName>
+                <default>false</default>
+                <label>Ingreso Hospitalario</label>
+            </value>
+            <value>
+                <fullName>Inicial</fullName>
+                <default>false</default>
+                <label>Inicial</label>
+            </value>
+            <value>
+                <fullName>Invalidez Total y Permanente</fullName>
+                <default>false</default>
+                <label>Invalidez Total y Permanente</label>
+            </value>
+            <value>
+                <fullName>Pago de Primas con fondo</fullName>
+                <default>false</default>
+                <label>Pago de Primas con fondo</label>
+            </value>
+            <value>
+                <fullName>Programación</fullName>
+                <default>false</default>
+                <label>Programación</label>
+            </value>
+            <value>
+                <fullName>Reconocimiento de antigüedad</fullName>
+                <default>false</default>
+                <label>Reconocimiento de antigüedad</label>
+            </value>
+            <value>
+                <fullName>Reembolso</fullName>
+                <default>false</default>
+                <label>Reembolso</label>
+            </value>
+            <value>
+                <fullName>Refrendo de Cédula CNSF</fullName>
+                <default>false</default>
+                <label>Refrendo de Cédula CNSF</label>
+            </value>
+            <value>
+                <fullName>Rehabilitación</fullName>
+                <default>false</default>
+                <label>Rehabilitación</label>
+            </value>
+            <value>
+                <fullName>Rescate Total</fullName>
+                <default>false</default>
+                <label>Rescate Total</label>
+            </value>
+            <value>
+                <fullName>Retiro de Aves y Dotales</fullName>
+                <default>false</default>
+                <label>Retiro de Aves y Dotales</label>
+            </value>
+            <value>
+                <fullName>RETIRO DE DOTAL PARA PAGO DE POLIZA</fullName>
+                <default>false</default>
+                <label>RETIRO DE DOTAL PARA PAGO DE POLIZA</label>
+            </value>
+            <value>
+                <fullName>Retiro de Fondo</fullName>
+                <default>false</default>
+                <label>Retiro de Fondo</label>
+            </value>
+            <value>
+                <fullName>Riesgo Preferente</fullName>
+                <default>false</default>
+                <label>Riesgo Preferente</label>
+            </value>
+            <value>
+                <fullName>Vencimiento de Plan Tradicional</fullName>
+                <default>false</default>
+                <label>Vencimiento de Plan Tradicional</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

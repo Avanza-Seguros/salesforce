@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>A_o_en_curso</fullName>
+    <columns>NAME</columns>
+    <columns>Poliza__c</columns>
+    <columns>Cliente__c</columns>
+    <columns>Fecha_de_de_Vencimiento__c</columns>
+    <columns>anio_pago__c</columns>
+    <columns>Pagado__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Anio__c</field>
+        <operation>equals</operation>
+        <value>2023</value>
+    </filters>
+    <filters>
+        <field>Pagado__c</field>
+        <operation>equals</operation>
+        <value>0</value>
+    </filters>
+    <filters>
+        <field>Mes_pago__c</field>
+        <operation>equals</operation>
+        <value>5</value>
+    </filters>
+    <label>Año en curso</label>
+</ListView>

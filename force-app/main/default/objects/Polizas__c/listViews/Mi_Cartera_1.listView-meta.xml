@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mi_Cartera_1</fullName>
+    <columns>NAME</columns>
+    <columns>Asegurado__c</columns>
+    <columns>Forma_de_pago__c</columns>
+    <columns>Tipo__c</columns>
+    <columns>Fecha_de_Emision__c</columns>
+    <columns>Estatus__c</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>Prospectador__c</columns>
+    <columns>Prospectadorr__c</columns>
+    <columns>Prospectador_Agente__c</columns>
+    <columns>Agente__c</columns>
+    <columns>Agente_asignado__c</columns>
+    <columns>Agente_Relacionado__c</columns>
+    <filterScope>Mine</filterScope>
+    <filters>
+        <field>Prospectador_Agente__c</field>
+        <operation>notContain</operation>
+        <value>Nestor</value>
+    </filters>
+    <filters>
+        <field>Prospectador__c</field>
+        <operation>notContain</operation>
+        <value>Nestor Rolando Ruiz Gomez</value>
+    </filters>
+    <label>Mi Cartera.</label>
+    <sharedTo>
+        <group>Portal_Agentes</group>
+    </sharedTo>
+</ListView>

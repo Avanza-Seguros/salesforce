@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fecha_de_Renovacion__c</fullName>
+    <formula>IF(
+    NOT(ISBLANK(Vigencia_desde__c)),
+    IF(
+        DATE(YEAR(TODAY()), MONTH(Vigencia_desde__c), 1) + (DAY(Vigencia_desde__c) - 1) &gt;= TODAY(),
+        DATE(YEAR(TODAY()), MONTH(Vigencia_desde__c), 1) + (DAY(Vigencia_desde__c) - 1),
+        DATE(YEAR(TODAY()) + 1, MONTH(Vigencia_desde__c), 1) + (DAY(Vigencia_desde__c) - 1)
+    ),
+    NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Fecha de Renovacion</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Date</type>
+</CustomField>

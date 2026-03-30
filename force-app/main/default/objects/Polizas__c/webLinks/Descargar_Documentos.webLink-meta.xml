@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Descargar_Documentos</fullName>
+    <availability>online</availability>
+    <displayType>button</displayType>
+    <linkType>javascript</linkType>
+    <masterLabel>Descargar Documentos</masterLabel>
+    <openType>onClickJavaScript</openType>
+    <protected>false</protected>
+    <url>public with sharing class DownloadFilesController {
+    public static PageReference downloadFiles() {
+        // Obtén el Id del registro actual
+        String recordId = ApexPages.currentPage().getParameters().get(&apos;id&apos;);
+        
+        // Consulta los archivos adjuntos o archivos de contenido relacionados
+        List&lt;ContentDocumentLink&gt; documentLinks = [SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId = :recordId];
+        
+        // Crea una lista para almacenar las URLs de descarga de los archivos
+        List&lt;String&gt; downloadUrls = new List&lt;String&gt;();
+        
+        for(ContentDocumentLink link : documentLinks) {
+            // Construye la URL de descarga para cada archivo
+            downloadUrls.add(&apos;/sfc/servlet.shepherd/document/download/&apos; + link.ContentDocumentId);
+        }
+        
+        // Crea una cadena que contiene todas las URL de descarga separadas por comas
+        String downloadUrlsString = String.join(downloadUrls, &apos;,&apos;);
+        
+        // Redirecciona a la página de descarga de archivos
+        PageReference downloadPage = new PageReference(&apos;/sfc/servlet.shepherd/document/download/?files=&apos; + downloadUrlsString);
+        downloadPage.setRedirect(true);
+        
+        return downloadPage;
+    }
+}</url>
+</WebLink>

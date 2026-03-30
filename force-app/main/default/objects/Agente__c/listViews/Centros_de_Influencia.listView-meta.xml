@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Centros_de_Influencia</fullName>
+    <columns>Id_del_Agente__c</columns>
+    <columns>NAME</columns>
+    <columns>Status__c</columns>
+    <columns>Indicador_vigencia_de_cedula__c</columns>
+    <columns>Indicador_vigencia_de_poliza_RC__c</columns>
+    <columns>Email__c</columns>
+    <columns>Telefono__c</columns>
+    <columns>Cumplea_os__c</columns>
+    <columns>Fecha_de_contrato_provisional__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status__c</field>
+        <operation>equals</operation>
+        <value>Centro de Influencia</value>
+    </filters>
+    <filters>
+        <field>Id_del_Agente__c</field>
+        <operation>notContain</operation>
+        <value>A-,G-,S-</value>
+    </filters>
+    <label>Centros de Influencia</label>
+</ListView>
