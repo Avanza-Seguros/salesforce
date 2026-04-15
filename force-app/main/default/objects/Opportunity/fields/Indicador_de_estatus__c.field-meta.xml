@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Indicador_de_estatus__c</fullName>
+    <externalId>false</externalId>
+    <formula>IMAGE( 
+		IF( ISPICKVAL( StageName , &quot;Póliza&quot; ), &quot;/img/samples/flag_green.gif&quot;,
+                IF( ISPICKVAL( StageName , &quot;Necesidad&quot; ), &quot;/img/samples/flag_yellow.gif&quot;,
+                IF( ISPICKVAL( StageName , &quot;Cierre&quot; ), &quot;/img/samples/flag_yellow.gif&quot;,
+                IF( ISPICKVAL( StageName , &quot;Propuesta&quot; ), &quot;/img/samples/flag_yellow.gif&quot;,
+                IF( ISPICKVAL( StageName , &quot;Closed Lose&quot; ), &quot;/img/samples/flag_red.gif&quot;,
+	        IF( ISPICKVAL( StageName , &quot;Closed Won&quot; ) , &quot;/img/samples/flag_green.gif&quot;,
+		IF( ISPICKVAL( StageName , &quot;Emitido&quot; ) , &quot;/img/samples/flag_yellow.gif&quot;, &quot;/img/samples/flag_red.gif&quot;))))))),
+				&quot;Sin datos&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Indicador de estatus</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

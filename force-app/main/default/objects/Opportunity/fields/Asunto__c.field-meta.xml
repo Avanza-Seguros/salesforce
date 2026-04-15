@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Asunto__c</fullName>
+    <label>Asunto</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Aviso de pago</fullName>
+                <default>false</default>
+                <label>Aviso de pago</label>
+            </value>
+            <value>
+                <fullName>Call</fullName>
+                <default>false</default>
+                <label>Call</label>
+            </value>
+            <value>
+                <fullName>Cita cierre</fullName>
+                <default>false</default>
+                <label>Cita cierre</label>
+            </value>
+            <value>
+                <fullName>Cita emisión</fullName>
+                <default>false</default>
+                <label>Cita emisión</label>
+            </value>
+            <value>
+                <fullName>Cita entrega póliza</fullName>
+                <default>false</default>
+                <label>Cita entrega póliza</label>
+            </value>
+            <value>
+                <fullName>Cita inicial</fullName>
+                <default>false</default>
+                <label>Cita inicial</label>
+            </value>
+            <value>
+                <fullName>Cita servicio</fullName>
+                <default>false</default>
+                <label>Cita servicio</label>
+            </value>
+            <value>
+                <fullName>Email</fullName>
+                <default>false</default>
+                <label>Email</label>
+            </value>
+            <value>
+                <fullName>Meeting</fullName>
+                <default>false</default>
+                <label>Meeting</label>
+            </value>
+            <value>
+                <fullName>Other</fullName>
+                <default>false</default>
+                <label>Other</label>
+            </value>
+            <value>
+                <fullName>Renovación</fullName>
+                <default>false</default>
+                <label>Renovación</label>
+            </value>
+            <value>
+                <fullName>Reunión</fullName>
+                <default>false</default>
+                <label>Reunión</label>
+            </value>
+            <value>
+                <fullName>Send Letter/Quote</fullName>
+                <default>false</default>
+                <label>Send Letter/Quote</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

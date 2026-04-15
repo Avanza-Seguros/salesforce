@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FieldSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>whatslly__Whatslly_Mobile_Phone_Field_Set</fullName>
+    <description>This Field Set enables the Whatslly&apos;s chat now button to be applied only on relevant Mobile phone fields.</description>
+    <displayedFields>
+        <field>Phone</field>
+        <isFieldManaged>false</isFieldManaged>
+        <isRequired>false</isRequired>
+    </displayedFields>
+    <displayedFields>
+        <field>MobilePhone</field>
+        <isFieldManaged>false</isFieldManaged>
+        <isRequired>false</isRequired>
+    </displayedFields>
+    <label>Whatslly Mobile Phone Field Set</label>
+</FieldSet>

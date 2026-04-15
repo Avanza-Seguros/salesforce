@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Oportunidad_perdida_requiere_anulada</fullName>
+    <active>false</active>
+    <description>Solicita que el estatus de la oportunidad esté marcado como &quot;Anulada&quot; para poder marcar una Oportunidad como perdida.</description>
+    <errorConditionFormula>AND(
+  ISPICKVAL(StageName, &quot;Closed Lost&quot;),
+  NOT(ISPICKVAL(Estatus__c, &quot;Anulada&quot;)),
+  NOT(ISPICKVAL(Estatus__c, &quot;No tomada&quot;))
+)</errorConditionFormula>
+    <errorMessage>Debe indicar &quot;Anulada&quot; en el campo &quot;Estatus&quot; para poder cerrar perdida una Oportunidad.</errorMessage>
+</ValidationRule>

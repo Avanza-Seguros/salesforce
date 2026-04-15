@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Oportunidades_Da_os_Roy</fullName>
+    <columns>OPPORTUNITY.NAME</columns>
+    <columns>OPPORTUNITY.STAGE_NAME</columns>
+    <columns>Plan_Producto__c</columns>
+    <columns>Prima_anual__c</columns>
+    <columns>OPPORTUNITY.AMOUNT</columns>
+    <columns>Descripcion__c</columns>
+    <columns>Agente_Relacionado__c</columns>
+    <columns>Prospectador__c</columns>
+    <columns>OPPORTUNITY.LAST_UPDATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Prospectador__c</field>
+        <operation>equals</operation>
+        <value>Elsi Casillas</value>
+    </filters>
+    <label>Oportunidades Daños - Roy</label>
+    <sharedTo>
+        <portalRoleAndSubordinates>AGonzCuentapersonalSocio</portalRoleAndSubordinates>
+    </sharedTo>
+</ListView>

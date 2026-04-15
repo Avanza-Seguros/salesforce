@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Referido_por_prospecto__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Prospecto</label>
+    <referenceTo>Lead</referenceTo>
+    <relationshipLabel>Clientes</relationshipLabel>
+    <relationshipName>Clientes</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Lookup</type>
+</CustomField>

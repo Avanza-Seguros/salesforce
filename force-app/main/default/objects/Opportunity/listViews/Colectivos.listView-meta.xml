@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Colectivos</fullName>
+    <columns>OPPORTUNITY.NAME</columns>
+    <columns>Ramo__c</columns>
+    <columns>OPPORTUNITY.CREATED_DATE</columns>
+    <columns>OPPORTUNITY.AMOUNT</columns>
+    <columns>OPPORTUNITY.STAGE_NAME</columns>
+    <columns>Indicador_de_estatus__c</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>Poliza__c</columns>
+    <columns>Forma_de_pago__c</columns>
+    <columns>Prospectador__c</columns>
+    <columns>Referido_por_Agente__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Tipo_de_poliza__c</field>
+        <operation>equals</operation>
+        <value>Colectivo</value>
+    </filters>
+    <label>Colectivos</label>
+    <sharedTo>
+        <portalRole>AGonzCuentapersonalSocio</portalRole>
+    </sharedTo>
+</ListView>

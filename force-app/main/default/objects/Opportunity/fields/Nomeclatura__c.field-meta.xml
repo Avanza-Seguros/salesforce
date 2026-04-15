@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Nomeclatura__c</fullName>
+    <externalId>false</externalId>
+    <formula>Agente_Relacionado__r.Id_del_Agente__c &amp; 
+IF(LEN(TEXT(DAY(DATEVALUE(CreatedDate)))) = 1, &quot;0&quot; &amp; TEXT(DAY(DATEVALUE(CreatedDate))), TEXT(DAY(DATEVALUE(CreatedDate)))) &amp; 
+IF(LEN(TEXT(MONTH(DATEVALUE(CreatedDate)))) = 1, &quot;0&quot; &amp; TEXT(MONTH(DATEVALUE(CreatedDate))), TEXT(MONTH(DATEVALUE(CreatedDate)))) &amp; 
+TEXT(YEAR(DATEVALUE(CreatedDate))) &amp; 
+LEFT(TEXT(Ramo__c), 3) &amp;
+Num_Aut__c</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Nomeclatura</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

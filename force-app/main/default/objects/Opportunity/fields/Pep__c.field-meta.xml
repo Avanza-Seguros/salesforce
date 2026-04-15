@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pep__c</fullName>
+    <externalId>false</externalId>
+    <formula>Prima_anual__c/
+(
+    IF(
+        ISPICKVAL(Forma_de_pago__c, &quot;Anual&quot;), 1,
+        IF(
+            ISPICKVAL(Forma_de_pago__c, &quot;Semestral&quot;), 2,
+            IF(
+                ISPICKVAL(Forma_de_pago__c, &quot;Trimestral&quot;), 4,
+                IF(
+                    ISPICKVAL(Forma_de_pago__c, &quot;Mensual&quot;), 12,
+                    0
+                )
+            )
+        )
+    )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Pep</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>No_poliza_sin_datos</fullName>
+    <active>false</active>
+    <errorConditionFormula>AND(
+    ISPICKVAL(StageName, &quot;Póliza&quot;),
+    OR(
+        ISBLANK(Amount),
+        ISBLANK(AccountId),
+        ISBLANK( Prospectador_Agente__c ),
+        ISBLANK(Prima_neta__c),
+        ISBLANK( Cotizante__c ),
+        ISBLANK( Poliza__c ),
+        ISPICKVAL(Aseguradora__c, &quot;&quot;),
+        ISPICKVAL(Ramo__c, &quot;&quot;),
+        ISBLANK(Prima_neta__c),
+        ISBLANK(Suma_asegurada__c),
+        ISPICKVAL(Modo_de_pago__c, &quot;&quot;),
+        ISPICKVAL(Forma_de_pago__c, &quot;&quot;),
+        ISBLANK(Deducible__c),
+        ISBLANK( Agente_Relacionado__c ),
+        ISBLANK(Fecha_de_emision__c),
+        ISBLANK(Vigencia_desde__c),
+        ISBLANK(Vigencia_hasta__c),
+        ISPICKVAL(Tipo_de_poliza__c, &quot;&quot;),
+        ISPICKVAL(Mercado__c, &quot;&quot;),
+        ISPICKVAL(Estatus__c, &quot;&quot;),
+        ISPICKVAL(Mes_de_emision__c, &quot;&quot;)
+    )
+)</errorConditionFormula>
+    <errorMessage>Capturar toda la informacion para cambiar de etapa</errorMessage>
+</ValidationRule>

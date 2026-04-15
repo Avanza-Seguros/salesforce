@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cumplea_os_Hoy__c</fullName>
+    <formula>IF(
+    AND(
+        MONTH(Birthdate ) = MONTH(TODAY()),
+        DAY(Birthdate ) = DAY(TODAY())
+    ),
+    true,
+    false
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Cumpleaños Hoy</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

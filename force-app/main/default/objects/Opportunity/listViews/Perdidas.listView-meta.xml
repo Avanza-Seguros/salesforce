@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Perdidas</fullName>
+    <columns>OPPORTUNITY.NAME</columns>
+    <columns>Ramo__c</columns>
+    <columns>OPPORTUNITY.AMOUNT</columns>
+    <columns>Mercado__c</columns>
+    <columns>OPPORTUNITY.STAGE_NAME</columns>
+    <columns>Indicador_de_estatus__c</columns>
+    <filterScope>Mine</filterScope>
+    <filters>
+        <field>OPPORTUNITY.STAGE_NAME</field>
+        <operation>equals</operation>
+        <value>Closed Lost</value>
+    </filters>
+    <label>Perdidas.</label>
+    <sharedTo>
+        <portalRole>AgentesAvanzaSocioUsuario</portalRole>
+    </sharedTo>
+</ListView>

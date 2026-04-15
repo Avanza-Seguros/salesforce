@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mes_de_Pago_automatico__c</fullName>
+    <externalId>false</externalId>
+    <formula>CASE(MONTH(Fecha_de_Pago__c),
+    1, &quot;01 Enero&quot;,
+    2, &quot;02 Febrero&quot;,
+    3, &quot;03 Marzo&quot;,
+    4, &quot;04 Abril&quot;,
+    5, &quot;05 Mayo&quot;,
+    6, &quot;06 Junio&quot;,
+    7, &quot;07 Julio&quot;,
+    8, &quot;08 Agosto&quot;,
+    9, &quot;09 Septiembre&quot;,
+    10, &quot;10 Octubre&quot;,
+    11, &quot;11 Noviembre&quot;,
+    12, &quot;12 Diciembre&quot;,
+    &quot;Otro&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Mes de Pago</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

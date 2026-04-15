@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Datos_de_poliza_individual</fullName>
+    <active>false</active>
+    <errorConditionFormula>ISPICKVAL(StageName, &quot;Closed Won&quot;)  &amp;&amp;  RecordType.Name = &quot;Oportunidad Individual&quot;  &amp;&amp;  (  ISBLANK(Nombre_contratante__c)  
+||  ISBLANK( Apellido_materno_contratante__c )
+||  ISBLANK( Apellido_paterno_contratante__c )  
+||  ISBLANK( Correo__c)
+||  ISBLANK(  Telefono__c )
+||  ISPICKVAL( Genero__c  , &quot;&quot;)
+||  ISBLANK(  Ocupacion__c )
+||  ISBLANK( Poliza__c )
+||  ISPICKVAL(Tipo_de_poliza__c , &quot;&quot;)
+||  ISPICKVAL(Aseguradora__c, &quot;&quot;)
+||  ISPICKVAL(Mercado__c, &quot;&quot;)
+||  ISPICKVAL(Moneda__c, &quot;&quot;)
+||  ISPICKVAL(Ramo__c, &quot;&quot;)
+||  ISPICKVAL(Forma_de_pago__c, &quot;&quot;)
+||  ISPICKVAL(Numero_de_pago__c, &quot;&quot;)
+||  ISPICKVAL(Modo_de_pago__c , &quot;&quot;)
+||  ISBLANK( Deducible__c )
+||  ISBLANK( Coaseguro__c )
+||  ISBLANK(  Suma_asegurada__c  )
+||  ISPICKVAL( Estatus__c , &quot;&quot;)
+||  ISBLANK(  Fecha_de_emision__c )
+||  ISPICKVAL(  Mes_de_emision__c  , &quot;&quot;)
+||  ISBLANK(  Vigencia_desde__c  )
+||  ISBLANK( Comision__c )
+||  ISBLANK( Prima_anual__c )
+||  ISBLANK(  Estado__c  )
+||  ISBLANK(   Agente_Relacionado__c )
+||  ISBLANK(  Ciudad__c  )
+||  ISBLANK(  Pais__c  )
+||  ISBLANK(   Servicios__c  )
+|| ISBLANK( Comision_Fraccionada__c )
+|| ISBLANK( Prima_de_Comision__c )
+|| ISBLANK( Recargo_por_Pago_Fraccionado__c )
+|| ISBLANK( Pagos__c )
+||  ISPICKVAL(   Prospectador__c   , &quot;&quot;)  )</errorConditionFormula>
+    <errorMessage>Se deben llenar todos los campos correspondientes a la póliza o Marcar como pagada</errorMessage>
+</ValidationRule>

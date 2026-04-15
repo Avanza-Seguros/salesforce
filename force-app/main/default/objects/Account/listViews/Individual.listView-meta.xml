@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Individual</fullName>
+    <columns>ACCOUNT.NAME</columns>
+    <columns>Correo_electronico__c</columns>
+    <columns>ACCOUNT.PHONE1</columns>
+    <columns>Fecha_de_nacimiento__c</columns>
+    <columns>Genero__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>ACCOUNT.TYPE</field>
+        <operation>equals</operation>
+        <value>Individual</value>
+    </filters>
+    <filters>
+        <field>Activo__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Individual</label>
+</ListView>

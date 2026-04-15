@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tipo__c</fullName>
+    <label>Tipo</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Accidentes</fullName>
+                <default>false</default>
+                <label>Accidentes</label>
+            </value>
+            <value>
+                <fullName>Auto</fullName>
+                <default>false</default>
+                <label>Auto</label>
+            </value>
+            <value>
+                <fullName>Dentegra</fullName>
+                <default>false</default>
+                <label>Dentegra</label>
+            </value>
+            <value>
+                <fullName>Fianzas</fullName>
+                <default>false</default>
+                <label>Fianzas</label>
+            </value>
+            <value>
+                <fullName>Gastos médicos</fullName>
+                <default>false</default>
+                <label>Gastos médicos</label>
+            </value>
+            <value>
+                <fullName>Hogar</fullName>
+                <default>false</default>
+                <label>Hogar</label>
+            </value>
+            <value>
+                <fullName>Mascota</fullName>
+                <default>false</default>
+                <label>Mascota</label>
+            </value>
+            <value>
+                <fullName>Pyme</fullName>
+                <default>false</default>
+                <label>Pyme</label>
+            </value>
+            <value>
+                <fullName>Responsabilidad Civil</fullName>
+                <default>false</default>
+                <label>Responsabilidad Civil</label>
+            </value>
+            <value>
+                <fullName>Seguro de Viaje</fullName>
+                <default>false</default>
+                <label>Seguro de Viaje</label>
+            </value>
+            <value>
+                <fullName>Sisnova</fullName>
+                <default>false</default>
+                <label>Sisnova</label>
+            </value>
+            <value>
+                <fullName>Transporte</fullName>
+                <default>false</default>
+                <label>Transporte</label>
+            </value>
+            <value>
+                <fullName>VIDA</fullName>
+                <default>false</default>
+                <label>VIDA</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

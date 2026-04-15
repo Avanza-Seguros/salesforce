@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mis_Oportunidades_1</fullName>
+    <columns>OPPORTUNITY.NAME</columns>
+    <columns>Agente_Relacionado__c</columns>
+    <columns>Ramo__c</columns>
+    <columns>OPPORTUNITY.AMOUNT</columns>
+    <columns>Mercado__c</columns>
+    <columns>OPPORTUNITY.STAGE_NAME</columns>
+    <columns>Indicador_de_estatus__c</columns>
+    <columns>Indicador_de_Dias_en_Propuesta__c</columns>
+    <columns>OPPORTUNITY.RECORDTYPE</columns>
+    <columns>OPPORTUNITY.CREATED_DATE</columns>
+    <columns>CORE.USERS.ALIAS</columns>
+    <columns>OPPORTUNITY.LAST_UPDATE</columns>
+    <filterScope>Mine</filterScope>
+    <label>Mis Oportunidades.</label>
+</ListView>

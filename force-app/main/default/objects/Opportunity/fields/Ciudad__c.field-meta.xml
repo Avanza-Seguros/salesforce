@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ciudad__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Ciudad</label>
+    <lookupFilter>
+        <active>true</active>
+        <filterItems>
+            <field>$Source.Estado__c</field>
+            <operation>equals</operation>
+            <valueField>Ciudad__c.Estado__c</valueField>
+        </filterItems>
+        <filterItems>
+            <field>$Source.Pais__c</field>
+            <operation>equals</operation>
+            <valueField>Ciudad__c.Pais__c</valueField>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Ciudad__c</referenceTo>
+    <relationshipLabel>Oportunidades</relationshipLabel>
+    <relationshipName>Oportunidades</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>prospectador_debe_emitir_la_poliza</fullName>
+    <active>false</active>
+    <errorConditionFormula>AND(
+  NOT(ISBLANK(  Prospectador_Agente__c )),
+  NOT(ISBLANK( Emisor__c )),
+  Prospectador_Agente__c &lt;&gt; Emisor__c
+)</errorConditionFormula>
+    <errorMessage>El prospectador debe ser el emisor de la poliza</errorMessage>
+</ValidationRule>

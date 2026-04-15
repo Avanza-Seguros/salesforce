@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>whatslly__Last_WhatsApp_Message_Time__c</fullName>
+    <deprecated>false</deprecated>
+    <description>Automatically updated by Whatslly</description>
+    <label>Last WhatsApp Message Time</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>DateTime</type>
+</CustomField>

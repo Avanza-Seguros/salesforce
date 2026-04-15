@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Promotor__c</fullName>
+    <externalId>false</externalId>
+    <formula>CASE(
+  TRIM(TEXT(Aseguradora__c)),
+  &quot;Afirme&quot;, &quot;DINGLER&quot;,
+  &quot;AIG&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;Allianz&quot;, &quot;B2B&quot;,
+  &quot;ATLAS&quot;, &quot;PROTEGE&quot;,
+  &quot;AXA&quot;, &quot;DINGLER&quot;,
+  &quot;Berkley&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;Bupa&quot;, &quot;DIRECTO&quot;,
+  &quot;Bx+&quot;, &quot;DINGLER&quot;,
+  &quot;Banorte&quot;, &quot;EXIRSA&quot;,
+  &quot;CHUBB&quot;, &quot;DINGLER&quot;,
+  &quot;Dentegra&quot;, &quot;DIRECTO&quot;,
+  &quot;GMX&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;GNP&quot;, &quot;VIVE SEGUROS&quot;,
+  &quot;HDI&quot;, &quot;PROTEGE&quot;,
+  &quot;INBURSA&quot;, &quot;DINGLER&quot;,
+  &quot;Insignia&quot;, &quot;DINGLER&quot;,
+  &quot;Mapfre&quot;, &quot;PROTEGE&quot;,
+  &quot;Plan Seguro&quot;, &quot;DINGLER&quot;,
+  &quot;Prudential&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;QUALITAS&quot;, &quot;DINGLER&quot;,
+  &quot;SISNOVA&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;SMNYL&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;Sofimex&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;Sura&quot;, &quot;DIRECTO&quot;,
+  &quot;THONA&quot;, &quot;DINGLER&quot;,
+  &quot;Metlife&quot;, &quot;OFICINA VIRTUAL&quot;,
+  &quot;&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Promotor</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

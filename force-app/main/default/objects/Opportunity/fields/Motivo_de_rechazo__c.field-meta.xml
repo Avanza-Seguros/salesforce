@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Motivo_de_rechazo__c</fullName>
+    <label>Motivo de rechazo</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>prima elevada</fullName>
+                <default>false</default>
+                <label>prima elevada</label>
+            </value>
+            <value>
+                <fullName>no se genero confianza</fullName>
+                <default>false</default>
+                <label>no se genero confianza</label>
+            </value>
+            <value>
+                <fullName>lo hablo con la esposa</fullName>
+                <default>false</default>
+                <label>lo hablo con la esposa</label>
+            </value>
+            <value>
+                <fullName>falta de dinero</fullName>
+                <default>false</default>
+                <label>falta de dinero</label>
+            </value>
+            <value>
+                <fullName>rechazo por salud</fullName>
+                <default>false</default>
+                <label>rechazo por salud</label>
+            </value>
+            <value>
+                <fullName>Por rendimientos</fullName>
+                <default>false</default>
+                <label>Por rendimientos</label>
+            </value>
+            <value>
+                <fullName>Largo plazo de pago</fullName>
+                <default>false</default>
+                <label>Largo plazo de pago</label>
+            </value>
+            <value>
+                <fullName>No responde</fullName>
+                <default>false</default>
+                <label>No responde</label>
+            </value>
+            <value>
+                <fullName>Por Renovación</fullName>
+                <default>false</default>
+                <label>Por Renovación</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
