@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Vida única</fullName>
+        <default>false</default>
+        <label>Vida única</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Unido último en fallecer</fullName>
+        <default>false</default>
+        <label>Unido último en fallecer</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Unido primero en fallecer</fullName>
+        <default>false</default>
+        <label>Unido primero en fallecer</label>
+    </standardValue>
+</StandardValueSet>

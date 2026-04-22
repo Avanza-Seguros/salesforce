@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Mensual</fullName>
+        <default>false</default>
+        <label>Mensual</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Quincenal (dos veces al mes)</fullName>
+        <default>false</default>
+        <label>Quincenal (dos veces al mes)</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Trimestral</fullName>
+        <default>false</default>
+        <label>Trimestral</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Semestral (dos veces al año)</fullName>
+        <default>false</default>
+        <label>Semestral (dos veces al año)</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Anual</fullName>
+        <default>false</default>
+        <label>Anual</label>
+    </standardValue>
+</StandardValueSet>

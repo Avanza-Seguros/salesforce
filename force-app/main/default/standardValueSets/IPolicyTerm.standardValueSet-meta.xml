@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Anual</fullName>
+        <default>false</default>
+        <label>Anual</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Semianual</fullName>
+        <default>false</default>
+        <label>Semianual</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Mensual</fullName>
+        <default>false</default>
+        <label>Mensual</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Diariamente</fullName>
+        <default>false</default>
+        <label>Diariamente</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Personalizado</fullName>
+        <default>false</default>
+        <label>Personalizado</label>
+    </standardValue>
+</StandardValueSet>
