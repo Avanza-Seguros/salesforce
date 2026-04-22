@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>confidenceBand__c</fullName>
+    <description>Banda legible de confianza derivada del puntaje.</description>
+    <externalId>false</externalId>
+    <formula>IF(confidenceScore__c &gt;= 0.90, &quot;High&quot;, IF(confidenceScore__c &gt;= 0.70, &quot;Medium&quot;, &quot;Low&quot;))</formula>
+    <label>Banda de confianza</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

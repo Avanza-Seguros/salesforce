@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>manualReviewRequired__c</fullName>
+    <description>Indica si el caso debe enviarse a revisión manual.</description>
+    <formula>OR(confidenceScore__c &lt; 0.70, candidateCount__c &gt; 1, ISPICKVAL(reconciliationStatus__c, &quot;Requiere revision&quot;))</formula>
+    <label>Revisión manual requerida</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reconciliationStatus__c</fullName>
+    <description>Resultado final de la conciliación.</description>
+    <label>Estado de conciliación</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Conciliado</fullName>
+                <default>true</default>
+                <label>Conciliado</label>
+            </value>
+            <value>
+                <fullName>Requiere revision</fullName>
+                <default>false</default>
+                <label>Requiere revisión</label>
+            </value>
+            <value>
+                <fullName>Rechazado</fullName>
+                <default>false</default>
+                <label>Rechazado</label>
+            </value>
+            <value>
+                <fullName>Duplicado</fullName>
+                <default>false</default>
+                <label>Duplicado</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

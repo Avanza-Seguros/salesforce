@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>amountDelta__c</fullName>
+    <description>Diferencia entre el importe inbound y el importe esperado de la cuota.</description>
+    <formula>IF(OR(ISBLANK(inboundPayment__c), ISBLANK(paymentPlanInstallment__c)), NULL, ABS(inboundPayment__r.sourceAmount__c - paymentPlanInstallment__r.expectedAmount__c))</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Diferencia de importe</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>

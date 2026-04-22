@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>sourceSystem__c</fullName>
+    <description>Sistema origen que alimentó el pago inbound.</description>
+    <label>Sistema origen</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>MuleSoft</fullName>
+                <default>true</default>
+                <label>MuleSoft</label>
+            </value>
+            <value>
+                <fullName>Aseguradora directa</fullName>
+                <default>false</default>
+                <label>Aseguradora directa</label>
+            </value>
+            <value>
+                <fullName>Carga manual</fullName>
+                <default>false</default>
+                <label>Carga manual</label>
+            </value>
+            <value>
+                <fullName>Migracion</fullName>
+                <default>false</default>
+                <label>Migración</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

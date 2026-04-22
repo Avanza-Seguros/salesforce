@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>resultingReceipt__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Recibo limpio creado o vinculado como resultado de la conciliación.</description>
+    <label>Recibo resultante</label>
+    <referenceTo>PolicyPaymentReceipt__c</referenceTo>
+    <relationshipLabel>Conciliaciones de pago</relationshipLabel>
+    <relationshipName>SourceReconciliations</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>
