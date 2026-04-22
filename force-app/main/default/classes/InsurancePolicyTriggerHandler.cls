@@ -29,6 +29,10 @@ public with sharing class InsurancePolicyTriggerHandler {
 
     private static Set<Id> processedPolicyIds = new Set<Id>();
 
+    public static void handleBeforeTrigger(List<InsurancePolicy> newPolicies, Map<Id, InsurancePolicy> oldMap) {
+        PaymentPlanFrequencyChangeService.validateBeforeUpdate(newPolicies, oldMap);
+    }
+
     public static void handleAfterTrigger(List<InsurancePolicy> newPolicies, Map<Id, InsurancePolicy> oldMap) {
         if (newPolicies == null || newPolicies.isEmpty()) {
             return;
@@ -52,6 +56,8 @@ public with sharing class InsurancePolicyTriggerHandler {
         if (!policiesToProcess.isEmpty()) {
             upsertInitialPlans(policiesToProcess);
         }
+
+        PaymentPlanFrequencyChangeService.processAfterUpdate(newPolicies, oldMap);
     }
 
     public static void handleIsAfterTrigger(List<InsurancePolicy> newPolicies, Map<Id, InsurancePolicy> oldMap) {

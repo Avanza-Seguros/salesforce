@@ -40,7 +40,7 @@ private class PaymentPlanTriggerHandlerTest {
         Assert.areEqual(1, installments[0].sequenceNumber__c);
         Assert.areEqual(firstDueDate, installments[0].dueDate__c);
         Assert.areEqual(firstDueDate, installments[0].periodStartDate__c);
-        Assert.areEqual(firstDueDate, installments[0].periodEndDate__c);
+        Assert.areEqual(firstDueDate.addMonths(12).addDays(-1), installments[0].periodEndDate__c);
         Assert.areEqual(Decimal.valueOf('900.00'), installments[0].expectedAmount__c);
     }
 
