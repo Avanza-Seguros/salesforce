@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Borrador</fullName>
+        <default>true</default>
+        <label>Borrador</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Final</fullName>
+        <default>false</default>
+        <label>Final</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Fin de la negociación</fullName>
+        <default>false</default>
+        <label>Fin de la negociación</label>
+    </standardValue>
+    <standardValue>
+        <fullName>No incluido</fullName>
+        <default>false</default>
+        <label>No incluido</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Presupuesto abandonado</fullName>
+        <default>false</default>
+        <label>Presupuesto abandonado</label>
+    </standardValue>
+</StandardValueSet>
