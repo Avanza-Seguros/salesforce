@@ -96,9 +96,9 @@ public with sharing class PaymentPlanTriggerHandler {
         for (Integer sequence = 1; sequence <= installmentCount; sequence++) {
             Boolean isLastInstallment = sequence == installmentCount;
             Date dueDate = plan.firstDueDate__c.addMonths(monthsBetweenInstallments * (sequence - 1));
-            Date nextDueDate = isLastInstallment
-                ? null
-                : plan.firstDueDate__c.addMonths(monthsBetweenInstallments * sequence);
+            Date periodEndDate = plan.firstDueDate__c
+                .addMonths(monthsBetweenInstallments * sequence)
+                .addDays(-1);
             Decimal expectedAmount = isLastInstallment
                 ? (plan.expectedTotalAmount__c - assignedAmount).setScale(2)
                 : calculateRegularInstallmentAmount(plan.expectedTotalAmount__c, installmentCount);
@@ -112,7 +112,7 @@ public with sharing class PaymentPlanTriggerHandler {
                 expectedAmount__c = expectedAmount,
                 installmentStatus__c = INSTALLMENT_STATUS_PENDING,
                 periodStartDate__c = dueDate,
-                periodEndDate__c = nextDueDate == null ? dueDate : nextDueDate.addDays(-1)
+                periodEndDate__c = periodEndDate
             ));
         }
 
