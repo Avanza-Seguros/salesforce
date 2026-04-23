@@ -1,12 +1,22 @@
 @IsTest
 private class PaymentPlanFrequencyChangeServiceTest {
+    @TestSetup
+    static void setupData() {
+        CollectionsTestDataFactory.createInsuredAccount();
+    }
+
     @IsTest
     static void replacesSemiannualPlanWithMonthlyPlanForPendingBalance() {
-        Account insured = createInsuredAccount();
         Date firstDueDate = Date.today().addMonths(-6);
-        InsurancePolicy policy = createOperationalPolicy(insured.Id, 'Semestral', 1200, firstDueDate);
-        PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-        List<PaymentPlanInstallment__c> originalInstallments = getInstallments(originalPlan.Id);
+        InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Semestral',
+            1200,
+            firstDueDate
+        );
+        PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(policy.Id);
+        List<PaymentPlanInstallment__c> originalInstallments =
+            CollectionsTestDataFactory.getInstallmentsByPlan(originalPlan.Id);
         originalInstallments[0].installmentStatus__c = 'Conciliado';
         update originalInstallments[0];
 
@@ -35,8 +45,10 @@ private class PaymentPlanFrequencyChangeServiceTest {
                 AND previousPlan__c = :originalPlan.Id
             LIMIT 1
         ];
-        List<PaymentPlanInstallment__c> replacementInstallments = getInstallments(replacementPlan.Id);
-        List<PaymentPlanInstallment__c> oldInstallments = getInstallments(originalPlan.Id);
+        List<PaymentPlanInstallment__c> replacementInstallments =
+            CollectionsTestDataFactory.getInstallmentsByPlan(replacementPlan.Id);
+        List<PaymentPlanInstallment__c> oldInstallments =
+            CollectionsTestDataFactory.getInstallmentsByPlan(originalPlan.Id);
 
         Assert.areEqual('Reemplazado', replacedPlan.planStatus__c);
         Assert.areEqual(Date.today(), replacedPlan.replacedOn__c);
@@ -54,16 +66,21 @@ private class PaymentPlanFrequencyChangeServiceTest {
         Assert.areEqual(6, replacementInstallments.size());
         Assert.areEqual(Date.today(), replacementInstallments[0].dueDate__c);
         Assert.areEqual(Date.today().addMonths(5), replacementInstallments[5].dueDate__c);
-        Assert.areEqual(Decimal.valueOf('600.00'), sumExpectedAmounts(replacementInstallments));
+        Assert.areEqual(Decimal.valueOf('600.00'), CollectionsTestDataFactory.sumExpectedAmounts(replacementInstallments));
     }
 
     @IsTest
     static void doesNotAllowFrequencyChangeBeforeNextPendingDueDate() {
-        Account insured = createInsuredAccount();
         Date firstDueDate = Date.today().addMonths(-4);
-        InsurancePolicy policy = createOperationalPolicy(insured.Id, 'Semestral', 1200, firstDueDate);
-        PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-        List<PaymentPlanInstallment__c> originalInstallments = getInstallments(originalPlan.Id);
+        InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Semestral',
+            1200,
+            firstDueDate
+        );
+        PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(policy.Id);
+        List<PaymentPlanInstallment__c> originalInstallments =
+            CollectionsTestDataFactory.getInstallmentsByPlan(originalPlan.Id);
         originalInstallments[0].installmentStatus__c = 'Conciliado';
         update originalInstallments[0];
 
@@ -86,11 +103,16 @@ private class PaymentPlanFrequencyChangeServiceTest {
 
     @IsTest
     static void doesNotAllowFrequencyChangeWhenPlanHasNoPendingBalance() {
-        Account insured = createInsuredAccount();
         Date firstDueDate = Date.today().addMonths(-6);
-        InsurancePolicy policy = createOperationalPolicy(insured.Id, 'Semestral', 1200, firstDueDate);
-        PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-        List<PaymentPlanInstallment__c> originalInstallments = getInstallments(originalPlan.Id);
+        InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Semestral',
+            1200,
+            firstDueDate
+        );
+        PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(policy.Id);
+        List<PaymentPlanInstallment__c> originalInstallments =
+            CollectionsTestDataFactory.getInstallmentsByPlan(originalPlan.Id);
 
         for (PaymentPlanInstallment__c installment : originalInstallments) {
             installment.installmentStatus__c = 'Conciliado';
@@ -112,16 +134,21 @@ private class PaymentPlanFrequencyChangeServiceTest {
         Test.stopTest();
 
         Assert.isTrue(threwException);
-        Assert.areEqual('Activo', getActivePlan(policy.Id).planStatus__c);
+        Assert.areEqual('Activo', CollectionsTestDataFactory.getActivePlan(policy.Id).planStatus__c);
     }
 
     @IsTest
     static void doesNotAllowFrequencyChangeWhenNewFrequencyDoesNotFitRemainingTerm() {
-        Account insured = createInsuredAccount();
         Date firstDueDate = Date.today().addMonths(-7);
-        InsurancePolicy policy = createOperationalPolicy(insured.Id, 'Mensual', 1200, firstDueDate);
-        PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-        List<PaymentPlanInstallment__c> originalInstallments = getInstallments(originalPlan.Id);
+        InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Mensual',
+            1200,
+            firstDueDate
+        );
+        PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(policy.Id);
+        List<PaymentPlanInstallment__c> originalInstallments =
+            CollectionsTestDataFactory.getInstallmentsByPlan(originalPlan.Id);
 
         for (PaymentPlanInstallment__c installment : originalInstallments) {
             if (installment.dueDate__c < Date.today()) {
@@ -146,62 +173,5 @@ private class PaymentPlanFrequencyChangeServiceTest {
 
         Assert.isTrue(threwException);
         Assert.areEqual(1, [SELECT COUNT() FROM PaymentPlan__c WHERE insurancePolicy__c = :policy.Id]);
-    }
-
-    private static Account createInsuredAccount() {
-        Account insured = new Account(Name = 'Test Insured');
-        insert insured;
-        return insured;
-    }
-
-    private static InsurancePolicy createOperationalPolicy(
-        Id insuredAccountId,
-        String premiumFrequency,
-        Decimal premiumAmount,
-        Date firstDueDate
-    ) {
-        InsurancePolicy policy = new InsurancePolicy(
-            Name = 'POL-TEST-' + String.valueOf(Crypto.getRandomInteger()).replace('-', ''),
-            PolicyName = 'Test policy',
-            NameInsuredId = insuredAccountId,
-            Status = 'Inicial',
-            PremiumFrequency = premiumFrequency,
-            PremiumAmount = premiumAmount,
-            PaymentDueDate = firstDueDate
-        );
-        insert policy;
-        return policy;
-    }
-
-    private static PaymentPlan__c getActivePlan(Id policyId) {
-        return [
-            SELECT Id, planStatus__c
-            FROM PaymentPlan__c
-            WHERE insurancePolicy__c = :policyId
-                AND planStatus__c = 'Activo'
-            LIMIT 1
-        ];
-    }
-
-    private static List<PaymentPlanInstallment__c> getInstallments(Id planId) {
-        return [
-            SELECT sequenceNumber__c,
-                dueDate__c,
-                expectedAmount__c,
-                installmentStatus__c
-            FROM PaymentPlanInstallment__c
-            WHERE paymentPlan__c = :planId
-            ORDER BY sequenceNumber__c
-        ];
-    }
-
-    private static Decimal sumExpectedAmounts(List<PaymentPlanInstallment__c> installments) {
-        Decimal total = 0;
-
-        for (PaymentPlanInstallment__c installment : installments) {
-            total += installment.expectedAmount__c == null ? 0 : installment.expectedAmount__c;
-        }
-
-        return total.setScale(2);
     }
 }

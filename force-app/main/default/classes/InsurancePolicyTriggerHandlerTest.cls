@@ -1,13 +1,19 @@
 @IsTest
 private class InsurancePolicyTriggerHandlerTest {
+    @TestSetup
+    static void setupData() {
+        CollectionsTestDataFactory.createInsuredAccount();
+    }
+
     @IsTest
     static void createsInitialPlanWhenPolicyIsInsertedAsOperational() {
-        Account insured = createInsuredAccount();
-
-        InsurancePolicy policy = buildPolicy(insured.Id, 'Vigente');
-        policy.PremiumAmount = 1200;
-        policy.PremiumFrequency = 'Mensual';
-        policy.PaymentDueDate = Date.today().addDays(30);
+        InsurancePolicy policy = CollectionsTestDataFactory.buildCompletePolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Vigente',
+            'Mensual',
+            1200,
+            Date.today().addDays(30)
+        );
 
         Test.startTest();
         insert policy;
@@ -37,9 +43,10 @@ private class InsurancePolicyTriggerHandlerTest {
 
     @IsTest
     static void createsOnlyOnePlanWhenOperationalPolicyIsUpdatedAgain() {
-        Account insured = createInsuredAccount();
-
-        InsurancePolicy policy = buildPolicy(insured.Id, 'Vigente');
+        InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Vigente'
+        );
 
         insert policy;
 
@@ -56,9 +63,10 @@ private class InsurancePolicyTriggerHandlerTest {
 
     @IsTest
     static void keepsOnePlanWhenPolicyTransitionsFromInitialToVigente() {
-        Account insured = createInsuredAccount();
-
-        InsurancePolicy policy = buildPolicy(insured.Id, 'Inicial');
+        InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Inicial'
+        );
 
         insert policy;
 
@@ -80,13 +88,37 @@ private class InsurancePolicyTriggerHandlerTest {
 
     @IsTest
     static void mapsPremiumFrequencies() {
-        Account insured = createInsuredAccount();
+        Id insuredAccountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
 
         List<InsurancePolicy> policies = new List<InsurancePolicy>{
-            buildCompletePolicy(insured.Id, 'Trimestral', 300),
-            buildCompletePolicy(insured.Id, 'Semestral', 600),
-            buildCompletePolicy(insured.Id, 'Anual', 1200),
-            buildCompletePolicy(insured.Id, 'Unico', 1200)
+            CollectionsTestDataFactory.buildCompletePolicy(
+                insuredAccountId,
+                'Vigente',
+                'Trimestral',
+                300,
+                Date.today().addDays(30)
+            ),
+            CollectionsTestDataFactory.buildCompletePolicy(
+                insuredAccountId,
+                'Vigente',
+                'Semestral',
+                600,
+                Date.today().addDays(30)
+            ),
+            CollectionsTestDataFactory.buildCompletePolicy(
+                insuredAccountId,
+                'Vigente',
+                'Anual',
+                1200,
+                Date.today().addDays(30)
+            ),
+            CollectionsTestDataFactory.buildCompletePolicy(
+                insuredAccountId,
+                'Vigente',
+                'Unico',
+                1200,
+                Date.today().addDays(30)
+            )
         };
 
         Test.startTest();
@@ -118,9 +150,10 @@ private class InsurancePolicyTriggerHandlerTest {
 
     @IsTest
     static void reusesExistingInitialPlanForPolicy() {
-        Account insured = createInsuredAccount();
-
-        InsurancePolicy policy = buildPolicy(insured.Id, 'Cancelado');
+        InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+            CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+            'Cancelado'
+        );
         insert policy;
 
         PaymentPlan__c existingPlan = new PaymentPlan__c(
@@ -143,32 +176,5 @@ private class InsurancePolicyTriggerHandlerTest {
 
         Assert.areEqual(1, plans.size());
         Assert.areEqual(existingPlan.Id, plans[0].Id);
-    }
-
-    private static Account createInsuredAccount() {
-        Account insured = new Account(Name = 'Test Insured');
-        insert insured;
-        return insured;
-    }
-
-    private static InsurancePolicy buildPolicy(Id insuredAccountId, String status) {
-        return new InsurancePolicy(
-            Name = 'POL-TEST-' + String.valueOf(Crypto.getRandomInteger()).replace('-', ''),
-            PolicyName = 'Test policy',
-            NameInsuredId = insuredAccountId,
-            Status = status
-        );
-    }
-
-    private static InsurancePolicy buildCompletePolicy(
-        Id insuredAccountId,
-        String premiumFrequency,
-        Decimal premiumAmount
-    ) {
-        InsurancePolicy policy = buildPolicy(insuredAccountId, 'Vigente');
-        policy.PremiumAmount = premiumAmount;
-        policy.PremiumFrequency = premiumFrequency;
-        policy.PaymentDueDate = Date.today().addDays(30);
-        return policy;
     }
 }
