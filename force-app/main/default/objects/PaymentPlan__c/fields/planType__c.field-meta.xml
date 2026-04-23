@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>planType__c</fullName>
+    <description>Clasifica el tipo o motivo del plan de pagos.</description>
+    <label>Tipo de plan</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Inicial</fullName>
+                <default>true</default>
+                <label>Inicial</label>
+            </value>
+            <value>
+                <fullName>Renovacion</fullName>
+                <default>false</default>
+                <label>Renovación</label>
+            </value>
+            <value>
+                <fullName>Reexpedicion</fullName>
+                <default>false</default>
+                <label>Reexpedición</label>
+            </value>
+            <value>
+                <fullName>Ajuste</fullName>
+                <default>false</default>
+                <label>Ajuste</label>
+            </value>
+            <value>
+                <fullName>Cronograma manual</fullName>
+                <default>false</default>
+                <label>Cronograma manual</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>daysPastDueAtRecognition__c</fullName>
+    <description>Días de mora al momento del reconocimiento del recibo.</description>
+    <externalId>false</externalId>
+    <formula>IF(OR(ISBLANK(receiptDate__c), ISBLANK(paymentPlanInstallment__c), ISBLANK(paymentPlanInstallment__r.dueDate__c)), NULL, receiptDate__c - paymentPlanInstallment__r.dueDate__c)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Días de mora al reconocimiento</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

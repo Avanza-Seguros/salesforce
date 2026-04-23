@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>paymentMethod__c</fullName>
+    <description>Método de pago reconocido para el recibo.</description>
+    <label>Método de pago</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Domiciliacion</fullName>
+                <default>true</default>
+                <label>Domiciliación</label>
+            </value>
+            <value>
+                <fullName>Tarjeta de credito</fullName>
+                <default>false</default>
+                <label>Tarjeta de crédito</label>
+            </value>
+            <value>
+                <fullName>Tarjeta de debito</fullName>
+                <default>false</default>
+                <label>Tarjeta de débito</label>
+            </value>
+            <value>
+                <fullName>Transferencia</fullName>
+                <default>false</default>
+                <label>Transferencia</label>
+            </value>
+            <value>
+                <fullName>Efectivo</fullName>
+                <default>false</default>
+                <label>Efectivo</label>
+            </value>
+            <value>
+                <fullName>Cheque</fullName>
+                <default>false</default>
+                <label>Cheque</label>
+            </value>
+            <value>
+                <fullName>Nomina</fullName>
+                <default>false</default>
+                <label>Nómina</label>
+            </value>
+            <value>
+                <fullName>Desconocido</fullName>
+                <default>false</default>
+                <label>Desconocido</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

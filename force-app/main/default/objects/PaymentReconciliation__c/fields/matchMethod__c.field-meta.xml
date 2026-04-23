@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>matchMethod__c</fullName>
+    <description>Regla o método que produjo el resultado de conciliación.</description>
+    <label>Método de conciliación</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Poliza y numero de recibo</fullName>
+                <default>true</default>
+                <label>Póliza y número de recibo</label>
+            </value>
+            <value>
+                <fullName>Poliza e importe</fullName>
+                <default>false</default>
+                <label>Póliza e importe</label>
+            </value>
+            <value>
+                <fullName>Cuota exacta</fullName>
+                <default>false</default>
+                <label>Cuota exacta</label>
+            </value>
+            <value>
+                <fullName>Asistido por candidato</fullName>
+                <default>false</default>
+                <label>Asistido por candidato</label>
+            </value>
+            <value>
+                <fullName>Decision manual</fullName>
+                <default>false</default>
+                <label>Decisión manual</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

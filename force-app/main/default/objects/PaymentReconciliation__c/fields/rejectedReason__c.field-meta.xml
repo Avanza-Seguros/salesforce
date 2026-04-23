@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>rejectedReason__c</fullName>
+    <description>Motivo de negocio por el cual la conciliación fue rechazada.</description>
+    <label>Motivo de rechazo</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Duplicado</fullName>
+                <default>true</default>
+                <label>Duplicado</label>
+            </value>
+            <value>
+                <fullName>Ambiguo</fullName>
+                <default>false</default>
+                <label>Ambiguo</label>
+            </value>
+            <value>
+                <fullName>Sin coincidencia de poliza</fullName>
+                <default>false</default>
+                <label>Sin coincidencia de póliza</label>
+            </value>
+            <value>
+                <fullName>Sin coincidencia de cuota</fullName>
+                <default>false</default>
+                <label>Sin coincidencia de cuota</label>
+            </value>
+            <value>
+                <fullName>Diferencia de importe</fullName>
+                <default>false</default>
+                <label>Diferencia de importe</label>
+            </value>
+            <value>
+                <fullName>Diferencia de fecha</fullName>
+                <default>false</default>
+                <label>Diferencia de fecha</label>
+            </value>
+            <value>
+                <fullName>Rechazado por negocio</fullName>
+                <default>false</default>
+                <label>Rechazado por negocio</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

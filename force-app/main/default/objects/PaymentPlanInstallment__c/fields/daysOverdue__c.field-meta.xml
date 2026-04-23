@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>daysOverdue__c</fullName>
+    <description>Cantidad de días de mora mientras la cuota siga pendiente.</description>
+    <externalId>false</externalId>
+    <formula>IF(AND(ISPICKVAL(installmentStatus__c, &quot;Pendiente&quot;), dueDate__c &lt; TODAY(), ISBLANK(matchedReceipt__c)), TODAY() - dueDate__c, 0)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Días de mora</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
