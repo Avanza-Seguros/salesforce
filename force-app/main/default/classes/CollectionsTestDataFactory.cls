@@ -19,7 +19,10 @@ public class CollectionsTestDataFactory {
    * @throws:
    */
   public static Account createInsuredAccount() {
-    Account insured = new Account(Name = DEFAULT_ACCOUNT_NAME);
+    Account insured = new Account(
+      Name = DEFAULT_ACCOUNT_NAME,
+      AnnualRevenue = 1000000
+    );
     insert insured;
     return insured;
   }
