@@ -23,8 +23,8 @@
             </value>
             <value>
                 <fullName
-        >Poliza no encontrada</fullName>`r`n                <default
-        >false</default>
+				>Poliza no encontrada</fullName>`r`n                <default
+				>false</default>
                 <label>Póliza no encontrada</label>
             </value>
             <value>
@@ -56,6 +56,11 @@
                 <fullName>Rechazado por negocio</fullName>
                 <default>false</default>
                 <label>Rechazado por negocio</label>
+            </value>
+            <value>
+                <fullName>Error de normalizacion</fullName>
+                <default>false</default>
+                <label>Error de normalización</label>
             </value>
         </valueSetDefinition>
     </valueSet>
