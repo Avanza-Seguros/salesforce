@@ -32,6 +32,11 @@
                 <label>Ajuste</label>
             </value>
             <value>
+                <fullName>Cambio de frecuencia</fullName>
+                <default>false</default>
+                <label>Cambio de frecuencia</label>
+            </value>
+            <value>
                 <fullName>Cronograma manual</fullName>
                 <default>false</default>
                 <label>Cronograma manual</label>

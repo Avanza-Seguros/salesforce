@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Plateado</fullName>
+        <default>false</default>
+        <label>Plateado</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Oro</fullName>
+        <default>false</default>
+        <label>Oro</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Platino</fullName>
+        <default>false</default>
+        <label>Platino</label>
+    </standardValue>
+</StandardValueSet>
