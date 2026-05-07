@@ -113,6 +113,16 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 		}
 
 		update toUpdate;
+
+		Set<Id> normalizedIds = new Set<Id>();
+		for (InboundInsurancePayment__c rec : toUpdate) {
+			if (rec.inboundStatus__c == STATUS_NORMALIZED) {
+				normalizedIds.add(rec.Id);
+			}
+		}
+		if (!normalizedIds.isEmpty()) {
+			System.enqueueJob(new InboundPolicyCandidateQueueable(normalizedIds));
+		}
 	}
 
 	/**
