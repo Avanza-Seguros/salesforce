@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>inboundStatus__c</fullName>
     <description>Estado de ciclo de vida del registro inbound.</description>
@@ -20,6 +20,11 @@
                 <fullName>Parseado</fullName>
                 <default>false</default>
                 <label>Parseado</label>
+            </value>
+            <value>
+                <fullName>Normalizado</fullName>
+                <default>false</default>
+                <label>Normalizado</label>
             </value>
             <value>
                 <fullName>Conciliado</fullName>
