@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>rejectionReason__c</fullName>
     <description>Motivo por el cual el inbound fue rechazado.</description>
@@ -12,8 +12,19 @@
         <valueSetDefinition>
             <sorted>false</sorted>
             <value>
-                <fullName>Poliza no encontrada</fullName>
-                <default>true</default>
+                <fullName>Payload invalido</fullName>
+                <default>false</default>
+                <label>Payload invalido</label>
+            </value>
+            <value>
+                <fullName>Payload malformado</fullName>
+                <default>false</default>
+                <label>Payload malformado</label>
+            </value>
+            <value>
+                <fullName
+				>Poliza no encontrada</fullName>`r`n                <default
+				>false</default>
                 <label>Póliza no encontrada</label>
             </value>
             <value>
@@ -45,6 +56,11 @@
                 <fullName>Rechazado por negocio</fullName>
                 <default>false</default>
                 <label>Rechazado por negocio</label>
+            </value>
+            <value>
+                <fullName>Error de normalizacion</fullName>
+                <default>false</default>
+                <label>Error de normalización</label>
             </value>
         </valueSetDefinition>
     </valueSet>

@@ -6,10 +6,10 @@
  *   @description: Orquesta la generacion automatica de cuotas para PaymentPlan.
  */
 trigger PaymentPlanTrigger on PaymentPlan__c(after insert, after update) {
-  if (Trigger.isAfter) {
-    PaymentPlanTriggerHandler.handleAfterTrigger(
-      Trigger.new,
-      Trigger.isInsert ? null : Trigger.oldMap
-    );
-  }
+	if (Trigger.isAfter) {
+		PaymentPlanTriggerHandler.handleAfterTrigger(
+			Trigger.new,
+			Trigger.isInsert ? null : Trigger.oldMap
+		);
+	}
 }

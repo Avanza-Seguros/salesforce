@@ -1,266 +1,271 @@
 @IsTest
 private class PaymentPlanFrequencyChangeServiceTest {
-  @IsTest
-  static void replacesSemiannualPlanWithMonthlyPlanForPendingBalance() {
-    Account insured = createInsuredAccount();
-    Date firstDueDate = Date.today().addMonths(-6);
-    InsurancePolicy policy = createOperationalPolicy(
-      insured.Id,
-      'Semestral',
-      1200,
-      firstDueDate
-    );
-    PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-    List<PaymentPlanInstallment__c> originalInstallments = getInstallments(
-      originalPlan.Id
-    );
-    originalInstallments[0].installmentStatus__c = 'Conciliado';
-    update originalInstallments[0];
+	/**
+	 * @creation date: 23/04/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Crea la cuenta asegurada compartida usada por todos los tests de la clase.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@TestSetup
+	static void setupData() {
+		CollectionsTestDataFactory.createInsuredAccount();
+	}
 
-    Test.startTest();
-    policy.PremiumFrequency = 'Mensual';
-    update policy;
-    Test.stopTest();
+	/**
+	 * @creation date: 23/04/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que un cambio valido de semestral a mensual reemplace
+	 *               el plan anterior y regenere cuotas.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void replacesSemiannualPlanWithMonthlyPlanForPendingBalance() {
+		Date firstDueDate = Date.today().addMonths(-6);
+		InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Semestral',
+			1200,
+			firstDueDate
+		);
+		PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(
+			policy.Id
+		);
+		List<PaymentPlanInstallment__c> originalInstallments = CollectionsTestDataFactory.getInstallmentsByPlan(
+			originalPlan.Id
+		);
+		originalInstallments[0].installmentStatus__c = 'Conciliado';
+		update originalInstallments[0];
 
-    PaymentPlan__c replacedPlan = [
-      SELECT planStatus__c, replacedOn__c
-      FROM PaymentPlan__c
-      WHERE Id = :originalPlan.Id
-    ];
-    PaymentPlan__c replacementPlan = [
-      SELECT
-        previousPlan__c,
-        planType__c,
-        planStatus__c,
-        premiumFrequency__c,
-        expectedTotalAmount__c,
-        firstDueDate__c,
-        effectiveFromDate__c,
-        replacementReason__c,
-        installmentCount__c
-      FROM PaymentPlan__c
-      WHERE
-        insurancePolicy__c = :policy.Id
-        AND previousPlan__c = :originalPlan.Id
-      LIMIT 1
-    ];
-    List<PaymentPlanInstallment__c> replacementInstallments = getInstallments(
-      replacementPlan.Id
-    );
-    List<PaymentPlanInstallment__c> oldInstallments = getInstallments(
-      originalPlan.Id
-    );
+		Test.startTest();
+		policy.PremiumFrequency = 'Mensual';
+		update policy;
+		Test.stopTest();
 
-    Assert.areEqual('Reemplazado', replacedPlan.planStatus__c);
-    Assert.areEqual(Date.today(), replacedPlan.replacedOn__c);
-    Assert.areEqual('Conciliado', oldInstallments[0].installmentStatus__c);
-    Assert.areEqual('Cancelado', oldInstallments[1].installmentStatus__c);
-    Assert.areEqual(originalPlan.Id, replacementPlan.previousPlan__c);
-    Assert.areEqual('Cambio de frecuencia', replacementPlan.planType__c);
-    Assert.areEqual('Activo', replacementPlan.planStatus__c);
-    Assert.areEqual('Mensual', replacementPlan.premiumFrequency__c);
-    Assert.areEqual(
-      Decimal.valueOf('600.00'),
-      replacementPlan.expectedTotalAmount__c
-    );
-    Assert.areEqual(Date.today(), replacementPlan.firstDueDate__c);
-    Assert.areEqual(Date.today(), replacementPlan.effectiveFromDate__c);
-    Assert.areEqual(
-      'Cambio de frecuencia',
-      replacementPlan.replacementReason__c
-    );
-    Assert.areEqual(6, replacementPlan.installmentCount__c);
-    Assert.areEqual(6, replacementInstallments.size());
-    Assert.areEqual(Date.today(), replacementInstallments[0].dueDate__c);
-    Assert.areEqual(
-      Date.today().addMonths(5),
-      replacementInstallments[5].dueDate__c
-    );
-    Assert.areEqual(
-      Decimal.valueOf('600.00'),
-      sumExpectedAmounts(replacementInstallments)
-    );
-  }
+		PaymentPlan__c replacedPlan = [
+			SELECT planStatus__c, replacedOn__c
+			FROM PaymentPlan__c
+			WHERE Id = :originalPlan.Id
+		];
+		PaymentPlan__c replacementPlan = [
+			SELECT
+				previousPlan__c,
+				planType__c,
+				planStatus__c,
+				premiumFrequency__c,
+				expectedTotalAmount__c,
+				firstDueDate__c,
+				effectiveFromDate__c,
+				replacementReason__c,
+				installmentCount__c
+			FROM PaymentPlan__c
+			WHERE
+				insurancePolicy__c = :policy.Id
+				AND previousPlan__c = :originalPlan.Id
+			LIMIT 1
+		];
+		List<PaymentPlanInstallment__c> replacementInstallments = CollectionsTestDataFactory.getInstallmentsByPlan(
+			replacementPlan.Id
+		);
+		List<PaymentPlanInstallment__c> oldInstallments = CollectionsTestDataFactory.getInstallmentsByPlan(
+			originalPlan.Id
+		);
 
-  @IsTest
-  static void doesNotAllowFrequencyChangeBeforeNextPendingDueDate() {
-    Account insured = createInsuredAccount();
-    Date firstDueDate = Date.today().addMonths(-4);
-    InsurancePolicy policy = createOperationalPolicy(
-      insured.Id,
-      'Semestral',
-      1200,
-      firstDueDate
-    );
-    PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-    List<PaymentPlanInstallment__c> originalInstallments = getInstallments(
-      originalPlan.Id
-    );
-    originalInstallments[0].installmentStatus__c = 'Conciliado';
-    update originalInstallments[0];
+		Assert.areEqual('Reemplazado', replacedPlan.planStatus__c);
+		Assert.areEqual(Date.today(), replacedPlan.replacedOn__c);
+		Assert.areEqual('Conciliado', oldInstallments[0].installmentStatus__c);
+		Assert.areEqual('Cancelado', oldInstallments[1].installmentStatus__c);
+		Assert.areEqual(originalPlan.Id, replacementPlan.previousPlan__c);
+		Assert.areEqual('Cambio de frecuencia', replacementPlan.planType__c);
+		Assert.areEqual('Activo', replacementPlan.planStatus__c);
+		Assert.areEqual('Mensual', replacementPlan.premiumFrequency__c);
+		Assert.areEqual(
+			Decimal.valueOf('600.00'),
+			replacementPlan.expectedTotalAmount__c
+		);
+		Assert.areEqual(Date.today(), replacementPlan.firstDueDate__c);
+		Assert.areEqual(Date.today(), replacementPlan.effectiveFromDate__c);
+		Assert.areEqual(
+			'Cambio de frecuencia',
+			replacementPlan.replacementReason__c
+		);
+		Assert.areEqual(6, replacementPlan.installmentCount__c);
+		Assert.areEqual(6, replacementInstallments.size());
+		Assert.areEqual(Date.today(), replacementInstallments[0].dueDate__c);
+		Assert.areEqual(
+			Date.today().addMonths(5),
+			replacementInstallments[5].dueDate__c
+		);
+		Assert.areEqual(
+			Decimal.valueOf('600.00'),
+			CollectionsTestDataFactory.sumExpectedAmounts(replacementInstallments)
+		);
+	}
 
-    Test.startTest();
-    policy.PremiumFrequency = 'Mensual';
-    Boolean threwException = false;
+	/**
+	 * @creation date: 23/04/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que los cambios de frecuencia se bloqueen antes de la siguiente cuota pendiente.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void doesNotAllowFrequencyChangeBeforeNextPendingDueDate() {
+		Date firstDueDate = Date.today().addMonths(-4);
+		InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Semestral',
+			1200,
+			firstDueDate
+		);
+		PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(
+			policy.Id
+		);
+		List<PaymentPlanInstallment__c> originalInstallments = CollectionsTestDataFactory.getInstallmentsByPlan(
+			originalPlan.Id
+		);
+		originalInstallments[0].installmentStatus__c = 'Conciliado';
+		update originalInstallments[0];
 
-    try {
-      update policy;
-    } catch (DmlException e) {
-      threwException = true;
-      Assert.isTrue(
-        e.getMessage().contains('proxima fecha de cobro pendiente')
-      );
-    }
+		Test.startTest();
+		policy.PremiumFrequency = 'Mensual';
+		Boolean threwException = false;
 
-    Test.stopTest();
+		try {
+			update policy;
+		} catch (DmlException e) {
+			threwException = true;
+			Assert.isTrue(
+				e.getMessage().contains('proxima fecha de cobro pendiente')
+			);
+		}
 
-    Assert.isTrue(threwException);
-    Assert.areEqual(
-      1,
-      [SELECT COUNT() FROM PaymentPlan__c WHERE insurancePolicy__c = :policy.Id]
-    );
-  }
+		Test.stopTest();
 
-  @IsTest
-  static void doesNotAllowFrequencyChangeWhenPlanHasNoPendingBalance() {
-    Account insured = createInsuredAccount();
-    Date firstDueDate = Date.today().addMonths(-6);
-    InsurancePolicy policy = createOperationalPolicy(
-      insured.Id,
-      'Semestral',
-      1200,
-      firstDueDate
-    );
-    PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-    List<PaymentPlanInstallment__c> originalInstallments = getInstallments(
-      originalPlan.Id
-    );
+		Assert.isTrue(threwException);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM PaymentPlan__c
+				WHERE insurancePolicy__c = :policy.Id
+			]
+		);
+	}
 
-    for (PaymentPlanInstallment__c installment : originalInstallments) {
-      installment.installmentStatus__c = 'Conciliado';
-    }
+	/**
+	 * @creation date: 23/04/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que no haya reemplazo cuando el plan activo ya no tiene saldo pendiente.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void doesNotAllowFrequencyChangeWhenPlanHasNoPendingBalance() {
+		Date firstDueDate = Date.today().addMonths(-6);
+		InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Semestral',
+			1200,
+			firstDueDate
+		);
+		PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(
+			policy.Id
+		);
+		List<PaymentPlanInstallment__c> originalInstallments = CollectionsTestDataFactory.getInstallmentsByPlan(
+			originalPlan.Id
+		);
 
-    update originalInstallments;
+		for (PaymentPlanInstallment__c installment : originalInstallments) {
+			installment.installmentStatus__c = 'Conciliado';
+		}
 
-    Test.startTest();
-    policy.PremiumFrequency = 'Mensual';
-    Boolean threwException = false;
+		update originalInstallments;
 
-    try {
-      update policy;
-    } catch (DmlException e) {
-      threwException = true;
-      Assert.isTrue(e.getMessage().contains('saldo pendiente'));
-    }
+		Test.startTest();
+		policy.PremiumFrequency = 'Mensual';
+		Boolean threwException = false;
 
-    Test.stopTest();
+		try {
+			update policy;
+		} catch (DmlException e) {
+			threwException = true;
+			Assert.isTrue(e.getMessage().contains('saldo pendiente'));
+		}
 
-    Assert.isTrue(threwException);
-    Assert.areEqual('Activo', getActivePlan(policy.Id).planStatus__c);
-  }
+		Test.stopTest();
 
-  @IsTest
-  static void doesNotAllowFrequencyChangeWhenNewFrequencyDoesNotFitRemainingTerm() {
-    Account insured = createInsuredAccount();
-    Date firstDueDate = Date.today().addMonths(-7);
-    InsurancePolicy policy = createOperationalPolicy(
-      insured.Id,
-      'Mensual',
-      1200,
-      firstDueDate
-    );
-    PaymentPlan__c originalPlan = getActivePlan(policy.Id);
-    List<PaymentPlanInstallment__c> originalInstallments = getInstallments(
-      originalPlan.Id
-    );
+		Assert.isTrue(threwException);
+		Assert.areEqual(
+			'Activo',
+			CollectionsTestDataFactory.getActivePlan(policy.Id).planStatus__c
+		);
+	}
 
-    for (PaymentPlanInstallment__c installment : originalInstallments) {
-      if (installment.dueDate__c < Date.today()) {
-        installment.installmentStatus__c = 'Conciliado';
-      }
-    }
+	/**
+	 * @creation date: 23/04/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que el reemplazo se rechace cuando la nueva frecuencia
+	 *               no cabe en el plazo restante.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void doesNotAllowFrequencyChangeWhenNewFrequencyDoesNotFitRemainingTerm() {
+		Date firstDueDate = Date.today().addMonths(-7);
+		InsurancePolicy policy = CollectionsTestDataFactory.createOperationalPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Mensual',
+			1200,
+			firstDueDate
+		);
+		PaymentPlan__c originalPlan = CollectionsTestDataFactory.getActivePlan(
+			policy.Id
+		);
+		List<PaymentPlanInstallment__c> originalInstallments = CollectionsTestDataFactory.getInstallmentsByPlan(
+			originalPlan.Id
+		);
 
-    update originalInstallments;
+		for (PaymentPlanInstallment__c installment : originalInstallments) {
+			if (installment.dueDate__c < Date.today()) {
+				installment.installmentStatus__c = 'Conciliado';
+			}
+		}
 
-    Test.startTest();
-    policy.PremiumFrequency = 'Semestral';
-    Boolean threwException = false;
+		update originalInstallments;
 
-    try {
-      update policy;
-    } catch (DmlException e) {
-      threwException = true;
-      Assert.isTrue(e.getMessage().contains('cuota valida'));
-    }
+		Test.startTest();
+		policy.PremiumFrequency = 'Semestral';
+		Boolean threwException = false;
 
-    Test.stopTest();
+		try {
+			update policy;
+		} catch (DmlException e) {
+			threwException = true;
+			Assert.isTrue(e.getMessage().contains('cuota valida'));
+		}
 
-    Assert.isTrue(threwException);
-    Assert.areEqual(
-      1,
-      [SELECT COUNT() FROM PaymentPlan__c WHERE insurancePolicy__c = :policy.Id]
-    );
-  }
+		Test.stopTest();
 
-  private static Account createInsuredAccount() {
-    Account insured = new Account(Name = 'Test Insured');
-    insert insured;
-    return insured;
-  }
-
-  private static InsurancePolicy createOperationalPolicy(
-    Id insuredAccountId,
-    String premiumFrequency,
-    Decimal premiumAmount,
-    Date firstDueDate
-  ) {
-    InsurancePolicy policy = new InsurancePolicy(
-      Name = 'POL-TEST-' +
-        String.valueOf(Crypto.getRandomInteger()).replace('-', ''),
-      PolicyName = 'Test policy',
-      NameInsuredId = insuredAccountId,
-      Status = 'Inicial',
-      PremiumFrequency = premiumFrequency,
-      PremiumAmount = premiumAmount,
-      PaymentDueDate = firstDueDate
-    );
-    insert policy;
-    return policy;
-  }
-
-  private static PaymentPlan__c getActivePlan(Id policyId) {
-    return [
-      SELECT Id, planStatus__c
-      FROM PaymentPlan__c
-      WHERE insurancePolicy__c = :policyId AND planStatus__c = 'Activo'
-      LIMIT 1
-    ];
-  }
-
-  private static List<PaymentPlanInstallment__c> getInstallments(Id planId) {
-    return [
-      SELECT
-        sequenceNumber__c,
-        dueDate__c,
-        expectedAmount__c,
-        installmentStatus__c
-      FROM PaymentPlanInstallment__c
-      WHERE paymentPlan__c = :planId
-      ORDER BY sequenceNumber__c
-    ];
-  }
-
-  private static Decimal sumExpectedAmounts(
-    List<PaymentPlanInstallment__c> installments
-  ) {
-    Decimal total = 0;
-
-    for (PaymentPlanInstallment__c installment : installments) {
-      total += installment.expectedAmount__c == null
-        ? 0
-        : installment.expectedAmount__c;
-    }
-
-    return total.setScale(2);
-  }
+		Assert.isTrue(threwException);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM PaymentPlan__c
+				WHERE insurancePolicy__c = :policy.Id
+			]
+		);
+	}
 }
