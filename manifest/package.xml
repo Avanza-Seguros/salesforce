@@ -7,6 +7,10 @@
         <members>InboundInsurancePaymentService</members>
         <members>InboundPaymentNormalizerQueueable</members>
         <members>InboundPaymentNormalizerQueueableTest</members>
+        <members>InboundInstallmentCandidateQueueable</members>
+        <members>InboundInstallmentCandidateQueueableTest</members>
+        <members>InboundPolicyCandidateQueueable</members>
+        <members>InboundPolicyCandidateQueueableTest</members>
         <members>InsurancePolicyTriggerHandler</members>
         <members>InsurancePolicyTriggerHandlerTest</members>
         <members>PaymentPlanFrequencyChangeService</members>
