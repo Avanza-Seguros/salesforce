@@ -3,11 +3,11 @@
  *   @version: 2.0
  *   @creation date: 02/05/2026
  *   @author: Javier Torres - Volestra
- *   @description: Normaliza y enriquece pagos inbound en estado Parseado:
+ *   @description: Normaliza y estandariza pagos inbound en estado Parseado:
  *                 limpia y estandariza campos de texto, redondea montos a 2
- *                 decimales, asigna la cuota candidata por matching deterministico
- *                 jerarquico (numero de cuota > fecha de vencimiento) y actualiza
- *                 el estado a Normalizado o Rechazado segun el resultado.
+ *                 decimales y actualiza el estado a Normalizado o Rechazado
+ *                 segun el resultado. Encadena a InboundPolicyCandidateQueueable
+ *                 para la resolucion de poliza candidata.
  */
 public with sharing class InboundPaymentNormalizerQueueable implements Queueable {
 	private static final String STATUS_PARSED = 'Parseado';
@@ -38,11 +38,12 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 	 * @creation date: 02/05/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Punto de entrada del job. Consulta los registros en estado Parseado,
-	 *               aplica la normalizacion de campos de texto y montos, resuelve la cuota
-	 *               candidata y actualiza el estado a Normalizado o Rechazado segun resultado.
-	 *               Si ocurre una excepcion durante el procesamiento de un registro individual,
-	 *               ese registro queda con inboundStatus__c = Rechazado y rejectionReason__c
+	 *               aplica la normalizacion de campos de texto y montos, y actualiza el
+	 *               estado a Normalizado o Rechazado segun resultado. Si ocurre una
+	 *               excepcion durante el procesamiento de un registro individual, ese
+	 *               registro queda con inboundStatus__c = Rechazado y rejectionReason__c
 	 *               = 'Error de normalizacion', sin afectar al resto del lote.
+	 *               Encadena a InboundPolicyCandidateQueueable con los IDs normalizados.
 	 * @param context: Contexto de ejecucion del Queueable proporcionado por la plataforma.
 	 * @return
 	 */
@@ -50,9 +51,6 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
-				candidatePolicy__c,
-				sourceInstallmentNumber__c,
-				sourceDueDate__c,
 				sourcePolicyNumber__c,
 				sourceReceiptNumber__c,
 				sourceInsuranceCarrier__c,
@@ -66,21 +64,6 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 		if (payments.isEmpty()) {
 			return;
 		}
-
-		Set<Id> policyIds = new Set<Id>();
-		for (InboundInsurancePayment__c p : payments) {
-			if (
-				p.candidatePolicy__c != null &&
-				(p.sourceInstallmentNumber__c != null ||
-				p.sourceDueDate__c != null)
-			) {
-				policyIds.add(p.candidatePolicy__c);
-			}
-		}
-
-		Map<Id, List<PaymentPlanInstallment__c>> installmentsByPolicy = loadInstallmentsByPolicy(
-			policyIds
-		);
 
 		Datetime normalizedAt = System.now();
 		List<InboundInsurancePayment__c> toUpdate = new List<InboundInsurancePayment__c>();
@@ -101,7 +84,6 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 				rec.sourceAmount__c = roundAmount(p.sourceAmount__c);
 				rec.sourceGrossCommission__c = roundAmount(p.sourceGrossCommission__c);
 				rec.sourceVatCommission__c = roundAmount(p.sourceVatCommission__c);
-				rec.candidateInstallment__c = matchInstallment(p, installmentsByPolicy);
 				rec.inboundStatus__c = STATUS_NORMALIZED;
 				rec.parsedAt__c = normalizedAt;
 			} catch (Exception e) {
@@ -113,6 +95,16 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 		}
 
 		update toUpdate;
+
+		Set<Id> normalizedIds = new Set<Id>();
+		for (InboundInsurancePayment__c rec : toUpdate) {
+			if (rec.inboundStatus__c == STATUS_NORMALIZED) {
+				normalizedIds.add(rec.Id);
+			}
+		}
+		if (!normalizedIds.isEmpty()) {
+			System.enqueueJob(new InboundPolicyCandidateQueueable(normalizedIds));
+		}
 	}
 
 	/**
@@ -149,145 +141,5 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 	 */
 	private static Decimal roundAmount(Decimal value) {
 		return value == null ? null : value.setScale(2, RoundingMode.HALF_UP);
-	}
-
-	/**
-	 * @creation date: 02/05/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Carga las cuotas de los planes de pago asociados a las polizas
-	 *               indicadas, agrupadas por ID de poliza. Usa 2 consultas separadas
-	 *               para evitar valores null en campos de relacion en SELECT.
-	 * @param policyIds: Conjunto de IDs de InsurancePolicy a consultar.
-	 * @return Mapa de policyId a lista de PaymentPlanInstallment__c de esa poliza.
-	 */
-	private static Map<Id, List<PaymentPlanInstallment__c>> loadInstallmentsByPolicy(
-		Set<Id> policyIds
-	) {
-		Map<Id, List<PaymentPlanInstallment__c>> result = new Map<Id, List<PaymentPlanInstallment__c>>();
-		if (policyIds.isEmpty()) {
-			return result;
-		}
-		Map<Id, Id> policyByPlan = new Map<Id, Id>();
-		for (PaymentPlan__c plan : [
-			SELECT Id, insurancePolicy__c
-			FROM PaymentPlan__c
-			WHERE insurancePolicy__c IN :policyIds
-		]) {
-			policyByPlan.put(plan.Id, plan.insurancePolicy__c);
-		}
-		if (policyByPlan.isEmpty()) {
-			return result;
-		}
-		for (PaymentPlanInstallment__c inst : [
-			SELECT Id, sequenceNumber__c, dueDate__c, paymentPlan__c
-			FROM PaymentPlanInstallment__c
-			WHERE paymentPlan__c IN :policyByPlan.keySet()
-		]) {
-			Id policyId = policyByPlan.get(inst.paymentPlan__c);
-			if (policyId == null) {
-				continue;
-			}
-			if (!result.containsKey(policyId)) {
-				result.put(policyId, new List<PaymentPlanInstallment__c>());
-			}
-			result.get(policyId).add(inst);
-		}
-		return result;
-	}
-
-	/**
-	 * @creation date: 02/05/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Orquesta el matching jerarquico de cuota candidata para un pago.
-	 *               Intenta primero por numero de cuota y luego por fecha de vencimiento.
-	 *               Solo asigna si el match es univoco (exactamente 1 resultado).
-	 * @param payment: Registro inbound a resolver.
-	 * @param installmentsByPolicy: Cuotas disponibles agrupadas por poliza.
-	 * @return ID de la cuota candidata, o null si no hay match univoco.
-	 */
-	private static Id matchInstallment(
-		InboundInsurancePayment__c payment,
-		Map<Id, List<PaymentPlanInstallment__c>> installmentsByPolicy
-	) {
-		if (payment.candidatePolicy__c == null) {
-			return null;
-		}
-		List<PaymentPlanInstallment__c> installments = installmentsByPolicy.get(
-			payment.candidatePolicy__c
-		);
-		if (installments == null || installments.isEmpty()) {
-			return null;
-		}
-
-		if (payment.sourceInstallmentNumber__c != null) {
-			Id matchId = matchBySequenceNumber(
-				payment.sourceInstallmentNumber__c,
-				installments
-			);
-			if (matchId != null) {
-				return matchId;
-			}
-		}
-
-		if (payment.sourceDueDate__c != null) {
-			return matchByDueDate(payment.sourceDueDate__c, installments);
-		}
-
-		return null;
-	}
-
-	/**
-	 * @creation date: 02/05/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Busca una cuota cuyo sequenceNumber__c coincida con el numero
-	 *               de cuota informado. Retorna el ID solo si hay exactamente 1 match.
-	 *               Si el valor recibido no puede convertirse a Decimal, retorna null
-	 *               sin propagar la excepcion.
-	 * @param installmentNumber: Numero de cuota como texto (puede tener espacios).
-	 * @param installments: Lista de cuotas candidatas de la poliza.
-	 * @return ID de la cuota coincidente, o null si no hay match univoco.
-	 */
-	private static Id matchBySequenceNumber(
-		String installmentNumber,
-		List<PaymentPlanInstallment__c> installments
-	) {
-		Decimal targetSeq;
-		try {
-			targetSeq = Decimal.valueOf(installmentNumber.trim());
-		} catch (Exception e) {
-			return null;
-		}
-		List<Id> matches = new List<Id>();
-		for (PaymentPlanInstallment__c inst : installments) {
-			if (
-				inst.sequenceNumber__c != null &&
-				inst.sequenceNumber__c == targetSeq
-			) {
-				matches.add(inst.Id);
-			}
-		}
-		return matches.size() == 1 ? matches[0] : null;
-	}
-
-	/**
-	 * @creation date: 02/05/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Busca una cuota cuyo dueDate__c coincida exactamente con la fecha
-	 *               de vencimiento informada. Retorna el ID solo si hay exactamente 1 match.
-	 * @param dueDate: Fecha de vencimiento a comparar.
-	 * @param installments: Lista de cuotas candidatas de la poliza.
-	 * @return ID de la cuota coincidente, o null si no hay match univoco.
-	 */
-	private static Id matchByDueDate(
-		Date dueDate,
-		List<PaymentPlanInstallment__c> installments
-	) {
-		List<Id> matches = new List<Id>();
-		for (PaymentPlanInstallment__c inst : installments) {
-			if (inst.dueDate__c == dueDate) {
-				matches.add(inst.Id);
-			}
-		}
-		return matches.size() == 1 ? matches[0] : null;
 	}
 }

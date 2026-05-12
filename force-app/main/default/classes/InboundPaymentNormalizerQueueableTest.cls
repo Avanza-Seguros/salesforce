@@ -23,18 +23,6 @@ private class InboundPaymentNormalizerQueueableTest {
 			1200,
 			Date.today()
 		);
-		PaymentPlan__c plan = [
-			SELECT Id
-			FROM PaymentPlan__c
-			WHERE insurancePolicy__c = :policy.Id
-			LIMIT 1
-		];
-		PaymentPlanInstallment__c installment = [
-			SELECT Id
-			FROM PaymentPlanInstallment__c
-			WHERE paymentPlan__c = :plan.Id AND sequenceNumber__c = 1
-			LIMIT 1
-		];
 
 		InboundInsurancePayment__c inbound = createParsedInbound(
 			'EXT-NORM-001',
@@ -50,12 +38,11 @@ private class InboundPaymentNormalizerQueueableTest {
 		Test.stopTest();
 
 		inbound = [
-			SELECT inboundStatus__c, candidateInstallment__c
+			SELECT inboundStatus__c
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];
 		Assert.areEqual('Normalizado', inbound.inboundStatus__c);
-		Assert.areEqual(installment.Id, inbound.candidateInstallment__c);
 	}
 
 	@IsTest
@@ -67,27 +54,12 @@ private class InboundPaymentNormalizerQueueableTest {
 			1200,
 			Date.today()
 		);
-		PaymentPlan__c plan = CollectionsTestDataFactory.createPlan(
-			policy.Id,
-			'Activo',
-			'Mensual',
-			1200,
-			Date.today(),
-			3
-		);
-		Date targetDueDate = Date.today().addDays(30);
-		PaymentPlanInstallment__c installment = createInstallment(
-			plan.Id,
-			1,
-			targetDueDate
-		);
-		createInstallment(plan.Id, 2, Date.today().addDays(60));
 
 		InboundInsurancePayment__c inbound = createParsedInbound(
 			'EXT-NORM-002',
 			policy.Id,
 			null,
-			targetDueDate
+			Date.today().addDays(30)
 		);
 
 		Test.startTest();
@@ -97,12 +69,11 @@ private class InboundPaymentNormalizerQueueableTest {
 		Test.stopTest();
 
 		inbound = [
-			SELECT inboundStatus__c, candidateInstallment__c
+			SELECT inboundStatus__c
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];
 		Assert.areEqual('Normalizado', inbound.inboundStatus__c);
-		Assert.areEqual(installment.Id, inbound.candidateInstallment__c);
 	}
 
 	@IsTest
