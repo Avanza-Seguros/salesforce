@@ -32,6 +32,9 @@ public with sharing class InsurancePolicyTriggerHandler {
 
 	private static Set<Id> processedPolicyIds = new Set<Id>();
 
+	@TestVisible
+	private static Map<String, Object> testFieldOverrides = null;
+
 	/**
 	 * @creation date: 23/04/2026
 	 * @author: Javier Torres - Volestra
@@ -413,6 +416,12 @@ public with sharing class InsurancePolicyTriggerHandler {
 			return null;
 		}
 
+		if (
+			testFieldOverrides != null && testFieldOverrides.containsKey(fieldApiName)
+		) {
+			return testFieldOverrides.get(fieldApiName);
+		}
+
 		try {
 			return record.get(fieldApiName);
 		} catch (Exception e) {
@@ -431,6 +440,7 @@ public with sharing class InsurancePolicyTriggerHandler {
 	 * @exception:
 	 * @throws:
 	 */
+	@TestVisible
 	private static void logUpsertErrors(
 		List<PaymentPlan__c> plans,
 		Database.UpsertResult[] results

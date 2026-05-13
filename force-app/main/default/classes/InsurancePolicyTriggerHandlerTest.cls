@@ -302,4 +302,157 @@ private class InsurancePolicyTriggerHandlerTest {
 		}
 		Test.stopTest();
 	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que getValue maneja graciosamente la excepcion cuando
+	 *               se accede a un campo no incluido en el SELECT de SOQL.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void handlesFieldAccessExceptionInGetValue() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+		insert policy;
+
+		InsurancePolicy limitedPolicy = [
+			SELECT Id, Status, PolicyName, NameInsuredId
+			FROM InsurancePolicy
+			WHERE Id = :policy.Id
+		];
+		limitedPolicy.Status = 'Inicial';
+
+		InsurancePolicy oldPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado'
+		);
+
+		Test.startTest();
+		InsurancePolicyTriggerHandler.handleAfterTrigger(
+			new List<InsurancePolicy>{ limitedPolicy },
+			new Map<Id, InsurancePolicy>{ policy.Id => oldPolicy }
+		);
+		Test.stopTest();
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que getDecimal maneja graciosamente un valor no convertible
+	 *               a Decimal, cubriendo el bloque try/catch de conversion.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void handlesNonDecimalPremiumAmountGracefully() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+		insert policy;
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = new Map<String, Object>{
+			'PremiumAmount' => 'importe-invalido',
+			'PremiumFrequency' => 'Mensual',
+			'PaymentDueDate' => Date.today().addDays(30)
+		};
+
+		InsurancePolicy newPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Inicial'
+		);
+		InsurancePolicy oldPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado'
+		);
+
+		Test.startTest();
+		InsurancePolicyTriggerHandler.handleAfterTrigger(
+			new List<InsurancePolicy>{ newPolicy },
+			new Map<Id, InsurancePolicy>{ policy.Id => oldPolicy }
+		);
+		Test.stopTest();
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = null;
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que getDate maneja graciosamente un valor no convertible
+	 *               a Date, cubriendo el bloque try/catch de conversion.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void handlesNonDatePaymentDueDateGracefully() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+		insert policy;
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = new Map<String, Object>{
+			'PremiumAmount' => Decimal.valueOf(1200),
+			'PremiumFrequency' => 'Mensual',
+			'PaymentDueDate' => 'fecha-invalida'
+		};
+
+		InsurancePolicy newPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Inicial'
+		);
+		InsurancePolicy oldPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado'
+		);
+
+		Test.startTest();
+		InsurancePolicyTriggerHandler.handleAfterTrigger(
+			new List<InsurancePolicy>{ newPolicy },
+			new Map<Id, InsurancePolicy>{ policy.Id => oldPolicy }
+		);
+		Test.stopTest();
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = null;
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que logUpsertErrors registra errores cuando el DML
+	 *               de upsert falla para algun registro del lote.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void logsUpsertErrorsWhenDmlFails() {
+		PaymentPlan__c invalidPlan = new PaymentPlan__c(
+			initialPlanKey__c = 'TEST-COVERAGE-FAIL-KEY'
+		);
+
+		Test.startTest();
+		Database.UpsertResult[] results = Database.upsert(
+			new List<PaymentPlan__c>{ invalidPlan },
+			PaymentPlan__c.Fields.initialPlanKey__c,
+			false
+		);
+		InsurancePolicyTriggerHandler.logUpsertErrors(
+			new List<PaymentPlan__c>{ invalidPlan },
+			results
+		);
+		Test.stopTest();
+	}
 }
