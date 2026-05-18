@@ -131,6 +131,10 @@
         <name>PermissionSet</name>
     </types>
     <types>
+        <members>InsurancePolicy.PremiumFieldsRequired</members>
+        <name>ValidationRule</name>
+    </types>
+    <types>
         <members>IFnolChannel</members>
         <members>IPolicyAuditTerm</members>
         <members>IPolicyChangeSubType</members>

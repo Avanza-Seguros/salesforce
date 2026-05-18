@@ -79,9 +79,12 @@ private class InsurancePolicyTriggerHandlerTest {
 	 */
 	@IsTest
 	static void createsOnlyOnePlanWhenOperationalPolicyIsUpdatedAgain() {
-		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+		InsurancePolicy policy = CollectionsTestDataFactory.buildCompletePolicy(
 			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
-			'Vigente'
+			'Vigente',
+			'Mensual',
+			1200,
+			Date.today().addDays(30)
 		);
 
 		insert policy;
@@ -112,9 +115,12 @@ private class InsurancePolicyTriggerHandlerTest {
 	 */
 	@IsTest
 	static void keepsOnePlanWhenPolicyTransitionsFromInitialToVigente() {
-		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+		InsurancePolicy policy = CollectionsTestDataFactory.buildCompletePolicy(
 			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
-			'Inicial'
+			'Inicial',
+			'Mensual',
+			1200,
+			Date.today().addDays(30)
 		);
 
 		insert policy;
@@ -225,41 +231,228 @@ private class InsurancePolicyTriggerHandlerTest {
 	}
 
 	/**
-	 * @creation date: 23/04/2026
+	 * @creation date: 12/05/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Verifica que un plan inicial borrador existente se reutilice en lugar de duplicarse.
+	 * @description: Verifica que una poliza en estado no operativo que pasa a operativo
+	 *               crea el plan en Activo con sus cuotas generadas.
 	 * @param:
 	 * @return:
 	 * @exception:
 	 * @throws:
 	 */
 	@IsTest
-	static void reusesExistingInitialPlanForPolicy() {
+	static void createsActivePlanWhenCancelledPolicyBecomesOperational() {
 		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
 			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
 			'Cancelado'
 		);
 		insert policy;
 
-		PaymentPlan__c existingPlan = new PaymentPlan__c(
-			insurancePolicy__c = policy.Id,
-			planType__c = 'Inicial',
-			planStatus__c = 'Borrador'
+		Assert.areEqual(
+			0,
+			[SELECT COUNT() FROM PaymentPlan__c WHERE insurancePolicy__c = :policy.Id]
 		);
-		insert existingPlan;
 
 		Test.startTest();
 		policy.Status = 'Inicial';
+		policy.put('PremiumAmount', 600);
+		policy.put('PremiumFrequency', 'Semestral');
+		policy.put('PaymentDueDate', Date.today().addDays(30));
 		update policy;
 		Test.stopTest();
 
-		List<PaymentPlan__c> plans = [
-			SELECT Id, initialPlanKey__c
+		PaymentPlan__c plan = [
+			SELECT planStatus__c, installmentCount__c
 			FROM PaymentPlan__c
 			WHERE insurancePolicy__c = :policy.Id
+			LIMIT 1
 		];
+		Assert.areEqual('Activo', plan.planStatus__c);
+		Assert.areEqual(2, plan.installmentCount__c);
+	}
 
-		Assert.areEqual(1, plans.size());
-		Assert.areEqual(existingPlan.Id, plans[0].Id);
+	/**
+	 * @creation date: 12/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que la regla de validacion rechaza insertar una poliza operativa
+	 *               sin los campos minimos requeridos.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void rejectsOperationalPolicyWithoutRequiredFields() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Vigente'
+		);
+
+		Test.startTest();
+		try {
+			insert policy;
+			Assert.fail(
+				'Deberia haber lanzado DmlException por campos requeridos faltantes'
+			);
+		} catch (DmlException e) {
+			Assert.isTrue(
+				e.getMessage().contains('activarse'),
+				'El error debe mencionar que la poliza no puede activarse sin los campos requeridos'
+			);
+		}
+		Test.stopTest();
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que getValue maneja graciosamente la excepcion cuando
+	 *               se accede a un campo no incluido en el SELECT de SOQL.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void handlesFieldAccessExceptionInGetValue() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+		insert policy;
+
+		InsurancePolicy limitedPolicy = [
+			SELECT Id, Status, PolicyName, NameInsuredId
+			FROM InsurancePolicy
+			WHERE Id = :policy.Id
+		];
+		limitedPolicy.Status = 'Inicial';
+
+		InsurancePolicy oldPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado'
+		);
+
+		Test.startTest();
+		InsurancePolicyTriggerHandler.handleAfterTrigger(
+			new List<InsurancePolicy>{ limitedPolicy },
+			new Map<Id, InsurancePolicy>{ policy.Id => oldPolicy }
+		);
+		Test.stopTest();
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que getDecimal maneja graciosamente un valor no convertible
+	 *               a Decimal, cubriendo el bloque try/catch de conversion.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void handlesNonDecimalPremiumAmountGracefully() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+		insert policy;
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = new Map<String, Object>{
+			'PremiumAmount' => 'importe-invalido',
+			'PremiumFrequency' => 'Mensual',
+			'PaymentDueDate' => Date.today().addDays(30)
+		};
+
+		InsurancePolicy newPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Inicial'
+		);
+		InsurancePolicy oldPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado'
+		);
+
+		Test.startTest();
+		InsurancePolicyTriggerHandler.handleAfterTrigger(
+			new List<InsurancePolicy>{ newPolicy },
+			new Map<Id, InsurancePolicy>{ policy.Id => oldPolicy }
+		);
+		Test.stopTest();
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = null;
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que getDate maneja graciosamente un valor no convertible
+	 *               a Date, cubriendo el bloque try/catch de conversion.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void handlesNonDatePaymentDueDateGracefully() {
+		InsurancePolicy policy = CollectionsTestDataFactory.buildPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+		insert policy;
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = new Map<String, Object>{
+			'PremiumAmount' => Decimal.valueOf(1200),
+			'PremiumFrequency' => 'Mensual',
+			'PaymentDueDate' => 'fecha-invalida'
+		};
+
+		InsurancePolicy newPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Inicial'
+		);
+		InsurancePolicy oldPolicy = new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado'
+		);
+
+		Test.startTest();
+		InsurancePolicyTriggerHandler.handleAfterTrigger(
+			new List<InsurancePolicy>{ newPolicy },
+			new Map<Id, InsurancePolicy>{ policy.Id => oldPolicy }
+		);
+		Test.stopTest();
+
+		InsurancePolicyTriggerHandler.testFieldOverrides = null;
+	}
+
+	/**
+	 * @creation date: 13/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que logUpsertErrors registra errores cuando el DML
+	 *               de upsert falla para algun registro del lote.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void logsUpsertErrorsWhenDmlFails() {
+		PaymentPlan__c invalidPlan = new PaymentPlan__c(
+			initialPlanKey__c = 'TEST-COVERAGE-FAIL-KEY'
+		);
+
+		Test.startTest();
+		Database.UpsertResult[] results = Database.upsert(
+			new List<PaymentPlan__c>{ invalidPlan },
+			PaymentPlan__c.Fields.initialPlanKey__c,
+			false
+		);
+		InsurancePolicyTriggerHandler.logUpsertErrors(
+			new List<PaymentPlan__c>{ invalidPlan },
+			results
+		);
+		Test.stopTest();
 	}
 }

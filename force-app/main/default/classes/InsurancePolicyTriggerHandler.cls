@@ -16,11 +16,6 @@ public with sharing class InsurancePolicyTriggerHandler {
 
 	private static final String PLAN_TYPE_INITIAL = 'Inicial';
 	private static final String PLAN_STATUS_ACTIVE = 'Activo';
-	private static final String PLAN_STATUS_DRAFT = 'Borrador';
-	private static final Set<String> OPEN_INITIAL_PLAN_STATUSES = new Set<String>{
-		PLAN_STATUS_ACTIVE,
-		PLAN_STATUS_DRAFT
-	};
 
 	private static final String FREQUENCY_MONTHLY = 'Mensual';
 	private static final String FREQUENCY_QUARTERLY = 'Trimestral';
@@ -36,6 +31,9 @@ public with sharing class InsurancePolicyTriggerHandler {
 	};
 
 	private static Set<Id> processedPolicyIds = new Set<Id>();
+
+	@TestVisible
+	private static Map<String, Object> testFieldOverrides = null;
 
 	/**
 	 * @creation date: 23/04/2026
@@ -174,27 +172,13 @@ public with sharing class InsurancePolicyTriggerHandler {
 		}
 
 		Map<String, PaymentPlan__c> existingByKey = new Map<String, PaymentPlan__c>();
-		Map<Id, PaymentPlan__c> existingByPolicy = new Map<Id, PaymentPlan__c>();
 
 		for (PaymentPlan__c plan : [
 			SELECT Id, insurancePolicy__c, initialPlanKey__c
 			FROM PaymentPlan__c
-			WHERE
-				initialPlanKey__c IN :initialPlanKeys
-				OR (insurancePolicy__c IN :policyIds
-				AND planType__c = :PLAN_TYPE_INITIAL
-				AND planStatus__c IN :OPEN_INITIAL_PLAN_STATUSES)
+			WHERE initialPlanKey__c IN :initialPlanKeys
 		]) {
-			if (String.isNotBlank(plan.initialPlanKey__c)) {
-				existingByKey.put(plan.initialPlanKey__c, plan);
-			}
-
-			if (
-				plan.insurancePolicy__c != null &&
-				!existingByPolicy.containsKey(plan.insurancePolicy__c)
-			) {
-				existingByPolicy.put(plan.insurancePolicy__c, plan);
-			}
+			existingByKey.put(plan.initialPlanKey__c, plan);
 		}
 
 		List<PaymentPlan__c> plansToUpsert = new List<PaymentPlan__c>();
@@ -203,11 +187,7 @@ public with sharing class InsurancePolicyTriggerHandler {
 			String initialPlanKey = buildInitialPlanKey(policy.Id);
 			PaymentPlan__c plan = existingByKey.containsKey(initialPlanKey)
 				? existingByKey.get(initialPlanKey)
-				: existingByPolicy.get(policy.Id);
-
-			if (plan == null) {
-				plan = new PaymentPlan__c();
-			}
+				: new PaymentPlan__c();
 
 			populateInitialPlan(plan, policy, initialPlanKey);
 			plansToUpsert.add(plan);
@@ -242,38 +222,14 @@ public with sharing class InsurancePolicyTriggerHandler {
 		InsurancePolicy policy,
 		String initialPlanKey
 	) {
-		String premiumFrequency = getSupportedPremiumFrequency(policy);
-		Decimal expectedTotalAmount = deriveExpectedTotalAmount(policy);
-		Date firstDueDate = getDate(policy, 'PaymentDueDate');
-		Integer installmentCount = deriveInstallmentCount(premiumFrequency);
-		Boolean isComplete =
-			expectedTotalAmount != null &&
-			String.isNotBlank(premiumFrequency) &&
-			firstDueDate != null &&
-			installmentCount != null;
-
 		plan.initialPlanKey__c = initialPlanKey;
 		plan.insurancePolicy__c = policy.Id;
 		plan.planType__c = PLAN_TYPE_INITIAL;
-		plan.planStatus__c = isComplete ? PLAN_STATUS_ACTIVE : PLAN_STATUS_DRAFT;
-		plan.premiumFrequency__c = premiumFrequency;
-		plan.expectedTotalAmount__c = expectedTotalAmount;
-		plan.firstDueDate__c = firstDueDate;
-		plan.installmentCount__c = installmentCount;
-
-		if (!isComplete) {
-			logWarning(
-				'PaymentPlan creado en borrador para poliza ' +
-					policy.Id +
-					': ' +
-					getMissingDataSummary(
-						expectedTotalAmount,
-						premiumFrequency,
-						firstDueDate,
-						installmentCount
-					)
-			);
-		}
+		plan.planStatus__c = PLAN_STATUS_ACTIVE;
+		plan.premiumFrequency__c = getSupportedPremiumFrequency(policy);
+		plan.expectedTotalAmount__c = deriveExpectedTotalAmount(policy);
+		plan.firstDueDate__c = getDate(policy, 'PaymentDueDate');
+		plan.installmentCount__c = deriveInstallmentCount(plan.premiumFrequency__c);
 	}
 
 	/**
@@ -349,45 +305,6 @@ public with sharing class InsurancePolicyTriggerHandler {
 	 */
 	private static String buildInitialPlanKey(Id policyId) {
 		return String.valueOf(policyId) + ':' + INITIAL_PLAN_EVENT;
-	}
-
-	/**
-	 * @creation date: 23/04/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Lista los campos faltantes que impidieron crear el plan en estado Activo.
-	 * @param expectedTotalAmount: Monto esperado.
-	 * @param premiumFrequency: Frecuencia de la prima.
-	 * @param firstDueDate: Primera fecha de vencimiento.
-	 * @param installmentCount: Cantidad de cuotas.
-	 * @return: String Resumen de campos faltantes.
-	 * @exception:
-	 * @throws:
-	 */
-	private static String getMissingDataSummary(
-		Decimal expectedTotalAmount,
-		String premiumFrequency,
-		Date firstDueDate,
-		Integer installmentCount
-	) {
-		List<String> missing = new List<String>();
-
-		if (expectedTotalAmount == null) {
-			missing.add('expectedTotalAmount__c');
-		}
-
-		if (String.isBlank(premiumFrequency)) {
-			missing.add('premiumFrequency__c');
-		}
-
-		if (firstDueDate == null) {
-			missing.add('firstDueDate__c');
-		}
-
-		if (installmentCount == null) {
-			missing.add('installmentCount__c');
-		}
-
-		return String.join(missing, ', ');
 	}
 
 	/**
@@ -499,6 +416,12 @@ public with sharing class InsurancePolicyTriggerHandler {
 			return null;
 		}
 
+		if (
+			testFieldOverrides != null && testFieldOverrides.containsKey(fieldApiName)
+		) {
+			return testFieldOverrides.get(fieldApiName);
+		}
+
 		try {
 			return record.get(fieldApiName);
 		} catch (Exception e) {
@@ -517,6 +440,7 @@ public with sharing class InsurancePolicyTriggerHandler {
 	 * @exception:
 	 * @throws:
 	 */
+	@TestVisible
 	private static void logUpsertErrors(
 		List<PaymentPlan__c> plans,
 		Database.UpsertResult[] results

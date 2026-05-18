@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PremiumFieldsRequired</fullName>
+    <active>true</active>
+    <description
+	>Requiere PremiumAmount, PremiumFrequency y PaymentDueDate cuando la poliza esta en estado operativo (Inicial o Vigente), garantizando que el PaymentPlan se cree siempre en Activo.</description>
+    <errorConditionFormula>AND(
+    OR(
+        ISPICKVAL(Status, "Inicial"),
+        ISPICKVAL(Status, "Vigente")
+    ),
+    OR(
+        ISNULL(PremiumAmount),
+        PremiumAmount &lt;= 0,
+        ISBLANK(TEXT(PremiumFrequency)),
+        ISNULL(PaymentDueDate)
+    )
+)</errorConditionFormula>
+    <errorMessage
+	>La poliza debe informar PremiumAmount, PremiumFrequency y PaymentDueDate para poder activarse.</errorMessage>
+</ValidationRule>
