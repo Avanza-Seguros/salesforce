@@ -56,8 +56,6 @@ $RECYCLE.BIN/
 .scannerwork/
 *.tmp
 *.swp
-*.json
-*.js
 
 # Optional: ignore generated Experience Cloud / LWR CDN static resources
 # Uncomment only if you DEFINITELY do not want to version these generated assets
