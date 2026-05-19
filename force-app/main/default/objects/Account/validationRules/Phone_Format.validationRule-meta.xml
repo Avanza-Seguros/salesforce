@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Phone_Format</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+  NOT(ISBLANK(Phone)),
+  NOT(
+    REGEX(
+      Phone,
+      &quot;^(\\+52)?[0-9]{10}$&quot;
+    )
+  )
+)</errorConditionFormula>
+    <errorMessage>Formato de teléfono no permitido</errorMessage>
+</ValidationRule>

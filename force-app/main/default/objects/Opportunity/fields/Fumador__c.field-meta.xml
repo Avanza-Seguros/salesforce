@@ -4,6 +4,5 @@
     <defaultValue>false</defaultValue>
     <label>Fumador</label>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>false</trackHistory>
     <type>Checkbox</type>
 </CustomField>

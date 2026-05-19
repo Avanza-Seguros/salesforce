@@ -10,15 +10,9 @@
     <columns>OPPORTUNITY.STAGE_NAME</columns>
     <columns>Indicador_de_estatus__c</columns>
     <columns>Indicador_de_Dias_en_Propuesta__c</columns>
-    <columns>OPPORTUNITY.RECORDTYPE</columns>
     <columns>OPPORTUNITY.CREATED_DATE</columns>
-    <columns>CORE.USERS.ALIAS</columns>
     <columns>OPPORTUNITY.LAST_UPDATE</columns>
     <filterScope>Everything</filterScope>
-    <filters>
-        <field>ACCOUNT.NAME</field>
-        <operation>equals</operation>
-    </filters>
     <label>Todas las Oportunidades.</label>
     <sharedTo>
         <portalRole>AgentesAvanzaSocioUsuario</portalRole>

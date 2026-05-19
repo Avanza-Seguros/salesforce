@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Financial_Opportunities</fullName>
+    <fields>Name</fields>
+    <fields>AccountId</fields>
+    <fields>Plan_Producto__c</fields>
+    <fields>Agente__c</fields>
+    <fields>Estatus__c</fields>
+    <fields>Mercado__c</fields>
+    <fields>Ramo__c</fields>
+    <fields>Servicios__c</fields>
+    <label>Financial Opportunities</label>
+</CompactLayout>

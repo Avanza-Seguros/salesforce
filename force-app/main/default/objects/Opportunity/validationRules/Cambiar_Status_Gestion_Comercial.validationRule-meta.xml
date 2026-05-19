@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cambiar_Status_Gestion_Comercial</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+    ISCHANGED(StageName),
+    ISPICKVAL(PRIORVALUE(StageName), &quot;Gestión Comercial&quot;),
+    ISPICKVAL(StageName, &quot;Proceso de Emisión&quot;),
+				$Profile.Name &lt;&gt; &apos;System Administrator&apos;
+)</errorConditionFormula>
+    <errorMessage>El estatus de la Oportunidad cambiara cuando se cree una cotizacion.</errorMessage>
+</ValidationRule>

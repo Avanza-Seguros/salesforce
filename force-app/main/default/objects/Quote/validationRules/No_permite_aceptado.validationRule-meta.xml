@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>No_permite_aceptado</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+   ISPICKVAL(Status, &apos;Accepted&apos;),
+   ISPICKVAL(PRIORVALUE(Status), &apos;Presented&apos;) = False,
+   $Profile.Name &lt;&gt; &apos;System Administrator&apos;
+)</errorConditionFormula>
+    <errorMessage>El estatus del presupuesto tiene que estar en Presentado para poder pasar a Aceptado.</errorMessage>
+</ValidationRule>

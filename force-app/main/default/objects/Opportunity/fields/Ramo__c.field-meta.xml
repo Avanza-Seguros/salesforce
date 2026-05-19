@@ -4,87 +4,9 @@
     <label>Ramo</label>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>true</trackHistory>
     <type>Picklist</type>
     <valueSet>
         <restricted>true</restricted>
-        <valueSetDefinition>
-            <sorted>false</sorted>
-            <value>
-                <fullName>Gastos medicos</fullName>
-                <default>false</default>
-                <label>Gastos medicos</label>
-            </value>
-            <value>
-                <fullName>Vida</fullName>
-                <default>false</default>
-                <label>Vida</label>
-            </value>
-            <value>
-                <fullName>Auto</fullName>
-                <default>false</default>
-                <label>Auto</label>
-            </value>
-            <value>
-                <fullName>Danos</fullName>
-                <default>false</default>
-                <label>Daños</label>
-            </value>
-            <value>
-                <fullName>RC</fullName>
-                <default>false</default>
-                <label>RC</label>
-            </value>
-            <value>
-                <fullName>Accidentes</fullName>
-                <default>false</default>
-                <label>Accidentes</label>
-            </value>
-            <value>
-                <fullName>Viajes</fullName>
-                <default>false</default>
-                <label>Viajes</label>
-            </value>
-            <value>
-                <fullName>Ahorro</fullName>
-                <default>false</default>
-                <label>Ahorro</label>
-            </value>
-            <value>
-                <fullName>Retiro</fullName>
-                <default>false</default>
-                <label>Retiro</label>
-            </value>
-            <value>
-                <fullName>Mascota</fullName>
-                <default>false</default>
-                <label>Mascota</label>
-            </value>
-            <value>
-                <fullName>Transportes</fullName>
-                <default>false</default>
-                <label>Transportes</label>
-            </value>
-            <value>
-                <fullName>Administrativa</fullName>
-                <default>false</default>
-                <label>Administrativa</label>
-            </value>
-            <value>
-                <fullName>Fianzas</fullName>
-                <default>false</default>
-                <label>Fianzas</label>
-            </value>
-            <value>
-                <fullName>Dental</fullName>
-                <default>false</default>
-                <label>Dental</label>
-            </value>
-            <value>
-                <fullName>Flotilla</fullName>
-                <default>false</default>
-                <label>Flotilla</label>
-            </value>
-        </valueSetDefinition>
+        <valueSetName>Ramo</valueSetName>
     </valueSet>
 </CustomField>

@@ -19,6 +19,14 @@
         <default>false</default>
     </values>
     <values>
+        <fullName>En proceso de emision</fullName>
+        <default>false</default>
+    </values>
+    <values>
+        <fullName>Gestion Comercial</fullName>
+        <default>false</default>
+    </values>
+    <values>
         <fullName>Necesidad</fullName>
         <default>false</default>
     </values>

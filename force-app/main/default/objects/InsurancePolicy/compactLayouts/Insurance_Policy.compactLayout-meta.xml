@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Insurance_Policy</fullName>
+    <fields>PlanTier</fields>
+    <fields>PlanType</fields>
+    <fields>PolicyCode</fields>
+    <fields>IsPolicyEditLocked</fields>
+    <fields>PolicyName</fields>
+    <fields>Name</fields>
+    <fields>PolicyTerm</fields>
+    <fields>PolicyType</fields>
+    <fields>ProductId</fields>
+    <fields>Status</fields>
+    <label>Insurance Policy</label>
+</CompactLayout>

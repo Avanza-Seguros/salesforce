@@ -5,6 +5,5 @@
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
     <label>Fecha de Creacion</label>
     <required>false</required>
-    <trackHistory>false</trackHistory>
     <type>Date</type>
 </CustomField>

@@ -6,6 +6,5 @@
     <required>false</required>
     <scale>0</scale>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>false</trackHistory>
     <type>Percent</type>
 </CustomField>

@@ -1,0 +1,1223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Oportunidades</fullName>
+    <active>true</active>
+    <businessProcess>Polizas</businessProcess>
+    <compactLayoutAssignment>Financial_Opportunities</compactLayoutAssignment>
+    <description>Oportunidades</description>
+    <label>Oportunidades</label>
+    <picklistValues>
+        <picklist>Agente__c</picklist>
+        <values>
+            <fullName>Abraham Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Adriana Franco</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ana Chavez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ana Josseline Nuñez Camacho</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Arturo Viniegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Avanza Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carlos Buenrostro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Echegaray</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Plascencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Rea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diego Retano</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Olavarría</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Rodriguez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elena Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elsi Casillas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Esmeralda Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fabiola Guadalupe%C2%A0López%C2%A0Aguilar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fernanda Anton</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fernanda Navarro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gerardo Salazar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hilda Ibarra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Javier Zermeño</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazheel Pérez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Delgado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Magallon</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jesica Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jissell Castañeda</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Josseline Nuñez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Josuetl Sandoval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Pablo Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Santana</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Larissa Mendoza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lilia Ruiz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lily Vargas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Luis Felipe Gutierrez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Luis Mora</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Misael Velarde</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rafael Perez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Raquel Sandoval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ricardo Urrea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ruth Magallón</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sergio Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Teresa Solís</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Victor Nava</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viridiana Rodriguez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Yaelit Alcocer</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Aseguradora__c</picklist>
+        <values>
+            <fullName>AIG</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ATLAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AXA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Afirme</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Allianz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Aserta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Banorte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Berkley</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bupa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bx%2B</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CHUBB</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dentegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMX</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GNP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HDI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>INBURSA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Insignia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mapfre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Metlife</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Plan Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Prudential</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>QUALITAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SISNOVA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMNYL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sofimex</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sura</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>THONA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Terrawin</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Asunto__c</picklist>
+        <values>
+            <fullName>Aviso de pago</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Call</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cita cierre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cita emisión</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cita entrega póliza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cita inicial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cita servicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Email</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Meeting</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Renovación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reunión</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Send Letter%2FQuote</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Canal__c</picklist>
+        <values>
+            <fullName>Agente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Digital</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Directo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Estado_civil__c</picklist>
+        <values>
+            <fullName>Casado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Separado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Soltero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Union libre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viudo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Estatus__c</picklist>
+        <values>
+            <fullName>Anulada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No tomada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rescatada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vencida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vigor</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>ForecastCategoryName</picklist>
+        <values>
+            <fullName>Best Case</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Closed</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Commit</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Omitted</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pipeline</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Forma_de_pago__c</picklist>
+        <values>
+            <fullName>Anual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bimestral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mensual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Semestral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trimestral</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Genero__c</picklist>
+        <values>
+            <fullName>Femenino</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Masculino</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Horno_mes__c</picklist>
+        <values>
+            <fullName>Abril</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Agosto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diciembre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Enero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Febrero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Julio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Junio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Marzo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mayo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Noviembre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Octubre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Septiembre</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>LeadSource</picklist>
+        <values>
+            <fullName>Advertisement</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer Event</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Employee Referral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>External Referral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Google AdWords</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Partner</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Purchased List</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trade Show</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Webinar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Website</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Loss_Reason__c</picklist>
+        <values>
+            <fullName>Lost to Competitor</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No Budget %2F Lost Funding</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No Decision %2F Non-Responsive</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Price</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Mercado__c</picklist>
+        <values>
+            <fullName>Corporativo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Familiar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gobierno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Individual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PyME</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Mes_de_emision__c</picklist>
+        <values>
+            <fullName>Abril</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Agosto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diciembre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Enero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Febrero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Julio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Junio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Marzo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mayo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Noviembre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Octubre</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Septiembre</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Modo_de_pago__c</picklist>
+        <values>
+            <fullName>Agente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Directo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MSI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TDC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TDD</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transferencia</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Moneda__c</picklist>
+        <values>
+            <fullName>Dlls</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pesos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SMGM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Udis</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Umam</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Veces Salario</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Motivo_de_rechazo__c</picklist>
+        <values>
+            <fullName>Largo%C2%A0plazo%C2%A0de%C2%A0pago</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No responde</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Por Renovación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Por rendimientos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>falta de dinero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>lo hablo con la esposa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>no se genero confianza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>prima elevada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>rechazo por salud</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Numero_de_pago__c</picklist>
+        <values>
+            <fullName>1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>12</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>4</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>6</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Pago__c</picklist>
+        <values>
+            <fullName>No Pagada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pagada</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Plan_Producto__c</picklist>
+        <values>
+            <fullName>Accidentes</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Prospectador__c</picklist>
+        <values>
+            <fullName>Abraham Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Adriana Franco</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ana Chavez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ana Josseline Nuñez Camacho</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Arturo Viniegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Avanza Seguro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carlos Abraham Gonzalez Covaburribas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carlota Villarreal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daniel Rea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Denisse Castellanos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diego Retano</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Olavarría</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Edith Rodriguez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elena Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Elsi Casillas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Esmeralda Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gerardo Salazar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Delgado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jazmin Magallon</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jesica Gonzalez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jissell Castañeda</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Josseline Nuñez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Pablo Kleemann</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Juan Santana</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Larissa Mendoza</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lilia Ruiz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lily Vargas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Luis Felipe Gutierrez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nestor Rolando Ruiz Gomez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ricardo Urrea</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rodrigo Ojeda</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ruth Magallón</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sergio Lopez</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Teresa Solís</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viridiana Rodriguez</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Ramo__c</picklist>
+        <values>
+            <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Danos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viajes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Region__c</picklist>
+        <values>
+            <fullName>Aguascalientes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baja California</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baja California Sur</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Campeche</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Chiapas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Chihuahua</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ciudad de México</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Coahuila</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Colima</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Durango</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Guanajuato</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Guerrero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hidalgo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Jalisco</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Michoacán</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Morelos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>México</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nayarit</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nuevo León</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Oaxaca</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Puebla</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Querétaro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Quintana Roo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>San Luis Potosí</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sinaloa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sonora</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tabasco</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tamaulipas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tlaxcala</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Veracruz</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Yucatán</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Zacatecas</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo__c</picklist>
+        <values>
+            <fullName>Accidentes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Auto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dentegra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos médicos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mascota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pyme</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Responsabilidad Civil</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Seguro de Viaje</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sisnova</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transporte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VIDA</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo_de_poliza__c</picklist>
+        <values>
+            <fullName>Colectivo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Individual</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Type</picklist>
+        <values>
+            <fullName>External_Renewal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Internal_Renewal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>New_Business</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reissue</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

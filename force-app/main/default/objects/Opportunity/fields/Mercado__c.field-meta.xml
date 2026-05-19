@@ -4,31 +4,15 @@
     <label>Mercado</label>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>false</trackHistory>
     <type>Picklist</type>
     <valueSet>
         <restricted>true</restricted>
         <valueSetDefinition>
             <sorted>true</sorted>
             <value>
-                <fullName>Amistad</fullName>
+                <fullName>Corporativo</fullName>
                 <default>false</default>
-                <label>Amistad</label>
-            </value>
-            <value>
-                <fullName>Asesores En Alianza</fullName>
-                <default>false</default>
-                <label>Asesores En Alianza</label>
-            </value>
-            <value>
-                <fullName>Campaña Mailing</fullName>
-                <default>false</default>
-                <label>Campaña Mailing</label>
-            </value>
-            <value>
-                <fullName>Facebook</fullName>
-                <default>false</default>
-                <label>Facebook</label>
+                <label>Corporativo</label>
             </value>
             <value>
                 <fullName>Familiar</fullName>
@@ -36,29 +20,14 @@
                 <label>Familiar</label>
             </value>
             <value>
-                <fullName>Frio</fullName>
+                <fullName>Gobierno</fullName>
                 <default>false</default>
-                <label>Frio</label>
+                <label>Gobierno</label>
             </value>
             <value>
-                <fullName>Instagram</fullName>
+                <fullName>Individual</fullName>
                 <default>false</default>
-                <label>Instagram</label>
-            </value>
-            <value>
-                <fullName>Linkedin</fullName>
-                <default>false</default>
-                <label>Linkedin</label>
-            </value>
-            <value>
-                <fullName>Natural</fullName>
-                <default>false</default>
-                <label>Natural</label>
-            </value>
-            <value>
-                <fullName>Networking</fullName>
-                <default>false</default>
-                <label>Networking</label>
+                <label>Individual</label>
             </value>
             <value>
                 <fullName>Platica Luxoft</fullName>
@@ -67,65 +36,15 @@
                 <label>Platica Luxoft</label>
             </value>
             <value>
-                <fullName>Pláticas Empresariales</fullName>
+                <fullName>PyME</fullName>
                 <default>false</default>
-                <label>Pláticas Empresariales</label>
-            </value>
-            <value>
-                <fullName>Referido</fullName>
-                <default>false</default>
-                <label>Referido</label>
-            </value>
-            <value>
-                <fullName>Rifas</fullName>
-                <default>false</default>
-                <label>Rifas</label>
-            </value>
-            <value>
-                <fullName>Servicio</fullName>
-                <default>false</default>
-                <label>Servicio</label>
-            </value>
-            <value>
-                <fullName>Siniestro Accidente</fullName>
-                <default>false</default>
-                <label>Siniestro Accidente</label>
-            </value>
-            <value>
-                <fullName>Siniestro Enfermedad</fullName>
-                <default>false</default>
-                <label>Siniestro Enfermedad</label>
+                <label>PyME</label>
             </value>
             <value>
                 <fullName>Siniestro Luxoft</fullName>
                 <default>false</default>
                 <isActive>false</isActive>
                 <label>Siniestro Luxoft</label>
-            </value>
-            <value>
-                <fullName>Siniestros</fullName>
-                <default>false</default>
-                <label>Siniestros</label>
-            </value>
-            <value>
-                <fullName>Siniestros Maternidad</fullName>
-                <default>false</default>
-                <label>Siniestros Maternidad</label>
-            </value>
-            <value>
-                <fullName>Traspaso</fullName>
-                <default>false</default>
-                <label>Traspaso</label>
-            </value>
-            <value>
-                <fullName>Web</fullName>
-                <default>false</default>
-                <label>Web</label>
-            </value>
-            <value>
-                <fullName>Whatsapp</fullName>
-                <default>false</default>
-                <label>Whatsapp</label>
             </value>
         </valueSetDefinition>
     </valueSet>
