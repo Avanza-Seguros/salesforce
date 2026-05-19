@@ -4,6 +4,5 @@
     <displayFormat>{000}</displayFormat>
     <externalId>false</externalId>
     <label>Num Aut</label>
-    <trackHistory>false</trackHistory>
     <type>AutoNumber</type>
 </CustomField>

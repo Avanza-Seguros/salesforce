@@ -3,9 +3,14 @@
     <fullName>AllProducts</fullName>
     <columns>PRODUCT2.NAME</columns>
     <columns>PRODUCT2.CUSTOMER_PRODUCT_ID</columns>
-    <columns>PRODUCT2.DESCRIPTION</columns>
-    <columns>PRODUCT2.FAMILY</columns>
     <columns>Aseguradora__c</columns>
+    <columns>PRODUCT2.FAMILY</columns>
+    <columns>PRODUCT2.PRODUCT_TYPE</columns>
+    <columns>PRODUCT2.DESCRIPTION</columns>
+    <columns>PRODUCT2.SKU</columns>
+    <columns>PRODUCT2.PRODUCT_CLASS</columns>
+    <columns>PRODUCT2.STOCK_CHECK_METHOD</columns>
+    <columns>PRODUCT2.ACTIVE</columns>
     <filterScope>Everything</filterScope>
     <label>Todos los productos</label>
 </ListView>

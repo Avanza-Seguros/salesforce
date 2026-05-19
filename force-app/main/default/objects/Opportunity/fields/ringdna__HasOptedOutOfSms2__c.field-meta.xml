@@ -5,6 +5,5 @@
     <deprecated>false</deprecated>
     <label>SMS Opt Out</label>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>false</trackHistory>
     <type>Checkbox</type>
 </CustomField>

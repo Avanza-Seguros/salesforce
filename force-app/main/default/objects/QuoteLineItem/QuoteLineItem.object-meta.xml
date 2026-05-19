@@ -86,19 +86,25 @@
     </actionOverrides>
     <actionOverrides>
         <actionName>View</actionName>
-        <type>Default</type>
-    </actionOverrides>
-    <actionOverrides>
-        <actionName>View</actionName>
+        <comment>Action override created by Lightning App Builder during activation.</comment>
+        <content>Quote_Line_Items</content>
         <formFactor>Large</formFactor>
-        <type>Default</type>
+        <skipRecordTypeSelect>false</skipRecordTypeSelect>
+        <type>Flexipage</type>
     </actionOverrides>
     <actionOverrides>
         <actionName>View</actionName>
+        <comment>Action override created by Lightning App Builder during activation.</comment>
+        <content>Quote_Line_Items</content>
         <formFactor>Small</formFactor>
+        <skipRecordTypeSelect>false</skipRecordTypeSelect>
+        <type>Flexipage</type>
+    </actionOverrides>
+    <actionOverrides>
+        <actionName>View</actionName>
         <type>Default</type>
     </actionOverrides>
-    <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
+    <compactLayoutAssignment>Quote_Line_Items</compactLayoutAssignment>
     <enableFeeds>false</enableFeeds>
     <externalSharingModel>ControlledByParent</externalSharingModel>
     <searchLayouts>
@@ -110,6 +116,8 @@
         <searchResultsAdditionalFields>QUOTE_LI.UNIT_PRICE</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>QUOTE_LI.DISCOUNT</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>QUOTE_LI.TOTAL_PRICE</searchResultsAdditionalFields>
+        <searchResultsAdditionalFields>ProductCode</searchResultsAdditionalFields>
+        <searchResultsAdditionalFields>QUOTE_LI.DESCRIPTION</searchResultsAdditionalFields>
     </searchLayouts>
     <sharingModel>ControlledByParent</sharingModel>
 </CustomObject>

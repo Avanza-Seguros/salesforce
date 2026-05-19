@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Coverage</fullName>
+    <fields>CoverageTypeId</fields>
+    <fields>IsCovered</fields>
+    <fields>Name</fields>
+    <fields>ProductId</fields>
+    <fields>RecordTypeId</fields>
+    <fields>SourceSystem</fields>
+    <fields>SourceSystemIdentifier</fields>
+    <label>Product Coverage</label>
+</CompactLayout>

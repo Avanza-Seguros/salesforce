@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Person_Account</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+    RecordType.DeveloperName = &apos;Person_Account&apos;,
+    OR(
+        ISBLANK(PersonEmail),
+        ISBLANK(PersonMobilePhone)
+    )
+)</errorConditionFormula>
+    <errorMessage>Email y teléfono móvil son obligatorios para Person Accounts.</errorMessage>
+</ValidationRule>

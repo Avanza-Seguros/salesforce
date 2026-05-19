@@ -9,7 +9,6 @@ IF( ISPICKVAL( Forma_de_pago__c , &quot;Semestral&quot; ), &quot;2&quot;, &quot;
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
     <label>Pagos</label>
     <required>false</required>
-    <trackHistory>false</trackHistory>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Validate_Email</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+  NOT(ISBLANK(Correo_electronico__c)),
+  NOT(
+    REGEX(
+      Correo_electronico__c,
+      &quot;^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$&quot;
+    )
+  )
+)</errorConditionFormula>
+    <errorMessage>El correo electrónico no tiene un formato válido</errorMessage>
+</ValidationRule>

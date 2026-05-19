@@ -4,7 +4,6 @@
     <label>Aseguradora</label>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>true</trackHistory>
     <trackTrending>true</trackTrending>
     <type>Picklist</type>
     <valueSet>

@@ -1,14 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Layout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <excludeButtons>AddToActionableList</excludeButtons>
+    <excludeButtons>AssignRecordLabel</excludeButtons>
+    <excludeButtons>ChangeOwnerOne</excludeButtons>
+    <excludeButtons>ChangeRecordType</excludeButtons>
     <excludeButtons>Clone</excludeButtons>
+    <excludeButtons>ContactHierarchy</excludeButtons>
+    <excludeButtons>CreateCallList</excludeButtons>
+    <excludeButtons>CreateSurveyInvitation</excludeButtons>
     <excludeButtons>DisableCustomerPortal</excludeButtons>
     <excludeButtons>DisablePartnerPortal</excludeButtons>
     <excludeButtons>DisablePrmSuperUser</excludeButtons>
     <excludeButtons>EnablePrmSuperUser</excludeButtons>
+    <excludeButtons>LoginToNetworkAsUser</excludeButtons>
+    <excludeButtons>LoginToPortalAsUser</excludeButtons>
+    <excludeButtons>OmniChannelRouteWork</excludeButtons>
+    <excludeButtons>OpenRelationshipVisualizer</excludeButtons>
+    <excludeButtons>PrintableView</excludeButtons>
+    <excludeButtons>RecordShareHierarchy</excludeButtons>
+    <excludeButtons>SendSurveyInvitation</excludeButtons>
     <excludeButtons>Share</excludeButtons>
+    <excludeButtons>StartOutboundConversation</excludeButtons>
+    <excludeButtons>Submit</excludeButtons>
+    <excludeButtons>ViewCustomerPortal</excludeButtons>
+    <excludeButtons>ViewPartnerPortalUser</excludeButtons>
+    <excludeButtons>XClean</excludeButtons>
     <layoutSections>
         <customLabel>false</customLabel>
-        <detailHeading>false</detailHeading>
+        <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
         <label>Contact Information</label>
         <layoutColumns>
@@ -18,19 +37,7 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>AccountId</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Cliente_Individual__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
                 <field>Email</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Phone</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -38,81 +45,13 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Sexo__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>RFC__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Nacionalidad__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Conteo_de_Folios__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>Locale__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Flotilla__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Auto__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Hogar__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Vida_Mujer__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Segubeca__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Retiro__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Mascota__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>Nombre_Completo__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>GMM_Aut__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>Cumplea_os_Hoy__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Clave_externa_contacto__c</field>
+                <field>ReportsToId</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>OwnerId</field>
+                <field>Title</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -120,222 +59,11 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
+                <field>Phone</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
                 <field>Birthdate</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_ingreso_a_la_empresa__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Estado_civil__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Avanzamas__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Dental__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsTopToBottom</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Póliza GMM</label>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Poliza_GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Categoria_GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_antiguedad_GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_baja_GMM__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Certificado_GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Parentesco_GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_alta_GMM__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Activo_GMM__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsLeftToRight</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Póliza Vida</label>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Poliza_Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Categoria_Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_antiguedad_Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_baja_Vida__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Certificado_Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Parentesco_Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_alta_Vida__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Activo_Vida__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsLeftToRight</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Póliza Dentegra</label>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Poliza_Dentegra__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Categoria_Dentegra__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_antiguedad_Dentegra__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_baja_Dentegra__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Certificado_Dentegra__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Parentesco_Dentegra__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_alta_Dentegra__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Activo_Dentegra__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsLeftToRight</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Póliza adicional</label>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Poliza_Adicional__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Categoria_Adicional__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_antiguedad_Adicional__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_baja_Adicional__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Certificado_Adicional__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Parentesco_Adicional__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Fecha_de_alta_Adicional__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Activo_Adicional__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsLeftToRight</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Referido por</label>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Referido_por_prospecto__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Referido_por_contacto__c</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Referido_por_cliente__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>Referido_por_oportunidad__c</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsLeftToRight</style>
@@ -351,206 +79,63 @@
                 <field>MailingAddress</field>
             </layoutItems>
         </layoutColumns>
-        <layoutColumns/>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OtherAddress</field>
+            </layoutItems>
+        </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>
     <layoutSections>
-        <customLabel>false</customLabel>
-        <detailHeading>false</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Description Information</label>
-        <layoutColumns>
-            <layoutItems>
-                <height>200</height>
-                <page>et4ae5__ContactActions</page>
-                <showLabel>false</showLabel>
-                <showScrollbars>false</showScrollbars>
-                <width>100%</width>
-            </layoutItems>
-        </layoutColumns>
-        <style>OneColumn</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>false</customLabel>
+        <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>System Information</label>
+        <label>Account Information</label>
         <layoutColumns>
             <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>CreatedById</field>
+                <behavior>Edit</behavior>
+                <field>AccountId</field>
+            </layoutItems>
+        </layoutColumns>
+        <layoutColumns/>
+        <style>TwoColumnsLeftToRight</style>
+    </layoutSections>
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Additional Information</label>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>LeadSource</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>LastModifiedById</field>
+                <behavior>Edit</behavior>
+                <field>TitleType</field>
             </layoutItems>
         </layoutColumns>
-        <style>TwoColumnsTopToBottom</style>
+        <style>TwoColumnsLeftToRight</style>
     </layoutSections>
     <layoutSections>
         <customLabel>false</customLabel>
         <detailHeading>false</detailHeading>
         <editHeading>false</editHeading>
         <label>Custom Links</label>
-        <layoutColumns>
-            <layoutItems>
-                <customLink>GoogleMaps</customLink>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
-                <customLink>GoogleSearch</customLink>
-            </layoutItems>
-        </layoutColumns>
+        <layoutColumns/>
+        <layoutColumns/>
         <layoutColumns/>
         <style>CustomLinks</style>
     </layoutSections>
-    <platformActionList>
-        <actionListContext>Record</actionListContext>
-        <platformActionListItems>
-            <actionName>Edit</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>0</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>EnablePartnerPortalUser</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>1</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>Delete</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>2</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>DisablePartnerPortal</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>3</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>LogACall</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>4</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>NewTask</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>5</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>NewEvent</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>6</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>SendEmail</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>7</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>EmailHighlightAction</actionName>
-            <actionType>ProductivityAction</actionType>
-            <sortOrder>8</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>FeedItem.ContentNote</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>9</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>FeedItem.TextPost</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>10</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>FeedItem.ContentPost</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>11</sortOrder>
-        </platformActionListItems>
-    </platformActionList>
-    <quickActionList>
-        <quickActionListItems>
-            <quickActionName>FeedItem.TextPost</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>FeedItem.ContentPost</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>LogACall</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>NewTask</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>NewEvent</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>FeedItem.ContentNote</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>FeedItem.LinkPost</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>FeedItem.PollPost</quickActionName>
-        </quickActionListItems>
-        <quickActionListItems>
-            <quickActionName>SendEmail</quickActionName>
-        </quickActionListItems>
-    </quickActionList>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>et4ae5__IndividualEmailResult__c.et4ae5__Contact__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>et4ae5__EmailName__c</fields>
-        <fields>et4ae5__fBusiness_Unit__c</fields>
-        <fields>et4ae5__Created_Date_Time__c</fields>
-        <fields>et4ae5__Send_Status_View__c</fields>
-        <fields>et4ae5__Status_Date_Time__c</fields>
-        <fields>et4ae5__FromName__c</fields>
-        <fields>et4ae5__FromEmail__c</fields>
-        <fields>et4ae5__Campaigns__c</fields>
-        <fields>et4ae5__Reports__c</fields>
-        <relatedList>et4ae5__SendDefinition__c.et4ae5__Contact__c</relatedList>
-    </relatedLists>
     <relatedLists>
         <fields>OPPORTUNITY.NAME</fields>
         <fields>OPPORTUNITY.STAGE_NAME</fields>
         <fields>OPPORTUNITY.AMOUNT</fields>
         <fields>OPPORTUNITY.CLOSE_DATE</fields>
         <relatedList>RelatedOpportunityList</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>ACCOUNT.NAME</fields>
-        <fields>ACCCONRELATION.IS_DIRECT</fields>
-        <fields>ACCCONRELATION.ROLES</fields>
-        <relatedList>RelatedContactAccountRelationList</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <relatedList>RelatedFileList</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>Asegurado__c</fields>
-        <fields>Forma_de_pago__c</fields>
-        <fields>Fecha_de_Emision__c</fields>
-        <fields>Tipo_de_poliza__c</fields>
-        <fields>Estatus__c</fields>
-        <fields>Aseguradora__c</fields>
-        <fields>Agente__c</fields>
-        <fields>Asegurado_Individual__c</fields>
-        <fields>Nombre_contratante__c</fields>
-        <relatedList>Polizas__c.Agente_asignado__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>Poliza_Contacto__c.Contacto__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <relatedList>RelatedContentNoteList</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>CASES.CASE_NUMBER</fields>
@@ -560,70 +145,14 @@
         <relatedList>RelatedCaseList</relatedList>
     </relatedLists>
     <relatedLists>
-        <fields>TASK.SUBJECT</fields>
-        <fields>TASK.WHAT_NAME</fields>
-        <fields>ACTIVITY.TASK</fields>
-        <fields>TASK.DUE_DATE</fields>
-        <fields>TASK.STATUS</fields>
-        <fields>CORE.USERS.FULL_NAME</fields>
-        <fields>EVENT.LOCATION</fields>
-        <relatedList>RelatedActivityList</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>Nombre_completo__c</fields>
-        <fields>Certificado__c</fields>
-        <fields>Poliza__c</fields>
-        <fields>Fecha_de_peticion__c</fields>
-        <relatedList>Items_Cases__c.Asegurado__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>Folio__c</fields>
-        <fields>Titular__c</fields>
-        <fields>Certificado__c</fields>
-        <fields>Poliza__c</fields>
-        <fields>Tipo__c</fields>
-        <fields>Fecha__c</fields>
-        <fields>Diagnostico__c</fields>
-        <fields>Estatus__c</fields>
-        <fields>Estatus_previo__c</fields>
-        <relatedList>Control_de_Folios__c.Asegurado_afectado__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <excludeButtons>MassChangeOwner</excludeButtons>
-        <excludeButtons>New</excludeButtons>
-        <fields>NAME</fields>
-        <fields>Nombre_s__c</fields>
-        <fields>Apellido_paterno__c</fields>
-        <fields>Apellido_materno__c</fields>
-        <relatedList>Beneficiario__c.Titular__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>Dependiente__c.Contacto_dependiente__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>Factura__c.Contacto__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>Automovil__c.Conductor__c</relatedList>
-    </relatedLists>
-    <relatedLists>
+        <fields>ASSET.NAME</fields>
+        <fields>ASSET.SERIAL_NUMBER</fields>
+        <fields>ASSET.INSTALL_DATE</fields>
+        <fields>ASSET.QUANTITY</fields>
         <fields>ACCOUNT.NAME</fields>
-        <fields>ACCOUNT.ADDRESS1_CITY</fields>
-        <fields>ACCOUNT.PHONE1</fields>
-        <relatedList>Account.Usuario__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>Poliza__c</fields>
-        <fields>Cliente__c</fields>
-        <fields>Fecha_de_de_Vencimiento__c</fields>
-        <fields>Contacto__c</fields>
-        <relatedList>Pago_poliza__c.Asegurado__c</relatedList>
+        <fields>ASSET.STATUS</fields>
+        <fields>ASSET.IS_COMPETITOR_PRODUCT</fields>
+        <relatedList>RelatedAssetList</relatedList>
     </relatedLists>
     <relatedObjects>AccountId</relatedObjects>
     <showEmailCheckbox>false</showEmailCheckbox>

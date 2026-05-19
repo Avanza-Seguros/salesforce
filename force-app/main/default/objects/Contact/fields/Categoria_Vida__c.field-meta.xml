@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Categoria_Vida__c</fullName>
+    <businessStatus>Hidden</businessStatus>
     <label>Categoria</label>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
@@ -39,11 +40,6 @@
                 <fullName>02V</fullName>
                 <default>false</default>
                 <label>02V</label>
-            </value>
-            <value>
-                <fullName>06</fullName>
-                <default>false</default>
-                <label>06</label>
             </value>
         </valueSetDefinition>
     </valueSet>

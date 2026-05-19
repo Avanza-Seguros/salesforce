@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>No_change_status</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+  OR(
+    ISPICKVAL(PRIORVALUE(Status), &apos;Accepted&apos;),
+    ISPICKVAL(PRIORVALUE(Status), &apos;Denied&apos;)
+  ),
+  $Profile.Name &lt;&gt; &apos;System Administrator&apos;
+)</errorConditionFormula>
+    <errorMessage>El estado de la cotizacion no puede ser modificado una vez que se acepta o declina.</errorMessage>
+</ValidationRule>

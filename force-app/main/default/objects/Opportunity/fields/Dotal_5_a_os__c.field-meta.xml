@@ -4,6 +4,5 @@
     <defaultValue>false</defaultValue>
     <label>Dotal 5 años</label>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>false</trackHistory>
     <type>Checkbox</type>
 </CustomField>

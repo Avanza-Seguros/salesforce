@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Line_Type__c</fullName>
+    <label>Line Type</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Producto principal</fullName>
+                <default>false</default>
+                <label>Producto principal</label>
+            </value>
+            <value>
+                <fullName>Cobertura obligatoria</fullName>
+                <default>false</default>
+                <label>Cobertura obligatoria</label>
+            </value>
+            <value>
+                <fullName>Cobertura opcional</fullName>
+                <default>false</default>
+                <label>Cobertura opcional</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

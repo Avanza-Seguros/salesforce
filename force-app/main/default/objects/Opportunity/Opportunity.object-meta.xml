@@ -142,16 +142,16 @@
     </actionOverrides>
     <actionOverrides>
         <actionName>View</actionName>
-        <comment>Action override created by Lightning App Builder during activation.</comment>
-        <content>Opportunity_Record_Page2</content>
+        <comment>Action override updated by Lightning App Builder during activation.</comment>
+        <content>Financial_Opportunity</content>
         <formFactor>Large</formFactor>
         <skipRecordTypeSelect>false</skipRecordTypeSelect>
         <type>Flexipage</type>
     </actionOverrides>
     <actionOverrides>
         <actionName>View</actionName>
-        <comment>Action override created by Lightning App Builder during activation.</comment>
-        <content>Opportunity_Record_Page2</content>
+        <comment>Action override updated by Lightning App Builder during activation.</comment>
+        <content>Financial_Opportunity</content>
         <formFactor>Small</formFactor>
         <skipRecordTypeSelect>false</skipRecordTypeSelect>
         <type>Flexipage</type>
@@ -160,35 +160,34 @@
         <actionName>View</actionName>
         <type>Default</type>
     </actionOverrides>
-    <compactLayoutAssignment>New_Awesome_Companct_Layout</compactLayoutAssignment>
+    <compactLayoutAssignment>Financial_Opportunities</compactLayoutAssignment>
     <enableEnhancedLookup>true</enableEnhancedLookup>
     <enableFeeds>true</enableFeeds>
-    <enableHistory>true</enableHistory>
+    <enableHistory>false</enableHistory>
     <externalSharingModel>Private</externalSharingModel>
     <profileSearchLayouts>
         <fields>OPPORTUNITY.NAME</fields>
-        <fields>Ramo__c</fields>
-        <fields>OPPORTUNITY.AMOUNT</fields>
-        <fields>Mercado__c</fields>
+        <fields>ACCOUNT.NAME</fields>
         <fields>OPPORTUNITY.STAGE_NAME</fields>
-        <fields>Indicador_de_estatus__c</fields>
-        <fields>Fecha_de_Creacion__c</fields>
-        <fields>Polizarl__c</fields>
-        <fields>Poliza__c</fields>
-        <profileName>System Administrator</profileName>
+        <fields>OPPORTUNITY.TYPE</fields>
+        <fields>Aseguradora__c</fields>
+        <fields>Mercado__c</fields>
+        <fields>Ramo__c</fields>
+        <fields>Servicios__c</fields>
+        <fields>Tipo__c</fields>
+        <profileName>Administrador del sistema</profileName>
     </profileSearchLayouts>
     <recordTypeTrackFeedHistory>false</recordTypeTrackFeedHistory>
-    <recordTypeTrackHistory>false</recordTypeTrackHistory>
     <searchLayouts>
         <customTabListAdditionalFields>OPPORTUNITY.NAME</customTabListAdditionalFields>
-        <customTabListAdditionalFields>Ramo__c</customTabListAdditionalFields>
-        <customTabListAdditionalFields>OPPORTUNITY.AMOUNT</customTabListAdditionalFields>
-        <customTabListAdditionalFields>Mercado__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>ACCOUNT.NAME</customTabListAdditionalFields>
         <customTabListAdditionalFields>OPPORTUNITY.STAGE_NAME</customTabListAdditionalFields>
-        <customTabListAdditionalFields>Indicador_de_estatus__c</customTabListAdditionalFields>
-        <customTabListAdditionalFields>Fecha_de_Creacion__c</customTabListAdditionalFields>
-        <customTabListAdditionalFields>Polizarl__c</customTabListAdditionalFields>
-        <customTabListAdditionalFields>Poliza__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>OPPORTUNITY.TYPE</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Aseguradora__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Mercado__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Ramo__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Servicios__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>Tipo__c</customTabListAdditionalFields>
         <lookupDialogsAdditionalFields>OPPORTUNITY.NAME</lookupDialogsAdditionalFields>
         <lookupDialogsAdditionalFields>ACCOUNT.NAME</lookupDialogsAdditionalFields>
         <lookupPhoneDialogsAdditionalFields>OPPORTUNITY.NAME</lookupPhoneDialogsAdditionalFields>
@@ -200,5 +199,5 @@
         <searchResultsAdditionalFields>OPPORTUNITY.STAGE_NAME</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>Indicador_de_estatus__c</searchResultsAdditionalFields>
     </searchLayouts>
-    <sharingModel>ReadWrite</sharingModel>
+    <sharingModel>Private</sharingModel>
 </CustomObject>

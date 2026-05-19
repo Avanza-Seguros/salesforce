@@ -7,7 +7,6 @@
     <required>false</required>
     <scale>2</scale>
     <trackFeedHistory>false</trackFeedHistory>
-    <trackHistory>false</trackHistory>
     <trackTrending>true</trackTrending>
     <type>Number</type>
     <unique>false</unique>
