@@ -175,7 +175,7 @@
         <fields>Ramo__c</fields>
         <fields>Servicios__c</fields>
         <fields>Tipo__c</fields>
-        <profileName>Administrador del sistema</profileName>
+        <profileName>System Administrator</profileName>
     </profileSearchLayouts>
     <recordTypeTrackFeedHistory>false</recordTypeTrackFeedHistory>
     <searchLayouts>

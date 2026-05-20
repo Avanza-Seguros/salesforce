@@ -1,0 +1,1748 @@
+import { LightningElement, api, wire, track } from 'lwc';
+import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
+import { getPicklistValues, getObjectInfo } from 'lightning/uiObjectInfoApi';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import OPPORTUNITY_OBJECT from '@salesforce/schema/Opportunity';
+import STAGE_FIELD from '@salesforce/schema/Opportunity.StageName';
+import TYPE_FIELD from '@salesforce/schema/Opportunity.Type';
+import CANAL_FIELD from '@salesforce/schema/Opportunity.Canal__c';
+import MERCADO_FIELD from '@salesforce/schema/Opportunity.Mercado__c';
+import RAMO_FIELD from '@salesforce/schema/Opportunity.Ramo__c';
+import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
+import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
+import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
+import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+const VIEW_MODES = {
+    LIST: 'list',
+    CREATE: 'create',
+    EDIT: 'edit'
+};
+
+const OPPORTUNITY_TYPES = {
+    NEW_BUSINESS: 'New Business',
+    INTERNAL_RENEWAL: 'Internal Renewal',
+    EXTERNAL_RENEWAL: 'External Renewal',
+    REISSUE: 'Reissue'
+};
+
+const RAMO_TYPES = {
+    AUTOMOVIL: 'Automoviles',
+    GASTOS_MEDICOS: 'GMM',
+    VIDA: 'Vida',
+    VIAJE: 'Viajes',
+    DANOS: 'Danos',
+    EMPRESARIAL: 'Empresarial',
+    FIANZAS: 'Fianzas',
+    DENTAL: 'Dental',
+    VISION: 'Vision',
+    RESPONSABILIDAD_CIVIL: 'RC'
+};
+
+// Etapas: API value (Salesforce) -> etiqueta visible (UX) + metadatos
+// IMPORTANTE: los API values deben coincidir EXACTO con los picklist values de Salesforce.
+const STAGES_DATA = [
+    { value: 'Gestion Comercial',    label: 'Gestión Comercial',   probability: 40,  icon: 'utility:money',   color: '#0052CC' },
+    { value: 'En proceso de emision',label: 'En proceso de emisión', probability: 70,  icon: 'utility:check',   color: '#00A3BF' },
+    { value: 'Emisión',              label: 'Emisión',              probability: 80,  icon: 'utility:check',   color: '#00A3BF' },
+    { value: 'Póliza',               label: 'Póliza',               probability: 95,  icon: 'utility:policy',  color: '#00875A' },
+    { value: 'Closed Won',           label: 'Ganada',               probability: 100, icon: 'utility:success', color: '#00875A' },
+    { value: 'Closed Lost',          label: 'Perdida',              probability: 0,   icon: 'utility:error',   color: '#DE350B' }
+];
+
+const STAGE_DEFAULT_COLOR = '#6B7280';
+
+// Cantidad de oportunidades a mostrar por página
+const PAGE_SIZE = 12;
+
+export default class OpportunityCreator extends NavigationMixin(LightningElement) {
+    @api recordId;
+
+    // === Wires y picklists ===
+    objectInfo = { data: null, error: null };
+    @track stagePicklistValues = [];
+    @track typePicklistValues = [];
+    @track canalPicklistValues = [];
+    @track mercadoPicklistValues = [];
+    @track ramoPicklistValues = [];
+
+    // === Estado UI / datos ===
+    @track viewMode = VIEW_MODES.LIST;
+    @track isLoading = false;
+    @track isSaving = false;
+    @track searchTerm = '';
+    @track stageFilter = '';
+    @track showOnlyOverdue = false;
+    @track currentPage = 1;
+    @track opportunities = [];
+
+    // === Estado de creación/edición ===
+    @track opportunity = this.getDefaultOpportunity();
+    @track automovil = this.getDefaultAutomovil();
+    @track gmm = this.getDefaultGMM();
+    @track vida = this.getDefaultVida();
+    @track viaje = this.getDefaultViaje();
+    @track danos = this.getDefaultDanos();
+    @track uploadedQuotes = [];
+    @track extractedOpportunityData = null;
+    @track hasExtractedData = false;
+    @track selectedQuoteRamo = '';
+
+    // Cotizaciones (Quotes) ya relacionadas con la oportunidad (modo edición)
+    @track relatedQuotes = [];
+
+    // Lookup de Cuenta (Account / Person Account)
+    @track showAccountDropdown = false;
+    @track accountResults = [];
+    @track isNewAccount = false;
+    _accountSearchTimer = null;
+
+    // === Estado comparativa ===
+    @track tablaComparativaCache = [];
+    @track companiasConCoberturasCache = [];
+    @track totalCoberturasUnicas = 0;
+
+    // === Flags por compañía (calculados, no usados en render directo) ===
+    tieneQualitas = false;
+    tieneChubb = false;
+    tieneGnp = false;
+    tieneHdi = false;
+    mejorPrecioCompania = '';
+    mejorPrecioMonto = 0;
+    mejorCoberturaCompania = '';
+    mejorCoberturaMonto = 0;
+
+    @track comparisonData = {
+        totalQuotes: 0,
+        bestPriceCompany: '',
+        bestPriceAmount: 0,
+        bestCoverageCompany: '',
+        bestCoverageAmount: 0,
+        selectedCompanies: [],
+        rawData: null
+    };
+    @track showComparisonSummary = false;
+
+    // Timer para debounce de la búsqueda
+    _searchTimer = null;
+
+    // ============================================================
+    // SUB-RAMOS (estáticos)
+    // ============================================================
+    get vidaSubramos() {
+        return [
+            { label: 'Educación', value: 'Educación' },
+            { label: 'Ahorro', value: 'Ahorro' },
+            { label: 'Retiro', value: 'Retiro' },
+            { label: 'Temporal', value: 'Temporal' },
+            { label: 'Vida Tradicional', value: 'Vida Tradicional' }
+        ];
+    }
+    get danosSubramos() {
+        return [
+            { label: 'Hogar', value: 'Hogar' },
+            { label: 'Mascotas', value: 'Mascotas' },
+            { label: 'Responsabilidad Civil', value: 'Responsabilidad Civil' },
+            { label: 'Empresarial', value: 'Empresarial (Property)' }
+        ];
+    }
+    get tipoEstructuraOptions() {
+        return [
+            { label: 'Individual', value: 'Individual' },
+            { label: 'Familiar', value: 'Familiar' }
+        ];
+    }
+
+    // Tipo de cuenta del cliente: define si se crea Person Account o Account de empresa
+    get tipoClienteOptions() {
+        return [
+            { label: 'Persona', value: 'Persona' },
+            { label: 'Empresa', value: 'Empresa' }
+        ];
+    }
+    get isPersonAccount() {
+        return this.opportunity.tipoCliente === 'Persona';
+    }
+
+    // ============================================================
+    // IDENTIFICACIÓN DEL RAMO ACTIVO
+    // ============================================================
+    get isRamoAutomovil()   { return this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL; }
+    get isRamoGMM()         { return this.opportunity.Ramo__c === RAMO_TYPES.GASTOS_MEDICOS; }
+    get isRamoVida()        { return this.opportunity.Ramo__c === RAMO_TYPES.VIDA; }
+    get isRamoViajes()      { return this.opportunity.Ramo__c === RAMO_TYPES.VIAJE; }
+    get isRamoDanos()       { return this.opportunity.Ramo__c === RAMO_TYPES.DANOS; }
+    get isRamoEmpresarial() { return this.opportunity.Ramo__c === RAMO_TYPES.EMPRESARIAL; }
+    get isRamoOtros() {
+        return !this.isRamoAutomovil && !this.isRamoGMM && !this.isRamoVida &&
+               !this.isRamoViajes && !this.isRamoDanos && !this.isRamoEmpresarial;
+    }
+    get stagesData() { return STAGES_DATA; }
+
+    get quoteRamoOptions() {
+        if (this.ramoPicklistValues && this.ramoPicklistValues.length > 0) {
+            return this.ramoPicklistValues;
+        }
+        return [
+            { label: 'Automóvil', value: 'Automoviles' },
+            { label: 'Gastos Médicos (GMM)', value: 'GMM' },
+            { label: 'Vida', value: 'Vida' },
+            { label: 'Viajes', value: 'Viajes' },
+            { label: 'Daños', value: 'Danos' },
+            { label: 'Empresarial', value: 'Empresarial' },
+            { label: 'Responsabilidad Civil (RC)', value: 'RC' },
+            { label: 'Transporte', value: 'Transporte' },
+            { label: 'Mascotas', value: 'Mascotas' },
+            { label: 'Fianzas', value: 'Fianzas' },
+            { label: 'Dental', value: 'Dental' },
+            { label: 'Visión', value: 'Vision' }
+        ];
+    }
+
+    // ============================================================
+    // FILTROS PARA LA LISTA (etapas)
+    // ============================================================
+    get stageFilterOptions() {
+        const base = [{ label: 'Todas las etapas', value: '' }];
+        const fromPicklist = (this.stagePicklistValues || []).map(s => ({
+            label: this.getStageLabel(s.value),
+            value: s.value
+        }));
+        const fromConstant = STAGES_DATA.map(s => ({ label: s.label, value: s.value }));
+        // Merge sin duplicados (prioriza picklist real)
+        const map = new Map();
+        [...fromPicklist, ...fromConstant].forEach(o => {
+            if (!map.has(o.value)) map.set(o.value, o);
+        });
+        return base.concat(Array.from(map.values()));
+    }
+
+    // ============================================================
+    // COMPARATIVA (sin mutar estado durante render)
+    // ============================================================
+    get hasComparativa() {
+        return this.uploadedQuotes && this.uploadedQuotes.length >= 2;
+    }
+
+    /** Recalcula la tabla comparativa cuando cambian las cotizaciones (no en getters de render). */
+    recomputeComparativa() {
+        if (!this.uploadedQuotes || this.uploadedQuotes.length === 0) {
+            this.tablaComparativaCache = [];
+            this.companiasConCoberturasCache = [];
+            this.totalCoberturasUnicas = 0;
+            this.tieneQualitas = false;
+            this.tieneChubb = false;
+            this.tieneGnp = false;
+            this.tieneHdi = false;
+            return;
+        }
+
+        const coberturasMap = new Map();
+        const companias = [];
+
+        this.uploadedQuotes.forEach(quote => {
+            const compania = quote.compania || 'Desconocida';
+            if (!companias.includes(compania)) companias.push(compania);
+
+            if (Array.isArray(quote.tablaCompletaCoberturas)) {
+                quote.tablaCompletaCoberturas.forEach(cobertura => {
+                    const nombre = cobertura.cobertura || cobertura.nombre || 'Cobertura';
+                    if (!coberturasMap.has(nombre)) {
+                        coberturasMap.set(nombre, { nombre, valores: {} });
+                    }
+                    coberturasMap.get(nombre).valores[compania] = {
+                        suma: cobertura.sumaAsegurada || cobertura.suma || '',
+                        deducible: cobertura.deducible || '',
+                        coaseguro: cobertura.coaseguro || ''
+                    };
+                });
+            }
+
+            if (quote.isAutomovil)        this.agregarCoberturaAuto(coberturasMap, compania, quote);
+            else if (quote.isGastosMedicos) this.agregarCoberturaGMM(coberturasMap, compania, quote);
+            else if (quote.isViaje)       this.agregarCoberturaViaje(coberturasMap, compania, quote);
+            else if (quote.isRC)          this.agregarCoberturaRC(coberturasMap, compania, quote);
+            else if (quote.isTransporte)  this.agregarCoberturaTransporte(coberturasMap, compania, quote);
+        });
+
+        this.companiasConCoberturasCache = companias.map(nombre => ({
+            nombre,
+            primaTotal: this.formatCurrency(
+                this.uploadedQuotes.find(q => q.compania === nombre)?.primaTotal || 0
+            )
+        }));
+
+        this.tieneQualitas = companias.includes('QUALITAS');
+        this.tieneChubb    = companias.includes('CHUBB');
+        this.tieneGnp      = companias.includes('GNP');
+        this.tieneHdi      = companias.includes('HDI');
+
+        const coberturasArray = Array.from(coberturasMap.values());
+        this.totalCoberturasUnicas = coberturasArray.length;
+
+        this.tablaComparativaCache = coberturasArray.map(cobertura => ({
+            cobertura: cobertura.nombre,
+            claseFila: '',
+            valores: companias.map(compania => ({
+                compania,
+                suma: cobertura.valores[compania]?.suma
+                    ? this.formatCurrencyOrText(cobertura.valores[compania].suma)
+                    : '',
+                deducible: cobertura.valores[compania]?.deducible || '',
+                coaseguro: cobertura.valores[compania]?.coaseguro || ''
+            }))
+        }));
+    }
+
+    get tablaComparativaConClases() { return this.tablaComparativaCache; }
+    get companiasConCoberturas()   { return this.companiasConCoberturasCache; }
+
+    // ============================================================
+    // MÉTODOS AUXILIARES PARA TABLA COMPARATIVA
+    // ============================================================
+    agregarCoberturaAuto(map, compania, q) {
+        if (q.sumaAsegurada)       this.agregarOActualizarCobertura(map, 'Daños Materiales',           compania, { suma: q.sumaAsegurada, deducible: q.deducible });
+        if (q.sumaRobo)            this.agregarOActualizarCobertura(map, 'Robo Total',                 compania, { suma: q.sumaRobo, deducible: q.deducibleRobo });
+        if (q.sumaRC)              this.agregarOActualizarCobertura(map, 'Responsabilidad Civil',     compania, { suma: q.sumaRC, deducible: q.deducibleRC });
+        if (q.sumaGastosMedicos)   this.agregarOActualizarCobertura(map, 'Gastos Médicos Ocupantes', compania, { suma: q.sumaGastosMedicos, deducible: q.deducibleGastosMedicos });
+    }
+    agregarCoberturaGMM(map, compania, q) {
+        if (q.sumaAsegurada) this.agregarOActualizarCobertura(map, 'Suma Asegurada', compania, { suma: q.sumaAsegurada, deducible: q.deducible, coaseguro: q.coaseguro });
+    }
+    agregarCoberturaViaje(map, compania, q) {
+        if (Array.isArray(q.coberturasViaje)) {
+            q.coberturasViaje.forEach(cov => this.agregarOActualizarCobertura(map, cov.nombre, compania, { suma: cov.suma }));
+        }
+    }
+    agregarCoberturaRC(map, compania, q) {
+        if (q.sumaAsegurada) this.agregarOActualizarCobertura(map, 'Suma Asegurada', compania, { suma: q.sumaAsegurada, deducible: q.deducible });
+    }
+    agregarCoberturaTransporte(map, compania, q) {
+        if (Array.isArray(q.riesgosAmparados)) {
+            q.riesgosAmparados.forEach(r => this.agregarOActualizarCobertura(map, r.nombre, compania, { deducible: r.deducible }));
+        }
+        if (q.limiteEmbarque) this.agregarOActualizarCobertura(map, 'Límite por Embarque', compania, { suma: q.limiteEmbarque });
+    }
+    agregarOActualizarCobertura(map, nombre, compania, valores) {
+        if (!map.has(nombre)) map.set(nombre, { nombre, valores: {} });
+        const c = map.get(nombre);
+        c.valores[compania] = { ...c.valores[compania], ...valores };
+    }
+
+    // ============================================================
+    // FORMATEO
+    // ============================================================
+    formatNumber(amount) {
+        if (!amount && amount !== 0) return '0';
+        const num = parseFloat(amount) || 0;
+        return num.toLocaleString('es-MX');
+    }
+
+    formatCurrency(amount) {
+        if (amount === null || amount === undefined || amount === '') return '$0.00 MXN';
+        const num = parseFloat(amount);
+        if (isNaN(num)) return '$0.00 MXN';
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(num);
+    }
+
+    /** Si es número, lo formatea como MXN; si no, lo devuelve como texto. */
+    formatCurrencyOrText(value) {
+        if (value === null || value === undefined) return '';
+        const num = parseFloat(value);
+        if (!isNaN(num) && num > 0) return this.formatCurrency(num);
+        return String(value);
+    }
+
+    /** Formato fecha seguro: maneja nulos y fechas inválidas (1899, etc.) */
+    formatDate(dateString) {
+        if (!dateString) return 'Sin fecha';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime()) || date.getFullYear() < 1970) return 'Sin fecha';
+        return date.toLocaleDateString('es-MX', {
+            day: '2-digit', month: 'short', year: 'numeric'
+        });
+    }
+
+    formatDateForInput(date) {
+        if (!date) return '';
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+    handleQuoteRamoChange(event) {
+        this.selectedQuoteRamo = event.detail.value;
+        if (!this.opportunity.Ramo__c) {
+            this.opportunity.Ramo__c = this.selectedQuoteRamo;
+        }
+    }
+
+    handleSearchChange(event) {
+        // Debounce 250ms para evitar re-render por cada tecla
+        const value = event.target.value;
+        if (this._searchTimer) clearTimeout(this._searchTimer);
+        this._searchTimer = setTimeout(() => {
+            this.searchTerm = value || '';
+            this.currentPage = 1;
+        }, 250);
+    }
+
+    handleStageFilterChange(event) {
+        this.stageFilter = event.detail.value || '';
+        this.currentPage = 1;
+    }
+
+    handleOverdueToggle(event) {
+        this.showOnlyOverdue = event.target.checked;
+        this.currentPage = 1;
+    }
+
+    handleClickOutside(event) {
+        // Cierra el dropdown de Cuenta si el clic fue fuera del lookup
+        const insideLookup = event && event.target && event.target.closest
+            && event.target.closest('.lookup-container');
+        if (!insideLookup) {
+            this.showAccountDropdown = false;
+        }
+    }
+
+    // ============================================================
+    // LOOKUP DE CUENTA (Account / Person Account)
+    // ============================================================
+    get hasAccountResults() {
+        return this.accountResults && this.accountResults.length > 0;
+    }
+
+    handleAccountFocus() {
+        this.showAccountDropdown = true;
+    }
+
+    handleAccountInput(event) {
+        const value = event.target.value;
+        // Mientras escribe, la cuenta deja de estar "seleccionada"
+        this.opportunity = { ...this.opportunity, AccountName: value, AccountId: null };
+        this.isNewAccount = false;
+        this.showAccountDropdown = true;
+
+        clearTimeout(this._accountSearchTimer);
+        this._accountSearchTimer = setTimeout(async () => {
+            if (value && value.length >= 2) {
+                try {
+                    this.accountResults = await searchAccounts({ searchTerm: value });
+                } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.error(':::OpportunityCreator::: Error buscando cuentas', e);
+                    this.accountResults = [];
+                }
+            } else {
+                this.accountResults = [];
+            }
+        }, 300);
+    }
+
+    /** El usuario eligió una cuenta existente: rellenamos los datos del cliente. */
+    selectAccount(event) {
+        const id = event.currentTarget.dataset.id;
+        const acc = (this.accountResults || []).find(a => a.Id === id);
+        if (!acc) return;
+        this.opportunity = {
+            ...this.opportunity,
+            AccountId: acc.Id,
+            AccountName: acc.Name,
+            tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
+            clienteNombre: acc.clienteNombre || acc.Name || '',
+            clienteRFC: acc.clienteRFC || '',
+            clienteEmail: acc.clienteEmail || '',
+            clienteTelefono: acc.clienteTelefono || '',
+            clienteCP: acc.clienteCP || '',
+            clienteDireccion: acc.clienteDireccion || ''
+        };
+        this.isNewAccount = false;
+        this.showAccountDropdown = false;
+        this.accountResults = [];
+    }
+
+    /** El usuario eligió crear una cuenta nueva: se creará al guardar. */
+    selectNewAccount() {
+        const typedName = this.opportunity.AccountName || '';
+        this.opportunity = {
+            ...this.opportunity,
+            AccountId: null,
+            AccountName: typedName,   // se conserva como nombre de la cuenta nueva
+            // Campos de cliente en blanco: se capturan desde cero para evitar confusión
+            clienteNombre: '',
+            clienteApellidos: '',
+            clienteRFC: '',
+            clienteEmail: '',
+            clienteTelefono: '',
+            clienteCP: '',
+            clienteDireccion: ''
+        };
+        this.isNewAccount = true;
+        this.showAccountDropdown = false;
+        this.accountResults = [];
+        this.showToast('Cuenta nueva',
+            'Captura los datos en "Información del Cliente". La cuenta se creará al guardar.',
+            'info');
+    }
+
+    handlePrevPage() {
+        if (this.currentPage > 1) this.currentPage -= 1;
+    }
+    handleNextPage() {
+        if (this.currentPage < this.totalPages) this.currentPage += 1;
+    }
+
+    handleViewOpportunity(event) {
+        // En este componente, "Ver" y "Editar" llevan al mismo formulario custom.
+        // Si en el futuro queremos un modo de sólo lectura, lo agregamos como flag.
+        return this.handleEditOpportunity(event);
+    }
+
+    async handleEditOpportunity(event) {
+        const id = event.currentTarget.dataset.id;
+        if (id) await this.openOpportunityInEditMode(id);
+    }
+
+    /**
+     * Abre una oportunidad específica en modo edición.
+     * Se invoca desde el botón Editar y desde el wire CurrentPageReference
+     * cuando otro componente nos navega con c__opportunityId.
+     */
+    async openOpportunityInEditMode(id) {
+        if (!id) return;
+        this.isLoading = true;
+        try {
+            // 1) Limpiar estado
+            this.resetWizard();
+
+            // 2) Oportunidad en el listado (si está cargado)
+            const fromList = (this.opportunities || []).find(o => o.Id === id) || {};
+
+            // 3) Llamar al Apex (acepta varios contratos de respuesta)
+            const detail = await getOpportunityDetails({ opportunityId: id });
+
+            let opportunityData = fromList;
+            let quotesData = [];
+
+            if (Array.isArray(detail)) {
+                quotesData = detail;
+            } else if (detail && typeof detail === 'object') {
+                opportunityData = { ...fromList, ...detail };
+                quotesData = detail.quotes || detail.Quotes || detail.relatedQuotes || [];
+            }
+
+            this.populateFormFromOpportunity(opportunityData, id);
+            this.relatedQuotes = Array.isArray(quotesData)
+                ? quotesData.map(q => this.mapRelatedQuote(q))
+                : [];
+
+            this.viewMode = VIEW_MODES.EDIT;
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error(':::OpportunityCreator::: Error al cargar oportunidad para edición', e);
+            this.showToast('Error', 'No se pudo cargar la oportunidad para edición', 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    /**
+     * Toma el detalle de la oportunidad devuelto por Apex y lo distribuye en
+     * las distintas estructuras del formulario (opportunity, automovil, gmm,
+     * vida, viaje, danos, cliente). Hace que la vista de edición se vea igual
+     * que "Nueva Oportunidad" pero con los datos prellenados.
+     */
+    populateFormFromOpportunity(detail, id) {
+        // ---- Datos generales de la oportunidad ----
+        this.opportunity = {
+            ...this.getDefaultOpportunity(),
+            Id: id,
+            Name:        detail.Name        || '',
+            StageName:   detail.StageName   || 'Gestion Comercial',
+            Type:        detail.Type        || OPPORTUNITY_TYPES.NEW_BUSINESS,
+            Canal__c:    detail.Canal__c    || '',
+            Mercado__c:  detail.Mercado__c  || '',
+            Ramo__c:     detail.Ramo__c     || '',
+            Description: detail.Description || '',
+            AccountId:   detail.AccountId   || null,
+            AccountName: detail.Account?.Name || detail.AccountName || '',
+            CloseDate:   detail.CloseDate   || null,
+            Amount:      detail.Amount      || null,
+
+            // Datos del cliente — vienen sueltos o anidados según cómo
+            // estén modelados en tu Apex (Account o campos custom).
+            clienteNombre:    detail.clienteNombre    || detail.Account?.Name           || '',
+            clienteRFC:       detail.clienteRFC       || detail.Account?.RFC__c          || '',
+            clienteEmail:     detail.clienteEmail     || detail.Account?.Email__c        || detail.Account?.PersonEmail || '',
+            clienteTelefono:  detail.clienteTelefono  || detail.Account?.Phone           || '',
+            clienteCP:        detail.clienteCP        || detail.Account?.BillingPostalCode || '',
+            clienteDireccion: detail.clienteDireccion || detail.Account?.BillingStreet    || ''
+        };
+
+        // Mantener sincronizado el combobox del ramo de cotizaciones
+        this.selectedQuoteRamo = this.opportunity.Ramo__c;
+
+        // ---- Automóvil ----
+        if (this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL || detail.automovil) {
+            const a = detail.automovil || detail;
+            this.automovil = {
+                ...this.getDefaultAutomovil(),
+                Marca__c:                a.Marca__c                || '',
+                Modelo__c:               a.Modelo__c               || '',
+                Anio__c:                 a.Anio__c                 || '',
+                Placa__c:                a.Placa__c                || '',
+                Serie__c:                a.Serie__c                || '',
+                descripcion_completa__c: a.descripcion_completa__c || ''
+            };
+        }
+
+        // ---- GMM ----
+        if (this.opportunity.Ramo__c === RAMO_TYPES.GASTOS_MEDICOS || detail.gmm) {
+            const g = detail.gmm || detail;
+            this.gmm = {
+                ...this.getDefaultGMM(),
+                estado:         g.estado         || '',
+                tipoEstructura: g.tipoEstructura || '',
+                numAsegurados:  g.numAsegurados  || 1
+            };
+        }
+
+        // ---- Vida ----
+        if (this.opportunity.Ramo__c === RAMO_TYPES.VIDA || detail.vida) {
+            const v = detail.vida || detail;
+            this.vida = {
+                ...this.getDefaultVida(),
+                aseguradoPrincipal: v.aseguradoPrincipal || '',
+                contratante:        v.contratante        || '',
+                subramo:            v.subramo            || ''
+            };
+        }
+
+        // ---- Viaje ----
+        if (this.opportunity.Ramo__c === RAMO_TYPES.VIAJE || detail.viaje) {
+            const vj = detail.viaje || detail;
+            this.viaje = {
+                ...this.getDefaultViaje(),
+                destino:      vj.destino      || '',
+                numPasajeros: vj.numPasajeros || 1
+            };
+        }
+
+        // ---- Daños ----
+        if (this.opportunity.Ramo__c === RAMO_TYPES.DANOS || detail.danos) {
+            const d = detail.danos || detail;
+            this.danos = {
+                ...this.getDefaultDanos(),
+                subramo: d.subramo || ''
+            };
+        }
+
+        // Nota: las cotizaciones relacionadas se cargan en handleEditOpportunity.
+    }
+
+    /**
+     * Convierte un registro de Quote (estándar Quote o custom Cotizacion__c) al
+     * formato que la tabla de Cotizaciones Relacionadas necesita.
+     */
+    mapRelatedQuote(q) {
+        if (!q) return {};
+
+        const total = q.TotalPrice ?? q.GrandTotal
+                    ?? q.Prima_Total__c ?? q.PrimaTotal__c
+                    ?? q.Subtotal ?? q.Amount ?? 0;
+
+        const status = q.Status || q.Estado__c || q.EstadoCotizacion__c || '';
+
+        // Aseguradora: primero el lookup relacional (Aseguradora__r.Name),
+        // si no, los campos custom o la cuenta del cliente.
+        const compania = q.Aseguradora__r?.Name
+                       || q.Compania__r?.Name
+                       || q.Compania__c
+                       || q.Aseguradora__c
+                       || q.Account?.Name
+                       || q.AccountName
+                       || '—';
+
+        return {
+            Id: q.Id,
+            QuoteNumber: q.QuoteNumber || q.Numero__c || '—',
+            Name: q.Name || '—',
+            companiaLabel: compania,
+            statusLabel: status || 'Sin estado',
+            statusBadgeClass: this.getQuoteStatusBadgeClass(status),
+            totalFormatted: this.formatCurrency(total),
+            expirationFormatted: this.formatDate(q.ExpirationDate || q.Vigencia__c || q.FechaVencimiento__c)
+        };
+    }
+
+    getQuoteStatusBadgeClass(status) {
+        if (!status) return 'quote-badge quote-badge-neutral';
+        const s = String(status).toLowerCase();
+        if (s.includes('acept') || s.includes('ganad') || s.includes('aprob')) return 'quote-badge quote-badge-won';
+        if (s.includes('rech') || s.includes('perd') || s.includes('canc'))   return 'quote-badge quote-badge-lost';
+        if (s.includes('borr') || s.includes('draft'))                          return 'quote-badge quote-badge-draft';
+        if (s.includes('present') || s.includes('envi'))                        return 'quote-badge quote-badge-active';
+        return 'quote-badge quote-badge-neutral';
+    }
+
+    /**
+     * Abrir el componente custom "Crear Cotización" en modo edición
+     * pasando el quoteId por estado de URL (lo lee CurrentPageReference).
+     */
+    handleViewQuote(event) {
+        return this.handleEditRelatedQuote(event);
+    }
+
+    handleEditRelatedQuote(event) {
+        const id = event.currentTarget.dataset.id;
+        if (!id) return;
+        this[NavigationMixin.Navigate]({
+            type: 'standard__navItemPage',
+            attributes: { apiName: 'Crear_Cotizacion' },
+            state: {
+                c__quoteId: id,
+                c__opportunityId: this.opportunity?.Id || '',
+                c__opportunityName: this.opportunity?.Name || '',
+                c__opportunityRamo: this.opportunity?.Ramo__c || ''
+            }
+        });
+    }
+
+    /**
+     * Navega al componente Crear Cotización en modo creación,
+     * con la oportunidad actual preseleccionada (incluyendo su Ramo).
+     */
+    handleAddNewQuote() {
+        if (!this.opportunity || !this.opportunity.Id) {
+            this.showToast('Aviso', 'Guarda la oportunidad antes de agregar cotizaciones.', 'warning');
+            return;
+        }
+        if (!this.opportunity.Ramo__c) {
+            this.showToast('Aviso', 'La oportunidad no tiene un ramo definido. Asígnalo antes de cotizar.', 'warning');
+            return;
+        }
+        this[NavigationMixin.Navigate]({
+            type: 'standard__navItemPage',
+            attributes: { apiName: 'Crear_Cotizacion' },
+            state: {
+                c__opportunityId: this.opportunity.Id,
+                c__opportunityName: this.opportunity.Name || '',
+                c__opportunityRamo: this.opportunity.Ramo__c
+            }
+        });
+    }
+
+    get hasRelatedQuotes()   { return this.relatedQuotes && this.relatedQuotes.length > 0; }
+    get relatedQuotesCount() { return this.relatedQuotes ? this.relatedQuotes.length : 0; }
+
+    handleDeleteOpportunity(event) {
+        const id = event.currentTarget.dataset.id;
+        const name = event.currentTarget.dataset.name || 'esta oportunidad';
+        if (!id) return;
+        // eslint-disable-next-line no-alert
+        const confirmed = window.confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`);
+        if (!confirmed) return;
+        // Aquí debería llamarse al Apex deleteOpportunity({opportunityId: id})
+        this.showToast('Aviso', 'La eliminación debe completarse desde el detalle del registro.', 'warning');
+    }
+
+    // ============================================================
+    // WIRES (picklists)
+    // ============================================================
+    @wire(getObjectInfo, { objectApiName: OPPORTUNITY_OBJECT })
+    wiredObjectInfo(result) {
+        this.objectInfo = result;
+    }
+
+    @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: STAGE_FIELD })
+    wiredStagePicklistValues({ error, data }) {
+        if (data) {
+            this.stagePicklistValues = data.values.map(item => ({ label: item.label, value: item.value }));
+            if (!this.opportunity.StageName && this.stagePicklistValues.some(v => v.value === 'Gestion Comercial')) {
+                this.opportunity.StageName = 'Gestion Comercial';
+            }
+        } else if (error) {
+            this.stagePicklistValues = [];
+        }
+    }
+
+    @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: TYPE_FIELD })
+    wiredTypePicklistValues({ data }) { if (data) this.typePicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+
+    @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: CANAL_FIELD })
+    wiredCanalPicklistValues({ data }) { if (data) this.canalPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+
+    @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: MERCADO_FIELD })
+    wiredMercadoPicklistValues({ data }) { if (data) this.mercadoPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+
+    @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: RAMO_FIELD })
+    wiredRamoPicklistValues({ data }) { if (data) this.ramoPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+
+    // ============================================================
+    // NAVEGACIÓN ENTRANTE (otra app/tab nos pasó un c__opportunityId)
+    // ============================================================
+    _pendingOpportunityId = null;
+    _opportunitiesLoaded = false;
+
+    @wire(CurrentPageReference)
+    wiredPageRef(pageRef) {
+        if (!pageRef || !pageRef.state) return;
+        const oppId = pageRef.state.c__opportunityId;
+        if (!oppId) return;
+        this._pendingOpportunityId = oppId;
+        if (this._opportunitiesLoaded) {
+            this.openOpportunityInEditMode(oppId);
+            this._pendingOpportunityId = null;
+        }
+    }
+
+    async connectedCallback() {
+        await this.loadOpportunities();
+        this._opportunitiesLoaded = true;
+        if (this._pendingOpportunityId) {
+            await this.openOpportunityInEditMode(this._pendingOpportunityId);
+            this._pendingOpportunityId = null;
+        }
+    }
+
+    async loadOpportunities() {
+        this.isLoading = true;
+        try {
+            this.opportunities = await getOpportunities();
+        } catch (error) {
+            this.showToast('Error', 'No se pudieron cargar las oportunidades', 'error');
+            this.opportunities = [];
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    // ============================================================
+    // GETTERS DE VISTA Y LISTA
+    // ============================================================
+    get pageTitle() {
+        if (this.viewMode === VIEW_MODES.EDIT)   return 'Editar Oportunidad';
+        if (this.viewMode === VIEW_MODES.CREATE) return 'Crear Oportunidad';
+        return 'Oportunidades';
+    }
+    get createButtonLabel() {
+        return this.viewMode === VIEW_MODES.EDIT ? 'Guardar Cambios' : 'Crear Oportunidad';
+    }
+    get showListView()   { return this.viewMode === VIEW_MODES.LIST; }
+    get showCreateView() { return this.viewMode === VIEW_MODES.CREATE || this.viewMode === VIEW_MODES.EDIT; }
+    get isEditMode()     { return this.viewMode === VIEW_MODES.EDIT; }
+
+    // ============================================================
+    // REGLA DE EDICIÓN: sólo editable en etapa "Gestión Comercial"
+    // ============================================================
+    /**
+     * Los datos de la oportunidad (y los datos de cliente y del ramo)
+     * sólo se pueden editar mientras la oportunidad está en etapa
+     * "Gestion Comercial". En modo creación siempre es editable.
+     */
+    get isOpportunityEditable() {
+        if (this.viewMode === VIEW_MODES.CREATE) return true;
+        return this.opportunity.StageName === 'Gestion Comercial';
+    }
+    get isOpportunityReadOnly() {
+        return !this.isOpportunityEditable;
+    }
+    /** Etiqueta amigable de la etapa actual (para el aviso de bloqueo). */
+    get readOnlyStageLabel() {
+        return this.getStageLabel(this.opportunity.StageName);
+    }
+    /** El botón Guardar se desactiva si está guardando o si está bloqueada. */
+    get isSaveDisabled() {
+        return this.isSaving || this.isOpportunityReadOnly;
+    }
+
+    /**
+     * Corregido: ahora valida si los wires realmente tienen datos cargados
+     * (no si la propiedad existe). Antes siempre devolvía false.
+     */
+    get isLoadingPicklists() {
+        const objectReady = !!(this.objectInfo && this.objectInfo.data);
+        const stagesReady = (this.stagePicklistValues || []).length > 0;
+        const ramoReady   = (this.ramoPicklistValues || []).length > 0;
+        return !(objectReady && stagesReady && ramoReady);
+    }
+
+    get hasQuotes()   { return this.uploadedQuotes && this.uploadedQuotes.length > 0; }
+    get quotesCount() { return this.uploadedQuotes.length; }
+
+    /** Lista filtrada (búsqueda + filtro por etapa + sólo vencidas). */
+    get filteredOpportunities() {
+        const term = (this.searchTerm || '').toLowerCase().trim();
+        const stage = this.stageFilter;
+        const today = new Date();
+
+        return (this.opportunities || []).filter(opp => {
+            // Búsqueda
+            if (term) {
+                const match =
+                    (opp.Name || '').toLowerCase().includes(term) ||
+                    (opp.StageName || '').toLowerCase().includes(term) ||
+                    (this.getStageLabel(opp.StageName) || '').toLowerCase().includes(term) ||
+                    (opp.Account?.Name || '').toLowerCase().includes(term) ||
+                    (opp.Owner?.Name || '').toLowerCase().includes(term);
+                if (!match) return false;
+            }
+            // Filtro etapa
+            if (stage && opp.StageName !== stage) return false;
+            // Sólo vencidas (oportunidades abiertas con CloseDate pasado)
+            if (this.showOnlyOverdue) {
+                if (this.isClosedStage(opp.StageName)) return false;
+                if (!opp.CloseDate) return false;
+                const cd = new Date(opp.CloseDate);
+                if (isNaN(cd.getTime()) || cd >= today) return false;
+            }
+            return true;
+        });
+    }
+
+    get opportunitiesCount() { return this.filteredOpportunities.length; }
+    get hasOpportunities()   { return this.filteredOpportunities.length > 0; }
+
+    /** Total visible (suma de los filtrados, formato MXN). */
+    get totalOpportunitiesAmount() {
+        const total = this.filteredOpportunities.reduce(
+            (sum, opp) => sum + (parseFloat(opp.Amount) || 0), 0
+        );
+        return this.formatCurrency(total);
+    }
+
+    // ===== Paginación =====
+    get totalPages() {
+        return Math.max(1, Math.ceil(this.opportunitiesCount / PAGE_SIZE));
+    }
+    get isFirstPage() { return this.currentPage <= 1; }
+    get isLastPage()  { return this.currentPage >= this.totalPages; }
+    get pageInfoLabel() { return `Página ${this.currentPage} de ${this.totalPages}`; }
+
+    /** Lista procesada y paginada para la grid. */
+    get processedOpportunities() {
+        const start = (this.currentPage - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const slice = this.filteredOpportunities.slice(start, end);
+        const today = new Date();
+
+        return slice.map((opp, index) => {
+            const stage = STAGES_DATA.find(s => s.value === opp.StageName);
+            const closeDate = this.parseSafeDate(opp.CloseDate);
+            const hasValidCloseDate = !!closeDate;
+            const isClosed = this.isClosedStage(opp.StageName);
+            const isWon  = opp.StageName === 'Closed Won';
+            const isLost = opp.StageName === 'Closed Lost';
+
+            // Sólo calcular días si hay fecha válida y la oportunidad NO está cerrada
+            let daysRemaining = null;
+            let daysLabel = '';
+            let daysClass = 'days-remaining';
+            if (hasValidCloseDate && !isClosed) {
+                const diff = Math.ceil((closeDate - today) / 86400000);
+                daysRemaining = diff;
+                if (diff < 0) {
+                    daysLabel = `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`;
+                    daysClass = 'days-remaining is-overdue';
+                } else if (diff === 0) {
+                    daysLabel = 'Vence hoy';
+                    daysClass = 'days-remaining is-due-today';
+                } else {
+                    daysLabel = `${diff} día${diff === 1 ? '' : 's'} restantes`;
+                    daysClass = 'days-remaining is-active';
+                }
+            }
+
+            // Status general
+            let statusClass = 'status-active';
+            if (isWon) statusClass = 'status-won';
+            else if (isLost) statusClass = 'status-lost';
+            else if (hasValidCloseDate && closeDate < today) statusClass = 'status-overdue';
+
+            const stageColor = stage?.color || STAGE_DEFAULT_COLOR;
+            const stageLabel = this.getStageLabel(opp.StageName);
+            const stageIcon  = stage?.icon || 'utility:steps';
+            const probability = stage?.probability ?? 0;
+
+            return {
+                ...opp,
+                index,
+                displayNumber: (this.currentPage - 1) * PAGE_SIZE + index + 1,
+                stageLabel,
+                stageIcon,
+                statusClass,
+                // IMPORTANTE: style en LWC debe ser STRING, no objeto.
+                stageStyle: `background-color: ${stageColor}; color: #fff;`,
+                progressBarStyle: `width: ${probability}%; background-color: ${stageColor};`,
+                progressText: `${probability}% de probabilidad`,
+                amountFormatted: this.formatCurrency(opp.Amount),
+                closeDateFormatted: this.formatDate(opp.CloseDate),
+                createdDateFormatted: opp.CreatedDate ? this.formatDate(opp.CreatedDate) : '',
+                daysRemaining,
+                daysLabel,
+                daysClass,
+                hasDaysInfo: !!daysLabel,
+                isOverdue: statusClass === 'status-overdue',
+                isClosed,
+                typeLabel: this.getTypeLabel(opp.Type)
+            };
+        });
+    }
+
+    /** Devuelve un Date válido o null. */
+    parseSafeDate(value) {
+        if (!value) return null;
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return null;
+        if (d.getFullYear() < 1970) return null;
+        return d;
+    }
+
+    isClosedStage(stageName) {
+        return stageName === 'Closed Won' || stageName === 'Closed Lost';
+    }
+
+    /** Convierte API value → etiqueta amigable (sin tilde → con tilde, EN → ES, etc.) */
+    getStageLabel(value) {
+        if (!value) return '';
+        const stage = STAGES_DATA.find(s => s.value === value);
+        return stage ? stage.label : value;
+    }
+
+    /** Traduce el Tipo de oportunidad (API value) a una etiqueta en español. */
+    getTypeLabel(type) {
+        if (!type) return '';
+        const map = {
+            'New Business': 'Nueva',
+            'Internal Renewal': 'Renovación interna',
+            'External Renewal': 'Renovación externa',
+            'Reissue': 'Reexpedición'
+        };
+        return map[type] || type;
+    }
+
+    // ============================================================
+    // HANDLERS DE FORMULARIO
+    // ============================================================
+    handleInputChange(event) {
+        const field = event.target.dataset.field;
+        if (field) this.opportunity[field] = event.target.value;
+    }
+    handleComboboxChange(event) {
+        const field = event.target.dataset.field;
+        if (field) this.opportunity[field] = event.detail.value;
+    }
+    handleAutomovilChange(event) {
+        const field = event.target.dataset?.field?.replace('automovil.', '');
+        if (field && Object.prototype.hasOwnProperty.call(this.automovil, field)) {
+            this.automovil[field] = event.target.value;
+        }
+    }
+    handleGMMChange(event) {
+        const field = event.target.dataset?.field?.replace('gmm.', '');
+        if (field && Object.prototype.hasOwnProperty.call(this.gmm, field)) {
+            this.gmm[field] = event.detail?.value || event.target.value;
+        }
+    }
+    handleVidaChange(event) {
+        const field = event.target.dataset?.field?.replace('vida.', '');
+        if (field && Object.prototype.hasOwnProperty.call(this.vida, field)) {
+            this.vida[field] = event.detail?.value || event.target.value;
+        }
+    }
+    handleViajeChange(event) {
+        const field = event.target.dataset?.field?.replace('viaje.', '');
+        if (field && Object.prototype.hasOwnProperty.call(this.viaje, field)) {
+            this.viaje[field] = event.detail?.value || event.target.value;
+        }
+    }
+    handleDanosChange(event) {
+        const field = event.target.dataset?.field?.replace('danos.', '');
+        if (field && Object.prototype.hasOwnProperty.call(this.danos, field)) {
+            this.danos[field] = event.detail?.value || event.target.value;
+        }
+    }
+    handleClienteChange(event) {
+        const field = event.target.dataset.field;
+        if (!field) return;
+        const value = event.target.value;
+        const updated = { ...this.opportunity, [field]: value };
+        // En modo "cuenta nueva", el nombre del cliente alimenta el nombre de la cuenta.
+        // Para Persona se arma Nombre(s) + Apellidos; para Empresa es la Razón Social.
+        if (this.isNewAccount && (field === 'clienteNombre' || field === 'clienteApellidos')) {
+            if (updated.tipoCliente === 'Persona') {
+                updated.AccountName = `${updated.clienteNombre || ''} ${updated.clienteApellidos || ''}`.trim();
+            } else {
+                updated.AccountName = updated.clienteNombre || '';
+            }
+        }
+        this.opportunity = updated;
+    }
+
+    async handleComparisonComplete(event) {
+        try {
+            if (!event || !event.detail) return;
+            const { cotizaciones, total } = event.detail;
+            if (!cotizaciones || cotizaciones.length === 0) return;
+
+            this.comparisonData = {
+                totalQuotes: total || cotizaciones.length,
+                bestPriceCompany: this.findBestPrice(cotizaciones),
+                bestPriceAmount: this.findBestPriceAmount(cotizaciones),
+                bestCoverageCompany: this.findBestCoverage(cotizaciones),
+                bestCoverageAmount: this.findBestCoverageAmount(cotizaciones),
+                selectedCompanies: this.extractCompanies([]),
+                rawData: { cotizaciones }
+            };
+            this.showComparisonSummary = true;
+            this.showToast('Éxito', `Se procesaron ${cotizaciones.length} cotizaciones`, 'success');
+        } catch (error) {
+            this.showToast('Error', 'Error al procesar las cotizaciones', 'error');
+        }
+    }
+
+    // ============================================================
+    // MEJOR PRECIO / MEJOR COBERTURA
+    // ============================================================
+    findBestPrice(cotizaciones) {
+        if (!cotizaciones || cotizaciones.length === 0) return '';
+        let best = Infinity, company = '';
+        cotizaciones.forEach(c => {
+            const p = parseFloat(c.primaTotal) || 0;
+            if (p > 0 && p < best) { best = p; company = c.compania || ''; }
+        });
+        this.mejorPrecioCompania = company;
+        this.mejorPrecioMonto = best === Infinity ? 0 : best;
+        return company;
+    }
+    findBestPriceAmount(cotizaciones) {
+        if (!cotizaciones || cotizaciones.length === 0) return 0;
+        let best = Infinity;
+        cotizaciones.forEach(c => {
+            const p = parseFloat(c.primaTotal) || 0;
+            if (p > 0 && p < best) best = p;
+        });
+        return best === Infinity ? 0 : best;
+    }
+    findBestCoverage(cotizaciones) {
+        if (!cotizaciones || cotizaciones.length === 0) return '';
+        let max = 0, company = '';
+        cotizaciones.forEach(c => {
+            const n = (c.tablaCompletaCoberturas?.length || 0) +
+                      (c.coberturasViaje?.length || 0) +
+                      (c.riesgosAmparados?.length || 0);
+            if (n > max) { max = n; company = c.compania || ''; }
+        });
+        this.mejorCoberturaCompania = company;
+        this.mejorCoberturaMonto = max;
+        return company;
+    }
+    findBestCoverageAmount(cotizaciones) {
+        if (!cotizaciones || cotizaciones.length === 0) return 0;
+        let max = 0;
+        cotizaciones.forEach(c => {
+            const n = (c.tablaCompletaCoberturas?.length || 0) +
+                      (c.coberturasViaje?.length || 0) +
+                      (c.riesgosAmparados?.length || 0);
+            if (n > max) max = n;
+        });
+        return max;
+    }
+    extractCompanies(table) {
+        if (!table?.length) return [];
+        const set = new Set();
+        table.forEach(row => {
+            if (row.datos) row.datos.forEach(d => { if (d.compania) set.add(d.compania); });
+        });
+        return Array.from(set);
+    }
+
+    // ============================================================
+    // NORMALIZACIÓN Y EXTRACCIÓN DE PDF
+    // ============================================================
+    normalizeQuoteData(quote) {
+        if (!quote || typeof quote !== 'object') quote = {};
+        const safeString  = v => (v === null || v === undefined ? '' : String(v));
+        const safeNumber  = v => { if (v === null || v === undefined) return 0; const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+        const safeBoolean = v => (v === null || v === undefined ? false : (typeof v === 'string' ? v.toLowerCase() === 'true' : Boolean(v)));
+        const ramoParaUsar = this.selectedQuoteRamo || quote.ramo || 'DESCONOCIDO';
+
+        return {
+            id: safeString(quote.id) || `quote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            nombreArchivo: safeString(quote.nombreArchivo) || 'documento.pdf',
+            compania: safeString(quote.compania) || 'Desconocida',
+            ramo: ramoParaUsar,
+            ramoLabel: this.getRamoLabel(ramoParaUsar),
+            primaTotal: safeNumber(quote.primaTotal),
+            primaTotalFormatted: safeString(quote.primaTotalFormatted) || this.formatCurrency(safeNumber(quote.primaTotal)),
+            extractionConfidence: safeNumber(quote.extractionConfidence),
+            isExpanded: quote.isExpanded !== undefined ? quote.isExpanded : true,
+            // Datos por ramo (resumido):
+            marca: safeString(quote.marca), modelo: safeString(quote.modelo),
+            placa: safeString(quote.placa), serie: safeString(quote.serie),
+            anio: safeString(quote.anio), descripcion: safeString(quote.descripcion),
+            destino: safeString(quote.destino), numViajeros: safeNumber(quote.numViajeros) || 1,
+            fechaSalida: safeString(quote.fechaSalida),
+            edadVida: safeNumber(quote.edadVida),
+            sumaFallecimiento: safeString(quote.sumaFallecimiento),
+            aportacionAnual: safeString(quote.aportacionAnual),
+            tipoRC: safeString(quote.tipoRC),
+            sumaAsegurada: safeString(quote.sumaAsegurada),
+            deducible: safeString(quote.deducible),
+            coaseguro: safeString(quote.coaseguro),
+            redHospitalaria: safeString(quote.redHospitalaria),
+            asegurados: quote.asegurados || [],
+            bienesCubiertos: safeString(quote.bienesCubiertos),
+            limiteEmbarque: safeString(quote.limiteEmbarque),
+            clienteNombre: safeString(quote.clienteNombre),
+            clienteRFC: safeString(quote.clienteRFC),
+            clienteEmail: safeString(quote.clienteEmail),
+            clienteTelefono: safeString(quote.clienteTelefono),
+            clienteCP: safeString(quote.clienteCP),
+            clienteDireccion: safeString(quote.clienteDireccion),
+            tablaCompletaCoberturas: quote.tablaCompletaCoberturas || [],
+            hasCoberturas: safeBoolean(quote.hasCoberturas),
+            coberturasCount: safeNumber(quote.coberturasCount),
+            isAutomovil: safeBoolean(quote.isAutomovil),
+            isDanos: safeBoolean(quote.isDanos),
+            isDental: safeBoolean(quote.isDental),
+            isEmpresarial: safeBoolean(quote.isEmpresarial),
+            isFianzas: safeBoolean(quote.isFianzas),
+            isGastosMedicos: safeBoolean(quote.isGastosMedicos),
+            isRC: safeBoolean(quote.isRC),
+            isViaje: safeBoolean(quote.isViaje),
+            isVida: safeBoolean(quote.isVida),
+            isVision: safeBoolean(quote.isVision),
+            isTransporte: safeBoolean(quote.isTransporte),
+            fechaExtraccion: safeString(quote.fechaExtraccion) || new Date().toISOString(),
+            ramoIcon: this.getRamoIcon(ramoParaUsar),
+            confidenceBarStyle: safeString(quote.confidenceBarStyle),
+            confidenceTextStyle: safeString(quote.confidenceTextStyle),
+            uploadDateFormatted: safeString(quote.uploadDateFormatted),
+            expandIcon: safeString(quote.expandIcon) || 'utility:chevronup',
+            expandText: safeString(quote.expandText) || 'Colapsar'
+        };
+    }
+
+    async handlePDFDataExtracted(event) {
+        try {
+            if (!event) return;
+            const quote = event.detail || {};
+            if (!quote.id) return;
+
+            const ramo = quote.ramo || 'DESCONOCIDO';
+            const ramoNormalizado = this.normalizarRamoParaCSS(ramo);
+
+            const flags = {
+                isViaje: this.matchRamo(ramo, ['VIAJE','VIAJES']) || ramoNormalizado === 'Viaje',
+                isAutomovil: this.matchRamo(ramo, ['AUTOMOVIL','AUTO','AUTOMOVILES']) || ramoNormalizado === 'Automóvil',
+                isGastosMedicos: this.matchRamo(ramo, ['GMM','GASTOS_MEDICOS','GASTOS MÉDICOS']) || ramoNormalizado === 'Gastos Médicos',
+                isRC: this.matchRamo(ramo, ['RC','RESPONSABILIDAD_CIVIL','RESPONSABILIDAD CIVIL']) || ramoNormalizado === 'Responsabilidad Civil',
+                isVida: this.matchRamo(ramo, ['VIDA']) || ramoNormalizado === 'Vida',
+                isHogar: this.matchRamo(ramo, ['HOGAR']) || ramoNormalizado === 'Hogar',
+                isMascotas: this.matchRamo(ramo, ['MASCOTAS']) || ramoNormalizado === 'Mascotas',
+                isTransporte: this.matchRamo(ramo, ['TRANSPORTE']) || ramoNormalizado === 'Transporte',
+                isEmpresarial: this.matchRamo(ramo, ['EMPRESARIAL']) || ramoNormalizado === 'Empresarial',
+                isDental: this.matchRamo(ramo, ['DENTAL']) || ramoNormalizado === 'Dental',
+                isDanos: this.matchRamo(ramo, ['DANOS','DAÑOS']) || ramoNormalizado === 'Daños',
+                isVision: this.matchRamo(ramo, ['VISION','VISIÓN']) || ramoNormalizado === 'Visión'
+            };
+
+            const tablaCompletaCoberturas = quote.tablaCompletaCoberturas || [];
+            const hasCoberturas = tablaCompletaCoberturas.length > 0;
+
+            const quoteWithDefaults = {
+                id: quote.id,
+                nombreArchivo: quote.nombreArchivo || 'documento.pdf',
+                compania: quote.compania || 'Desconocida',
+                ramo,
+                ramoLabel: quote.ramoLabel || this.getRamoLabel(ramo),
+                plan: quote.plan || 'No especificado',
+                primaTotal: this.extractPrimaTotal(quote) || 0,
+                primaTotalFormatted: quote.primaTotalFormatted || this.formatCurrency(this.extractPrimaTotal(quote) || 0),
+                extractionConfidence: quote.extractionConfidence || 0,
+                fechaExtraccion: quote.fechaExtraccion || new Date().toISOString(),
+                tablaCompletaCoberturas,
+                hasCoberturas,
+                coberturasCount: tablaCompletaCoberturas.length,
+                isExpanded: true,
+                expandIcon: 'utility:chevronup',
+                expandText: 'Colapsar',
+                showClienteInfo: false,
+                clienteIcon: 'utility:chevronright',
+                showCoberturas: false,
+                coberturasIcon: 'utility:chevronright',
+                ...flags,
+                ...this.extractRamoSpecificData(quote, flags),
+                clienteNombre: quote.clienteNombre || '',
+                clienteRFC: quote.clienteRFC || '',
+                clienteEmail: quote.clienteEmail || '',
+                clienteTelefono: quote.clienteTelefono || '',
+                clienteCP: quote.clienteCP || '',
+                clienteDireccion: quote.clienteDireccion || '',
+                formaPago: quote.formaPago || '',
+                vigencia: quote.vigencia || '',
+                moneda: quote.moneda || 'MXN'
+            };
+
+            const quoteWithKeys = this.procesarArraysParaKeys(quoteWithDefaults);
+            const confidenceColor = this.getConfidenceColor(quoteWithKeys.extractionConfidence || 0);
+
+            const quoteFinal = {
+                ...quoteWithKeys,
+                confidenceBarStyle: `width: ${quoteWithKeys.extractionConfidence}%; background-color: ${confidenceColor};`,
+                confidenceTextStyle: `color: ${confidenceColor}; font-weight: bold;`,
+                uploadDateFormatted: new Date(quoteWithKeys.fechaExtraccion).toLocaleDateString('es-MX', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                }),
+                ramoIcon: this.getRamoIcon(ramoNormalizado)
+            };
+
+            const quoteWithIndex = { ...quoteFinal, index: this.uploadedQuotes.length + 1 };
+            const existingIndex = this.uploadedQuotes.findIndex(q => q && q.id === quoteWithIndex.id);
+
+            if (existingIndex >= 0) {
+                this.uploadedQuotes = [
+                    ...this.uploadedQuotes.slice(0, existingIndex),
+                    quoteWithIndex,
+                    ...this.uploadedQuotes.slice(existingIndex + 1)
+                ];
+            } else {
+                this.uploadedQuotes = [...this.uploadedQuotes, quoteWithIndex];
+            }
+
+            try {
+                this.updateOpportunityFromExtractedData(quoteWithIndex);
+                this.updateBestQuote();
+            } catch (e) { /* ignorar */ }
+
+            this.recomputeComparativa();
+            this.hasExtractedData = true;
+            this.showToast('Éxito', `PDF procesado: ${quote.compania || 'Desconocido'} - ${quoteWithIndex.ramoLabel}`, 'success');
+        } catch (error) {
+            this.showToast('Error', `Error al procesar el PDF: ${error.message || 'Error desconocido'}`, 'error');
+        }
+    }
+
+    matchRamo(ramo, keywords) {
+        if (!ramo) return false;
+        const up = String(ramo).toUpperCase();
+        return keywords.some(k => up.includes(k));
+    }
+
+    extractRamoSpecificData(quote, flags) {
+        if (flags.isViaje) {
+            return {
+                destino: quote.destino || '', origen: quote.origen || 'México',
+                numViajeros: quote.numViajeros || 1, fechaSalida: quote.fechaSalida || '',
+                fechaLlegada: quote.fechaLlegada || '', duracion: quote.duracion || '',
+                plan: quote.plan || '', coberturasViaje: quote.coberturasViaje || [],
+                asistenciasIncluidas: quote.asistenciasIncluidas || []
+            };
+        }
+        if (flags.isAutomovil) {
+            return {
+                marca: quote.marca || '', modelo: quote.modelo || '',
+                placa: quote.placa || '', serie: quote.serie || '',
+                motor: quote.motor || '', anio: quote.anio || '',
+                uso: quote.uso || '', servicio: quote.servicio || '',
+                descripcion: quote.descripcion || ''
+            };
+        }
+        if (flags.isGastosMedicos) {
+            return {
+                plan: quote.plan || '', sumaAsegurada: quote.sumaAsegurada || '',
+                deducible: quote.deducible || '', coaseguro: quote.coaseguro || '',
+                topeCoaseguro: quote.topeCoaseguro || '', redHospitalaria: quote.redHospitalaria || '',
+                tabuladorMedico: quote.tabuladorMedico || '', lugarResidencia: quote.lugarResidencia || '',
+                tipoNegocio: quote.tipoNegocio || '', maternidad: quote.maternidad || false,
+                asegurados: quote.asegurados || [],
+                primaNeta: quote.primaNeta || '', primaTotal: quote.primaTotal || 0,
+                iva: quote.iva || '', derechoPoliza: quote.derechoPoliza || ''
+            };
+        }
+        if (flags.isRC) {
+            return {
+                tipoRC: quote.tipoRC || '', tipoEspecifico: quote.tipoEspecifico || '',
+                profesion: quote.profesion || '', actividad: quote.actividad || '',
+                giro: quote.giro || '', sumaAsegurada: quote.sumaAsegurada || '',
+                deducible: quote.deducible || ''
+            };
+        }
+        if (flags.isVida) {
+            return {
+                edadVida: quote.edadVida || '', sexoVida: quote.sexoVida || '',
+                fumador: quote.fumador || false, ocupacion: quote.ocupacion || '',
+                sumaFallecimiento: quote.sumaFallecimiento || '', sumaInvalidez: quote.sumaInvalidez || '',
+                aportacionAnual: quote.aportacionAnual || '', plazo: quote.plazo || ''
+            };
+        }
+        if (flags.isTransporte) {
+            return {
+                bienesCubiertos: quote.bienesCubiertos || '', medioTransporte: quote.medioTransporte || '',
+                origen: quote.origen || '', destino: quote.destino || '',
+                limiteEmbarque: quote.limiteEmbarque || '', riesgosAmparados: quote.riesgosAmparados || []
+            };
+        }
+        return {};
+    }
+
+    extractPrimaTotal(quote) {
+        if (!quote) return 0;
+        const posibles = [quote.primaTotal, quote.prima, quote.primaNeta,
+                          quote.PrimaTotal__c, quote['Prima Total'], quote.total, quote.monto];
+        for (const p of posibles) {
+            if (p) {
+                const n = parseFloat(p);
+                if (!isNaN(n) && n > 0) return n;
+            }
+        }
+        return 0;
+    }
+
+    updateBestQuote() {
+        if (this.uploadedQuotes.length === 0) return;
+        const best = [...this.uploadedQuotes].sort((a, b) => {
+            const ca = a.extractionConfidence || 0, cb = b.extractionConfidence || 0;
+            if (ca !== cb) return cb - ca;
+            const pa = a.primaTotal || 0, pb = b.primaTotal || 0;
+            if (pa > 0 && pb > 0) return pa - pb;
+            if (pa > 0) return -1;
+            if (pb > 0) return 1;
+            return 0;
+        })[0];
+        this.updateOpportunityFromExtractedData(best);
+    }
+
+    // ============================================================
+    // NORMALIZACIÓN DE NOMBRES
+    // ============================================================
+    normalizarRamoParaCSS(ramo) {
+        if (!ramo) return 'Desconocido';
+        const u = String(ramo).toUpperCase();
+        const mapping = {
+            'AUTOMOVIL': 'Automóvil', 'AUTO': 'Automóvil',
+            'GASTOS_MEDICOS': 'Gastos Médicos', 'GMM': 'Gastos Médicos',
+            'VIDA': 'Vida', 'VIAJE': 'Viaje', 'VIAJES': 'Viaje',
+            'HOGAR': 'Hogar', 'DANOS': 'Daños', 'DAÑOS': 'Daños',
+            'MASCOTAS': 'Mascotas', 'EMPRESARIAL': 'Empresarial',
+            'RESPONSABILIDAD_CIVIL': 'Responsabilidad Civil', 'RC': 'Responsabilidad Civil',
+            'TRANSPORTE': 'Transporte', 'FIANZAS': 'Fianzas',
+            'DENTAL': 'Dental', 'VISION': 'Visión'
+        };
+        for (const [key, value] of Object.entries(mapping)) if (u.includes(key)) return value;
+        return ramo;
+    }
+
+    getRamoLabel(ramo) {
+        if (!ramo) return 'Desconocido';
+        const labels = {
+            'AUTOMOVIL': 'Automóvil', 'AUTOMOVILES': 'Automóvil', 'AUTO': 'Automóvil',
+            'GASTOS_MEDICOS': 'Gastos Médicos', 'GMM': 'Gastos Médicos',
+            'VIDA': 'Vida', 'VIAJE': 'Viaje', 'VIAJES': 'Viaje',
+            'HOGAR': 'Hogar', 'DANOS': 'Daños', 'DAÑOS': 'Daños',
+            'MASCOTAS': 'Mascotas', 'EMPRESARIAL': 'Empresarial',
+            'RESPONSABILIDAD_CIVIL': 'Responsabilidad Civil', 'RC': 'Responsabilidad Civil',
+            'TRANSPORTE': 'Transporte', 'FIANZAS': 'Fianzas',
+            'DENTAL': 'Dental', 'VISION': 'Visión'
+        };
+        return labels[String(ramo).toUpperCase()] || ramo;
+    }
+
+    getRamoIcon(ramo) {
+        if (!ramo) return 'utility:question';
+        const icons = {
+            'AUTOMOVIL': 'utility:car', 'AUTOMOVILES': 'utility:car', 'AUTO': 'utility:car',
+            'GASTOS_MEDICOS': 'utility:health', 'GMM': 'utility:health',
+            'VIDA': 'utility:heart', 'VIAJE': 'utility:flight', 'VIAJES': 'utility:flight',
+            'HOGAR': 'utility:home', 'DANOS': 'utility:warning', 'DAÑOS': 'utility:warning',
+            'MASCOTAS': 'utility:animal_and_nature', 'EMPRESARIAL': 'utility:company',
+            'RESPONSABILIDAD_CIVIL': 'utility:law', 'RC': 'utility:law',
+            'TRANSPORTE': 'utility:ship', 'FIANZAS': 'utility:money',
+            'DENTAL': 'utility:tooth', 'VISION': 'utility:eye'
+        };
+        return icons[String(ramo).toUpperCase()] || 'utility:document';
+    }
+
+    procesarArraysParaKeys(quote) {
+        if (!quote) return quote;
+        const r = { ...quote };
+        if (Array.isArray(r.tablaCompletaCoberturas)) {
+            r.tablaCompletaCoberturas = r.tablaCompletaCoberturas.map((item, idx) => ({
+                ...item,
+                key: `cobertura-${quote.id}-${idx}-${(item.cobertura || item.nombre || 'cov').replace(/\s+/g, '-')}`
+            }));
+        }
+        if (Array.isArray(r.asegurados)) {
+            r.asegurados = r.asegurados.map((item, idx) => ({
+                ...item,
+                key: `asegurado-${quote.id}-${idx}-${(item.nombre || 'aseg').replace(/\s+/g, '-')}`
+            }));
+        }
+        if (Array.isArray(r.coberturasViaje)) {
+            r.coberturasViaje = r.coberturasViaje.map((item, idx) => ({
+                ...item,
+                key: `cov-viaje-${quote.id}-${idx}-${(item.nombre || 'cov').replace(/\s+/g, '-')}`,
+                uniqueKey: `cov-viaje-${quote.id}-${idx}`
+            }));
+        }
+        if (Array.isArray(r.riesgosAmparados)) {
+            r.riesgosAmparados = r.riesgosAmparados.map((item, idx) => ({
+                ...item,
+                key: `riesgo-${quote.id}-${idx}-${(item.nombre || 'riesgo').replace(/\s+/g, '-')}`,
+                uniqueKey: `riesgo-${quote.id}-${idx}`
+            }));
+        }
+        return r;
+    }
+
+    getConfidenceColor(c) {
+        if (c >= 80) return '#00875A';
+        if (c >= 60) return '#FF8C00';
+        return '#DE350B';
+    }
+
+    // ============================================================
+    // ACTUALIZAR OPORTUNIDAD DESDE DATOS EXTRAÍDOS
+    // ============================================================
+    updateOpportunityFromExtractedData(extractedData) {
+        if (!extractedData || Array.isArray(extractedData)) return;
+        try {
+            if (!this.opportunity.Name && extractedData.compania) {
+                const ramoLabel = extractedData.ramoLabel || extractedData.ramo || 'Seguro';
+                const clienteNombre = extractedData.clienteNombre || 'Cliente';
+                this.opportunity.Name = `${ramoLabel} - ${extractedData.compania} - ${clienteNombre}`.substring(0, 80);
+            }
+            if (!this.opportunity.Ramo__c) {
+                const mapped = this.mapRamoToOption(extractedData.ramo);
+                if (mapped) this.opportunity.Ramo__c = mapped;
+            }
+            if (extractedData.clienteNombre    && !this.opportunity.clienteNombre)    this.opportunity.clienteNombre    = extractedData.clienteNombre;
+            if (extractedData.clienteEmail     && !this.opportunity.clienteEmail)     this.opportunity.clienteEmail     = extractedData.clienteEmail;
+            if (extractedData.clienteTelefono  && !this.opportunity.clienteTelefono)  this.opportunity.clienteTelefono  = extractedData.clienteTelefono;
+            if (extractedData.clienteRFC       && !this.opportunity.clienteRFC)       this.opportunity.clienteRFC       = extractedData.clienteRFC;
+            if (extractedData.clienteCP        && !this.opportunity.clienteCP)        this.opportunity.clienteCP        = extractedData.clienteCP;
+            if (extractedData.clienteDireccion && !this.opportunity.clienteDireccion) this.opportunity.clienteDireccion = extractedData.clienteDireccion;
+
+            if (extractedData.marca || extractedData.modelo) {
+                this.automovil = {
+                    ...this.automovil,
+                    Marca__c:  extractedData.marca  || this.automovil.Marca__c,
+                    Modelo__c: extractedData.modelo || this.automovil.Modelo__c,
+                    Placa__c:  extractedData.placa  || this.automovil.Placa__c,
+                    Serie__c:  extractedData.serie  || this.automovil.Serie__c,
+                    Anio__c:   extractedData.anio   || this.automovil.Anio__c,
+                    descripcion_completa__c: extractedData.descripcion || this.automovil.descripcion_completa__c
+                };
+            }
+            if (extractedData.asegurados && extractedData.asegurados.length > 0) {
+                this.gmm = {
+                    ...this.gmm,
+                    tipoEstructura: extractedData.asegurados.length > 1 ? 'Familiar' : 'Individual',
+                    numAsegurados: extractedData.asegurados.length
+                };
+            }
+            if (extractedData.redHospitalaria) this.gmm.redHospitalaria = extractedData.redHospitalaria;
+            if (extractedData.destino)      this.viaje.destino       = extractedData.destino;
+            if (extractedData.numViajeros)  this.viaje.numPasajeros  = extractedData.numViajeros;
+            if (extractedData.fechaSalida)  this.viaje.fechaSalida   = extractedData.fechaSalida;
+            if (extractedData.subramo)      this.vida.subramo        = extractedData.subramo;
+            if (extractedData.edadVida)     this.vida.edadVida       = extractedData.edadVida;
+
+            this.applyCanalRules(extractedData);
+            this.extractedOpportunityData = extractedData;
+        } catch (e) { /* ignore */ }
+    }
+
+    mapRamoToOption(ramoDetectado) {
+        if (!ramoDetectado) return null;
+        const u = ramoDetectado.toUpperCase();
+        const mapping = {
+            'AUTOMOVIL': RAMO_TYPES.AUTOMOVIL, 'AUTO': RAMO_TYPES.AUTOMOVIL,
+            'VEHICULO': RAMO_TYPES.AUTOMOVIL, 'CARRO': RAMO_TYPES.AUTOMOVIL,
+            'VIAJE': RAMO_TYPES.VIAJE, 'TRAVEL': RAMO_TYPES.VIAJE, 'VIAJES': RAMO_TYPES.VIAJE,
+            'GASTOS_MEDICOS': RAMO_TYPES.GASTOS_MEDICOS, 'GMM': RAMO_TYPES.GASTOS_MEDICOS,
+            'GASTOS MEDICOS': RAMO_TYPES.GASTOS_MEDICOS, 'MEDICO': RAMO_TYPES.GASTOS_MEDICOS,
+            'VIDA': RAMO_TYPES.VIDA, 'LIFE': RAMO_TYPES.VIDA,
+            'DANOS': RAMO_TYPES.DANOS, 'DAÑOS': RAMO_TYPES.DANOS,
+            'HOGAR': RAMO_TYPES.DANOS, 'MASCOTAS': RAMO_TYPES.DANOS,
+            'RESPONSABILIDAD CIVIL': RAMO_TYPES.RESPONSABILIDAD_CIVIL, 'RC': RAMO_TYPES.RESPONSABILIDAD_CIVIL,
+            'EMPRESARIAL': RAMO_TYPES.EMPRESARIAL, 'BUSINESS': RAMO_TYPES.EMPRESARIAL,
+            'FIANZAS': RAMO_TYPES.FIANZAS, 'DENTAL': RAMO_TYPES.DENTAL, 'VISION': RAMO_TYPES.VISION
+        };
+        for (const [k, v] of Object.entries(mapping)) if (u.includes(k)) return v;
+        return null;
+    }
+
+    applyCanalRules(quoteData) {
+        const directos = ['Avanza Seguro Consultores', 'Abraham González'];
+        const agente = quoteData.agente;
+        if (agente && directos.includes(agente)) this.opportunity.Canal__c = 'Directo';
+        else if (agente)                          this.opportunity.Canal__c = 'Agente';
+        else if (quoteData.origen === 'web' || quoteData.origen === 'digital') this.opportunity.Canal__c = 'Digital';
+    }
+
+    // ============================================================
+    // GUARDAR
+    // ============================================================
+    async saveOpportunity() {
+        if (this.isSaving) return;
+        // Bloqueo por etapa: sólo se guarda si está en Gestión Comercial
+        if (this.isOpportunityReadOnly) {
+            this.showToast('Bloqueado',
+                'Esta oportunidad ya no está en etapa Gestión Comercial; sus datos no se pueden modificar.',
+                'warning');
+            return;
+        }
+        this.isSaving = true;
+        this.isLoading = true;
+        try {
+            if (!this.opportunity.Name)     { this.showToast('Error', 'El nombre de la oportunidad es requerido', 'error'); return; }
+            if (!this.opportunity.StageName){ this.showToast('Error', 'La etapa es requerida', 'error'); return; }
+            if (!this.opportunity.Ramo__c)  { this.showToast('Error', 'El ramo es requerido', 'error'); return; }
+            // La cuenta es obligatoria: o se seleccionó una existente, o se va a crear una nueva
+            if (!this.opportunity.AccountId && !this.isNewAccount) {
+                this.showToast('Error', 'Selecciona una cuenta o elige "Crear cuenta nueva".', 'error');
+                return;
+            }
+            if (this.isNewAccount) {
+                // Para una cuenta nueva, el nombre de la cuenta se arma con los datos del cliente.
+                let newAccName = this.opportunity.AccountName;
+                if (!newAccName) {
+                    if (this.opportunity.tipoCliente === 'Persona') {
+                        newAccName = `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidos || ''}`.trim();
+                    } else {
+                        newAccName = this.opportunity.clienteNombre || '';
+                    }
+                }
+                if (!newAccName) {
+                    this.showToast('Error',
+                        'Captura el nombre del cliente en "Información del Cliente" para crear la cuenta nueva.',
+                        'error');
+                    return;
+                }
+                this.opportunity = { ...this.opportunity, AccountName: newAccName };
+            }
+
+            // Llamada al Apex: crea/actualiza la oportunidad (y la cuenta si es nueva)
+            const savedId = await apexSaveOpportunity({
+                opportunityJson: JSON.stringify(this.opportunity),
+                isNewAccount: this.isNewAccount
+            });
+
+            if (savedId) {
+                this.opportunity = { ...this.opportunity, Id: savedId };
+            }
+
+            this.showToast('Éxito',
+                this.isEditMode ? 'Oportunidad actualizada correctamente' : 'Oportunidad creada correctamente',
+                'success');
+
+            // Refrescar la lista y volver
+            await this.loadOpportunities();
+            setTimeout(() => this.handleBackToList(), 1000);
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error(':::OpportunityCreator::: Error al guardar', error);
+            const msg = error?.body?.message || error?.message || 'Error al guardar la oportunidad';
+            this.showToast('Error', msg, 'error');
+        } finally {
+            this.isSaving = false;
+            this.isLoading = false;
+        }
+    }
+
+    // ============================================================
+    // UTILERÍA / DEFAULTS
+    // ============================================================
+    getDefaultOpportunity() {
+        return {
+            Name: '', Type: OPPORTUNITY_TYPES.NEW_BUSINESS,
+            StageName: 'Gestion Comercial', Canal__c: '', Mercado__c: '',
+            Ramo__c: '', Description: '', AccountId: null, AccountName: '',
+            Id: null,
+            tipoCliente: 'Persona',
+            clienteNombre: '', clienteApellidos: '', clienteRFC: '', clienteCP: '',
+            clienteEmail: '', clienteTelefono: '', clienteDireccion: ''
+        };
+    }
+    getDefaultAutomovil() { return { descripcion_completa__c: '', Placa__c: '', Serie__c: '', Modelo__c: '', Marca__c: '', Anio__c: '' }; }
+    getDefaultGMM()       { return { estado: '', tipoEstructura: '', numAsegurados: 1 }; }
+    getDefaultVida()      { return { aseguradoPrincipal: '', contratante: '', subramo: '' }; }
+    getDefaultViaje()     { return { destino: '', numPasajeros: 1 }; }
+    getDefaultDanos()     { return { subramo: '' }; }
+
+    handleBackToList() {
+        this.viewMode = VIEW_MODES.LIST;
+        this.resetWizard();
+    }
+    handleCreateNew() {
+        this.resetWizard();
+        this.viewMode = VIEW_MODES.CREATE;
+    }
+    resetWizard() {
+        this.opportunity = this.getDefaultOpportunity();
+        this.automovil = this.getDefaultAutomovil();
+        this.gmm = this.getDefaultGMM();
+        this.vida = this.getDefaultVida();
+        this.viaje = this.getDefaultViaje();
+        this.danos = this.getDefaultDanos();
+        this.uploadedQuotes = [];
+        this.hasExtractedData = false;
+        this.extractedOpportunityData = null;
+        this.selectedQuoteRamo = '';
+        this.tablaComparativaCache = [];
+        this.companiasConCoberturasCache = [];
+        this.totalCoberturasUnicas = 0;
+        this.relatedQuotes = [];
+        this.showAccountDropdown = false;
+        this.accountResults = [];
+        this.isNewAccount = false;
+    }
+
+    showToast(title, message, variant) {
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    }
+
+    addMoreQuotes() {
+        const uploader = this.template.querySelector('c-cotizacion-op-lector');
+        if (uploader && typeof uploader.openFilePicker === 'function') uploader.openFilePicker();
+    }
+
+    toggleQuoteExpand(event) {
+        event.preventDefault(); event.stopPropagation();
+        const quoteId = event.currentTarget.dataset.quoteId;
+        if (!quoteId) return;
+        this.uploadedQuotes = this.uploadedQuotes.map(q => {
+            if (q.id !== quoteId) return q;
+            const isExpanded = !q.isExpanded;
+            return {
+                ...q, isExpanded,
+                expandIcon: isExpanded ? 'utility:chevronup' : 'utility:chevrondown',
+                expandText: isExpanded ? 'Colapsar' : 'Expandir'
+            };
+        });
+    }
+
+    removeQuote(event) {
+        const quoteId = event.currentTarget.dataset.quoteId;
+        if (!quoteId) return;
+        this.uploadedQuotes = this.uploadedQuotes.filter(q => q.id !== quoteId);
+        this.recomputeComparativa();
+    }
+}

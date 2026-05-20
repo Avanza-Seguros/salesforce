@@ -1,0 +1,1628 @@
+/* ========================================== */
+/* ESTILOS PARA QUOTE CREATOR - VERSIÓN PREMIUM */
+/* ========================================== */
+
+:host {
+    display: block;
+    contain: content;
+    --primary-color: #0052CC;
+    --primary-dark: #0041A3;
+    --secondary-color: #00A3BF;
+    --success-color: #00875A;
+    --warning-color: #FF8C00;
+    --error-color: #DE350B;
+    --text-primary: #000000;
+    --text-secondary: #1A1A1A;
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #F2F2F2;
+    --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
+    --border-radius-sm: 0.375rem;
+    --border-radius-md: 0.5rem;
+    --border-radius-lg: 0.75rem;
+    --border-radius-xl: 1rem;
+    --transition-normal: 250ms ease;
+}
+
+/* Header Premium */
+.premium-header {
+    background: #001C3D;
+    padding: 2rem;
+    color: white;
+    border-bottom: 5px solid #00A3BF;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.wizard-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.wizard-subtitle {
+    font-size: 1rem;
+    color: #FFE484;
+    margin-top: 0.25rem;
+}
+
+/* Stats */
+.quotes-stats {
+    display: flex;
+    gap: 2rem;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1rem 1.5rem;
+    border-radius: 20px;
+    border: 2px solid #00A3BF;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #B3D9FF;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+/* List View */
+.list-view-container {
+    padding: 2rem 3rem;
+}
+
+.list-actions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+}
+
+.search-container {
+    flex: 1;
+    max-width: 400px;
+}
+
+.action-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.action-btn.primary {
+    background: #0052CC;
+    color: white;
+    border-color: #003D99;
+}
+
+.action-btn.primary:hover {
+    background: #003D99;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.action-btn.secondary {
+    background: white;
+    color: #0052CC;
+    border-color: #0052CC;
+}
+
+.action-btn.secondary:hover {
+    background: #E6F0FF;
+}
+
+/* Quote Cards */
+.quotes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.quote-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+    border: 2px solid #D0D0D0;
+}
+
+.quote-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: #0052CC;
+}
+
+.quote-header {
+    padding: 1.25rem 1.5rem;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.quote-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+}
+
+.quote-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+.quote-opportunity, .quote-status {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.quote-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+    background: rgba(255,255,255,0.4);
+    transform: scale(1.1);
+}
+
+.icon-btn.danger:hover {
+    background: #DE350B;
+    border-color: #DE350B;
+}
+
+.quote-body {
+    padding: 1.25rem 1.5rem;
+    background: white;
+}
+
+.quote-ramo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.ramo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+}
+
+.quote-premium {
+    text-align: right;
+}
+
+.premium-label {
+    font-size: 0.7rem;
+    color: #666;
+    display: block;
+}
+
+.premium-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0052CC;
+}
+
+.quote-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.date-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.quote-coverages-summary {
+    padding-top: 0.5rem;
+    border-top: 2px solid #E0E0E0;
+}
+
+.coverages-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.quote-footer {
+    padding: 1rem 1.5rem;
+    background: #F5F5F5;
+    border-top: 2px solid #E0E0E0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quote-company {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.view-details-btn {
+    background: none;
+    border: none;
+    color: #0052CC;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: all 0.2s ease;
+}
+
+.view-details-btn:hover {
+    gap: 0.6rem;
+    color: #003D99;
+}
+
+/* Create/Edit View */
+.back-to-list {
+    padding: 1rem 2rem;
+    background: white;
+    border-bottom: 2px solid #CCCCCC;
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    color: #0052CC;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+    transform: translateX(-4px);
+    color: #003D99;
+}
+
+.content-container {
+    margin: 2rem;
+    background: white;
+    border-radius: 1.5rem;
+    border: 2px solid #E0E0E0;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.unified-view {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.unified-section {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 2px solid #D0D0D0;
+}
+
+.section-header-compact {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid #0052CC;
+    flex-wrap: wrap;
+}
+
+.section-icon {
+    width: 40px;
+    height: 40px;
+    background: #0052CC;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.section-title-group {
+    flex: 1;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem 0;
+    color: #001C3D;
+}
+
+.section-subtitle {
+    font-size: 0.875rem;
+    color: #333;
+    margin: 0;
+}
+
+.section-badge {
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: #E0E0E0;
+    color: #1A1A1A;
+}
+
+.section-badge.required-badge {
+    background: #DE350B;
+    color: white;
+}
+
+/* Formularios */
+.form-container {
+    overflow: visible;
+}
+
+.form-grid.two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.25rem;
+    border: 2px solid #E0E0E0;
+    transition: all 0.3s ease;
+}
+
+.form-card:hover {
+    border-color: #0052CC;
+    box-shadow: var(--shadow-sm);
+}
+
+.form-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #E0E0E0;
+}
+
+.form-card-header h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1A1A1A;
+}
+
+.required-asterisk {
+    color: #DE350B;
+    font-size: 1.2rem;
+    margin-left: 2px;
+}
+
+.date-range {
+    display: flex;
+    gap: 1rem;
+}
+
+.date-range .date-input {
+    flex: 1;
+}
+
+/* Lookup */
+.lookup-container {
+    position: relative;
+}
+
+.lookup-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #0052CC;
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+.lookup-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.lookup-result-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #E0E0E0;
+    transition: all 0.2s ease;
+}
+
+.lookup-result-item:hover {
+    background: #E6F0FF;
+}
+
+.result-name {
+    font-weight: 700;
+    color: #1A1A1A;
+}
+
+.result-details {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.no-results {
+    padding: 1rem;
+    text-align: center;
+    color: #666;
+}
+
+/* Coberturas */
+.coverages-container {
+    margin-top: 1rem;
+}
+
+.coverages-summary-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #F0F9FF;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 2px solid #00A3BF;
+}
+
+.summary-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #1A1A1A;
+}
+
+.summary-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: #0052CC;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: all 0.2s ease;
+}
+
+.link-btn:hover {
+    color: #003D99;
+    text-decoration: underline;
+}
+
+.coverages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.coverage-item {
+    background: white;
+    border-radius: 12px;
+    border: 2px solid #E0E0E0;
+    transition: all 0.3s ease;
+}
+
+.coverage-item[data-selected="true"] {
+    border-color: #0052CC;
+    background: #F5F9FF;
+}
+
+.coverage-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.coverage-checkbox {
+    flex-shrink: 0;
+}
+
+.coverage-name {
+    flex: 1;
+}
+
+.coverage-name strong {
+    font-size: 1rem;
+    color: #1A1A1A;
+}
+
+.coverage-description {
+    display: block;
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.coverage-premium {
+    text-align: right;
+}
+
+.premium-amount {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0052CC;
+}
+
+.coverage-details {
+    padding: 1rem;
+    border-top: 2px solid #E0E0E0;
+    background: #F9F9F9;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.detail-field label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+}
+
+.calculated-premium {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #00875A;
+    padding: 0.5rem;
+    background: #E0F2E9;
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Empty States */
+.empty-state, .empty-coverages {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: 20px;
+    border: 2px dashed #0052CC;
+}
+
+.empty-state h3, .empty-coverages h4 {
+    font-size: 1.5rem;
+    color: #1A1A1A;
+    margin: 1rem 0 0.5rem;
+}
+
+.empty-state p, .empty-coverages p {
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.loading-container, .loading-coverages {
+    text-align: center;
+    padding: 4rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Summary Actions */
+.summary-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.summary-actions .action-btn {
+    min-width: 160px;
+    padding: 0.9rem 2rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .premium-header, .list-view-container, .content-container {
+        padding: 1rem !important;
+        margin: 1rem !important;
+    }
+    
+    .header-content, .list-actions-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .quotes-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-grid.two-columns {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .details-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .coverages-summary-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .summary-actions {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .wizard-title {
+        font-size: 1.5rem;
+    }
+    
+    .header-left {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .quotes-stats {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .coverage-header {
+        flex-wrap: wrap;
+    }
+    
+    .coverage-premium {
+        width: 100%;
+        text-align: left;
+        padding-left: 2rem;
+    }
+    
+    .summary-actions {
+        flex-direction: column;
+    }
+    
+    .summary-actions .action-btn {
+        width: 100%;
+    }
+}
+
+/* ----- FILTROS ----- */
+.list-actions-bar { flex-wrap: wrap; gap: 0.75rem; }
+.filter-container .status-filter { min-width: 200px; }
+
+/* ----- PAGINACIÓN ----- */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid #E5E7EB;
+}
+.pagination-bar .page-info {
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 140px;
+    text-align: center;
+}
+.pagination-bar .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* ----- BADGES DE ESTADO DE COTIZACIÓN ----- */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.status-badge.status-accepted { background:#E6F4EA; color:#00875A; border-color:#B2DBC1; }
+.status-badge.status-sent     { background:#E6F0FF; color:#0052CC; border-color:#B3CCFF; }
+.status-badge.status-rejected { background:#FFE7E0; color:#B3260A; border-color:#F5B8A4; }
+.status-badge.status-expired  { background:#FFF4DB; color:#B65C00; border-color:#FFE08A; }
+.status-badge.status-draft    { background:#F2F2F2; color:#4D4D4D; border-color:#D9D9D9; }
+
+.expired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: #FFE7E0;
+    color: #B3260A;
+    border: 1px solid #F5B8A4;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+/* ----- DROPDOWN DE LOOKUP ----- */
+.lookup-container { position: relative; }
+.lookup-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+    background: #fff; border: 1px solid #D1D5DB; border-radius: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15); max-height: 280px; overflow-y: auto;
+    margin-top: 0.25rem;
+}
+.lookup-results { list-style: none; margin: 0; padding: 0; }
+.lookup-result-item {
+    padding: 0.5rem 0.75rem; cursor: pointer; border-bottom: 1px solid #F3F4F6;
+}
+.lookup-result-item:last-child { border-bottom: none; }
+.lookup-result-item:hover { background: #F5F7FA; }
+.result-name { font-weight: 600; color: #111827; }
+.result-details { font-size: 0.85rem; color: #6B7280; }
+.no-results { padding: 0.75rem; color: #9CA3AF; text-align: center; font-style: italic; }
+
+/* ----- RESPONSIVE ----- */
+@media (max-width: 768px) {
+    .list-actions-bar { flex-direction: column; align-items: stretch; }
+    .filter-container { width: 100%; }
+    .filter-container .status-filter { width: 100%; }
+    .pagination-bar { flex-wrap: wrap; }
+}
+
+/* ============================================================ */
+/* AÑADIR AL FINAL DE quoteCreator.css                            */
+/* Estilos para filtros, paginación, badges de estado y          */
+/* dropdown de lookup de aseguradora.                            */
+/* ============================================================ */
+
+/* ----- FILTROS ----- */
+.list-actions-bar { flex-wrap: wrap; gap: 0.75rem; }
+.filter-container .status-filter { min-width: 200px; }
+
+/* ----- PAGINACIÓN ----- */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid #E5E7EB;
+}
+.pagination-bar .page-info {
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 140px;
+    text-align: center;
+}
+.pagination-bar .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* ----- BADGES DE ESTADO DE COTIZACIÓN ----- */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.status-badge.status-accepted { background:#E6F4EA; color:#00875A; border-color:#B2DBC1; }
+.status-badge.status-sent     { background:#E6F0FF; color:#0052CC; border-color:#B3CCFF; }
+.status-badge.status-rejected { background:#FFE7E0; color:#B3260A; border-color:#F5B8A4; }
+.status-badge.status-expired  { background:#FFF4DB; color:#B65C00; border-color:#FFE08A; }
+.status-badge.status-draft    { background:#F2F2F2; color:#4D4D4D; border-color:#D9D9D9; }
+
+.expired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: #FFE7E0;
+    color: #B3260A;
+    border: 1px solid #F5B8A4;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+/* ----- CAMPO READ-ONLY (Ramo heredado) ----- */
+.readonly-field {
+    padding: 0.5rem 0.75rem;
+    background: #F5F7FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.375rem;
+    color: #111827;
+    font-weight: 600;
+}
+.helper-text {
+    font-size: 0.85rem;
+    color: #6B7280;
+    margin-top: 0.35rem;
+}
+
+/* ----- TABLA DE COBERTURAS DEL PRODUCTO ----- */
+.coverages-table th,
+.coverages-table td { vertical-align: middle; }
+.coverages-table .amount-cell { font-weight: 600; text-align: right; }
+.coverage-code {
+    font-size: 0.78rem;
+    color: #6B7280;
+    margin-top: 0.15rem;
+}
+
+/* ----- DROPDOWN DE LOOKUP ----- */
+.lookup-container { position: relative; }
+.lookup-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+    background: #fff; border: 1px solid #D1D5DB; border-radius: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15); max-height: 280px; overflow-y: auto;
+    margin-top: 0.25rem;
+}
+.lookup-results { list-style: none; margin: 0; padding: 0; }
+.lookup-result-item {
+    padding: 0.5rem 0.75rem; cursor: pointer; border-bottom: 1px solid #F3F4F6;
+}
+.lookup-result-item:last-child { border-bottom: none; }
+.lookup-result-item:hover { background: #F5F7FA; }
+.result-name { font-weight: 600; color: #111827; }
+.result-details { font-size: 0.85rem; color: #6B7280; }
+.no-results { padding: 0.75rem; color: #9CA3AF; text-align: center; font-style: italic; }
+
+/* ----- RESPONSIVE ----- */
+@media (max-width: 768px) {
+    .list-actions-bar { flex-direction: column; align-items: stretch; }
+    .filter-container { width: 100%; }
+    .filter-container .status-filter { width: 100%; }
+    .pagination-bar { flex-wrap: wrap; }
+}
+
+/* ============================================================ */
+/* AÑADIR AL FINAL DE quoteCreator.css                            */
+/* Estilos para filtros, paginación, badges de estado y          */
+/* dropdown de lookup de aseguradora.                            */
+/* ============================================================ */
+
+/* ----- FILTROS ----- */
+.list-actions-bar { flex-wrap: wrap; gap: 0.75rem; }
+.filter-container .status-filter { min-width: 200px; }
+
+/* ----- PAGINACIÓN ----- */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid #E5E7EB;
+}
+.pagination-bar .page-info {
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 140px;
+    text-align: center;
+}
+.pagination-bar .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* ----- BADGES DE ESTADO DE COTIZACIÓN ----- */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.status-badge.status-accepted { background:#E6F4EA; color:#00875A; border-color:#B2DBC1; }
+.status-badge.status-sent     { background:#E6F0FF; color:#0052CC; border-color:#B3CCFF; }
+.status-badge.status-rejected { background:#FFE7E0; color:#B3260A; border-color:#F5B8A4; }
+.status-badge.status-expired  { background:#FFF4DB; color:#B65C00; border-color:#FFE08A; }
+.status-badge.status-draft    { background:#F2F2F2; color:#4D4D4D; border-color:#D9D9D9; }
+
+.expired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: #FFE7E0;
+    color: #B3260A;
+    border: 1px solid #F5B8A4;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+/* ----- CAMPO READ-ONLY (Ramo heredado) ----- */
+.readonly-field {
+    padding: 0.5rem 0.75rem;
+    background: #F5F7FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.375rem;
+    color: #111827;
+    font-weight: 600;
+}
+.helper-text {
+    font-size: 0.85rem;
+    color: #6B7280;
+    margin-top: 0.35rem;
+}
+
+/* ----- TABLA DE COBERTURAS DEL PRODUCTO ----- */
+.coverages-table th,
+.coverages-table td { vertical-align: middle; }
+.coverages-table .amount-cell { font-weight: 600; text-align: right; }
+.coverage-code {
+    font-size: 0.78rem;
+    color: #6B7280;
+    margin-top: 0.15rem;
+}
+
+/* ----- DROPDOWN DE LOOKUP ----- */
+.lookup-container { position: relative; }
+.lookup-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+    background: #fff; border: 1px solid #D1D5DB; border-radius: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15); max-height: 280px; overflow-y: auto;
+    margin-top: 0.25rem;
+}
+.lookup-results { list-style: none; margin: 0; padding: 0; }
+.lookup-result-item {
+    padding: 0.5rem 0.75rem; cursor: pointer; border-bottom: 1px solid #F3F4F6;
+}
+.lookup-result-item:last-child { border-bottom: none; }
+.lookup-result-item:hover { background: #F5F7FA; }
+.result-name { font-weight: 600; color: #111827; }
+.result-details { font-size: 0.85rem; color: #6B7280; }
+.no-results { padding: 0.75rem; color: #9CA3AF; text-align: center; font-style: italic; }
+
+/* ============================================================ */
+/* MEJORAS VISUALES DE LA LISTA DE COTIZACIONES                  */
+/* ============================================================ */
+
+/* ----- Tiles tipo KPI en el encabezado ----- */
+.quotes-stats {
+    display: flex;
+    gap: 0.85rem;
+}
+.quotes-stats .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(0, 163, 191, 0.5);
+    border-radius: 0.85rem;
+    padding: 0.6rem 1.05rem;
+    min-width: 150px;
+}
+.quotes-stats .stat-icon {
+    --slds-c-icon-color-foreground-default: #00A3BF;
+    --sds-c-icon-color-foreground-default: #00A3BF;
+}
+.quotes-stats .stat-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+.quotes-stats .stat-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #B3D9FF;
+    font-weight: 600;
+}
+.quotes-stats .stat-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #FFFFFF;
+}
+
+/* ----- Grid y tarjetas: hover con elevación ----- */
+.quotes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.1rem;
+}
+.quotes-grid .quote-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.9rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.quotes-grid .quote-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px rgba(0, 28, 61, 0.16);
+}
+
+/* ----- Header con color de compañía ----- */
+.quote-card .quote-header {
+    padding: 1rem 1.15rem;
+}
+.quote-card .quote-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0 0 0.4rem 0;
+}
+.quote-card .quote-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+.quote-card .quote-opportunity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ----- Cuerpo de la tarjeta ----- */
+.quote-card .quote-body {
+    padding: 1rem 1.15rem;
+}
+.quote-card .ramo-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.3rem 0.75rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+/* ----- Prima destacada ----- */
+.quote-card .quote-premium {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.quote-card .premium-label {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9CA3AF;
+    font-weight: 600;
+}
+.quote-card .premium-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #00875A;
+    line-height: 1.1;
+}
+
+/* ----- Fechas y coberturas ----- */
+.quote-card .quote-dates {
+    margin-top: 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.quote-card .date-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: #4B5563;
+}
+.quote-card .quote-coverages-summary {
+    margin-top: 0.6rem;
+}
+.quote-card .coverages-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #0052CC;
+    background: #E6F0FF;
+    border: 1px solid #B3CCFF;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+}
+
+/* ----- Footer ----- */
+.quote-card .quote-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.15rem;
+    border-top: 1px solid #EDF0F3;
+    background: #FAFBFC;
+}
+.quote-card .quote-company {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #374151;
+}
+.quote-card .view-details-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0052CC;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.quote-card .view-details-btn:hover {
+    text-decoration: underline;
+}
+
+/* ----- Acciones en el header (iconos blancos) ----- */
+.quote-card .quote-actions {
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0.75;
+    transition: opacity 0.18s ease;
+}
+.quote-card:hover .quote-actions {
+    opacity: 1;
+}
+.quote-card .quote-actions .icon-btn {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 0.45rem;
+    padding: 0.3rem;
+    background: rgba(255, 255, 255, 0.15);
+    transition: background 0.15s ease;
+}
+.quote-card .quote-actions .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ----- RESPONSIVE ----- */
+@media (max-width: 768px) {
+    .list-actions-bar { flex-direction: column; align-items: stretch; }
+    .filter-container { width: 100%; }
+    .filter-container .status-filter { width: 100%; }
+    .pagination-bar { flex-wrap: wrap; }
+    .quotes-stats { flex-direction: column; width: 100%; }
+    .quotes-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================ */
+/* AÑADIR AL FINAL DE quoteCreator.css                            */
+/* Estilos para filtros, paginación, badges de estado y          */
+/* dropdown de lookup de aseguradora.                            */
+/* ============================================================ */
+
+/* ----- FILTROS ----- */
+.list-actions-bar { flex-wrap: wrap; gap: 0.75rem; }
+.filter-container .status-filter { min-width: 200px; }
+
+/* ----- PAGINACIÓN ----- */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid #E5E7EB;
+}
+.pagination-bar .page-info {
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 140px;
+    text-align: center;
+}
+.pagination-bar .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* ----- BADGES DE ESTADO DE COTIZACIÓN ----- */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.status-badge.status-accepted { background:#E6F4EA; color:#00875A; border-color:#B2DBC1; }
+.status-badge.status-sent     { background:#E6F0FF; color:#0052CC; border-color:#B3CCFF; }
+.status-badge.status-rejected { background:#FFE7E0; color:#B3260A; border-color:#F5B8A4; }
+.status-badge.status-expired  { background:#FFF4DB; color:#B65C00; border-color:#FFE08A; }
+.status-badge.status-draft    { background:#F2F2F2; color:#4D4D4D; border-color:#D9D9D9; }
+
+.expired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: #FFE7E0;
+    color: #B3260A;
+    border: 1px solid #F5B8A4;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+/* ----- CAMPO READ-ONLY (Ramo heredado) ----- */
+.readonly-field {
+    padding: 0.5rem 0.75rem;
+    background: #F5F7FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.375rem;
+    color: #111827;
+    font-weight: 600;
+}
+.helper-text {
+    font-size: 0.85rem;
+    color: #6B7280;
+    margin-top: 0.35rem;
+}
+
+/* ----- TABLA DE COBERTURAS DEL PRODUCTO ----- */
+.coverages-table th,
+.coverages-table td { vertical-align: middle; }
+.coverages-table .amount-cell { font-weight: 600; text-align: right; }
+.coverage-code {
+    font-size: 0.78rem;
+    color: #6B7280;
+    margin-top: 0.15rem;
+}
+
+/* ----- DROPDOWN DE LOOKUP ----- */
+.lookup-container { position: relative; }
+.lookup-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+    background: #fff; border: 1px solid #D1D5DB; border-radius: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15); max-height: 280px; overflow-y: auto;
+    margin-top: 0.25rem;
+}
+.lookup-results { list-style: none; margin: 0; padding: 0; }
+.lookup-result-item {
+    padding: 0.5rem 0.75rem; cursor: pointer; border-bottom: 1px solid #F3F4F6;
+}
+.lookup-result-item:last-child { border-bottom: none; }
+.lookup-result-item:hover { background: #F5F7FA; }
+.result-name { font-weight: 600; color: #111827; }
+.result-details { font-size: 0.85rem; color: #6B7280; }
+.no-results { padding: 0.75rem; color: #9CA3AF; text-align: center; font-style: italic; }
+
+/* ============================================================ */
+/* MEJORAS VISUALES DE LA LISTA DE COTIZACIONES                  */
+/* ============================================================ */
+
+/* ----- Tiles tipo KPI en el encabezado ----- */
+.quotes-stats {
+    display: flex;
+    gap: 0.85rem;
+}
+.quotes-stats .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(0, 163, 191, 0.5);
+    border-radius: 0.85rem;
+    padding: 0.6rem 1.05rem;
+    min-width: 150px;
+}
+.quotes-stats .stat-icon {
+    --slds-c-icon-color-foreground-default: #00A3BF;
+    --sds-c-icon-color-foreground-default: #00A3BF;
+}
+.quotes-stats .stat-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+.quotes-stats .stat-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #B3D9FF;
+    font-weight: 600;
+}
+.quotes-stats .stat-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #FFFFFF;
+}
+
+/* ----- Grid y tarjetas: hover con elevación ----- */
+.quotes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.1rem;
+}
+.quotes-grid .quote-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.9rem;
+    overflow: visible;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.quotes-grid .quote-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px rgba(0, 28, 61, 0.16);
+}
+
+/* ----- Header con color de compañía ----- */
+.quote-card .quote-header {
+    padding: 1rem 1.15rem;
+    border-radius: 0.9rem 0.9rem 0 0;   /* mantiene la esquina redondeada sin overflow:hidden */
+}
+.quote-card .quote-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0 0 0.4rem 0;
+}
+.quote-card .quote-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+.quote-card .quote-opportunity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ----- Cuerpo de la tarjeta ----- */
+.quote-card .quote-body {
+    padding: 1rem 1.15rem;
+}
+.quote-card .ramo-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.3rem 0.75rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+/* ----- Prima destacada ----- */
+.quote-card .quote-premium {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.quote-card .premium-label {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9CA3AF;
+    font-weight: 600;
+}
+.quote-card .premium-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #00875A;
+    line-height: 1.1;
+}
+
+/* ----- Fechas y coberturas ----- */
+.quote-card .quote-dates {
+    margin-top: 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.quote-card .date-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: #4B5563;
+}
+.quote-card .quote-coverages-summary {
+    margin-top: 0.6rem;
+}
+.quote-card .coverages-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #0052CC;
+    background: #E6F0FF;
+    border: 1px solid #B3CCFF;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+}
+
+/* ----- Footer ----- */
+.quote-card .quote-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.15rem;
+    border-top: 1px solid #EDF0F3;
+    background: #FAFBFC;
+    border-radius: 0 0 0.9rem 0.9rem;   /* esquina inferior redondeada */
+}
+.quote-card .quote-company {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #374151;
+}
+.quote-card .view-details-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0052CC;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.quote-card .view-details-btn:hover {
+    text-decoration: underline;
+}
+
+/* ----- Acciones en el header (iconos blancos) ----- */
+.quote-card .quote-actions {
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0.75;
+    transition: opacity 0.18s ease;
+}
+.quote-card:hover .quote-actions {
+    opacity: 1;
+}
+.quote-card .quote-actions .icon-btn {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 0.45rem;
+    padding: 0.3rem;
+    background: rgba(255, 255, 255, 0.15);
+    transition: background 0.15s ease;
+}
+.quote-card .quote-actions .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================================ */
+/* FIX — Tooltips y desplegables que se recortaban detrás        */
+/* del cuadro (overflow / z-index)                               */
+/* ============================================================ */
+
+/* Los contenedores del formulario NO deben recortar lo que      */
+/* sobresale: los desplegables de los picklist y los tooltips.   */
+.content-container,
+.unified-view,
+.unified-section,
+.form-container,
+.form-grid,
+.form-grid.two-columns,
+.form-column,
+.form-card,
+.coverages-container {
+    overflow: visible !important;
+}
+
+/* Al abrir un picklist o un lookup dentro de una tarjeta,        */
+/* esa tarjeta sube por encima de las tarjetas vecinas.          */
+.form-card:focus-within {
+    z-index: 1000 !important;
+    position: relative;
+}
+
+/* Desplegables de los picklist (SLDS) siempre por encima.       */
+.slds-dropdown,
+.slds-listbox_vertical,
+.slds-combobox_container,
+.slds-has-menu {
+    z-index: 9000 !important;
+}
+
+/* Desplegables de los lookup custom (oportunidad / aseguradora) */
+.lookup-container { position: relative; z-index: 50; }
+.lookup-container:focus-within { z-index: 1000; }
+.lookup-dropdown { z-index: 9000 !important; }
+
+/* ----- RESPONSIVE ----- */
+@media (max-width: 768px) {
+    .list-actions-bar { flex-direction: column; align-items: stretch; }
+    .filter-container { width: 100%; }
+    .filter-container .status-filter { width: 100%; }
+    .pagination-bar { flex-wrap: wrap; }
+    .quotes-stats { flex-direction: column; width: 100%; }
+    .quotes-grid { grid-template-columns: 1fr; }
+}

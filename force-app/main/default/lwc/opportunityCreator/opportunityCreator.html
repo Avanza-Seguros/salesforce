@@ -1,0 +1,833 @@
+<template>
+    <div class="wizard-container premium-theme" onclick={handleClickOutside}>
+
+        <!-- ============================================================ -->
+        <!-- HEADER                                                       -->
+        <!-- ============================================================ -->
+        <div class="premium-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <lightning-icon icon-name="standard:opportunity"
+                                   class="header-icon"
+                                   size="large"
+                                   variant="inverse">
+                    </lightning-icon>
+                    <div class="header-text">
+                        <h1 class="wizard-title">{pageTitle}</h1>
+                        <p class="wizard-subtitle">
+                            <template if:true={showListView}>
+                                Gestiona todas tus oportunidades de venta
+                            </template>
+                            <template if:true={showCreateView}>
+                                <template if:true={isEditMode}>
+                                    Editando oportunidad existente
+                                </template>
+                                <template if:false={isEditMode}>
+                                    Transforma prospectos en negocios exitosos
+                                </template>
+                            </template>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <template if:true={showListView}>
+                        <div class="opportunities-stats">
+                            <div class="stat-item">
+                                <lightning-icon icon-name="utility:list" size="small" class="stat-icon"></lightning-icon>
+                                <div class="stat-text">
+                                    <span class="stat-label">Oportunidades</span>
+                                    <span class="stat-value">{opportunitiesCount}</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <lightning-icon icon-name="utility:currency" size="small" class="stat-icon"></lightning-icon>
+                                <div class="stat-text">
+                                    <span class="stat-label">Valor total</span>
+                                    <span class="stat-value">{totalOpportunitiesAmount}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template if:true={showCreateView}>
+                        <div class="step-indicator-badge">
+                            <div class="badge-circle">
+                                <lightning-icon icon-name="utility:edit" size="small"></lightning-icon>
+                            </div>
+                            <div class="badge-text">
+                                <span class="badge-label">Modo</span>
+                                <span class="badge-total">
+                                    <template if:true={isEditMode}>Edición</template>
+                                    <template if:false={isEditMode}>Creación</template>
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- VISTA DE LISTA                                               -->
+        <!-- ============================================================ -->
+        <template if:true={showListView}>
+            <div class="list-view-container">
+
+                <!-- Barra de acciones: búsqueda + filtros + nuevo -->
+                <div class="list-actions-bar">
+                    <div class="search-container">
+                        <lightning-input
+                            label="Buscar oportunidades"
+                            placeholder="Buscar por nombre, etapa, cuenta o propietario..."
+                            onchange={handleSearchChange}
+                            variant="label-hidden"
+                            class="search-input">
+                            <lightning-icon
+                                slot="prefix"
+                                icon-name="utility:search"
+                                size="x-small">
+                            </lightning-icon>
+                        </lightning-input>
+                    </div>
+
+                    <div class="filter-container">
+                        <lightning-combobox
+                            label="Filtrar por etapa"
+                            variant="label-hidden"
+                            value={stageFilter}
+                            options={stageFilterOptions}
+                            onchange={handleStageFilterChange}
+                            placeholder="Todas las etapas"
+                            class="stage-filter">
+                        </lightning-combobox>
+
+                        <lightning-input
+                            type="toggle"
+                            label="Sólo vencidas"
+                            checked={showOnlyOverdue}
+                            onchange={handleOverdueToggle}
+                            message-toggle-active="Sí"
+                            message-toggle-inactive="No"
+                            class="overdue-toggle">
+                        </lightning-input>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="action-btn primary" onclick={handleCreateNew}>
+                            <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                            Nueva Oportunidad
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Listado -->
+                <div class="opportunities-list-container">
+                    <template if:true={isLoading}>
+                        <div class="loading-container">
+                            <lightning-spinner alternative-text="Cargando..." size="large"></lightning-spinner>
+                            <p>Cargando oportunidades...</p>
+                        </div>
+                    </template>
+
+                    <template if:false={isLoading}>
+                        <template if:true={hasOpportunities}>
+                            <div class="opportunities-grid">
+                                <template for:each={processedOpportunities} for:item="opp">
+                                    <div key={opp.Id} class={opp.statusClass} data-card="opportunity">
+                                        <div class="opportunity-card">
+                                            <div class="opportunity-header">
+                                                <div class="opp-title-section">
+                                                    <h3 class="opp-name">{opp.Name}</h3>
+                                                    <div class="opp-meta">
+                                                        <span class="opp-account">
+                                                            <lightning-icon icon-name="standard:account" size="xx-small"></lightning-icon>
+                                                            {opp.Account.Name}
+                                                        </span>
+                                                        <span class="opp-owner">
+                                                            <lightning-icon icon-name="standard:user" size="xx-small"></lightning-icon>
+                                                            {opp.Owner.Name}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="opp-actions">
+                                                    <button class="icon-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver">
+                                                        <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                    <button class="icon-btn" onclick={handleEditOpportunity} data-id={opp.Id} title="Editar">
+                                                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                    <button class="icon-btn danger" onclick={handleDeleteOpportunity}
+                                                            data-id={opp.Id} data-name={opp.Name} title="Eliminar">
+                                                        <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div class="opportunity-body">
+                                                <div class="opp-stage">
+                                                    <div class="stage-badge" style={opp.stageStyle}>
+                                                        <lightning-icon icon-name={opp.stageIcon} size="xx-small"></lightning-icon>
+                                                        <span>{opp.stageLabel}</span>
+                                                    </div>
+                                                    <div class="opp-amount">
+                                                        <span class="amount-label">Valor:</span>
+                                                        <span class="amount-value">{opp.amountFormatted}</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Etiquetas de identificación: Ramo, Tipo y Canal -->
+                                                <div class="opp-tags">
+                                                    <template if:true={opp.Ramo__c}>
+                                                        <span class="opp-tag opp-tag-ramo">
+                                                            <lightning-icon icon-name="utility:category" size="xx-small"></lightning-icon>
+                                                            {opp.Ramo__c}
+                                                        </span>
+                                                    </template>
+                                                    <template if:true={opp.typeLabel}>
+                                                        <span class="opp-tag opp-tag-tipo">
+                                                            <lightning-icon icon-name="utility:tag" size="xx-small"></lightning-icon>
+                                                            {opp.typeLabel}
+                                                        </span>
+                                                    </template>
+                                                    <template if:true={opp.Canal__c}>
+                                                        <span class="opp-tag opp-tag-canal">
+                                                            <lightning-icon icon-name="utility:broadcast" size="xx-small"></lightning-icon>
+                                                            {opp.Canal__c}
+                                                        </span>
+                                                    </template>
+                                                </div>
+
+                                                <div class="opp-dates">
+                                                    <div class="date-item">
+                                                        <lightning-icon icon-name="utility:date_input" size="xx-small"></lightning-icon>
+                                                        <span>Cierre: {opp.closeDateFormatted}</span>
+                                                        <template if:true={opp.hasDaysInfo}>
+                                                            <span class={opp.daysClass}>{opp.daysLabel}</span>
+                                                        </template>
+                                                    </div>
+                                                    <div class="date-item">
+                                                        <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
+                                                        <span>Creada: {opp.createdDateFormatted}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="opportunity-footer">
+                                                <div class="opp-progress">
+                                                    <div class="progress-bar">
+                                                        <div class="progress-fill" style={opp.progressBarStyle}></div>
+                                                    </div>
+                                                    <span class="progress-text">{opp.progressText}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Paginación -->
+                            <div class="pagination-bar">
+                                <button class="action-btn secondary" onclick={handlePrevPage} disabled={isFirstPage}>
+                                    <lightning-icon icon-name="utility:chevronleft" size="xx-small"></lightning-icon>
+                                    Anterior
+                                </button>
+                                <span class="page-info">{pageInfoLabel}</span>
+                                <button class="action-btn secondary" onclick={handleNextPage} disabled={isLastPage}>
+                                    Siguiente
+                                    <lightning-icon icon-name="utility:chevronright" size="xx-small"></lightning-icon>
+                                </button>
+                            </div>
+                        </template>
+
+                        <template if:false={hasOpportunities}>
+                            <div class="empty-state">
+                                <lightning-icon icon-name="standard:opportunity" size="large"></lightning-icon>
+                                <h3>No hay oportunidades</h3>
+                                <p>
+                                    <template if:true={searchTerm}>
+                                        No se encontraron oportunidades que coincidan con "{searchTerm}".
+                                    </template>
+                                    <template if:false={searchTerm}>
+                                        No hay oportunidades disponibles con los filtros actuales.
+                                    </template>
+                                </p>
+                                <button class="action-btn primary" onclick={handleCreateNew}>
+                                    <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                    Crear Oportunidad
+                                </button>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- ============================================================ -->
+        <!-- VISTA CREAR / EDITAR                                         -->
+        <!-- ============================================================ -->
+        <template if:true={showCreateView}>
+            <div class="back-to-list">
+                <button class="back-btn" onclick={handleBackToList}>
+                    <lightning-icon icon-name="utility:back" size="xx-small"></lightning-icon>
+                    Volver a la lista
+                </button>
+            </div>
+
+            <div class="content-container glass-effect unified-view">
+
+                <!-- Aviso de bloqueo: la oportunidad ya no está en Gestión Comercial -->
+                <template if:true={isOpportunityReadOnly}>
+                    <div class="readonly-banner">
+                        <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
+                        <span>
+                            Esta oportunidad está en etapa <strong>{readOnlyStageLabel}</strong>.
+                            Los datos solo se pueden editar mientras la oportunidad está en
+                            <strong>Gestión Comercial</strong>.
+                        </span>
+                    </div>
+                </template>
+
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 1: INFORMACIÓN BÁSICA DE LA OPORTUNIDAD        -->
+                <!-- ====================================================== -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="utility:lead" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Información Básica</h2>
+                            <p class="section-subtitle">Completa los datos generales de la oportunidad</p>
+                        </div>
+                        <div class="section-badge required-badge">Requerido</div>
+                    </div>
+
+                    <template if:true={isLoadingPicklists}>
+                        <div class="loading-picklists">
+                            <lightning-spinner alternative-text="Cargando opciones..." size="small"></lightning-spinner>
+                            <p>Cargando opciones de picklists...</p>
+                        </div>
+                    </template>
+
+                    <template if:false={isLoadingPicklists}>
+                        <div class="form-container">
+                            <div class="form-grid two-columns">
+                                <div class="form-column">
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Nombre de la Oportunidad <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.Name} onchange={handleInputChange} disabled={isOpportunityReadOnly}
+                                            data-field="Name" variant="label-hidden" placeholder="Ej: Auto - Mapfre - Juan Pérez" required>
+                                        </lightning-input>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="standard:account" size="x-small"></lightning-icon>
+                                            <h3>Cuenta <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <div class="lookup-container">
+                                            <lightning-input
+                                                label=""
+                                                value={opportunity.AccountName}
+                                                placeholder="Buscar cuenta o persona..."
+                                                onfocus={handleAccountFocus}
+                                                onkeyup={handleAccountInput}
+                                                variant="label-hidden"
+                                                disabled={isOpportunityReadOnly}
+                                                data-field="AccountSearch">
+                                            </lightning-input>
+                                            <template if:true={showAccountDropdown}>
+                                                <div class="lookup-dropdown">
+                                                    <ul class="lookup-results">
+                                                        <template if:true={hasAccountResults}>
+                                                            <template for:each={accountResults} for:item="acc">
+                                                                <li key={acc.Id} class="lookup-result-item"
+                                                                    onclick={selectAccount} data-id={acc.Id}>
+                                                                    <div class="result-name">
+                                                                        {acc.Name}
+                                                                        <span class="account-type-tag">{acc.typeLabel}</span>
+                                                                    </div>
+                                                                    <div class="result-details">{acc.detailLine}</div>
+                                                                </li>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasAccountResults}>
+                                                            <li class="no-results">Escribe al menos 2 caracteres para buscar</li>
+                                                        </template>
+                                                        <li class="lookup-result-item lookup-create-new" onclick={selectNewAccount}>
+                                                            <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                                            Crear cuenta nueva
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <template if:true={isNewAccount}>
+                                            <p class="helper-text helper-new-account">
+                                                Cuenta nueva — captura los datos en "Información del Cliente". Se creará al guardar.
+                                            </p>
+                                        </template>
+                                    </div>
+
+
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:category" size="x-small"></lightning-icon>
+                                            <h3>Ramo <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Ramo__c}
+                                            placeholder="Seleccione un ramo"
+                                            options={ramoPicklistValues} onchange={handleComboboxChange} disabled={isOpportunityReadOnly}
+                                            data-field="Ramo__c" variant="label-hidden" dropdown-alignment="auto">
+                                        </lightning-combobox>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:steps" size="x-small"></lightning-icon>
+                                            <h3>Etapa <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.StageName}
+                                            placeholder="Seleccione una etapa"
+                                            options={stagePicklistValues} onchange={handleComboboxChange} disabled={isOpportunityReadOnly}
+                                            data-field="StageName" variant="label-hidden" dropdown-alignment="auto" required>
+                                        </lightning-combobox>
+                                    </div>
+                                </div>
+
+                                <div class="form-column">
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
+                                            <h3>Canal</h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Canal__c}
+                                            placeholder="Seleccione un canal" options={canalPicklistValues}
+                                            onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Canal__c"
+                                            variant="label-hidden" dropdown-alignment="auto">
+                                        </lightning-combobox>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:world" size="x-small"></lightning-icon>
+                                            <h3>Mercado</h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Mercado__c}
+                                            placeholder="Seleccione un mercado" options={mercadoPicklistValues}
+                                            onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Mercado__c"
+                                            variant="label-hidden" dropdown-alignment="auto">
+                                        </lightning-combobox>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
+                                            <h3>Tipo de Oportunidad</h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Type}
+                                            placeholder="Seleccione tipo" options={typePicklistValues}
+                                            onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Type"
+                                            variant="label-hidden" dropdown-alignment="auto">
+                                        </lightning-combobox>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:date_input" size="x-small"></lightning-icon>
+                                            <h3>Fecha de Cierre <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-input type="date" label="" value={opportunity.CloseDate}
+                                            onchange={handleInputChange} disabled={isOpportunityReadOnly} data-field="CloseDate"
+                                            variant="label-hidden" required>
+                                        </lightning-input>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 2: INFORMACIÓN DEL CLIENTE                     -->
+                <!-- ====================================================== -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="standard:contact" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Información del Cliente</h2>
+                            <p class="section-subtitle">Datos de contacto del cliente asociado a la oportunidad</p>
+                        </div>
+                        <div class="section-badge">Opcional</div>
+                    </div>
+
+                    <div class="form-container">
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <!-- Tipo de cuenta: define si se crea Person Account o Account de empresa -->
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:people" size="x-small"></lightning-icon>
+                                        <h3>Tipo de cuenta <span class="required-asterisk">*</span></h3>
+                                    </div>
+                                    <lightning-combobox label="" value={opportunity.tipoCliente}
+                                        options={tipoClienteOptions} onchange={handleComboboxChange} disabled={isOpportunityReadOnly}
+                                        data-field="tipoCliente" variant="label-hidden">
+                                    </lightning-combobox>
+                                </div>
+
+                                <!-- PERSONA: Nombre(s) + Apellidos -->
+                                <template if:true={isPersonAccount}>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Nombre(s)</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteNombre} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteNombre" variant="label-hidden" placeholder="Ej: Juan Carlos">
+                                        </lightning-input>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Apellidos</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteApellidos} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteApellidos" variant="label-hidden" placeholder="Ej: Pérez García">
+                                        </lightning-input>
+                                    </div>
+                                </template>
+
+                                <!-- EMPRESA: Razón Social -->
+                                <template if:false={isPersonAccount}>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Razón Social</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteNombre} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteNombre" variant="label-hidden" placeholder="Ej: Comercializadora ABC S.A. de C.V.">
+                                        </lightning-input>
+                                    </div>
+                                </template>
+
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                        <h3>RFC</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteRFC} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteRFC" variant="label-hidden" placeholder="Ej: PEÑA710313HDF">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                        <h3>Código Postal</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteCP} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteCP" variant="label-hidden" placeholder="Ej: 03100">
+                                    </lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
+                                        <h3>Email</h3>
+                                    </div>
+                                    <lightning-input type="email" label="" value={opportunity.clienteEmail} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:call" size="x-small"></lightning-icon>
+                                        <h3>Teléfono</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:location" size="x-small"></lightning-icon>
+                                        <h3>Dirección</h3>
+                                    </div>
+                                    <lightning-textarea label="" value={opportunity.clienteDireccion} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteDireccion" variant="label-hidden" placeholder="Calle, número, colonia, ciudad...">
+                                    </lightning-textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
+                <!-- ====================================================== -->
+                <div class="unified-section" if:true={showCreateView}>
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="utility:product" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">
+                                <template if:true={isRamoAutomovil}>Detalles del Automóvil</template>
+                                <template if:true={isRamoGMM}>Detalles de Gastos Médicos</template>
+                                <template if:true={isRamoVida}>Detalles del Seguro de Vida</template>
+                                <template if:true={isRamoViajes}>Detalles del Seguro de Viaje</template>
+                                <template if:true={isRamoDanos}>Detalles de Daños</template>
+                                <template if:true={isRamoEmpresarial}>Detalles Empresariales</template>
+                                <template if:true={isRamoOtros}>Información Adicional</template>
+                            </h2>
+                            <p class="section-subtitle">Información específica del ramo seleccionado.</p>
+                        </div>
+                    </div>
+
+                    <!-- AUTOMÓVIL -->
+                    <div class="special-section" if:true={isRamoAutomovil}>
+                        <div class="vehicle-form">
+                            <div class="form-grid two-columns">
+                                <div class="form-column">
+                                    <div class="form-card"><h3>Marca *</h3>
+                                        <lightning-input label="" value={automovil.Marca__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.Marca__c" variant="label-hidden" placeholder="Ej: NISSAN" required></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Modelo *</h3>
+                                        <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Año</h3>
+                                        <lightning-input label="" value={automovil.Anio__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.Anio__c" variant="label-hidden" placeholder="Ej: 2024"></lightning-input>
+                                    </div>
+                                </div>
+                                <div class="form-column">
+                                    <div class="form-card"><h3>Serie (VIN)</h3>
+                                        <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie"></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Placa</h3>
+                                        <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.Placa__c" variant="label-hidden" placeholder="Número de placa"></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Descripción Completa</h3>
+                                        <lightning-textarea label="" value={automovil.descripcion_completa__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.descripcion_completa__c" variant="label-hidden" placeholder="Descripción del vehículo"></lightning-textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GMM -->
+                    <div class="special-section" if:true={isRamoGMM}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Estado de la República</h3>
+                                    <lightning-input label="" value={gmm.estado} onchange={handleGMMChange} disabled={isOpportunityReadOnly}
+                                        data-field="gmm.estado" variant="label-hidden" placeholder="Ej: CDMX"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Tipo de estructura</h3>
+                                    <lightning-combobox label="" value={gmm.tipoEstructura} placeholder="Seleccione"
+                                        options={tipoEstructuraOptions} onchange={handleGMMChange} disabled={isOpportunityReadOnly}
+                                        data-field="gmm.tipoEstructura" variant="label-hidden">
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Número de Asegurados</h3>
+                                    <lightning-input type="number" label="" value={gmm.numAsegurados} onchange={handleGMMChange} disabled={isOpportunityReadOnly}
+                                        data-field="gmm.numAsegurados" variant="label-hidden" min="1"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VIDA -->
+                    <div class="special-section" if:true={isRamoVida}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Asegurado Principal</h3>
+                                    <lightning-input label="" value={vida.aseguradoPrincipal} onchange={handleVidaChange} disabled={isOpportunityReadOnly}
+                                        data-field="vida.aseguradoPrincipal" variant="label-hidden" placeholder="Nombre completo"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Subramo *</h3>
+                                    <lightning-combobox label="" value={vida.subramo} placeholder="Seleccione"
+                                        options={vidaSubramos} onchange={handleVidaChange} disabled={isOpportunityReadOnly}
+                                        data-field="vida.subramo" variant="label-hidden" required>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Contratante</h3>
+                                    <lightning-input label="" value={vida.contratante} onchange={handleVidaChange} disabled={isOpportunityReadOnly}
+                                        data-field="vida.contratante" variant="label-hidden" placeholder="Si es diferente al asegurado"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VIAJES -->
+                    <div class="special-section" if:true={isRamoViajes}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Destino</h3>
+                                    <lightning-input label="" value={viaje.destino} onchange={handleViajeChange} disabled={isOpportunityReadOnly}
+                                        data-field="viaje.destino" variant="label-hidden" placeholder="Ej: Mundial, Europa, México"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Número de Pasajeros</h3>
+                                    <lightning-input type="number" label="" value={viaje.numPasajeros} onchange={handleViajeChange} disabled={isOpportunityReadOnly}
+                                        data-field="viaje.numPasajeros" variant="label-hidden" min="1"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DAÑOS -->
+                    <div class="special-section" if:true={isRamoDanos}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Subramo *</h3>
+                                    <lightning-combobox label="" value={danos.subramo} placeholder="Seleccione"
+                                        options={danosSubramos} onchange={handleDanosChange} disabled={isOpportunityReadOnly}
+                                        data-field="danos.subramo" variant="label-hidden" required>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="form-column"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 4: COTIZACIONES RELACIONADAS                   -->
+                <!-- (sólo en modo edición — en modo creación no existen)   -->
+                <!-- ====================================================== -->
+                <template if:true={isEditMode}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Cotizaciones de la Oportunidad</h2>
+                                <p class="section-subtitle">Cotizaciones asociadas a esta oportunidad</p>
+                            </div>
+                            <div class="section-badge">{relatedQuotesCount}</div>
+                            <button class="action-btn primary section-action-btn" onclick={handleAddNewQuote}>
+                                <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                Nueva Cotización
+                            </button>
+                        </div>
+
+                        <div class="quotes-list-container">
+                            <template if:true={hasRelatedQuotes}>
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped quotes-table">
+                                    <thead>
+                                        <tr class="slds-text-title_caps">
+                                            <th scope="col">Número</th>
+                                            <th scope="col">Nombre</th>
+                                            <th scope="col">Compañía</th>
+                                            <th scope="col">Estado</th>
+                                            <th scope="col">Prima total</th>
+                                            <th scope="col">Vigencia</th>
+                                            <th scope="col">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={relatedQuotes} for:item="q">
+                                            <tr key={q.Id}>
+                                                <td>{q.QuoteNumber}</td>
+                                                <td>{q.Name}</td>
+                                                <td>{q.companiaLabel}</td>
+                                                <td>
+                                                    <lightning-badge label={q.statusLabel} class={q.statusBadgeClass}></lightning-badge>
+                                                </td>
+                                                <td class="amount-cell">{q.totalFormatted}</td>
+                                                <td>{q.expirationFormatted}</td>
+                                                <td>
+                                                    <button class="icon-btn" onclick={handleViewQuote} data-id={q.Id} title="Ver cotización">
+                                                        <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                    <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={q.Id} title="Editar cotización">
+                                                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+
+                            <template if:false={hasRelatedQuotes}>
+                                <div class="empty-state quotes-empty">
+                                    <lightning-icon icon-name="standard:quotes" size="medium"></lightning-icon>
+                                    <h3>Sin cotizaciones</h3>
+                                    <p>Esta oportunidad no tiene cotizaciones asociadas.</p>
+                                    <button class="action-btn primary" onclick={handleAddNewQuote}>
+                                        <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                        Agregar cotización
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- En modo CREACIÓN dejamos un aviso (no hay quotes todavía) -->
+                <template if:false={isEditMode}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Cotizaciones</h2>
+                                <p class="section-subtitle">Las cotizaciones podrán asociarse una vez creada la oportunidad</p>
+                            </div>
+                        </div>
+                        <div class="quotes-list-container">
+                            <div class="empty-state quotes-empty">
+                                <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
+                                <p>Primero guarda la oportunidad; después podrás añadir cotizaciones desde su detalle.</p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 5: RESUMEN Y GUARDAR                           -->
+                <!-- ====================================================== -->
+                <div class="unified-section summary-section">
+                    <div class="summary-actions">
+                        <button class="action-btn secondary" onclick={handleBackToList} disabled={isSaving}>
+                            <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
+                            Cancelar
+                        </button>
+                        <button class="action-btn primary" onclick={saveOpportunity} disabled={isSaveDisabled}>
+                            <template if:true={isSaving}>
+                                <lightning-spinner alternative-text="Guardando..." size="x-small" variant="inverse"></lightning-spinner>
+                                Guardando...
+                            </template>
+                            <template if:false={isSaving}>
+                                <lightning-icon icon-name="utility:save" size="xx-small"></lightning-icon>
+                                {createButtonLabel}
+                            </template>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </template>
+    </div>
+</template>
