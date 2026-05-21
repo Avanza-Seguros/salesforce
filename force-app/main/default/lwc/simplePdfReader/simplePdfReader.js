@@ -2141,8 +2141,6 @@ export default class SimplePdfReader extends LightningElement {
     // 🔄 ACTUALIZAR LA FUNCIÓN clasificarTipoArchivo
     // =============================================
 
-    // En la función clasificarTipoArchivo, agregar estos casos:
-
     /**
      * Clasifica el tipo de archivo basado en nombre y contenido
      */
@@ -2261,6 +2259,18 @@ export default class SimplePdfReader extends LightningElement {
             };
         }
         
+        // 🟢 DETECTAR AFIRME (NUEVO)
+        if (contentUpper.includes('SEGUROS AFIRME') || 
+            contentUpper.includes('AFIRME GRUPO FINANCIERO') ||
+            fileNameLower.includes('afirme')) {
+            console.log('✅ Tipo: AFIRME (Certificado Individual)');
+            return {
+                tipo: 'AFIRME',
+                subtipo: 'INDIVIDUAL',
+                formato: 'CERTIFICADO'
+            };
+        }
+        
         // Detectar nuevos tipos de archivo basados en los ejemplos proporcionados
         if (fileNameLower.includes('_cert_') && contentUpper.includes('CERTIFICADO INDIVIDUAL DE SEGURO')) {
             console.log('✅ Tipo: CERT (Certificado Individual)');
@@ -2304,8 +2314,6 @@ export default class SimplePdfReader extends LightningElement {
     // 🔄 ACTUALIZAR EL SWITCH EN extractEnhancedData
     // =============================================
 
-    // En la función extractEnhancedData, actualizar el switch para incluir los nuevos tipos:
-
     /**
      * Función principal que enruta el procesamiento según el tipo de archivo
      */
@@ -2347,6 +2355,10 @@ export default class SimplePdfReader extends LightningElement {
             case 'SEGUROSBX': // NUEVO
                 console.log('🏢 Procesando como SEGUROS BX');
                 return this.procesarArchivoSEGUROSBX(text, lines, file, tipoArchivo);
+                
+            case 'AFIRME': // NUEVO
+                console.log('🟢 Procesando como AFIRME');
+                return this.procesarArchivoAFIRME(text, lines, file, tipoArchivo);
                 
             case 'VGG':
                 console.log('📄 Procesando como VGG');
@@ -5825,6 +5837,196 @@ esNombreValidoParaTarjeta(nombre) {
         
         console.log('✅ RESULTADO DENTEGRA:', resultado);
         return resultado;
+    }
+
+    // =============================================
+    // 🟢 PROCESADOR PARA ARCHIVOS SEGUROS AFIRME
+    // =============================================
+
+    procesarArchivoAFIRME(text, lines, file, tipoInfo) {
+        console.log(`📄 PROCESANDO ARCHIVO AFIRME: ${file}`);
+        
+        // Extraer datos dinámicos
+        const datos = this.extraerDatosAfirme(text, lines, file);
+        
+        const resultado = {
+            policy: datos.policy || 'NO_DETECTADO',
+            certificate: datos.certificate || 'NO_DETECTADO',
+            fullName: datos.fullName || 'NO_DETECTADO',
+            insuranceCompany: 'Seguros Afirme',
+            plan: datos.plan || 'COLECTIVO',   // o el que corresponda
+            vigenciaDesde: datos.vigenciaDesde || '',
+            vigenciaHasta: datos.vigenciaHasta || '',
+            sumaAsegurada: datos.sumaAsegurada || '',
+            tipoDocumento: tipoInfo.formato,
+            subtipo: tipoInfo.subtipo,
+            sourceFile: file,
+            metadata: {
+                extraccion: 'afirme_dinamica',
+                confianza: datos.confianza || 'MEDIA',
+                fechaNacimiento: datos.fechaNacimiento || ''
+            }
+        };
+        
+        console.log('✅ RESULTADO AFIRME:', resultado);
+        return resultado;
+    }
+
+    extraerDatosAfirme(text, lines, fileName) {
+        console.log('🔍 EXTRACCIÓN DINÁMICA PARA AFIRME');
+
+        const datos = {
+            policy: null,
+            certificate: null,
+            fullName: null,
+            sumaAsegurada: null,
+            fechaNacimiento: null,
+            vigenciaDesde: null,
+            vigenciaHasta: null,
+            plan: null,
+            confianza: 'BAJA'
+        };
+
+        // 1. Buscar PÓLIZA en la parte superior (formato "0000364919-00")
+        for (let i = 0; i < Math.min(5, lines.length); i++) {
+            const line = lines[i].trim();
+            // Patrón: números, guión, números (ej. 0000364919-00)
+            const polizaMatch = line.match(/^(\d{6,}-\d{2,})$/);
+            if (polizaMatch) {
+                datos.policy = polizaMatch[1];
+                console.log('✅ Póliza encontrada (línea superior):', datos.policy);
+                break;
+            }
+            // También buscar en medio de la línea si hay más texto
+            const inlineMatch = line.match(/\b(\d{6,}-\d{2,})\b/);
+            if (inlineMatch && !datos.policy) {
+                datos.policy = inlineMatch[1];
+                console.log('✅ Póliza encontrada (inline):', datos.policy);
+            }
+        }
+
+        // 2. Buscar el resto de los datos línea por línea
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // --- NOMBRE DEL ASEGURADO ---
+            if (line.includes('Al Asegurado:')) {
+                const match = line.match(/Al Asegurado:\s*(.+)/i);
+                if (match && match[1]) {
+                    datos.fullName = match[1].trim();
+                    console.log('✅ Nombre encontrado:', datos.fullName);
+                }
+            }
+
+            // --- REFERENCIA (CERTIFICADO) ---
+            if (line.includes('Referencia:')) {
+                const match = line.match(/Referencia:\s*CERT\s+EMP\s+(\d+)/i);
+                if (match && match[1]) {
+                    datos.certificate = match[1];
+                    console.log('✅ Certificado encontrado:', datos.certificate);
+                } else {
+                    const fallback = line.match(/Referencia:\s*(\d+)/i);
+                    if (fallback) {
+                        datos.certificate = fallback[1];
+                        console.log('✅ Certificado (fallback):', datos.certificate);
+                    }
+                }
+            }
+
+            // --- SUMA ASEGURADA ---
+            if (line.includes('Por la Suma o Regla:')) {
+                const match = line.match(/Por la Suma o Regla:\s*\$?([\d,]+\.?\d*)/i);
+                if (match && match[1]) {
+                    datos.sumaAsegurada = match[1].replace(/,/g, '');
+                    console.log('✅ Suma asegurada encontrada:', datos.sumaAsegurada);
+                }
+            }
+
+            // --- FECHA DE NACIMIENTO ---
+            if (line.includes('Fecha de Nacimiento:')) {
+                const match = line.match(/Fecha de Nacimiento:\s*(\d{2}\/\d{2}\/\d{4})/i);
+                if (match && match[1]) {
+                    datos.fechaNacimiento = match[1];
+                    console.log('✅ Fecha nacimiento:', datos.fechaNacimiento);
+                }
+            }
+
+            // --- FECHA DE EMISIÓN (inicio de vigencia) ---
+            const fechaEmisionMatch = line.match(/(\d{2})\s+de\s+([a-z]+)\s+del\s+(\d{4})/i);
+            if (fechaEmisionMatch) {
+                const dia = fechaEmisionMatch[1];
+                const mesTexto = fechaEmisionMatch[2].toLowerCase();
+                const anio = fechaEmisionMatch[3];
+                const meses = {
+                    'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04',
+                    'mayo': '05', 'junio': '06', 'julio': '07', 'agosto': '08',
+                    'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+                };
+                const mesNum = meses[mesTexto];
+                if (mesNum) {
+                    datos.vigenciaDesde = `${dia}/${mesNum}/${anio}`;
+                    // Calcular vigencia hasta un año después
+                    const fechaDesde = new Date(anio, mesNum-1, dia);
+                    fechaDesde.setFullYear(fechaDesde.getFullYear() + 1);
+                    const diaHasta = fechaDesde.getDate().toString().padStart(2,'0');
+                    const mesHasta = (fechaDesde.getMonth()+1).toString().padStart(2,'0');
+                    const anioHasta = fechaDesde.getFullYear();
+                    datos.vigenciaHasta = `${diaHasta}/${mesHasta}/${anioHasta}`;
+                    console.log('✅ Vigencia desde/hasta (basada en emisión):', datos.vigenciaDesde, datos.vigenciaHasta);
+                }
+            }
+        }
+
+        // 3. Fallback desde el nombre del archivo
+        if (!datos.certificate) {
+            const fileMatch = fileName.match(/^(\d+)_/);
+            if (fileMatch) {
+                datos.certificate = fileMatch[1];
+                console.log('✅ Certificado desde nombre archivo:', datos.certificate);
+            }
+        }
+        if (!datos.fullName) {
+            const nameMatch = fileName.match(/^\d+_(.+)\.pdf$/i);
+            if (nameMatch) {
+                let nombreRaw = nameMatch[1];
+                nombreRaw = nombreRaw.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                datos.fullName = nombreRaw;
+                console.log('✅ Nombre desde nombre archivo:', datos.fullName);
+            }
+        }
+
+        // 4. Si aún no hay póliza, usar un valor por defecto (o extraer del nombre)
+        if (!datos.policy) {
+            // Buscar en cualquier línea un patrón de póliza (dígitos-guion-dígitos)
+            for (let line of lines) {
+                const match = line.match(/\b(\d{6,}-\d{2,})\b/);
+                if (match) {
+                    datos.policy = match[1];
+                    console.log('✅ Póliza encontrada (búsqueda general):', datos.policy);
+                    break;
+                }
+            }
+            if (!datos.policy) {
+                datos.policy = 'NO_DETECTADO';
+                console.log('⚠️ Póliza no detectada');
+            }
+        }
+
+        // 5. Plan por defecto
+        if (!datos.plan) {
+            datos.plan = 'COLECTIVO';
+        }
+
+        // Calcular confianza
+        let camposCriticos = 0;
+        if (datos.policy && datos.policy !== 'NO_DETECTADO') camposCriticos++;
+        if (datos.certificate && datos.certificate !== 'NO_DETECTADO') camposCriticos++;
+        if (datos.fullName && datos.fullName !== 'NO_DETECTADO') camposCriticos++;
+        if (datos.sumaAsegurada) camposCriticos++;
+        datos.confianza = camposCriticos >= 3 ? 'ALTA' : camposCriticos >= 2 ? 'MEDIA' : 'BAJA';
+
+        console.log('📊 DATOS AFIRME EXTRAÍDOS:', datos);
+        return datos;
     }
 
     procesarArchivoVGG(text, lines, file) {

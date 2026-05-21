@@ -1238,10 +1238,6 @@
             <fullName>Colectivo</fullName>
             <default>false</default>
         </values>
-        <values>
-            <fullName>Individual</fullName>
-            <default>false</default>
-        </values>
     </picklistValues>
     <picklistValues>
         <picklist>ringdna__Active__c</picklist>

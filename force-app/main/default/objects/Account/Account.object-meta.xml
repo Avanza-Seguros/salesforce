@@ -288,5 +288,5 @@
         <searchResultsAdditionalFields>Nombre_Completo__pc</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>Nombre_unido__pc</searchResultsAdditionalFields>
     </searchLayouts>
-    <sharingModel>ReadWrite</sharingModel>
+    <sharingModel>Private</sharingModel>
 </CustomObject>

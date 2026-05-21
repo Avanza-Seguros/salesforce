@@ -25,6 +25,12 @@
                 <default>false</default>
                 <label>02</label>
             </value>
+            <value>
+                <fullName>06</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>06</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>
