@@ -22,7 +22,10 @@ private class InboundPolicyCandidateQueueableTest {
 			Name = 'POL-CANDIDATE-001',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 
@@ -78,13 +81,19 @@ private class InboundPolicyCandidateQueueableTest {
 				Name = 'POL-AMBIGUA-001',
 				PolicyName = 'Test A',
 				NameInsuredId = accountId,
-				Status = 'Vigente'
+				Status = 'Vigente',
+				PremiumAmount = 1000,
+				PremiumFrequency = 'Mensual',
+				PaymentDueDate = Date.today()
 			),
 			new InsurancePolicy(
 				Name = 'POL-AMBIGUA-001',
 				PolicyName = 'Test B',
 				NameInsuredId = accountId,
-				Status = 'Inicial'
+				Status = 'Inicial',
+				PremiumAmount = 1000,
+				PremiumFrequency = 'Mensual',
+				PaymentDueDate = Date.today()
 			)
 		};
 
@@ -147,7 +156,10 @@ private class InboundPolicyCandidateQueueableTest {
 			Name = 'POL-MIXTA-001',
 			PolicyName = 'Active',
 			NameInsuredId = accountId,
-			Status = 'Vigente'
+			Status = 'Vigente',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert activePolicy;
 		insert new InsurancePolicy(
@@ -235,7 +247,10 @@ private class InboundPolicyCandidateQueueableTest {
 			Name = 'POL-EXCEPTION-001',
 			PolicyName = 'Test',
 			NameInsuredId = accountId,
-			Status = 'Vigente'
+			Status = 'Vigente',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 

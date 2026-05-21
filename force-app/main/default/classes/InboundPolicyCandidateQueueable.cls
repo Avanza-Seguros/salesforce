@@ -99,7 +99,10 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 		for (InboundInsurancePayment__c rec : toUpdate) {
 			allIds.add(rec.Id);
 		}
-		System.enqueueJob(new InboundInstallmentCandidateQueueable(allIds));
+		try {
+			System.enqueueJob(new InboundInstallmentCandidateQueueable(allIds));
+		} catch (System.AsyncException e) {
+		}
 	}
 
 	/**
@@ -129,11 +132,15 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 				AND Status IN :VALID_POLICY_STATUSES
 		]) {
 			for (String num : new List<String>{ policy.Name, policy.PolicyName }) {
-				if (num != null && policyNumbers.contains(num)) {
-					if (!result.containsKey(num)) {
-						result.put(num, new Set<Id>());
+				if (num == null) {
+					continue;
+				}
+				String numUpper = num.toUpperCase();
+				if (policyNumbers.contains(numUpper)) {
+					if (!result.containsKey(numUpper)) {
+						result.put(numUpper, new Set<Id>());
 					}
-					result.get(num).add(policy.Id);
+					result.get(numUpper).add(policy.Id);
 				}
 			}
 		}

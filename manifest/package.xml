@@ -7,10 +7,13 @@
         <members>InboundInsurancePaymentService</members>
         <members>InboundPaymentNormalizerQueueable</members>
         <members>InboundPaymentNormalizerQueueableTest</members>
+        <members>InboundConfidenceScoreQueueable</members>
         <members>InboundInstallmentCandidateQueueable</members>
         <members>InboundInstallmentCandidateQueueableTest</members>
         <members>InboundPolicyCandidateQueueable</members>
         <members>InboundPolicyCandidateQueueableTest</members>
+        <members>InboundReconciliationRulesQueueable</members>
+        <members>InboundReconciliationRulesQueueableTest</members>
         <members>InsurancePolicyTriggerHandler</members>
         <members>InsurancePolicyTriggerHandlerTest</members>
         <members>PaymentPlanFrequencyChangeService</members>
@@ -37,9 +40,13 @@
         <members>InboundInsurancePayment__c.candidatePolicy__c</members>
         <members>InboundInsurancePayment__c.externalPaymentId__c</members>
         <members>InboundInsurancePayment__c.inboundStatus__c</members>
+        <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
         <members>InboundInsurancePayment__c.parsedAt__c</members>
         <members>InboundInsurancePayment__c.rawBankReference__c</members>
         <members>InboundInsurancePayment__c.receivedAt__c</members>
+        <members>InboundInsurancePayment__c.reconciledAt__c</members>
+        <members>InboundInsurancePayment__c.reconciliationMethod__c</members>
+        <members>InboundInsurancePayment__c.reconciliationResult__c</members>
         <members>InboundInsurancePayment__c.rejectionReason__c</members>
         <members>InboundInsurancePayment__c.sourceAmount__c</members>
         <members>InboundInsurancePayment__c.sourceCancellationDate__c</members>
@@ -129,6 +136,10 @@
     <types>
         <members>MuleSoft_InboundPayments</members>
         <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <name>RecordType</name>
     </types>
     <types>
         <members>InsurancePolicy.PremiumFieldsRequired</members>

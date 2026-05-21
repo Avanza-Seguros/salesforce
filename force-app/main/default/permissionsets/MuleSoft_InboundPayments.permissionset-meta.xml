@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description
-	>Otorga al usuario de integracion de MuleSoft acceso al endpoint REST de pagos inbound y permisos completos sobre InboundInsurancePayment__c y lectura sobre InsurancePolicy.</description>
-    <hasActivationRequired>false</hasActivationRequired>
-    <label>MuleSoft Inbound Payments</label>
-
+    <classAccesses>
+        <apexClass>InboundConfidenceScoreQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>InboundInstallmentCandidateQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <classAccesses>
         <apexClass>InboundInsurancePaymentRestResource</apexClass>
         <enabled>true</enabled>
@@ -14,73 +17,18 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
-        <apexClass>InboundInstallmentCandidateQueueable</apexClass>
-        <enabled>true</enabled>
-    </classAccesses>
-    <classAccesses>
         <apexClass>InboundPolicyCandidateQueueable</apexClass>
         <enabled>true</enabled>
     </classAccesses>
-
-    <objectPermissions>
-        <allowCreate>true</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>true</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>InboundInsurancePayment__c</object>
-        <viewAllRecords>true</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>false</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>false</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>Account</object>
-        <viewAllRecords>true</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>false</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>false</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>InsurancePolicy</object>
-        <viewAllRecords>true</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>false</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>false</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>PaymentPlan__c</object>
-        <viewAllRecords>true</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>false</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>false</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>PaymentPlanInstallment__c</object>
-        <viewAllRecords>true</viewAllRecords>
-    </objectPermissions>
-
+    <classAccesses>
+        <apexClass>InboundReconciliationRulesQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <description
+	>Otorga al usuario de integracion de MuleSoft acceso al endpoint REST de pagos inbound y permisos completos sobre InboundInsurancePayment__c y lectura sobre InsurancePolicy.</description>
     <fieldPermissions>
         <editable>true</editable>
         <field>InboundInsurancePayment__c.candidateInstallment__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>PaymentPlanInstallment__c.dueDate__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>PaymentPlanInstallment__c.sequenceNumber__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -100,6 +48,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InboundInsurancePayment__c.installmentMatchReason__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>InboundInsurancePayment__c.parsedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -115,17 +68,32 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InboundInsurancePayment__c.reconciledAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.reconciliationMethod__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.reconciliationResult__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>InboundInsurancePayment__c.rejectionReason__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourceCancellationDate__c</field>
+        <field>InboundInsurancePayment__c.sourceAmount__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourceAmount__c</field>
+        <field>InboundInsurancePayment__c.sourceCancellationDate__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -160,12 +128,12 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourceInsuranceCarrier__c</field>
+        <field>InboundInsurancePayment__c.sourceInstallmentNumber__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourceInstallmentNumber__c</field>
+        <field>InboundInsurancePayment__c.sourceInsuranceCarrier__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -185,12 +153,12 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourcePaymentStatus__c</field>
+        <field>InboundInsurancePayment__c.sourcePaymentStatusRaw__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourcePaymentStatusRaw__c</field>
+        <field>InboundInsurancePayment__c.sourcePaymentStatus__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -210,12 +178,12 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourceSystem__c</field>
+        <field>InboundInsurancePayment__c.sourceSynchronizedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>InboundInsurancePayment__c.sourceSynchronizedAt__c</field>
+        <field>InboundInsurancePayment__c.sourceSystem__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -223,4 +191,76 @@
         <field>InboundInsurancePayment__c.sourceVatCommission__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.dueDate__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.sequenceNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>MuleSoft Inbound Payments</label>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Account</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Contact</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>InboundInsurancePayment__c</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>InsurancePolicy</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>PaymentPlanInstallment__c</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>PaymentPlan__c</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
 </PermissionSet>

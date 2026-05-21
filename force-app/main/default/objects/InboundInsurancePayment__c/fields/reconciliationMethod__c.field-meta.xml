@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reconciliationMethod__c</fullName>
+    <description
+	>Nombre de la regla MVP que produjo la clasificacion de conciliacion. Escrito por InboundReconciliationRulesQueueable.</description>
+    <label>Metodo de conciliacion</label>
+    <length>50</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
