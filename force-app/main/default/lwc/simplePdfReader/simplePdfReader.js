@@ -2260,9 +2260,8 @@ export default class SimplePdfReader extends LightningElement {
         }
         
         // 🟢 DETECTAR AFIRME (NUEVO)
-        if (contentUpper.includes('SEGUROS AFIRME') || 
-            contentUpper.includes('AFIRME GRUPO FINANCIERO') ||
-            fileNameLower.includes('afirme')) {
+        if (contentUpper.includes('SEGUROS AFIRME') || contentUpper.includes('AFIRME') ||
+            contentUpper.includes('AFIRME GRUPO FINANCIERO') || fileNameLower.includes('afirme')) {
             console.log('✅ Tipo: AFIRME (Certificado Individual)');
             return {
                 tipo: 'AFIRME',
