@@ -31,10 +31,25 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	private static final Integer SCORE_AMOUNT_CLOSE = 1;
 	private static final Integer MINIMUM_CANDIDATE_SCORE = 3;
 
+	private static final String REASON_SINGLE_WINNER = 'UNICO_GANADOR';
+	private static final String REASON_LOW_SCORE = 'SCORE_BAJO';
+	private static final String REASON_TIE = 'EMPATE';
+	private static final String REASON_NO_INSTALLMENTS = 'SIN_CUOTAS';
+
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
 
 	private class InstallmentMatchException extends Exception {
+	}
+
+	private class InstallmentMatchResult {
+		Id installmentId;
+		String matchReason;
+
+		InstallmentMatchResult(Id installmentId, String matchReason) {
+			this.installmentId = installmentId;
+			this.matchReason = matchReason;
+		}
 	}
 
 	private Set<Id> inboundPaymentIds;
@@ -101,17 +116,29 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 				if (forceFailureForTest) {
 					throw new InstallmentMatchException('Forced failure for test');
 				}
-				rec.candidateInstallment__c = bestInstallmentMatch(
+				InstallmentMatchResult result = bestInstallmentMatch(
 					p,
 					installmentsByPolicy
 				);
+				rec.candidateInstallment__c = result.installmentId;
+				rec.installmentMatchReason__c = result.matchReason;
 			} catch (Exception e) {
 				rec.candidateInstallment__c = null;
+				rec.installmentMatchReason__c = null;
 			}
 			toUpdate.add(rec);
 		}
 
 		update toUpdate;
+
+		Set<Id> allIds = new Set<Id>();
+		for (InboundInsurancePayment__c rec : toUpdate) {
+			allIds.add(rec.Id);
+		}
+		try {
+			System.enqueueJob(new InboundReconciliationRulesQueueable(allIds));
+		} catch (System.AsyncException e) {
+		}
 	}
 
 	/**
@@ -183,18 +210,18 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @param installmentsByPolicy: Cuotas conciliables agrupadas por poliza.
 	 * @return ID de la cuota candidata con mayor puntaje univoco, o null.
 	 */
-	private static Id bestInstallmentMatch(
+	private static InstallmentMatchResult bestInstallmentMatch(
 		InboundInsurancePayment__c payment,
 		Map<Id, List<PaymentPlanInstallment__c>> installmentsByPolicy
 	) {
 		if (payment.candidatePolicy__c == null) {
-			return null;
+			return new InstallmentMatchResult(null, null);
 		}
 		List<PaymentPlanInstallment__c> installments = installmentsByPolicy.get(
 			payment.candidatePolicy__c
 		);
 		if (installments == null || installments.isEmpty()) {
-			return null;
+			return new InstallmentMatchResult(null, REASON_NO_INSTALLMENTS);
 		}
 
 		Integer topScore = 0;
@@ -212,10 +239,13 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			}
 		}
 
-		if (topScore < MINIMUM_CANDIDATE_SCORE || topCount != 1) {
-			return null;
+		if (topScore < MINIMUM_CANDIDATE_SCORE) {
+			return new InstallmentMatchResult(null, REASON_LOW_SCORE);
 		}
-		return topId;
+		if (topCount != 1) {
+			return new InstallmentMatchResult(null, REASON_TIE);
+		}
+		return new InstallmentMatchResult(topId, REASON_SINGLE_WINNER);
 	}
 
 	/**

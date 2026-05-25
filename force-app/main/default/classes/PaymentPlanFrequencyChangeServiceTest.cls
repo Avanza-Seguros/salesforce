@@ -212,6 +212,43 @@ private class PaymentPlanFrequencyChangeServiceTest {
 	}
 
 	/**
+	 * @creation date: 25/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que una poliza cancelada no pueda cambiar su frecuencia
+	 *               si su estado no cambia a un estado operativo.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void doesNotAllowFrequencyChangeOnCancelledPolicy() {
+		InsurancePolicy policy = CollectionsTestDataFactory.createPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+
+		Test.startTest();
+		policy.PremiumFrequency = 'Mensual';
+		Boolean threwException = false;
+
+		try {
+			update policy;
+		} catch (DmlException e) {
+			threwException = true;
+			Assert.isTrue(e.getMessage().contains('Inicial o Vigente'));
+		}
+
+		Test.stopTest();
+
+		Assert.isTrue(threwException);
+		Assert.areEqual(
+			0,
+			[SELECT COUNT() FROM PaymentPlan__c WHERE insurancePolicy__c = :policy.Id]
+		);
+	}
+
+	/**
 	 * @creation date: 23/04/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Verifica que el reemplazo se rechace cuando la nueva frecuencia

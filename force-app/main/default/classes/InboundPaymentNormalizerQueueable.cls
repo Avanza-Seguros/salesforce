@@ -103,7 +103,10 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 			}
 		}
 		if (!normalizedIds.isEmpty()) {
-			System.enqueueJob(new InboundPolicyCandidateQueueable(normalizedIds));
+			try {
+				System.enqueueJob(new InboundPolicyCandidateQueueable(normalizedIds));
+			} catch (System.AsyncException e) {
+			}
 		}
 	}
 

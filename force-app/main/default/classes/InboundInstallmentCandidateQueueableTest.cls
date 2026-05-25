@@ -23,7 +23,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-001',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -65,7 +68,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-002',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -81,7 +87,7 @@ private class InboundInstallmentCandidateQueueableTest {
 			'EXT-IC-002',
 			policy.Id,
 			'1',
-			null,
+			Date.today().addDays(30),
 			999
 		);
 
@@ -106,7 +112,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-003',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -141,7 +150,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-004',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -183,7 +195,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-005',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -220,7 +235,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-006',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -279,7 +297,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-008',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = createActivePlan(policy.Id);
@@ -315,7 +336,10 @@ private class InboundInstallmentCandidateQueueableTest {
 			Name = 'POL-IC-009',
 			PolicyName = 'Test Policy',
 			NameInsuredId = accountId,
-			Status = 'Inicial'
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
 		);
 		insert policy;
 		PaymentPlan__c plan = new PaymentPlan__c(
@@ -409,7 +433,6 @@ private class InboundInstallmentCandidateQueueableTest {
 			planStatus__c = 'Activo',
 			premiumFrequency__c = 'Mensual',
 			expectedTotalAmount__c = 1200,
-			installmentCount__c = 3,
 			firstDueDate__c = Date.today()
 		);
 		insert plan;
