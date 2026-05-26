@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>manualReviewRequired__c</fullName>
+    <description
+	>Indica si el registro requiere revision manual por un agente antes de ser conciliado.</description>
+    <defaultValue>false</defaultValue>
+    <label>Requiere revision manual</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

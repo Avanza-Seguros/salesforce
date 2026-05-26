@@ -8,6 +8,7 @@
         <members>InboundPaymentNormalizerQueueable</members>
         <members>InboundPaymentNormalizerQueueableTest</members>
         <members>InboundConfidenceScoreQueueable</members>
+        <members>InboundConfidenceScoreQueueableTest</members>
         <members>InboundInstallmentCandidateQueueable</members>
         <members>InboundInstallmentCandidateQueueableTest</members>
         <members>InboundPolicyCandidateQueueable</members>
@@ -15,6 +16,10 @@
         <members>InboundReconciliationRulesQueueable</members>
         <members>InboundReconciliationRulesQueueableTest</members>
         <members>InsurancePolicyTriggerHandler</members>
+        <members>PaymentReconciliationQueueable</members>
+        <members>PaymentReconciliationQueueableTest</members>
+        <members>PolicyPaymentReceiptQueueable</members>
+        <members>PolicyPaymentReceiptQueueableTest</members>
         <members>InsurancePolicyTriggerHandlerTest</members>
         <members>PaymentPlanFrequencyChangeService</members>
         <members>PaymentPlanFrequencyChangeServiceTest</members>
@@ -36,8 +41,12 @@
         <name>CustomObject</name>
     </types>
     <types>
+        <members>InboundInsurancePayment__c.candidateCount__c</members>
         <members>InboundInsurancePayment__c.candidateInstallment__c</members>
         <members>InboundInsurancePayment__c.candidatePolicy__c</members>
+        <members>InboundInsurancePayment__c.confidenceBand__c</members>
+        <members>InboundInsurancePayment__c.confidenceScore__c</members>
+        <members>InboundInsurancePayment__c.manualReviewRequired__c</members>
         <members>InboundInsurancePayment__c.externalPaymentId__c</members>
         <members>InboundInsurancePayment__c.inboundStatus__c</members>
         <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
@@ -120,6 +129,7 @@
         <members>PolicyPaymentReceipt__c.receiptDate__c</members>
         <members>PolicyPaymentReceipt__c.receiptNumber__c</members>
         <members>PolicyPaymentReceipt__c.receiptStatus__c</members>
+        <members>PolicyPaymentReceipt__c.sourceInboundPayment__c</members>
         <name>CustomField</name>
     </types>
     <types>
