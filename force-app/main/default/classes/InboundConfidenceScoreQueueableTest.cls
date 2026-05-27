@@ -154,7 +154,8 @@ private class InboundConfidenceScoreQueueableTest {
 				confidenceScore__c,
 				confidenceBand__c,
 				manualReviewRequired__c,
-				inboundStatus__c
+				inboundStatus__c,
+				candidateCount__c
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];
@@ -185,7 +186,8 @@ private class InboundConfidenceScoreQueueableTest {
 				confidenceScore__c,
 				confidenceBand__c,
 				manualReviewRequired__c,
-				inboundStatus__c
+				inboundStatus__c,
+				candidateCount__c
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];

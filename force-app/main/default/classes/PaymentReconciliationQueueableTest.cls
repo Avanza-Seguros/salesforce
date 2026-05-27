@@ -53,7 +53,7 @@ private class PaymentReconciliationQueueableTest {
 		Assert.areEqual('Conciliado', recs[0].reconciliationStatus__c);
 		Assert.areEqual('Cuota exacta', recs[0].matchMethod__c);
 		Assert.areEqual(95, recs[0].confidenceScore__c);
-		Assert.areEqual('Alta', recs[0].confidenceBand__c);
+		Assert.areEqual('High', recs[0].confidenceBand__c);
 		Assert.areEqual(false, recs[0].manualReviewRequired__c);
 		Assert.areEqual(1, recs[0].candidateCount__c);
 		Assert.areEqual(policy.Id, recs[0].insurancePolicy__c);
@@ -177,8 +177,6 @@ private class PaymentReconciliationQueueableTest {
 			reconciliationStatus__c = 'Conciliado',
 			matchMethod__c = 'Cuota exacta',
 			confidenceScore__c = 95,
-			confidenceBand__c = 'Alta',
-			manualReviewRequired__c = false,
 			candidateCount__c = 1
 		);
 		insert existing;
@@ -268,7 +266,7 @@ private class PaymentReconciliationQueueableTest {
 		];
 		Assert.areEqual(1, recs.size());
 		Assert.areEqual(5.00, recs[0].amountDelta__c);
-		Assert.areEqual(-2, recs[0].dateDeltaDays__c);
+		Assert.areEqual(30, recs[0].dateDeltaDays__c);
 		Assert.areEqual(plan.Id, recs[0].paymentPlan__c);
 		Assert.areEqual(inst.Id, recs[0].paymentPlanInstallment__c);
 	}

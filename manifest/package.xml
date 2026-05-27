@@ -149,6 +149,7 @@
     </types>
     <types>
         <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <members>PaymentReconciliation__c.Payment_Reconciliation</members>
         <name>RecordType</name>
     </types>
     <types>

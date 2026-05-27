@@ -229,13 +229,13 @@
         <field>PaymentPlanInstallment__c.sequenceNumber__c</field>
         <readable>true</readable>
     </fieldPermissions>
-    <hasActivationRequired>false</hasActivationRequired>
-    <label>MuleSoft Inbound Payments</label>
     <fieldPermissions>
         <editable>true</editable>
         <field>PolicyPaymentReceipt__c.sourceInboundPayment__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>MuleSoft Inbound Payments</label>
     <objectPermissions>
         <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>

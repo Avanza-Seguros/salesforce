@@ -156,8 +156,6 @@ private class PolicyPaymentReceiptQueueableTest {
 			reconciliationStatus__c = 'Conciliado',
 			matchMethod__c = 'Cuota exacta',
 			confidenceScore__c = 95,
-			confidenceBand__c = 'Alta',
-			manualReviewRequired__c = false,
 			candidateCount__c = 1
 		);
 		insert recon;
@@ -251,8 +249,6 @@ private class PolicyPaymentReceiptQueueableTest {
 			reconciliationStatus__c = 'Conciliado',
 			matchMethod__c = 'Cuota exacta',
 			confidenceScore__c = 95,
-			confidenceBand__c = 'Alta',
-			manualReviewRequired__c = false,
 			candidateCount__c = 1
 		);
 		insert recon;

@@ -48,6 +48,14 @@
             <fullName>Recibido</fullName>
             <default>true</default>
         </values>
+        <values>
+            <fullName>Revision Manual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin Match</fullName>
+            <default>false</default>
+        </values>
     </picklistValues>
     <picklistValues>
         <picklist>reconciliationResult__c</picklist>

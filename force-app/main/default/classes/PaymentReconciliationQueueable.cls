@@ -79,9 +79,6 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 				candidateCount__c,
 				manualReviewRequired__c,
 				inboundStatus__c,
-				sourceAmount__c,
-				sourceDueDate__c,
-				sourcePaymentDate__c,
 				sourceReceiptNumber__c
 			FROM InboundInsurancePayment__c
 			WHERE Id IN :inboundPaymentIds
@@ -110,7 +107,7 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 		Map<Id, PaymentPlanInstallment__c> installmentsById = new Map<Id, PaymentPlanInstallment__c>();
 		if (!installmentIds.isEmpty()) {
 			for (PaymentPlanInstallment__c inst : [
-				SELECT Id, paymentPlan__c, expectedAmount__c, dueDate__c
+				SELECT Id, paymentPlan__c
 				FROM PaymentPlanInstallment__c
 				WHERE Id IN :installmentIds
 			]) {
@@ -141,12 +138,8 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 					reconciliationStatus__c = deriveReconciliationStatus(p),
 					matchMethod__c = deriveMatchMethod(p.reconciliationMethod__c),
 					confidenceScore__c = p.confidenceScore__c,
-					confidenceBand__c = p.confidenceBand__c,
 					candidateCount__c = p.candidateCount__c,
-					manualReviewRequired__c = p.manualReviewRequired__c,
-					decisionNotes__c = buildDecisionNotes(p),
-					amountDelta__c = deriveAmountDelta(p, inst),
-					dateDeltaDays__c = deriveDateDelta(p, inst)
+					decisionNotes__c = buildDecisionNotes(p)
 				);
 
 				toInsert.add(rec);
@@ -253,52 +246,5 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 			'. Banda: ' +
 			payment.confidenceBand__c +
 			'.';
-	}
-
-	/**
-	 * @creation date: 20/05/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Calcula la diferencia de importe entre el pago inbound y la cuota
-	 *               candidata. Retorna null si no hay cuota o datos suficientes.
-	 * @param payment: Registro inbound con sourceAmount__c.
-	 * @param inst: Cuota candidata con expectedAmount__c.
-	 * @return Diferencia de importe o null.
-	 */
-	private static Decimal deriveAmountDelta(
-		InboundInsurancePayment__c payment,
-		PaymentPlanInstallment__c inst
-	) {
-		if (
-			inst == null ||
-			payment.sourceAmount__c == null ||
-			inst.expectedAmount__c == null
-		) {
-			return null;
-		}
-		return (payment.sourceAmount__c - inst.expectedAmount__c).setScale(2);
-	}
-
-	/**
-	 * @creation date: 20/05/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Calcula la diferencia de dias entre la fecha de vencimiento del
-	 *               inbound y la de la cuota candidata. Retorna null si no hay cuota
-	 *               o datos suficientes.
-	 * @param payment: Registro inbound con sourceDueDate__c.
-	 * @param inst: Cuota candidata con dueDate__c.
-	 * @return Diferencia de dias o null.
-	 */
-	private static Integer deriveDateDelta(
-		InboundInsurancePayment__c payment,
-		PaymentPlanInstallment__c inst
-	) {
-		if (
-			inst == null ||
-			payment.sourceDueDate__c == null ||
-			inst.dueDate__c == null
-		) {
-			return null;
-		}
-		return payment.sourceDueDate__c.daysBetween(inst.dueDate__c);
 	}
 }
