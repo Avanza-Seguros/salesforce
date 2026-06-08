@@ -41,6 +41,16 @@
                 <default>false</default>
                 <label>Archivado</label>
             </value>
+            <value>
+                <fullName>Revision Manual</fullName>
+                <default>false</default>
+                <label>Revisión Manual</label>
+            </value>
+            <value>
+                <fullName>Sin Match</fullName>
+                <default>false</default>
+                <label>Sin Match</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>
