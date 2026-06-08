@@ -1,0 +1,232 @@
+<template>
+    <lightning-card title="Coberturas por Producto">
+        <div class="slds-p-around_medium">
+            
+            <!-- Botón Guardar -->
+            <div slot="actions">
+                <lightning-button
+                    label="Guardar cambios"
+                    variant="brand"
+                    onclick={handleSave}
+                    disabled={disabledSaveButton}
+                    title={saveButtonTitle}>
+                </lightning-button>
+            </div>
+            
+            <!-- Indicador de carga -->
+            <div if:true={isLoading} class="slds-m-top_medium">
+                <lightning-spinner alternative-text="Cargando..." size="medium"></lightning-spinner>
+            </div>
+            
+            <template if:false={isLoading}>
+                <div class="slds-grid slds-wrap">
+                    
+                    <!-- Columna 1: Productos (Ahora con selección múltiple) -->
+                    <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-3 slds-p-around_xx-small">
+                        <article class="slds-card">
+                            <div class="slds-card__header slds-grid">
+                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                    <div class="slds-media__figure">
+                                        <lightning-icon icon-name="standard:product" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="slds-media__body">
+                                        <h2 class="slds-card__header-title">
+                                            <span>Productos ({productCount})</span>
+                                        </h2>
+                                    </div>
+                                </header>
+                            </div>
+                            <div class="slds-card__body" style="max-height: 600px; overflow-y: auto;">
+                                <template if:true={hasProducts}>
+                                    <lightning-input
+                                        type="text"
+                                        label="Buscar producto"
+                                        onchange={handleProductSearch}
+                                        class="slds-m-bottom_small">
+                                    </lightning-input>
+                                    
+                                    <!-- Botones de selección rápida -->
+                                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium">
+                                        <lightning-button
+                                            label="Seleccionar todos"
+                                            size="x-small"
+                                            onclick={handleSelectAllProducts}>
+                                        </lightning-button>
+                                        <lightning-button
+                                            label="Limpiar todos"
+                                            size="x-small"
+                                            onclick={handleClearAllProducts}>
+                                        </lightning-button>
+                                    </div>
+                                    
+                                    <!-- Lista de productos con checkboxes -->
+                                    <template for:each={filteredProducts} for:item="product">
+                                        <div key={product.Id} class="slds-p-vertical_x-small slds-border_bottom slds-p-horizontal_small">
+                                            <lightning-input
+                                                type="checkbox"
+                                                label={product.Name}
+                                                checked={product.selected}
+                                                onchange={handleProductCheckbox}
+                                                data-id={product.Id}>
+                                            </lightning-input>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Resumen de selección -->
+                                    <div class="slds-m-top_medium slds-p-top_medium slds-border_top">
+                                        <p><strong>Productos seleccionados:</strong> {selectedProductsCount}</p>
+                                    </div>
+                                </template>
+                                <template if:false={hasProducts}>
+                                    <div class="slds-p-around_medium slds-text-align_center slds-text-color_weak">
+                                        <p>No hay productos activos</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </article>
+                    </div>
+                    
+                    <!-- Columna 2: Todas las Coberturas -->
+                    <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-3 slds-p-around_xx-small">
+                        <article class="slds-card">
+                            <div class="slds-card__header slds-grid">
+                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                    <div class="slds-media__figure">
+                                        <lightning-icon icon-name="standard:coverage" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="slds-media__body">
+                                        <h2 class="slds-card__header-title">
+                                            <span>Todas las Coberturas ({coverageCount})</span>
+                                        </h2>
+                                    </div>
+                                </header>
+                            </div>
+                            <div class="slds-card__body" style="max-height: 600px; overflow-y: auto;">
+                                <template if:true={hasCoverages}>
+                                    <lightning-input
+                                        type="text"
+                                        label="Buscar cobertura"
+                                        onchange={handleCoverageSearch}
+                                        class="slds-m-bottom_small">
+                                    </lightning-input>
+                                    
+                                    <!-- Botones de selección rápida -->
+                                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium">
+                                        <lightning-button
+                                            label="Seleccionar todas"
+                                            size="x-small"
+                                            onclick={handleSelectAllCoverages}>
+                                        </lightning-button>
+                                        <lightning-button
+                                            label="Limpiar todas"
+                                            size="x-small"
+                                            onclick={handleClearAllCoverages}>
+                                        </lightning-button>
+                                        <lightning-button
+                                            label="Seleccionar filtradas"
+                                            size="x-small"
+                                            onclick={handleSelectFilteredCoverages}>
+                                        </lightning-button>
+                                    </div>
+                                    
+                                    <template for:each={filteredCoverages} for:item="coverage">
+                                        <div key={coverage.Id} class="slds-p-vertical_x-small slds-border_bottom slds-p-horizontal_small">
+                                            <lightning-input
+                                                type="checkbox"
+                                                label={coverage.Name}
+                                                checked={coverage.assigned}
+                                                onchange={handleCoverageCheckbox}
+                                                data-id={coverage.Id}>
+                                            </lightning-input>
+                                        </div>
+                                    </template>
+                                </template>
+                                <template if:false={hasCoverages}>
+                                    <div class="slds-p-around_medium slds-text-align_center slds-text-color_weak">
+                                        <p>No hay coberturas disponibles</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </article>
+                    </div>
+                    
+                    <!-- Columna 3: Coberturas Asignadas (Unión de todos los productos seleccionados) -->
+                    <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-3 slds-p-around_xx-small">
+                        <article class="slds-card">
+                            <div class="slds-card__header slds-grid">
+                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                    <div class="slds-media__figure">
+                                        <lightning-icon icon-name="standard:assignment" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="slds-media__body">
+                                        <h2 class="slds-card__header-title">
+                                            <span>Coberturas Asignadas ({assignedCount})</span>
+                                        </h2>
+                                    </div>
+                                </header>
+                            </div>
+                            <div class="slds-card__body" style="max-height: 600px; overflow-y: auto;">
+                                <template if:true={hasSelectedProducts}>
+                                    <template if:true={hasAssignedCoverages}>
+                                        <lightning-input
+                                            type="text"
+                                            label="Buscar en asignadas"
+                                            onchange={handleAssignedSearch}
+                                            class="slds-m-bottom_small">
+                                        </lightning-input>
+                                        
+                                        <!-- Mostrar productos seleccionados -->
+                                        <div class="slds-m-bottom_medium slds-p-around_small slds-theme_shade">
+                                            <p class="slds-text-body_small">
+                                                <strong>Productos seleccionados:</strong>
+                                            </p>
+                                            <template for:each={selectedProductsList} for:item="product">
+                                                <div key={product.Id} class="slds-m-left_small slds-text-body_small">
+                                                    • {product.Name}
+                                                </div>
+                                            </template>
+                                        </div>
+                                        
+                                        <template for:each={filteredAssignedCoverages} for:item="coverage">
+                                            <div key={coverage.Id} class="slds-p-vertical_x-small slds-border_bottom slds-p-horizontal_small">
+                                                <p class="slds-text-body_small">
+                                                    <lightning-icon icon-name="standard:coverage" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                                    {coverage.Name}
+                                                    <span class="slds-text-color_weak slds-m-left_small">
+                                                        ({coverage.productCount} producto(s))
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </template>
+                                        
+                                        <template if:true={noAssignedFound}>
+                                            <div class="slds-p-around_medium slds-text-align_center slds-text-color_weak">
+                                                <p>No se encontraron coberturas asignadas con ese criterio</p>
+                                            </div>
+                                        </template>
+                                    </template>
+                                    
+                                    <template if:false={hasAssignedCoverages}>
+                                        <div class="slds-p-around_medium slds-text-align_center slds-text-color_weak">
+                                            <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                                            <p>Los productos seleccionados no tienen coberturas asignadas</p>
+                                        </div>
+                                    </template>
+                                </template>
+                                
+                                <template if:false={hasSelectedProducts}>
+                                    <div class="slds-p-around_medium slds-text-align_center slds-text-color_weak">
+                                        <lightning-icon icon-name="utility:click" size="small"></lightning-icon>
+                                        <p>Selecciona uno o más productos para ver sus coberturas asignadas</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </article>
+                    </div>
+                    
+                </div>
+            </template>
+            
+        </div>
+    </lightning-card>
+</template>

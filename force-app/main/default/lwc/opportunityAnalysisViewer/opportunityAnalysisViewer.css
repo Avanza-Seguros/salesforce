@@ -1,0 +1,250 @@
+:host {
+  --accent: #0b5cab;
+  --accent-soft: #eaf2fb;
+}
+
+.empty-icon {
+  --sds-c-icon-color-foreground-default: #b0b8c4;
+}
+
+/* Encabezado tipo héroe */
+.hero {
+  background: linear-gradient(135deg, #0b5cab 0%, #1b96ff 100%);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  color: #fff;
+}
+.hero-cliente {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.hero-tipo {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* Grid de datos clave */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+.tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-left: 3px solid var(--accent);
+  border-radius: 0.35rem;
+  padding: 0.55rem 0.65rem;
+}
+.tile-icon {
+  margin-top: 0.1rem;
+  --sds-c-icon-color-foreground-default: var(--accent);
+}
+.tile-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #747474;
+}
+.tile-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #181818;
+  word-break: break-word;
+}
+
+/* Resumen ejecutivo (multi-doc) */
+.exec-summary {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.35rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #16325c;
+  white-space: pre-line;
+}
+
+/* Tabla comparativa */
+.comparison-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.4rem;
+  overflow: hidden;
+}
+.comparison-table thead th {
+  background-color: #f3f6fa;
+  color: #16325c;
+  font-weight: 700;
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid #d8e0ea;
+  white-space: nowrap;
+}
+.comparison-table tbody th.field-col {
+  background-color: #fafafa;
+  color: #555;
+  font-weight: 500;
+  text-align: left;
+  padding: 0.5rem 0.85rem;
+  border-bottom: 1px solid #ececec;
+  border-right: 1px solid #ececec;
+  width: 30%;
+  white-space: nowrap;
+}
+.comparison-table tbody td {
+  padding: 0.5rem 0.85rem;
+  border-bottom: 1px solid #ececec;
+  color: #181818;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+.comparison-table tbody tr:last-child th,
+.comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.comparison-table tbody tr:nth-child(even) td,
+.comparison-table tbody tr:nth-child(even) th.field-col {
+  background-color: #fbfbfb;
+}
+.comparison-table .diff-row th.field-col {
+  background-color: #fff4e5;
+  color: #5a3700;
+  font-weight: 600;
+}
+.comparison-table .diff-cell {
+  background-color: #fff9ec;
+  font-weight: 600;
+  color: #5a3700;
+}
+
+/* Resumen destacado (legacy) */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  background: var(--accent-soft);
+  border-radius: 0.35rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.9rem;
+  color: #16325c;
+}
+.callout-icon {
+  --sds-c-icon-color-foreground-default: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Secciones */
+.section {
+  border: 1px solid #e5e5e5;
+  border-radius: 0.4rem;
+  overflow: hidden;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  background: #f7f9fb;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #ececec;
+}
+.section-icon {
+  --sds-c-icon-color-foreground-default: var(--accent);
+}
+.section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #16325c;
+}
+.section-body {
+  padding: 0.6rem 0.85rem;
+}
+
+.content-list {
+  margin: 0;
+}
+.content-list li {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #2b2826;
+  padding: 0.1rem 0;
+}
+.content-list li.is-bullet {
+  list-style: disc;
+  margin-left: 1.1rem;
+}
+
+/* Riesgos */
+.risk {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.3rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.87rem;
+  line-height: 1.4;
+}
+.risk:last-child {
+  margin-bottom: 0;
+}
+.risk-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.4rem;
+  border-radius: 0.7rem;
+  white-space: nowrap;
+  align-self: center;
+}
+.risk-text {
+  flex: 1;
+}
+.risk_critico {
+  background: #fdecea;
+  border-left: 3px solid #ea001e;
+}
+.risk_critico .risk-badge {
+  background: #ea001e;
+  color: #fff;
+}
+.risk_critico .risk-icon {
+  --sds-c-icon-color-foreground-default: #ea001e;
+}
+.risk_moderado {
+  background: #fef5e7;
+  border-left: 3px solid #fe9339;
+}
+.risk_moderado .risk-badge {
+  background: #fe9339;
+  color: #1f1300;
+}
+.risk_moderado .risk-icon {
+  --sds-c-icon-color-foreground-default: #fe9339;
+}
+.risk_ok {
+  background: #eafaf1;
+  border-left: 3px solid #2e844a;
+}
+.risk_ok .risk-badge {
+  background: #2e844a;
+  color: #fff;
+}
+.risk_ok .risk-icon {
+  --sds-c-icon-color-foreground-default: #2e844a;
+}
+.risk_info {
+  background: #f3f3f3;
+  border-left: 3px solid #919191;
+}
+.risk_info .risk-badge {
+  background: #919191;
+  color: #fff;
+}

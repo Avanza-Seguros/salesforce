@@ -2153,8 +2153,40 @@ export default class SimplePdfReader extends LightningElement {
         console.log('fileNameLower::: ' + fileNameLower);
         console.log('contentUpper::: ' + contentUpper);
         
+        // 🟤 DETECTAR CHUBB (Certificados)
+        if ((contentUpper.includes('CHUBB SEGUROS') || fileNameLower.includes('chubb')) && contentUpper.includes('CHUBB')) {
+            console.log('✅ Tipo: CHUBB (Certificado)');
+            return {
+                tipo: 'CHUBB',
+                subtipo: 'CERTIFICADO',
+                formato: 'CERTIFICADO'
+            };
+        }
+
+        // 🔵 DETECTAR AXA SEGUROS (Tarjetas y Certificados)
+        if (contentUpper.includes('AXA SEGUROS') || contentUpper.includes('AXA.MX') || fileNameLower.includes('_tarjaxa') || contentUpper.includes('AXA')) {
+            
+            // Determinar formato
+            let formato = 'INDETERMINADO';
+            if (fileNameLower.includes('_tarjaxa')) {
+                formato = 'CREDENCIAL';
+            } else if (fileNameLower.includes('_cert')) {
+                formato = 'CERTIFICADO';
+            } else if (contentUpper.includes('CERTIFICADO') && contentUpper.includes('GASTOS MÉDICOS')) {
+                formato = 'CERTIFICADO';
+            } else if (contentUpper.includes('TARJETA') || contentUpper.includes('TARJ')) {
+                formato = 'CREDENCIAL';
+            }
+            
+            console.log(`✅ Tipo: AXA (${formato})`);
+            return {
+                tipo: 'AXA',
+                subtipo: formato === 'CREDENCIAL' ? 'TARJETA' : 'CERTIFICADO',
+                formato: formato
+            };
+        }
+
         // DETECCIÓN ESPECÍFICA PARA TARJETAS (CREDENCIALES)
-        // Primero detectar TARJ - tiene prioridad
         if ((fileNameLower.includes('tarj') || fileNameLower.includes('cre') && fileNameLower.includes('gmg')) ||
             (fileNameLower.includes('tarj') || fileNameLower.includes('cre') && contentUpper.includes('GMG'))) {
             
@@ -2358,6 +2390,10 @@ export default class SimplePdfReader extends LightningElement {
             case 'AFIRME': // NUEVO
                 console.log('🟢 Procesando como AFIRME');
                 return this.procesarArchivoAFIRME(text, lines, file, tipoArchivo);
+
+            case 'AXA':
+                console.log('🔵 Procesando como AXA (Certificado)');
+                return this.procesarArchivoAXA(text, lines, file, tipoArchivo);
                 
             case 'VGG':
                 console.log('📄 Procesando como VGG');
@@ -2375,6 +2411,10 @@ export default class SimplePdfReader extends LightningElement {
                 // GMG genérico (no CERT ni TARJ específico)
                 console.log('🏢 Procesando como GMG genérico');
                 return this.procesarArchivoGMG(text, lines, file, tipoArchivo);
+
+            case 'CHUBB':
+                console.log('🟤 Procesando como CHUBB');
+                return this.procesarArchivoCHUBB(text, lines, file, tipoArchivo);
             
             default:
                 console.log(`⚠️ Tipo no reconocido, usando procesamiento general`);
@@ -5869,6 +5909,579 @@ esNombreValidoParaTarjeta(nombre) {
         
         console.log('✅ RESULTADO AFIRME:', resultado);
         return resultado;
+    }
+
+    // =============================================
+    // 🟠 PROCESADOR PARA ARCHIVOS AXXA (TARJETAS)
+    // =============================================
+
+    procesarArchivoAXXA(text, lines, file, tipoInfo) {
+        console.log(`📄 PROCESANDO ARCHIVO AXXA: ${file}`);
+        
+        const datos = this.extraerDatosAXXA(text, lines, file);
+        
+        // Si hay varios asegurados, tomar el primero (titular)
+        let nombreAsegurado = datos.fullName;
+        if (datos.fullName && datos.fullName.includes(',')) {
+            // Formato: "ESTRADA MERE ROBERTO ALEJANDRO, CORAL GARCIA ANA CECILIA"
+            nombreAsegurado = datos.fullName.split(',')[0].trim();
+        }
+        
+        const resultado = {
+            policy: datos.policy || 'NO_DETECTADO',
+            certificate: datos.certificate || 'NO_DETECTADO',
+            fullName: nombreAsegurado || 'NO_DETECTADO',
+            insuranceCompany: 'Axxa',
+            plan: datos.plan || 'CAOBA',
+            vigenciaDesde: datos.vigenciaDesde || '',
+            vigenciaHasta: datos.vigenciaHasta || '',
+            sumaAsegurada: datos.sumaAsegurada || '',
+            deducible: datos.deducible || '',
+            coaseguro: datos.coaseguro || '',
+            tipoDocumento: tipoInfo.formato,
+            subtipo: tipoInfo.subtipo,
+            sourceFile: file,
+            metadata: {
+                extraccion: 'axxa_tarjeta',
+                confianza: datos.confianza || 'MEDIA',
+                otrosAsegurados: datos.otrosAsegurados || []
+            }
+        };
+        
+        console.log('✅ RESULTADO AXXA:', resultado);
+        return resultado;
+    }
+
+    // =============================================
+    // 🟤 PROCESADOR PARA ARCHIVOS CHUBB
+    // =============================================
+    procesarArchivoCHUBB(text, lines, file, tipoInfo) {
+        console.log(`📄 PROCESANDO ARCHIVO CHUBB: ${file}`);
+        
+        const datos = this.extraerDatosCHUBB(text, lines, file);
+        
+        // Limpiar certificado: eliminar ceros a la izquierda
+        let certificadoLimpio = datos.certificate;
+        if (certificadoLimpio && certificadoLimpio !== 'NO_DETECTADO') {
+            certificadoLimpio = parseInt(certificadoLimpio, 10).toString();
+        }
+        
+        const resultado = {
+            policy: datos.policy || 'NO_DETECTADO',
+            certificate: certificadoLimpio || 'NO_DETECTADO',
+            fullName: datos.fullName || 'NO_DETECTADO',
+            insuranceCompany: 'Chubb Seguros México',
+            plan: datos.plan || 'Accidentes Personales Colectivo',
+            vigenciaDesde: datos.vigenciaDesde || '',
+            vigenciaHasta: datos.vigenciaHasta || '',
+            sumaAsegurada: datos.sumaAsegurada || '',
+            sumaAseguradaMuerteAccidental: datos.sumaMuerteAccidental || '',
+            sumaAseguradaGastosMedicos: datos.sumaGastosMedicos || '',
+            fechaNacimiento: datos.fechaNacimiento || '',
+            contratante: datos.contratante || '',
+            tipoDocumento: tipoInfo.formato,
+            subtipo: tipoInfo.subtipo,
+            sourceFile: file,
+            metadata: {
+                extraccion: 'chubb_certificado',
+                confianza: datos.confianza || 'MEDIA',
+                categoria: datos.categoria || 'A&H'
+            }
+        };
+        
+        console.log('✅ RESULTADO CHUBB:', JSON.stringify(resultado, null, 2));
+        return resultado;
+    }
+
+    extraerDatosCHUBB(text, lines, fileName) {
+        console.log('🔍 EXTRACCIÓN DINÁMICA PARA CHUBB');
+        
+        const datos = {
+            policy: null,
+            certificate: null,
+            fullName: null,
+            contratante: null,
+            sumaAsegurada: null,
+            sumaMuerteAccidental: null,
+            sumaGastosMedicos: null,
+            fechaNacimiento: null,
+            vigenciaDesde: null,
+            vigenciaHasta: null,
+            plan: null,
+            categoria: null,
+            confianza: 'BAJA'
+        };
+        
+        // Función para limpiar montos (eliminar $, MXN, espacios, etc.)
+        const limpiarMonto = (montoStr) => {
+            if (!montoStr) return null;
+            let limpio = montoStr.replace(/[^0-9,.]/g, '');
+            limpio = limpio.replace(/,/g, '');
+            return limpio;
+        };
+        
+        // Función para convertir fecha de "06 de abril de 2026" a "DD/MM/YYYY"
+        const convertirFechaChubb = (fechaStr) => {
+            if (!fechaStr) return null;
+            const meses = {
+                'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04',
+                'mayo': '05', 'junio': '06', 'julio': '07', 'agosto': '08',
+                'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+            };
+            const match = fechaStr.match(/(\d{2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/i);
+            if (match) {
+                const mesNum = meses[match[2].toLowerCase()];
+                if (mesNum) {
+                    return `${match[1]}/${mesNum}/${match[3]}`;
+                }
+            }
+            // Formato DD/MM/YYYY
+            const normalMatch = fechaStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (normalMatch) {
+                return fechaStr;
+            }
+            return fechaStr;
+        };
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // --- PÓLIZA: "PólizaVigencia de la póliza: ... 300109323" ---
+            // El número de póliza aparece después de "PólizaVigencia de la póliza:"
+            if (line.includes('Póliza') && line.includes('Vigencia de la póliza')) {
+                // Buscar número de póliza (parece ser 300109323 o similar)
+                const polizaMatch = line.match(/(\d{9,})/);
+                if (polizaMatch && !datos.policy) {
+                    datos.policy = polizaMatch[1];
+                    console.log(`✅ Póliza encontrada: ${datos.policy}`);
+                }
+            }
+            
+            // Buscar póliza en cualquier lugar (número de 9 dígitos como 300109323)
+            if (!datos.policy) {
+                const anyMatch = line.match(/\b(300109\d{3})\b/);
+                if (anyMatch) {
+                    datos.policy = anyMatch[1];
+                    console.log(`✅ Póliza encontrada (patrón): ${datos.policy}`);
+                }
+            }
+            
+            // --- CERTIFICADO: "No. Certificado: 1" ---
+            const certMatch = line.match(/No\.?\s*Certificado:\s*(\d+)/i);
+            if (certMatch) {
+                datos.certificate = certMatch[1];
+                console.log(`✅ Certificado encontrado: ${datos.certificate}`);
+            }
+            
+            // --- CONTRATANTE ---
+            if (line.includes('Contratante:')) {
+                const match = line.match(/Contratante:\s*(.+)/i);
+                if (match) {
+                    datos.contratante = match[1].trim();
+                    console.log(`✅ Contratante: ${datos.contratante}`);
+                }
+            }
+            
+            // --- NOMBRE DEL ASEGURADO ---
+            if (line.includes('Nombre del asegurado:')) {
+                const match = line.match(/Nombre del asegurado:\s*(.+)/i);
+                if (match) {
+                    datos.fullName = match[1].trim();
+                    console.log(`✅ Nombre asegurado: ${datos.fullName}`);
+                }
+            }
+            
+            // --- FECHA DE NACIMIENTO ---
+            if (line.includes('Fecha de nacimiento:')) {
+                const match = line.match(/Fecha de nacimiento:\s*(\d{2}\/\d{2}\/\d{4})/i);
+                if (match) {
+                    datos.fechaNacimiento = match[1];
+                    console.log(`✅ Fecha nacimiento: ${datos.fechaNacimiento}`);
+                }
+            }
+            
+            // --- VIGENCIA ---
+            // Formato: "Del 06 de abril de 2026 12:00 horas al 06 de abril de 2027 12:00 horas"
+            const vigMatch = line.match(/Del\s+(\d{2}\s+de\s+[a-z]+\s+de\s+\d{4})\s+12:00\s+horas\s+al\s+(\d{2}\s+de\s+[a-z]+\s+de\s+\d{4})/i);
+            if (vigMatch) {
+                datos.vigenciaDesde = convertirFechaChubb(vigMatch[1]);
+                datos.vigenciaHasta = convertirFechaChubb(vigMatch[2]);
+                console.log(`✅ Vigencia: ${datos.vigenciaDesde} - ${datos.vigenciaHasta}`);
+            }
+            
+            // --- COBERTURAS Y SUMAS ASEGURADAS ---
+            // Buscar en la tabla de coberturas
+            if (line.includes('Cobertura básica') || line.includes('Pérdidas Orgánicas')) {
+                // La siguiente línea o la misma contiene los montos
+                for (let j = Math.max(0, i - 1); j < Math.min(lines.length, i + 5); j++) {
+                    const coberturaLine = lines[j];
+                    
+                    // Buscar montos de Muerte Accidental
+                    if (coberturaLine.includes('Muerte Accidental')) {
+                        const montoMatch = coberturaLine.match(/\$?\s*([\d,]+\.?\d*)\s*MXN/);
+                        if (montoMatch) {
+                            datos.sumaMuerteAccidental = limpiarMonto(montoMatch[1]);
+                            console.log(`✅ Muerte Accidental: ${datos.sumaMuerteAccidental}`);
+                        }
+                    }
+                    
+                    // Buscar montos de Pérdidas Orgánicas
+                    if (coberturaLine.includes('Pérdidas Orgánicas')) {
+                        const montoMatch = coberturaLine.match(/\$?\s*([\d,]+\.?\d*)\s*MXN/);
+                        if (montoMatch) {
+                            if (!datos.sumaAsegurada) {
+                                datos.sumaAsegurada = limpiarMonto(montoMatch[1]);
+                            }
+                            console.log(`✅ Pérdidas Orgánicas: ${limpiarMonto(montoMatch[1])}`);
+                        }
+                    }
+                    
+                    // Buscar montos de Reembolso de Gastos Médicos
+                    if (coberturaLine.includes('Reembolso de Gastos Médicos')) {
+                        const montoMatch = coberturaLine.match(/\$?\s*([\d,]+\.?\d*)\s*MXN/);
+                        if (montoMatch) {
+                            datos.sumaGastosMedicos = limpiarMonto(montoMatch[1]);
+                            console.log(`✅ Gastos Médicos: ${datos.sumaGastosMedicos}`);
+                        }
+                    }
+                }
+            }
+            
+            // --- PLAN / SEGURO CONTRATADO ---
+            if (line.includes('Seguro contratado:')) {
+                const match = line.match(/Seguro contratado:\s*(.+)/i);
+                if (match) {
+                    datos.plan = match[1].trim();
+                    console.log(`✅ Plan: ${datos.plan}`);
+                }
+            }
+            
+            // --- CATEGORÍA ---
+            if (line.includes('Categoría:')) {
+                const match = line.match(/Categoría:\s*([A-Z&]+)/i);
+                if (match) {
+                    datos.categoria = match[1];
+                    console.log(`✅ Categoría: ${datos.categoria}`);
+                }
+            }
+        }
+        
+        // Si no se encontró la póliza, buscar en el texto completo
+        if (!datos.policy) {
+            const fullText = lines.join(' ');
+            const anyPoliza = fullText.match(/\b(300109\d{3})\b/);
+            if (anyPoliza) {
+                datos.policy = anyPoliza[1];
+                console.log(`✅ Póliza encontrada (texto completo): ${datos.policy}`);
+            }
+        }
+        
+        // Fallback desde nombre de archivo
+        if (!datos.fullName) {
+            const nameMatch = fileName.match(/^(\d+)_(.+)\.pdf$/i);
+            if (nameMatch) {
+                let nombreRaw = nameMatch[2];
+                nombreRaw = nombreRaw.replace(/_/g, ' ');
+                datos.fullName = nombreRaw.replace(/\b\w/g, l => l.toUpperCase());
+                console.log(`✅ Nombre desde archivo: ${datos.fullName}`);
+            }
+        }
+        
+        if (!datos.certificate) {
+            const certMatch = fileName.match(/^(\d+)_/);
+            if (certMatch) {
+                datos.certificate = certMatch[1];
+                console.log(`✅ Certificado desde archivo: ${datos.certificate}`);
+            }
+        }
+        
+        // Si no se encontró suma asegurada principal, usar la de Muerte Accidental
+        if (!datos.sumaAsegurada && datos.sumaMuerteAccidental) {
+            datos.sumaAsegurada = datos.sumaMuerteAccidental;
+        }
+        
+        // Valores por defecto
+        if (!datos.plan) datos.plan = 'Accidentes Personales Colectivo';
+        if (!datos.categoria) datos.categoria = 'A&H';
+        
+        // Calcular confianza
+        let campos = 0;
+        if (datos.policy) campos++;
+        if (datos.certificate) campos++;
+        if (datos.fullName) campos++;
+        if (datos.sumaAsegurada) campos++;
+        datos.confianza = campos >= 3 ? 'ALTA' : campos >= 2 ? 'MEDIA' : 'BAJA';
+        
+        console.log('📊 DATOS CHUBB EXTRAÍDOS:', JSON.stringify(datos, null, 2));
+        return datos;
+    }
+
+    // =============================================
+    // 🔵 PROCESADOR UNIFICADO PARA AXA SEGUROS
+    // =============================================
+    procesarArchivoAXA(text, lines, file, tipoInfo) {
+        console.log(`📄 PROCESANDO ARCHIVO AXA: ${file}`);
+        console.log(`   Formato: ${tipoInfo.formato}`);
+        
+        const datos = this.extraerDatosAXAUnificado(text, lines, file, tipoInfo);
+        
+        const resultado = {
+            policy: datos.policy || 'NO_DETECTADO',
+            certificate: datos.certificate || 'NO_DETECTADO',
+            fullName: datos.fullName || 'NO_DETECTADO',
+            insuranceCompany: 'AXA Seguros',
+            plan: datos.plan || 'CAOBA',
+            vigenciaDesde: datos.vigenciaDesde || '',
+            vigenciaHasta: datos.vigenciaHasta || '',
+            sumaAsegurada: datos.sumaAsegurada || '',
+            deducible: datos.deducible || '',
+            coaseguro: datos.coaseguro || '',
+            fechaNacimiento: datos.fechaNacimiento || '',
+            tipoDocumento: tipoInfo.formato === 'CREDENCIAL' ? 'CREDENCIAL' : 'CERTIFICADO',
+            subtipo: tipoInfo.subtipo,
+            sourceFile: file,
+            metadata: {
+                extraccion: 'axa_unificado',
+                confianza: datos.confianza || 'MEDIA',
+                dependientes: datos.dependientes || []
+            }
+        };
+        
+        console.log('✅ RESULTADO AXA:', JSON.stringify(resultado, null, 2));
+        return resultado;
+    }
+
+    extraerDatosAXAUnificado(text, lines, fileName, tipoInfo) {
+        console.log('🔍 EXTRACCIÓN UNIFICADA PARA AXA');
+        console.log(`   Formato: ${tipoInfo?.formato || 'DESCONOCIDO'}`);
+        
+        const datos = {
+            policy: null,
+            certificate: null,
+            fullName: null,
+            dependientes: [],
+            sumaAsegurada: null,
+            deducible: null,
+            coaseguro: null,
+            plan: null,
+            vigenciaDesde: null,
+            vigenciaHasta: null,
+            fechaNacimiento: null,
+            confianza: 'BAJA'
+        };
+        
+        // Función para convertir fechas de formato "28/ABR/2026" a "DD/MM/YYYY"
+        const convertirFechaAXA = (fechaStr) => {
+            if (!fechaStr) return null;
+            const meses = {
+                'ENE': '01', 'FEB': '02', 'MAR': '03', 'ABR': '04',
+                'MAY': '05', 'JUN': '06', 'JUL': '07', 'AGO': '08',
+                'SEP': '09', 'OCT': '10', 'NOV': '11', 'DIC': '12'
+            };
+            const match = fechaStr.match(/(\d{2})\/([A-Z]{3})\/(\d{4})/);
+            if (match) {
+                const mesNum = meses[match[2].toUpperCase()];
+                if (mesNum) {
+                    return `${match[1]}/${mesNum}/${match[3]}`;
+                }
+            }
+            // Formato DD/MM/YYYY normal
+            const normalMatch = fechaStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (normalMatch) {
+                return fechaStr;
+            }
+            return fechaStr;
+        };
+        
+        // --- BUSCAR PÓLIZA (prioridad máxima) ---
+        const fullText = lines.join(' ');
+        
+        const polizaPatterns = [
+            /P[OÓ]LIZA:\s*([A-Z0-9]+)/i,
+            /P[OÓ]LIZA:\s*([A-Z0-9]+\s+ORIGINAL)/i,
+            /\b(FK\d{5,}[A-Z]?)\b/i,
+            /\b([A-Z]{2}\d{5,})\b/i
+        ];
+        
+        for (const pattern of polizaPatterns) {
+            const match = fullText.match(pattern);
+            if (match) {
+                let poliza = match[1];
+                poliza = poliza.replace(/\s+ORIGINAL/i, '').trim();
+                datos.policy = poliza;
+                console.log(`✅ Póliza encontrada: ${datos.policy}`);
+                break;
+            }
+        }
+        
+        // Buscar línea por línea si no se encontró
+        if (!datos.policy) {
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.includes('Póliza:') || line.includes('POLIZA:')) {
+                    const match = line.match(/P[OÓ]LIZA:\s*([A-Z0-9]+)/i);
+                    if (match) {
+                        datos.policy = match[1];
+                        console.log(`✅ Póliza encontrada (línea): ${datos.policy}`);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // --- BUSCAR CERTIFICADO ---
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+    
+            // Formato: "Certificado: 0000000001" (tarjeta)
+            let certMatch = line.match(/Certificado:\s*(\d+)/i);
+            if (!certMatch) {
+                // Formato: "Certificado 1 Nombre..." (certificado)
+                certMatch = line.match(/Certificado\s+(\d+)/i);
+            }
+            if (certMatch && certMatch[1]) {
+                let certificadoRaw = certMatch[1];
+                
+                // Para CREDENCIALES (tarjetas): eliminar ceros a la izquierda
+                if (tipoInfo?.formato === 'CREDENCIAL') {
+                    // Convertir a número y luego a string para eliminar ceros a la izquierda
+                    datos.certificate = parseInt(certificadoRaw, 10).toString();
+                    console.log(`✅ Certificado encontrado (credencial, sin ceros): ${certificadoRaw} -> ${datos.certificate}`);
+                } else {
+                    // Para CERTIFICADOS: mantener el valor original
+                    datos.certificate = certificadoRaw;
+                    console.log(`✅ Certificado encontrado (certificado): ${datos.certificate}`);
+                }
+            }
+            
+            // --- NOMBRE (para tarjetas: "Asegurado(s): NOMBRE") ---
+            if (line.includes('Asegurado(s):')) {
+                let nombreRaw = line.replace('Asegurado(s):', '').trim();
+                // Limpiar fechas si vienen pegadas
+                nombreRaw = nombreRaw.replace(/\d{2}\/\d{2}\/\d{4}/g, '').trim();
+                if (nombreRaw) {
+                    datos.fullName = nombreRaw;
+                    console.log(`✅ Nombre encontrado (tarjeta): ${datos.fullName}`);
+                }
+            }
+            
+            // --- NOMBRE (para certificados: "Certificado X Nombre NOMBRE") ---
+            const nombreMatch = line.match(/Certificado\s+\d+\s+Nombre\s+([A-Z\s]+?)(?:\s+Subgrupo|$)/i);
+            if (nombreMatch && nombreMatch[1] && !datos.fullName) {
+                datos.fullName = nombreMatch[1].trim();
+                console.log(`✅ Nombre encontrado (certificado): ${datos.fullName}`);
+            }
+            
+            // --- VIGENCIA ---
+            // Formato certificado: "Vigencia de 28/ABR/2026 AL 28/ABR/2027"
+            let vigMatch = line.match(/Vigencia de\s+(\d{2}\/[A-Z]{3}\/\d{4})\s+AL\s+(\d{2}\/[A-Z]{3}\/\d{4})/i);
+            if (vigMatch) {
+                datos.vigenciaDesde = convertirFechaAXA(vigMatch[1]);
+                datos.vigenciaHasta = convertirFechaAXA(vigMatch[2]);
+                console.log(`✅ Vigencia: ${datos.vigenciaDesde} - ${datos.vigenciaHasta}`);
+            }
+            
+            // Formato tarjeta: fechas al final de la línea después del nombre
+            if (!datos.vigenciaDesde) {
+                const fechas = line.match(/(\d{2}\/\d{2}\/\d{4})/g);
+                if (fechas && fechas.length >= 2) {
+                    datos.vigenciaDesde = fechas[0];
+                    datos.vigenciaHasta = fechas[1];
+                    console.log(`✅ Vigencia (tarjeta): ${datos.vigenciaDesde} - ${datos.vigenciaHasta}`);
+                }
+            }
+            
+            // --- SUMA ASEGURADA ---
+            let sumaMatch = line.match(/Suma Asegurada:\s*([\d,]+\.?\d*)\s*U\.?M\.?A\.?M\.?/i);
+            if (!sumaMatch) {
+                sumaMatch = line.match(/Beneficio Máximo\s+([\d,]+\.?\d*)\s*U\.?M\.?A\.?M\.?/i);
+            }
+            if (sumaMatch) {
+                datos.sumaAsegurada = sumaMatch[1];
+                console.log(`✅ Suma Asegurada: ${datos.sumaAsegurada}`);
+            }
+            
+            // --- DEDUCIBLE ---
+            const deducibleMatch = line.match(/Deducible:\s*([\d,]+\.?\d*)\s*U\.?M\.?A\.?M\.?/i);
+            if (deducibleMatch) {
+                datos.deducible = deducibleMatch[1];
+                console.log(`✅ Deducible: ${datos.deducible}`);
+            }
+            
+            // --- COASEGURO ---
+            const coaseguroMatch = line.match(/Coaseguro:\s*(\d+)\s*%/i);
+            if (coaseguroMatch) {
+                datos.coaseguro = `${coaseguroMatch[1]}%`;
+                console.log(`✅ Coaseguro: ${datos.coaseguro}`);
+            }
+            
+            // --- PLAN ---
+            const planMatch = line.match(/Tabulador Médico\s+(\w+)/i);
+            if (planMatch) {
+                datos.plan = planMatch[1];
+                console.log(`✅ Plan: ${datos.plan}`);
+            }
+            
+            // --- FECHA DE NACIMIENTO (certificado) ---
+            const fechaNacMatch = line.match(/Fecha de Nacimiento\s+(\d{2}\/[A-Z]{3}\/\d{4})/i);
+            if (fechaNacMatch) {
+                datos.fechaNacimiento = convertirFechaAXA(fechaNacMatch[1]);
+                console.log(`✅ Fecha Nacimiento: ${datos.fechaNacimiento}`);
+            }
+            
+            // --- DEPENDIENTES (solo en certificados) ---
+            if (line.includes('Asegurados') && line.includes('Nombre') && line.includes('Parentesco')) {
+                console.log('📋 Tabla de dependientes encontrada');
+                for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
+                    const depLine = lines[j];
+                    const depMatch = depLine.match(/([A-Z\s]+?)(ESPOSA|HIJO|HIJA|PADRE|MADRE)(\d{2}\/[A-Z]{3}\/\d{4})/i);
+                    if (depMatch) {
+                        datos.dependientes.push({
+                            nombre: depMatch[1].trim(),
+                            parentesco: depMatch[2],
+                            fechaNacimiento: convertirFechaAXA(depMatch[3])
+                        });
+                        console.log(`✅ Dependiente: ${depMatch[1].trim()} (${depMatch[2]})`);
+                    }
+                }
+            }
+        }
+        
+        // Fallback desde nombre de archivo
+        if (!datos.fullName) {
+            let nameMatch = fileName.match(/^\d+_(.+)_(?:TARJ|CERT)\.pdf$/i);
+            if (!nameMatch) {
+                nameMatch = fileName.match(/^\d+_(.+)\.pdf$/i);
+            }
+            if (nameMatch) {
+                let nombreRaw = nameMatch[1];
+                nombreRaw = nombreRaw.replace(/_/g, ' ');
+                datos.fullName = nombreRaw.replace(/\b\w/g, l => l.toUpperCase());
+                console.log(`✅ Nombre desde archivo: ${datos.fullName}`);
+            }
+        }
+        
+        if (!datos.certificate) {
+            const certMatch = fileName.match(/^(\d+)_/);
+            if (certMatch) {
+                datos.certificate = certMatch[1];
+                console.log(`✅ Certificado desde archivo: ${datos.certificate}`);
+            }
+        }
+        
+        // Valores por defecto
+        if (!datos.plan) datos.plan = 'CAOBA';
+        
+        // Calcular confianza
+        let campos = 0;
+        if (datos.policy) campos++;
+        if (datos.certificate) campos++;
+        if (datos.fullName) campos++;
+        if (datos.sumaAsegurada) campos++;
+        datos.confianza = campos >= 3 ? 'ALTA' : campos >= 2 ? 'MEDIA' : 'BAJA';
+        
+        console.log('📊 DATOS AXA EXTRAÍDOS:', JSON.stringify(datos, null, 2));
+        return datos;
     }
 
     extraerDatosAfirme(text, lines, fileName) {

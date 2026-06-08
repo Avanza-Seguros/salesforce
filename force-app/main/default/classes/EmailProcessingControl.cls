@@ -288,4 +288,117 @@ public class EmailProcessingControl {
     public static Set<Id> getPendingItems() {
         return new Set<Id>(markedForSending);
     }
+    // =============================================================================
+
+    /**
+     * Marcar varios items como ENVIADOS en una sola operación DML.
+     *
+     * Reemplaza el patrón:
+     *     for (Id id : ids) EmailProcessingControl.markAsSent(id);
+     * (que consumía 2 DML por cada item: Email_Enviado__c + Estado_Envio_Email__c)
+     *
+     * Por:
+     *     EmailProcessingControl.markAsSentBulk(ids);
+     * (que consume 1 sola DML para TODOS los items, sin importar la cantidad)
+     *
+     * Mantiene además los caches en memoria sincronizados igual que markAsSent.
+     */
+    public static void markAsSentBulk(Set<Id> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            System.debug('⚠️ markAsSentBulk recibió un set vacío');
+            return;
+        }
+
+        // 1) Actualizar caches en memoria (mismos que usa markAsSent)
+        sentEmailItems.addAll(itemIds);
+        for (Id id : itemIds) {
+            sentEmailCache.put(id, true);
+            markedForSending.remove(id);
+        }
+
+        // 2) Construir UN SOLO registro por item con AMBOS campos a la vez.
+        //    Esto colapsa lo que antes eran 2 updates por item en 1 update masivo.
+        List<Items_Cases__c> updates = new List<Items_Cases__c>();
+        for (Id id : itemIds) {
+            updates.add(new Items_Cases__c(
+                Id = id,
+                Email_Enviado__c = true,
+                Estado_Envio_Email__c = 'Sent'
+            ));
+        }
+
+        try {
+            update updates; // 1 sola operación DML
+            System.debug('✅ Bulk: ' + updates.size() + ' items marcados como Sent (1 DML)');
+        } catch (DmlException e) {
+            System.debug('⚠️ Error en markAsSentBulk: ' + e.getMessage());
+
+            // Fallback: si el update masivo falla por algún registro problemático,
+            // intentamos uno por uno los que sí puedan pasar. Esto consume más DML
+            // pero solo se ejecuta como excepción, no en el camino normal.
+            for (Items_Cases__c rec : updates) {
+                try {
+                    update rec;
+                } catch (Exception ex) {
+                    System.debug('⚠️ Falló item ' + rec.Id + ': ' + ex.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Marcar varios items como FALLIDOS en una sola operación DML.
+     * Equivalente bulk de markAsFailed.
+     */
+    public static void markAsFailedBulk(Set<Id> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            System.debug('⚠️ markAsFailedBulk recibió un set vacío');
+            return;
+        }
+
+        // Limpiar estado de pendiente en memoria
+        for (Id id : itemIds) {
+            markedForSending.remove(id);
+        }
+
+        List<Items_Cases__c> updates = new List<Items_Cases__c>();
+        for (Id id : itemIds) {
+            updates.add(new Items_Cases__c(
+                Id = id,
+                Estado_Envio_Email__c = 'Failed'
+            ));
+        }
+
+        try {
+            update updates; // 1 sola operación DML
+            System.debug('❌ Bulk: ' + updates.size() + ' items marcados como Failed (1 DML)');
+        } catch (DmlException e) {
+            System.debug('⚠️ Error en markAsFailedBulk: ' + e.getMessage());
+        }
+    }
+
+    /**
+     * (Opcional) Versión bulk de markForSending, por si se requiere desde el
+     * trigger cuando procesa muchos registros a la vez.
+     */
+    public static void markForSendingBulk(Set<Id> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) return;
+
+        markedForSending.addAll(itemIds);
+
+        List<Items_Cases__c> updates = new List<Items_Cases__c>();
+        for (Id id : itemIds) {
+            updates.add(new Items_Cases__c(
+                Id = id,
+                Estado_Envio_Email__c = 'Pending'
+            ));
+        }
+
+        try {
+            update updates; // 1 sola operación DML
+            System.debug('📝 Bulk: ' + updates.size() + ' items marcados como Pending (1 DML)');
+        } catch (DmlException e) {
+            System.debug('⚠️ Error en markForSendingBulk: ' + e.getMessage());
+        }
+    }
 }

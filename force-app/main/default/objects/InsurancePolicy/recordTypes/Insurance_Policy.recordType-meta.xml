@@ -5,29 +5,6 @@
     <compactLayoutAssignment>Insurance_Policy</compactLayoutAssignment>
     <label>Insurance Policy</label>
     <picklistValues>
-        <picklist>AuditTerm</picklist>
-        <values>
-            <fullName>Anual</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Mensual</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Quincenal %28dos veces al mes%29</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Semestral %28dos veces al año%29</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Trimestral</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
         <picklist>CancellationReasonType</picklist>
         <values>
             <fullName>Cambio importante en riesgo</fullName>
@@ -231,29 +208,6 @@
         </values>
         <values>
             <fullName>Modal</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
-        <picklist>PremiumFrequency</picklist>
-        <values>
-            <fullName>Anual</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Mensual</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Quincenal %28dos veces al mes%29</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Semestral</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Trimestral</fullName>
             <default>false</default>
         </values>
     </picklistValues>
