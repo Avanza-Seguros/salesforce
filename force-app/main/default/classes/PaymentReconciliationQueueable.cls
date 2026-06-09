@@ -4,11 +4,13 @@
  *   @creation date: 20/05/2026
  *   @author: Javier Torres - Volestra
  *   @description: Sexto eslabon del pipeline de normalizacion de pagos inbound.
- *                 Crea un registro PaymentReconciliation__c para cada inbound evaluado,
- *                 independientemente del resultado (Conciliado, Revision Manual, Sin Match).
- *                 Garantiza trazabilidad de auditoria para todos los casos. Solo para
- *                 registros con inboundStatus__c = Conciliado encadena a
- *                 PolicyPaymentReceiptQueueable.
+ *                 Crea o actualiza un registro PaymentReconciliation__c para cada
+ *                 inbound evaluado, independientemente del resultado (Conciliado,
+ *                 Revision Manual, Sin Match). Es reentrante: si el inbound ya tiene
+ *                 una conciliacion (reproceso), la actualiza con el ultimo resultado
+ *                 en lugar de omitirla. Encadena a PolicyPaymentReceiptQueueable los
+ *                 registros que quedan en Conciliado (nuevos o actualizados); la
+ *                 creacion del recibo es idempotente y no duplica si ya existe.
  */
 public with sharing class PaymentReconciliationQueueable implements Queueable {
 	private static final String STATUS_RECONCILED = 'Conciliado';
@@ -29,10 +31,7 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 	private static final String RECON_STATUS_REVIEW = 'Requiere revision';
 	private static final String RECON_STATUS_NO_MATCH = 'Sin Match';
 
-	private static final String RESULT_PROBABLE_MATCH = 'Match Probable';
-
 	private static final String INBOUND_STATUS_NO_MATCH = 'Sin Match';
-	private static final String INBOUND_STATUS_MANUAL_REVIEW = 'Revision Manual';
 
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
@@ -56,13 +55,16 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 	/**
 	 * @creation date: 20/05/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Punto de entrada del job. Consulta los inbounds evaluados, verifica
-	 *               idempotencia (omite los que ya tienen una conciliacion creada), carga
-	 *               datos de cuota candidata, crea PaymentReconciliation__c para cada
-	 *               registro sin conciliacion previa y encadena a
-	 *               PolicyPaymentReceiptQueueable para los que alcanzaron Conciliado.
-	 *               Si ocurre una excepcion en un registro individual ese registro se
-	 *               omite sin afectar al resto.
+	 * @description: Punto de entrada del job. Consulta los inbounds evaluados, carga las
+	 *               conciliaciones existentes y los datos de cuota candidata, y hace
+	 *               upsert de PaymentReconciliation__c: inserta una nueva para los
+	 *               inbounds sin conciliacion previa y actualiza la existente cuando el
+	 *               inbound se reproceso, manteniendo score, estado y metodo alineados
+	 *               con el ultimo resultado. Encadena a PolicyPaymentReceiptQueueable
+	 *               todos los registros en Conciliado (nuevos o actualizados); el recibo
+	 *               no se duplica porque su creacion filtra por resultingReceipt__c =
+	 *               null. Si ocurre una excepcion en un registro individual ese registro
+	 *               se omite sin afectar al resto.
 	 * @param context: Contexto de ejecucion del Queueable proporcionado por la plataforma.
 	 * @return
 	 */
@@ -88,13 +90,13 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 			return;
 		}
 
-		Set<Id> alreadyProcessed = new Set<Id>();
+		Map<Id, PaymentReconciliation__c> existingByInbound = new Map<Id, PaymentReconciliation__c>();
 		for (PaymentReconciliation__c existing : [
-			SELECT inboundPayment__c
+			SELECT Id, inboundPayment__c
 			FROM PaymentReconciliation__c
 			WHERE inboundPayment__c IN :inboundPaymentIds
 		]) {
-			alreadyProcessed.add(existing.inboundPayment__c);
+			existingByInbound.put(existing.inboundPayment__c, existing);
 		}
 
 		Set<Id> installmentIds = new Set<Id>();
@@ -116,12 +118,11 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 		}
 
 		List<PaymentReconciliation__c> toInsert = new List<PaymentReconciliation__c>();
-		Set<Id> reconciledInboundIds = new Set<Id>();
+		List<PaymentReconciliation__c> toUpdate = new List<PaymentReconciliation__c>();
+		List<PaymentReconciliation__c> reconciledNewRecs = new List<PaymentReconciliation__c>();
+		Set<Id> reconciledReconciliationIds = new Set<Id>();
 
 		for (InboundInsurancePayment__c p : payments) {
-			if (alreadyProcessed.contains(p.Id)) {
-				continue;
-			}
 			try {
 				if (forceFailureForTest) {
 					throw new ReconciliationException('Forced failure for test');
@@ -130,38 +131,37 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 					? installmentsById.get(p.candidateInstallment__c)
 					: null;
 
-				PaymentReconciliation__c rec = new PaymentReconciliation__c(
-					inboundPayment__c = p.Id,
-					insurancePolicy__c = p.candidatePolicy__c,
-					paymentPlanInstallment__c = p.candidateInstallment__c,
-					paymentPlan__c = inst != null ? inst.paymentPlan__c : null,
-					reconciliationStatus__c = deriveReconciliationStatus(p),
-					matchMethod__c = deriveMatchMethod(p.reconciliationMethod__c),
-					confidenceScore__c = p.confidenceScore__c,
-					candidateCount__c = p.candidateCount__c,
-					decisionNotes__c = buildDecisionNotes(p)
-				);
+				PaymentReconciliation__c existing = existingByInbound.get(p.Id);
+				PaymentReconciliation__c rec = existing != null
+					? new PaymentReconciliation__c(Id = existing.Id)
+					: new PaymentReconciliation__c(inboundPayment__c = p.Id);
+				populateReconciliation(rec, p, inst);
 
-				toInsert.add(rec);
-
-				if (STATUS_RECONCILED.equals(p.inboundStatus__c)) {
-					reconciledInboundIds.add(p.Id);
+				Boolean reconciled = STATUS_RECONCILED.equals(p.inboundStatus__c);
+				if (existing != null) {
+					toUpdate.add(rec);
+					if (reconciled) {
+						reconciledReconciliationIds.add(existing.Id);
+					}
+				} else {
+					toInsert.add(rec);
+					if (reconciled) {
+						reconciledNewRecs.add(rec);
+					}
 				}
 			} catch (Exception e) {
 			}
 		}
 
-		if (toInsert.isEmpty()) {
-			return;
+		if (!toInsert.isEmpty()) {
+			insert toInsert;
+		}
+		if (!toUpdate.isEmpty()) {
+			update toUpdate;
 		}
 
-		insert toInsert;
-
-		Set<Id> reconciledReconciliationIds = new Set<Id>();
-		for (PaymentReconciliation__c rec : toInsert) {
-			if (reconciledInboundIds.contains(rec.inboundPayment__c)) {
-				reconciledReconciliationIds.add(rec.Id);
-			}
+		for (PaymentReconciliation__c rec : reconciledNewRecs) {
+			reconciledReconciliationIds.add(rec.Id);
 		}
 
 		if (!reconciledReconciliationIds.isEmpty()) {
@@ -175,12 +175,46 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 	}
 
 	/**
+	 * @creation date: 08/06/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Popula los campos de una PaymentReconciliation__c a partir del
+	 *               inbound evaluado y su cuota candidata. Se usa tanto para registros
+	 *               nuevos (INSERT) como para la actualizacion de la conciliacion
+	 *               existente cuando el inbound se reprocesa, garantizando que score,
+	 *               estado y metodo reflejen siempre el ultimo resultado del pipeline.
+	 *               No setea inboundPayment__c: es un master-detail no reparentable y
+	 *               reescribirlo en el UPDATE haria fallar el DML; el vinculo se asigna
+	 *               solo al insertar el registro nuevo.
+	 * @param rec: Conciliacion a poblar (nueva, o existente con solo Id preestablecido).
+	 * @param p: Registro inbound evaluado.
+	 * @param inst: Cuota candidata cargada, o null.
+	 * @return
+	 */
+	private static void populateReconciliation(
+		PaymentReconciliation__c rec,
+		InboundInsurancePayment__c p,
+		PaymentPlanInstallment__c inst
+	) {
+		rec.insurancePolicy__c = p.candidatePolicy__c;
+		rec.paymentPlanInstallment__c = p.candidateInstallment__c;
+		rec.paymentPlan__c = inst != null ? inst.paymentPlan__c : null;
+		rec.reconciliationStatus__c = deriveReconciliationStatus(p);
+		rec.matchMethod__c = deriveMatchMethod(p.reconciliationMethod__c);
+		rec.confidenceScore__c = p.confidenceScore__c;
+		rec.candidateCount__c = p.candidateCount__c;
+		rec.decisionNotes__c = buildDecisionNotes(p);
+	}
+
+	/**
 	 * @creation date: 20/05/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Deriva reconciliationStatus__c a partir del inboundStatus__c y
-	 *               reconciliationResult__c. Conciliado -> Conciliado; Sin Match ->
-	 *               Sin Match; Revision Manual con Match Probable -> Probable;
-	 *               cualquier otro caso de Revision Manual -> Requiere revision.
+	 *               reconciliationMethod__c. Conciliado -> Conciliado; Sin Match ->
+	 *               Sin Match; metodo POLICY_AMOUNT (poliza + importe) -> Probable;
+	 *               cualquier otro metodo en revision (POLICY_ONLY, AMBIGUOUS, ERROR)
+	 *               -> Requiere revision. El estado Probable se reserva exclusivamente
+	 *               para POLICY_AMOUNT: POLICY_ONLY, aunque produce Match Probable,
+	 *               cae a Requiere revision por su menor confianza.
 	 * @param payment: Registro inbound evaluado.
 	 * @return Valor del picklist reconciliationStatus__c.
 	 */
@@ -193,7 +227,7 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 		if (INBOUND_STATUS_NO_MATCH.equals(payment.inboundStatus__c)) {
 			return RECON_STATUS_NO_MATCH;
 		}
-		if (RESULT_PROBABLE_MATCH.equals(payment.reconciliationResult__c)) {
+		if (METHOD_POLICY_AMOUNT.equals(payment.reconciliationMethod__c)) {
 			return RECON_STATUS_PROBABLE;
 		}
 		return RECON_STATUS_REVIEW;

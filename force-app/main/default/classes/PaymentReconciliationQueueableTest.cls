@@ -3,10 +3,12 @@
  *   @version: 1.0
  *   @creation date: 20/05/2026
  *   @author: Javier Torres - Volestra
- *   @description: Valida la creacion de PaymentReconciliation__c para todos los
- *                 resultados del pipeline (Conciliado, Revision Manual, Sin Match),
- *                 la idempotencia (no duplicados), el mapeo de campos, el aislamiento
- *                 de errores y el encadenamiento a PolicyPaymentReceiptQueueable.
+ *   @description: Valida la creacion y actualizacion de PaymentReconciliation__c para
+ *                 todos los resultados del pipeline (Conciliado, Revision Manual, Sin
+ *                 Match), incluyendo el reproceso (upsert sin duplicados y score
+ *                 alineado al ultimo resultado), el mapeo de estado (POLICY_AMOUNT ->
+ *                 Probable, POLICY_ONLY -> Requiere revision), el mapeo de campos, el
+ *                 aislamiento de errores y el encadenamiento a PolicyPaymentReceiptQueueable.
  */
 @IsTest
 private class PaymentReconciliationQueueableTest {
@@ -301,6 +303,96 @@ private class PaymentReconciliationQueueableTest {
 			WHERE inboundPayment__c = :inbound.Id
 		];
 		Assert.areEqual(0, recs.size());
+	}
+
+	@IsTest
+	static void mapsPolicyOnlyToRequiereRevision() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = createPolicy('POL-PR-008', accountId);
+		InboundInsurancePayment__c inbound = createEvaluatedInbound(
+			'EXT-PR-008',
+			policy.Id,
+			'Revision Manual',
+			'POLICY_ONLY',
+			'Match Probable',
+			45,
+			'Media',
+			true,
+			1
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new PaymentReconciliationQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		List<PaymentReconciliation__c> recs = [
+			SELECT reconciliationStatus__c, matchMethod__c, resultingReceipt__c
+			FROM PaymentReconciliation__c
+			WHERE inboundPayment__c = :inbound.Id
+		];
+		Assert.areEqual(1, recs.size());
+		Assert.areEqual(
+			'Requiere revision',
+			recs[0].reconciliationStatus__c,
+			'POLICY_ONLY debe quedar en Requiere revision, no en Probable'
+		);
+		Assert.areEqual('Asistido por candidato', recs[0].matchMethod__c);
+		Assert.isNull(recs[0].resultingReceipt__c);
+	}
+
+	@IsTest
+	static void reprocessUpdatesExistingReconciliation() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = createPolicy('POL-PR-009', accountId);
+		InboundInsurancePayment__c inbound = createEvaluatedInbound(
+			'EXT-PR-009',
+			policy.Id,
+			'Conciliado',
+			'POLICY_DATE_AMOUNT',
+			'Match Exacto',
+			85,
+			'Alta',
+			false,
+			1
+		);
+
+		// Conciliacion de un run anterior (Probable, score menor, sin recibo):
+		// el reproceso debe actualizarla, no duplicarla ni dejarla obsoleta.
+		PaymentReconciliation__c stale = new PaymentReconciliation__c(
+			inboundPayment__c = inbound.Id,
+			reconciliationStatus__c = 'Probable',
+			matchMethod__c = 'Poliza e importe',
+			confidenceScore__c = 65,
+			candidateCount__c = 1
+		);
+		insert stale;
+
+		Test.startTest();
+		System.enqueueJob(
+			new PaymentReconciliationQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		List<PaymentReconciliation__c> recs = [
+			SELECT Id, reconciliationStatus__c, matchMethod__c, confidenceScore__c
+			FROM PaymentReconciliation__c
+			WHERE inboundPayment__c = :inbound.Id
+		];
+		Assert.areEqual(1, recs.size(), 'No debe duplicar la conciliacion');
+		Assert.areEqual(
+			stale.Id,
+			recs[0].Id,
+			'Debe reutilizar la conciliacion existente'
+		);
+		Assert.areEqual('Conciliado', recs[0].reconciliationStatus__c);
+		Assert.areEqual('Poliza e importe', recs[0].matchMethod__c);
+		Assert.areEqual(
+			85,
+			recs[0].confidenceScore__c,
+			'El score debe reflejar el ultimo resultado del inbound'
+		);
 	}
 
 	private static InsurancePolicy createPolicy(String name, Id accountId) {
