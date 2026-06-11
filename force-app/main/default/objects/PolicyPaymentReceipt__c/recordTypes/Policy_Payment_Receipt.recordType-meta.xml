@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Policy_Payment_Receipt</fullName>
+    <active>true</active>
+    <label>Policy Payment Receipt</label>
+    <picklistValues>
+        <picklist>paymentMethod__c</picklist>
+        <values>
+            <fullName>Cheque</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Desconocido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Domiciliacion</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Efectivo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Nomina</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tarjeta de credito</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tarjeta de debito</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transferencia</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>receiptStatus__c</picklist>
+        <values>
+            <fullName>Cancelado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente de confirmacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reconocido</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Reversado</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>
