@@ -9,7 +9,8 @@
  *                 conciliados automaticamente. Garantiza idempotencia verificando
  *                 resultingReceipt__c antes de crear. Actualiza
  *                 PaymentReconciliation__c.resultingReceipt__c con el ID del recibo
- *                 creado.
+ *                 creado. Encadena a PaymentInstallmentMatchQueueable con los recibos
+ *                 generados para reflejar el resultado en la cuota esperada.
  */
 public with sharing class PolicyPaymentReceiptQueueable implements Queueable {
 	private static final String RECEIPT_STATUS_RECOGNIZED = 'Reconocido';
@@ -99,6 +100,7 @@ public with sharing class PolicyPaymentReceiptQueueable implements Queueable {
 		insert toInsert;
 
 		List<PaymentReconciliation__c> toUpdate = new List<PaymentReconciliation__c>();
+		Set<Id> receiptIds = new Set<Id>();
 		for (Integer i = 0; i < toInsert.size(); i++) {
 			toUpdate.add(
 				new PaymentReconciliation__c(
@@ -106,8 +108,16 @@ public with sharing class PolicyPaymentReceiptQueueable implements Queueable {
 					resultingReceipt__c = toInsert[i].Id
 				)
 			);
+			receiptIds.add(toInsert[i].Id);
 		}
 
 		update toUpdate;
+
+		if (!receiptIds.isEmpty()) {
+			try {
+				System.enqueueJob(new PaymentInstallmentMatchQueueable(receiptIds));
+			} catch (System.AsyncException e) {
+			}
+		}
 	}
 }

@@ -20,6 +20,8 @@
         <members>PaymentReconciliationQueueableTest</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
+        <members>PaymentInstallmentMatchQueueable</members>
+        <members>PaymentInstallmentMatchQueueableTest</members>
         <members>InsurancePolicyTriggerHandlerTest</members>
         <members>PaymentPlanFrequencyChangeService</members>
         <members>PaymentPlanFrequencyChangeServiceTest</members>
@@ -149,7 +151,10 @@
     </types>
     <types>
         <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <members>PaymentPlan__c.Payment_Plan</members>
+        <members>PaymentPlanInstallment__c.Payment_Plan_Installment</members>
         <members>PaymentReconciliation__c.Payment_Reconciliation</members>
+        <members>PolicyPaymentReceipt__c.Policy_Payment_Receipt</members>
         <name>RecordType</name>
     </types>
     <types>
