@@ -27,11 +27,14 @@
         <members>PaymentPlanFrequencyChangeServiceTest</members>
         <members>PaymentPlanTriggerHandler</members>
         <members>PaymentPlanTriggerHandlerTest</members>
+        <members>PaymentPlanInstallmentTriggerHandler</members>
+        <members>PaymentPlanInstallmentTriggerHandlerTest</members>
         <name>ApexClass</name>
     </types>
     <types>
         <members>InsurancePolicyTrigger</members>
         <members>PaymentPlanTrigger</members>
+        <members>PaymentPlanInstallmentTrigger</members>
         <name>ApexTrigger</name>
     </types>
     <types>
