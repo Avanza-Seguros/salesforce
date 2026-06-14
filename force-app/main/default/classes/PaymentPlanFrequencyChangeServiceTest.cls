@@ -199,15 +199,31 @@ private class PaymentPlanFrequencyChangeServiceTest {
 			update policy;
 		} catch (DmlException e) {
 			threwException = true;
-			Assert.isTrue(e.getMessage().contains('saldo pendiente'));
+			// Con la historia 188, un plan totalmente conciliado pasa a Completado,
+			// por lo que el servicio ya no lo halla como activo y bloquea el cambio
+			// por no existir un plan activo para reemplazar (el plan no tiene saldo
+			// pendiente). El cambio igual queda bloqueado, que es lo que se valida.
+			Assert.isTrue(
+				e.getMessage().contains('plan activo'),
+				'El cambio debe bloquearse al no haber plan activo: ' + e.getMessage()
+			);
 		}
 
 		Test.stopTest();
 
-		Assert.isTrue(threwException);
+		Assert.isTrue(
+			threwException,
+			'El cambio de frecuencia debe quedar bloqueado'
+		);
 		Assert.areEqual(
-			'Activo',
-			CollectionsTestDataFactory.getActivePlan(policy.Id).planStatus__c
+			'Completado',
+			[
+				SELECT planStatus__c
+				FROM PaymentPlan__c
+				WHERE insurancePolicy__c = :policy.Id
+			]
+			.planStatus__c,
+			'El plan totalmente conciliado quedo Completado por la historia 188'
 		);
 	}
 
