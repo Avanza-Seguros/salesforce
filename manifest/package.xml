@@ -29,6 +29,8 @@
         <members>PaymentPlanTriggerHandlerTest</members>
         <members>PaymentPlanInstallmentTriggerHandler</members>
         <members>PaymentPlanInstallmentTriggerHandlerTest</members>
+        <members>PolicyCollectionSummaryService</members>
+        <members>PolicyCollectionSummaryServiceTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -135,6 +137,8 @@
         <members>PolicyPaymentReceipt__c.receiptNumber__c</members>
         <members>PolicyPaymentReceipt__c.receiptStatus__c</members>
         <members>PolicyPaymentReceipt__c.sourceInboundPayment__c</members>
+        <members>InsurancePolicy.collectionPaymentStatus__c</members>
+        <members>InsurancePolicy.collectionNextDueDate__c</members>
         <name>CustomField</name>
     </types>
     <types>

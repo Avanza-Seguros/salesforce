@@ -85,7 +85,11 @@ public with sharing class PaymentPlanInstallmentTriggerHandler {
 	@TestVisible
 	private static void recalculatePlans(Set<Id> planIds) {
 		Map<Id, PaymentPlan__c> plansById = new Map<Id, PaymentPlan__c>(
-			[SELECT Id, planStatus__c FROM PaymentPlan__c WHERE Id IN :planIds]
+			[
+				SELECT Id, planStatus__c, insurancePolicy__c
+				FROM PaymentPlan__c
+				WHERE Id IN :planIds
+			]
 		);
 		if (plansById.isEmpty()) {
 			return;
@@ -146,6 +150,15 @@ public with sharing class PaymentPlanInstallmentTriggerHandler {
 		if (!toUpdate.isEmpty()) {
 			update toUpdate;
 		}
+
+		// Historia 189: refleja el resumen de cobranza en la poliza de cada plan afectado.
+		Set<Id> policyIds = new Set<Id>();
+		for (PaymentPlan__c plan : plansById.values()) {
+			if (plan.insurancePolicy__c != null) {
+				policyIds.add(plan.insurancePolicy__c);
+			}
+		}
+		PolicyCollectionSummaryService.recalculate(policyIds);
 	}
 
 	/**
