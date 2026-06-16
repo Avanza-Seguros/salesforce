@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reconciliationResult__c</fullName>
+    <description
+	>Categoria del resultado de conciliacion producida por el motor de reglas MVP. Insumo directo del motor de score y banda de confianza.</description>
+    <label>Resultado de conciliacion</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Match Exacto</fullName>
+                <default>false</default>
+                <label>Match Exacto</label>
+            </value>
+            <value>
+                <fullName>Match Probable</fullName>
+                <default>false</default>
+                <label>Match Probable</label>
+            </value>
+            <value>
+                <fullName>Sin Match</fullName>
+                <default>false</default>
+                <label>Sin Match</label>
+            </value>
+            <value>
+                <fullName>Revision Manual</fullName>
+                <default>false</default>
+                <label>Revisión Manual</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Payment_Reconciliation</fullName>
+    <active>true</active>
+    <label>Payment Reconciliation</label>
+    <picklistValues>
+        <picklist>matchMethod__c</picklist>
+        <values>
+            <fullName>Asistido por candidato</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cuota exacta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Decision manual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Poliza e importe</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Poliza y numero de recibo</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>reconciliationStatus__c</picklist>
+        <values>
+            <fullName>Conciliado</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Duplicado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Probable</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Requiere revision</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin Match</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>rejectedReason__c</picklist>
+        <values>
+            <fullName>Ambiguo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diferencia de fecha</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diferencia de importe</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Duplicado</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Rechazado por negocio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin coincidencia de cuota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin coincidencia de poliza</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

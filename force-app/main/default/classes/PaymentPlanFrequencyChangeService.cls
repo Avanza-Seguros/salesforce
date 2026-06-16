@@ -64,6 +64,26 @@ public with sharing class PaymentPlanFrequencyChangeService {
 		List<InsurancePolicy> newPolicies,
 		Map<Id, InsurancePolicy> oldMap
 	) {
+		if (newPolicies != null && oldMap != null) {
+			for (InsurancePolicy policy : newPolicies) {
+				if (policy == null || policy.Id == null) {
+					continue;
+				}
+
+				InsurancePolicy oldPolicy = oldMap.get(policy.Id);
+
+				if (
+					oldPolicy != null &&
+					policy.PremiumFrequency != oldPolicy.PremiumFrequency &&
+					!isOperational(policy)
+				) {
+					policy.addError(
+						'Solo las polizas en estado Inicial o Vigente pueden cambiar su frecuencia de pago.'
+					);
+				}
+			}
+		}
+
 		Map<Id, InsurancePolicy> policiesById = getPoliciesWithFrequencyChange(
 			newPolicies,
 			oldMap

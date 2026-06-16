@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>confidenceScore__c</fullName>
+    <description
+	>Puntuacion de confianza calculada por InboundConfidenceScoreQueueable en funcion del metodo de conciliacion. Rango 0-100.</description>
+    <externalId>false</externalId>
+    <label>Score de confianza</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

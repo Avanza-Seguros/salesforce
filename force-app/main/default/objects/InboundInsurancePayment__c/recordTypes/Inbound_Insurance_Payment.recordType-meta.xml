@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Inbound_Insurance_Payment</fullName>
+    <active>true</active>
+    <label>Inbound Insurance Payment</label>
+    <picklistValues>
+        <picklist>installmentMatchReason__c</picklist>
+        <values>
+            <fullName>EMPATE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SCORE_BAJO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SIN_CUOTAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>UNICO_GANADOR</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>inboundStatus__c</picklist>
+        <values>
+            <fullName>Archivado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Conciliado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Normalizado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Parseado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Recibido</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Revision Manual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin Match</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>reconciliationResult__c</picklist>
+        <values>
+            <fullName>Match Exacto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Match Probable</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Revision Manual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin Match</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>rejectionReason__c</picklist>
+        <values>
+            <fullName>Cuota no encontrada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Error de normalizacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fecha invalida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Importe invalido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Payload duplicado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Payload incompleto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Payload invalido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Payload malformado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Poliza no encontrada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazado por negocio</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>sourceSystem__c</picklist>
+        <values>
+            <fullName>Aseguradora directa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carga manual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Migracion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MuleSoft</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+</RecordType>

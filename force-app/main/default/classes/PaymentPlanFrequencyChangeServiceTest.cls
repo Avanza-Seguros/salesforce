@@ -199,15 +199,68 @@ private class PaymentPlanFrequencyChangeServiceTest {
 			update policy;
 		} catch (DmlException e) {
 			threwException = true;
-			Assert.isTrue(e.getMessage().contains('saldo pendiente'));
+			// Con la historia 188, un plan totalmente conciliado pasa a Completado,
+			// por lo que el servicio ya no lo halla como activo y bloquea el cambio
+			// por no existir un plan activo para reemplazar (el plan no tiene saldo
+			// pendiente). El cambio igual queda bloqueado, que es lo que se valida.
+			Assert.isTrue(
+				e.getMessage().contains('plan activo'),
+				'El cambio debe bloquearse al no haber plan activo: ' + e.getMessage()
+			);
+		}
+
+		Test.stopTest();
+
+		Assert.isTrue(
+			threwException,
+			'El cambio de frecuencia debe quedar bloqueado'
+		);
+		Assert.areEqual(
+			'Completado',
+			[
+				SELECT planStatus__c
+				FROM PaymentPlan__c
+				WHERE insurancePolicy__c = :policy.Id
+			]
+			.planStatus__c,
+			'El plan totalmente conciliado quedo Completado por la historia 188'
+		);
+	}
+
+	/**
+	 * @creation date: 25/05/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Verifica que una poliza cancelada no pueda cambiar su frecuencia
+	 *               si su estado no cambia a un estado operativo.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void doesNotAllowFrequencyChangeOnCancelledPolicy() {
+		InsurancePolicy policy = CollectionsTestDataFactory.createPolicy(
+			CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			'Cancelado'
+		);
+
+		Test.startTest();
+		policy.PremiumFrequency = 'Mensual';
+		Boolean threwException = false;
+
+		try {
+			update policy;
+		} catch (DmlException e) {
+			threwException = true;
+			Assert.isTrue(e.getMessage().contains('Inicial o Vigente'));
 		}
 
 		Test.stopTest();
 
 		Assert.isTrue(threwException);
 		Assert.areEqual(
-			'Activo',
-			CollectionsTestDataFactory.getActivePlan(policy.Id).planStatus__c
+			0,
+			[SELECT COUNT() FROM PaymentPlan__c WHERE insurancePolicy__c = :policy.Id]
 		);
 	}
 
