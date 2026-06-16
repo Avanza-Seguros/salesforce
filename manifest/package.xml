@@ -31,12 +31,15 @@
         <members>PaymentPlanInstallmentTriggerHandlerTest</members>
         <members>PolicyCollectionSummaryService</members>
         <members>PolicyCollectionSummaryServiceTest</members>
+        <members>PolicyPaymentReceiptTriggerHandler</members>
+        <members>PolicyPaymentReceiptTriggerHandlerTest</members>
         <name>ApexClass</name>
     </types>
     <types>
         <members>InsurancePolicyTrigger</members>
         <members>PaymentPlanTrigger</members>
         <members>PaymentPlanInstallmentTrigger</members>
+        <members>PolicyPaymentReceiptTrigger</members>
         <name>ApexTrigger</name>
     </types>
     <types>
@@ -163,6 +166,10 @@
         <members>PaymentReconciliation__c.Payment_Reconciliation</members>
         <members>PolicyPaymentReceipt__c.Policy_Payment_Receipt</members>
         <name>RecordType</name>
+    </types>
+    <types>
+        <members>Cerrada_Ganada_Automatico</members>
+        <name>Flow</name>
     </types>
     <types>
         <members>InsurancePolicy.PremiumFieldsRequired</members>
