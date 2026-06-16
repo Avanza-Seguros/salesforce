@@ -20,6 +20,8 @@ export default class MassEmailConsole extends LightningElement {
     @track caseOptions = [];
     @track showCaseSelector = false;
 
+    @track hasLaunched = false;
+
     // Opciones para el radio group
     selectionOptions = [
         { label: 'Todos los casos pendientes', value: 'all' },
@@ -49,7 +51,7 @@ export default class MassEmailConsole extends LightningElement {
     }
 
     get isRunDisabled() {
-        if (this.loading) return true;
+        if (this.loading || this.hasLaunched) return true;  
         if (this.selectionMode === 'manual') {
             return this.selectedCaseIds.length === 0;
         }
@@ -159,8 +161,9 @@ export default class MassEmailConsole extends LightningElement {
         await runMassEmailFlow({ params: JSON.stringify(params) })
             .then(result => {
                 console.log('Result:', result);
-                if (result === 'OK') {
-                    this.showSuccess('El proceso ha sido lanzado correctamente. Revisa nuevamente en 1-2 minutos.');
+                if (result.startsWith('OK')) {
+                    this.hasLaunched = true;
+                    console.log('El proceso ha sido lanzado correctamente. Revisa nuevamente en 1-2 minutos.');
                     
                     // Limpiar selección si fue manual
                     if (this.selectionMode === 'manual') {

@@ -1,0 +1,110 @@
+.loader-zone {
+  min-height: 6rem;
+}
+
+.exec-summary {
+  background-color: #f4f6f9;
+  border-left: 3px solid #0176d3;
+  border-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  white-space: pre-line;
+  color: #181818;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.comparison-table thead th {
+  background-color: #f3f3f3;
+  color: #181818;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid #d8d8d8;
+  white-space: nowrap;
+}
+
+.comparison-table tbody th.field-col {
+  background-color: #fafafa;
+  color: #555;
+  font-weight: 500;
+  text-align: left;
+  padding: 0.5rem 0.875rem;
+  border-bottom: 1px solid #ebebeb;
+  border-right: 1px solid #ebebeb;
+  width: 30%;
+  white-space: nowrap;
+}
+
+.comparison-table tbody td {
+  padding: 0.5rem 0.875rem;
+  border-bottom: 1px solid #ebebeb;
+  color: #181818;
+  vertical-align: top;
+}
+
+.comparison-table tbody tr:last-child th,
+.comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.comparison-table tbody tr:nth-child(even) td,
+.comparison-table tbody tr:nth-child(even) th.field-col {
+  background-color: #fbfbfb;
+}
+
+.comparison-table .cell.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.comparison-table .diff-row th.field-col {
+  background-color: #fff4e5;
+  color: #5a3700;
+  font-weight: 600;
+}
+
+.comparison-table .diff-cell {
+  background-color: #fff9ec;
+  font-weight: 600;
+  color: #5a3700;
+}
+
+.doc-analysis__header {
+  background-color: #f3f3f3;
+  border: 1px solid #e5e5e5;
+  border-bottom: none;
+  border-radius: 0.25rem 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+}
+
+.doc-analysis .analysis-box {
+  border-top: none;
+  border-radius: 0 0 0.25rem 0.25rem;
+  margin-top: 0;
+}
+
+.analysis-box {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background-color: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-family: "Salesforce Sans", Arial, sans-serif;
+  color: #181818;
+}

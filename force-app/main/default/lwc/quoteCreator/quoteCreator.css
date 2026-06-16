@@ -1626,3 +1626,78 @@
     .quotes-stats { flex-direction: column; width: 100%; }
     .quotes-grid { grid-template-columns: 1fr; }
 }
+/* ============================================================ */
+/* COBERTURAS COMO CHIPS — sólo nombre                          */
+/* (Reemplaza la antigua tabla con inputs por una lista visual  */
+/* simple, alineada con la versión actual del modelo.)          */
+/* ============================================================ */
+.coverages-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+}
+.coverage-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #EEE9FF;
+    color: #5B3FB0;
+    border: 1px solid #D2C6F2;
+    border-radius: 999px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.18s ease;
+    cursor: default;
+}
+.coverage-chip:hover {
+    background: #5B3FB0;
+    color: white;
+    border-color: #4A3290;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(91, 63, 176, 0.18);
+}
+.coverage-chip:hover lightning-icon {
+    --slds-c-icon-color-foreground-default: white;
+    --sds-c-icon-color-foreground-default: white;
+}
+.coverage-chip lightning-icon {
+    --slds-c-icon-color-foreground-default: #5B3FB0;
+    --sds-c-icon-color-foreground-default: #5B3FB0;
+    flex-shrink: 0;
+}
+.coverage-chip-name {
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* Estado vacío de coberturas */
+.empty-coverages {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    background: #F9FAFB;
+    border: 2px dashed #D0D7E2;
+    border-radius: 14px;
+    color: #4B5563;
+}
+.empty-coverages h4 {
+    margin: 0.75rem 0 0.4rem 0;
+    font-size: 1.1rem;
+    color: #001C3D;
+}
+.empty-coverages p { margin: 0; font-size: 0.9rem; color: #6B7280; }
+
+/* Tarjeta de formulario a ancho completo */
+.form-card.full-width { grid-column: 1 / -1; }
+
+/* Loader de coberturas */
+.loading-coverages {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    color: #4B5563;
+    font-size: 0.9rem;
+}

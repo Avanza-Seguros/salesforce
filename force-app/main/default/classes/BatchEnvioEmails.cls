@@ -5,7 +5,10 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
     public Boolean processMarkedOnly = false;
     public Integer totalEmailsSent = 0;
     public Integer totalEmailsFailed = 0;
+    public Integer totalItemsProcessed = 0;
     public List<String> errorMessages = new List<String>();
+    public Map<Id, String> itemErrors = new Map<Id, String>(); // Errores por item específico
+    public String batchErrorSummary = ''; // Resumen general de errores
     
     // Constructor por defecto
     public BatchEnvioEmails() {
@@ -53,6 +56,8 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
             return;
         }
         
+        totalItemsProcessed += scope.size();
+        
         // Mostrar información de los items
         for (Items_Cases__c item : scope) {
             System.debug('Item: ' + item.Name + ' | ID: ' + item.Id + ' | Email: ' + item.Correo_electronico__c);
@@ -61,47 +66,87 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
         List<Items_Cases__c> itemsToUpdate = new List<Items_Cases__c>();
         List<Id> itemIds = new List<Id>();
         
+        // Variables para tracking de errores en este lote
+        Boolean batchHasError = false;
+        String batchErrorDetail = '';
+        
         try {
-            // 1. Primero, intentar enviar los emails
-            Boolean envioExitoso = false;
-            
-            if (scope.size() > 0) {
-                System.debug('Intentando enviar emails...');
-                
-                // Llamar al wrapper para enviar emails
-                try {
-                    // Asumiendo que EnvioPlantillasWrapper.enviarEmailsBulk retorna un booleano
-                    // o podemos usar try-catch para ver si lanza excepción
-                    EnvioPlantillasWrapper.enviarEmailsBulk(scope);
-                    envioExitoso = true;
-                    System.debug('✅ Método enviarEmailsBulk ejecutado sin excepciones');
-                } catch (Exception wrapperEx) {
-                    System.debug('❌ Error en enviarEmailsBulk: ' + wrapperEx.getMessage());
-                    System.debug('StackTrace: ' + wrapperEx.getStackTraceString());
-                    envioExitoso = false;
-                    errorMessages.add('Error en envío: ' + wrapperEx.getMessage());
+            // 1. Validar items antes de enviar
+            for (Items_Cases__c item : scope) {
+                if (String.isBlank(item.Correo_electronico__c)) {
+                    String error = 'Item ' + item.Id + ' - ' + item.Name + ': Correo electrónico vacío';
+                    errorMessages.add(error);
+                    itemErrors.put(item.Id, error);
+                    item.Estatus__c = 'En proceso';
+                    item.Procesar_Batch__c = true;
+                    totalEmailsFailed++;
+                    batchHasError = true;
+                    itemsToUpdate.add(item);
                 }
             }
             
-            // 2. Actualizar los items según el resultado
+            // Filtrar solo los items válidos para enviar
+            List<Items_Cases__c> validItems = new List<Items_Cases__c>();
             for (Items_Cases__c item : scope) {
+                if (!itemErrors.containsKey(item.Id)) {
+                    validItems.add(item);
+                }
+            }
+            
+            // 2. Enviar emails solo para items válidos
+            Boolean envioExitoso = false;
+            String envioErrorMsg = '';
+            
+            if (!validItems.isEmpty()) {
+                System.debug('Intentando enviar ' + validItems.size() + ' emails...');
+                
+                try {
+                    EnvioPlantillasWrapper.enviarEmailsBulk(validItems);
+                    envioExitoso = true;
+                    System.debug('✅ Método enviarEmailsBulk ejecutado sin excepciones');
+                } catch (Exception wrapperEx) {
+                    envioExitoso = false;
+                    envioErrorMsg = wrapperEx.getMessage();
+                    batchErrorDetail = 'Error en wrapper: ' + envioErrorMsg;
+                    batchHasError = true;
+                    
+                    String errorGeneral = 'ERROR EN LOTE - Fallo en envío bulk: ' + envioErrorMsg;
+                    errorMessages.add(errorGeneral);
+                    System.debug('❌ Error en enviarEmailsBulk: ' + wrapperEx.getMessage());
+                    System.debug('StackTrace: ' + wrapperEx.getStackTraceString());
+                }
+            }
+            
+            // 3. Actualizar los items según el resultado
+            for (Items_Cases__c item : scope) {
+                // Si el item ya fue procesado como error por validación, saltar
+                if (itemErrors.containsKey(item.Id)) {
+                    continue;
+                }
+                
                 itemIds.add(item.Id);
                 
                 if (envioExitoso) {
                     item.Estatus__c = 'Concluido';
                     item.Procesar_Batch__c = false;
                     totalEmailsSent++;
-                    System.debug('Marcando como Concluido: ' + item.Id);
+                    System.debug('✅ Marcando como Concluido: ' + item.Id);
                 } else {
                     item.Estatus__c = 'En proceso';
-                    item.Procesar_Batch__c = true; // Mantener marcado para reintentar
+                    item.Procesar_Batch__c = true;
                     totalEmailsFailed++;
-                    System.debug('Marcando como Error en envío: ' + item.Id);
+                    
+                    String errorDetail = 'Item ' + item.Id + ' - ' + item.Name + 
+                                       ': Fallo en envío - ' + envioErrorMsg;
+                    errorMessages.add(errorDetail);
+                    itemErrors.put(item.Id, errorDetail);
+                    
+                    System.debug('❌ Marcando como Error en envío: ' + item.Id);
                 }
                 itemsToUpdate.add(item);
             }
             
-            // 3. Actualizar los registros en la base de datos
+            // 4. Actualizar los registros en la base de datos
             if (!itemsToUpdate.isEmpty()) {
                 System.debug('Intentando actualizar ' + itemsToUpdate.size() + ' registros...');
                 
@@ -121,33 +166,62 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
                         System.debug('✅ Registro actualizado: ' + item.Id);
                     } else {
                         actualizadosConError++;
-                        String errorMsg = 'Error actualizando ' + item.Id + ': ';
+                        String errorMsg = 'Error en BD actualizando ' + item.Id + ': ';
                         for (Database.Error err : sr.getErrors()) {
                             errorMsg += err.getMessage() + '; ';
                         }
                         System.debug('❌ ' + errorMsg);
                         errorMessages.add(errorMsg);
+                        itemErrors.put(item.Id, errorMsg);
+                        
+                        // Ajustar contadores si la actualización falló
+                        if (item.Estatus__c == 'Concluido') {
+                            totalEmailsSent--;
+                            totalEmailsFailed++;
+                        }
                     }
                 }
                 
-                System.debug('Resultados actualización: ' + actualizadosExitosamente + ' exitosos, ' + actualizadosConError + ' con error');
+                System.debug('Resultados actualización: ' + actualizadosExitosamente + 
+                           ' exitosos, ' + actualizadosConError + ' con error');
+                
+                if (actualizadosConError > 0) {
+                    batchHasError = true;
+                }
+            }
+            
+            // Si hubo error en el lote, agregar resumen
+            if (batchHasError) {
+                batchErrorSummary += 'Lote con ' + scope.size() + ' items - ' + batchErrorDetail + '\n';
             }
 
         } catch (Exception e) {
             System.debug('🔥 ERROR GENERAL en execute: ' + e.getMessage());
             System.debug('StackTrace: ' + e.getStackTraceString());
-            errorMessages.add('Error general en execute: ' + e.getMessage());
             
-            // Intentar marcar todos como error
+            String errorDetallado = 'ERROR CRÍTICO en lote: ' + e.getMessage() + 
+                                   ' | Línea: ' + e.getLineNumber() +
+                                   ' | Tipo: ' + e.getTypeName();
+            
+            errorMessages.add(errorDetallado);
+            batchErrorSummary += 'ERROR CRÍTICO en lote de ' + scope.size() + ' items: ' + e.getMessage() + '\n';
+            
+            // Marcar todos los items del lote como error
             for (Items_Cases__c item : scope) {
-                item.Estatus__c = 'En proceso';
-                item.Procesar_Batch__c = true;
+                if (!itemErrors.containsKey(item.Id)) {
+                    item.Estatus__c = 'En proceso';
+                    item.Procesar_Batch__c = true;
+                    itemErrors.put(item.Id, 'Error crítico: ' + e.getMessage());
+                    totalEmailsFailed++;
+                }
             }
             
             try {
                 Database.update(scope, false);
             } catch (Exception ex) {
-                System.debug('🔥 No se pudieron actualizar los items después de error general');
+                String errorUpdate = 'No se pudieron actualizar items después de error: ' + ex.getMessage();
+                errorMessages.add(errorUpdate);
+                System.debug('🔥 ' + errorUpdate);
             }
         }
         
@@ -156,49 +230,141 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
     
     public void finish(Database.BatchableContext bc) {
         System.debug('================= BATCH COMPLETADO =================');
+        System.debug('Total items procesados: ' + totalItemsProcessed);
         System.debug('Total emails enviados: ' + totalEmailsSent);
         System.debug('Total emails con error: ' + totalEmailsFailed);
         System.debug('Total errores registrados: ' + errorMessages.size());
-
+        
         if (processMarkedOnly && specificItemIds != null) {
             System.debug('Batch específico completado para ' + specificItemIds.size() + ' items');
         }
         
-        // Enviar notificación si hay errores
+        // Mostrar errores en debug
         if (totalEmailsFailed > 0 || !errorMessages.isEmpty()) {
-            System.debug('⚠️ Errores encontrados:');
-            for (String error : errorMessages) {
-                System.debug('  - ' + error);
+            System.debug('⚠️ RESUMEN DE ERRORES:');
+            System.debug('Total de errores: ' + errorMessages.size());
+            for (Integer i = 0; i < Math.min(10, errorMessages.size()); i++) {
+                System.debug('  Error ' + (i+1) + ': ' + errorMessages[i]);
             }
-            
-            // También puedes crear un registro de log
+            if (errorMessages.size() > 10) {
+                System.debug('  ... y ' + (errorMessages.size() - 10) + ' errores más');
+            }
         }
         
-        System.debug('===================================================');
-        
-        // Opcional: Enviar email de resumen al administrador
+        // Enviar resumen detallado al administrador
         enviarResumenAdministrador();
+        
+        System.debug('===================================================');
     }
     
     private void enviarResumenAdministrador() {
         try {
             // Enviar email de resumen al administrador del sistema
-            String[] toAddresses = new String[]{'sergio.uribe@volestra.com'}; // Cambiar por email real
-            String subject = 'Resumen Batch Envío Emails - ' + System.now();
-            String body = '<h2>Resumen del proceso de envío de emails</h2>';
-            body += '<p><strong>Fecha:</strong> ' + System.now() + '</p>';
-            body += '<p><strong>Total procesados:</strong> ' + (totalEmailsSent + totalEmailsFailed) + '</p>';
-            body += '<p><strong>Enviados exitosamente:</strong> ' + totalEmailsSent + '</p>';
-            body += '<p><strong>Con errores:</strong> ' + totalEmailsFailed + '</p>';
+            String[] toAddresses = new String[]{'sergio.uribe@volestra.com'};
+            String subject = '📧 Resumen Batch Envío Emails - ' + System.now().format();
             
+            String body = '<html>';
+            body += '<head><style>';
+            body += 'body { font-family: Arial, sans-serif; }';
+            body += '.success { color: green; font-weight: bold; }';
+            body += '.error { color: red; font-weight: bold; }';
+            body += '.warning { color: orange; }';
+            body += 'table { border-collapse: collapse; width: 100%; margin: 10px 0; }';
+            body += 'th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }';
+            body += 'th { background-color: #f2f2f2; }';
+            body += '.error-detail { background-color: #ffeeee; margin-top: 20px; }';
+            body += '</style></head>';
+            body += '<body>';
+            
+            body += '<h2>📊 Resumen del proceso de envío de emails</h2>';
+            body += '<p><strong>📅 Fecha y hora:</strong> ' + System.now() + '</p>';
+            body += '<p><strong>🎯 Tipo de proceso:</strong> ' + (processMarkedOnly ? 'IDs específicos' : 'Todos los items en proceso') + '</p>';
+            
+            // Tabla de resumen
+            body += '<table>';
+            body += '<tr><th>Métrica</th><th>Valor</th></tr>';
+            body += '<tr><td>Total items procesados</td><td><strong>' + totalItemsProcessed + '</strong></td></tr>';
+            body += '<tr><td>✅ Enviados exitosamente</td><td class="success">' + totalEmailsSent + '</td></tr>';
+            body += '<tr><td>❌ Con errores</td><td class="error">' + totalEmailsFailed + '</td></tr>';
+            body += '<tr><td>Tasa de éxito</td><td>' + 
+                   (totalItemsProcessed > 0 ? 
+                   Math.round((totalEmailsSent * 100.0) / totalItemsProcessed) : 0) + 
+                   '%</td></tr>';
+            body += '</table>';
+            
+            // Detalle de errores si existen
             if (!errorMessages.isEmpty()) {
-                body += '<h3>Errores:</h3><ul>';
+                body += '<div class="error-detail">';
+                body += '<h3 class="error">❌ DETALLE DE ERRORES (' + errorMessages.size() + ' errores)</h3>';
+                
+                if (errorMessages.size() <= 50) {
+                    // Mostrar todos los errores
+                    body += '<ul>';
+                    for (String error : errorMessages) {
+                        body += '<li>' + escapeHtml(error) + '</li>';
+                    }
+                    body += '</ul>';
+                } else {
+                    // Mostrar resumen de errores
+                    body += '<p><strong>Se generaron ' + errorMessages.size() + ' errores.</strong></p>';
+                    body += '<p>Los primeros 25 errores:</p>';
+                    body += '<ul>';
+                    for (Integer i = 0; i < 25; i++) {
+                        body += '<li>' + escapeHtml(errorMessages[i]) + '</li>';
+                    }
+                    body += '</ul>';
+                    body += '<p class="warning">⚠️ Hay ' + (errorMessages.size() - 25) + ' errores adicionales no mostrados.</p>';
+                }
+                
+                // Agregar resumen por tipo de error
+                body += '<h4>📋 Resumen por tipo de error:</h4>';
+                Map<String, Integer> errorTypes = new Map<String, Integer>();
                 for (String error : errorMessages) {
-                    body += '<li>' + error + '</li>';
+                    String errorKey = error.contains('Correo electrónico vacío') ? 'Email vacío' :
+                                    (error.contains('Error en wrapper') ? 'Error en wrapper' :
+                                    (error.contains('Error en BD') ? 'Error de base de datos' :
+                                    (error.contains('ERROR CRÍTICO') ? 'Error crítico' : 'Otro error')));
+                    Integer count = errorTypes.get(errorKey);
+                    if (count == null) {
+                        errorTypes.put(errorKey, 1);
+                    } else {
+                        errorTypes.put(errorKey, count + 1);
+                    }
+                }
+                
+                body += '<ul>';
+                for (String errorType : errorTypes.keySet()) {
+                    body += '<li><strong>' + errorType + ':</strong> ' + errorTypes.get(errorType) + ' errores</li>';
                 }
                 body += '</ul>';
+                
+                body += '</div>';
             }
             
+            // Resumen de batch errors
+            if (String.isNotBlank(batchErrorSummary)) {
+                body += '<div class="error-detail">';
+                body += '<h3>⚠️ Resumen de errores por lote:</h3>';
+                body += '<pre>' + escapeHtml(batchErrorSummary) + '</pre>';
+                body += '</div>';
+            }
+            
+            // Recomendaciones si hay errores
+            if (totalEmailsFailed > 0) {
+                body += '<div style="background-color: #fff3cd; padding: 10px; margin-top: 20px;">';
+                body += '<h3>💡 Recomendaciones:</h3>';
+                body += '<ul>';
+                body += '<li>Revise los items con error en Salesforce (Estatus = "En proceso" y Procesar_Batch__c = true)</li>';
+                body += '<li>Verifique que los correos electrónicos sean válidos</li>';
+                body += '<li>Revise los logs de ejecución para más detalles</li>';
+                body += '<li>Considere ejecutar nuevamente el batch para los items fallidos</li>';
+                body += '</ul>';
+                body += '</div>';
+            }
+            
+            body += '<hr>';
+            body += '<p style="font-size: 12px; color: gray;">Este es un mensaje automático del BatchEnvioEmails de Salesforce</p>';
+            body += '</body></html>';
             
             Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
             mail.setToAddresses(toAddresses);
@@ -209,11 +375,28 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
             // Enviar el email
             Messaging.sendEmail(new Messaging.SingleEmailMessage[]{mail});
             
-            
-            System.debug('Email de resumen preparado para enviar');
+            System.debug('✅ Email de resumen enviado exitosamente');
             
         } catch (Exception e) {
-            System.debug('Error enviando resumen: ' + e.getMessage());
+            System.debug('❌ Error enviando resumen por email: ' + e.getMessage());
+            System.debug('StackTrace: ' + e.getStackTraceString());
+            
+            // Si falla el email, al menos dejar el error en los logs
+            System.debug('=== RESUMEN DEL BATCH (no se pudo enviar email) ===');
+            System.debug('Total items: ' + totalItemsProcessed);
+            System.debug('Éxitos: ' + totalEmailsSent);
+            System.debug('Fallos: ' + totalEmailsFailed);
+            System.debug('Errores: ' + errorMessages);
         }
+    }
+    
+    // Método auxiliar para escapar HTML y evitar inyección
+    private String escapeHtml(String input) {
+        if (String.isBlank(input)) return '';
+        return input.replace('&', '&amp;')
+                .replace('<', '&lt;')
+                .replace('>', '&gt;')
+                .replace('"', '&quot;')
+                .replace('\'', '&#39;'); 
     }
 }

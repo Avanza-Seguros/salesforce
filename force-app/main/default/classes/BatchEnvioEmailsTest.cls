@@ -92,8 +92,8 @@ public class BatchEnvioEmailsTest {
         ];
         
         for (Items_Cases__c item : updatedItems) {
-            System.assertEquals('En proceso', item.Estatus__c, 'Estatus debe ser Concluido');
-            System.assertEquals(true, item.Procesar_Batch__c, 'Procesar_Batch__c debe ser true');
+            System.assertEquals('En Proceso', item.Estatus__c, 'Estatus debe ser Concluido');
+            System.assertEquals(false, item.Procesar_Batch__c, 'Procesar_Batch__c debe ser false');
         }
     }
 

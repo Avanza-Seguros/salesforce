@@ -1,0 +1,247 @@
+<template>
+  <lightning-card
+    title="Crear Oportunidad desde PDFs"
+    icon-name="standard:opportunity"
+  >
+    <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+      <!-- Paso de carga -->
+      <template lwc:if={showUploadStep}>
+        <p
+          class="slds-text-body_small slds-text-color_weak slds-m-bottom_small"
+        >
+          Sube 2 o más PDFs (por ejemplo, la póliza y la cotización del mismo
+          cliente). Los nombres de los archivos deben compartir un prefijo
+          común para que se asocien a la misma oportunidad. La IA leerá los
+          documentos, extraerá los datos del cliente y creará automáticamente
+          una oportunidad con todos los PDFs adjuntos.
+        </p>
+
+        <lightning-input
+          type="file"
+          label="Documentos PDF"
+          accept="application/pdf,.pdf"
+          multiple
+          onchange={handleFileChange}
+          disabled={isProcessing}
+        >
+        </lightning-input>
+
+        <template lwc:if={hasFiles}>
+          <div class="slds-m-top_small">
+            <template for:each={fileList} for:item="f">
+              <div
+                key={f.name}
+                class="slds-box slds-box_x-small slds-m-bottom_xx-small slds-grid slds-grid_vertical-align-center"
+              >
+                <lightning-icon
+                  icon-name="doctype:pdf"
+                  size="small"
+                  class="slds-m-right_small"
+                ></lightning-icon>
+                <span class="slds-truncate" title={f.name}>{f.name}</span>
+              </div>
+            </template>
+
+            <template lwc:if={sharedPrefix}>
+              <p
+                class="slds-text-body_small slds-text-color_weak slds-m-top_x-small"
+              >
+                Prefijo común detectado: <b>{sharedPrefix}</b>
+              </p>
+            </template>
+            <template lwc:elseif={prefixWarning}>
+              <div
+                class="slds-box slds-theme_warning slds-m-top_x-small slds-text-body_small"
+              >
+                {prefixWarning}
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <div class="slds-m-top_medium">
+          <lightning-button
+            variant="brand"
+            label="Continuar"
+            title="Analizar los PDFs y crear la oportunidad"
+            onclick={handleContinue}
+            disabled={continueDisabled}
+          >
+          </lightning-button>
+        </div>
+      </template>
+
+      <!-- Procesando -->
+      <template lwc:if={isProcessing}>
+        <div
+          class="slds-align_absolute-center slds-p-around_large slds-is-relative loader-zone"
+        >
+          <lightning-spinner
+            alternative-text="Procesando"
+            size="medium"
+          ></lightning-spinner>
+        </div>
+        <p
+          class="slds-text-align_center slds-text-body_regular slds-m-top_large"
+        >
+          {statusMessage}
+        </p>
+      </template>
+
+      <!-- Error -->
+      <template lwc:if={error}>
+        <div class="slds-box slds-theme_error slds-m-top_small">
+          <lightning-icon
+            icon-name="utility:error"
+            variant="inverse"
+            size="x-small"
+            class="slds-m-right_x-small"
+          ></lightning-icon>
+          {error}
+        </div>
+      </template>
+
+      <!-- Resultado -->
+      <template lwc:if={hasResult}>
+        <div
+          class="slds-box slds-theme_success slds-m-bottom_medium slds-grid slds-grid_vertical-align-center"
+        >
+          <lightning-icon
+            icon-name="utility:success"
+            variant="inverse"
+            size="small"
+            class="slds-m-right_small"
+          ></lightning-icon>
+          <div>
+            <p class="slds-text-heading_small">Oportunidad creada</p>
+            <p>{result.opportunityName}</p>
+          </div>
+        </div>
+
+        <template lwc:if={result.accountWarning}>
+          <div class="slds-box slds-theme_warning slds-m-bottom_medium">
+            <lightning-icon
+              icon-name="utility:warning"
+              size="x-small"
+              class="slds-m-right_x-small"
+            ></lightning-icon>
+            {result.accountWarning}
+          </div>
+        </template>
+
+        <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+          Datos extraídos del documento
+        </h3>
+        <template lwc:if={extractedRows.length}>
+          <table
+            class="slds-table slds-table_bordered slds-table_cell-buffer slds-m-bottom_medium"
+          >
+            <tbody>
+              <template for:each={extractedRows} for:item="row">
+                <tr key={row.key}>
+                  <th
+                    scope="row"
+                    class="slds-text-color_weak"
+                    style="width: 40%"
+                  >
+                    {row.label}
+                  </th>
+                  <td>{row.value}</td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </template>
+        <template lwc:else>
+          <p class="slds-text-color_weak slds-m-bottom_medium">
+            No se pudieron extraer datos estructurados del documento.
+          </p>
+        </template>
+
+        <template lwc:if={result.executiveSummary}>
+          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+            Resumen ejecutivo
+          </h3>
+          <div class="exec-summary slds-m-bottom_medium">
+            <lightning-formatted-text
+              value={result.executiveSummary}
+              linkify
+            ></lightning-formatted-text>
+          </div>
+        </template>
+
+        <template lwc:if={comparisonTable}>
+          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+            Comparativo de documentos
+          </h3>
+          <div class="slds-scrollable_x slds-m-bottom_medium">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="field-col">Campo</th>
+                  <template
+                    for:each={comparisonTable.headers}
+                    for:item="h"
+                  >
+                    <th key={h.key} scope="col" class="doc-col">
+                      {h.label}
+                    </th>
+                  </template>
+                </tr>
+              </thead>
+              <tbody>
+                <template for:each={comparisonTable.rows} for:item="row">
+                  <tr key={row.key} class={row.rowClass}>
+                    <th scope="row" class="field-col">{row.label}</th>
+                    <template for:each={row.cells} for:item="c">
+                      <td key={c.key} class={c.cellClass}>{c.value}</td>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <p
+            class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium"
+          >
+            Las filas resaltadas muestran campos donde los documentos difieren.
+          </p>
+        </template>
+
+        <template lwc:if={docAnalyses.length}>
+          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+            Análisis por documento
+          </h3>
+          <template for:each={docAnalyses} for:item="d">
+            <div key={d.key} class="doc-analysis slds-m-bottom_medium">
+              <div
+                class="doc-analysis__header slds-grid slds-grid_vertical-align-center"
+              >
+                <lightning-icon
+                  icon-name="doctype:pdf"
+                  size="x-small"
+                  class="slds-m-right_x-small"
+                ></lightning-icon>
+                <span class="slds-text-title_bold">{d.title}</span>
+              </div>
+              <pre class="analysis-box">{d.analysis}</pre>
+            </div>
+          </template>
+        </template>
+
+        <div class="slds-m-top_medium slds-grid slds-gutters_small">
+          <lightning-button
+            variant="brand"
+            label="Abrir oportunidad"
+            icon-name="utility:open"
+            onclick={handleOpenOpportunity}
+            class="slds-m-right_x-small"
+          >
+          </lightning-button>
+          <lightning-button label="Procesar otros PDFs" onclick={handleReset}>
+          </lightning-button>
+        </div>
+      </template>
+    </div>
+  </lightning-card>
+</template>

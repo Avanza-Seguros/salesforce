@@ -1,6 +1,5 @@
 <template>
     <div class="wizard-container premium-theme" onclick={handleClickOutside}>
-
         <!-- ============================================================ -->
         <!-- HEADER                                                       -->
         <!-- ============================================================ -->
@@ -29,7 +28,6 @@
                         </p>
                     </div>
                 </div>
-
                 <div class="header-right">
                     <template if:true={showListView}>
                         <div class="opportunities-stats">
@@ -49,7 +47,6 @@
                             </div>
                         </div>
                     </template>
-
                     <template if:true={showCreateView}>
                         <div class="step-indicator-badge">
                             <div class="badge-circle">
@@ -67,13 +64,11 @@
                 </div>
             </div>
         </div>
-
         <!-- ============================================================ -->
         <!-- VISTA DE LISTA                                               -->
         <!-- ============================================================ -->
         <template if:true={showListView}>
             <div class="list-view-container">
-
                 <!-- Barra de acciones: búsqueda + filtros + nuevo -->
                 <div class="list-actions-bar">
                     <div class="search-container">
@@ -90,7 +85,6 @@
                             </lightning-icon>
                         </lightning-input>
                     </div>
-
                     <div class="filter-container">
                         <lightning-combobox
                             label="Filtrar por etapa"
@@ -101,7 +95,6 @@
                             placeholder="Todas las etapas"
                             class="stage-filter">
                         </lightning-combobox>
-
                         <lightning-input
                             type="toggle"
                             label="Sólo vencidas"
@@ -112,7 +105,6 @@
                             class="overdue-toggle">
                         </lightning-input>
                     </div>
-
                     <div class="action-buttons">
                         <button class="action-btn primary" onclick={handleCreateNew}>
                             <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
@@ -120,7 +112,6 @@
                         </button>
                     </div>
                 </div>
-
                 <!-- Listado -->
                 <div class="opportunities-list-container">
                     <template if:true={isLoading}>
@@ -129,7 +120,6 @@
                             <p>Cargando oportunidades...</p>
                         </div>
                     </template>
-
                     <template if:false={isLoading}>
                         <template if:true={hasOpportunities}>
                             <div class="opportunities-grid">
@@ -163,7 +153,6 @@
                                                     </button>
                                                 </div>
                                             </div>
-
                                             <div class="opportunity-body">
                                                 <div class="opp-stage">
                                                     <div class="stage-badge" style={opp.stageStyle}>
@@ -175,7 +164,6 @@
                                                         <span class="amount-value">{opp.amountFormatted}</span>
                                                     </div>
                                                 </div>
-
                                                 <!-- Etiquetas de identificación: Ramo, Tipo y Canal -->
                                                 <div class="opp-tags">
                                                     <template if:true={opp.Ramo__c}>
@@ -197,7 +185,6 @@
                                                         </span>
                                                     </template>
                                                 </div>
-
                                                 <div class="opp-dates">
                                                     <div class="date-item">
                                                         <lightning-icon icon-name="utility:date_input" size="xx-small"></lightning-icon>
@@ -212,7 +199,6 @@
                                                     </div>
                                                 </div>
                                             </div>
-
                                             <div class="opportunity-footer">
                                                 <div class="opp-progress">
                                                     <div class="progress-bar">
@@ -225,7 +211,6 @@
                                     </div>
                                 </template>
                             </div>
-
                             <!-- Paginación -->
                             <div class="pagination-bar">
                                 <button class="action-btn secondary" onclick={handlePrevPage} disabled={isFirstPage}>
@@ -239,7 +224,6 @@
                                 </button>
                             </div>
                         </template>
-
                         <template if:false={hasOpportunities}>
                             <div class="empty-state">
                                 <lightning-icon icon-name="standard:opportunity" size="large"></lightning-icon>
@@ -262,7 +246,6 @@
                 </div>
             </div>
         </template>
-
         <!-- ============================================================ -->
         <!-- VISTA CREAR / EDITAR                                         -->
         <!-- ============================================================ -->
@@ -273,9 +256,7 @@
                     Volver a la lista
                 </button>
             </div>
-
             <div class="content-container glass-effect unified-view">
-
                 <!-- Aviso de bloqueo: la oportunidad ya no está en Gestión Comercial -->
                 <template if:true={isOpportunityReadOnly}>
                     <div class="readonly-banner">
@@ -287,7 +268,6 @@
                         </span>
                     </div>
                 </template>
-
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 1: INFORMACIÓN BÁSICA DE LA OPORTUNIDAD        -->
                 <!-- ====================================================== -->
@@ -302,14 +282,12 @@
                         </div>
                         <div class="section-badge required-badge">Requerido</div>
                     </div>
-
                     <template if:true={isLoadingPicklists}>
                         <div class="loading-picklists">
                             <lightning-spinner alternative-text="Cargando opciones..." size="small"></lightning-spinner>
                             <p>Cargando opciones de picklists...</p>
                         </div>
                     </template>
-
                     <template if:false={isLoadingPicklists}>
                         <div class="form-container">
                             <div class="form-grid two-columns">
@@ -323,7 +301,6 @@
                                             data-field="Name" variant="label-hidden" placeholder="Ej: Auto - Mapfre - Juan Pérez" required>
                                         </lightning-input>
                                     </div>
-
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="standard:account" size="x-small"></lightning-icon>
@@ -372,8 +349,6 @@
                                             </p>
                                         </template>
                                     </div>
-
-
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:category" size="x-small"></lightning-icon>
@@ -385,7 +360,6 @@
                                             data-field="Ramo__c" variant="label-hidden" dropdown-alignment="auto">
                                         </lightning-combobox>
                                     </div>
-
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:steps" size="x-small"></lightning-icon>
@@ -398,7 +372,6 @@
                                         </lightning-combobox>
                                     </div>
                                 </div>
-
                                 <div class="form-column">
                                     <div class="form-card">
                                         <div class="form-card-header">
@@ -411,7 +384,6 @@
                                             variant="label-hidden" dropdown-alignment="auto">
                                         </lightning-combobox>
                                     </div>
-
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:world" size="x-small"></lightning-icon>
@@ -423,7 +395,6 @@
                                             variant="label-hidden" dropdown-alignment="auto">
                                         </lightning-combobox>
                                     </div>
-
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
@@ -435,7 +406,6 @@
                                             variant="label-hidden" dropdown-alignment="auto">
                                         </lightning-combobox>
                                     </div>
-
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:date_input" size="x-small"></lightning-icon>
@@ -451,7 +421,6 @@
                         </div>
                     </template>
                 </div>
-
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 2: INFORMACIÓN DEL CLIENTE                     -->
                 <!-- ====================================================== -->
@@ -466,7 +435,6 @@
                         </div>
                         <div class="section-badge">Opcional</div>
                     </div>
-
                     <div class="form-container">
                         <div class="form-grid two-columns">
                             <div class="form-column">
@@ -481,7 +449,6 @@
                                         data-field="tipoCliente" variant="label-hidden">
                                     </lightning-combobox>
                                 </div>
-
                                 <!-- PERSONA: Nombre(s) + Apellidos -->
                                 <template if:true={isPersonAccount}>
                                     <div class="form-card">
@@ -503,7 +470,6 @@
                                         </lightning-input>
                                     </div>
                                 </template>
-
                                 <!-- EMPRESA: Razón Social -->
                                 <template if:false={isPersonAccount}>
                                     <div class="form-card">
@@ -516,7 +482,6 @@
                                         </lightning-input>
                                     </div>
                                 </template>
-
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
@@ -568,7 +533,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
                 <!-- ====================================================== -->
@@ -590,7 +554,6 @@
                             <p class="section-subtitle">Información específica del ramo seleccionado.</p>
                         </div>
                     </div>
-
                     <!-- AUTOMÓVIL -->
                     <div class="special-section" if:true={isRamoAutomovil}>
                         <div class="vehicle-form">
@@ -626,7 +589,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- GMM -->
                     <div class="special-section" if:true={isRamoGMM}>
                         <div class="form-grid two-columns">
@@ -650,7 +612,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- VIDA -->
                     <div class="special-section" if:true={isRamoVida}>
                         <div class="form-grid two-columns">
@@ -674,7 +635,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- VIAJES -->
                     <div class="special-section" if:true={isRamoViajes}>
                         <div class="form-grid two-columns">
@@ -692,7 +652,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- DAÑOS -->
                     <div class="special-section" if:true={isRamoDanos}>
                         <div class="form-grid two-columns">
@@ -708,7 +667,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 4: COTIZACIONES RELACIONADAS                   -->
                 <!-- (sólo en modo edición — en modo creación no existen)   -->
@@ -729,7 +687,6 @@
                                 Nueva Cotización
                             </button>
                         </div>
-
                         <div class="quotes-list-container">
                             <template if:true={hasRelatedQuotes}>
                                 <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped quotes-table">
@@ -768,7 +725,6 @@
                                     </tbody>
                                 </table>
                             </template>
-
                             <template if:false={hasRelatedQuotes}>
                                 <div class="empty-state quotes-empty">
                                     <lightning-icon icon-name="standard:quotes" size="medium"></lightning-icon>
@@ -782,8 +738,215 @@
                             </template>
                         </div>
                     </div>
-                </template>
 
+                    <!-- ====================================================== -->
+                    <!-- SECCIÓN 4.B: COMPARATIVA DE COTIZACIONES               -->
+                    <!-- Sólo se muestra si hay 2 o más cotizaciones            -->
+                    <!-- ====================================================== -->
+                    <template if:true={hasQuoteComparison}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">Compara prima, estado y vigencia para elegir la mejor opción</p>
+                                </div>
+                                <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
+                            </div>
+
+                            <!-- KPIs de la comparativa -->
+                            <div class="comparison-kpis">
+                                <div class="kpi-card kpi-best-price">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:currency" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Mejor precio</span>
+                                        <span class="kpi-value">{comparisonSummary.bestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.bestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-highest-price">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:up" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Precio más alto</span>
+                                        <span class="kpi-value">{comparisonSummary.highestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.highestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-average">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:chart" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Prima promedio</span>
+                                        <span class="kpi-value">{comparisonSummary.averageFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.totalQuotes} cotizaciones</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-savings">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:success" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Ahorro potencial</span>
+                                        <span class="kpi-value">{comparisonSummary.savingsFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.savingsPercent}% vs. más alto</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-coverage">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:shield" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Más coberturas</span>
+                                        <span class="kpi-value">{comparisonSummary.mostCoveragesCount}</span>
+                                        <span class="kpi-detail">{comparisonSummary.mostCoveragesCompany}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tabla comparativa -->
+                            <div class="comparison-table-wrapper">
+                                <table class="comparison-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Concepto</th>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <th key={cq.Id} class={cq.headerClass}>
+                                                    <div class="compare-company-cell">
+                                                        <span class="compare-company-name">{cq.companiaLabel}</span>
+                                                        <template if:true={cq.isBestPrice}>
+                                                            <span class="best-tag">
+                                                                <lightning-icon icon-name="utility:favorite" size="xx-small"></lightning-icon>
+                                                                Mejor precio
+                                                            </span>
+                                                        </template>
+                                                    </div>
+                                                </th>
+                                            </template>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="row-label">Número</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id}>{cq.QuoteNumber}</td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Nombre</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id}>{cq.Name}</td>
+                                            </template>
+                                        </tr>
+                                        <tr class="highlight-row">
+                                            <td class="row-label">Prima total</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id} class={cq.amountCellClass}>{cq.totalFormatted}</td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Diferencia vs. mejor precio</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id} class={cq.diffCellClass}>{cq.diffLabel}</td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Coberturas incluidas</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id} class={cq.coverageCellClass}>
+                                                    <span class="coverage-pill">
+                                                        <lightning-icon icon-name="utility:shield" size="xx-small"></lightning-icon>
+                                                        {cq.coverageCount}
+                                                    </span>
+                                                    <template if:true={cq.isBestCoverage}>
+                                                        <span class="best-coverage-tag">Más coberturas</span>
+                                                    </template>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Estado</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id}>
+                                                    <lightning-badge label={cq.statusLabel} class={cq.statusBadgeClass}></lightning-badge>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Vigencia</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id}>{cq.expirationFormatted}</td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Días para vencer</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id}>
+                                                    <template if:true={cq.hasDaysInfo}>
+                                                        <span class={cq.daysClass}>{cq.daysLabel}</span>
+                                                    </template>
+                                                    <template if:false={cq.hasDaysInfo}>
+                                                        <span class="muted-text">—</span>
+                                                    </template>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                        <tr>
+                                            <td class="row-label">Acciones</td>
+                                            <template for:each={comparisonQuotes} for:item="cq">
+                                                <td key={cq.Id}>
+                                                    <button class="icon-btn" onclick={handleViewQuote} data-id={cq.Id} title="Ver">
+                                                        <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                    <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={cq.Id} title="Editar">
+                                                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Recomendación -->
+                            <template if:true={comparisonSummary.recommendation}>
+                                <div class="comparison-recommendation">
+                                    <lightning-icon icon-name="utility:einstein" size="small"></lightning-icon>
+                                    <p>{comparisonSummary.recommendation}</p>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Aviso cuando hay 1 sola cotización -->
+                    <template if:true={hasSingleQuote}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">Necesitas al menos 2 cotizaciones para activar la comparación</p>
+                                </div>
+                            </div>
+                            <div class="empty-state quotes-empty">
+                                <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
+                                <p>Agrega una segunda cotización para comparar precios, vigencias y estados.</p>
+                                <button class="action-btn primary" onclick={handleAddNewQuote}>
+                                    <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                    Agregar otra cotización
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </template>
                 <!-- En modo CREACIÓN dejamos un aviso (no hay quotes todavía) -->
                 <template if:false={isEditMode}>
                     <div class="unified-section">
@@ -804,7 +967,6 @@
                         </div>
                     </div>
                 </template>
-
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 5: RESUMEN Y GUARDAR                           -->
                 <!-- ====================================================== -->
@@ -826,7 +988,6 @@
                         </button>
                     </div>
                 </div>
-
             </div>
         </template>
     </div>

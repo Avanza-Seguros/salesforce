@@ -177,7 +177,7 @@
                                             <div class="quote-coverages-summary">
                                                 <span class="coverages-count">
                                                     <lightning-icon icon-name="utility:shield" size="xx-small"></lightning-icon>
-                                                    {quote.CoveragesCount} coberturas
+                                                    {quote.coveragesLabel}
                                                 </span>
                                             </div>
                                         </div>
@@ -284,7 +284,7 @@
                                                     <template if:true={hasOpportunityResults}>
                                                         <template for:each={opportunityResults} for:item="opp">
                                                             <li key={opp.Id} class="lookup-result-item" onclick={selectOpportunity}
-                                                                data-id={opp.Id} data-name={opp.Name} data-ramo={opp.Ramo__c}>
+                                                                data-id={opp.Id} data-name={opp.Name} data-ramo={opp.Ramo}>
                                                                 <div class="result-name">{opp.Name}</div>
                                                                 <div class="result-details">{opp.AccountName} - {opp.StageName}</div>
                                                             </li>
@@ -366,26 +366,24 @@
                                     </template>
                                 </div>
 
-                                <!-- Producto del catálogo (Product2) -->
+                                <!-- Producto del catálogo (filtrado por Ramo + Aseguradora) -->
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:product_request" size="x-small"></lightning-icon>
                                         <h3>Producto <span class="required-asterisk">*</span></h3>
                                     </div>
-                                    <template if:true={isLoadingProducts}>
-                                        <p class="helper-text">Cargando productos disponibles…</p>
-                                    </template>
-                                    <template if:false={isLoadingProducts}>
-                                        <lightning-combobox
-                                            label=""
-                                            value={quote.Product__c}
-                                            placeholder="Selecciona un producto del catálogo"
-                                            options={productOptions}
-                                            onchange={handleProductChange}
-                                            variant="label-hidden"
-                                            disabled={isProductSelectorDisabled}
-                                            required>
-                                        </lightning-combobox>
+                                    <lightning-combobox
+                                        label=""
+                                        value={quote.Product__c}
+                                        placeholder="Selecciona un producto del catálogo"
+                                        options={productOptions}
+                                        onchange={handleProductChange}
+                                        variant="label-hidden"
+                                        disabled={isProductSelectorDisabled}
+                                        required>
+                                    </lightning-combobox>
+                                    <template if:true={hasProductHelperText}>
+                                        <p class="helper-text">{productHelperText}</p>
                                     </template>
                                 </div>
                             </div>
@@ -460,17 +458,18 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 2: COBERTURAS DEL PRODUCTO -->
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 2: COBERTURAS INCLUIDAS (solo nombres)         -->
+                <!-- ====================================================== -->
                 <div class="unified-section">
                     <div class="section-header-compact">
                         <div class="section-icon">
                             <lightning-icon icon-name="utility:shield" size="small"></lightning-icon>
                         </div>
                         <div class="section-title-group">
-                            <h2 class="section-title">Coberturas del producto</h2>
+                            <h2 class="section-title">Coberturas incluidas</h2>
                             <p class="section-subtitle">
-                                Las coberturas vienen definidas por el producto. Sólo puedes editar
-                                los montos, deducibles y porcentajes.
+                                Coberturas que se asociarán a la cotización. Se heredan del producto seleccionado.
                             </p>
                         </div>
                         <div class="section-badge">{coveragesCount} coberturas</div>
@@ -486,80 +485,14 @@
 
                         <template if:false={isLoadingCoverages}>
                             <template if:true={hasCoverages}>
-                                <div class="coverages-summary-bar">
-                                    <div class="summary-stat">
-                                        <lightning-icon icon-name="utility:shield" size="x-small"></lightning-icon>
-                                        <span>{coveragesCount} coberturas incluidas</span>
-                                    </div>
-                                    <div class="summary-stat">
-                                        <lightning-icon icon-name="utility:currency" size="x-small"></lightning-icon>
-                                        <span>Prima Total: {totalCoveragesPremiumFormatted}</span>
-                                    </div>
+                                <div class="coverages-chip-list">
+                                    <template for:each={displayCoverages} for:item="cov">
+                                        <div key={cov.uniqueKey} class="coverage-chip">
+                                            <lightning-icon icon-name="utility:shield" size="xx-small"></lightning-icon>
+                                            <span class="coverage-chip-name">{cov.displayName}</span>
+                                        </div>
+                                    </template>
                                 </div>
-
-                                <table class="slds-table slds-table_bordered slds-table_cell-buffer coverages-table">
-                                    <thead>
-                                        <tr class="slds-text-title_caps">
-                                            <th scope="col">Cobertura</th>
-                                            <th scope="col">Suma Asegurada</th>
-                                            <th scope="col">Deducible (%)</th>
-                                            <th scope="col">Coaseguro (%)</th>
-                                            <th scope="col">Prima</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template for:each={displayCoverages} for:item="cov">
-                                            <tr key={cov.uniqueKey}>
-                                                <td>
-                                                    <strong>{cov.Name}</strong>
-                                                    <template if:true={cov.Description__c}>
-                                                        <div class="coverage-code">{cov.Description__c}</div>
-                                                    </template>
-                                                </td>
-                                                <td>
-                                                    <lightning-input
-                                                        type="number"
-                                                        value={cov.Sum_Insured__c}
-                                                        data-key={cov.uniqueKey}
-                                                        data-field="Sum_Insured__c"
-                                                        onchange={handleCoverageInput}
-                                                        formatter="currency"
-                                                        step="1000"
-                                                        min="0"
-                                                        variant="label-hidden">
-                                                    </lightning-input>
-                                                </td>
-                                                <td>
-                                                    <lightning-input
-                                                        type="number"
-                                                        value={cov.Deductible__c}
-                                                        data-key={cov.uniqueKey}
-                                                        data-field="Deductible__c"
-                                                        onchange={handleCoverageInput}
-                                                        step="0.5"
-                                                        min="0"
-                                                        max="100"
-                                                        variant="label-hidden">
-                                                    </lightning-input>
-                                                </td>
-                                                <td>
-                                                    <lightning-input
-                                                        type="number"
-                                                        value={cov.Coinsurance__c}
-                                                        data-key={cov.uniqueKey}
-                                                        data-field="Coinsurance__c"
-                                                        onchange={handleCoverageInput}
-                                                        step="0.5"
-                                                        min="0"
-                                                        max="100"
-                                                        variant="label-hidden">
-                                                    </lightning-input>
-                                                </td>
-                                                <td class="amount-cell">{cov.CalculatedPremiumFormatted}</td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
                             </template>
 
                             <template if:false={hasCoverages}>
@@ -586,39 +519,20 @@
                     </div>
 
                     <div class="form-container">
-                        <div class="form-grid two-columns">
-                            <div class="form-column">
-                                <div class="form-card">
-                                    <div class="form-card-header">
-                                        <lightning-icon icon-name="utility:note" size="x-small"></lightning-icon>
-                                        <h3>Descripción</h3>
-                                    </div>
-                                    <lightning-textarea
-                                        label=""
-                                        value={quote.Description}
-                                        onchange={handleInputChange}
-                                        data-field="Description"
-                                        variant="label-hidden"
-                                        placeholder="Descripción adicional de la cotización...">
-                                    </lightning-textarea>
+                        <div class="form-grid">
+                            <div class="form-card full-width">
+                                <div class="form-card-header">
+                                    <lightning-icon icon-name="utility:note" size="x-small"></lightning-icon>
+                                    <h3>Descripción</h3>
                                 </div>
-                            </div>
-
-                            <div class="form-column">
-                                <div class="form-card">
-                                    <div class="form-card-header">
-                                        <lightning-icon icon-name="utility:comment" size="x-small"></lightning-icon>
-                                        <h3>Observaciones</h3>
-                                    </div>
-                                    <lightning-textarea
-                                        label=""
-                                        value={quote.Observations__c}
-                                        onchange={handleInputChange}
-                                        data-field="Observations__c"
-                                        variant="label-hidden"
-                                        placeholder="Observaciones internas...">
-                                    </lightning-textarea>
-                                </div>
+                                <lightning-textarea
+                                    label=""
+                                    value={quote.Description}
+                                    onchange={handleInputChange}
+                                    data-field="Description"
+                                    variant="label-hidden"
+                                    placeholder="Descripción adicional de la cotización...">
+                                </lightning-textarea>
                             </div>
                         </div>
                     </div>

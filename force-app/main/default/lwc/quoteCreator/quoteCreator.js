@@ -47,10 +47,6 @@ const STATUS_ICONS = {
 const PAGE_SIZE = 12;
 
 export default class QuoteCreator extends NavigationMixin(LightningElement) {
-    /**
-     * Si el componente se invoca desde una RecordPage de Opportunity,
-     * recordId trae el Id de esa oportunidad y la preseleccionamos.
-     */
     @api recordId;
 
     // ===== Estado de UI =====
@@ -67,7 +63,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     @track quote = this.getDefaultQuote();
     @track coverages = [];
 
-    // ===== Catálogo de productos disponibles para el ramo seleccionado =====
+    // ===== Catálogo de productos =====
     @track availableProducts = [];
     @track isLoadingProducts = false;
 
@@ -76,7 +72,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     @track opportunityResults = [];
     @track showAseguradoraDropdown = false;
     @track aseguradoraResults = [];
-    @track aseguradoraSearchTerm = '';
 
     // ===== Wires =====
     objectInfo = { data: null, error: null };
@@ -87,12 +82,12 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     _aseguradoraSearchTimer = null;
     _searchTimer = null;
 
-    // Navegación entrante (desde otro componente)
+    // Navegación entrante
     _pendingNavigation = null;
     _connectedReady = false;
 
     // ============================================================
-    // NAVEGACIÓN ENTRANTE (lee state c__opportunityId / c__quoteId)
+    // NAVEGACIÓN ENTRANTE
     // ============================================================
     @wire(CurrentPageReference)
     wiredPageRef(pageRef) {
@@ -108,12 +103,10 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     }
 
     // ============================================================
-    // WIRES (sólo Status — Ramo y Aseguradora se cargan vía Apex)
+    // WIRES
     // ============================================================
     @wire(getObjectInfo, { objectApiName: QUOTE_OBJECT })
-    wiredObjectInfo(result) {
-        this.objectInfo = result;
-    }
+    wiredObjectInfo(result) { this.objectInfo = result; }
 
     @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: STATUS_FIELD })
     wiredStatusPicklistValues({ data }) {
@@ -129,7 +122,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     // OPCIONES DE COMBOBOX
     // ============================================================
     get statusOptions() { return this.statusPicklistValues; }
-
     get statusFilterOptions() {
         return [{ label: 'Todos los estados', value: '' }, ...this.statusPicklistValues];
     }
@@ -141,7 +133,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         if (this.viewMode === VIEW_MODES.LIST) return 'Cotizaciones';
         return this.isEditMode ? 'Editar Cotización' : 'Nueva Cotización';
     }
-
     get showListView() { return this.viewMode === VIEW_MODES.LIST; }
     get isEditMode()   { return this.viewMode === VIEW_MODES.EDIT; }
     get saveButtonLabel() {
@@ -160,7 +151,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             if (status && q.Status !== status) return false;
             if (term) {
                 const aseguradoraName = q.Aseguradora__r?.Name || '';
-                const ramoName = q.Ramo__c || '';
+                const ramoName = q.Opportunity?.Ramo__c || q.Ramo__c || '';
                 const match =
                     (q.Name || '').toLowerCase().includes(term) ||
                     (q.OpportunityName || q.Opportunity?.Name || '').toLowerCase().includes(term) ||
@@ -177,7 +168,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     get hasQuotes()   { return this.filteredQuotes.length > 0; }
 
     get totalPremium() {
-        return this.filteredQuotes.reduce((sum, q) => sum + (parseFloat(q.TotalPrice ?? q.TotalPremium) || 0), 0);
+        return this.filteredQuotes.reduce((sum, q) => sum + (parseFloat(q.TotalPrice) || 0), 0);
     }
     get totalPremiumFormatted() { return this.formatCurrency(this.totalPremium); }
 
@@ -193,11 +184,18 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         const start = (this.currentPage - 1) * PAGE_SIZE;
         return this.filteredQuotes.slice(start, start + PAGE_SIZE).map(q => {
             const aseguradoraName = q.Aseguradora__r?.Name || q.AseguradoraName || '—';
-            const ramoName = q.Ramo__c || '—';
+            const ramoName = q.Opportunity?.Ramo__c || q.Ramo__c || '—';
             const oppName  = q.OpportunityName || q.Opportunity?.Name || '—';
-            const totalPrice = q.TotalPrice ?? q.TotalPremium ?? 0;
+            const totalPrice = q.TotalPrice ?? 0;
             const expDate = this.parseSafeDate(q.ExpirationDate);
             const isExpired = expDate && expDate < today && q.Status !== 'Accepted';
+            // Conteo de coberturas del subquery Quote_Coverages__r
+            let coveragesCount = 0;
+            if (Array.isArray(q.Quote_Coverages__r)) {
+                coveragesCount = q.Quote_Coverages__r.length;
+            } else if (q.Quote_Coverages__r && Array.isArray(q.Quote_Coverages__r.records)) {
+                coveragesCount = q.Quote_Coverages__r.records.length;
+            }
 
             return {
                 ...q,
@@ -215,33 +213,28 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 ramoStyle: `background: ${this.getRamoColor(ramoName)}; color: #fff;`,
                 headerStyle: `background: linear-gradient(135deg, ${this.getCompanyColor(aseguradoraName)} 0%, ${this.adjustBrightness(this.getCompanyColor(aseguradoraName), -20)} 100%);`,
                 isExpired,
-                CoveragesCount: q.CoveragesCount || 0
+                CoveragesCount: coveragesCount,
+                coveragesLabel: coveragesCount === 1 ? '1 cobertura' : `${coveragesCount} coberturas`
             };
         });
     }
 
     // ============================================================
-    // GETTERS DE COBERTURAS
+    // COBERTURAS — sólo nombres
     // ============================================================
-    get hasCoverages()  { return this.coverages && this.coverages.length > 0; }
+    get hasCoverages()   { return this.coverages && this.coverages.length > 0; }
     get coveragesCount() { return this.coverages.length; }
-    get totalCoveragesPremium() {
-        return this.coverages.reduce((sum, c) => sum + (parseFloat(c.Premium__c) || 0), 0);
-    }
-    get totalCoveragesPremiumFormatted() { return this.formatCurrency(this.totalCoveragesPremium); }
 
     /**
-     * Devuelve las coberturas con los valores YA formateados como moneda.
-     * Esto es obligatorio porque LWC no permite llamar a métodos en plantillas.
+     * Lista lista para render. Solo necesita un nombre visible y una
+     * llave única para el for:each de LWC.
      */
     get displayCoverages() {
-        return this.coverages.map(c => ({
+        return this.coverages.map((c, idx) => ({
             ...c,
-            uniqueKey: c.uniqueKey || c.Id || c.localKey,
-            ProductName: c.ProductName || c.Product__r?.Name || '',
-            PremiumFormatted: this.formatCurrency(c.Premium__c),
-            CalculatedPremiumFormatted: this.formatCurrency(c.CalculatedPremium),
-            SumInsuredFormatted: this.formatCurrency(c.Sum_Insured__c)
+            displayName: c.Coverage_Name__c || c.Name || c.CoverageType?.Name || 'Cobertura',
+            order: idx + 1,
+            uniqueKey: c.uniqueKey || c.Id || `cov-tmp-${idx}`
         }));
     }
 
@@ -255,33 +248,32 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     // CICLO DE VIDA
     // ============================================================
     async connectedCallback() {
-        // Los ramos vienen del picklist de Quote.Ramo__c (cargados por wire)
         await this.loadQuotes();
         this._connectedReady = true;
 
-        // 1) Si vengo desde otro componente (state c__opportunityId / c__quoteId)
         if (this._pendingNavigation) {
             await this.processPendingNavigation();
             return;
         }
 
-        // 2) Si vengo desde una Opportunity Record Page (recordId estándar)
+        // Si vengo desde una Opportunity Record Page (recordId estándar)
         if (this.recordId && String(this.recordId).startsWith('006')) {
             this.handleCreateNew();
             this.quote = { ...this.quote, OpportunityId: this.recordId };
             try {
                 const opps = await searchOpportunities({ searchTerm: this.recordId });
                 const opp = (opps || []).find(o => o.Id === this.recordId);
-                if (opp) this.quote.OpportunityName = opp.Name;
+                if (opp) {
+                    this.quote.OpportunityName = opp.Name;
+                    if (opp.Ramo) {
+                        this.quote.Ramo__c = opp.Ramo;
+                        await this.loadProductsByRamo(opp.Ramo);
+                    }
+                }
             } catch (e) { /* ignore */ }
         }
     }
 
-    /**
-     * Aplica los parámetros que llegan por URL desde otro componente.
-     * - Si trae quoteId  → abre la cotización en modo edición.
-     * - Si trae oppId    → abre modo creación con la oportunidad preseleccionada.
-     */
     async processPendingNavigation() {
         const nav = this._pendingNavigation;
         this._pendingNavigation = null;
@@ -329,20 +321,18 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         try {
             const data = await getQuoteById({ quoteId });
             if (!data) return;
-            // El Ramo siempre viene de la Oportunidad (Opportunity.Ramo__c).
             const ramoFromOpp = data.Opportunity?.Ramo__c || data.Ramo__c || '';
             this.quote = {
                 ...this.getDefaultQuote(),
                 ...data,
                 Ramo__c: ramoFromOpp,
                 AseguradoraName: data.Aseguradora__r?.Name || data.AseguradoraName || '',
-                OpportunityName: data.OpportunityName || data.Opportunity?.Name || ''
+                OpportunityName: data.OpportunityName || data.Opportunity?.Name || '',
+                ProductName: data.Product__r?.Name || ''
             };
-            // Modo edición: las coberturas se cargan por Quote Id
             if (this.quote.Id) {
                 await this.loadCoveragesByQuoteId(this.quote.Id);
             }
-            // Precargar productos del ramo (por si el usuario cambia el producto)
             if (ramoFromOpp) {
                 await this.loadProductsByRamo(ramoFromOpp);
             }
@@ -354,15 +344,15 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     }
 
     /**
-     * Carga las coberturas asociadas a una cotización existente
-     * (Quote_Coverage__c WHERE Quote__c = :quoteId).
+     * Carga las coberturas de una cotización existente.
+     * Sólo nos quedamos con el nombre y los vínculos; el resto se ignora.
      */
     async loadCoveragesByQuoteId(quoteId) {
         if (!quoteId) { this.coverages = []; return; }
         this.isLoadingCoverages = true;
         try {
             const list = (await getCoveragesByQuoteId({ quoteId })) || [];
-            this.coverages = list.map(c => this.normalizeCoverage(c));
+            this.coverages = list.map((c, idx) => this.normalizeCoverage(c, idx));
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error(':::QuoteCreator::: Error coberturas (por quote):', JSON.stringify(error));
@@ -373,59 +363,27 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         }
     }
 
-    /** Normaliza un registro Quote_Coverage__c al formato que espera la UI. */
-    normalizeCoverage(cov) {
-        const displayName = cov.Coverage_Name__c || cov.Name || 'Cobertura';
-        const description = cov.Coverage_Code__c || '';
-        const productName = cov.Product__r?.Name || cov.ProductName || '';
+    /**
+     * Normaliza un registro a la forma mínima que la UI necesita:
+     * sólo nombre + vínculos. Los importes, deducibles, coaseguro y
+     * prima ya no forman parte del modelo.
+     */
+    normalizeCoverage(cov, idx) {
+        const displayName = cov.Coverage_Name__c
+            || cov.Name
+            || cov.CoverageType?.Name
+            || 'Cobertura';
         return {
-            ...cov,
+            Id: cov.Id || null,
+            Coverage_Name__c: displayName,
             Name: displayName,
-            Description__c: description,
-            ProductName: productName,
-            IsSelected: cov.Is_Selected__c || cov.Is_Included__c || false,
-            CalculatedPremium: cov.Premium__c || 0,
-            uniqueKey: cov.Id || cov.localKey || `cov-${Math.random().toString(36).substr(2, 9)}`
+            Quote__c: cov.Quote__c || null,
+            Product__c: cov.Product__c || null,
+            Product_Coverage__c: cov.Product_Coverage__c || cov.Id || null,
+            Coverage_Code__c: cov.Coverage_Code__c || '',
+            Order__c: cov.Order__c ?? (idx != null ? idx + 1 : null),
+            uniqueKey: cov.Id || `cov-${Math.random().toString(36).substr(2, 9)}`
         };
-    }
-
-    // ============================================================
-    // COBERTURAS
-    // ============================================================
-    handleCoverageInput(event) {
-        const key = event.target.dataset.key;
-        const field = event.target.dataset.field;
-        let value = event.target.value;
-
-        if (field === 'Sum_Insured__c') value = Math.max(0, parseFloat(value) || 0);
-        else if (field === 'Deductible__c') value = Math.min(100, Math.max(0, parseFloat(value) || 0));
-        else if (field === 'Coinsurance__c') value = Math.min(100, Math.max(0, parseFloat(value) || 0));
-
-        this.coverages = this.coverages.map(cov => {
-            if (cov.uniqueKey !== key) return cov;
-            const updated = { ...cov, [field]: value };
-            updated.CalculatedPremium = this.calculatePremium(updated);
-            if (updated.IsSelected) updated.Premium__c = updated.CalculatedPremium;
-            return updated;
-        });
-        this.updateQuoteTotalPremium();
-    }
-
-    calculatePremium(coverage) {
-        const basePremium = coverage.BasePremium__c || 1000;
-        const sumInsured  = coverage.Sum_Insured__c || 10000;
-        const deductible  = coverage.Deductible__c || 0;
-        const sumFactor = sumInsured / 10000;
-        const deductibleFactor = 1 - (deductible / 100);
-        let calculated = basePremium * sumFactor * deductibleFactor;
-        if (coverage.Type__c === 'Básica')  calculated *= 0.9;
-        if (coverage.Type__c === 'Premium') calculated *= 1.2;
-        return Math.round(calculated * 100) / 100;
-    }
-
-    updateQuoteTotalPremium() {
-        const total = this.coverages.reduce((s, c) => s + (parseFloat(c.Premium__c) || 0), 0);
-        this.quote = { ...this.quote, TotalPrice: total, TotalPremium: total };
     }
 
     // ============================================================
@@ -434,7 +392,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     handleInputChange(event) {
         const field = event.target.dataset.field;
         let value = event.target.value;
-        if (field === 'TotalPrice' || field === 'TotalPremium') value = parseFloat(value) || 0;
+        if (field === 'TotalPrice') value = parseFloat(value) || 0;
         this.quote = { ...this.quote, [field]: value };
     }
 
@@ -443,21 +401,23 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         this.quote = { ...this.quote, [field]: event.detail.value };
     }
 
-
     /**
-     * Trae los productos disponibles para el ramo elegido.
-     * Llama al Apex QuoteCreatorController.getProducts(ramo).
+     * Productos disponibles para el ramo + aseguradora seleccionados.
+     * Si falta cualquiera de los dos, no consulta y deja la lista vacía.
      */
-    async loadProductsByRamo(ramo) {
-        if (!ramo) { this.availableProducts = []; return; }
+    async loadProducts() {
+        const ramo = this.quote.Ramo__c;
+        const aseguradoraId = this.quote.Aseguradora__c;
+        if (!ramo || !aseguradoraId) {
+            this.availableProducts = [];
+            return;
+        }
         this.isLoadingProducts = true;
-        // eslint-disable-next-line no-console
-        console.log(':::QuoteCreator::: Solicitando productos para ramo:', ramo);
         try {
-            this.availableProducts = (await getProducts({ ramo })) || [];
+            this.availableProducts = (await getProducts({ ramo, aseguradoraId })) || [];
             // eslint-disable-next-line no-console
-            console.log(':::QuoteCreator::: Productos recibidos:',
-                JSON.stringify(this.availableProducts));
+            console.log(':::QuoteCreator::: Productos para',
+                ramo, '+', aseguradoraId, '→', this.availableProducts.length);
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(':::QuoteCreator::: Error productos:', JSON.stringify(e));
@@ -468,23 +428,40 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         }
     }
 
-    /** Opciones del combobox de productos para la sección Información Básica. */
+    /** Alias retrocompatible: algunos puntos del flujo llaman loadProductsByRamo. */
+    async loadProductsByRamo(ramo) {
+        if (ramo && ramo !== this.quote.Ramo__c) {
+            this.quote = { ...this.quote, Ramo__c: ramo };
+        }
+        await this.loadProducts();
+    }
+
     get productOptions() {
         return (this.availableProducts || []).map(p => ({
             label: p.Name, value: p.Id
         }));
     }
 
-    /** Sin ramo no hay productos cargados → combobox bloqueado. */
+    /** Sin ramo o sin aseguradora, no hay productos qué mostrar. */
     get isProductSelectorDisabled() {
-        return !this.quote.Ramo__c || this.isLoadingProducts;
+        return !this.quote.Ramo__c || !this.quote.Aseguradora__c || this.isLoadingProducts;
     }
 
+    /** Mensaje guía para el usuario cuando faltan datos previos al producto. */
+    get productHelperText() {
+        if (this.isLoadingProducts) return 'Cargando productos disponibles…';
+        if (!this.quote.Ramo__c)        return 'Selecciona primero la oportunidad (define el ramo).';
+        if (!this.quote.Aseguradora__c) return 'Selecciona la aseguradora para ver sus productos.';
+        if ((this.availableProducts || []).length === 0) {
+            return 'Esta aseguradora no tiene productos activos para este ramo.';
+        }
+        return '';
+    }
+    get hasProductHelperText() { return !!this.productHelperText; }
+
     /**
-     * Cuando el usuario selecciona un Producto en el form principal,
-     * cargamos las coberturas que ese producto trae configuradas.
-     * Las coberturas no se pueden agregar ni quitar; solo se editan los
-     * montos, deducibles y coaseguros.
+     * Cuando el usuario selecciona un Producto, cargamos las coberturas
+     * que el producto trae configuradas.
      */
     async handleProductChange(event) {
         const productId = event.detail.value;
@@ -502,25 +479,36 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     }
 
     /**
-     * Trae las coberturas plantilla configuradas para un Producto.
-     * En modo creación se usa para inicializar la lista; en edición ya
-     * vienen del Quote (loadCoveragesByQuoteId) y este flujo se usa sólo
-     * si el usuario cambia el producto.
+     * Plantilla de coberturas del producto.
+     * El Apex devuelve un wrapper { Id, coverageName, coverageCode, orderNum }
+     * sin importar si la fuente real es Product_Coverage__c (custom) o
+     * ProductCoverage (estándar).
      */
     async loadCoveragesByProduct(productId) {
         if (!productId) { this.coverages = []; return; }
         this.isLoadingCoverages = true;
         try {
             const list = (await getCoveragesByProduct({ productId })) || [];
-            this.coverages = list.map(c => this.normalizeCoverage({
-                ...c,
-                Id: null,                       // todavía no existe en la BD
+            // eslint-disable-next-line no-console
+            console.log(':::QuoteCreator::: Coberturas plantilla recibidas:', list.length, JSON.stringify(list));
+            if (list.length === 0) {
+                this.coverages = [];
+                this.showToast(
+                    'Sin coberturas plantilla',
+                    'Este producto no tiene coberturas configuradas. Defínelas en el catálogo.',
+                    'warning'
+                );
+                return;
+            }
+            this.coverages = list.map((pc, idx) => this.normalizeCoverage({
+                Id: null,
                 Quote__c: this.quote.Id || null,
                 Product__c: productId,
-                Is_Selected__c: c.Is_Selected__c !== false,
-                Is_Included__c: c.Is_Included__c !== false
-            }));
-            this.updateQuoteTotalPremium();
+                Product_Coverage__c: pc.Id,
+                Coverage_Name__c: pc.coverageName || 'Cobertura',
+                Coverage_Code__c: pc.coverageCode || '',
+                Order__c: pc.orderNum || (idx + 1)
+            }, idx));
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(':::QuoteCreator::: Error coberturas (por producto):', JSON.stringify(e));
@@ -549,7 +537,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     handleNextPage() { if (this.currentPage < this.totalPages) this.currentPage += 1; }
 
     // ===== Lookup de Oportunidad =====
-    handleOpportunityFocus()    { this.showOpportunityDropdown = true; }
+    handleOpportunityFocus() { this.showOpportunityDropdown = true; }
     handleOpportunityInput(event) {
         const value = event.target.value;
         this.quote = { ...this.quote, OpportunityName: value, OpportunityId: null };
@@ -568,7 +556,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         const id = event.currentTarget.dataset.id;
         const name = event.currentTarget.dataset.name;
         const ramo = event.currentTarget.dataset.ramo || '';
-        // Reseteamos producto/coberturas porque el Ramo puede haber cambiado
+        // Cambia el ramo: producto y coberturas se resetean
         this.quote = {
             ...this.quote,
             OpportunityId: id,
@@ -580,11 +568,12 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         this.coverages = [];
         this.showOpportunityDropdown = false;
         this.opportunityResults = [];
-        if (ramo) await this.loadProductsByRamo(ramo);
+        // Recargamos productos sólo si ya tenemos también aseguradora
+        await this.loadProducts();
     }
 
     // ===== Lookup de Aseguradora =====
-    handleAseguradoraFocus()    { this.showAseguradoraDropdown = true; }
+    handleAseguradoraFocus() { this.showAseguradoraDropdown = true; }
     handleAseguradoraInput(event) {
         const value = event.target.value;
         this.quote = { ...this.quote, AseguradoraName: value, Aseguradora__c: null };
@@ -599,16 +588,25 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             }
         }, 300);
     }
-    selectAseguradora(event) {
+    async selectAseguradora(event) {
         const id = event.currentTarget.dataset.id;
         const name = event.currentTarget.dataset.name;
-        this.quote = { ...this.quote, Aseguradora__c: id, AseguradoraName: name };
+        // Cambia la aseguradora: producto y coberturas dejan de ser válidos
+        this.quote = {
+            ...this.quote,
+            Aseguradora__c: id,
+            AseguradoraName: name,
+            Product__c: null,
+            ProductName: ''
+        };
+        this.coverages = [];
         this.showAseguradoraDropdown = false;
         this.aseguradoraResults = [];
+        // Recargar productos: ahora sí tenemos los dos criterios
+        await this.loadProducts();
     }
 
     handleClickOutside(event) {
-        // Cerrar dropdowns si el click no fue dentro de un .lookup-container
         const insideLookup = event.target.closest && event.target.closest('.lookup-container');
         if (!insideLookup) {
             this.showOpportunityDropdown = false;
@@ -632,7 +630,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     }
 
     handleViewQuote(event) {
-        // Ver y Editar llevan al mismo formulario custom.
         return this.handleEditQuote(event);
     }
 
@@ -648,7 +645,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         if (!ok) return;
         try {
             await deleteQuote({ quoteId: id });
-            // Quitar localmente (más rápido que recargar)
             this.quotes = this.quotes.filter(q => q.Id !== id);
             this.showToast('Éxito', 'Cotización eliminada correctamente', 'success');
         } catch (error) {
@@ -657,8 +653,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     }
 
     handleBackToList() {
-        // Si la cotización pertenece a una oportunidad, volvemos a esa
-        // oportunidad (Crear_Oportunidad con c__opportunityId).
         const oppId = this.quote?.OpportunityId;
         if (oppId) {
             this[NavigationMixin.Navigate]({
@@ -668,7 +662,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             });
             return;
         }
-        // Fallback: si no hay oportunidad asociada, mostramos la lista.
         this.viewMode = VIEW_MODES.LIST;
         this.resetForm();
     }
@@ -677,15 +670,16 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         if (!this.validateForm()) return;
         this.isSaving = true;
         try {
-            // Limpiar campos auxiliares antes de mandar al Apex
+            // Quitar campos auxiliares antes de mandar al Apex
             const payload = { ...this.quote };
             delete payload.AseguradoraName;
             delete payload.OpportunityName;
             delete payload.ProductName;
+            delete payload.Ramo__c; // El ramo es de la Opp, no de la Quote
 
             const savedQuote = await saveQuote({ quote: payload });
 
-            // Coberturas: upsert de todas (vienen del producto, siempre incluidas)
+            // Coberturas: upsert sólo con nombre y vínculos
             const coveragesToSave = (this.coverages || []).map(c => ({
                 Id: c.Id || null,
                 Quote__c: savedQuote.Id,
@@ -693,13 +687,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 Product_Coverage__c: c.Product_Coverage__c || null,
                 Coverage_Name__c: c.Coverage_Name__c || c.Name,
                 Coverage_Code__c: c.Coverage_Code__c || '',
-                Sum_Insured__c: c.Sum_Insured__c || 0,
-                Deductible__c: c.Deductible__c || 0,
-                Coinsurance__c: c.Coinsurance__c || 0,
-                Premium__c: c.Premium__c || 0,
-                Base_Rate__c: c.Base_Rate__c || 0,
-                Is_Included__c: true,
-                Is_Selected__c: true
+                Order__c: c.Order__c || null
             }));
 
             if (coveragesToSave.length > 0) {
@@ -727,10 +715,9 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         if (!this.quote.Product__c)        return this.toastError('Selecciona un producto del catálogo');
         if (!this.quote.Status)            return this.toastError('El estado es requerido');
 
-        const total = parseFloat(this.quote.TotalPrice ?? this.quote.TotalPremium);
+        const total = parseFloat(this.quote.TotalPrice);
         if (!total || total <= 0) return this.toastError('La prima total debe ser mayor a 0');
 
-        // Vigencia
         if (this.quote.EffectiveDate && this.quote.ExpirationDate) {
             if (new Date(this.quote.ExpirationDate) < new Date(this.quote.EffectiveDate)) {
                 return this.toastError('La fecha fin de vigencia no puede ser anterior a la fecha inicio.');
@@ -754,11 +741,10 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             Ramo__c: '',
             Product__c: null, ProductName: '',
             Status: 'Draft',
-            TotalPrice: 0, TotalPremium: 0,
+            TotalPrice: 0,
             EffectiveDate: this.formatDateForInput(today),
             ExpirationDate: this.formatDateForInput(oneYearLater),
-            Description: '',
-            Observations__c: ''
+            Description: ''
         };
     }
 
@@ -818,7 +804,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             default:         return 'status-badge status-draft';
         }
     }
-
     adjustBrightness(hex, percent) {
         if (!hex || !hex.startsWith('#')) return hex;
         let R = parseInt(hex.substring(1, 3), 16);
@@ -829,7 +814,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         B = Math.min(255, Math.max(0, B + percent));
         return `#${(R < 16 ? '0' : '') + R.toString(16)}${(G < 16 ? '0' : '') + G.toString(16)}${(B < 16 ? '0' : '') + B.toString(16)}`;
     }
-
     formatCurrency(value) {
         if (value === null || value === undefined || value === '') return '$0.00 MXN';
         const num = parseFloat(value);
@@ -838,14 +822,12 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2
         }).format(num);
     }
-
     formatDate(dateString) {
         if (!dateString) return 'Sin fecha';
         const d = new Date(dateString);
         if (isNaN(d.getTime()) || d.getFullYear() < 1970) return 'Sin fecha';
         return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
     }
-
     formatDateForInput(date) {
         if (!date) return '';
         const d = (date instanceof Date) ? date : new Date(date);
@@ -855,7 +837,6 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         const day = String(d.getDate()).padStart(2, '0');
         return `${y}-${m}-${day}`;
     }
-
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }

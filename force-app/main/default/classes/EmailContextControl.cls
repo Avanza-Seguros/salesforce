@@ -5,7 +5,7 @@ public class EmailContextControl {
 
     // 🚦 Control por contexto
     public static Boolean allowTriggerEmails = true;
-    public static Boolean allowBatchEmails   = true;
+    public static Boolean allowBatchEmails   = false;
     public static Boolean isTestMode = false;
 
     /* ==========================

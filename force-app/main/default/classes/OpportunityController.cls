@@ -1,15 +1,16 @@
 public with sharing class OpportunityController {
-    
+
     @AuraEnabled(cacheable=false)
     public static List<Opportunity> getOpportunities() {
         try {
             return [
-                SELECT 
-                    Id, 
-                    Name, 
-                    StageName, 
-                    CloseDate, 
+                SELECT
+                    Id,
+                    Name,
+                    StageName,
+                    CloseDate,
                     Amount,
+                    Prima_Total__c,
                     Description,
                     Type,
                     LeadSource,
@@ -21,30 +22,63 @@ public with sharing class OpportunityController {
                     Account.Name,
                     Owner.Name,
                     CreatedDate
-                FROM Opportunity 
-                ORDER BY CreatedDate DESC 
+                FROM Opportunity
+                ORDER BY CreatedDate DESC
                 LIMIT 50
             ];
         } catch (Exception e) {
             throw new AuraHandledException('Error al cargar oportunidades: ' + e.getMessage());
         }
     }
-    
+
     @AuraEnabled(cacheable=false)
     public static OpportunityDetailWrapper getOpportunityDetails(String opportunityId) {
         try {
             OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
-            wrapper.opportunity = [SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-                            Ramo__c, CloseDate, Amount, AccountId, Account.Name,
-                            Description
-                     FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+            wrapper.opportunity = [
+                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+                       Ramo__c, CloseDate, Amount, Prima_Total__c,
+                       AccountId, Account.Name, Description
+                FROM Opportunity
+                WHERE Id = :opportunityId
+                LIMIT 1
+            ];
 
-            wrapper.quotes = [SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber, 
-                        IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId, 
-                        Account.Name, Product__c, Product__r.Name, Is_Selected__c, Aseguradora__c, Aseguradora__r.Name, Price_Book__c
+            // - QuoteLineItem    → línea con el PRODUCTO de la cotización
+            // - Quote_Coverage__c → COBERTURAS reales (objeto custom)
+            wrapper.quotes = [
+                SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber,
+                       IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId,
+                       Account.Name, Product__c, Product__r.Name, Is_Selected__c,
+                       Aseguradora__c, Aseguradora__r.Name, Price_Book__c,
+                       (SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice, TotalPrice
+                        FROM QuoteLineItems)
                 FROM Quote
                 WHERE OpportunityId = :opportunityId
-                ORDER BY CreatedDate DESC];
+                ORDER BY CreatedDate DESC
+            ];
+
+            // Conteo de coberturas (Quote_Coverage__c) por cotización con
+            // una query agrupada — más robusta que un subquery porque no
+            // depende del Child Relationship Name del lookup.
+            Set<Id> quoteIds = new Set<Id>();
+            for (Quote q : wrapper.quotes) quoteIds.add(q.Id);
+
+            Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
+            if (!quoteIds.isEmpty()) {
+                for (AggregateResult ar : [
+                    SELECT Quote__c quoteId, COUNT(Id) total
+                    FROM Quote_Coverage__c
+                    WHERE Quote__c IN :quoteIds
+                    GROUP BY Quote__c
+                ]) {
+                    Id qid = (Id) ar.get('quoteId');
+                    Integer total = (Integer) ar.get('total');
+                    coverageCounts.put(qid, total);
+                }
+            }
+            wrapper.coverageCounts = coverageCounts;
+
             return wrapper;
         } catch (Exception e) {
             throw new AuraHandledException('Error al cargar detalles de la oportunidad: ' + e.getMessage());
@@ -54,8 +88,9 @@ public with sharing class OpportunityController {
     public class OpportunityDetailWrapper {
         @AuraEnabled public Opportunity opportunity;
         @AuraEnabled public List<Quote> quotes;
+        @AuraEnabled public Map<Id, Integer> coverageCounts;
     }
-    
+
     @AuraEnabled(cacheable=false)
     public static void deleteOpportunity(String opportunityId) {
         try {
@@ -72,14 +107,12 @@ public with sharing class OpportunityController {
             if (String.isBlank(searchTerm) || searchTerm.length() < 3) {
                 return new List<Agente__c>();
             }
-            
             String searchQuery = '%' + searchTerm + '%';
-            
             return [
                 SELECT Id, Name, Email__c, Telefono__c, Contacto__r.Name, Horno_mes__c
                 FROM Agente__c
-                WHERE (Name LIKE :searchQuery 
-                       OR Email__c LIKE :searchQuery 
+                WHERE (Name LIKE :searchQuery
+                       OR Email__c LIKE :searchQuery
                        OR Contacto__r.Name LIKE :searchQuery)
                 ORDER BY Name
                 LIMIT 10
@@ -91,9 +124,7 @@ public with sharing class OpportunityController {
 
     @AuraEnabled(cacheable=false)
     public static List<PdfWrapper> getPdfFiles(Id recordId) {
-
         List<PdfWrapper> result = new List<PdfWrapper>();
-
         for (ContentDocumentLink cdl : [
             SELECT ContentDocument.Id,
                    ContentDocument.Title,
@@ -121,39 +152,27 @@ public with sharing class OpportunityController {
             versionId = vId;
         }
     }
-    
+
     @AuraEnabled(cacheable=false)
     public static Map<String, Object> extractPolicyData(String fileContent) {
         Map<String, Object> result = new Map<String, Object>();
-        
         try {
-            // Convertir base64 a Blob
             Blob fileBlob = EncodingUtil.base64Decode(fileContent.split(',')[1]);
-            
-            // Aquí integrarías un servicio de OCR o procesamiento de PDF
-            // Por ejemplo: Google Vision API, AWS Textract, o una librería de parsing PDF
-            
-            // Por ahora, retornamos un mock
+            // Integración futura con OCR (Google Vision, AWS Textract, etc.)
             result.put('success', true);
             result.put('confidence', 85);
-            
             List<Map<String, Object>> extractedFields = new List<Map<String, Object>>();
-            
-            // Simular campos extraídos
             extractedFields.add(createField('NumeroPoliza__c', 'Número de Póliza', 'P-2024-0012345', 95));
             extractedFields.add(createField('Aseguradora__c', 'Compañía Aseguradora', 'Mapfre', 90));
-            extractedFields.add(createField('PrimaTotal__c', 'Prima Total', '1250.00', 80));
-            
+            extractedFields.add(createField('Prima_Total__c', 'Prima Total', '1250.00', 80));
             result.put('extractedFields', extractedFields);
-            
         } catch (Exception e) {
             result.put('success', false);
             result.put('error', e.getMessage());
         }
-        
         return result;
     }
-    
+
     private static Map<String, Object> createField(String name, String label, String value, Integer confidence) {
         Map<String, Object> field = new Map<String, Object>();
         field.put('name', name);
@@ -183,9 +202,9 @@ public with sharing class OpportunityController {
         List<AccountResult> out = new List<AccountResult>();
         for (Account a : [
             SELECT Id, Name, IsPersonAccount, Phone,
-                BillingStreet, BillingPostalCode,
-                PersonEmail, PersonMobilePhone,
-                PersonMailingStreet, PersonMailingPostalCode
+                   BillingStreet, BillingPostalCode,
+                   PersonEmail, PersonMobilePhone,
+                   PersonMailingStreet, PersonMailingPostalCode
             FROM Account
             WHERE Name LIKE :busqTerm
             ORDER BY Name LIMIT 20
@@ -212,7 +231,6 @@ public with sharing class OpportunityController {
 
     @AuraEnabled(cacheable=false)
     public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
-        // El componente manda this.opportunity serializado como JSON
         Map<String, Object> d =
             (Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
@@ -221,24 +239,19 @@ public with sharing class OpportunityController {
             : null;
 
         // ------------------------------------------------------------
-        // 1) CUENTA NUEVA (si el usuario eligió "Crear cuenta nueva")
-        //    El componente manda 'tipoCliente' = 'Persona' o 'Empresa'.
+        // 1) CUENTA NUEVA
         // ------------------------------------------------------------
         if (isNewAccount == true && accountId == null) {
-            String tipoCliente = getStr(d, 'tipoCliente');   // 'Persona' o 'Empresa'
+            String tipoCliente = getStr(d, 'tipoCliente');
             Account acc = new Account();
 
             if (tipoCliente == 'Persona') {
-                // ---------- PERSON ACCOUNT ----------
-                // Requiere que Person Accounts esté habilitado en la org.
                 Id paRtId = getPersonAccountRecordTypeId();
                 if (paRtId != null) {
                     acc.RecordTypeId = paRtId;
                 }
                 acc.FirstName = getStr(d, 'clienteNombre');
                 acc.LastName  = getStr(d, 'clienteApellidos');
-                // LastName es obligatorio en Person Account: si no hay apellidos,
-                // usamos el nombre completo como apellido para no fallar.
                 if (String.isBlank(acc.LastName)) {
                     acc.LastName  = String.isNotBlank(acc.FirstName)
                                     ? acc.FirstName : getStr(d, 'AccountName');
@@ -248,10 +261,7 @@ public with sharing class OpportunityController {
                 acc.Phone                   = getStr(d, 'clienteTelefono');
                 acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');
                 acc.PersonMailingPostalCode = getStr(d, 'clienteCP');
-                // RFC en Person Account suele ser un campo "__pc". Ajusta el nombre:
-                // acc.RFC__pc = getStr(d, 'clienteRFC');
             } else {
-                // ---------- ACCOUNT DE EMPRESA ----------
                 acc.Name = getStr(d, 'AccountName');
                 if (String.isBlank(acc.Name)) {
                     acc.Name = getStr(d, 'clienteNombre');
@@ -259,9 +269,6 @@ public with sharing class OpportunityController {
                 acc.Phone             = getStr(d, 'clienteTelefono');
                 acc.BillingStreet     = getStr(d, 'clienteDireccion');
                 acc.BillingPostalCode = getStr(d, 'clienteCP');
-                // RFC en Account de empresa (ajusta el nombre del campo):
-                // acc.RFC__c = getStr(d, 'clienteRFC');
-                // Si manejas el email del cliente en Account, mapéalo aquí.
             }
 
             insert acc;
@@ -284,36 +291,32 @@ public with sharing class OpportunityController {
         opp.Ramo__c     = getStr(d, 'Ramo__c');
         opp.Description = getStr(d, 'Description');
 
+        // Prima Total (campo custom) — sustituye al Amount estándar
+        Object primaRaw = d.get('Prima_Total__c');
+        if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
+            try {
+                opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
+            } catch (Exception ex) {
+                // Si llega un valor no numérico, lo ignoramos en vez de tronar
+            }
+        }
+
         String closeDateStr = getStr(d, 'CloseDate');
         if (String.isNotBlank(closeDateStr)) {
-            opp.CloseDate = Date.valueOf(closeDateStr);   // formato esperado: AAAA-MM-DD
+            opp.CloseDate = Date.valueOf(closeDateStr);
         } else if (opp.Id == null) {
-            // Oportunidad nueva sin fecha: ponemos una por defecto a 30 días
             opp.CloseDate = Date.today().addDays(30);
         }
 
         upsert opp;
-
-        // ------------------------------------------------------------
-        // 3) DATOS ESPECÍFICOS DEL RAMO (automóvil, GMM, vida, etc.)
-        // ------------------------------------------------------------
-        // Esta parte depende de cómo modelaste esos datos (campos custom en
-        // Opportunity u objetos separados). Cuando confirmes el modelo, se
-        // agrega aquí. Por ahora la oportunidad y la cuenta ya quedan guardadas.
-
         return opp.Id;
     }
 
-    /** Lee un valor de texto del mapa de forma segura (evita NullPointer). */
     private static String getStr(Map<String, Object> m, String key) {
         Object v = m.get(key);
         return v == null ? null : String.valueOf(v);
     }
 
-    /**
-     * Devuelve el Id del RecordType de Person Account (si Person Accounts
-     * está habilitado en la org). Si no hay, devuelve null.
-     */
     private static Id getPersonAccountRecordTypeId() {
         for (RecordType rt : [
             SELECT Id FROM RecordType
@@ -330,7 +333,6 @@ public with sharing class OpportunityController {
         if (String.isBlank(ramo)) {
             return new List<Product2>();
         }
-
         return [
             SELECT Id, Name, ProductCode, Family
             FROM Product2
@@ -339,5 +341,4 @@ public with sharing class OpportunityController {
             ORDER BY Name
         ];
     }
-
 }
