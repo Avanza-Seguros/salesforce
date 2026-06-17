@@ -31,6 +31,7 @@
         <members>PaymentPlanInstallmentTriggerHandlerTest</members>
         <members>PolicyCollectionSummaryService</members>
         <members>PolicyCollectionSummaryServiceTest</members>
+        <members>OpportunityPolizaStageGuardTest</members>
         <members>PolicyPaymentReceiptTriggerHandler</members>
         <members>PolicyPaymentReceiptTriggerHandlerTest</members>
         <name>ApexClass</name>
@@ -168,6 +169,7 @@
         <name>RecordType</name>
     </types>
     <types>
+        <members>Bloquear_Closed_Won_Sin_Pago_Reconocido</members>
         <members>Cerrada_Ganada_Automatico</members>
         <name>Flow</name>
     </types>
