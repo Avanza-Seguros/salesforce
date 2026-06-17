@@ -28,5 +28,4 @@
     </filters>
     <label>Pendientes Operativos</label>
     <language>es</language>
-    <shared>true</shared>
 </ListView>

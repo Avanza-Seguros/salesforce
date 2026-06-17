@@ -18,9 +18,8 @@
     <filters>
         <field>manualReviewRequired__c</field>
         <operation>equals</operation>
-        <value>true</value>
+        <value>1</value>
     </filters>
     <label>En Revisión Manual</label>
     <language>es</language>
-    <shared>true</shared>
 </ListView>

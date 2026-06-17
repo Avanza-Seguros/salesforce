@@ -15,7 +15,7 @@
     <columns>resultingReceipt__c</columns>
     <columns>decisionNotes__c</columns>
     <columns>CREATED_DATE</columns>
-    <filterLogic>1 OR 2</filterLogic>
+    <booleanFilter>1 OR 2</booleanFilter>
     <filterScope>Everything</filterScope>
     <filters>
         <field>reconciliationStatus__c</field>
@@ -29,5 +29,4 @@
     </filters>
     <label>Probable — Requiere Decisión</label>
     <language>es</language>
-    <shared>true</shared>
 </ListView>
