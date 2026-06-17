@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Sin_Match</fullName>
+    <columns>OBJECT_ID</columns>
+    <columns>inboundPayment__c</columns>
+    <columns>insurancePolicy__c</columns>
+    <columns>paymentPlanInstallment__c</columns>
+    <columns>reconciliationStatus__c</columns>
+    <columns>confidenceScore__c</columns>
+    <columns>confidenceBand__c</columns>
+    <columns>candidateCount__c</columns>
+    <columns>matchMethod__c</columns>
+    <columns>amountDelta__c</columns>
+    <columns>resultingReceipt__c</columns>
+    <columns>decisionNotes__c</columns>
+    <columns>CREATED_DATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>reconciliationStatus__c</field>
+        <operation>equals</operation>
+        <value>Sin Match</value>
+    </filters>
+    <label>Sin Match</label>
+    <language>es</language>
+    <shared>true</shared>
+</ListView>
