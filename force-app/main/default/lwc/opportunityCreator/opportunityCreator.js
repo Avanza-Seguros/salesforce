@@ -19,7 +19,8 @@ import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOppo
 const VIEW_MODES = {
     LIST: 'list',
     CREATE: 'create',
-    EDIT: 'edit'
+    EDIT: 'edit',
+    PDF: 'pdf'   // NUEVO - vista de creacion desde PDFs
 };
 const OPPORTUNITY_TYPES = {
     NEW_BUSINESS: 'New Business',
@@ -899,6 +900,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get pageTitle() {
         if (this.viewMode === VIEW_MODES.EDIT)   return 'Editar Oportunidad';
         if (this.viewMode === VIEW_MODES.CREATE) return 'Crear Oportunidad';
+        if (this.viewMode === VIEW_MODES.PDF)    return 'Crear Oportunidad desde PDFs';   // NUEVO
         return 'Oportunidades';
     }
     get createButtonLabel() {
@@ -906,6 +908,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     get showListView()   { return this.viewMode === VIEW_MODES.LIST; }
     get showCreateView() { return this.viewMode === VIEW_MODES.CREATE || this.viewMode === VIEW_MODES.EDIT; }
+    get showPdfView()    { return this.viewMode === VIEW_MODES.PDF; }   // NUEVO
     get isEditMode()     { return this.viewMode === VIEW_MODES.EDIT; }
 
     get isOpportunityEditable() {
@@ -1689,6 +1692,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleCreateNew() {
         this.resetWizard();
         this.viewMode = VIEW_MODES.CREATE;
+    }
+    // NUEVO - abre la vista de carga de PDFs
+    handleCreateFromPdf() {
+        this.resetWizard();
+        this.viewMode = VIEW_MODES.PDF;
     }
     resetWizard() {
         this.opportunity = this.getDefaultOpportunity();
