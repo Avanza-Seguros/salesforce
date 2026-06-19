@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Nueva_Cotizaci_n</fullName>
+    <availability>online</availability>
+    <displayType>button</displayType>
+    <encodingKey>UTF-8</encodingKey>
+    <height>600</height>
+    <linkType>url</linkType>
+    <masterLabel>Nueva Cotización</masterLabel>
+    <openType>noSidebar</openType>
+    <protected>false</protected>
+    <url>/lightning/o/Quote/new?defaultFieldValues=OpportunityId={!Opportunity.Id},Ramos__c={!URLENCODE(TEXT(Opportunity.Ramo__c))},AccountId={!Opportunity.AccountId},Price_Book__c=01sVE000008RvaIYAS</url>
+</WebLink>

@@ -109,6 +109,12 @@
             </value>
         </inputAssignments>
         <inputAssignments>
+            <field>GrossWrittenPremium</field>
+            <value>
+                <elementReference>$Record.Prima_Total__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
             <field>Name</field>
             <value>
                 <elementReference>Get_Primary_Quote.Name</elementReference>
@@ -139,15 +145,33 @@
             </value>
         </inputAssignments>
         <inputAssignments>
+            <field>PolicyTerm</field>
+            <value>
+                <stringValue>Anual</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>PolicyType</field>
+            <value>
+                <elementReference>Get_Primary_Quote.Ramos__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
             <field>PremiumAmount</field>
             <value>
-                <elementReference>Get_Primary_Quote.GrandTotal</elementReference>
+                <elementReference>$Record.Prima_neta__c</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
             <field>PremiumFrequency</field>
             <value>
-                <stringValue>Mensual</stringValue>
+                <elementReference>Get_Primary_Quote.Frecuencia_de_prima__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>ProductId</field>
+            <value>
+                <elementReference>Get_Primary_Quote.Product__c</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>

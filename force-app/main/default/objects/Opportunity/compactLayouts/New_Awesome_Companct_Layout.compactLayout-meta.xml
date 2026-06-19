@@ -4,7 +4,7 @@
     <fields>Name</fields>
     <fields>AccountId</fields>
     <fields>CloseDate</fields>
-    <fields>Amount</fields>
+    <fields>Prima_Total__c</fields>
     <fields>OwnerId</fields>
     <fields>Fecha_de_Creacion__c</fields>
     <label>New Awesome Compact Layout</label>

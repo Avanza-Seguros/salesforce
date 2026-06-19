@@ -21,7 +21,7 @@
             </value>
             <value>
                 <fullName>Directo</fullName>
-                <default>false</default>
+                <default>true</default>
                 <label>Directo</label>
             </value>
         </valueSetDefinition>

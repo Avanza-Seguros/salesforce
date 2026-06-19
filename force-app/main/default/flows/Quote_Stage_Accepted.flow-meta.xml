@@ -39,12 +39,6 @@
             </value>
         </filters>
         <inputAssignments>
-            <field>Amount</field>
-            <value>
-                <elementReference>$Record.TotalPrice</elementReference>
-            </value>
-        </inputAssignments>
-        <inputAssignments>
             <field>StageName</field>
             <value>
                 <stringValue>Póliza</stringValue>

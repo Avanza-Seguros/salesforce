@@ -195,31 +195,43 @@
     <picklistValues>
         <picklist>PolicyType</picklist>
         <values>
-            <fullName>Anualidad</fullName>
+            <fullName>Automoviles</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Automático</fullName>
+            <fullName>Danos</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Compensación de trabajadores</fullName>
+            <fullName>Dental</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Inicio</fullName>
+            <fullName>Empresarial</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Propiedad de negocio</fullName>
+            <fullName>Fianzas</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Vehículo de negocio</fullName>
+            <fullName>GMM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viajes</fullName>
             <default>false</default>
         </values>
         <values>
             <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -245,7 +257,7 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Quincenal %28dos veces al mes%29</fullName>
+            <fullName>Quincenal</fullName>
             <default>false</default>
         </values>
         <values>
