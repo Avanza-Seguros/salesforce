@@ -1555,10 +1555,6 @@
             <fullName>Financial</fullName>
             <default>false</default>
         </values>
-        <values>
-            <fullName>Individual</fullName>
-            <default>false</default>
-        </values>
     </picklistValues>
     <picklistValues>
         <picklist>et4ae5__Mobile_Country_Code__pc</picklist>

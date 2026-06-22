@@ -3,6 +3,10 @@
     <fullName>Polizas</fullName>
     <isActive>true</isActive>
     <values>
+        <fullName>Cierre</fullName>
+        <default>false</default>
+    </values>
+    <values>
         <fullName>Closed Lost</fullName>
         <default>false</default>
     </values>
@@ -11,11 +15,23 @@
         <default>false</default>
     </values>
     <values>
+        <fullName>Emitido</fullName>
+        <default>false</default>
+    </values>
+    <values>
         <fullName>En proceso de emision</fullName>
         <default>false</default>
     </values>
     <values>
         <fullName>Gestion Comercial</fullName>
+        <default>false</default>
+    </values>
+    <values>
+        <fullName>Necesidad</fullName>
+        <default>false</default>
+    </values>
+    <values>
+        <fullName>Propuesta</fullName>
         <default>false</default>
     </values>
     <values>
