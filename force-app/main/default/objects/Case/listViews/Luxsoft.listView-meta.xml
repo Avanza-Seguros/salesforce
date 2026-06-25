@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Luxsoft</fullName>
+    <columns>Poliza__c</columns>
+    <columns>CASES.CASE_NUMBER</columns>
+    <columns>Movimiento_interno__c</columns>
+    <columns>ACCOUNT.NAME</columns>
+    <columns>CASES.SUBJECT</columns>
+    <columns>CASES.CREATED_DATE_DATE_ONLY</columns>
+    <columns>CASES.CLOSED_DATE</columns>
+    <columns>CASES.STATUS</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>CORE.USERS.ALIAS</field>
+        <operation>contains</operation>
+        <value>lux</value>
+    </filters>
+    <label>Luxoft</label>
+    <sharedTo>
+        <portalRole>LuxoftMexicoSADeCVSocioUsuario</portalRole>
+    </sharedTo>
+</ListView>

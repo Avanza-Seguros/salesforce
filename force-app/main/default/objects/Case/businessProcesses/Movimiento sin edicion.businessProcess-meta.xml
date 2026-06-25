@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BusinessProcess xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Movimiento sin edicion</fullName>
+    <description>Inhabilita la edición del movimiento</description>
+    <isActive>true</isActive>
+    <values>
+        <fullName>Concluido</fullName>
+        <default>false</default>
+    </values>
+    <values>
+        <fullName>Creado</fullName>
+        <default>false</default>
+    </values>
+    <values>
+        <fullName>En proceso</fullName>
+        <default>false</default>
+    </values>
+    <values>
+        <fullName>Solicitado</fullName>
+        <default>true</default>
+    </values>
+</BusinessProcess>

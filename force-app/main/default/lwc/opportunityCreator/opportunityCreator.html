@@ -25,10 +25,6 @@
                                     Transforma prospectos en negocios exitosos
                                 </template>
                             </template>
-                            <!-- NUEVO -->
-                            <template if:true={showPdfView}>
-                                Sube los documentos del cliente y deja que la IA cree la oportunidad
-                            </template>
                         </p>
                     </div>
                 </div>
@@ -62,18 +58,6 @@
                                     <template if:true={isEditMode}>Edición</template>
                                     <template if:false={isEditMode}>Creación</template>
                                 </span>
-                            </div>
-                        </div>
-                    </template>
-                    <!-- NUEVO -->
-                    <template if:true={showPdfView}>
-                        <div class="step-indicator-badge">
-                            <div class="badge-circle">
-                                <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
-                            </div>
-                            <div class="badge-text">
-                                <span class="badge-label">Modo</span>
-                                <span class="badge-total">PDFs</span>
                             </div>
                         </div>
                     </template>
@@ -125,11 +109,6 @@
                         <button class="action-btn primary" onclick={handleCreateNew}>
                             <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
                             Nueva Oportunidad
-                        </button>
-                        <!-- NUEVO -->
-                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Crear oportunidad subiendo PDFs">
-                            <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
-                            Crear desde PDFs
                         </button>
                     </div>
                 </div>
@@ -260,11 +239,6 @@
                                 <button class="action-btn primary" onclick={handleCreateNew}>
                                     <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
                                     Crear Oportunidad
-                                </button>
-                                <!-- NUEVO -->
-                                <button class="action-btn pdf-action" onclick={handleCreateFromPdf}>
-                                    <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
-                                    Crear desde PDFs
                                 </button>
                             </div>
                         </template>
@@ -402,7 +376,7 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
-                                            <h3>Canal<span class="required-asterisk">*</span></h3>
+                                            <h3>Canal</h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Canal__c}
                                             placeholder="Seleccione un canal" options={canalPicklistValues}
@@ -413,7 +387,7 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:world" size="x-small"></lightning-icon>
-                                            <h3>Mercado<span class="required-asterisk">*</span></h3>
+                                            <h3>Mercado</h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Mercado__c}
                                             placeholder="Seleccione un mercado" options={mercadoPicklistValues}
@@ -424,7 +398,7 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
-                                            <h3>Tipo de Oportunidad<span class="required-asterisk">*</span></h3>
+                                            <h3>Tipo de Oportunidad</h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Type}
                                             placeholder="Seleccione tipo" options={typePicklistValues}
@@ -780,6 +754,12 @@
                                     <p class="section-subtitle">Compara prima, estado y vigencia para elegir la mejor opción</p>
                                 </div>
                                 <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
+                                <button class="action-btn primary section-action-btn print-comparativo-btn"
+                                        onclick={handleGenerateComparativo}
+                                        title="Genera un comparativo formato carta horizontal listo para imprimir o guardar como PDF">
+                                    <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
+                                    Comparativo imprimible
+                                </button>
                             </div>
 
                             <!-- KPIs de la comparativa -->
@@ -1014,20 +994,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
-        </template>
-        <!-- ============================================================ -->
-        <!-- NUEVO - VISTA CREAR DESDE PDFs                                -->
-        <!-- ============================================================ -->
-        <template if:true={showPdfView}>
-            <div class="back-to-list">
-                <button class="back-btn" onclick={handleBackToList}>
-                    <lightning-icon icon-name="utility:back" size="xx-small"></lightning-icon>
-                    Volver a la lista
-                </button>
-            </div>
-            <div class="content-container glass-effect unified-view pdf-view-container">
-                <c-pdf-opportunity-creator></c-pdf-opportunity-creator>
             </div>
         </template>
     </div>

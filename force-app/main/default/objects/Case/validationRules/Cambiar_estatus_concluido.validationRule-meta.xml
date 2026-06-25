@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cambiar_estatus_concluido</fullName>
+    <active>false</active>
+    <description>No permite regresar a un estatus diferente a concluido</description>
+    <errorConditionFormula>NOT( ISBLANK( Fecha_de_cierre__c ) )  &amp;&amp;  NOT( ISPICKVAL( Status , &quot;Concluido&quot;) )</errorConditionFormula>
+    <errorMessage>El movimiento ha sido concluido, no se puede modificar el estatus</errorMessage>
+</ValidationRule>

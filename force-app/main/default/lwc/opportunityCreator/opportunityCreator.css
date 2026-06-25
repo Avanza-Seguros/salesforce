@@ -465,6 +465,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     border-bottom: 3px solid #0052CC; flex-wrap: wrap;
 }
 .section-header-compact .section-action-btn { margin-left: auto; }
+
+/* Botón "Comparativo imprimible" en la sección de comparación */
+.print-comparativo-btn {
+    background: #C55A11;
+    border-color: #A04709;
+    margin-left: 0.5rem;
+}
+.print-comparativo-btn:hover {
+    background: #A04709;
+    border-color: #803806;
+}
 .section-icon {
     width: 40px; height: 40px; background: #0052CC;
     border-radius: 12px;
@@ -816,27 +827,3 @@ lightning-combobox {
     body { background: white; }
     * { animation: none !important; transition: none !important; }
 }
-
-/* NUEVO - boton 'Crear desde PDFs' */
-.action-btn.pdf-action {
-    background: linear-gradient(135deg, #6B46C1 0%, #9333EA 100%);
-    color: #fff;
-    border: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.9rem;
-    border-radius: 0.35rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-    margin-left: 0.5rem;
-}
-.action-btn.pdf-action:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(107, 70, 193, 0.35);
-}
-.action-btn.pdf-action lightning-icon {
-    --sds-c-icon-color-foreground-default: #fff;
-}
-.pdf-view-container { padding: 1rem; }

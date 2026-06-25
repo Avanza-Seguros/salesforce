@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AccountId</fullName>
+    <lookupFilter>
+        <active>true</active>
+        <booleanFilter>(1 OR 2 OR 3 OR 4 OR 6) OR ( NOT 5)</booleanFilter>
+        <filterItems>
+            <field>$User.Title</field>
+            <operation>equals</operation>
+            <valueField>Account.Name</valueField>
+        </filterItems>
+        <filterItems>
+            <field>$User.Department</field>
+            <operation>equals</operation>
+            <valueField>Account.Name</valueField>
+        </filterItems>
+        <filterItems>
+            <field>$User.Division</field>
+            <operation>equals</operation>
+            <valueField>Account.Name</valueField>
+        </filterItems>
+        <filterItems>
+            <field>$User.CompanyName</field>
+            <operation>equals</operation>
+            <valueField>Account.Name</valueField>
+        </filterItems>
+        <filterItems>
+            <field>$Profile.Name</field>
+            <operation>equals</operation>
+            <value>Standard Partner Community</value>
+        </filterItems>
+        <filterItems>
+            <field>$User.Razon_adicional__c</field>
+            <operation>equals</operation>
+            <valueField>Account.Name</valueField>
+        </filterItems>
+        <isOptional>true</isOptional>
+    </lookupFilter>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

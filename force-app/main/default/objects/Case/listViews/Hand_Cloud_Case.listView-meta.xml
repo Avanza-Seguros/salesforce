@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Hand_Cloud_Case</fullName>
+    <filterScope>Queue</filterScope>
+    <label>Hand Cloud</label>
+    <queue>Hand_Cloud</queue>
+    <sharedTo>
+        <allInternalUsers></allInternalUsers>
+    </sharedTo>
+</ListView>

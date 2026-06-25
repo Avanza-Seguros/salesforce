@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Estatus_de_Clientes</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+    $Profile.Name = &quot;Standard Partner Community&quot;,
+    NOT(
+        OR(
+            ISPICKVAL(Status, &quot;Creado&quot;),
+            ISPICKVAL(Status, &quot;Solicitado&quot;)
+        )
+    )
+)</errorConditionFormula>
+    <errorMessage>Los usuarios de este Portal solo pueden seleccionar &apos;Creado&apos; o &apos;Solicitado&apos;</errorMessage>
+</ValidationRule>

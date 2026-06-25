@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Dias_en_Servicio__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    Indicador_de_nivel_de_Servicio__c = &quot;/img/samples/flag_green.gif&quot;,
+    0,
+    TODAY() - DATE(
+        YEAR(Fecha_de_Servicio__c),
+        MONTH(Fecha_de_Servicio__c),
+        DAY(Fecha_de_Servicio__c)
+    )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Dias en Servicio</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

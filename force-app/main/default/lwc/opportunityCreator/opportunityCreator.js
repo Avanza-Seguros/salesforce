@@ -19,8 +19,7 @@ import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOppo
 const VIEW_MODES = {
     LIST: 'list',
     CREATE: 'create',
-    EDIT: 'edit',
-    PDF: 'pdf'   // NUEVO - vista de creacion desde PDFs
+    EDIT: 'edit'
 };
 const OPPORTUNITY_TYPES = {
     NEW_BUSINESS: 'New Business',
@@ -602,11 +601,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const fromList = (this.opportunities || []).find(o => o.Id === id) || {};
             const detail = await getOpportunityDetails({ opportunityId: id });
 
-            // El Apex devuelve un wrapper { opportunity, quotes, coverageCounts }.
-            // Aceptamos también otros formatos por compatibilidad.
+            // El Apex devuelve { opportunity, quotes, coverageCounts, coverageNamesByQuote }
             let opportunityData = fromList;
             let quotesData = [];
             let coverageCounts = {};
+            let coverageNamesByQuote = {};
 
             if (Array.isArray(detail)) {
                 quotesData = detail;
@@ -619,11 +618,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 }
                 quotesData = detail.quotes || detail.Quotes || detail.relatedQuotes || [];
                 coverageCounts = detail.coverageCounts || detail.CoverageCounts || {};
+                coverageNamesByQuote = detail.coverageNamesByQuote
+                                    || detail.CoverageNamesByQuote || {};
             }
 
             this.populateFormFromOpportunity(opportunityData, id);
             this.relatedQuotes = Array.isArray(quotesData)
-                ? quotesData.map(q => this.mapRelatedQuote(q, coverageCounts))
+                ? quotesData.map(q => this.mapRelatedQuote(q, coverageCounts, coverageNamesByQuote))
                 : [];
             this.viewMode = VIEW_MODES.EDIT;
         } catch (e) {
@@ -709,7 +710,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
      * IMPORTANTE: ahora también guarda los valores RAW (totalAmount,
      * expirationDateRaw) para poder hacer cálculos sin re-parsear strings.
      */
-    mapRelatedQuote(q, coverageCounts) {
+    mapRelatedQuote(q, coverageCounts, coverageNamesByQuote) {
         if (!q) return {};
         // Prima total: prioriza TotalPrice; si no hay, usa Subtotal.
         // Mantengo fallbacks para compatibilidad con esquemas futuros.
@@ -771,6 +772,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageLabel: coverageCount === 1
                 ? '1 cobertura'
                 : `${coverageCount} coberturas`,
+            // Lista de nombres de cobertura (para el comparativo imprimible)
+            coverageNames: (coverageNamesByQuote && q.Id && Array.isArray(coverageNamesByQuote[q.Id]))
+                ? coverageNamesByQuote[q.Id]
+                : [],
             productName
         };
     }
@@ -821,6 +826,273 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     get hasRelatedQuotes()   { return this.relatedQuotes && this.relatedQuotes.length > 0; }
     get relatedQuotesCount() { return this.relatedQuotes ? this.relatedQuotes.length : 0; }
+
+    // ============================================================
+    // COMPARATIVO IMPRIMIBLE (formato carta horizontal)
+    // ============================================================
+    /**
+     * Construye un HTML completo con el comparativo de cotizaciones y lo
+     * abre en una pestaña nueva. El usuario puede imprimir o guardar como PDF.
+     */
+    handleGenerateComparativo() {
+        const quotes = (this.relatedQuotes || []).filter(q => q && q.totalAmount > 0);
+        if (quotes.length < 2) {
+            this.showToast('Aviso',
+                'Necesitas al menos 2 cotizaciones para generar el comparativo.', 'warning');
+            return;
+        }
+        try {
+            const html = this.buildComparativoHtml(quotes);
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            // Liberamos la URL luego de un momento para no fugar memoria
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error(':::OpportunityCreator::: Error generando comparativo', e);
+            this.showToast('Error', 'No se pudo generar el comparativo.', 'error');
+        }
+    }
+
+    /** Construye el HTML del comparativo con datos reales. */
+    buildComparativoHtml(quotes) {
+        // 1) Datos del documento
+        const ramoLabel = this.opportunity.Ramo__c || 'Seguro';
+        const clienteName = this.opportunity.AccountName
+                           || this.opportunity.clienteNombre || 'Cliente';
+        const opportunityName = this.opportunity.Name || 'Cotización';
+        const today = new Date();
+        const inicio = this.formatDate(today);
+        const finVig = this.formatDate(new Date(today.getFullYear() + 1, today.getMonth(), today.getDate()));
+
+        // 2) Identificar ganadores
+        const minPrice = Math.min(...quotes.map(q => q.totalAmount));
+        const maxCov   = Math.max(...quotes.map(q => (q.coverageCount || 0)));
+        const bestPriceQuote = quotes.find(q => q.totalAmount === minPrice);
+        const bestCovQuote   = quotes.find(q => (q.coverageCount || 0) === maxCov);
+
+        // 3) Universo de coberturas (todas las únicas en orden de aparición)
+        const allCoverages = [];
+        const covSet = new Set();
+        quotes.forEach(q => {
+            (q.coverageNames || []).forEach(name => {
+                const clean = (name || '').trim();
+                if (clean && !covSet.has(clean)) {
+                    covSet.add(clean);
+                    allCoverages.push(clean);
+                }
+            });
+        });
+
+        // 4) Construir filas: cobertura × compañía → ✓ / ×
+        const buildCoverageRows = () => allCoverages.map(covName => {
+            const cells = quotes.map(q => {
+                const includes = (q.coverageNames || []).some(n =>
+                    (n || '').trim().toLowerCase() === covName.toLowerCase()
+                );
+                const isHl = (q.Id === bestPriceQuote.Id || q.Id === bestCovQuote.Id);
+                const cls = isHl ? (includes ? 'hl' : 'hl no') : (includes ? '' : 'no');
+                const content = includes ? 'Sí' : 'No incluida';
+                return `<td class="${cls}">${this.escapeHtml(content)}</td>`;
+            }).join('');
+            return `<tr>
+                <td class="lbl"><span class="cn">${this.escapeHtml(covName)}</span></td>
+                ${cells}
+            </tr>`;
+        }).join('');
+
+        // 5) Header de la tabla (compañías)
+        const headerCells = quotes.map(q => {
+            const isPrice = q.Id === bestPriceQuote.Id;
+            const isCov   = q.Id === bestCovQuote.Id;
+            let badge = '';
+            let cls = '';
+            if (isPrice && isCov) {
+                badge = '<span class="rec-badge">★ Mejor precio y coberturas</span>';
+                cls = 'rec hl';
+            } else if (isPrice) {
+                badge = '<span class="rec-badge">★ Mejor precio</span>';
+                cls = 'rec hl';
+            } else if (isCov) {
+                badge = '<span class="rec-badge">★ Más coberturas</span>';
+                cls = 'rec hl';
+            }
+            return `<th class="${cls}">${this.escapeHtml(q.companiaLabel || '—')}${badge}</th>`;
+        }).join('');
+
+        // 6) Fila de precios
+        const priceCells = quotes.map(q => {
+            const isPrice = q.Id === bestPriceQuote.Id;
+            const isCov   = q.Id === bestCovQuote.Id;
+            const cls = (isPrice || isCov) ? 'hl' : '';
+            const sub = isPrice ? '<span class="sub">el más barato</span>'
+                     : (q.totalAmount === Math.max(...quotes.map(x => x.totalAmount))
+                          ? '<span class="sub">el más caro</span>' : '');
+            return `<td class="${cls}">${this.escapeHtml(q.totalFormatted)}${sub}</td>`;
+        }).join('');
+
+        // 7) Fila de coberturas (total)
+        const coverageCountCells = quotes.map(q => {
+            const isPrice = q.Id === bestPriceQuote.Id;
+            const isCov   = q.Id === bestCovQuote.Id;
+            const cls = (isPrice || isCov) ? 'hl' : '';
+            return `<td class="${cls}">${q.coverageCount || 0}</td>`;
+        }).join('');
+
+        // 8) Recomendación dinámica
+        const savings = Math.max(...quotes.map(q => q.totalAmount)) - minPrice;
+        const savingsPct = savings > 0
+            ? Math.round((savings / Math.max(...quotes.map(q => q.totalAmount))) * 100)
+            : 0;
+        const recomendacion = bestPriceQuote.Id === bestCovQuote.Id
+            ? `<b>${this.escapeHtml(bestPriceQuote.companiaLabel)}</b> es la opción más completa: ofrece el mejor precio (${this.escapeHtml(bestPriceQuote.totalFormatted)}) y el mayor número de coberturas (${bestCovQuote.coverageCount}).`
+            : `<b class="gnp">${this.escapeHtml(bestCovQuote.companiaLabel)}</b> trae el paquete más completo (${bestCovQuote.coverageCount} coberturas). <b class="qua">${this.escapeHtml(bestPriceQuote.companiaLabel)}</b> es la más económica (${this.escapeHtml(bestPriceQuote.totalFormatted)}) con un ahorro de ${this.formatCurrency(savings)} (${savingsPct}%). Tú decides qué pesa más: precio o protección.`;
+
+        // 9) Tarjetas de las dos mejores opciones
+        const cardWinners = bestPriceQuote.Id === bestCovQuote.Id
+            ? `<div class="card win">
+                <h3>★ Opción única recomendada — ${this.escapeHtml(bestPriceQuote.companiaLabel)} · ${this.escapeHtml(bestPriceQuote.totalFormatted)}</h3>
+                <p>Esta opción combina el mejor precio y el mayor número de coberturas (${bestCovQuote.coverageCount}). Es la opción más equilibrada del comparativo.</p>
+               </div>`
+            : `<div class="card win">
+                <h3>★ Opción 1 — ${this.escapeHtml(bestPriceQuote.companiaLabel)} · ${this.escapeHtml(bestPriceQuote.totalFormatted)} <span style="font-weight:400;font-size:12px;">(mejor precio)</span></h3>
+                <p>La más económica del comparativo, con ${bestPriceQuote.coverageCount} coberturas incluidas. Ideal si el presupuesto manda.</p>
+               </div>
+               <div class="card win">
+                <h3>★ Opción 2 — ${this.escapeHtml(bestCovQuote.companiaLabel)} · ${this.escapeHtml(bestCovQuote.totalFormatted)} <span style="font-weight:400;font-size:12px;">(más coberturas)</span></h3>
+                <p>El paquete más completo, con ${bestCovQuote.coverageCount} coberturas. Mejor cobertura por un poco más de prima.</p>
+               </div>`;
+
+        // 10) Documento final
+        return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<title>Comparativo ${this.escapeHtml(ramoLabel)} — ${this.escapeHtml(clienteName)}</title>
+<style>
+  @page{size:Letter landscape;margin:11mm;}
+  :root{--azul:#1F3864;--azul2:#2E5496;--naranja:#C55A11;--gnpfill:#FCE9DA;--gris:#f4f6fa;--linea:#dfe4ee;--neg:#9aa0ac;}
+  *{box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#1c2433;margin:0;background:#fff;}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px;}
+  .head{background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff;border-radius:14px;padding:22px 26px;}
+  .head h1{margin:0;font-size:26px;letter-spacing:.3px;}
+  .head p{margin:6px 0 0;font-size:14px;opacity:.92;}
+  .tag{display:inline-block;background:rgba(255,255,255,.18);border-radius:20px;padding:4px 12px;font-size:12px;margin-top:10px;}
+  table{border-collapse:collapse;width:100%;margin-top:18px;font-size:13px;}
+  th,td{border:1px solid var(--linea);padding:7px 6px;text-align:center;vertical-align:middle;color:#222;}
+  th.lbl,td.lbl{text-align:left;background:var(--gris);width:255px;}
+  td.lbl .cn{display:block;font-weight:700;color:var(--azul);font-size:12.5px;}
+  td.lbl .cd{display:block;font-weight:400;color:#5a6275;font-size:10.5px;margin-top:2px;line-height:1.25;}
+  thead th{background:var(--azul);color:#fff;font-size:13px;}
+  thead th.rec{background:var(--naranja);}
+  .rec-badge{display:block;font-size:9.5px;font-weight:700;opacity:.95;margin-top:2px;}
+  .price td{font-weight:800;font-size:16px;}
+  .price .lbl .cn{font-size:12px;color:#fff;}
+  .price .lbl{background:var(--azul2);}
+  td.hl,th.hl{background:var(--gnpfill);border-left:2px solid var(--naranja);border-right:2px solid var(--naranja);font-weight:700;}
+  thead th.hl{background:var(--naranja);color:#fff;}
+  td .sub{display:block;font-size:10px;font-weight:600;color:#7a8194;margin-top:2px;}
+  td.no{color:var(--neg);font-style:italic;}
+  .note{margin-top:10px;font-size:11px;color:#7a8194;line-height:1.4;}
+  .recs{margin-top:24px;}
+  .recs h2{color:var(--azul);font-size:20px;margin-bottom:12px;border-bottom:3px solid var(--naranja);padding-bottom:6px;}
+  .twocol{display:flex;gap:14px;flex-wrap:wrap;}
+  .twocol .card{flex:1;min-width:300px;}
+  .card{border:1px solid var(--linea);border-left:6px solid var(--azul2);border-radius:10px;padding:14px 18px;margin-bottom:12px;background:#fcfdff;}
+  .card.win{border-left-color:var(--naranja);background:var(--gnpfill);}
+  .card h3{margin:0 0 6px;font-size:15px;color:var(--azul);}
+  .card.win h3{color:var(--naranja);}
+  .card p{margin:0;font-size:13px;line-height:1.5;color:#333b4a;}
+  .decide{margin-top:18px;background:#f7f9fc;border:1px solid var(--linea);border-radius:12px;padding:18px 22px;}
+  .decide h2{color:var(--azul);font-size:19px;margin:0 0 6px;}
+  .bottom{margin-top:6px;background:#fff;border-left:5px solid var(--azul2);border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.55;color:#333b4a;}
+  .bottom b.gnp{color:var(--naranja);} .bottom b.qua{color:#0b6b2e;}
+  .glos{margin-top:18px;}
+  .glos h2{color:var(--azul);font-size:19px;margin:0 0 12px;border-bottom:3px solid var(--naranja);padding-bottom:6px;}
+  .glos dl{display:grid;grid-template-columns:170px 1fr;gap:6px 16px;margin:0;}
+  .glos dt{font-weight:700;color:var(--azul);font-size:13px;}
+  .glos dd{margin:0;font-size:12.5px;color:#3a4252;line-height:1.45;}
+  .foot{margin-top:20px;font-size:11px;color:#8a91a3;border-top:1px solid var(--linea);padding-top:10px;}
+  .print-btn{position:fixed;top:14px;right:14px;background:var(--azul);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 10px rgba(0,0,0,.15);}
+  .print-btn:hover{background:var(--azul2);}
+  @media print{.print-btn{display:none;}}
+</style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+<div class="wrap">
+  <div class="head">
+    <h1>Comparativo de Seguro de ${this.escapeHtml(ramoLabel)}</h1>
+    <p>${this.escapeHtml(opportunityName)} · ${this.escapeHtml(clienteName)} · Vigencia ${this.escapeHtml(inicio)} – ${this.escapeHtml(finVig)}</p>
+    <span class="tag">${quotes.length} aseguradoras comparadas · Cotizado por Avanza Seguro</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="lbl">Cobertura</th>
+        ${headerCells}
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="price">
+        <td class="lbl"><span class="cn">PRECIO ANUAL (Prima Total)</span></td>
+        ${priceCells}
+      </tr>
+      <tr>
+        <td class="lbl"><span class="cn">Coberturas incluidas (total)</span><span class="cd">Número de coberturas que trae cada cotización</span></td>
+        ${coverageCountCells}
+      </tr>
+      ${buildCoverageRows()}
+    </tbody>
+  </table>
+  <div class="note">
+    Las columnas resaltadas en naranja son las <b>opciones recomendadas</b> según precio y número de coberturas.
+    Este documento es informativo; los detalles finales (sumas aseguradas, deducibles y coaseguros) se definen en cada póliza.
+  </div>
+
+  <div class="recs">
+    <h2>Las mejores opciones — tú decides</h2>
+    <div class="twocol">${cardWinners}</div>
+  </div>
+
+  <div class="decide">
+    <h2>Recomendación</h2>
+    <div class="bottom">${recomendacion}</div>
+  </div>
+
+  <div class="glos">
+    <h2>Glosario — términos de seguros en palabras sencillas</h2>
+    <dl>
+      <dt>Prima</dt><dd>El precio del seguro: lo que pagas por estar cubierto durante el periodo de vigencia.</dd>
+      <dt>Cobertura</dt><dd>Cada uno de los riesgos o servicios que la aseguradora se compromete a pagar o brindar.</dd>
+      <dt>Suma asegurada</dt><dd>El monto máximo que la aseguradora puede pagarte por una cobertura.</dd>
+      <dt>Deducible</dt><dd>La parte que tú pagas de tu bolsillo cuando usas el seguro; el resto lo cubre la aseguradora.</dd>
+      <dt>Coaseguro</dt><dd>Porcentaje del gasto que el asegurado paga después del deducible.</dd>
+      <dt>Vigencia</dt><dd>Periodo durante el cual la póliza está activa y te protege.</dd>
+      <dt>Pérdida total</dt><dd>Cuando el bien asegurado se daña tanto, o se pierde, que la aseguradora paga su valor completo en vez de repararlo.</dd>
+      <dt>Responsabilidad Civil</dt><dd>Cubre los daños que tú le causes a otras personas o a sus bienes.</dd>
+    </dl>
+  </div>
+
+  <div class="foot">
+    Documento generado el ${this.escapeHtml(this.formatDate(new Date()))} con base en las cotizaciones registradas en Salesforce.
+    Información informativa, no es una póliza. · Avanza Seguro Consultores.
+  </div>
+</div>
+</body></html>`;
+    }
+
+    /** Escapa texto para evitar HTML injection en el comparativo. */
+    escapeHtml(text) {
+        if (text == null) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
     handleDeleteOpportunity(event) {
         const id = event.currentTarget.dataset.id;
         const name = event.currentTarget.dataset.name || 'esta oportunidad';
@@ -900,7 +1172,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get pageTitle() {
         if (this.viewMode === VIEW_MODES.EDIT)   return 'Editar Oportunidad';
         if (this.viewMode === VIEW_MODES.CREATE) return 'Crear Oportunidad';
-        if (this.viewMode === VIEW_MODES.PDF)    return 'Crear Oportunidad desde PDFs';   // NUEVO
         return 'Oportunidades';
     }
     get createButtonLabel() {
@@ -908,7 +1179,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     get showListView()   { return this.viewMode === VIEW_MODES.LIST; }
     get showCreateView() { return this.viewMode === VIEW_MODES.CREATE || this.viewMode === VIEW_MODES.EDIT; }
-    get showPdfView()    { return this.viewMode === VIEW_MODES.PDF; }   // NUEVO
     get isEditMode()     { return this.viewMode === VIEW_MODES.EDIT; }
 
     get isOpportunityEditable() {
@@ -1692,11 +1962,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleCreateNew() {
         this.resetWizard();
         this.viewMode = VIEW_MODES.CREATE;
-    }
-    // NUEVO - abre la vista de carga de PDFs
-    handleCreateFromPdf() {
-        this.resetWizard();
-        this.viewMode = VIEW_MODES.PDF;
     }
     resetWizard() {
         this.opportunity = this.getDefaultOpportunity();

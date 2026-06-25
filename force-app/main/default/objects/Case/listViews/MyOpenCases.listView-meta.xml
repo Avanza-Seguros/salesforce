@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MyOpenCases</fullName>
+    <columns>CASES.CASE_NUMBER</columns>
+    <columns>Movimiento_interno__c</columns>
+    <columns>ACCOUNT.NAME</columns>
+    <columns>CASES.SUBJECT</columns>
+    <columns>Poliza__c</columns>
+    <columns>Fecha_de_apertura__c</columns>
+    <columns>Fecha_de_cierre__c</columns>
+    <columns>CASES.STATUS</columns>
+    <filterScope>Mine</filterScope>
+    <label>Mis Movimientos Abiertos</label>
+</ListView>

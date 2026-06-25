@@ -58,26 +58,35 @@ public with sharing class OpportunityController {
                 ORDER BY CreatedDate DESC
             ];
 
-            // Conteo de coberturas (Quote_Coverage__c) por cotización con
-            // una query agrupada — más robusta que un subquery porque no
-            // depende del Child Relationship Name del lookup.
+            // Coberturas (Quote_Coverage__c) por cotización: traemos el
+            // nombre y el orden. Con eso el LWC arma:
+            //   • el conteo total para la tabla y el KPI
+            //   • el comparativo imprimible (matriz cobertura × compañía)
             Set<Id> quoteIds = new Set<Id>();
             for (Quote q : wrapper.quotes) quoteIds.add(q.Id);
 
             Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
+            Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
             if (!quoteIds.isEmpty()) {
-                for (AggregateResult ar : [
-                    SELECT Quote__c quoteId, COUNT(Id) total
+                for (Quote_Coverage__c qc : [
+                    SELECT Id, Quote__c, Coverage_Name__c, Name, Order__c
                     FROM Quote_Coverage__c
                     WHERE Quote__c IN :quoteIds
-                    GROUP BY Quote__c
+                    ORDER BY Order__c NULLS LAST, Coverage_Name__c
                 ]) {
-                    Id qid = (Id) ar.get('quoteId');
-                    Integer total = (Integer) ar.get('total');
-                    coverageCounts.put(qid, total);
+                    Id qid = qc.Quote__c;
+                    if (!coverageNamesByQuote.containsKey(qid)) {
+                        coverageNamesByQuote.put(qid, new List<String>());
+                        coverageCounts.put(qid, 0);
+                    }
+                    String covName = String.isNotBlank(qc.Coverage_Name__c)
+                                     ? qc.Coverage_Name__c : qc.Name;
+                    coverageNamesByQuote.get(qid).add(covName);
+                    coverageCounts.put(qid, coverageCounts.get(qid) + 1);
                 }
             }
             wrapper.coverageCounts = coverageCounts;
+            wrapper.coverageNamesByQuote = coverageNamesByQuote;
 
             return wrapper;
         } catch (Exception e) {
@@ -89,6 +98,7 @@ public with sharing class OpportunityController {
         @AuraEnabled public Opportunity opportunity;
         @AuraEnabled public List<Quote> quotes;
         @AuraEnabled public Map<Id, Integer> coverageCounts;
+        @AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
     }
 
     @AuraEnabled(cacheable=false)
