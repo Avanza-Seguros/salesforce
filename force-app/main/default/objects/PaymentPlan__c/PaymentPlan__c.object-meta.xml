@@ -162,6 +162,7 @@
         <type>AutoNumber</type>
     </nameField>
     <pluralLabel>Payment Plans</pluralLabel>
+    <recordTypeTrackHistory>false</recordTypeTrackHistory>
     <searchLayouts></searchLayouts>
     <sharingModel>ReadWrite</sharingModel>
     <visibility>Public</visibility>

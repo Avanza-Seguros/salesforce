@@ -6500,96 +6500,151 @@ esNombreValidoParaTarjeta(nombre) {
             confianza: 'BAJA'
         };
         
-        // Función para limpiar póliza: quitar el último -XX pero mantener el prefijo
-        const limpiarPoliza = (raw) => {
+        // ✅ FUNCIÓN PARA FORMATEAR PÓLIZA
+        const formatearPolizaAfirme = (raw) => {
             if (!raw) return null;
-            // Si tiene formato 005-0000364919-00, quitar el último -00
-            const partes = raw.split('-');
-            if (partes.length >= 3) {
-                // Unir todas excepto la última parte
-                return partes.slice(0, -1).join('-');
+            let limpio = raw.replace(/\s+/g, '');
+            
+            const matchCompleto = limpio.match(/^(\d{3})-(\d{10})-(\d{2})$/);
+            if (matchCompleto) {
+                return `${matchCompleto[1]}-${matchCompleto[2]}`;
             }
+            
+            const matchSimple = limpio.match(/^(\d{10})-(\d{2})$/);
+            if (matchSimple) {
+                return `005-${matchSimple[1]}`;
+            }
+            
+            const matchSoloNumeros = limpio.match(/^(\d{10})$/);
+            if (matchSoloNumeros) {
+                return `005-${matchSoloNumeros[1]}`;
+            }
+            
+            const matchCorrecto = limpio.match(/^(\d{3})-(\d{10})$/);
+            if (matchCorrecto) {
+                return limpio;
+            }
+            
             return raw;
         };
         
-        // Variable para construir la póliza si está fragmentada
         let polizaParcial = '';
         
-        // Recorrer todas las líneas para buscar datos
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             console.log(`🔍 Línea ${i}: "${line}"`);
             
-            // --- PÓLIZA: Buscar "PÓLIZA:" en la línea ---
+            // --- PÓLIZA ---
             if (line.includes('PÓLIZA:') || line.includes('POLIZA:')) {
-                console.log(`🎯 Línea ${i} contiene PÓLIZA:`);
-                
-                // Intentar extraer todo después de "PÓLIZA:"
                 const despuesPoliza = line.replace(/P[OÓ]LIZA:\s*/i, '');
-                
                 if (despuesPoliza && despuesPoliza.match(/\d/)) {
                     polizaParcial = despuesPoliza.trim();
-                    console.log(`📝 Póliza parcial (misma línea): "${polizaParcial}"`);
-                    
-                    // Si la línea ya contiene la póliza completa (con guiones), procesarla
-                    if (polizaParcial.match(/^\d{3}-\d{10}-\d{2}$/)) {
-                        datos.policy = limpiarPoliza(polizaParcial);
-                        console.log(`✅ Póliza completa en misma línea: ${datos.policy}`);
+                    const formateada = formatearPolizaAfirme(polizaParcial);
+                    if (formateada && formateada !== polizaParcial) {
+                        datos.policy = formateada;
+                        console.log(`✅ Póliza formateada: ${datos.policy}`);
                         polizaParcial = '';
                     }
                 }
             }
             
-            // Si tenemos una póliza parcial de la línea anterior, intentar completarla
             if (polizaParcial && !datos.policy) {
-                // Si la línea actual tiene números que completan la póliza
                 const numerosEnLinea = line.match(/(\d{10}-\d{2}|\d+-\d+)/);
                 if (numerosEnLinea) {
                     const polizaCompleta = polizaParcial + numerosEnLinea[0];
-                    console.log(`🔗 Póliza construida: "${polizaParcial}" + "${numerosEnLinea[0]}" = "${polizaCompleta}"`);
-                    
-                    if (polizaCompleta.match(/\d{3}-\d{10}-\d{2}/)) {
-                        datos.policy = limpiarPoliza(polizaCompleta);
-                        console.log(`✅ Póliza construida exitosamente: ${datos.policy}`);
+                    const formateada = formatearPolizaAfirme(polizaCompleta);
+                    if (formateada) {
+                        datos.policy = formateada;
+                        console.log(`✅ Póliza construida: ${datos.policy}`);
                         polizaParcial = '';
                     }
                 }
             }
             
-            // Buscar directamente cualquier patrón de póliza en la línea (independientemente de "PÓLIZA:")
             const directPolizaMatch = line.match(/(\d{3}-\d{10}-\d{2})/);
             if (directPolizaMatch && !datos.policy) {
-                datos.policy = limpiarPoliza(directPolizaMatch[1]);
-                console.log(`✅ Póliza encontrada (patrón directo): ${datos.policy}`);
+                datos.policy = formatearPolizaAfirme(directPolizaMatch[1]);
+                console.log(`✅ Póliza (patrón directo): ${datos.policy}`);
             }
             
-            // También buscar patrón más flexible: 3-10 dígitos, guión, 10 dígitos, guión, 2 dígitos
-            const flexibleMatch = line.match(/(\d{2,3}-\d{8,12}-\d{2})/);
-            if (flexibleMatch && !datos.policy) {
-                datos.policy = limpiarPoliza(flexibleMatch[1]);
-                console.log(`✅ Póliza encontrada (patrón flexible): ${datos.policy}`);
+            const simplePolizaMatch = line.match(/\b(\d{10}-\d{2})\b/);
+            if (simplePolizaMatch && !datos.policy) {
+                datos.policy = formatearPolizaAfirme(simplePolizaMatch[1]);
+                console.log(`✅ Póliza (formato simple): ${datos.policy}`);
             }
             
-            // --- NOMBRE DEL ASEGURADO ---
+            // --- NOMBRE ---
             if (line.includes('Al Asegurado:')) {
                 const match = line.match(/Al Asegurado:\s*(.+)/i);
                 if (match && match[1]) {
                     datos.fullName = match[1].trim();
-                    console.log(`✅ Nombre encontrado: ${datos.fullName}`);
+                    console.log(`✅ Nombre: ${datos.fullName}`);
                 }
             }
             
-            // --- REFERENCIA (CERTIFICADO) ---
+            // ============================================================
+            // 🎯 CERTIFICADO - MÚLTIPLES PATRONES FLEXIBLES
+            // ============================================================
+            
+            // ✅ PATRÓN 1: "Número de Certificado: X" (con espacios normales)
+            if (line.includes('Número de Certificado:')) {
+                const match = line.match(/Número de Certificado:\s*(\d+)/i);
+                if (match && match[1]) {
+                    datos.certificate = parseInt(match[1], 10).toString();
+                    console.log(`✅ Certificado (Número de Certificado): ${datos.certificate}`);
+                }
+            }
+            
+            // ✅ PATRÓN 2: "NÚM ERODECERTIFICADO: 1" (con espacios entre letras)
+            if (line.includes('NÚM') && line.includes('CERTIFICADO')) {
+                const match = line.match(/NÚM\s*E?R?O?D?E?CERTIFICADO\s*:\s*(\d+)/i);
+                if (match && match[1]) {
+                    datos.certificate = parseInt(match[1], 10).toString();
+                    console.log(`✅ Certificado (formato con espacios): ${datos.certificate}`);
+                }
+            }
+            
+            // ✅ PATRÓN 3: "NÚMERODECERTIFICADO: 1" (sin espacios)
+            if (line.includes('NUMERODECERTIFICADO') || line.includes('NÚMERODECERTIFICADO')) {
+                const match = line.match(/N[ÚU]MERODECERTIFICADO\s*:\s*(\d+)/i);
+                if (match && match[1]) {
+                    datos.certificate = parseInt(match[1], 10).toString();
+                    console.log(`✅ Certificado (formato sin espacios): ${datos.certificate}`);
+                }
+            }
+            
+            // ✅ PATRÓN 4: Cualquier "CERTIFICADO:" seguido de número
+            const certMatch = line.match(/CERTIFICADO\s*:\s*(\d+)/i);
+            if (certMatch && !datos.certificate) {
+                if (!line.includes('REFERENCIA') && !line.includes('EMP')) {
+                    datos.certificate = parseInt(certMatch[1], 10).toString();
+                    console.log(`✅ Certificado (CERTIFICADO: X): ${datos.certificate}`);
+                }
+            }
+            
+            // ✅ PATRÓN 5: Contexto de "Certificado" con número pequeño
+            if (!datos.certificate && line.match(/[Cc]ertificado/) && !line.includes('REFERENCIA')) {
+                const numMatch = line.match(/\b(\d{1,4})\b/);
+                if (numMatch && numMatch[1]) {
+                    const posibleCert = parseInt(numMatch[1], 10);
+                    if (posibleCert >= 0 && posibleCert <= 9999) {
+                        datos.certificate = posibleCert.toString();
+                        console.log(`✅ Certificado (contextual): ${datos.certificate}`);
+                    }
+                }
+            }
+            
+            // ✅ PATRÓN 6: "Referencia: CERT EMP 00001"
             if (line.includes('Referencia:')) {
                 const match = line.match(/Referencia:\s*CERT\s+EMP\s+(\d+)/i);
                 if (match && match[1]) {
                     datos.certificate = match[1];
-                    console.log(`✅ Certificado encontrado: ${datos.certificate}`);
+                    console.log(`✅ Certificado (Referencia): ${datos.certificate}`);
                 } else {
                     const fallback = line.match(/Referencia:\s*(\d+)/i);
                     if (fallback) {
                         datos.certificate = fallback[1];
-                        console.log(`✅ Certificado (fallback): ${datos.certificate}`);
+                        console.log(`✅ Certificado (fallback Referencia): ${datos.certificate}`);
                     }
                 }
             }
@@ -6612,92 +6667,18 @@ esNombreValidoParaTarjeta(nombre) {
                 }
             }
             
-            // --- FECHA DE EMISIÓN (inicio de vigencia) ---
-            const fechaEmisionMatch = line.match(/(\d{2})\s+de\s+([a-z]+)\s+del\s+(\d{4})/i);
-            if (fechaEmisionMatch) {
-                const dia = fechaEmisionMatch[1];
-                const mesTexto = fechaEmisionMatch[2].toLowerCase();
-                const anio = fechaEmisionMatch[3];
-                const meses = {
-                    'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04',
-                    'mayo': '05', 'junio': '06', 'julio': '07', 'agosto': '08',
-                    'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
-                };
-                const mesNum = meses[mesTexto];
-                if (mesNum) {
-                    datos.vigenciaDesde = `${dia}/${mesNum}/${anio}`;
-                    // Calcular vigencia hasta un año después
-                    const fechaDesde = new Date(anio, mesNum-1, dia);
-                    fechaDesde.setFullYear(fechaDesde.getFullYear() + 1);
-                    const diaHasta = fechaDesde.getDate().toString().padStart(2,'0');
-                    const mesHasta = (fechaDesde.getMonth()+1).toString().padStart(2,'0');
-                    const anioHasta = fechaDesde.getFullYear();
-                    datos.vigenciaHasta = `${diaHasta}/${mesHasta}/${anioHasta}`;
-                    console.log(`✅ Vigencia desde/hasta: ${datos.vigenciaDesde} - ${datos.vigenciaHasta}`);
+            // --- VIGENCIA ---
+            if (line.includes('VIGENCIA Desde') && line.includes('Hasta')) {
+                const fechas = line.match(/(\d{2}\/\d{2}\/\d{4})/g);
+                if (fechas && fechas.length >= 2) {
+                    datos.vigenciaDesde = fechas[0];
+                    datos.vigenciaHasta = fechas[1];
+                    console.log(`✅ Vigencia: ${datos.vigenciaDesde} - ${datos.vigenciaHasta}`);
                 }
             }
         }
         
-        // Si no se encontró póliza, buscar en el texto completo como respaldo
-        if (!datos.policy) {
-            console.log('🔄 Buscando póliza en texto completo...');
-            const fullText = lines.join(' ');
-            
-            // Buscar patrón con o sin espacios entre partes
-            const patronesPoliza = [
-                /P[OÓ]LIZA:\s*(\d{3}-\d{10}-\d{2})/i,
-                /P[OÓ]LIZA:\s*(\d{3})-?\s*(\d{10})-?\s*(\d{2})/i,
-                /(\d{3}-\d{10}-\d{2})/,
-                /(\d{2,3}-\d{8,12}-\d{2})/
-            ];
-            
-            for (const patron of patronesPoliza) {
-                const match = fullText.match(patron);
-                if (match) {
-                    let polizaRaw = '';
-                    if (match.length === 4 && match[1] && match[2] && match[3]) {
-                        // Caso con grupos separados
-                        polizaRaw = `${match[1]}-${match[2]}-${match[3]}`;
-                    } else {
-                        polizaRaw = match[1] || match[0];
-                    }
-                    datos.policy = limpiarPoliza(polizaRaw);
-                    console.log(`✅ Póliza encontrada en texto completo: ${datos.policy}`);
-                    break;
-                }
-            }
-        }
-        
-        // Si aún no hay póliza, buscar números que parezcan una póliza fragmentada
-        if (!datos.policy) {
-            console.log('🔄 Buscando póliza fragmentada...');
-            let primerParte = null;
-            let segundaParte = null;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                // Buscar "005-" o similar
-                const parte1 = line.match(/(\d{2,3}-)$/);
-                if (parte1 && !primerParte) {
-                    primerParte = parte1[1];
-                    console.log(`📝 Primera parte de póliza encontrada: "${primerParte}"`);
-                    // Buscar en la siguiente línea la segunda parte
-                    if (i + 1 < lines.length) {
-                        const parte2 = lines[i + 1].match(/^(\d{10}-\d{2})/);
-                        if (parte2) {
-                            segundaParte = parte2[1];
-                            console.log(`📝 Segunda parte de póliza encontrada: "${segundaParte}"`);
-                            const polizaCompleta = primerParte + segundaParte;
-                            datos.policy = limpiarPoliza(polizaCompleta);
-                            console.log(`✅ Póliza construida desde líneas consecutivas: ${datos.policy}`);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Fallbacks desde el nombre del archivo
+        // --- FALLBACKS ---
         if (!datos.certificate) {
             const fileMatch = fileName.match(/^(\d+)_/);
             if (fileMatch) {
@@ -6716,18 +6697,33 @@ esNombreValidoParaTarjeta(nombre) {
             }
         }
         
-        // Plan por defecto
+        if (!datos.policy) {
+            const fullText = lines.join(' ');
+            const patronesPoliza = [
+                /P[OÓ]LIZA:\s*(\d{3}-\d{10}-\d{2})/i,
+                /(\d{3}-\d{10}-\d{2})/,
+                /\b(\d{10}-\d{2})\b/
+            ];
+            for (const patron of patronesPoliza) {
+                const match = fullText.match(patron);
+                if (match) {
+                    datos.policy = formatearPolizaAfirme(match[1] || match[0]);
+                    console.log(`✅ Póliza desde texto completo: ${datos.policy}`);
+                    break;
+                }
+            }
+        }
+        
         datos.plan = 'COLECTIVO';
         
-        // Calcular confianza
         let camposCriticos = 0;
-        if (datos.policy && datos.policy !== 'NO_DETECTADO') camposCriticos++;
-        if (datos.certificate && datos.certificate !== 'NO_DETECTADO') camposCriticos++;
-        if (datos.fullName && datos.fullName !== 'NO_DETECTADO') camposCriticos++;
+        if (datos.policy) camposCriticos++;
+        if (datos.certificate) camposCriticos++;
+        if (datos.fullName) camposCriticos++;
         if (datos.sumaAsegurada) camposCriticos++;
         datos.confianza = camposCriticos >= 3 ? 'ALTA' : camposCriticos >= 2 ? 'MEDIA' : 'BAJA';
         
-        console.log('📊 DATOS AFIRME EXTRAÍDOS FINALES:', datos);
+        console.log('📊 DATOS AFIRME FINALES:', datos);
         return datos;
     }
 

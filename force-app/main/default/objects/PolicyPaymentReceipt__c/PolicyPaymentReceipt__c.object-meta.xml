@@ -162,6 +162,7 @@
         <type>AutoNumber</type>
     </nameField>
     <pluralLabel>Policy Payment Receipts</pluralLabel>
+    <recordTypeTrackHistory>false</recordTypeTrackHistory>
     <searchLayouts></searchLayouts>
     <sharingModel>ReadWrite</sharingModel>
     <visibility>Public</visibility>

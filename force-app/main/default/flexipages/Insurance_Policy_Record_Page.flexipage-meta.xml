@@ -33,6 +33,9 @@
                         <valueListItems>
                             <value>CancelInsurancePolicy</value>
                         </valueListItems>
+                        <valueListItems>
+                            <value>InsurancePolicy.Enviar_Correo</value>
+                        </valueListItems>
                     </valueList>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
