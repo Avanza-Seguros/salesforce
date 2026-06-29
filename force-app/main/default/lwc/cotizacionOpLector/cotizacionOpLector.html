@@ -1,0 +1,78 @@
+<template>
+    <lightning-card title="Comparador de Cotizaciones de Autos">
+        <div class="slds-p-around_medium">
+            <!-- Drop Zone -->
+            <div class="slds-box slds-align_absolute-center slds-m-bottom_medium" 
+                 style="border: 2px dashed #dddbda; padding: 3rem; cursor: pointer;"
+                 onclick={openFileSelector}
+                 data-dropzone>
+                <lightning-icon icon-name="utility:upload" size="large"></lightning-icon>
+                <h2 class="slds-text-heading_small slds-m-top_small">Arrastra PDFs aquí o haz clic</h2>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                    Máximo {maxFile} MB por archivo
+                </p>
+            </div>
+            
+            <input type="file" class="slds-hide" multiple accept=".pdf" onchange={handleFileChange} />
+            
+            <!-- Botones -->
+            <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_medium">
+                <div class="slds-col slds-size_1-of-2">
+                    <lightning-button label="Procesar" 
+                                     onclick={processAllFiles}
+                                     variant="brand"
+                                     disabled={disabledProcess}
+                                     class="slds-size_full">
+                    </lightning-button>
+                </div>
+                <div class="slds-col slds-size_1-of-2">
+                    <lightning-button label="Exportar" 
+                                     onclick={exportarComparativa}
+                                     variant="neutral"
+                                     disabled={disabledResult}
+                                     class="slds-size_full">
+                    </lightning-button>
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div if:true={isProcessing} class="slds-m-bottom_medium">
+                <div class="slds-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress.percent}>
+                    <span class="slds-progress-bar__value" style={progressStyle}>
+                        <span class="slds-assistive-text">Progreso: {progress.percent}%</span>
+                    </span>
+                </div>
+                <div class="slds-grid slds-grid_align-spread slds-m-top_x-small">
+                    <span class="slds-text-color_weak slds-text-body_small">
+                        {progress.current} de {progress.total} archivos
+                    </span>
+                    <span class="slds-text-color_weak slds-text-body_small">
+                        {progress.percent}%
+                    </span>
+                </div>
+                <div class="slds-m-top_x-small">
+                    <span class="slds-text-color_weak slds-text-body_small">
+                        Procesando: {progress.currentFileName}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Archivos -->
+            <div if:true={hasFiles} class="slds-m-bottom_medium">
+                <h3 class="slds-text-heading_small">Archivos ({files.length})</h3>
+                <template for:each={files} for:item="file">
+                    <div key={file.id} class="slds-box slds-box_x-small slds-m-top_x-small">
+                        <div class="slds-grid slds-grid_align-spread">
+                            <span>{file.name}</span>
+                            <lightning-button-icon 
+                                icon-name="utility:close" 
+                                onclick={removeFile}
+                                data-id={file.id}>
+                            </lightning-button-icon>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </lightning-card>
+</template>

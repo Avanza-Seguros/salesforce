@@ -1,0 +1,46 @@
+<template>
+    <lightning-card title="Comparador de Aseguradoras">
+
+        <template if:true={hasQuotes}>
+            <div class="slds-grid slds-wrap">
+
+                <template for:each={quotes} for:item="q">
+                    <div key={q.quoteId} class="slds-col slds-size_1-of-3 slds-p-around_small">
+
+                        <div class="slds-box">
+
+                            <!-- Header -->
+                            <h2><strong>{q.carrier}</strong></h2>
+                            <p>Prima: 💲 {q.total}</p>
+
+                            <!-- Coberturas -->
+                            <template for:each={q.coverages} for:item="cov">
+                                <div key={cov.Id} class="slds-p-vertical_x-small">
+
+                                    <span>{cov.Coverage__r.Name}</span>
+
+                                    <template if:true={cov.Is_Selected__c}>
+                                        <span> ✔</span>
+                                    </template>
+
+                                </div>
+                            </template>
+
+                            <!-- Botón -->
+                            <lightning-button
+                                label="Elegir"
+                                variant="brand"
+                                data-id={q.quoteId}
+                                onclick={handleSelect}>
+                            </lightning-button>
+
+                        </div>
+
+                    </div>
+                </template>
+
+            </div>
+        </template>
+
+    </lightning-card>
+</template>

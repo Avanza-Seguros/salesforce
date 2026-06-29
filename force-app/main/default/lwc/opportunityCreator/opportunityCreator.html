@@ -25,6 +25,10 @@
                                     Transforma prospectos en negocios exitosos
                                 </template>
                             </template>
+                            <!-- NUEVO -->
+                            <template if:true={showPdfView}>
+                                Sube los documentos del cliente y deja que la IA cree la oportunidad
+                            </template>
                         </p>
                     </div>
                 </div>
@@ -58,6 +62,18 @@
                                     <template if:true={isEditMode}>Edición</template>
                                     <template if:false={isEditMode}>Creación</template>
                                 </span>
+                            </div>
+                        </div>
+                    </template>
+                    <!-- NUEVO -->
+                    <template if:true={showPdfView}>
+                        <div class="step-indicator-badge">
+                            <div class="badge-circle">
+                                <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
+                            </div>
+                            <div class="badge-text">
+                                <span class="badge-label">Modo</span>
+                                <span class="badge-total">PDFs</span>
                             </div>
                         </div>
                     </template>
@@ -109,6 +125,11 @@
                         <button class="action-btn primary" onclick={handleCreateNew}>
                             <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
                             Nueva Oportunidad
+                        </button>
+                        <!-- NUEVO -->
+                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Crear oportunidad subiendo PDFs">
+                            <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
+                            Crear desde PDFs
                         </button>
                     </div>
                 </div>
@@ -239,6 +260,11 @@
                                 <button class="action-btn primary" onclick={handleCreateNew}>
                                     <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
                                     Crear Oportunidad
+                                </button>
+                                <!-- NUEVO -->
+                                <button class="action-btn pdf-action" onclick={handleCreateFromPdf}>
+                                    <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
+                                    Crear desde PDFs
                                 </button>
                             </div>
                         </template>
@@ -988,6 +1014,19 @@
                 </div>
             </div>
         </template>
-
+        <!-- ============================================================ -->
+        <!-- NUEVO - VISTA CREAR DESDE PDFs                                -->
+        <!-- ============================================================ -->
+        <template if:true={showPdfView}>
+            <div class="back-to-list">
+                <button class="back-btn" onclick={handleBackToList}>
+                    <lightning-icon icon-name="utility:back" size="xx-small"></lightning-icon>
+                    Volver a la lista
+                </button>
+            </div>
+            <div class="content-container glass-effect unified-view pdf-view-container">
+                <c-pdf-opportunity-creator></c-pdf-opportunity-creator>
+            </div>
+        </template>
     </div>
 </template>

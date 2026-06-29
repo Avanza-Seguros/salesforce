@@ -1,0 +1,137 @@
+/* Estilos específicos para la tabla comparativa */
+.slds-scrollable_x {
+    overflow-x: auto;
+}
+
+.slds-table th {
+    background-color: #f3f2f2;
+    vertical-align: middle;
+}
+
+.slds-table td {
+    vertical-align: middle;
+}
+
+.slds-table .slds-col {
+    padding: 0.25rem;
+    text-align: center;
+}
+
+.slds-text-heading_small {
+    color: #00396b;
+    font-weight: bold;
+}
+
+/* Destacar la fila de prima anual */
+tr:last-child {
+    background-color: #f0f8ff;
+    font-weight: bold;
+}
+
+tr:last-child td:first-child {
+    color: #1589ee;
+}
+
+.slds-theme_success {
+    background-color: #4bca81 !important;
+    color: #080707 !important;
+    font-weight: bold !important;
+}
+
+.slds-theme_shade {
+    background-color: #f3f2f2 !important;
+}
+
+.comparativa-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.comparativa-container table {
+    min-width: 100%;
+}
+
+.comparativa-container thead th {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+
+.slds-badge_lightest {
+    background-color: #f3f2f2;
+    color: #3e3e3c;
+    font-size: 0.75rem;
+}
+
+/* Estilos para las filas de la tabla */
+.fila-prima-anual {
+    background-color: #4bca81 !important;
+    color: #080707 !important;
+    font-weight: bold !important;
+}
+
+.fila-danos-materiales {
+    background-color: #f3f2f2 !important;
+}
+
+.fila-robo-total {
+    background-color: #f3f2f2 !important;
+}
+
+.fila-rc {
+    background-color: #f3f2f2 !important;
+}
+
+.fila-gastos-medicos {
+    background-color: #f3f2f2 !important;
+}
+
+.fila-accidentes {
+    background-color: #f3f2f2 !important;
+}
+
+.comparativa-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.comparativa-container table {
+    min-width: 100%;
+}
+
+.comparativa-container thead th {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+
+.slds-badge_lightest {
+    background-color: #f3f2f2;
+    color: #3e3e3c;
+    font-size: 0.75rem;
+}
+
+/* Destacar montos verdes para coberturas amparadas */
+.slds-text-heading_small[data-value*="AMPARADA"] {
+    color: #2e844a !important;
+    font-weight: bold !important;
+}
+
+.ramo-selector-container {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.ramo-helper-text {
+    font-size: 0.75rem;
+    color: #718096;
+    margin-top: 0.25rem;
+    margin-left: 0.5rem;
+}
