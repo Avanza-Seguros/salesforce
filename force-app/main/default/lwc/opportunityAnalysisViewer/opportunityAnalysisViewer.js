@@ -1,16 +1,16 @@
 import { LightningElement, api, wire } from "lwc";
 import { getRecord, getFieldValue } from "lightning/uiRecordApi";
+import { NavigationMixin } from "lightning/navigation";
 import DESCRIPTION_FIELD from "@salesforce/schema/Opportunity.Description";
+import getQuotesByOpportunity from "@salesforce/apex/OpportunityQuotesController.getQuotesByOpportunity";
+import getComparativoLinks from "@salesforce/apex/OpportunityQuotesController.getComparativoLinks";
 
-// Marcadores del formato actual (multi-documento)
 const RESUMEN_EJEC_TITLE = "RESUMEN EJECUTIVO";
 const COMPARATIVO_TITLE = "COMPARATIVO";
 
-// Marcadores legacy (un solo documento)
 const DATOS_MARKER = "=== DATOS EXTRAÍDOS POR IA ===";
 const ANALISIS_MARKER = "=== ANÁLISIS COMPLETO (IA) ===";
 
-// Iconos por etiqueta de dato clave
 const DATA_ICONS = {
   "Tipo de documento": "utility:file",
   Cliente: "utility:user",
@@ -26,7 +26,6 @@ const DATA_ICONS = {
   Teléfono: "utility:call"
 };
 
-// Iconos por número de sección del análisis
 const SECTION_ICONS = {
   1: "utility:file",
   2: "utility:description",
@@ -36,24 +35,28 @@ const SECTION_ICONS = {
   6: "utility:task"
 };
 
-export default class OpportunityAnalysisViewer extends LightningElement {
+export default class OpportunityAnalysisViewer extends NavigationMixin(
+  LightningElement
+) {
   @api recordId;
 
   description = "";
   loaded = false;
   errorMsg = "";
 
-  // Legado (un doc)
   headerTipo = "";
   headerCliente = "";
   summary = "";
   keyData = [];
   sections = [];
 
-  // Nuevo formato (multi-doc)
   executiveSummary = "";
   comparisonTable = null;
   docAnalyses = [];
+
+  rawQuotes = [];
+  comparativoPdfId = null;
+  comparativoTitle = "";
 
   @wire(getRecord, { recordId: "$recordId", fields: [DESCRIPTION_FIELD] })
   wiredOpp({ data, error }) {
@@ -67,18 +70,99 @@ export default class OpportunityAnalysisViewer extends LightningElement {
     }
   }
 
+  @wire(getQuotesByOpportunity, { opportunityId: "$recordId" })
+  wiredQuotes({ data, error }) {
+    if (data) {
+      this.rawQuotes = data;
+    } else if (error) {
+      this.rawQuotes = [];
+    }
+  }
+
+  @wire(getComparativoLinks, { opportunityId: "$recordId" })
+  wiredLinks({ data, error }) {
+    if (data && data.length) {
+      this.comparativoPdfId = data[0].contentDocumentId;
+      this.comparativoTitle = data[0].title;
+    } else if (error) {
+      this.comparativoPdfId = null;
+    }
+  }
+
   get hasContent() {
     return (
       this.keyData.length > 0 ||
       this.sections.length > 0 ||
       !!this.executiveSummary ||
       !!this.comparisonTable ||
-      this.docAnalyses.length > 0
+      this.docAnalyses.length > 0 ||
+      this.quoteTiles.length > 0 ||
+      !!this.comparativoPdfId
     );
   }
 
   get showEmptyState() {
     return this.loaded && !this.hasContent;
+  }
+
+  get quoteTiles() {
+    if (!this.rawQuotes || this.rawQuotes.length === 0) {
+      return [];
+    }
+    return this.rawQuotes.map((q, i) => {
+      const title = (q.aseguradora && q.aseguradora.trim()) || q.name || `Cotización ${i + 1}`;
+      const rows = [
+        { key: "p", label: "Prima anual", value: formatCurrency(q.primaAnual) },
+        { key: "s", label: "Suma asegurada", value: formatCurrency(q.sumaAsegurada) },
+        { key: "tv", label: "Tipo de valor", value: q.tipoValor || "—", isBadge: true },
+        {
+          key: "dd",
+          label: "Deducible Daños",
+          value: formatDeducible(q.deducibleDanosPct, q.deducibleDanosMxn)
+        },
+        {
+          key: "dr",
+          label: "Deducible Robo",
+          value: formatDeducible(q.deducibleRoboPct, q.deducibleRoboMxn)
+        }
+      ];
+      return {
+        key: q.id || "qt" + i,
+        id: q.id,
+        title,
+        rows
+      };
+    });
+  }
+
+  get hasQuotes() {
+    return this.quoteTiles.length > 0;
+  }
+
+  get hasComparativo() {
+    return !!this.comparativoPdfId;
+  }
+
+  handleOpenComparativo() {
+    if (!this.comparativoPdfId) {
+      return;
+    }
+    this[NavigationMixin.Navigate]({
+      type: "standard__namedPage",
+      attributes: { pageName: "filePreview" },
+      state: { selectedRecordId: this.comparativoPdfId }
+    });
+  }
+
+  handleOpenQuote(event) {
+    const id = event.currentTarget.dataset.id;
+    if (!id) {
+      return;
+    }
+    this[NavigationMixin.Navigate]({
+      type: "standard__recordPage",
+      attributes: { recordId: id, objectApiName: "Quote", actionName: "view" }
+    });
   }
 
   parse() {
@@ -96,12 +180,8 @@ export default class OpportunityAnalysisViewer extends LightningElement {
       return;
     }
 
-    // El nuevo formato usa bloques delimitados por "=== <título> ===".
-    // El legacy también, pero con títulos fijos. Procesamos por bloques y
-    // routamos según el título.
     const blocks = splitIntoBlocks(text);
     if (blocks.length === 0) {
-      // No hay marcadores: tratar todo como análisis libre.
       this.parseSections(text);
       return;
     }
@@ -121,12 +201,10 @@ export default class OpportunityAnalysisViewer extends LightningElement {
       } else if (upper.includes("ANÁLISIS COMPLETO")) {
         legacyAnalisis = b.body;
       } else if (b.title) {
-        // Cualquier otro título: bloque de análisis de un documento.
         docBlocks.push(b);
       }
     }
 
-    // Si hay datos extraídos del legado se vuelcan a las tiles.
     if (legacyDatos) {
       this.parseKeyData(legacyDatos);
     }
@@ -134,7 +212,6 @@ export default class OpportunityAnalysisViewer extends LightningElement {
       this.parseSections(legacyAnalisis);
     }
 
-    // Análisis por documento (nuevo formato).
     docBlocks.forEach((b, i) => {
       const items = this.parseBody(b.body.split("\n"), "doc" + i);
       const risks = this.detectRisks(items);
@@ -148,7 +225,6 @@ export default class OpportunityAnalysisViewer extends LightningElement {
       });
     });
 
-    // Extraer cliente del resumen ejecutivo para el hero si no vino por legado.
     if (!this.headerCliente && this.executiveSummary) {
       const m = this.executiveSummary.match(
         /Se analizaron \d+ documentos para (.+?)(?:\s*\(ramo\s+.+?\))?\./
@@ -180,8 +256,7 @@ export default class OpportunityAnalysisViewer extends LightningElement {
         .split("|")
         .map((s) => s.trim());
 
-    const headerCells = cellsOf(lines[0]); // ["Campo", "doc1", "doc2", ...]
-    // lines[1] es el separador "| --- | --- |..."
+    const headerCells = cellsOf(lines[0]);
     const dataLines = lines.slice(2).filter((l) => !/^\|\s*-+/.test(l));
 
     const headers = headerCells.slice(1).map((h, i) => ({
@@ -422,7 +497,6 @@ export default class OpportunityAnalysisViewer extends LightningElement {
   }
 }
 
-// Divide el texto en bloques delimitados por líneas "=== Título ===".
 function splitIntoBlocks(text) {
   const blocks = [];
   const lines = text.split("\n");
@@ -443,4 +517,34 @@ function splitIntoBlocks(text) {
     blocks.push(current);
   }
   return blocks;
+}
+
+function formatCurrency(v) {
+  if (v === null || v === undefined || v === "") {
+    return "—";
+  }
+  const n = Number(v);
+  if (Number.isNaN(n)) {
+    return String(v);
+  }
+  try {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 0
+    }).format(n);
+  } catch (e) {
+    return "$" + n.toFixed(0);
+  }
+}
+
+function formatDeducible(pct, mxn) {
+  const hasPct = pct !== null && pct !== undefined && pct !== "";
+  const hasMxn = mxn !== null && mxn !== undefined && mxn !== "";
+  if (!hasPct && !hasMxn) {
+    return "—";
+  }
+  const pctStr = hasPct ? `${Number(pct)}%` : "—";
+  const mxnStr = hasMxn ? formatCurrency(mxn) : "—";
+  return `${pctStr} — ${mxnStr}`;
 }

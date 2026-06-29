@@ -48,6 +48,69 @@
           </div>
         </template>
 
+        <!-- Cotizaciones comparadas (datos estructurados) -->
+        <template lwc:if={hasQuotes}>
+          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+            Cotizaciones comparadas
+          </h3>
+          <div class="quote-grid slds-m-bottom_medium">
+            <template for:each={quoteTiles} for:item="q">
+              <article
+                key={q.key}
+                class="quote-tile"
+                data-id={q.id}
+                onclick={handleOpenQuote}
+              >
+                <header class="quote-tile__head">
+                  <lightning-icon
+                    icon-name="standard:quotes"
+                    size="small"
+                    class="slds-m-right_small quote-tile__icon"
+                  ></lightning-icon>
+                  <h4 class="quote-tile__title">{q.title}</h4>
+                </header>
+                <dl class="quote-kv">
+                  <template for:each={q.rows} for:item="r">
+                    <div key={r.key} class="quote-kv__row">
+                      <dt class="quote-kv__label">{r.label}</dt>
+                      <dd class="quote-kv__value">
+                        <template lwc:if={r.isBadge}>
+                          <span class="slds-badge">{r.value}</span>
+                        </template>
+                        <template lwc:else>{r.value}</template>
+                      </dd>
+                    </div>
+                  </template>
+                </dl>
+              </article>
+            </template>
+          </div>
+        </template>
+
+        <!-- PDF comparativo -->
+        <template lwc:if={hasComparativo}>
+          <div class="comparativo-card slds-m-bottom_medium">
+            <div class="comparativo-card__body">
+              <lightning-icon
+                icon-name="doctype:pdf"
+                size="medium"
+                class="slds-m-right_small"
+              ></lightning-icon>
+              <div>
+                <p class="comparativo-card__title">Comparativo en PDF</p>
+                <p class="comparativo-card__sub">{comparativoTitle}</p>
+              </div>
+            </div>
+            <lightning-button
+              variant="brand"
+              label="Ver / descargar"
+              icon-name="utility:preview"
+              onclick={handleOpenComparativo}
+            >
+            </lightning-button>
+          </div>
+        </template>
+
         <!-- Resumen ejecutivo (nuevo formato) -->
         <template lwc:if={executiveSummary}>
           <h3 class="slds-text-title_caps slds-m-bottom_x-small">
