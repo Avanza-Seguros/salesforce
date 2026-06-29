@@ -1,110 +1,231 @@
+:host {
+  --accent: #0b5cab;
+  --accent-soft: #eaf2fb;
+}
+
 .loader-zone {
   min-height: 6rem;
 }
 
 .exec-summary {
-  background-color: #f4f6f9;
-  border-left: 3px solid #0176d3;
-  border-radius: 0.25rem;
-  padding: 0.75rem 1rem;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  white-space: pre-line;
-  color: #181818;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.35rem;
+  padding: 0.85rem 1rem;
+  color: #16325c;
+}
+.exec-summary__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.ganadora {
+  margin-bottom: 0.5rem;
+}
+.ganadora__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #16325c;
+}
+.ganadora__porque,
+.ganadora__a-cambio {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: #2b2826;
+  margin-top: 0.2rem;
+}
+.en-pocas-palabras {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #c2d4ea;
+  font-size: 0.9rem;
+  color: #16325c;
 }
 
-.comparison-table {
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+.quote-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-left: 3px solid var(--accent);
+  border-radius: 0.4rem;
+  padding: 0.75rem 0.9rem;
+}
+.quote-card__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.quote-card__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #16325c;
+}
+.quote-kv {
+  margin: 0;
+}
+.quote-kv__row {
+  display: grid;
+  grid-template-columns: 45% 55%;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #f1f1f1;
+}
+.quote-kv__row:last-child {
+  border-bottom: none;
+}
+.quote-kv__label {
+  font-size: 0.78rem;
+  color: #747474;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.quote-kv__value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #181818;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+.quote-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+.chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.18rem 0.5rem;
+  border-radius: 0.7rem;
+  letter-spacing: 0.02em;
+}
+.chip_on {
+  background: #eafaf1;
+  color: #14532d;
+  border: 1px solid #b6e5c8;
+}
+.chip_off {
+  background: #f3f3f3;
+  color: #747474;
+  border: 1px solid #e0e0e0;
+}
+.quote-notas {
+  margin-top: 0.55rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #5a5a5a;
+  border-top: 1px dashed #e0e0e0;
+  padding-top: 0.4rem;
+}
+
+.guia-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.875rem;
-  background-color: #ffffff;
+  background-color: #fff;
   border: 1px solid #e5e5e5;
-  border-radius: 0.375rem;
+  border-radius: 0.4rem;
   overflow: hidden;
 }
-
-.comparison-table thead th {
-  background-color: #f3f3f3;
-  color: #181818;
-  font-weight: 600;
+.guia-table thead th {
+  background-color: #f3f6fa;
+  color: #16325c;
+  font-weight: 700;
   text-align: left;
-  padding: 0.625rem 0.875rem;
-  border-bottom: 1px solid #d8d8d8;
-  white-space: nowrap;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #d8e0ea;
 }
-
-.comparison-table tbody th.field-col {
-  background-color: #fafafa;
-  color: #555;
-  font-weight: 500;
-  text-align: left;
-  padding: 0.5rem 0.875rem;
-  border-bottom: 1px solid #ebebeb;
-  border-right: 1px solid #ebebeb;
-  width: 30%;
-  white-space: nowrap;
-}
-
-.comparison-table tbody td {
-  padding: 0.5rem 0.875rem;
-  border-bottom: 1px solid #ebebeb;
+.guia-table tbody th,
+.guia-table tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #ececec;
   color: #181818;
+  text-align: left;
   vertical-align: top;
 }
-
-.comparison-table tbody tr:last-child th,
-.comparison-table tbody tr:last-child td {
+.guia-table tbody tr:last-child th,
+.guia-table tbody tr:last-child td {
   border-bottom: none;
 }
-
-.comparison-table tbody tr:nth-child(even) td,
-.comparison-table tbody tr:nth-child(even) th.field-col {
+.guia-table tbody tr:nth-child(even) th,
+.guia-table tbody tr:nth-child(even) td {
   background-color: #fbfbfb;
 }
 
-.comparison-table .cell.numeric {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.comparison-table .diff-row th.field-col {
-  background-color: #fff4e5;
-  color: #5a3700;
-  font-weight: 600;
-}
-
-.comparison-table .diff-cell {
-  background-color: #fff9ec;
-  font-weight: 600;
-  color: #5a3700;
-}
-
-.doc-analysis__header {
-  background-color: #f3f3f3;
+.action-card {
+  background: #fff;
   border: 1px solid #e5e5e5;
-  border-bottom: none;
-  border-radius: 0.25rem 0.25rem 0 0;
-  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.action-card__body {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.action-card__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #16325c;
+}
+.action-card__sub {
+  font-size: 0.78rem;
+  color: #747474;
+}
+.action-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
-.doc-analysis .analysis-box {
-  border-top: none;
-  border-radius: 0 0 0.25rem 0.25rem;
-  margin-top: 0;
+.glosario {
+  border-top: 1px solid #e5e5e5;
+  padding-top: 0.6rem;
 }
-
-.analysis-box {
-  white-space: pre-wrap;
-  word-break: break-word;
-  background-color: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 0.25rem;
-  padding: 0.75rem 1rem;
-  max-height: 20rem;
-  overflow-y: auto;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  font-family: "Salesforce Sans", Arial, sans-serif;
-  color: #181818;
+.glosario__toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+}
+.glosario__toggle:hover {
+  text-decoration: underline;
+}
+.glosario__list {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  background: #fafafa;
+  border-radius: 0.35rem;
+  font-size: 0.85rem;
+}
+.glosario__item {
+  margin-bottom: 0.5rem;
+}
+.glosario__item:last-child {
+  margin-bottom: 0;
+}
+.glosario__item dt {
+  font-weight: 700;
+  color: #16325c;
+}
+.glosario__item dd {
+  color: #2b2826;
+  margin-left: 0.3rem;
 }

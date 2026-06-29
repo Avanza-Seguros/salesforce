@@ -755,10 +755,10 @@
                                 </div>
                                 <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
                                 <button class="action-btn primary section-action-btn print-comparativo-btn"
-                                        onclick={handleGenerateComparativo}
-                                        title="Genera un comparativo formato carta horizontal listo para imprimir o guardar como PDF">
+                                        onclick={handlePrintComparativo}
+                                        title="Imprimir o guardar como PDF">
                                     <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
-                                    Comparativo imprimible
+                                    Imprimir / PDF
                                 </button>
                             </div>
 
@@ -816,115 +816,107 @@
                                 </div>
                             </div>
 
-                            <!-- Tabla comparativa -->
-                            <div class="comparison-table-wrapper">
-                                <table class="comparison-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Concepto</th>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <th key={cq.Id} class={cq.headerClass}>
-                                                    <div class="compare-company-cell">
-                                                        <span class="compare-company-name">{cq.companiaLabel}</span>
-                                                        <template if:true={cq.isBestPrice}>
-                                                            <span class="best-tag">
-                                                                <lightning-icon icon-name="utility:favorite" size="xx-small"></lightning-icon>
-                                                                Mejor precio
-                                                            </span>
-                                                        </template>
-                                                    </div>
-                                                </th>
-                                            </template>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td class="row-label">Número</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id}>{cq.QuoteNumber}</td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Nombre</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id}>{cq.Name}</td>
-                                            </template>
-                                        </tr>
-                                        <tr class="highlight-row">
-                                            <td class="row-label">Prima total</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id} class={cq.amountCellClass}>{cq.totalFormatted}</td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Diferencia vs. mejor precio</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id} class={cq.diffCellClass}>{cq.diffLabel}</td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Coberturas incluidas</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id} class={cq.coverageCellClass}>
-                                                    <span class="coverage-pill">
-                                                        <lightning-icon icon-name="utility:shield" size="xx-small"></lightning-icon>
-                                                        {cq.coverageCount}
-                                                    </span>
-                                                    <template if:true={cq.isBestCoverage}>
-                                                        <span class="best-coverage-tag">Más coberturas</span>
-                                                    </template>
-                                                </td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Estado</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id}>
-                                                    <lightning-badge label={cq.statusLabel} class={cq.statusBadgeClass}></lightning-badge>
-                                                </td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Vigencia</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id}>{cq.expirationFormatted}</td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Días para vencer</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id}>
-                                                    <template if:true={cq.hasDaysInfo}>
-                                                        <span class={cq.daysClass}>{cq.daysLabel}</span>
-                                                    </template>
-                                                    <template if:false={cq.hasDaysInfo}>
-                                                        <span class="muted-text">—</span>
-                                                    </template>
-                                                </td>
-                                            </template>
-                                        </tr>
-                                        <tr>
-                                            <td class="row-label">Acciones</td>
-                                            <template for:each={comparisonQuotes} for:item="cq">
-                                                <td key={cq.Id}>
-                                                    <button class="icon-btn" onclick={handleViewQuote} data-id={cq.Id} title="Ver">
-                                                        <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
-                                                    </button>
-                                                    <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={cq.Id} title="Editar">
-                                                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
-                                                    </button>
-                                                </td>
-                                            </template>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <!-- ============================================== -->
+                            <!-- DOCUMENTO DEL COMPARATIVO (a la vista)         -->
+                            <!-- ============================================== -->
+                            <template if:true={comparativoData.hasData}>
+                                <div class="comparativo-doc">
+                                    <div class="doc-head">
+                                        <h1>Comparativo de Seguro de {comparativoData.ramoLabel}</h1>
+                                        <p>{comparativoData.opportunityName} · {comparativoData.clienteName} · Vigencia {comparativoData.vigInicio} – {comparativoData.vigFin}</p>
+                                        <span class="doc-tag">{comparativoData.totalQuotes} aseguradoras comparadas · Cotizado por Avanza Seguro</span>
+                                    </div>
 
-                            <!-- Recomendación -->
-                            <template if:true={comparisonSummary.recommendation}>
-                                <div class="comparison-recommendation">
-                                    <lightning-icon icon-name="utility:einstein" size="small"></lightning-icon>
-                                    <p>{comparisonSummary.recommendation}</p>
+                                    <table class="doc-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="doc-th doc-th-lbl">Cobertura</th>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <th key={col.Id} class={col.headerClass}>
+                                                        {col.name}
+                                                        <template if:true={col.hasBadge}>
+                                                            <span class="doc-rec-badge">{col.badge}</span>
+                                                        </template>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="doc-row-price">
+                                                <td class="doc-cell doc-cell-lbl doc-cell-lbl-price">
+                                                    <span class="doc-cn">PRECIO ANUAL (Prima Total)</span>
+                                                </td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>
+                                                        <strong>{col.priceFormatted}</strong>
+                                                        <template if:true={col.hasPriceSub}>
+                                                            <span class="doc-sub">{col.priceSub}</span>
+                                                        </template>
+                                                    </td>
+                                                </template>
+                                            </tr>
+                                            <tr>
+                                                <td class="doc-cell doc-cell-lbl">
+                                                    <span class="doc-cn">Coberturas incluidas (total)</span>
+                                                    <span class="doc-cd">Número de coberturas que trae cada cotización</span>
+                                                </td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>{col.coverageCount}</td>
+                                                </template>
+                                            </tr>
+                                            <template for:each={comparativoData.rows} for:item="row">
+                                                <tr key={row.key}>
+                                                    <td class="doc-cell doc-cell-lbl">
+                                                        <span class="doc-cn">{row.name}</span>
+                                                    </td>
+                                                    <template for:each={row.cells} for:item="cell">
+                                                        <td key={cell.key} class={cell.cellClass}>{cell.text}</td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+
+                                    <p class="doc-note">
+                                        Las columnas resaltadas en naranja son las opciones recomendadas según precio y número de coberturas.
+                                        Este documento es informativo; los detalles finales (sumas aseguradas, deducibles y coaseguros) se definen en cada póliza.
+                                    </p>
+
+                                    <div class="doc-recs">
+                                        <h2>Las mejores opciones — tú decides</h2>
+                                        <div class="doc-twocol">
+                                            <template for:each={comparativoData.cards} for:item="card">
+                                                <div key={card.key} class="doc-card doc-card-win">
+                                                    <h3>{card.title}</h3>
+                                                    <p>{card.text}</p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <div class="doc-decide">
+                                        <h2>Recomendación</h2>
+                                        <div class="doc-bottom">{comparativoData.recomendacion}</div>
+                                    </div>
+
+                                    <div class="doc-glos">
+                                        <h2>Glosario — términos de seguros en palabras sencillas</h2>
+                                        <dl>
+                                            <dt>Prima</dt><dd>El precio del seguro: lo que pagas por estar cubierto durante el periodo de vigencia.</dd>
+                                            <dt>Cobertura</dt><dd>Cada uno de los riesgos o servicios que la aseguradora se compromete a pagar o brindar.</dd>
+                                            <dt>Suma asegurada</dt><dd>El monto máximo que la aseguradora puede pagarte por una cobertura.</dd>
+                                            <dt>Deducible</dt><dd>La parte que tú pagas de tu bolsillo cuando usas el seguro; el resto lo cubre la aseguradora.</dd>
+                                            <dt>Coaseguro</dt><dd>Porcentaje del gasto que el asegurado paga después del deducible.</dd>
+                                            <dt>Vigencia</dt><dd>Periodo durante el cual la póliza está activa y te protege.</dd>
+                                            <dt>Pérdida total</dt><dd>Cuando el bien asegurado se daña tanto, o se pierde, que la aseguradora paga su valor completo en vez de repararlo.</dd>
+                                            <dt>Responsabilidad Civil</dt><dd>Cubre los daños que tú le causes a otras personas o a sus bienes.</dd>
+                                        </dl>
+                                    </div>
+
+                                    <div class="doc-foot">
+                                        Documento generado el {comparativoData.generatedAt} con base en las cotizaciones registradas en Salesforce.
+                                        Información informativa, no es una póliza. · Avanza Seguro Consultores.
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -996,5 +988,6 @@
                 </div>
             </div>
         </template>
+
     </div>
 </template>

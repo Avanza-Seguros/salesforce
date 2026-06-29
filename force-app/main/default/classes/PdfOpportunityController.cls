@@ -1,17 +1,93 @@
 /**
- * Orquesta la creación de una Opportunity a partir de varios PDFs analizados por IA.
+ * Orquesta la creación de una Opportunity a partir de varios PDFs de cotizaciones.
  *
  * El proceso se divide en DOS llamadas (dos transacciones) a propósito:
- *  1) uploadAndCreateDraft  -> solo DML: crea la Opportunity borrador y sube todos los PDFs.
- *  2) analyzeAndPopulate    -> primero los callouts de IA (flows con prompt templates) por
- *                              cada documento y DESPUÉS el DML para poblar la oportunidad.
+ *  1) uploadAndCreateDraft     -> solo DML: crea la Opportunity borrador y sube los PDFs.
+ *  2) compareAndCreateQuotes   -> compara las cotizaciones (mock por ahora; IA en Fase 4),
+ *                                 crea un Quote hijo por cotización con todos los datos de
+ *                                 cobertura, genera un PDF comparativo y lo liga a la Opp.
  * Salesforce no permite hacer callouts después de un DML sin commit dentro de la misma
- * transacción, por eso el borrador se crea y persiste en el paso 1 antes de analizar.
+ * transacción, por eso el borrador se crea y persiste en el paso 1 antes de comparar.
  */
 public with sharing class PdfOpportunityController {
-  private static final String ANALYSIS_FLOW = 'Analyze_Document_with_AI';
-  private static final String EXTRACTION_FLOW = 'Extract_Document_Data_with_AI';
   private static final Integer MIN_PREFIX_LENGTH = 3;
+
+  // Inyectable en tests para evitar la página Visualforce real.
+  @TestVisible
+  private static IPdfRenderer pdfRenderer = new VisualforcePdfRenderer();
+
+  // JSON estático usado en Fase 2; en Fase 4 lo reemplaza la llamada al flow de IA.
+  // Los nombres de archivo (PLACEHOLDER_*) se sustituyen en runtime con los títulos reales.
+  private static final String MOCK_COMPARISON_JSON =
+    '{' +
+      '"vehiculo": "Great Wall Tank 500 2024",' +
+      '"cliente": "Juan Pérez García",' +
+      '"ramo": "Auto",' +
+      '"aseguradoras": [' +
+        '{' +
+          '"nombre": "GNP",' +
+          '"no_cotizacion": "GNP-998877",' +
+          '"archivo_origen": "PLACEHOLDER_FIRST_FILENAME",' +
+          '"prima_anual": 28500.50,' +
+          '"suma_asegurada": 850000,' +
+          '"tipo_valor": "comercial",' +
+          '"moneda": "MXN",' +
+          '"vigencia_inicio": "2026-07-01",' +
+          '"vigencia_fin": "2027-07-01",' +
+          '"deducible_danos_pct": 5,' +
+          '"deducible_danos_mxn": 42500,' +
+          '"deducible_robo_pct": 10,' +
+          '"deducible_robo_mxn": 85000,' +
+          '"cristales": true,' +
+          '"responsabilidad_civil": 3000000,' +
+          '"gastos_medicos": 500000,' +
+          '"asistencia_vial": true,' +
+          '"defensa_juridica": true,' +
+          '"vida_conductor": 100000,' +
+          '"rc_extranjero": false,' +
+          '"notas": "Exige GPS para robo total"' +
+        '},' +
+        '{' +
+          '"nombre": "AXA",' +
+          '"no_cotizacion": "AXA-554433",' +
+          '"archivo_origen": "PLACEHOLDER_SECOND_FILENAME",' +
+          '"prima_anual": 26800.00,' +
+          '"suma_asegurada": 850000,' +
+          '"tipo_valor": "comercial+10",' +
+          '"moneda": "MXN",' +
+          '"vigencia_inicio": "2026-07-01",' +
+          '"vigencia_fin": "2027-07-01",' +
+          '"deducible_danos_pct": 5,' +
+          '"deducible_danos_mxn": 42500,' +
+          '"deducible_robo_pct": 10,' +
+          '"deducible_robo_mxn": 85000,' +
+          '"cristales": true,' +
+          '"responsabilidad_civil": 3000000,' +
+          '"gastos_medicos": 500000,' +
+          '"asistencia_vial": true,' +
+          '"defensa_juridica": true,' +
+          '"vida_conductor": 100000,' +
+          '"rc_extranjero": true,' +
+          '"notas": ""' +
+        '}' +
+      '],' +
+      '"recomendacion": {' +
+        '"ganadoras": [{"nombre":"AXA","etiqueta":"Mejor relación precio/valor","porque":"Prima más baja con valor +10% y RC extranjero incluido","a_cambio":"Sin notas especiales de robo"}],' +
+        '"guia_frecuencia": [' +
+          '{"riesgo":"Cristales/golpes menores","frecuencia":"Frecuente","gana":"Empate","detalle":"Ambas incluyen cristales sin deducible"},' +
+          '{"riesgo":"Choque mayor","frecuencia":"Moderado","gana":"Empate","detalle":"Mismo deducible (5%) y suma asegurada"},' +
+          '{"riesgo":"Robo total","frecuencia":"Bajo","gana":"AXA","detalle":"AXA no requiere GPS"}' +
+        '],' +
+        '"en_pocas_palabras": "AXA conviene ligeramente; GNP es alternativa sólida si ya tienes GPS instalado."' +
+      '},' +
+      '"glosario": [' +
+        '{"termino":"Prima","definicion":"Lo que pagas al año por la cobertura."},' +
+        '{"termino":"Deducible","definicion":"Lo que tú pones de tu bolsa cuando hay siniestro."},' +
+        '{"termino":"Suma asegurada","definicion":"Tope máximo que paga la aseguradora."}' +
+      '],' +
+      '"comparativo_html": "<html><body><h1>Comparativo Great Wall Tank 500 2024</h1><table border=\'1\' cellpadding=\'8\'><tr><th>Cobertura</th><th>GNP</th><th>AXA</th></tr><tr><td>Prima anual</td><td>$28,500.50</td><td>$26,800.00</td></tr><tr><td>Suma asegurada</td><td>$850,000</td><td>$850,000</td></tr><tr><td>Tipo de valor</td><td>Comercial</td><td>Comercial +10%</td></tr></table><p><strong>Recomendación:</strong> AXA por mejor relación precio/valor.</p><p style=\'font-size:10px;color:#888\'>Documento informativo, no es una póliza. · Avanza Seguro.</p></body></html>",' +
+      '"aviso": "Documento informativo, no es una póliza; sujeto a las condiciones generales de cada aseguradora. Avanza Seguro."' +
+    '}';
 
   // ============================================================
   // Paso 1: crear borrador + subir PDFs (solo DML, sin callouts)
@@ -115,24 +191,24 @@ public with sharing class PdfOpportunityController {
   }
 
   // ============================================================
-  // Paso 2: analizar con IA y poblar (callouts -> luego DML)
+  // Paso 2: comparar cotizaciones, crear Quotes hijas y PDF comparativo.
+  // Fase 2 usa MOCK_COMPARISON_JSON; en Fase 4 se reemplaza por la llamada al flow.
   // ============================================================
   @AuraEnabled
-  public static Map<String, Object> analyzeAndPopulate(
+  public static Map<String, Object> compareAndCreateQuotes(
     Id opportunityId,
     List<Id> contentDocumentIds
   ) {
     if (
       opportunityId == null ||
       contentDocumentIds == null ||
-      contentDocumentIds.isEmpty()
+      contentDocumentIds.size() < 2
     ) {
       throw new AuraHandledException(
-        'Faltan identificadores para el análisis.'
+        'Se requieren al menos 2 cotizaciones para comparar.'
       );
     }
 
-    // Títulos por documento para etiquetar el análisis y el comparativo.
     Map<Id, String> titlesById = new Map<Id, String>();
     for (ContentDocument cd : [
       SELECT Id, Title
@@ -142,31 +218,52 @@ public with sharing class PdfOpportunityController {
       titlesById.put(cd.Id, cd.Title);
     }
 
-    // --- Callouts de IA primero (no debe haber DML sin commit antes de esto) ---
-    List<DocAnalysis> perDoc = new List<DocAnalysis>();
-    ExtractedData merged = new ExtractedData();
-    Integer idx = 1;
+    String rawJson = MOCK_COMPARISON_JSON;
+    List<String> orderedTitles = new List<String>();
     for (Id docId : contentDocumentIds) {
-      String analysis = runAnalysisFlow(opportunityId, docId);
-      String extractedJson = runExtractionFlow(docId);
-      ExtractedData partial = parseExtraction(extractedJson);
-
-      DocAnalysis da = new DocAnalysis();
-      da.contentDocumentId = docId;
-      da.title = titlesById.containsKey(docId)
-        ? titlesById.get(docId)
-        : 'Documento ' + idx;
-      da.analysis = analysis;
-      da.data = partial.toMap();
-      perDoc.add(da);
-
-      mergeInto(merged, partial);
-      idx++;
+      if (titlesById.containsKey(docId)) {
+        orderedTitles.add(titlesById.get(docId));
+      }
     }
-    String executiveSummary = buildExecutiveSummary(perDoc, merged);
-    String combinedAnalysis = buildCombinedAnalysis(perDoc, executiveSummary);
+    if (orderedTitles.size() >= 1) {
+      rawJson = rawJson.replace(
+        'PLACEHOLDER_FIRST_FILENAME',
+        orderedTitles[0]
+      );
+    }
+    if (orderedTitles.size() >= 2) {
+      rawJson = rawJson.replace(
+        'PLACEHOLDER_SECOND_FILENAME',
+        orderedTitles[1]
+      );
+    }
 
-    // --- Ahora sí, DML para poblar la oportunidad ---
+    Map<String, Object> comparison = parseFullComparisonJson(rawJson);
+    List<Object> aseguradorasRaw = (List<Object>) comparison.get('aseguradoras');
+    if (aseguradorasRaw == null || aseguradorasRaw.isEmpty()) {
+      throw new AuraHandledException(
+        'La comparación no devolvió aseguradoras para crear cotizaciones.'
+      );
+    }
+
+    String vehiculo = stringOf(comparison.get('vehiculo'));
+    String cliente = stringOf(comparison.get('cliente'));
+    String ramo = stringOf(comparison.get('ramo'));
+    String aviso = stringOf(comparison.get('aviso'));
+    String comparativoHtml = stringOf(comparison.get('comparativo_html'));
+    Map<String, Object> recomendacion = comparison.get('recomendacion') instanceof Map<String, Object>
+      ? (Map<String, Object>) comparison.get('recomendacion')
+      : new Map<String, Object>();
+    List<Object> glosarioRaw = comparison.get('glosario') instanceof List<Object>
+      ? (List<Object>) comparison.get('glosario')
+      : new List<Object>();
+    List<Map<String, Object>> glosario = new List<Map<String, Object>>();
+    for (Object g : glosarioRaw) {
+      if (g instanceof Map<String, Object>) {
+        glosario.add((Map<String, Object>) g);
+      }
+    }
+
     try {
       Opportunity opp = [
         SELECT Id, Name, AccountId, Amount, Description
@@ -175,186 +272,376 @@ public with sharing class PdfOpportunityController {
         LIMIT 1
       ];
 
-      // La creación de cuenta es best-effort: si el org tiene validation rules
-      // (p. ej. AnnualRevenue obligatorio), continuamos sin AccountId para que
-      // la oportunidad se cree igual. El usuario puede ligar la cuenta luego.
       Id accountId = opp.AccountId;
       String accountWarning = '';
-      if (String.isNotBlank(merged.nombreCliente)) {
+      if (String.isNotBlank(cliente)) {
         try {
-          accountId = findOrCreateAccount(merged.nombreCliente).Id;
+          accountId = findOrCreateAccount(cliente).Id;
         } catch (Exception accountErr) {
           accountWarning =
             'No se pudo crear/buscar la cuenta "' +
-            merged.nombreCliente +
+            cliente +
             '" automáticamente: ' +
-            accountErr.getMessage() +
-            ' — la oportunidad se creó sin cuenta asociada.';
+            accountErr.getMessage();
           System.debug(accountWarning);
         }
       }
 
-      String descriptionAnalysis = combinedAnalysis;
-      if (String.isNotBlank(accountWarning)) {
-        descriptionAnalysis = '⚠️ ' + accountWarning + '\n\n' + combinedAnalysis;
+      String nombreOpp = String.isBlank(vehiculo) || String.isBlank(cliente)
+        ? coalesce(vehiculo, cliente, opp.Name)
+        : vehiculo + ' - ' + cliente;
+      opp.Name = nombreOpp.left(120);
+      if (accountId != null) {
+        opp.AccountId = accountId;
       }
-      applyExtraction(opp, merged, descriptionAnalysis, accountId);
+      opp.Description = buildOpportunityDescription(aviso, recomendacion, accountWarning);
+      applyOpportunityDefaults(opp);
       update opp;
 
-      // Campos opcionales/custom en un DML tolerante a fallos (picklists, etc.)
-      applyOptionalFields(opp.Id, merged);
+      Map<String, Id> nameToAseguradoraId = resolveAseguradoraLookups(aseguradorasRaw);
+
+      List<Quote> quotesToInsert = new List<Quote>();
+      List<Map<String, Object>> aseguradoraMaps = new List<Map<String, Object>>();
+      Id stdPricebookId = getStandardPricebookId();
+      for (Object a : aseguradorasRaw) {
+        if (!(a instanceof Map<String, Object>)) {
+          continue;
+        }
+        Map<String, Object> m = (Map<String, Object>) a;
+        aseguradoraMaps.add(m);
+        quotesToInsert.add(buildQuote(opportunityId, m, nameToAseguradoraId, stdPricebookId));
+      }
+      insert quotesToInsert;
+
+      Map<String, Id> titleToDocId = new Map<String, Id>();
+      for (Id docId : titlesById.keySet()) {
+        titleToDocId.put(titlesById.get(docId), docId);
+      }
+
+      List<ContentDocumentLink> quoteLinks = new List<ContentDocumentLink>();
+      List<Map<String, Object>> quoteSummaries = new List<Map<String, Object>>();
+      for (Integer i = 0; i < quotesToInsert.size(); i++) {
+        Quote q = quotesToInsert[i];
+        Map<String, Object> m = aseguradoraMaps[i];
+        String archivoOrigen = stringOf(m.get('archivo_origen'));
+        Id docId = String.isBlank(archivoOrigen) ? null : titleToDocId.get(archivoOrigen);
+        if (docId != null) {
+          quoteLinks.add(
+            new ContentDocumentLink(
+              ContentDocumentId = docId,
+              LinkedEntityId = q.Id,
+              ShareType = 'V',
+              Visibility = 'AllUsers'
+            )
+          );
+        }
+        quoteSummaries.add(
+          new Map<String, Object>{
+            'id' => q.Id,
+            'name' => q.Name,
+            'aseguradora' => stringOf(m.get('nombre')),
+            'primaAnual' => m.get('prima_anual'),
+            'sumaAsegurada' => m.get('suma_asegurada'),
+            'archivoOrigen' => archivoOrigen
+          }
+        );
+      }
+      if (!quoteLinks.isEmpty()) {
+        insert quoteLinks;
+      }
+
+      Id comparativoDocId = renderAndLinkComparativo(
+        comparativoHtml,
+        vehiculo,
+        opportunityId
+      );
 
       return new Map<String, Object>{
         'opportunityId' => opp.Id,
         'opportunityName' => opp.Name,
-        'accountId' => accountId,
-        'accountWarning' => accountWarning,
-        'executiveSummary' => executiveSummary,
-        'analysis' => combinedAnalysis,
-        'data' => merged.toMap(),
-        'documents' => perDoc
+        'comparativoPdfId' => comparativoDocId,
+        'vehiculo' => vehiculo,
+        'cliente' => cliente,
+        'ramo' => ramo,
+        'quotes' => quoteSummaries,
+        'recomendacion' => recomendacion,
+        'glosario' => glosario,
+        'aviso' => aviso
       };
     } catch (Exception e) {
       throw new AuraHandledException(
-        'No se pudo crear/actualizar la oportunidad: ' + e.getMessage()
+        'No se pudo crear el comparativo: ' + e.getMessage()
       );
     }
   }
 
   // ============================================================
-  // Invocación de flows (callouts a los prompt templates de IA)
+  // Helpers de comparación (testeables sin callouts)
   // ============================================================
+
   @TestVisible
-  private static String runAnalysisFlow(
+  private static Map<String, Object> parseFullComparisonJson(String raw) {
+    if (String.isBlank(raw)) {
+      return new Map<String, Object>();
+    }
+    String payload = raw.trim();
+    if (payload.startsWith('```')) {
+      payload = payload.replaceFirst('^```[a-zA-Z]*', '').trim();
+      if (payload.endsWith('```')) {
+        payload = payload.substring(0, payload.length() - 3).trim();
+      }
+    }
+    Integer start = payload.indexOf('{');
+    Integer last = payload.lastIndexOf('}');
+    if (start < 0 || last < start) {
+      return new Map<String, Object>();
+    }
+    payload = payload.substring(start, last + 1);
+    try {
+      return (Map<String, Object>) JSON.deserializeUntyped(payload);
+    } catch (Exception e) {
+      return new Map<String, Object>();
+    }
+  }
+
+  @TestVisible
+  private static Quote buildQuote(
     Id opportunityId,
-    Id contentDocumentId
+    Map<String, Object> m,
+    Map<String, Id> nameToAseguradoraId,
+    Id stdPricebookId
   ) {
-    try {
-      Flow.Interview flow = Flow.Interview.createInterview(
-        ANALYSIS_FLOW,
-        new Map<String, Object>{
-          'opportunityId' => String.valueOf(opportunityId),
-          'contentDocumentId' => String.valueOf(contentDocumentId)
+    String nombre = stringOf(m.get('nombre'));
+    String noCot = stringOf(m.get('no_cotizacion'));
+    String quoteName = (String.isBlank(nombre) ? 'Cotización' : nombre) +
+      (String.isBlank(noCot) ? '' : ' - ' + noCot);
+
+    Quote q = new Quote();
+    q.OpportunityId = opportunityId;
+    q.Name = quoteName.left(255);
+    q.Status = 'Draft';
+    if (stdPricebookId != null) {
+      q.Pricebook2Id = stdPricebookId;
+    }
+    String notas = stringOf(m.get('notas'));
+    // Aseguradora__c no existe como lookup en Quote en el org actual; intentamos
+    // asignarlo dinámicamente y, si falla, conservamos el nombre en Notas_IA__c.
+    Id asegLookup = nameToAseguradoraId == null ? null : nameToAseguradoraId.get(nombre);
+    if (asegLookup != null) {
+      try {
+        q.put('Aseguradora__c', asegLookup);
+      } catch (Exception ignore) {
+        notas = appendNote(notas, 'Aseguradora: ' + nombre);
+      }
+    } else if (String.isNotBlank(nombre)) {
+      notas = appendNote(notas, 'Aseguradora: ' + nombre);
+    }
+
+    q.put('NumeroCotizacion__c', noCot);
+    q.put('PrimaAnual__c', asDecimal(m.get('prima_anual')));
+    q.put('SumaAsegurada__c', asDecimal(m.get('suma_asegurada')));
+    q.put('TipoValor__c', stringOf(m.get('tipo_valor')));
+    q.put('DeducibleDanos_Pct__c', asDecimal(m.get('deducible_danos_pct')));
+    q.put('DeducibleDanos_Mxn__c', asDecimal(m.get('deducible_danos_mxn')));
+    q.put('DeducibleRobo_Pct__c', asDecimal(m.get('deducible_robo_pct')));
+    q.put('DeducibleRobo_Mxn__c', asDecimal(m.get('deducible_robo_mxn')));
+    q.put('Cristales__c', asBoolean(m.get('cristales')));
+    q.put('ResponsabilidadCivil__c', asDecimal(m.get('responsabilidad_civil')));
+    q.put('GastosMedicos__c', asDecimal(m.get('gastos_medicos')));
+    q.put('AsistenciaVial__c', asBoolean(m.get('asistencia_vial')));
+    q.put('DefensaJuridica__c', asBoolean(m.get('defensa_juridica')));
+    q.put('VidaConductor__c', asDecimal(m.get('vida_conductor')));
+    q.put('RCExtranjero__c', asBoolean(m.get('rc_extranjero')));
+    q.put('Notas_IA__c', notas == null ? '' : notas.left(32000));
+
+    Date vigenciaFin = parseDate(stringOf(m.get('vigencia_fin')));
+    if (vigenciaFin != null) {
+      q.ExpirationDate = vigenciaFin;
+    }
+    return q;
+  }
+
+  // Si el objeto Aseguradora__c no existe en el org no podemos hacer SOQL/DML sobre él;
+  // en ese caso devolvemos un mapa vacío y el nombre acaba en Notas_IA__c.
+  @TestVisible
+  private static Map<String, Id> resolveAseguradoraLookups(List<Object> aseguradorasRaw) {
+    Map<String, Id> result = new Map<String, Id>();
+    Schema.SObjectType aseguradoraType = Schema.getGlobalDescribe().get('Aseguradora__c');
+    if (aseguradoraType == null) {
+      return result;
+    }
+    Set<String> nombres = new Set<String>();
+    for (Object a : aseguradorasRaw) {
+      if (a instanceof Map<String, Object>) {
+        String n = stringOf(((Map<String, Object>) a).get('nombre'));
+        if (String.isNotBlank(n)) {
+          nombres.add(n);
         }
-      );
-      flow.start();
-      Object result = flow.getVariableValue('analysisResult');
-      return result == null ? '' : String.valueOf(result);
-    } catch (Exception e) {
-      throw new AuraHandledException(
-        'Falló el análisis del documento con IA: ' + e.getMessage()
-      );
+      }
+    }
+    if (nombres.isEmpty()) {
+      return result;
+    }
+    try {
+      String soql = 'SELECT Id, Name FROM Aseguradora__c WHERE Name IN :nombres';
+      List<SObject> existing = Database.query(soql);
+      for (SObject so : existing) {
+        result.put((String) so.get('Name'), (Id) so.get('Id'));
+      }
+      List<SObject> toInsert = new List<SObject>();
+      for (String n : nombres) {
+        if (!result.containsKey(n)) {
+          SObject novo = aseguradoraType.newSObject();
+          novo.put('Name', n);
+          toInsert.add(novo);
+        }
+      }
+      if (!toInsert.isEmpty()) {
+        Database.SaveResult[] srs = Database.insert(toInsert, false);
+        for (Integer i = 0; i < srs.size(); i++) {
+          if (srs[i].isSuccess()) {
+            result.put((String) toInsert[i].get('Name'), srs[i].getId());
+          }
+        }
+      }
+    } catch (Exception ignore) {
+      // Sin permisos o con validation rules: dejamos el mapa con lo que pudimos.
+    }
+    return result;
+  }
+
+  @TestVisible
+  private static void applyOpportunityDefaults(Opportunity opp) {
+    // Los campos custom dependen del org; los aplicamos con put() para no romper
+    // compilación si alguno cambia, y los envolvemos en try para tolerar picklists
+    // restringidos con valores distintos.
+    try {
+      opp.put('Ramo__c', 'Automoviles');
+    } catch (Exception ignore) {
+    }
+    try {
+      opp.put('Prima_Total__c', 0);
+    } catch (Exception ignore) {
+      try {
+        opp.put('Prima_anual__c', 0);
+      } catch (Exception ignore2) {
+      }
     }
   }
 
   @TestVisible
-  private static String runExtractionFlow(Id contentDocumentId) {
-    try {
-      Flow.Interview flow = Flow.Interview.createInterview(
-        EXTRACTION_FLOW,
-        new Map<String, Object>{
-          'contentDocumentId' => String.valueOf(contentDocumentId)
-        }
-      );
-      flow.start();
-      Object result = flow.getVariableValue('extractedData');
-      return result == null ? '' : String.valueOf(result);
-    } catch (Exception e) {
-      throw new AuraHandledException(
-        'Falló la extracción de datos con IA: ' + e.getMessage()
-      );
-    }
-  }
-
-  // ============================================================
-  // Helpers (testeables sin callouts)
-  // ============================================================
-
-  /**
-   * Resumen ejecutivo: 3-5 líneas con cliente, ramo y, si aplica, la diferencia
-   * de prima entre los documentos. Se muestra como cabecera tanto en la UI
-   * como en el campo Description del registro.
-   */
-  @TestVisible
-  private static String buildExecutiveSummary(
-    List<DocAnalysis> docs,
-    ExtractedData merged
+  private static String buildOpportunityDescription(
+    String aviso,
+    Map<String, Object> recomendacion,
+    String accountWarning
   ) {
-    if (docs == null || docs.isEmpty()) {
-      return '';
+    String s = '';
+    if (String.isNotBlank(accountWarning)) {
+      s += accountWarning + '\n\n';
     }
-    String cliente = String.isNotBlank(merged.nombreCliente)
-      ? merged.nombreCliente
-      : 'el cliente';
-    String ramo = String.isNotBlank(merged.ramo)
-      ? ' (ramo ' + merged.ramo + ')'
-      : '';
-    String s = 'Se analizaron ' +
-      docs.size() +
-      ' documentos para ' +
-      cliente +
-      ramo +
-      '.\n';
-    for (DocAnalysis d : docs) {
-      List<String> details = new List<String>();
-      String tipo = asMapString(d.data, 'tipoDocumento');
-      String aseg = asMapString(d.data, 'aseguradora');
-      String prima = asMapString(d.data, 'prima');
-      String moneda = asMapString(d.data, 'moneda');
-      if (String.isNotBlank(tipo)) {
-        details.add(tipo);
-      }
-      if (String.isNotBlank(aseg)) {
-        details.add('Aseguradora: ' + aseg);
-      }
-      if (String.isNotBlank(prima)) {
-        details.add(
-          'Prima: ' +
-            (String.isNotBlank(moneda) ? moneda + ' ' : '') +
-            prima
-        );
-      }
-      String line = '• ' + d.title;
-      if (!details.isEmpty()) {
-        line += ' — ' + String.join(details, '; ');
-      }
-      s += line + '\n';
+    if (String.isNotBlank(aviso)) {
+      s += aviso + '\n\n';
     }
-    if (docs.size() == 2) {
-      Decimal p1 = primaDec(docs[0]);
-      Decimal p2 = primaDec(docs[1]);
-      if (p1 != null && p2 != null && p1 != p2) {
-        Decimal diff = p1 > p2 ? p1 - p2 : p2 - p1;
-        String mejor = p1 < p2 ? docs[0].title : docs[1].title;
-        s +=
-          '\nDiferencia de prima: ' +
-          diff +
-          '. Opción más económica: ' +
-          mejor +
-          '.';
+    if (recomendacion != null) {
+      Object enPocas = recomendacion.get('en_pocas_palabras');
+      if (enPocas != null && String.isNotBlank(String.valueOf(enPocas))) {
+        s += 'Recomendación: ' + String.valueOf(enPocas);
       }
     }
-    return s.trim();
+    return s.left(32000);
   }
 
-  private static String asMapString(Map<String, Object> m, String key) {
-    if (m == null) {
+  @TestVisible
+  private static Id renderAndLinkComparativo(
+    String html,
+    String vehiculo,
+    Id opportunityId
+  ) {
+    if (String.isBlank(html)) {
       return null;
     }
-    Object v = m.get(key);
-    return v == null ? null : String.valueOf(v).trim();
+    String filename = 'Comparativo_' +
+      (String.isBlank(vehiculo) ? 'cotizaciones' : vehiculo) +
+      '.pdf';
+    Blob pdfBlob = pdfRenderer.renderToPdf(html, filename);
+    ContentVersion cv = new ContentVersion(
+      Title = filename,
+      PathOnClient = filename,
+      VersionData = pdfBlob,
+      Origin = 'H'
+    );
+    insert cv;
+    ContentVersion stored = [
+      SELECT Id, ContentDocumentId
+      FROM ContentVersion
+      WHERE Id = :cv.Id
+      LIMIT 1
+    ];
+    insert new ContentDocumentLink(
+      ContentDocumentId = stored.ContentDocumentId,
+      LinkedEntityId = opportunityId,
+      ShareType = 'V',
+      Visibility = 'AllUsers'
+    );
+    return stored.ContentDocumentId;
   }
 
-  private static Decimal primaDec(DocAnalysis d) {
-    if (d == null || d.data == null) {
-      return null;
+  @TestVisible
+  private static Id getStandardPricebookId() {
+    if (Test.isRunningTest()) {
+      return Test.getStandardPricebookId();
     }
-    Object o = d.data.get('prima');
+    List<Pricebook2> pbs = [
+      SELECT Id
+      FROM Pricebook2
+      WHERE IsStandard = TRUE
+      LIMIT 1
+    ];
+    return pbs.isEmpty() ? null : pbs[0].Id;
+  }
+
+  // ============================================================
+  // Utilidades de tipo
+  // ============================================================
+  private static String stringOf(Object o) {
+    return o == null ? null : String.valueOf(o).trim();
+  }
+
+  private static String coalesce(String a, String b, String c) {
+    if (String.isNotBlank(a)) {
+      return a;
+    }
+    if (String.isNotBlank(b)) {
+      return b;
+    }
+    return c == null ? '' : c;
+  }
+
+  private static String appendNote(String current, String addition) {
+    if (String.isBlank(addition)) {
+      return current;
+    }
+    if (String.isBlank(current)) {
+      return addition;
+    }
+    return current + '\n' + addition;
+  }
+
+  private static Decimal asDecimal(Object o) {
     if (o == null) {
       return null;
     }
     if (o instanceof Decimal) {
       return (Decimal) o;
+    }
+    if (o instanceof Integer) {
+      return (Decimal) ((Integer) o);
+    }
+    if (o instanceof Long) {
+      return Decimal.valueOf((Long) o);
+    }
+    if (o instanceof Double) {
+      return Decimal.valueOf(String.valueOf(o));
     }
     try {
       String s = String.valueOf(o).replaceAll('[^0-9.\\-]', '');
@@ -364,281 +651,32 @@ public with sharing class PdfOpportunityController {
     }
   }
 
-  /**
-   * Arma el texto del "Análisis IA" combinado para persistir en Description:
-   * resumen ejecutivo + tabla markdown del comparativo + análisis prosa por doc.
-   */
-  @TestVisible
-  private static String buildCombinedAnalysis(
-    List<DocAnalysis> docs,
-    String executiveSummary
-  ) {
-    if (docs == null || docs.isEmpty()) {
-      return '';
+  private static Boolean asBoolean(Object o) {
+    if (o == null) {
+      return false;
     }
-    String s = '';
-    if (String.isNotBlank(executiveSummary)) {
-      s += '=== RESUMEN EJECUTIVO ===\n' + executiveSummary + '\n\n';
+    if (o instanceof Boolean) {
+      return (Boolean) o;
     }
-    if (docs.size() >= 2) {
-      s += '=== COMPARATIVO ===\n';
-      s += buildComparisonTable(docs);
-    }
-    for (DocAnalysis d : docs) {
-      s += '\n=== ' + d.title + ' ===\n';
-      s += String.isBlank(d.analysis)
-        ? '(Sin análisis disponible para este documento.)'
-        : d.analysis;
-      s += '\n';
-    }
-    return s;
+    String s = String.valueOf(o).toLowerCase().trim();
+    return s == 'true' || s == '1' || s == 'sí' || s == 'si';
   }
 
-  /** Tabla markdown con un campo por fila y un documento por columna. */
-  @TestVisible
-  private static String buildComparisonTable(List<DocAnalysis> docs) {
-    List<List<String>> fieldDefs = comparisonFieldLabels();
-    String header = '| Campo';
-    String sep = '| ---';
-    for (DocAnalysis d : docs) {
-      header += ' | ' + d.title;
-      sep += ' | ---';
-    }
-    String table = header + ' |\n' + sep + ' |\n';
-    for (List<String> def : fieldDefs) {
-      String field = def[0];
-      String label = def[1];
-      String row = '| ' + label;
-      for (DocAnalysis d : docs) {
-        Object v = d.data == null ? null : d.data.get(field);
-        String cell = (v == null || String.valueOf(v).trim().length() == 0)
-          ? '—'
-          : String.valueOf(v);
-        row += ' | ' + cell;
-      }
-      table += row + ' |\n';
-    }
-    return table;
-  }
-
-  private static List<List<String>> comparisonFieldLabels() {
-    return new List<List<String>>{
-      new List<String>{ 'tipoDocumento', 'Tipo' },
-      new List<String>{ 'nombreCliente', 'Cliente' },
-      new List<String>{ 'aseguradora', 'Aseguradora' },
-      new List<String>{ 'ramo', 'Ramo' },
-      new List<String>{ 'numeroPoliza', 'No. Póliza' },
-      new List<String>{ 'numeroCotizacion', 'No. Cotización' },
-      new List<String>{ 'prima', 'Prima' },
-      new List<String>{ 'sumaAsegurada', 'Suma asegurada' },
-      new List<String>{ 'moneda', 'Moneda' },
-      new List<String>{ 'vigenciaInicio', 'Vigencia inicio' },
-      new List<String>{ 'vigenciaFin', 'Vigencia fin' },
-      new List<String>{ 'correoCliente', 'Correo' },
-      new List<String>{ 'telefonoCliente', 'Teléfono' }
-    };
-  }
-
-  /** Combina la extracción de un documento adicional dentro del acumulador, prefiriendo valores no vacíos. */
-  @TestVisible
-  private static void mergeInto(ExtractedData target, ExtractedData src) {
-    if (src == null) {
-      return;
-    }
-    target.esDocumentoValido = target.esDocumentoValido && src.esDocumentoValido;
-    target.tipoDocumento = pickString(target.tipoDocumento, src.tipoDocumento);
-    target.nombreCliente = pickString(target.nombreCliente, src.nombreCliente);
-    target.correoCliente = pickString(target.correoCliente, src.correoCliente);
-    target.telefonoCliente = pickString(
-      target.telefonoCliente,
-      src.telefonoCliente
-    );
-    target.aseguradora = pickString(target.aseguradora, src.aseguradora);
-    target.ramo = pickString(target.ramo, src.ramo);
-    target.numeroPoliza = pickString(target.numeroPoliza, src.numeroPoliza);
-    target.numeroCotizacion = pickString(
-      target.numeroCotizacion,
-      src.numeroCotizacion
-    );
-    target.prima = target.prima != null ? target.prima : src.prima;
-    target.sumaAsegurada = target.sumaAsegurada != null
-      ? target.sumaAsegurada
-      : src.sumaAsegurada;
-    target.moneda = pickString(target.moneda, src.moneda);
-    target.vigenciaInicio = pickString(
-      target.vigenciaInicio,
-      src.vigenciaInicio
-    );
-    target.vigenciaFin = pickString(target.vigenciaFin, src.vigenciaFin);
-    target.resumen = pickString(target.resumen, src.resumen);
-  }
-
-  private static String pickString(String current, String incoming) {
-    if (String.isNotBlank(current)) {
-      return current;
-    }
-    return String.isBlank(incoming) ? current : incoming;
-  }
-
-  /** Limpia la respuesta de la IA y la convierte en datos estructurados. */
-  @TestVisible
-  private static ExtractedData parseExtraction(String raw) {
-    ExtractedData data = new ExtractedData();
-    if (String.isBlank(raw)) {
-      return data;
-    }
-    String payload = raw.trim();
-    // Quitar posibles fences de Markdown (bloques de codigo).
-    if (payload.startsWith('```')) {
-      payload = payload.replaceFirst('^```[a-zA-Z]*', '').trim();
-      if (payload.endsWith('```')) {
-        payload = payload.substring(0, payload.length() - 3).trim();
-      }
-    }
-    // Quedarnos solo con el objeto JSON { ... }
-    Integer start = payload.indexOf('{');
-    Integer last = payload.lastIndexOf('}');
-    if (start < 0 || last < start) {
-      return data;
-    }
-    payload = payload.substring(start, last + 1);
-
-    try {
-      Map<String, Object> m = (Map<String, Object>) JSON.deserializeUntyped(
-        payload
-      );
-      Object validObj = m.get('esDocumentoValido');
-      data.esDocumentoValido = (validObj == null)
-        ? true
-        : Boolean.valueOf(String.valueOf(validObj));
-      data.tipoDocumento = asString(m.get('tipoDocumento'));
-      data.nombreCliente = asString(m.get('nombreCliente'));
-      data.correoCliente = asString(m.get('correoCliente'));
-      data.telefonoCliente = asString(m.get('telefonoCliente'));
-      data.aseguradora = asString(m.get('aseguradora'));
-      data.ramo = asString(m.get('ramo'));
-      data.numeroPoliza = asString(m.get('numeroPoliza'));
-      data.numeroCotizacion = asString(m.get('numeroCotizacion'));
-      data.prima = asDecimal(m.get('prima'));
-      data.sumaAsegurada = asDecimal(m.get('sumaAsegurada'));
-      data.moneda = asString(m.get('moneda'));
-      data.vigenciaInicio = asString(m.get('vigenciaInicio'));
-      data.vigenciaFin = asString(m.get('vigenciaFin'));
-      data.resumen = asString(m.get('resumen'));
-    } catch (Exception e) {
-      // JSON inválido: devolvemos lo que se haya podido (data vacío) sin romper el flujo.
-      data.resumen = 'No se pudo interpretar la respuesta de la IA.';
-    }
-    return data;
-  }
-
-  /** Asigna a la oportunidad los datos extraídos (sin DML). */
-  @TestVisible
-  private static void applyExtraction(
-    Opportunity opp,
-    ExtractedData data,
-    String analysis,
-    Id accountId
-  ) {
-    if (String.isNotBlank(data.nombreCliente)) {
-      opp.Name = data.nombreCliente.left(120);
-    }
-    if (accountId != null) {
-      opp.AccountId = accountId;
-    }
-    Decimal amount = data.prima != null ? data.prima : data.sumaAsegurada;
-    if (amount != null) {
-      opp.Amount = amount;
-    }
-    opp.Description = buildDescription(data, analysis);
-  }
-
-  /**
-   * Campos custom/opcionales en DML aparte para que un valor inválido no rompa todo.
-   * Mapea el "ramo" extraído por la IA al valor real del picklist Ramo__c
-   * (insensible a mayúsculas/acentos) antes de asignarlo.
-   */
-  @TestVisible
-  private static void applyOptionalFields(
-    Id opportunityId,
-    ExtractedData data
-  ) {
-    String resolvedRamo = resolveRamoPicklist(data.ramo);
-    if (String.isBlank(resolvedRamo) && String.isBlank(data.correoCliente)) {
-      return;
-    }
-    try {
-      Opportunity opp = new Opportunity(Id = opportunityId);
-      if (String.isNotBlank(resolvedRamo)) {
-        opp.put('Ramo__c', resolvedRamo);
-      }
-      if (String.isNotBlank(data.correoCliente)) {
-        opp.put('Correo__c', data.correoCliente);
-      }
-      update opp;
-    } catch (Exception e) {
-      // Valores no válidos para los campos del org: se ignoran (ya quedaron en Description).
-      System.debug('Campos opcionales no aplicados: ' + e.getMessage());
-    }
-  }
-
-  /** Devuelve el API name del picklist Ramo__c que mejor coincide, o null. */
-  @TestVisible
-  private static String resolveRamoPicklist(String aiValue) {
-    if (String.isBlank(aiValue)) {
+  private static Date parseDate(String s) {
+    if (String.isBlank(s)) {
       return null;
     }
-    String target = fold(aiValue);
-    List<Schema.PicklistEntry> entries = Opportunity.Ramo__c.getDescribe()
-      .getPicklistValues();
-
-    // 1) Coincidencia exacta (insensible a mayúsculas/acentos) contra value o label
-    for (Schema.PicklistEntry e : entries) {
-      if (!e.isActive()) {
-        continue;
-      }
-      if (
-        fold(e.getValue()).equals(target) ||
-        fold(e.getLabel()).equals(target)
-      ) {
-        return e.getValue();
-      }
+    try {
+      // ISO yyyy-MM-dd
+      return Date.valueOf(s);
+    } catch (Exception e) {
+      return null;
     }
-    // 2) Coincidencia por contención (ej. "Seguro de Auto" -> "Auto")
-    for (Schema.PicklistEntry e : entries) {
-      if (!e.isActive()) {
-        continue;
-      }
-      String fv = fold(e.getValue());
-      String fl = fold(e.getLabel());
-      if (
-        target.contains(fv) ||
-        fv.contains(target) ||
-        target.contains(fl) ||
-        fl.contains(target)
-      ) {
-        return e.getValue();
-      }
-    }
-    return null;
   }
 
-  /** Normaliza para comparar: minúsculas + acentos eliminados + espacios colapsados. */
-  @TestVisible
-  private static String fold(String s) {
-    if (s == null) {
-      return '';
-    }
-    String out = s.toLowerCase();
-    out = out.replaceAll('[áàäâã]', 'a');
-    out = out.replaceAll('[éèëê]', 'e');
-    out = out.replaceAll('[íìïî]', 'i');
-    out = out.replaceAll('[óòöôõ]', 'o');
-    out = out.replaceAll('[úùüû]', 'u');
-    out = out.replaceAll('ñ', 'n');
-    out = out.replaceAll('\\s+', ' ').trim();
-    return out;
-  }
+  // ============================================================
+  // Helpers compartidos (también usados por uploadAndCreateDraft)
+  // ============================================================
 
   /**
    * Devuelve el prefijo común (case-insensitive) de los nombres de archivo sin extensión.
@@ -672,7 +710,6 @@ public with sharing class PdfOpportunityController {
         break;
       }
     }
-    // Recortar separadores finales
     while (
       prefix.length() > 0 &&
       '._- '.indexOf(prefix.substring(prefix.length() - 1)) >= 0
@@ -682,6 +719,22 @@ public with sharing class PdfOpportunityController {
     return prefix.length() >= MIN_PREFIX_LENGTH ? prefix : '';
   }
 
+  @TestVisible
+  private static String fold(String s) {
+    if (s == null) {
+      return '';
+    }
+    String out = s.toLowerCase();
+    out = out.replaceAll('[áàäâã]', 'a');
+    out = out.replaceAll('[éèëê]', 'e');
+    out = out.replaceAll('[íìïî]', 'i');
+    out = out.replaceAll('[óòöôõ]', 'o');
+    out = out.replaceAll('[úùüû]', 'u');
+    out = out.replaceAll('ñ', 'n');
+    out = out.replaceAll('\\s+', ' ').trim();
+    return out;
+  }
+
   /**
    * Busca una cuenta por nombre. Si no existe, intenta crearla.
    *
@@ -689,10 +742,6 @@ public with sharing class PdfOpportunityController {
    * IsPersonType=true, prefiere crear el registro como Person Account real
    * (FirstName + LastName + RecordTypeId). Esto evita validation rules
    * pensadas para Business Accounts (p. ej. AnnualRevenue obligatorio).
-   *
-   * Si Person Accounts no está disponible, hace fallback a un Business Account
-   * tradicional con solo el Name (puede fallar por validation rules del org;
-   * la captura ocurre arriba en analyzeAndPopulate).
    */
   @TestVisible
   private static Account findOrCreateAccount(String name) {
@@ -723,12 +772,6 @@ public with sharing class PdfOpportunityController {
     return acct;
   }
 
-  /**
-   * Devuelve el Id del RecordType de Person Account activo y disponible para el
-   * usuario actual, o null. Consultamos RecordType directamente (en vez de usar
-   * RecordTypeInfo.isPersonType, que requiere API v55+ del Apex class) para que
-   * funcione independientemente de la versión de la clase.
-   */
   @TestVisible
   private static Id personAccountRecordTypeId() {
     if (
@@ -754,7 +797,6 @@ public with sharing class PdfOpportunityController {
     return (rti != null && rti.isAvailable()) ? rtId : null;
   }
 
-  /** Divide "Juan Pérez García" en first/last para un Person Account. */
   @TestVisible
   private static Map<String, String> splitPersonName(String fullName) {
     Map<String, String> r = new Map<String, String>{
@@ -791,128 +833,21 @@ public with sharing class PdfOpportunityController {
     return stages.isEmpty() ? 'Prospecting' : stages[0].MasterLabel;
   }
 
-  @TestVisible
-  private static String buildDescription(ExtractedData data, String analysis) {
-    String s = '=== DATOS EXTRAÍDOS POR IA ===\n';
-    s += 'Tipo de documento: ' + nv(data.tipoDocumento) + '\n';
-    s += 'Cliente: ' + nv(data.nombreCliente) + '\n';
-    s += 'Aseguradora: ' + nv(data.aseguradora) + '\n';
-    s += 'Ramo: ' + nv(data.ramo) + '\n';
-    s += 'No. Póliza: ' + nv(data.numeroPoliza) + '\n';
-    s += 'No. Cotización: ' + nv(data.numeroCotizacion) + '\n';
-    s +=
-      'Prima: ' +
-      nv(data.prima == null ? null : String.valueOf(data.prima)) +
-      '\n';
-    s +=
-      'Suma asegurada: ' +
-      nv(
-        data.sumaAsegurada == null ? null : String.valueOf(data.sumaAsegurada)
-      ) +
-      '\n';
-    s += 'Moneda: ' + nv(data.moneda) + '\n';
-    s +=
-      'Vigencia: ' +
-      nv(data.vigenciaInicio) +
-      ' a ' +
-      nv(data.vigenciaFin) +
-      '\n';
-    s += 'Correo: ' + nv(data.correoCliente) + '\n';
-    s += 'Teléfono: ' + nv(data.telefonoCliente) + '\n';
-    if (String.isNotBlank(data.resumen)) {
-      s += '\nResumen: ' + data.resumen + '\n';
-    }
-    if (String.isNotBlank(analysis)) {
-      s += '\n=== ANÁLISIS COMPLETO (IA) ===\n' + analysis;
-    }
-    return s.left(32000);
-  }
-
-  private static String nv(String v) {
-    return String.isBlank(v) ? '—' : v;
-  }
-
-  private static String asString(Object o) {
-    return o == null ? null : String.valueOf(o).trim();
-  }
-
-  private static Decimal asDecimal(Object o) {
-    if (o == null) {
-      return null;
-    }
-    try {
-      String s = String.valueOf(o).replaceAll('[^0-9.\\-]', '');
-      return String.isBlank(s) ? null : Decimal.valueOf(s);
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
   // ============================================================
-  // Wrapper de datos extraídos
+  // Wrappers para el LWC
   // ============================================================
-  public class ExtractedData {
+  public class QuoteSummary {
     @AuraEnabled
-    public Boolean esDocumentoValido = true;
+    public Id id;
     @AuraEnabled
-    public String tipoDocumento;
-    @AuraEnabled
-    public String nombreCliente;
-    @AuraEnabled
-    public String correoCliente;
-    @AuraEnabled
-    public String telefonoCliente;
+    public String name;
     @AuraEnabled
     public String aseguradora;
     @AuraEnabled
-    public String ramo;
-    @AuraEnabled
-    public String numeroPoliza;
-    @AuraEnabled
-    public String numeroCotizacion;
-    @AuraEnabled
-    public Decimal prima;
+    public Decimal primaAnual;
     @AuraEnabled
     public Decimal sumaAsegurada;
     @AuraEnabled
-    public String moneda;
-    @AuraEnabled
-    public String vigenciaInicio;
-    @AuraEnabled
-    public String vigenciaFin;
-    @AuraEnabled
-    public String resumen;
-
-    public Map<String, Object> toMap() {
-      return new Map<String, Object>{
-        'esDocumentoValido' => esDocumentoValido,
-        'tipoDocumento' => tipoDocumento,
-        'nombreCliente' => nombreCliente,
-        'correoCliente' => correoCliente,
-        'telefonoCliente' => telefonoCliente,
-        'aseguradora' => aseguradora,
-        'ramo' => ramo,
-        'numeroPoliza' => numeroPoliza,
-        'numeroCotizacion' => numeroCotizacion,
-        'prima' => prima,
-        'sumaAsegurada' => sumaAsegurada,
-        'moneda' => moneda,
-        'vigenciaInicio' => vigenciaInicio,
-        'vigenciaFin' => vigenciaFin,
-        'resumen' => resumen
-      };
-    }
-  }
-
-  /** Snapshot del análisis y datos extraídos de UN documento, para alimentar el LWC. */
-  public class DocAnalysis {
-    @AuraEnabled
-    public Id contentDocumentId;
-    @AuraEnabled
-    public String title;
-    @AuraEnabled
-    public String analysis;
-    @AuraEnabled
-    public Map<String, Object> data;
+    public String archivoOrigen;
   }
 }

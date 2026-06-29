@@ -2,7 +2,7 @@ import { LightningElement } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import { NavigationMixin } from "lightning/navigation";
 import uploadAndCreateDraft from "@salesforce/apex/PdfOpportunityController.uploadAndCreateDraft";
-import analyzeAndPopulate from "@salesforce/apex/PdfOpportunityController.analyzeAndPopulate";
+import compareAndCreateQuotes from "@salesforce/apex/PdfOpportunityController.compareAndCreateQuotes";
 
 const MAX_SIZE = 4500000; // ~4.5 MB por archivo: límite práctico para enviar base64 a Apex
 const MIN_FILES = 2;
@@ -11,14 +11,14 @@ const MIN_PREFIX_LENGTH = 3;
 export default class PdfOpportunityCreator extends NavigationMixin(
   LightningElement
 ) {
-  files = []; // array de objetos File seleccionados
+  files = [];
   isProcessing = false;
   statusMessage = "";
 
-  // Resultado
-  result; // { opportunityId, opportunityName, accountId, analysis, data }
+  result;
   error = "";
   prefixWarning = "";
+  glosarioOpen = false;
 
   get showUploadStep() {
     return !this.isProcessing && !this.hasResult;
@@ -53,99 +53,130 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     return !!this.result;
   }
 
-  get comparisonTable() {
-    const docs = this.result && this.result.documents;
-    if (!docs || docs.length < 2) {
-      return null;
+  get successBanner() {
+    if (!this.result) {
+      return "";
     }
-    const fields = [
-      { key: "tipoDocumento", label: "Tipo" },
-      { key: "nombreCliente", label: "Cliente" },
-      { key: "aseguradora", label: "Aseguradora" },
-      { key: "ramo", label: "Ramo" },
-      { key: "numeroPoliza", label: "No. Póliza" },
-      { key: "numeroCotizacion", label: "No. Cotización" },
-      { key: "prima", label: "Prima", numeric: true },
-      { key: "sumaAsegurada", label: "Suma asegurada", numeric: true },
-      { key: "moneda", label: "Moneda" },
-      { key: "vigenciaInicio", label: "Vigencia inicio" },
-      { key: "vigenciaFin", label: "Vigencia fin" },
-      { key: "correoCliente", label: "Correo" },
-      { key: "telefonoCliente", label: "Teléfono" }
-    ];
-    const headers = docs.map((d, i) => ({
-      key: "h" + i,
-      label: d.title || "Documento " + (i + 1)
-    }));
-    const rows = fields
-      .map((f) => {
-        const rawValues = docs.map((d) =>
-          d.data && d.data[f.key] !== null && d.data[f.key] !== undefined
-            ? String(d.data[f.key])
-            : ""
-        );
-        const allEmpty = rawValues.every((v) => v === "");
-        if (allEmpty) {
-          return null;
-        }
-        const nonEmpty = rawValues.filter((v) => v !== "");
-        const isDifferent = new Set(nonEmpty).size > 1;
-        const baseCellClass = f.numeric ? "cell numeric" : "cell";
-        const cells = rawValues.map((v, i) => ({
-          key: "c" + i + "_" + f.key,
-          value: v === "" ? "—" : v,
-          cellClass: isDifferent
-            ? baseCellClass + " diff-cell"
-            : baseCellClass
-        }));
-        return {
-          key: f.key,
-          label: f.label,
-          cells,
-          rowClass: isDifferent ? "diff-row" : ""
-        };
-      })
-      .filter((r) => r !== null);
-    return { headers, rows };
+    const vehiculo = this.result.vehiculo || "el vehículo";
+    const cliente = this.result.cliente || "cliente sin nombre";
+    const n = (this.result.quotes || []).length;
+    return `Oportunidad creada para ${vehiculo} (${cliente}) con ${n} cotizaciones`;
   }
 
-  get docAnalyses() {
-    const docs = this.result && this.result.documents;
-    if (!docs) {
+  get ganadoras() {
+    const r = this.result && this.result.recomendacion;
+    if (!r || !Array.isArray(r.ganadoras)) {
       return [];
     }
-    return docs.map((d, i) => ({
-      key: "d" + i,
-      title: d.title || "Documento " + (i + 1),
-      analysis: d.analysis && d.analysis.trim()
-        ? d.analysis
-        : "(Sin análisis disponible para este documento.)"
+    return r.ganadoras.map((g, i) => ({
+      key: "g" + i,
+      titulo: `${g.nombre || "Sin nombre"} — ${g.etiqueta || ""}`.trim(),
+      porque: g.porque || "",
+      aCambio: g.a_cambio || ""
     }));
   }
 
-  get extractedRows() {
-    if (!this.result || !this.result.data) {
-      return [];
-    }
-    const d = this.result.data;
-    const labels = {
-      tipoDocumento: "Tipo de documento",
-      nombreCliente: "Cliente",
-      aseguradora: "Aseguradora",
-      ramo: "Ramo",
-      numeroPoliza: "No. Póliza",
-      numeroCotizacion: "No. Cotización",
-      prima: "Prima",
-      sumaAsegurada: "Suma asegurada",
-      moneda: "Moneda",
-      vigenciaInicio: "Vigencia inicio",
-      vigenciaFin: "Vigencia fin",
-      correoCliente: "Correo",
-      telefonoCliente: "Teléfono"
-    };
-    return Object.keys(labels)
-      .filter((k) => d[k] !== null && d[k] !== undefined && d[k] !== "")
-      .map((k) => ({ key: k, label: labels[k], value: String(d[k]) }));
+  get enPocasPalabras() {
+    return (
+      (this.result &&
+        this.result.recomendacion &&
+        this.result.recomendacion.en_pocas_palabras) ||
+      ""
+    );
+  }
+
+  get hasRecomendacion() {
+    return this.ganadoras.length > 0 || !!this.enPocasPalabras;
+  }
+
+  get quoteCards() {
+    const quotes = (this.result && this.result.quotes) || [];
+    return quotes.map((q, i) => {
+      const title = (q.aseguradora && q.aseguradora.trim()) || q.name || `Cotización ${i + 1}`;
+      const rows = [
+        { key: "p", label: "Prima anual", value: formatCurrency(q.primaAnual) },
+        { key: "s", label: "Suma asegurada", value: formatCurrency(q.sumaAsegurada) },
+        {
+          key: "tv",
+          label: "Tipo de valor",
+          value: q.tipoValor || "—",
+          isBadge: true
+        },
+        {
+          key: "dd",
+          label: "Deducible Daños",
+          value: formatDeducible(q.deducibleDanosPct, q.deducibleDanosMxn)
+        },
+        {
+          key: "dr",
+          label: "Deducible Robo",
+          value: formatDeducible(q.deducibleRoboPct, q.deducibleRoboMxn)
+        },
+        { key: "rc", label: "RC", value: formatCurrency(q.responsabilidadCivil) },
+        { key: "gm", label: "Gastos médicos", value: formatCurrency(q.gastosMedicos) },
+        { key: "vc", label: "Vida conductor", value: formatCurrency(q.vidaConductor) }
+      ];
+      const chips = [
+        { key: "ch_cri", label: "Cristales", on: !!q.cristales },
+        { key: "ch_av", label: "Asistencia vial", on: !!q.asistenciaVial },
+        { key: "ch_dj", label: "Defensa jurídica", on: !!q.defensaJuridica },
+        { key: "ch_rce", label: "RC extranjero", on: !!q.rcExtranjero }
+      ].map((c) => ({
+        ...c,
+        cls: c.on ? "chip chip_on" : "chip chip_off"
+      }));
+      return {
+        key: q.id || "q" + i,
+        title,
+        rows,
+        chips,
+        notas: (q.notas && q.notas.trim()) || ""
+      };
+    });
+  }
+
+  get guiaFrecuencia() {
+    const g =
+      (this.result &&
+        this.result.recomendacion &&
+        this.result.recomendacion.guia_frecuencia) ||
+      [];
+    return g.map((row, i) => ({
+      key: "gf" + i,
+      riesgo: row.riesgo || "",
+      frecuencia: row.frecuencia || "",
+      gana: row.gana || "",
+      detalle: row.detalle || ""
+    }));
+  }
+
+  get hasGuia() {
+    return this.guiaFrecuencia.length > 0;
+  }
+
+  get hasComparativoPdf() {
+    return !!(this.result && this.result.comparativoPdfId);
+  }
+
+  get glosario() {
+    const g = (this.result && this.result.glosario) || [];
+    return g.map((item, i) => ({
+      key: "gl" + i,
+      termino: item.termino || "",
+      definicion: item.definicion || ""
+    }));
+  }
+
+  get hasGlosario() {
+    return this.glosario.length > 0;
+  }
+
+  get glosarioToggleLabel() {
+    return this.glosarioOpen ? "Ocultar glosario" : "Ver glosario";
+  }
+
+  get aviso() {
+    return (this.result && this.result.aviso) || "";
   }
 
   handleFileChange(event) {
@@ -227,20 +258,17 @@ export default class PdfOpportunityCreator extends NavigationMixin(
       });
 
       this.statusMessage =
-        "Analizando los PDFs con IA y creando la oportunidad…";
-      const res = await analyzeAndPopulate({
+        "Comparando cotizaciones con IA y creando los Quotes…";
+      const res = await compareAndCreateQuotes({
         opportunityId: draft.opportunityId,
         contentDocumentIds: draft.contentDocumentIds
       });
 
       this.result = res;
+      const n = (res.quotes || []).length;
       this.showToast(
         "Oportunidad creada",
-        'Se creó "' +
-          (res.opportunityName || "Oportunidad") +
-          '" con ' +
-          this.files.length +
-          " PDFs adjuntos.",
+        `Se crearon ${n} cotizaciones para "${res.vehiculo || res.opportunityName || "la oportunidad"}".`,
         "success"
       );
     } catch (e) {
@@ -266,11 +294,27 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     });
   }
 
+  handleOpenComparativoPdf() {
+    if (!this.hasComparativoPdf) {
+      return;
+    }
+    this[NavigationMixin.Navigate]({
+      type: "standard__namedPage",
+      attributes: { pageName: "filePreview" },
+      state: { selectedRecordId: this.result.comparativoPdfId }
+    });
+  }
+
+  handleToggleGlosario() {
+    this.glosarioOpen = !this.glosarioOpen;
+  }
+
   handleReset() {
     this.files = [];
     this.result = undefined;
     this.error = "";
     this.prefixWarning = "";
+    this.glosarioOpen = false;
     const input = this.template.querySelector('lightning-input[type="file"]');
     if (input) {
       input.value = null;
@@ -281,7 +325,7 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
-        const base64 = reader.result.split(",")[1]; // quitar el prefijo data:...;base64,
+        const base64 = reader.result.split(",")[1];
         resolve(base64);
       };
       reader.onerror = () => reject(reader.error);
@@ -304,8 +348,36 @@ export default class PdfOpportunityCreator extends NavigationMixin(
   }
 }
 
-// Calcula el prefijo común (case-insensitive) entre nombres de archivo sin extensión.
-// Recorta separadores finales y exige al menos MIN_PREFIX_LENGTH caracteres.
+function formatCurrency(v) {
+  if (v === null || v === undefined || v === "") {
+    return "—";
+  }
+  const n = Number(v);
+  if (Number.isNaN(n)) {
+    return String(v);
+  }
+  try {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 0
+    }).format(n);
+  } catch (e) {
+    return "$" + n.toFixed(0);
+  }
+}
+
+function formatDeducible(pct, mxn) {
+  const hasPct = pct !== null && pct !== undefined && pct !== "";
+  const hasMxn = mxn !== null && mxn !== undefined && mxn !== "";
+  if (!hasPct && !hasMxn) {
+    return "—";
+  }
+  const pctStr = hasPct ? `${Number(pct)}%` : "—";
+  const mxnStr = hasMxn ? formatCurrency(mxn) : "—";
+  return `${pctStr} — ${mxnStr}`;
+}
+
 function computeSharedPrefix(names) {
   if (!names || names.length === 0) {
     return "";
@@ -328,7 +400,6 @@ function computeSharedPrefix(names) {
       return "";
     }
   }
-  // Recortar separadores finales
   while (prefix.length > 0 && "._- ".includes(prefix.charAt(prefix.length - 1))) {
     prefix = prefix.substring(0, prefix.length - 1);
   }

@@ -476,6 +476,148 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     background: #A04709;
     border-color: #803806;
 }
+
+/* ============================================================ */
+/* DOCUMENTO DEL COMPARATIVO (render declarativo, en línea)      */
+/* ============================================================ */
+.comparativo-doc {
+    margin-top: 1.5rem;
+    padding: 24px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #dfe4ee;
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    color: #1c2433;
+}
+.doc-head {
+    background: linear-gradient(135deg, #1F3864, #2E5496);
+    color: #fff; border-radius: 14px; padding: 22px 26px;
+}
+.doc-head h1 { margin: 0; font-size: 26px; letter-spacing: .3px; }
+.doc-head p  { margin: 6px 0 0; font-size: 14px; opacity: .92; }
+.doc-tag {
+    display: inline-block; background: rgba(255,255,255,.18);
+    border-radius: 20px; padding: 4px 12px; font-size: 12px; margin-top: 10px;
+}
+.doc-table {
+    border-collapse: collapse; width: 100%;
+    margin-top: 18px; font-size: 13px;
+}
+.doc-table th, .doc-table td {
+    border: 1px solid #dfe4ee;
+    padding: 7px 6px; text-align: center; vertical-align: middle;
+    color: #222;
+}
+.doc-th { background: #1F3864; color: #fff; font-size: 13px; font-weight: 700; }
+.doc-th-lbl, .doc-cell-lbl {
+    text-align: left; background: #f4f6fa; width: 255px;
+    color: #222;
+}
+.doc-cell-lbl-price { background: #2E5496 !important; }
+.doc-cell-lbl-price .doc-cn { color: #fff !important; font-size: 12px; }
+.doc-cn {
+    display: block; font-weight: 700; color: #1F3864; font-size: 12.5px;
+}
+.doc-cd {
+    display: block; font-weight: 400; color: #5a6275;
+    font-size: 10.5px; margin-top: 2px; line-height: 1.25;
+}
+.doc-th-rec {
+    background: #C55A11 !important; color: #fff !important;
+}
+.doc-rec-badge {
+    display: block; font-size: 9.5px; font-weight: 700;
+    opacity: .95; margin-top: 2px;
+}
+.doc-cell-hl {
+    background: #FCE9DA !important;
+    border-left: 2px solid #C55A11 !important;
+    border-right: 2px solid #C55A11 !important;
+    font-weight: 700;
+}
+.doc-row-price td { font-weight: 800; font-size: 16px; }
+.doc-sub {
+    display: block; font-size: 10px; font-weight: 600;
+    color: #7a8194; margin-top: 2px;
+}
+.doc-cell-no { color: #9aa0ac; font-style: italic; }
+
+.doc-note {
+    margin-top: 10px; font-size: 11px; color: #7a8194; line-height: 1.4;
+}
+.doc-recs { margin-top: 24px; }
+.doc-recs h2 {
+    color: #1F3864; font-size: 20px; margin-bottom: 12px;
+    border-bottom: 3px solid #C55A11; padding-bottom: 6px;
+}
+.doc-twocol { display: flex; gap: 14px; flex-wrap: wrap; }
+.doc-twocol .doc-card { flex: 1; min-width: 300px; }
+.doc-card {
+    border: 1px solid #dfe4ee; border-left: 6px solid #2E5496;
+    border-radius: 10px; padding: 14px 18px;
+    margin-bottom: 12px; background: #fcfdff;
+}
+.doc-card-win {
+    border-left-color: #C55A11; background: #FCE9DA;
+}
+.doc-card h3 { margin: 0 0 6px; font-size: 15px; color: #1F3864; }
+.doc-card-win h3 { color: #C55A11; }
+.doc-card p { margin: 0; font-size: 13px; line-height: 1.5; color: #333b4a; }
+
+.doc-decide {
+    margin-top: 18px;
+    background: #f7f9fc; border: 1px solid #dfe4ee;
+    border-radius: 12px; padding: 18px 22px;
+}
+.doc-decide h2 { color: #1F3864; font-size: 19px; margin: 0 0 6px; }
+.doc-bottom {
+    margin-top: 6px; background: #fff;
+    border-left: 5px solid #2E5496; border-radius: 8px;
+    padding: 12px 16px; font-size: 13px; line-height: 1.55; color: #333b4a;
+}
+
+.doc-glos { margin-top: 18px; }
+.doc-glos h2 {
+    color: #1F3864; font-size: 19px; margin: 0 0 12px;
+    border-bottom: 3px solid #C55A11; padding-bottom: 6px;
+}
+.doc-glos dl {
+    display: grid; grid-template-columns: 170px 1fr;
+    gap: 6px 16px; margin: 0;
+}
+.doc-glos dt { font-weight: 700; color: #1F3864; font-size: 13px; }
+.doc-glos dd { margin: 0; font-size: 12.5px; color: #3a4252; line-height: 1.45; }
+
+.doc-foot {
+    margin-top: 20px; font-size: 11px; color: #8a91a3;
+    border-top: 1px solid #dfe4ee; padding-top: 10px;
+}
+
+@media (max-width: 768px) {
+    .doc-glos dl { grid-template-columns: 1fr; }
+}
+
+/* ----- IMPRESIÓN: deja sólo el documento del comparativo ----- */
+@media print {
+    .premium-header, .back-to-list, .summary-section,
+    .unified-section:not(.comparison-section) {
+        display: none !important;
+    }
+    .comparison-section {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+    .section-header-compact, .comparison-kpis, .comparison-recommendation {
+        display: none !important;
+    }
+    .comparativo-doc {
+        border: none !important;
+        margin-top: 0 !important;
+    }
+    .doc-table, .doc-card, .doc-decide, .doc-glos { page-break-inside: avoid; }
+}
 .section-icon {
     width: 40px; height: 40px; background: #0052CC;
     border-radius: 12px;
