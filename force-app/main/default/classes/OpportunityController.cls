@@ -293,11 +293,18 @@ public with sharing class OpportunityController {
             opp.Id = (Id) String.valueOf(d.get('Id'));
         }
         opp.Name        = getStr(d, 'Name');
-        opp.StageName   = getStr(d, 'StageName');
         opp.AccountId   = accountId;
-        opp.Type        = getStr(d, 'Type');
-        opp.Canal__c    = getStr(d, 'Canal__c');
-        opp.Mercado__c  = getStr(d, 'Mercado__c');
+        // Defaults de negocio (por si llegaran vacíos desde el formulario)
+        opp.Canal__c   = String.isNotBlank(getStr(d, 'Canal__c'))   ? getStr(d, 'Canal__c')   : 'Agente';
+        opp.Mercado__c = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : 'Corporativo';
+        if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
+        if (String.isBlank(opp.Type))      { opp.Type = 'New Business'; }
+
+        // Agente (lookup a Agente__c) 
+        String agenteId = getStr(d, 'Agente__c');
+        if (String.isNotBlank(agenteId)) {
+            opp.Agente__c = (Id) agenteId;
+        }
         opp.Ramo__c     = getStr(d, 'Ramo__c');
         opp.Description = getStr(d, 'Description');
 
@@ -318,6 +325,14 @@ public with sharing class OpportunityController {
             opp.CloseDate = Date.today().addDays(30);
         }
 
+        // Vehículo (solo ramo Automoviles): liga el existente o crea uno nuevo.
+        if (getStr(d, 'Ramo__c') == 'Automoviles') {
+            Id vehId = resolveVehiculo(d, accountId);
+            if (vehId != null) {
+                opp.Automovil__c = vehId;
+            }
+        }
+
         upsert opp;
         return opp.Id;
     }
@@ -325,6 +340,69 @@ public with sharing class OpportunityController {
     private static String getStr(Map<String, Object> m, String key) {
         Object v = m.get(key);
         return v == null ? null : String.valueOf(v);
+    }
+
+    // Devuelve el Id del Automovil__c a ligar: el seleccionado, o uno existente por
+    // Serie, o uno nuevo creado con los datos del formulario (ligado a la cuenta).
+    private static Id resolveVehiculo(Map<String, Object> d, Id accountId) {
+        // 1) ¿Ya se seleccionó un vehículo en el lookup?
+        String vehiculoId = getStr(d, 'Automovil__c');
+        if (String.isNotBlank(vehiculoId)) {
+            return (Id) vehiculoId;
+        }
+        // 2) Datos capturados/extraídos del auto.
+        Object vObj = d.get('vehiculo');
+        if (!(vObj instanceof Map<String, Object>)) {
+            return null;
+        }
+        Map<String, Object> v = (Map<String, Object>) vObj;
+        String serie = getStr(v, 'Serie__c');
+
+        // 3) Buscar por Serie/VIN.
+        if (String.isNotBlank(serie)) {
+            List<Automovil__c> ex = [
+                SELECT Id FROM Automovil__c WHERE Serie__c = :serie LIMIT 1
+            ];
+            if (!ex.isEmpty()) {
+                return ex[0].Id;
+            }
+        }
+
+        // 4) Crear nuevo (si hay algún dato).
+        // Serie__c es obligatoria en Vehiculo__c: sin serie no se puede crear.
+        if (String.isBlank(serie)) {
+            return null;
+        }
+        String marca = getStr(v, 'Marca__c');
+        String modelo = getStr(v, 'Modelo__c');
+        Automovil__c nv = new Automovil__c();
+        nv.Marca__c = marca;
+        nv.Modelo__c = modelo;
+        nv.Serie__c = serie;
+        nv.Placa__c = getStr(v, 'Placa__c');
+        nv.Motor__c = getStr(v, 'Motor__c');
+        nv.Descripcion_Completa__c = getStr(v, 'descripcion_completa__c');
+        if (accountId != null) {
+            nv.Cuenta__c = accountId;
+        }
+        // Año (solo si creaste el campo Anio__c en Automovil__c)
+        setIfExistsVeh(nv, 'Anio__c', getStr(v, 'Anio__c'));
+        // Name (si no es autonumérico, le ponemos algo legible)
+        Schema.DescribeFieldResult nameDesc = Automovil__c.Name.getDescribe();
+        if (!nameDesc.isAutoNumber()) {
+            String nm = ((marca == null ? '' : marca) + ' ' +
+                         (modelo == null ? '' : modelo) + ' ' +
+                         (serie == null ? '' : serie)).trim();
+            nv.Name = String.isBlank(nm) ? 'Vehículo' : nm.left(80);
+        }
+        insert nv;
+        return nv.Id;
+    }
+
+    // Asigna un campo a Automovil__c solo si existe (p. ej. Anio__c).
+    private static void setIfExistsVeh(SObject so, String field, Object value) {
+        if (value == null || String.isBlank(String.valueOf(value))) { return; }
+        try { so.put(field, value); } catch (Exception ignore) {}
     }
 
     private static Id getPersonAccountRecordTypeId() {
@@ -336,6 +414,26 @@ public with sharing class OpportunityController {
             return rt.Id;
         }
         return null;
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static List<Automovil__c> searchVehiculos(String searchTerm) {
+        if (String.isBlank(searchTerm) || searchTerm.length() < 2) {
+            return new List<Automovil__c>();
+        }
+        String filtro = '%' + searchTerm + '%';
+        return [
+            SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c,
+                   Descripcion_Completa__c, Cuenta__c, Cuenta__r.Name
+            FROM Automovil__c
+            WHERE Serie__c LIKE :filtro
+               OR Placa__c LIKE :filtro
+               OR Marca__c LIKE :filtro
+               OR Modelo__c LIKE :filtro
+               OR Name LIKE :filtro
+            ORDER BY LastModifiedDate DESC
+            LIMIT 10
+        ];
     }
 
     @AuraEnabled(cacheable=true)

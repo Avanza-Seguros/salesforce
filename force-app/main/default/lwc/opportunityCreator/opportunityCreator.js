@@ -11,7 +11,10 @@ import RAMO_FIELD from '@salesforce/schema/Opportunity.Ramo__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
+import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
+import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
+import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
 
 // ============================================================
 // CONSTANTES
@@ -78,10 +81,18 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track vida = this.getDefaultVida();
     @track viaje = this.getDefaultViaje();
     @track danos = this.getDefaultDanos();
+    @track empresarial = this.getDefaultEmpresarial();
+    @track fianzas = this.getDefaultFianzas();
+    @track rc = this.getDefaultRC();
+    @track dental = this.getDefaultDental();
+    @track vision = this.getDefaultVision();
     @track uploadedQuotes = [];
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
     @track selectedQuoteRamo = '';
+    @track showVehiculoDropdown = false;
+    @track vehiculoResults = [];
+    _vehiculoSearchTimer = null;
     // Cotizaciones (Quotes) ya relacionadas con la oportunidad (modo edición)
     @track relatedQuotes = [];
     // Lookup de Cuenta (Account / Person Account)
@@ -89,6 +100,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track accountResults = [];
     @track isNewAccount = false;
     _accountSearchTimer = null;
+    @track showAgenteDropdown = false;
+    @track agenteResults = [];
+    _agenteSearchTimer = null;
     // === Estado comparativa (datos extraídos de PDFs) ===
     @track tablaComparativaCache = [];
     @track companiasConCoberturasCache = [];
@@ -154,6 +168,47 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.opportunity.tipoCliente === 'Persona';
     }
 
+    get hasVehiculoResults() {
+        return this.vehiculoResults && this.vehiculoResults.length > 0;
+    }
+    handleVehiculoFocus() {
+        this.showVehiculoDropdown = true;
+    }
+    handleVehiculoInput(event) {
+        const value = event.target.value;
+        this.opportunity = { ...this.opportunity, VehiculoName: value, Vehiculo__c: null };
+        this.showVehiculoDropdown = true;
+        clearTimeout(this._vehiculoSearchTimer);
+        this._vehiculoSearchTimer = setTimeout(async () => {
+            if (value && value.length >= 2) {
+                try {
+                    this.vehiculoResults = await searchVehiculos({ searchTerm: value });
+                } catch (e) {
+                    this.vehiculoResults = [];
+                }
+            } else {
+                this.vehiculoResults = [];
+            }
+        }, 300);
+    }
+    selectVehiculo(event) {
+        const id = event.currentTarget.dataset.id;
+        const v = (this.vehiculoResults || []).find(x => x.Id === id);
+        if (!v) return;
+        this.opportunity = { ...this.opportunity, Vehiculo__c: v.Id, VehiculoName: (v.Marca__c || '') + ' ' + (v.Modelo__c || '') };
+        this.automovil = {
+            ...this.automovil,
+            Marca__c: v.Marca__c || '',
+            Modelo__c: v.Modelo__c || '',
+            Serie__c: v.Serie__c || '',
+            Placa__c: v.Placa__c || '',
+            Motor__c: v.Motor__c || '',
+            descripcion_completa__c: v.Descripcion_Completa__c || ''
+        };
+        this.showVehiculoDropdown = false;
+        this.vehiculoResults = [];
+    }
+
     // ============================================================
     // IDENTIFICACIÓN DEL RAMO ACTIVO
     // ============================================================
@@ -163,9 +218,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isRamoViajes()      { return this.opportunity.Ramo__c === RAMO_TYPES.VIAJE; }
     get isRamoDanos()       { return this.opportunity.Ramo__c === RAMO_TYPES.DANOS; }
     get isRamoEmpresarial() { return this.opportunity.Ramo__c === RAMO_TYPES.EMPRESARIAL; }
+    get isRamoFianzas() { return this.opportunity.Ramo__c === RAMO_TYPES.FIANZAS; }
+    get isRamoRC()      { return this.opportunity.Ramo__c === RAMO_TYPES.RESPONSABILIDAD_CIVIL; }
+    get isRamoDental()  { return this.opportunity.Ramo__c === RAMO_TYPES.DENTAL; }
+    get isRamoVision()  { return this.opportunity.Ramo__c === RAMO_TYPES.VISION; }
     get isRamoOtros() {
         return !this.isRamoAutomovil && !this.isRamoGMM && !this.isRamoVida &&
-               !this.isRamoViajes && !this.isRamoDanos && !this.isRamoEmpresarial;
+               !this.isRamoViajes && !this.isRamoDanos && !this.isRamoEmpresarial &&
+               !this.isRamoFianzas && !this.isRamoRC && !this.isRamoDental && !this.isRamoVision;
     }
     get stagesData() { return STAGES_DATA; }
 
@@ -511,6 +571,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             && event.target.closest('.lookup-container');
         if (!insideLookup) {
             this.showAccountDropdown = false;
+            this.showAgenteDropdown = false;
+            this.showVehiculoDropdown = false;
         }
     }
 
@@ -542,6 +604,40 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.accountResults = [];
             }
         }, 300);
+    }
+    // Pone el nombre del cliente en Cuenta, busca si existe y la selecciona;
+    // si no existe, la marca como nueva (se creará al guardar).
+    async resolveAccountByName(name) {
+        const clean = (name || '').trim();
+        if (!clean) return;
+        try {
+            const res = await searchAccounts({ searchTerm: clean });
+            const exact = (res || []).find(
+                a => (a.Name || '').trim().toLowerCase() === clean.toLowerCase()
+            );
+            if (exact) {
+                this.opportunity = {
+                    ...this.opportunity,
+                    AccountId: exact.Id,
+                    AccountName: exact.Name,
+                    tipoCliente: exact.IsPersonAccount ? 'Persona' : 'Empresa',
+                    clienteNombre: exact.clienteNombre || exact.Name || this.opportunity.clienteNombre,
+                    clienteRFC: exact.clienteRFC || this.opportunity.clienteRFC,
+                    clienteEmail: exact.clienteEmail || this.opportunity.clienteEmail,
+                    clienteTelefono: exact.clienteTelefono || this.opportunity.clienteTelefono,
+                    clienteCP: exact.clienteCP || this.opportunity.clienteCP,
+                    clienteDireccion: exact.clienteDireccion || this.opportunity.clienteDireccion
+                };
+                this.isNewAccount = false;
+            } else {
+                this.opportunity = { ...this.opportunity, AccountId: null, AccountName: clean };
+                this.isNewAccount = true;
+            }
+        } catch (e) {
+            // Si falla la búsqueda, dejamos el nombre escrito para crear al guardar.
+            this.opportunity = { ...this.opportunity, AccountName: clean };
+            this.isNewAccount = true;
+        }
     }
     selectAccount(event) {
         const id = event.currentTarget.dataset.id;
@@ -662,6 +758,25 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             clienteDireccion: detail.clienteDireccion || detail.Account?.BillingStreet    || ''
         };
         this.selectedQuoteRamo = this.opportunity.Ramo__c;
+
+        if (this.opportunity.Ramo__c === RAMO_TYPES.EMPRESARIAL || detail.empresarial) {
+            this.empresarial = { ...this.getDefaultEmpresarial(), ...(detail.empresarial || {}) };
+        }
+        if (this.opportunity.Ramo__c === RAMO_TYPES.FIANZAS || detail.fianzas) {
+            this.fianzas = { ...this.getDefaultFianzas(), ...(detail.fianzas || {}) };
+        }
+        if (this.opportunity.Ramo__c === RAMO_TYPES.RESPONSABILIDAD_CIVIL || detail.rc) {
+            this.rc = { ...this.getDefaultRC(), ...(detail.rc || {}) };
+        }
+        if (this.opportunity.Ramo__c === RAMO_TYPES.DENTAL || detail.dental) {
+            this.dental = { ...this.getDefaultDental(), ...(detail.dental || {}) };
+        }
+        if (this.opportunity.Ramo__c === RAMO_TYPES.VISION || detail.vision) {
+            this.vision = { ...this.getDefaultVision(), ...(detail.vision || {}) };
+        }
+        if (this.opportunity.Ramo__c === RAMO_TYPES.TRANSPORTE || detail.transporte) {
+            this.transporte = { ...this.getDefaultTransporte(), ...(detail.transporte || {}) };
+        }
         if (this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL || detail.automovil) {
             const a = detail.automovil || detail;
             this.automovil = {
@@ -1693,6 +1808,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const mapped = this.mapRamoToOption(extractedData.ramo);
                 if (mapped) this.opportunity.Ramo__c = mapped;
             }
+            if (!this.opportunity.Prima_Total__c && extractedData.primaTotal) {
+                this.opportunity.Prima_Total__c = extractedData.primaTotal;
+            }
             if (extractedData.clienteNombre    && !this.opportunity.clienteNombre)    this.opportunity.clienteNombre    = extractedData.clienteNombre;
             if (extractedData.clienteEmail     && !this.opportunity.clienteEmail)     this.opportunity.clienteEmail     = extractedData.clienteEmail;
             if (extractedData.clienteTelefono  && !this.opportunity.clienteTelefono)  this.opportunity.clienteTelefono  = extractedData.clienteTelefono;
@@ -1710,19 +1828,79 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     descripcion_completa__c: extractedData.descripcion || this.automovil.descripcion_completa__c
                 };
             }
-            if (extractedData.asegurados && extractedData.asegurados.length > 0) {
-                this.gmm = {
-                    ...this.gmm,
-                    tipoEstructura: extractedData.asegurados.length > 1 ? 'Familiar' : 'Individual',
-                    numAsegurados: extractedData.asegurados.length
-                };
+            // ===== GMM (Gastos Médicos) =====
+            if (extractedData.numAsegurados)  this.gmm.numAsegurados  = extractedData.numAsegurados;
+            if (extractedData.tipoEstructura) this.gmm.tipoEstructura = extractedData.tipoEstructura;
+            if (extractedData.estado)         this.gmm.estado         = extractedData.estado;
+            if (extractedData.asegurados && extractedData.asegurados.length > 0 && !extractedData.numAsegurados) {
+                this.gmm.tipoEstructura = this.gmm.tipoEstructura
+                    || (extractedData.asegurados.length > 1 ? 'Familiar' : 'Individual');
+                this.gmm.numAsegurados = extractedData.asegurados.length;
             }
             if (extractedData.redHospitalaria) this.gmm.redHospitalaria = extractedData.redHospitalaria;
-            if (extractedData.destino)      this.viaje.destino       = extractedData.destino;
-            if (extractedData.numViajeros)  this.viaje.numPasajeros  = extractedData.numViajeros;
-            if (extractedData.fechaSalida)  this.viaje.fechaSalida   = extractedData.fechaSalida;
-            if (extractedData.subramo)      this.vida.subramo        = extractedData.subramo;
-            if (extractedData.edadVida)     this.vida.edadVida       = extractedData.edadVida;
+
+            // ===== Viajes =====
+            if (extractedData.destino)     this.viaje.destino      = extractedData.destino;
+            if (extractedData.numViajeros) this.viaje.numPasajeros = extractedData.numViajeros;
+            if (extractedData.fechaSalida) this.viaje.fechaSalida  = extractedData.fechaSalida;
+
+            // ===== Vida =====
+            if (extractedData.aseguradoPrincipal) this.vida.aseguradoPrincipal = extractedData.aseguradoPrincipal;
+            if (extractedData.contratante)        this.vida.contratante        = extractedData.contratante;
+            if (extractedData.edadVida)           this.vida.edadVida           = extractedData.edadVida;
+
+            // ===== Subramo: a Daños o a Vida según el ramo =====
+            if (extractedData.subramo) {
+                if (this.opportunity.Ramo__c === RAMO_TYPES.DANOS) {
+                    this.danos.subramo = extractedData.subramo;
+                } else {
+                    this.vida.subramo = extractedData.subramo;
+                }
+            }
+
+            // ===== Ramos con sección propia (Empresarial, Fianzas, RC, Dental, Visión) =====
+            const ramoActual = this.opportunity.Ramo__c;
+            if (ramoActual === RAMO_TYPES.EMPRESARIAL) {
+                this.empresarial = {
+                    ...this.empresarial,
+                    giro: extractedData.giro || this.empresarial.giro,
+                    actividad: extractedData.actividad || this.empresarial.actividad,
+                    ubicacion: extractedData.ubicacion || this.empresarial.ubicacion,
+                    valorInmueble: extractedData.valorInmueble || this.empresarial.valorInmueble,
+                    valorContenidos: extractedData.valorContenidos || this.empresarial.valorContenidos
+                };
+            } else if (ramoActual === RAMO_TYPES.FIANZAS) {
+                this.fianzas = {
+                    ...this.fianzas,
+                    tipoFianza: extractedData.tipoFianza || this.fianzas.tipoFianza,
+                    fiado: extractedData.fiado || this.fianzas.fiado,
+                    beneficiario: extractedData.beneficiario || this.fianzas.beneficiario,
+                    montoAfianzado: extractedData.montoAfianzado || this.fianzas.montoAfianzado
+                };
+            } else if (ramoActual === RAMO_TYPES.RESPONSABILIDAD_CIVIL) {
+                this.rc = {
+                    ...this.rc,
+                    tipoRC: extractedData.tipoRC || this.rc.tipoRC,
+                    profesion: extractedData.profesion || this.rc.profesion,
+                    actividad: extractedData.actividad || this.rc.actividad,
+                    giro: extractedData.giro || this.rc.giro
+                };
+            } else if (ramoActual === RAMO_TYPES.DENTAL) {
+                this.dental = {
+                    ...this.dental,
+                    plan: extractedData.plan || this.dental.plan,
+                    numAsegurados: extractedData.numAsegurados || this.dental.numAsegurados,
+                    red: extractedData.red || this.dental.red
+                };
+            } else if (ramoActual === RAMO_TYPES.VISION) {
+                this.vision = {
+                    ...this.vision,
+                    plan: extractedData.plan || this.vision.plan,
+                    numAsegurados: extractedData.numAsegurados || this.vision.numAsegurados,
+                    red: extractedData.red || this.vision.red
+                };
+            }
+
             this.applyCanalRules(extractedData);
             this.extractedOpportunityData = extractedData;
         } catch (e) { /* ignore */ }
@@ -1792,12 +1970,35 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 }
                 this.opportunity = { ...this.opportunity, AccountName: newAccName };
             }
+            // Payload: oportunidad + detalle del ramo + datos del auto (para Vehiculo__c)
+            const payload = {
+                ...this.opportunity,
+                detalleRamo: this.getActiveRamoDetail(),
+                vehiculo: this.automovil
+            };
             const savedId = await apexSaveOpportunity({
-                opportunityJson: JSON.stringify(this.opportunity),
+                opportunityJson: JSON.stringify(payload),
                 isNewAccount: this.isNewAccount
             });
             if (savedId) {
                 this.opportunity = { ...this.opportunity, Id: savedId };
+
+                // Si la oportunidad viene del flujo de PDFs, creamos sus cotizaciones.
+                if (this.uploadedQuotes && this.uploadedQuotes.length > 0) {
+                    try {
+                        const n = await crearCotizacionesDesdePdf({
+                            opportunityId: savedId,
+                            quotesJson: JSON.stringify(this.uploadedQuotes)
+                        });
+                        this.showToast('Cotizaciones',
+                            `Se crearon ${n} cotización(es) en la oportunidad.`, 'success');
+                    } catch (e) {
+                        const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+                        this.showToast('Aviso',
+                            'La oportunidad se guardó, pero hubo un problema creando las cotizaciones: ' + msg,
+                            'warning');
+                    }
+                }
             }
             this.showToast('Éxito',
                 this.isEditMode ? 'Oportunidad actualizada correctamente' : 'Oportunidad creada correctamente',
@@ -1820,9 +2021,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // ============================================================
     getDefaultOpportunity() {
         return {
-            Name: '', Type: OPPORTUNITY_TYPES.NEW_BUSINESS,
-            StageName: 'Gestion Comercial', Canal__c: '', Mercado__c: '',
+            Name: '', Type: OPPORTUNITY_TYPES.NEW_BUSINESS,   // "Nuevo"
+            StageName: 'Gestion Comercial',
+            Canal__c: 'Agente',                               // ← default
+            Mercado__c: 'Corporativo',                        // ← default
             Ramo__c: '', Description: '', AccountId: null, AccountName: '',
+            Agente__c: null, AgenteName: '',                  // ← nuevo lookup de Agente
+            Vehiculo__c: null, VehiculoName: '',
             Id: null,
             Prima_Total__c: null,
             tipoCliente: 'Persona',
@@ -1830,24 +2035,142 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             clienteEmail: '', clienteTelefono: '', clienteDireccion: ''
         };
     }
-    getDefaultAutomovil() { return { descripcion_completa__c: '', Placa__c: '', Serie__c: '', Modelo__c: '', Marca__c: '', Anio__c: '' }; }
+    // Devuelve el objeto de detalle del ramo seleccionado (lo que está en el formulario).
+    getActiveRamoDetail() {
+        const map = {
+            'Automoviles': this.automovil,
+            'GMM': this.gmm,
+            'Vida': this.vida,
+            'Viajes': this.viaje,
+            'Danos': this.danos,
+            'Empresarial': this.empresarial,
+            'Fianzas': this.fianzas,
+            'RC': this.rc,
+            'Dental': this.dental,
+            'Vision': this.vision
+        };
+        return map[this.opportunity.Ramo__c] || {};
+    }
+    getDefaultAutomovil() { return { descripcion_completa__c: '', Placa__c: '', Serie__c: '', Modelo__c: '', Marca__c: '', Anio__c: '', Motor__c: '' }; }
     getDefaultGMM()       { return { estado: '', tipoEstructura: '', numAsegurados: 1 }; }
     getDefaultVida()      { return { aseguradoPrincipal: '', contratante: '', subramo: '' }; }
     getDefaultViaje()     { return { destino: '', numPasajeros: 1 }; }
     getDefaultDanos()     { return { subramo: '' }; }
+    getDefaultEmpresarial() { return { giro: '', actividad: '', ubicacion: '', valorInmueble: '', valorContenidos: '' }; }
+    getDefaultFianzas()     { return { tipoFianza: '', fiado: '', beneficiario: '', montoAfianzado: '' }; }
+    getDefaultRC()          { return { tipoRC: '', profesion: '', actividad: '', giro: '' }; }
+    getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '' }; }
+    getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '' }; }
     handleBackToList() {
         this.viewMode = VIEW_MODES.LIST;
         this.resetWizard();
     }
     handleCreateNew() {
         this.resetWizard();
+        this.setDefaultAgente();
         this.viewMode = VIEW_MODES.CREATE;
     }
     // NUEVO - abre la vista de carga de PDFs
     handleCreateFromPdf() {
         this.resetWizard();
+        this.setDefaultAgente();
         this.viewMode = VIEW_MODES.PDF;
     }
+    // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
+    // Cambiamos a la vista de creación para que el usuario revise y guarde.
+    handlePdfAnalysisComplete(event) {
+        const d = (event && event.detail) || {};
+        const n = d.count || this.uploadedQuotes.length;
+        this.viewMode = VIEW_MODES.CREATE;
+
+        if (d.ganadora) {
+            const nota = `Recomendación IA: ${d.ganadora}` +
+                (d.recomendacion ? ` — ${d.recomendacion}` : '');
+            this.opportunity = {
+                ...this.opportunity,
+                Description: this.opportunity.Description
+                    ? `${this.opportunity.Description}\n\n${nota}`
+                    : nota
+            };
+        }
+
+        // Cuenta: usar el cliente detectado (buscar o marcar para crear) + agente por default.
+        this.resolveAccountByName(this.opportunity.clienteNombre);
+        this.setDefaultAgente();
+
+        this.showToast(
+            'Datos listos',
+            d.ganadora
+                ? `Se extrajeron ${n} cotizaciones. Recomendada: ${d.ganadora}. Revisa y guarda.`
+                : `Se extrajeron ${n} cotizaciones. Revisa el formulario y guarda.`,
+            'success'
+        );
+    }
+
+    // Pone Abraham Gonzalez Gonzalez como agente por default (si no hay uno ya).
+    async setDefaultAgente() {
+        if (this.opportunity.Agente__c) return;
+        try {
+            const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez Gonzalez' });
+            if (res && res.length > 0) {
+                this.opportunity = {
+                    ...this.opportunity,
+                    Agente__c: res[0].Id,
+                    AgenteName: res[0].Name
+                };
+            }
+        } catch (e) {
+            // sin agente por default; el usuario puede elegirlo
+        }
+    }
+
+    get hasAgenteResults() {
+        return this.agenteResults && this.agenteResults.length > 0;
+    }
+    handleAgenteFocus() {
+        this.showAgenteDropdown = true;
+    }
+    handleAgenteInput(event) {
+        const value = event.target.value;
+        this.opportunity = { ...this.opportunity, AgenteName: value, Agente__c: null };
+        this.showAgenteDropdown = true;
+        clearTimeout(this._agenteSearchTimer);
+        this._agenteSearchTimer = setTimeout(async () => {
+            if (value && value.length >= 3) {
+                try {
+                    this.agenteResults = await searchAgentsProspectors({ searchTerm: value });
+                } catch (e) {
+                    this.agenteResults = [];
+                }
+            } else {
+                this.agenteResults = [];
+            }
+        }, 300);
+    }
+    selectAgente(event) {
+        const id = event.currentTarget.dataset.id;
+        const ag = (this.agenteResults || []).find(a => a.Id === id);
+        if (!ag) return;
+        this.opportunity = { ...this.opportunity, Agente__c: ag.Id, AgenteName: ag.Name };
+        this.showAgenteDropdown = false;
+        this.agenteResults = [];
+    }
+
+    // Manejador genérico: data-field="empresarial.giro", "rc.tipoRC", etc.
+    handleRamoDetailChange(event) {
+        const raw = event.target.dataset && event.target.dataset.field;
+        if (!raw) return;
+        const dot = raw.indexOf('.');
+        if (dot < 0) return;
+        const obj = raw.substring(0, dot);
+        const field = raw.substring(dot + 1);
+        const value = (event.detail && event.detail.value !== undefined)
+            ? event.detail.value : event.target.value;
+        if (this[obj] && Object.prototype.hasOwnProperty.call(this[obj], field)) {
+            this[obj] = { ...this[obj], [field]: value };
+        }
+    }
+
     resetWizard() {
         this.opportunity = this.getDefaultOpportunity();
         this.automovil = this.getDefaultAutomovil();
@@ -1855,6 +2178,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.vida = this.getDefaultVida();
         this.viaje = this.getDefaultViaje();
         this.danos = this.getDefaultDanos();
+        this.empresarial = this.getDefaultEmpresarial();
+        this.fianzas = this.getDefaultFianzas();
+        this.rc = this.getDefaultRC();
+        this.dental = this.getDefaultDental();
+        this.vision = this.getDefaultVision();
         this.uploadedQuotes = [];
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;

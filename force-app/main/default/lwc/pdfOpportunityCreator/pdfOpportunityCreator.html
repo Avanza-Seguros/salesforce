@@ -1,18 +1,13 @@
 <template>
-  <lightning-card
-    title="Crear Oportunidad desde PDFs"
-    icon-name="standard:opportunity"
-  >
+  <lightning-card title="Crear Oportunidad desde PDFs" icon-name="standard:opportunity">
     <div class="slds-p-horizontal_medium slds-p-bottom_medium">
       <!-- Paso de carga -->
       <template lwc:if={showUploadStep}>
-        <p
-          class="slds-text-body_small slds-text-color_weak slds-m-bottom_small"
-        >
-          Sube 2 o más PDFs (por ejemplo, cotizaciones de distintas aseguradoras
-          para el mismo cliente). Los nombres de los archivos deben compartir un
-          prefijo común. La IA leerá los documentos, comparará coberturas y creará
-          una oportunidad con las cotizaciones y el comparativo en PDF.
+        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+          Sube 2 o más PDFs (cotizaciones de distintas aseguradoras para el mismo cliente).
+          Los nombres de los archivos deben compartir un prefijo común. La IA leerá los
+          documentos y llenará automáticamente el formulario de la oportunidad para que
+          lo revises y lo guardes.
         </p>
 
         <lightning-input
@@ -21,37 +16,26 @@
           accept="application/pdf,.pdf"
           multiple
           onchange={handleFileChange}
-          disabled={isProcessing}
-        >
+          disabled={isProcessing}>
         </lightning-input>
 
         <template lwc:if={hasFiles}>
           <div class="slds-m-top_small">
             <template for:each={fileList} for:item="f">
-              <div
-                key={f.name}
-                class="slds-box slds-box_x-small slds-m-bottom_xx-small slds-grid slds-grid_vertical-align-center"
-              >
-                <lightning-icon
-                  icon-name="doctype:pdf"
-                  size="small"
-                  class="slds-m-right_small"
-                ></lightning-icon>
+              <div key={f.name}
+                   class="slds-box slds-box_x-small slds-m-bottom_xx-small slds-grid slds-grid_vertical-align-center">
+                <lightning-icon icon-name="doctype:pdf" size="small" class="slds-m-right_small"></lightning-icon>
                 <span class="slds-truncate" title={f.name}>{f.name}</span>
               </div>
             </template>
 
             <template lwc:if={sharedPrefix}>
-              <p
-                class="slds-text-body_small slds-text-color_weak slds-m-top_x-small"
-              >
+              <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
                 Prefijo común detectado: <b>{sharedPrefix}</b>
               </p>
             </template>
             <template lwc:elseif={prefixWarning}>
-              <div
-                class="slds-box slds-theme_warning slds-m-top_x-small slds-text-body_small"
-              >
+              <div class="slds-box slds-theme_warning slds-m-top_x-small slds-text-body_small">
                 {prefixWarning}
               </div>
             </template>
@@ -61,28 +45,20 @@
         <div class="slds-m-top_medium">
           <lightning-button
             variant="brand"
-            label="Continuar"
-            title="Analizar los PDFs y crear la oportunidad"
+            label="Analizar y llenar formulario"
+            title="Leer los PDFs y llenar el formulario de la oportunidad"
             onclick={handleContinue}
-            disabled={continueDisabled}
-          >
+            disabled={continueDisabled}>
           </lightning-button>
         </div>
       </template>
 
       <!-- Procesando -->
       <template lwc:if={isProcessing}>
-        <div
-          class="slds-align_absolute-center slds-p-around_large slds-is-relative loader-zone"
-        >
-          <lightning-spinner
-            alternative-text="Procesando"
-            size="medium"
-          ></lightning-spinner>
+        <div class="slds-align_absolute-center slds-p-around_large slds-is-relative loader-zone">
+          <lightning-spinner alternative-text="Procesando" size="medium"></lightning-spinner>
         </div>
-        <p
-          class="slds-text-align_center slds-text-body_regular slds-m-top_large"
-        >
+        <p class="slds-text-align_center slds-text-body_regular slds-m-top_large">
           {statusMessage}
         </p>
       </template>
@@ -90,195 +66,35 @@
       <!-- Error -->
       <template lwc:if={error}>
         <div class="slds-box slds-theme_error slds-m-top_small">
-          <lightning-icon
-            icon-name="utility:error"
-            variant="inverse"
-            size="x-small"
-            class="slds-m-right_x-small"
-          ></lightning-icon>
+          <lightning-icon icon-name="utility:error" variant="inverse" size="x-small"
+                          class="slds-m-right_x-small"></lightning-icon>
           {error}
         </div>
       </template>
 
-      <!-- Resultado -->
-      <template lwc:if={hasResult}>
-        <!-- Banner de éxito -->
-        <div
-          class="slds-box slds-theme_success slds-m-bottom_medium slds-grid slds-grid_vertical-align-center"
-        >
-          <lightning-icon
-            icon-name="utility:success"
-            variant="inverse"
-            size="small"
-            class="slds-m-right_small"
-          ></lightning-icon>
-          <p class="slds-text-heading_small">{successBanner}</p>
+      <!-- Posible discrepancia de cliente/vehículo: pedimos confirmación -->
+      <template lwc:if={needsConfirm}>
+        <div class="slds-box slds-theme_warning slds-m-bottom_medium">
+          <p><b>Revisa antes de continuar:</b> {validacionAlerta}</p>
         </div>
+        <lightning-button
+          variant="brand"
+          label="Continuar de todos modos"
+          onclick={confirmAndContinue}
+          class="slds-m-right_x-small">
+        </lightning-button>
+        <lightning-button label="Revisar archivos" onclick={cancelValidation}>
+        </lightning-button>
+      </template>
 
-        <!-- Resumen ejecutivo -->
-        <template lwc:if={hasRecomendacion}>
-          <div class="exec-summary slds-m-bottom_medium">
-            <h3 class="exec-summary__title">Resumen ejecutivo</h3>
-            <template for:each={ganadoras} for:item="g">
-              <div key={g.key} class="ganadora">
-                <p class="ganadora__title">{g.titulo}</p>
-                <template lwc:if={g.porque}>
-                  <p class="ganadora__porque">
-                    <b>Por qué:</b> {g.porque}
-                  </p>
-                </template>
-                <template lwc:if={g.aCambio}>
-                  <p class="ganadora__a-cambio">
-                    <b>A cambio:</b> {g.aCambio}
-                  </p>
-                </template>
-              </div>
-            </template>
-            <template lwc:if={enPocasPalabras}>
-              <p class="en-pocas-palabras">
-                <b>En pocas palabras:</b> {enPocasPalabras}
-              </p>
-            </template>
-          </div>
-        </template>
-
-        <!-- Cotizaciones -->
-        <template lwc:if={quoteCards.length}>
-          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
-            Cotizaciones
-          </h3>
-          <div class="quote-grid slds-m-bottom_medium">
-            <template for:each={quoteCards} for:item="q">
-              <article key={q.key} class="quote-card">
-                <header class="quote-card__head">
-                  <lightning-icon
-                    icon-name="standard:quotes"
-                    size="small"
-                    class="slds-m-right_small"
-                  ></lightning-icon>
-                  <h4 class="quote-card__title">{q.title}</h4>
-                </header>
-                <dl class="quote-kv">
-                  <template for:each={q.rows} for:item="r">
-                    <div key={r.key} class="quote-kv__row">
-                      <dt class="quote-kv__label">{r.label}</dt>
-                      <dd class="quote-kv__value">
-                        <template lwc:if={r.isBadge}>
-                          <span class="slds-badge">{r.value}</span>
-                        </template>
-                        <template lwc:else>{r.value}</template>
-                      </dd>
-                    </div>
-                  </template>
-                </dl>
-                <div class="quote-chips">
-                  <template for:each={q.chips} for:item="c">
-                    <span key={c.key} class={c.cls}>{c.label}</span>
-                  </template>
-                </div>
-                <template lwc:if={q.notas}>
-                  <p class="quote-notas">{q.notas}</p>
-                </template>
-              </article>
-            </template>
-          </div>
-        </template>
-
-        <!-- Guía por frecuencia -->
-        <template lwc:if={hasGuia}>
-          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
-            Guía por frecuencia
-          </h3>
-          <div class="slds-scrollable_x slds-m-bottom_medium">
-            <table class="guia-table">
-              <thead>
-                <tr>
-                  <th scope="col">Riesgo</th>
-                  <th scope="col">Frecuencia</th>
-                  <th scope="col">Gana</th>
-                  <th scope="col">Detalle</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template for:each={guiaFrecuencia} for:item="row">
-                  <tr key={row.key}>
-                    <th scope="row">{row.riesgo}</th>
-                    <td>{row.frecuencia}</td>
-                    <td><b>{row.gana}</b></td>
-                    <td>{row.detalle}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-        </template>
-
-        <!-- Comparativo en PDF -->
-        <div class="action-card slds-m-bottom_medium">
-          <div class="action-card__body">
-            <lightning-icon
-              icon-name="doctype:pdf"
-              size="medium"
-              class="slds-m-right_small"
-            ></lightning-icon>
-            <div>
-              <p class="action-card__title">Comparativo en PDF</p>
-              <p class="action-card__sub">
-                Documento generado con los datos lado a lado de cada cotización.
-              </p>
-            </div>
-          </div>
-          <div class="action-card__actions">
-            <template lwc:if={hasComparativoPdf}>
-              <lightning-button
-                variant="brand"
-                label="Ver PDF comparativo"
-                icon-name="utility:preview"
-                onclick={handleOpenComparativoPdf}
-                class="slds-m-right_x-small"
-              >
-              </lightning-button>
-            </template>
-            <lightning-button
-              label="Abrir oportunidad"
-              icon-name="utility:open"
-              onclick={handleOpenOpportunity}
-              class="slds-m-right_x-small"
-            >
-            </lightning-button>
-            <lightning-button label="Procesar otros PDFs" onclick={handleReset}>
-            </lightning-button>
-          </div>
+      <!-- Confirmación: datos enviados al formulario del padre -->
+      <template lwc:if={done}>
+        <div class="slds-box slds-theme_success slds-m-bottom_medium slds-grid slds-grid_vertical-align-center">
+          <lightning-icon icon-name="utility:success" variant="inverse" size="small"
+                          class="slds-m-right_small"></lightning-icon>
+          <p class="slds-text-heading_small">{doneMessage}</p>
         </div>
-
-        <template lwc:if={aviso}>
-          <div class="slds-box slds-theme_info slds-m-bottom_medium slds-text-body_small">
-            {aviso}
-          </div>
-        </template>
-
-        <!-- Glosario -->
-        <template lwc:if={hasGlosario}>
-          <div class="glosario slds-m-bottom_small">
-            <button
-              type="button"
-              class="glosario__toggle"
-              onclick={handleToggleGlosario}
-            >
-              {glosarioToggleLabel}
-            </button>
-            <template lwc:if={glosarioOpen}>
-              <dl class="glosario__list">
-                <template for:each={glosario} for:item="g">
-                  <div key={g.key} class="glosario__item">
-                    <dt>{g.termino}</dt>
-                    <dd>{g.definicion}</dd>
-                  </div>
-                </template>
-              </dl>
-            </template>
-          </div>
-        </template>
+        <lightning-button label="Procesar otros PDFs" onclick={handleReset}></lightning-button>
       </template>
     </div>
   </lightning-card>

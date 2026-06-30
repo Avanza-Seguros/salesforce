@@ -1,44 +1,143 @@
-import { LightningElement } from "lwc";
+import { LightningElement, track } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
-import { NavigationMixin } from "lightning/navigation";
-import uploadAndCreateDraft from "@salesforce/apex/PdfOpportunityController.uploadAndCreateDraft";
-import compareAndCreateQuotes from "@salesforce/apex/PdfOpportunityController.compareAndCreateQuotes";
+import { loadScript } from "lightning/platformResourceLoader";
+import PDFJS from "@salesforce/resourceUrl/pdfjs";
+import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
+import analyzeQuotes from "@salesforce/apex/PdfOpportunityCreatorController.analyzeQuotes";
 
-const MAX_SIZE = 4500000; // ~4.5 MB por archivo: límite práctico para enviar base64 a Apex
+const MAX_SIZE = 4500000; // ~4.5 MB por archivo: límite práctico para enviar base64/texto a Apex
 const MIN_FILES = 2;
 const MIN_PREFIX_LENGTH = 3;
 
-export default class PdfOpportunityCreator extends NavigationMixin(
-  LightningElement
-) {
+export default class PdfOpportunityCreator extends LightningElement {
+
+  @track isPdfJsLoaded = false;
+  @track pdfJsError = false;
+  
   files = [];
   isProcessing = false;
   statusMessage = "";
-
-  result;
   error = "";
   prefixWarning = "";
-  glosarioOpen = false;
 
-  get showUploadStep() {
-    return !this.isProcessing && !this.hasResult;
+  // Resumen tras enviar los datos al formulario del padre.
+  done = false;
+  extractedCount = 0;
+  clienteDetectado = "";
+  ramoDetectado = "";
+
+  // Estado de pdf.js (para extraer el texto de los PDFs en el navegador).
+  pdfLibInit = false;
+  pdfLibReady = false;
+  // Confirmación cuando la IA detecta posible discrepancia de cliente/auto.
+  needsConfirm = false;
+  validacionAlerta = "";
+  _pendingRes = null;
+
+  renderedCallback() {
+    if (!this.isPdfJsLoaded && !this.pdfJsError) {
+          this.loadPdfJs();
+      }
   }
 
+  async loadPdfJs() {
+      try {
+          await this.loadPdfJsScript();
+          await this.setupWorker();
+          await this.testPdfJs();
+          
+          this.isPdfJsLoaded = true;
+          this.pdfJsError = false;
+          console.log(':::pdfOpportunityCreator::: ✅ PDF.js cargado exitosamente');
+      } catch (error) {
+          console.error(':::pdfOpportunityCreator::: ❌ Error cargando PDF.js:', JSON.stringify(error));
+          this.pdfJsError = true;
+          this.showToast('Error', 'No se pudo cargar PDF.js. Recarga la página.', 'error');
+      } finally {
+          this.isLoading = false;
+      }
+  }
+
+  async loadPdfJsScript() {
+      try {
+          const mainScript = PDFJS + '/pdf.js';
+          await loadScript(this, mainScript);
+          
+          if (typeof window.pdfjsLib === 'undefined') {
+              throw new Error('pdfjsLib no se definió después de cargar el script');
+          }
+          console.log(':::pdfOpportunityCreator::: ✅ Script PDF.js cargado');
+      } catch (error) {
+          console.warn('⚠️ Falló versión principal, intentando versión min...');
+          const minScript = PDFJS + '/pdf.min.js';
+          await loadScript(this, minScript);
+          
+          if (typeof window.pdfjsLib === 'undefined') {
+              throw new Error('pdfjsLib no disponible en ninguna versión');
+          }
+      }
+  }
+
+  async setupWorker() {
+      try {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
+      } catch (workerError) {
+          console.warn('⚠️ Error configurando worker:', workerError);
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+      }
+  }
+
+  async testPdfJs() {
+      try {
+          const pdfData = new Uint8Array([
+              0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25,
+              0xC3, 0xA4, 0xC3, 0xBC, 0xC3, 0xB6, 0xC3, 0x9F, 0x0A, 0x31,
+              0x20, 0x30, 0x20, 0x6F, 0x62, 0x6A, 0x0A, 0x3C, 0x3C, 0x2F,
+              0x54, 0x79, 0x70, 0x65, 0x2F, 0x43, 0x61, 0x74, 0x61, 0x6C,
+              0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
+              0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
+          ]);
+
+          const fontsUrl = fontsResource + '/';
+          
+          const loadingTask = window.pdfjsLib.getDocument({ 
+            data: pdfData,
+            standardFontDataUrl: fontsUrl
+          });
+          const timeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
+          );
+          
+          const pdf = await Promise.race([loadingTask.promise, timeout]);
+          if (pdf && pdf.destroy) {
+              await pdf.destroy();
+          }
+          
+          console.log(':::pdfOpportunityCreator::: ✅ PDF.js funciona correctamente');
+      } catch (testError) {
+          console.warn('⚠️ Test de PDF.js falló:', testError.message);
+      }
+  }
+
+
+  // ============================================================
+  // GETTERS DE VISTA
+  // ============================================================
+  get showUploadStep() {
+    return !this.isProcessing && !this.done && !this.needsConfirm;
+  }
   get hasFiles() {
     return this.files && this.files.length > 0;
   }
-
   get fileList() {
     return this.files.map((f) => ({ name: f.name }));
   }
-
   get sharedPrefix() {
     if (!this.hasFiles || this.files.length < MIN_FILES) {
       return "";
     }
     return computeSharedPrefix(this.files.map((f) => f.name));
   }
-
   get continueDisabled() {
     if (this.isProcessing) {
       return true;
@@ -48,137 +147,14 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     }
     return !this.sharedPrefix;
   }
-
-  get hasResult() {
-    return !!this.result;
+  get doneMessage() {
+    const c = this.clienteDetectado || "el cliente";
+    return `Se extrajeron ${this.extractedCount} cotización(es) para ${c}. Revisa los datos en el formulario y guarda la oportunidad.`;
   }
 
-  get successBanner() {
-    if (!this.result) {
-      return "";
-    }
-    const vehiculo = this.result.vehiculo || "el vehículo";
-    const cliente = this.result.cliente || "cliente sin nombre";
-    const n = (this.result.quotes || []).length;
-    return `Oportunidad creada para ${vehiculo} (${cliente}) con ${n} cotizaciones`;
-  }
-
-  get ganadoras() {
-    const r = this.result && this.result.recomendacion;
-    if (!r || !Array.isArray(r.ganadoras)) {
-      return [];
-    }
-    return r.ganadoras.map((g, i) => ({
-      key: "g" + i,
-      titulo: `${g.nombre || "Sin nombre"} — ${g.etiqueta || ""}`.trim(),
-      porque: g.porque || "",
-      aCambio: g.a_cambio || ""
-    }));
-  }
-
-  get enPocasPalabras() {
-    return (
-      (this.result &&
-        this.result.recomendacion &&
-        this.result.recomendacion.en_pocas_palabras) ||
-      ""
-    );
-  }
-
-  get hasRecomendacion() {
-    return this.ganadoras.length > 0 || !!this.enPocasPalabras;
-  }
-
-  get quoteCards() {
-    const quotes = (this.result && this.result.quotes) || [];
-    return quotes.map((q, i) => {
-      const title = (q.aseguradora && q.aseguradora.trim()) || q.name || `Cotización ${i + 1}`;
-      const rows = [
-        { key: "p", label: "Prima anual", value: formatCurrency(q.primaAnual) },
-        { key: "s", label: "Suma asegurada", value: formatCurrency(q.sumaAsegurada) },
-        {
-          key: "tv",
-          label: "Tipo de valor",
-          value: q.tipoValor || "—",
-          isBadge: true
-        },
-        {
-          key: "dd",
-          label: "Deducible Daños",
-          value: formatDeducible(q.deducibleDanosPct, q.deducibleDanosMxn)
-        },
-        {
-          key: "dr",
-          label: "Deducible Robo",
-          value: formatDeducible(q.deducibleRoboPct, q.deducibleRoboMxn)
-        },
-        { key: "rc", label: "RC", value: formatCurrency(q.responsabilidadCivil) },
-        { key: "gm", label: "Gastos médicos", value: formatCurrency(q.gastosMedicos) },
-        { key: "vc", label: "Vida conductor", value: formatCurrency(q.vidaConductor) }
-      ];
-      const chips = [
-        { key: "ch_cri", label: "Cristales", on: !!q.cristales },
-        { key: "ch_av", label: "Asistencia vial", on: !!q.asistenciaVial },
-        { key: "ch_dj", label: "Defensa jurídica", on: !!q.defensaJuridica },
-        { key: "ch_rce", label: "RC extranjero", on: !!q.rcExtranjero }
-      ].map((c) => ({
-        ...c,
-        cls: c.on ? "chip chip_on" : "chip chip_off"
-      }));
-      return {
-        key: q.id || "q" + i,
-        title,
-        rows,
-        chips,
-        notas: (q.notas && q.notas.trim()) || ""
-      };
-    });
-  }
-
-  get guiaFrecuencia() {
-    const g =
-      (this.result &&
-        this.result.recomendacion &&
-        this.result.recomendacion.guia_frecuencia) ||
-      [];
-    return g.map((row, i) => ({
-      key: "gf" + i,
-      riesgo: row.riesgo || "",
-      frecuencia: row.frecuencia || "",
-      gana: row.gana || "",
-      detalle: row.detalle || ""
-    }));
-  }
-
-  get hasGuia() {
-    return this.guiaFrecuencia.length > 0;
-  }
-
-  get hasComparativoPdf() {
-    return !!(this.result && this.result.comparativoPdfId);
-  }
-
-  get glosario() {
-    const g = (this.result && this.result.glosario) || [];
-    return g.map((item, i) => ({
-      key: "gl" + i,
-      termino: item.termino || "",
-      definicion: item.definicion || ""
-    }));
-  }
-
-  get hasGlosario() {
-    return this.glosario.length > 0;
-  }
-
-  get glosarioToggleLabel() {
-    return this.glosarioOpen ? "Ocultar glosario" : "Ver glosario";
-  }
-
-  get aviso() {
-    return (this.result && this.result.aviso) || "";
-  }
-
+  // ============================================================
+  // EVENTOS DE ARCHIVOS
+  // ============================================================
   handleFileChange(event) {
     this.error = "";
     this.prefixWarning = "";
@@ -213,7 +189,7 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     this.files = accepted;
 
     if (this.files.length > 0 && this.files.length < MIN_FILES) {
-      this.prefixWarning = `Sube al menos ${MIN_FILES} PDFs para crear la oportunidad.`;
+      this.prefixWarning = `Sube al menos ${MIN_FILES} PDFs para comparar cotizaciones.`;
       return;
     }
     if (this.files.length >= MIN_FILES && !this.sharedPrefix) {
@@ -224,6 +200,9 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     }
   }
 
+  // ============================================================
+  // ANALIZAR Y ALIMENTAR EL FORMULARIO DEL PADRE
+  // ============================================================
   async handleContinue() {
     if (!this.hasFiles || this.files.length < MIN_FILES) {
       this.showToast(
@@ -244,33 +223,33 @@ export default class PdfOpportunityCreator extends NavigationMixin(
 
     this.isProcessing = true;
     this.error = "";
-    this.result = undefined;
     try {
-      this.statusMessage = "Subiendo documentos…";
-      const base64List = await Promise.all(
-        this.files.map((f) => this.readAsBase64(f))
-      );
+      this.statusMessage = "Leyendo el contenido de los PDFs…";
       const fileNames = this.files.map((f) => f.name);
-
-      const draft = await uploadAndCreateDraft({
-        fileNames,
-        base64DataList: base64List
-      });
-
-      this.statusMessage =
-        "Comparando cotizaciones con IA y creando los Quotes…";
-      const res = await compareAndCreateQuotes({
-        opportunityId: draft.opportunityId,
-        contentDocumentIds: draft.contentDocumentIds
-      });
-
-      this.result = res;
-      const n = (res.quotes || []).length;
-      this.showToast(
-        "Oportunidad creada",
-        `Se crearon ${n} cotizaciones para "${res.vehiculo || res.opportunityName || "la oportunidad"}".`,
-        "success"
+      const pdfTexts = await Promise.all(
+        this.files.map((f) => this.extractPdfText(f))
       );
+
+      this.statusMessage = "Analizando cotizaciones con IA…";
+      const res = await analyzeQuotes({ fileNames, pdfTexts });
+      console.log(':::pdfOpportunityCreator::: ✅ Respuesta de Apex:', JSON.stringify(res));
+      const quotes = (res && res.quotes) || [];
+      if (quotes.length === 0) {
+        throw new Error(
+          "No se pudieron leer cotizaciones de los PDFs. Revisa que tengan texto seleccionable."
+        );
+      }
+
+      // ¿La IA detectó que NO son del mismo cliente/auto? Pedimos confirmación.
+      const val = (res && res.validacion) || {};
+      if (val.alerta) {
+        this._pendingRes = res;
+        this.validacionAlerta = val.alerta;
+        this.needsConfirm = true;
+        return; // esperamos a que el usuario confirme o revise
+      }
+
+      this.emitResults(res);
     } catch (e) {
       this.error = this.reduceError(e);
       this.showToast("Error", this.error, "error");
@@ -280,57 +259,142 @@ export default class PdfOpportunityCreator extends NavigationMixin(
     }
   }
 
-  handleOpenOpportunity() {
-    if (!this.result || !this.result.opportunityId) {
-      return;
+  // Continúa pese a la advertencia de discrepancia.
+  confirmAndContinue() {
+    const res = this._pendingRes;
+    this.needsConfirm = false;
+    this.validacionAlerta = "";
+    this._pendingRes = null;
+    if (res) {
+      this.emitResults(res);
     }
-    this[NavigationMixin.Navigate]({
-      type: "standard__recordPage",
-      attributes: {
-        recordId: this.result.opportunityId,
-        objectApiName: "Opportunity",
-        actionName: "view"
-      }
-    });
   }
 
-  handleOpenComparativoPdf() {
-    if (!this.hasComparativoPdf) {
-      return;
-    }
-    this[NavigationMixin.Navigate]({
-      type: "standard__namedPage",
-      attributes: { pageName: "filePreview" },
-      state: { selectedRecordId: this.result.comparativoPdfId }
-    });
+  // Cancela y vuelve al paso de carga para revisar/cambiar los PDFs.
+  cancelValidation() {
+    this.needsConfirm = false;
+    this.validacionAlerta = "";
+    this._pendingRes = null;
   }
 
-  handleToggleGlosario() {
-    this.glosarioOpen = !this.glosarioOpen;
+  // Emite las cotizaciones al padre (combinando vehículo + cliente comunes).
+  emitResults(res) {
+    console.log(':::pdfOpportunityCreator::: Emitiendo resultados al padre:', JSON.stringify(res));
+    const quotes = (res && res.quotes) || [];
+    const det = (res && res.detalle) || (res && res.vehiculo) || {};
+    const cli = (res && res.cliente) || {};
+
+    quotes.forEach((q, i) => {
+      const detail = toPlainObject({
+        ...q,
+        ...det,                       // ← datos específicos del ramo (marca, destino, asegurados, etc.)
+        ramo: q.ramo || (res && res.ramo) || "",
+        ramoLabel: q.ramo || (res && res.ramo) || "",
+        esGanadora: !!q.esGanadora,
+        // Cliente (común)
+        clienteNombre: cli.nombre || "",
+        clienteRFC: cli.rfc || "",
+        clienteEmail: cli.email || "",
+        clienteTelefono: cli.telefono || "",
+        clienteCP: cli.cp || "",
+        clienteDireccion: cli.direccion || "",
+        id: `pdf-${Date.now()}-${i}`,
+        nombreArchivo: q.archivoOrigen || `Cotización ${i + 1}`,
+        extractionConfidence: 90,
+        hasCoberturas: Array.isArray(q.tablaCompletaCoberturas)
+          ? q.tablaCompletaCoberturas.length > 0
+          : false,
+        coberturasCount: Array.isArray(q.tablaCompletaCoberturas)
+          ? q.tablaCompletaCoberturas.length
+          : 0
+      });
+      this.dispatchEvent(new CustomEvent("pdfdataextracted", { detail }));
+    });
+
+    this.extractedCount = quotes.length;
+    this.clienteDetectado = cli.nombre || "";
+    this.ramoDetectado = (res && res.ramo) || "";
+    const recTexto =
+      (res && res.recomendacion && res.recomendacion.en_pocas_palabras) || "";
+
+    this.dispatchEvent(
+      new CustomEvent("analysiscomplete", {
+        detail: toPlainObject({
+          count: quotes.length,
+          cliente: this.clienteDetectado,
+          ramo: this.ramoDetectado,
+          ganadora: (res && res.ganadora) || "",
+          recomendacion: recTexto,
+          aviso: (res && res.aviso) || ""
+        })
+      })
+    );
+
+    this.done = true;
+    this.showToast(
+      "Datos extraídos",
+      `Se enviaron ${quotes.length} cotizaciones al formulario.`,
+      "success"
+    );
   }
 
   handleReset() {
+    this.needsConfirm = false;
+    this.validacionAlerta = "";
+    this._pendingRes = null;
     this.files = [];
-    this.result = undefined;
     this.error = "";
     this.prefixWarning = "";
-    this.glosarioOpen = false;
+    this.done = false;
+    this.extractedCount = 0;
+    this.clienteDetectado = "";
+    this.ramoDetectado = "";
     const input = this.template.querySelector('lightning-input[type="file"]');
     if (input) {
       input.value = null;
     }
   }
 
-  readAsBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
+  // Extrae el texto de un PDF con pdf.js. Devuelve "" si no se puede (p. ej. escaneado
+  // o si pdf.js falla en este entorno). Tiene un timeout para no dejar el spinner
+  // girando si pdf.js se cuelga (caso del "fake worker" en Lightning Web Security).
+  async extractPdfText(file) {
+
+    const TIMEOUT_MS = 15000;
+    const fontsUrl = fontsResource + '/';
+
+    const extraction = (async () => {
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = window.pdfjsLib.getDocument({
+        data: new Uint8Array(arrayBuffer),
+        isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+        useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+        standardFontDataUrl: fontsUrl,
+        disableFontFace: true     // ← evita cargar fuentes externas
+      });
+      const pdf = await loadingTask.promise;
+      let text = "";
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        text += content.items.map((it) => it.str).join(" ") + "\n";
+      }
+      return text.trim();
+    })();
+    try {
+      // Si pdf.js no resuelve en el tiempo límite, seguimos con texto vacío
+      // (el servidor usará su respaldo). Así el spinner nunca se queda atorado.
+      return await Promise.race([
+        extraction,
+        new Promise((resolve) => {
+          // eslint-disable-next-line @lwc/lwc/no-async-operation
+          setTimeout(() => resolve(""), TIMEOUT_MS);
+        })
+      ]);
+    } catch (e) {
+      console.error(':::pdfOpportunityCreator::: ❌ Error extrayendo texto del PDF:', JSON.stringify(e));
+      return "";
+    }
   }
 
   reduceError(e) {
@@ -348,34 +412,15 @@ export default class PdfOpportunityCreator extends NavigationMixin(
   }
 }
 
-function formatCurrency(v) {
-  if (v === null || v === undefined || v === "") {
-    return "—";
-  }
-  const n = Number(v);
-  if (Number.isNaN(n)) {
-    return String(v);
-  }
+// Convierte cualquier objeto (incluidos los que devuelve Apex) en un objeto
+// plano y clonable, para poder enviarlo en el detail de un CustomEvent sin que
+// LWC lance DataCloneError.
+function toPlainObject(obj) {
   try {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-      maximumFractionDigits: 0
-    }).format(n);
+    return JSON.parse(JSON.stringify(obj));
   } catch (e) {
-    return "$" + n.toFixed(0);
+    return obj;
   }
-}
-
-function formatDeducible(pct, mxn) {
-  const hasPct = pct !== null && pct !== undefined && pct !== "";
-  const hasMxn = mxn !== null && mxn !== undefined && mxn !== "";
-  if (!hasPct && !hasMxn) {
-    return "—";
-  }
-  const pctStr = hasPct ? `${Number(pct)}%` : "—";
-  const mxnStr = hasMxn ? formatCurrency(mxn) : "—";
-  return `${pctStr} — ${mxnStr}`;
 }
 
 function computeSharedPrefix(names) {
