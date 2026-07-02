@@ -15,6 +15,7 @@ import searchAgentsProspectors from '@salesforce/apex/OpportunityController.sear
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
+import prepararCotizaciones from '@salesforce/apex/PdfOpportunityCreatorController.prepararCotizaciones';
 
 // ============================================================
 // CONSTANTES
@@ -103,6 +104,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track showAgenteDropdown = false;
     @track agenteResults = [];
     _agenteSearchTimer = null;
+    @track editableQuotes = [];
     // === Estado comparativa (datos extraídos de PDFs) ===
     @track tablaComparativaCache = [];
     @track companiasConCoberturasCache = [];
@@ -171,6 +173,59 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasVehiculoResults() {
         return this.vehiculoResults && this.vehiculoResults.length > 0;
     }
+
+    async loadEditableQuotes() {
+        if (!this.uploadedQuotes || !this.uploadedQuotes.length) {
+            this.editableQuotes = [];
+            return;
+        }
+        try {
+            const res = await prepararCotizaciones({
+                quotesJson: JSON.stringify(this.uploadedQuotes)
+            });
+            this.editableQuotes = (res || []).map(q => ({
+                ...q,
+                productId: q.productoSugeridoId,
+                sinProductos: !(q.productos && q.productos.length)
+            }));
+        } catch (e) {
+            this.editableQuotes = [];
+        }
+    }
+
+    async handleCrearCotizaciones() {
+        if (!this.opportunity.Id || !this.hasEditableQuotes) { return; }
+        // Validar que cada cotización tenga producto
+        const sinProd = this.editableQuotes.filter(q => !q.productId);
+        if (sinProd.length) {
+            this.showToast('Falta producto',
+                `Selecciona el producto de: ${sinProd.map(q => q.compania).join(', ')}`, 'warning');
+            return;
+        }
+        this.isSaving = true; this.isLoading = true;
+        try {
+            const payload = this.editableQuotes.map(q => ({
+                id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
+                primaTotal: q.primaTotal, vigencia: q.vigencia,
+                noCotizacion: q.noCotizacion, productId: q.productId
+            }));
+            const res = await crearCotizacionesDesdePdf({
+                opportunityId: this.opportunity.Id,
+                quotesJson: JSON.stringify(payload)
+            });
+            const n = (res && res.creadas) || 0;
+            this.showToast('Cotizaciones', `Se crearon ${n} cotización(es).`, 'success');
+            this.uploadedQuotes = [];
+            this.editableQuotes = [];
+            await this.openOpportunityInEditMode(this.opportunity.Id);
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('Error', 'No se pudieron crear las cotizaciones: ' + msg, 'error');
+        } finally {
+            this.isSaving = false; this.isLoading = false;
+        }
+    }
+
     handleVehiculoFocus() {
         this.showVehiculoDropdown = true;
     }
@@ -271,19 +326,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // ============================================================
     /** Hay comparativa cuando hay 2 o más cotizaciones relacionadas con prima válida. */
     get hasQuoteComparison() {
-        const valid = (this.relatedQuotes || []).filter(q => q && q.totalAmount > 0);
+        const valid = (this.comparativaSource  || []).filter(q => q && q.totalAmount > 0);
         return valid.length >= 2;
     }
     /** Aviso cuando solo hay 1 cotización (para invitar a agregar otra). */
     get hasSingleQuote() {
         return (this.relatedQuotes || []).length === 1;
     }
+
+    get editableQuotesCount() {
+        return this.editableQuotes ? this.editableQuotes.length : 0;
+    }
+
     /**
      * Cotizaciones enriquecidas para la tabla comparativa.
      * Marca cuál tiene el mejor precio y calcula la diferencia vs. el mejor.
      */
     get comparisonQuotes() {
-        const quotes = (this.relatedQuotes || []).filter(q => q && q.totalAmount > 0);
+        const quotes = (this.comparativaSource || []).filter(q => q && q.totalAmount > 0);
         if (quotes.length === 0) return [];
         const minAmount = Math.min(...quotes.map(q => q.totalAmount));
         const maxCoverage = Math.max(...quotes.map(q => q.coverageCount || 0));
@@ -336,7 +396,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
      * y una recomendación en lenguaje de negocio.
      */
     get comparisonSummary() {
-        const quotes = (this.relatedQuotes || []).filter(q => q && q.totalAmount > 0);
+        const quotes = (this.comparativaSource || []).filter(q => q && q.totalAmount > 0);
         if (quotes.length < 2) {
             return {
                 totalQuotes: quotes.length,
@@ -973,7 +1033,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
      * de coberturas y matriz cobertura × compañía con sí/no.
      */
     get comparativoData() {
-        const quotes = (this.relatedQuotes || []).filter(q => q && q.totalAmount > 0);
+        const quotes = (this.comparativaSource || []).filter(q => q && q.totalAmount > 0);
         if (quotes.length < 2) {
             return { hasData: false };
         }
@@ -1982,29 +2042,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             if (savedId) {
                 this.opportunity = { ...this.opportunity, Id: savedId };
-
-                // Si la oportunidad viene del flujo de PDFs, creamos sus cotizaciones.
-                if (this.uploadedQuotes && this.uploadedQuotes.length > 0) {
-                    try {
-                        const n = await crearCotizacionesDesdePdf({
-                            opportunityId: savedId,
-                            quotesJson: JSON.stringify(this.uploadedQuotes)
-                        });
-                        this.showToast('Cotizaciones',
-                            `Se crearon ${n} cotización(es) en la oportunidad.`, 'success');
-                    } catch (e) {
-                        const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
-                        this.showToast('Aviso',
-                            'La oportunidad se guardó, pero hubo un problema creando las cotizaciones: ' + msg,
-                            'warning');
-                    }
-                }
             }
             this.showToast('Éxito',
                 this.isEditMode ? 'Oportunidad actualizada correctamente' : 'Oportunidad creada correctamente',
                 'success');
             await this.loadOpportunities();
-            setTimeout(() => this.handleBackToList(), 1000);
+
+            if (this.hasPdfQuotes && savedId) {
+                // Venimos del flujo de PDFs: nos quedamos en la oportunidad para
+                // validar la comparativa y crear las cotizaciones al confirmar.
+                this.viewMode = VIEW_MODES.EDIT;
+            } else {
+                setTimeout(() => this.handleBackToList(), 1000);
+            }
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error(':::OpportunityCreator::: Error al guardar', error);
@@ -2097,6 +2147,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Cuenta: usar el cliente detectado (buscar o marcar para crear) + agente por default.
         this.resolveAccountByName(this.opportunity.clienteNombre);
         this.setDefaultAgente();
+        this.loadEditableQuotes();
 
         this.showToast(
             'Datos listos',
@@ -2122,6 +2173,73 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         } catch (e) {
             // sin agente por default; el usuario puede elegirlo
         }
+    }
+
+    get hasEditableQuotes() {
+        return this.editableQuotes && this.editableQuotes.length > 0;
+    }
+    handleQuoteProductChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const val = event.detail.value;
+        this.editableQuotes = this.editableQuotes.map((q, i) =>
+            i === idx ? { ...q, productId: val } : q);
+    }
+    handleQuoteFieldChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const field = event.target.dataset.field;
+        const val = event.target.value;
+        this.editableQuotes = this.editableQuotes.map((q, i) =>
+            i === idx ? { ...q, [field]: val } : q);
+    }
+
+    get hasPdfQuotes() {
+        return this.uploadedQuotes && this.uploadedQuotes.length > 0;
+    }
+    get pdfQuotePreview() {
+        return (this.uploadedQuotes || []).map((q, i) => ({
+            key: q.id || ('pq' + i),
+            compania: q.compania || '—',
+            plan: q.plan || '',
+            primaFormatted: q.primaTotalFormatted || this.formatCurrency(q.primaTotal),
+            vigencia: q.vigencia ? this.formatDate(q.vigencia) : '—',
+            esGanadora: !!q.esGanadora,
+            ramoLabel: q.ramoLabel || q.ramo || '',
+            coberturas: (q.tablaCompletaCoberturas || []).map((c, j) => ({
+                key: (q.id || i) + '-' + j,
+                nombre: c.cobertura || c.nombre || '',
+                suma: this.formatCurrencyOrText(c.sumaAsegurada || c.suma || ''),
+                deducible: c.deducible || ''
+            }))
+        }));
+    }
+
+    // Fuente de la comparativa: si hay cotizaciones guardadas, esas; si no, las del PDF (preview).
+    get comparativaSource() {
+        const rel = (this.relatedQuotes || []).filter(q => q && q.totalAmount > 0);
+        if (rel.length > 0) return this.relatedQuotes;
+        return (this.uploadedQuotes || []).map((q, i) => this.mapPdfQuoteToComparativa(q, i));
+    }
+
+    // Convierte una cotización del PDF al formato que usa la comparativa.
+    mapPdfQuoteToComparativa(q, i) {
+        const total = parseFloat(q.primaTotal) || 0;
+        const covs = (q.tablaCompletaCoberturas || [])
+            .map(c => (c.cobertura || c.nombre || '').trim())
+            .filter(Boolean);
+        return {
+            Id: q.id || ('pq' + i),
+            companiaLabel: q.compania || '—',
+            totalAmount: total,
+            totalFormatted: this.formatCurrency(total),
+            coverageCount: covs.length,
+            coverageLabel: covs.length === 1 ? '1 cobertura' : `${covs.length} coberturas`,
+            coverageNames: covs,
+            expirationDateRaw: q.vigencia || null,
+            expirationFormatted: q.vigencia ? this.formatDate(q.vigencia) : '',
+            statusLabel: 'Vista previa',
+            statusBadgeClass: 'quote-badge quote-badge-neutral',
+            isSelected: !!q.esGanadora
+        };
     }
 
     get hasAgenteResults() {

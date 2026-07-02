@@ -655,7 +655,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .quotes-table th {
     background: #F5F7FA; font-weight: 600; color: var(--text-secondary);
 }
-.quotes-table td.amount-cell { font-weight: 600; text-align: right; }
+.quotes-table td.amount-cell { font-weight: 600; text-align: center; }
 .quotes-empty {
     padding: var(--spacing-xl); text-align: center; color: var(--text-light);
 }
@@ -974,13 +974,13 @@ lightning-combobox {
 .action-btn.pdf-action {
     background: linear-gradient(135deg, #6B46C1 0%, #9333EA 100%);
     color: #fff;
-    border: none;
+    border: 2px solid #003D99;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.5rem 0.9rem;
-    border-radius: 0.35rem;
-    font-weight: 600;
+    padding: 0.75rem 1.5rem;   /* ← antes 0.5rem 0.9rem */
+    border-radius: 12px;       /* ← antes 0.35rem */
+    font-weight: 700;          /* ← igual que .action-btn.primary */
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
     margin-left: 0.5rem;
@@ -993,3 +993,54 @@ lightning-combobox {
     --sds-c-icon-color-foreground-default: #fff;
 }
 .pdf-view-container { padding: 1rem; }
+
+/* ---- Revisar y editar cotizaciones ---- */
+.edit-quotes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+}
+.edit-quote-card {
+    background: #ffffff;
+    border: 1px solid #D0D7E2;
+    border-top: 4px solid #0052CC;
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 2px 6px rgba(0, 28, 61, 0.06);
+    display: flex;
+    flex-direction: column;
+}
+.edit-quote-card__head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 0.85rem; padding-bottom: 0.6rem; border-bottom: 1px solid #EDF0F3;
+}
+.edit-quote-card__aseg { font-size: 1.05rem; font-weight: 800; color: #001C3D; }
+.edit-quote-card__badge {
+    background: #E6F4EA; color: #00875A; border: 1px solid #B2DBC1;
+    font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+}
+.edit-quote-card__body { display: flex; flex-direction: column; gap: 0.75rem; }
+.eq-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.eq-warn { color: #B3260A; font-size: 0.78rem; margin: 0.3rem 0 0 0; }
+.edit-quotes-footer { margin-top: 1.25rem; display: flex; justify-content: flex-end; }
+.edit-quotes-accept { background: #00875A !important; border-color: #006B47 !important; min-width: 240px; }
+.edit-quotes-accept:hover { background: #006B47 !important; }
+
+@media (max-width: 640px) {
+    .eq-row { grid-template-columns: 1fr; }
+}
+
+/* ---- Ajustes de alineación de la comparativa ---- */
+.comparison-kpis { align-items: stretch; }
+.comparison-kpis .kpi-card { height: 100%; }
+.comparativo-doc { overflow-x: auto; }        /* la tabla no se desborda en pantallas chicas */
+.comparativo-doc .doc-table { min-width: 560px; }
+
+.comparison-section,
+.edit-quotes-section {
+    width: 100%;
+    grid-column: 1 / -1;   /* si por algo cae en un grid, ocupa todo el ancho */
+    flex: 1 1 100%;
+}

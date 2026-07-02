@@ -907,6 +907,8 @@
                                             <th scope="col">Número</th>
                                             <th scope="col">Nombre</th>
                                             <th scope="col">Compañía</th>
+                                            <th scope="col">Producto</th>
+                                            <th scope="col">Coberturas</th>
                                             <th scope="col">Estado</th>
                                             <th scope="col">Prima total</th>
                                             <th scope="col">Vigencia</th>
@@ -919,6 +921,8 @@
                                                 <td>{q.QuoteNumber}</td>
                                                 <td>{q.Name}</td>
                                                 <td>{q.companiaLabel}</td>
+                                                <td>{q.productName}</td>
+                                                <td>{q.coverageLabel}</td>
                                                 <td>
                                                     <lightning-badge label={q.statusLabel} class={q.statusBadgeClass}></lightning-badge>
                                                 </td>
@@ -951,6 +955,86 @@
                         </div>
                     </div>
 
+                    <!-- Aviso cuando hay 1 sola cotización -->
+                    <template if:true={hasSingleQuote}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <template if:true={hasPdfQuotes}>
+                                        <p class="section-subtitle">Vista previa de los PDFs — revisa y presiona "Aceptar y crear cotizaciones".</p>
+                                    </template>
+                                    <template if:false={hasPdfQuotes}>
+                                        <p class="section-subtitle">Compara prima, estado y vigencia para elegir la mejor opción</p>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="empty-state quotes-empty">
+                                <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
+                                <p>Agrega una segunda cotización para comparar precios, vigencias y estados.</p>
+                                <button class="action-btn primary" onclick={handleAddNewQuote}>
+                                    <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                    Agregar otra cotización
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <template if:true={hasEditableQuotes}>
+                        <div class="unified-section edit-quotes-section" style="margin-top:1.25rem;">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:edit" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Revisar y editar cotizaciones</h2>
+                                    <p class="section-subtitle">Verifica el producto de cada cotización antes de crearlas.</p>
+                                </div>
+                                <div class="section-badge compare-badge">{editableQuotesCount} cotizaciones</div>
+                            </div>
+
+                            <div class="edit-quotes-grid">
+                                <template for:each={editableQuotes} for:item="q" for:index="idx">
+                                    <article key={q.id} class="edit-quote-card">
+                                        <header class="edit-quote-card__head">
+                                            <span class="edit-quote-card__aseg">{q.compania}</span>
+                                            <template if:true={q.esGanadora}>
+                                                <span class="edit-quote-card__badge">★ Recomendada</span>
+                                            </template>
+                                        </header>
+                                        <div class="edit-quote-card__body">
+                                            <div class="eq-field-full">
+                                                <lightning-combobox label="Producto" value={q.productId}
+                                                    options={q.productos} placeholder="Selecciona un producto"
+                                                    data-index={idx} onchange={handleQuoteProductChange}>
+                                                </lightning-combobox>
+                                                <template if:true={q.sinProductos}>
+                                                    <p class="eq-warn">No hay productos de esta aseguradora/ramo. Elige otro o da uno de alta.</p>
+                                                </template>
+                                            </div>
+                                            <div class="eq-row">
+                                                <lightning-input label="Plan" value={q.plan}
+                                                    data-index={idx} data-field="plan" onchange={handleQuoteFieldChange}></lightning-input>
+                                                <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={q.primaTotal}
+                                                    data-index={idx} data-field="primaTotal" onchange={handleQuoteFieldChange}></lightning-input>
+                                            </div>
+                                            <lightning-input type="date" label="Vigencia" value={q.vigencia}
+                                                data-index={idx} data-field="vigencia" onchange={handleQuoteFieldChange}></lightning-input>
+                                        </div>
+                                    </article>
+                                </template>
+                            </div>
+                            <div class="edit-quotes-footer">
+                                <button class="action-btn primary edit-quotes-accept"
+                                        onclick={handleCrearCotizaciones} disabled={isSaving}>
+                                    <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
+                                    Aceptar y crear cotizaciones
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                     <!-- ====================================================== -->
                     <!-- SECCIÓN 4.B: COMPARATIVA DE COTIZACIONES               -->
                     <!-- Sólo se muestra si hay 2 o más cotizaciones            -->
@@ -966,12 +1050,6 @@
                                     <p class="section-subtitle">Compara prima, estado y vigencia para elegir la mejor opción</p>
                                 </div>
                                 <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
-                                <button class="action-btn primary section-action-btn print-comparativo-btn"
-                                        onclick={handlePrintComparativo}
-                                        title="Imprimir o guardar como PDF">
-                                    <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
-                                    Imprimir / PDF
-                                </button>
                             </div>
 
                             <!-- KPIs de la comparativa -->
@@ -1133,49 +1211,154 @@
                             </template>
                         </div>
                     </template>
-
-                    <!-- Aviso cuando hay 1 sola cotización -->
-                    <template if:true={hasSingleQuote}>
+                </template>
+                <!-- En modo CREACIÓN -->
+                <template if:false={isEditMode}>
+                    <!-- Comparativa (vista previa desde PDFs, sin guardar) -->
+                    <template if:true={hasQuoteComparison}>
                         <div class="unified-section comparison-section">
                             <div class="section-header-compact">
                                 <div class="section-icon compare-icon">
                                     <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
                                 </div>
                                 <div class="section-title-group">
-                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
-                                    <p class="section-subtitle">Necesitas al menos 2 cotizaciones para activar la comparación</p>
+                                    <h2 class="section-title">Comparativa de Cotizaciones (vista previa)</h2>
+                                    <p class="section-subtitle">Datos extraídos de los PDFs. Aún NO se han guardado.</p>
+                                </div>
+                                <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
+                                <button class="action-btn primary section-action-btn print-comparativo-btn"
+                                        onclick={handlePrintComparativo} title="Imprimir o guardar como PDF">
+                                    <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
+                                    Imprimir / PDF
+                                </button>
+                            </div>
+
+                            <!-- KPIs -->
+                            <div class="comparison-kpis">
+                                <div class="kpi-card kpi-best-price">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:currency" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Mejor precio</span>
+                                        <span class="kpi-value">{comparisonSummary.bestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.bestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-highest-price">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:up" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Precio más alto</span>
+                                        <span class="kpi-value">{comparisonSummary.highestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.highestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-savings">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:success" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Ahorro potencial</span>
+                                        <span class="kpi-value">{comparisonSummary.savingsFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.savingsPercent}% vs. más alto</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-coverage">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:shield" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Más coberturas</span>
+                                        <span class="kpi-value">{comparisonSummary.mostCoveragesCount}</span>
+                                        <span class="kpi-detail">{comparisonSummary.mostCoveragesCompany}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="empty-state quotes-empty">
-                                <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
-                                <p>Agrega una segunda cotización para comparar precios, vigencias y estados.</p>
-                                <button class="action-btn primary" onclick={handleAddNewQuote}>
-                                    <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
-                                    Agregar otra cotización
-                                </button>
+
+                            <!-- Documento comparativo (mismo formato de siempre) -->
+                            <template if:true={comparativoData.hasData}>
+                                <div class="comparativo-doc">
+                                    <div class="doc-head">
+                                        <h1>Comparativo de Seguro de {comparativoData.ramoLabel}</h1>
+                                        <p>{comparativoData.opportunityName} · {comparativoData.clienteName} · Vigencia {comparativoData.vigInicio} – {comparativoData.vigFin}</p>
+                                        <span class="doc-tag">{comparativoData.totalQuotes} aseguradoras comparadas · Cotizado por Avanza Seguro</span>
+                                    </div>
+                                    <table class="doc-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="doc-th doc-th-lbl">Cobertura</th>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <th key={col.Id} class={col.headerClass}>
+                                                        {col.name}
+                                                        <template if:true={col.hasBadge}><span class="doc-rec-badge">{col.badge}</span></template>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="doc-row-price">
+                                                <td class="doc-cell doc-cell-lbl doc-cell-lbl-price"><span class="doc-cn">PRECIO ANUAL (Prima Total)</span></td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>
+                                                        <strong>{col.priceFormatted}</strong>
+                                                        <template if:true={col.hasPriceSub}><span class="doc-sub">{col.priceSub}</span></template>
+                                                    </td>
+                                                </template>
+                                            </tr>
+                                            <tr>
+                                                <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Coberturas incluidas (total)</span></td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>{col.coverageCount}</td>
+                                                </template>
+                                            </tr>
+                                            <template for:each={comparativoData.rows} for:item="row">
+                                                <tr key={row.key}>
+                                                    <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{row.name}</span></td>
+                                                    <template for:each={row.cells} for:item="cell">
+                                                        <td key={cell.key} class={cell.cellClass}>{cell.text}</td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+
+                                    <div class="doc-recs">
+                                        <h2>Las mejores opciones — tú decides</h2>
+                                        <div class="doc-twocol">
+                                            <template for:each={comparativoData.cards} for:item="card">
+                                                <div key={card.key} class="doc-card doc-card-win">
+                                                    <h3>{card.title}</h3>
+                                                    <p>{card.text}</p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="doc-decide">
+                                        <h2>Recomendación</h2>
+                                        <div class="doc-bottom">{comparativoData.recomendacion}</div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div class="readonly-banner" style="margin-top:1rem;">
+                                <lightning-icon icon-name="utility:info" size="x-small"></lightning-icon>
+                                <span>Es una <strong>vista previa</strong>; las cotizaciones se crearán cuando confirmes los datos.</span>
                             </div>
                         </div>
                     </template>
-                </template>
-                <!-- En modo CREACIÓN dejamos un aviso (no hay quotes todavía) -->
-                <template if:false={isEditMode}>
-                    <div class="unified-section">
-                        <div class="section-header-compact">
-                            <div class="section-icon">
-                                <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
+
+                    <!-- Si no hay cotizaciones del PDF, el aviso de siempre -->
+                    <template if:false={hasPdfQuotes}>
+                        <div class="unified-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon"><lightning-icon icon-name="standard:quotes" size="small"></lightning-icon></div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Cotizaciones</h2>
+                                    <p class="section-subtitle">Las cotizaciones podrán asociarse una vez creada la oportunidad</p>
+                                </div>
                             </div>
-                            <div class="section-title-group">
-                                <h2 class="section-title">Cotizaciones</h2>
-                                <p class="section-subtitle">Las cotizaciones podrán asociarse una vez creada la oportunidad</p>
+                            <div class="quotes-list-container">
+                                <div class="empty-state quotes-empty">
+                                    <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
+                                    <p>Primero guarda la oportunidad; después podrás añadir cotizaciones desde su detalle.</p>
+                                </div>
                             </div>
                         </div>
-                        <div class="quotes-list-container">
-                            <div class="empty-state quotes-empty">
-                                <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
-                                <p>Primero guarda la oportunidad; después podrás añadir cotizaciones desde su detalle.</p>
-                            </div>
-                        </div>
-                    </div>
+                    </template>
                 </template>
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 5: RESUMEN Y GUARDAR                           -->

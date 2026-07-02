@@ -1,452 +1,590 @@
+/**
+ *   @name: OpportunityController
+ *   @version: 1.0
+ *   @creation date: 02/07/2026
+ *   @author: Sergio Uribe Toledo - Volestra
+ *   @description: Controlador Aura/LWC para gestionar Oportunidades de seguros: listar, ver detalle con cotizaciones y coberturas, eliminar, buscar agentes, cuentas y vehiculos, extraer datos de polizas, guardar oportunidades y consultar productos.
+ */
 public with sharing class OpportunityController {
 
-    @AuraEnabled(cacheable=false)
-    public static List<Opportunity> getOpportunities() {
-        try {
-            return [
-                SELECT
-                    Id,
-                    Name,
-                    StageName,
-                    CloseDate,
-                    Amount,
-                    Prima_Total__c,
-                    Description,
-                    Type,
-                    LeadSource,
-                    Probability,
-                    AccountId,
-                    Ramo__c,
-                    Canal__c,
-                    Mercado__c,
-                    Account.Name,
-                    Owner.Name,
-                    CreatedDate
-                FROM Opportunity
-                ORDER BY CreatedDate DESC
-                LIMIT 50
-            ];
-        } catch (Exception e) {
-            throw new AuraHandledException('Error al cargar oportunidades: ' + e.getMessage());
-        }
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve las 50 oportunidades mas recientes con sus campos principales para mostrarlas en el listado del LWC.
+	 * @return Lista de Opportunity ordenada por fecha de creacion descendente
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Opportunity> getOpportunities() {
+		try {
+			return [
+				SELECT
+					Id,
+					Name,
+					StageName,
+					CloseDate,
+					Amount,
+					Prima_Total__c,
+					Description,
+					Type,
+					LeadSource,
+					Probability,
+					AccountId,
+					Ramo__c,
+					Canal__c,
+					Mercado__c,
+					Account.Name,
+					Owner.Name,
+					CreatedDate
+				FROM Opportunity
+				ORDER BY CreatedDate DESC
+				LIMIT 50
+			];
+		} catch (Exception e) {
+			throw new AuraHandledException('Error al cargar oportunidades: ' + e.getMessage());
+		}
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static OpportunityDetailWrapper getOpportunityDetails(String opportunityId) {
-        try {
-            OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
-            wrapper.opportunity = [
-                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-                       Ramo__c, CloseDate, Amount, Prima_Total__c,
-                       AccountId, Account.Name, Description
-                FROM Opportunity
-                WHERE Id = :opportunityId
-                LIMIT 1
-            ];
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el detalle de una oportunidad junto con sus cotizaciones, sus lineas de producto y el conteo y nombres de coberturas por cotizacion.
+	 * @param opportunityId: Id de la oportunidad a consultar
+	 * @return OpportunityDetailWrapper con la oportunidad, cotizaciones y datos de coberturas
+	 */
+	@AuraEnabled(cacheable=false)
+	public static OpportunityDetailWrapper getOpportunityDetails(String opportunityId) {
+		try {
+			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
+			wrapper.opportunity = [
+				SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+					   Ramo__c, CloseDate, Amount, Prima_Total__c,
+					   AccountId, Account.Name, Description
+				FROM Opportunity
+				WHERE Id = :opportunityId
+				LIMIT 1
+			];
 
-            // - QuoteLineItem    → línea con el PRODUCTO de la cotización
-            // - Quote_Coverage__c → COBERTURAS reales (objeto custom)
-            wrapper.quotes = [
-                SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber,
-                       IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId,
-                       Account.Name, Product__c, Product__r.Name, Is_Selected__c,
-                       Aseguradora__c, Aseguradora__r.Name, Price_Book__c,
-                       (SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice, TotalPrice
-                        FROM QuoteLineItems)
-                FROM Quote
-                WHERE OpportunityId = :opportunityId
-                ORDER BY CreatedDate DESC
-            ];
+			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
+			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)
+			wrapper.quotes = [
+				SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber,
+					   IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId,
+					   Account.Name, Product__c, Product__r.Name, Is_Selected__c,
+					   Aseguradora__c, Aseguradora__r.Name, Price_Book__c,
+					   (SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice, TotalPrice
+						FROM QuoteLineItems)
+				FROM Quote
+				WHERE OpportunityId = :opportunityId
+				ORDER BY CreatedDate DESC
+			];
 
-            // Coberturas (Quote_Coverage__c) por cotización: traemos el
-            // nombre y el orden. Con eso el LWC arma:
-            //   • el conteo total para la tabla y el KPI
-            //   • el comparativo imprimible (matriz cobertura × compañía)
-            Set<Id> quoteIds = new Set<Id>();
-            for (Quote q : wrapper.quotes) quoteIds.add(q.Id);
+			// Coberturas (Quote_Coverage__c) por cotización: traemos el
+			// nombre y el orden. Con eso el LWC arma:
+			//   • el conteo total para la tabla y el KPI
+			//   • el comparativo imprimible (matriz cobertura × compañía)
+			Set<Id> quoteIds = new Set<Id>();
+			for (Quote q : wrapper.quotes) quoteIds.add(q.Id);
 
-            Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
-            Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
-            if (!quoteIds.isEmpty()) {
-                for (Quote_Coverage__c qc : [
-                    SELECT Id, Quote__c, Coverage_Name__c, Name, Order__c
-                    FROM Quote_Coverage__c
-                    WHERE Quote__c IN :quoteIds
-                    ORDER BY Order__c NULLS LAST, Coverage_Name__c
-                ]) {
-                    Id qid = qc.Quote__c;
-                    if (!coverageNamesByQuote.containsKey(qid)) {
-                        coverageNamesByQuote.put(qid, new List<String>());
-                        coverageCounts.put(qid, 0);
-                    }
-                    String covName = String.isNotBlank(qc.Coverage_Name__c)
-                                     ? qc.Coverage_Name__c : qc.Name;
-                    coverageNamesByQuote.get(qid).add(covName);
-                    coverageCounts.put(qid, coverageCounts.get(qid) + 1);
-                }
-            }
-            wrapper.coverageCounts = coverageCounts;
-            wrapper.coverageNamesByQuote = coverageNamesByQuote;
+			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
+			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
+			if (!quoteIds.isEmpty()) {
+				for (Quote_Coverage__c qc : [
+					SELECT Id, Quote__c, Coverage_Name__c, Name, Order__c
+					FROM Quote_Coverage__c
+					WHERE Quote__c IN :quoteIds
+					ORDER BY Order__c NULLS LAST, Coverage_Name__c
+				]) {
+					Id qid = qc.Quote__c;
+					if (!coverageNamesByQuote.containsKey(qid)) {
+						coverageNamesByQuote.put(qid, new List<String>());
+						coverageCounts.put(qid, 0);
+					}
+					String covName = String.isNotBlank(qc.Coverage_Name__c)
+									 ? qc.Coverage_Name__c : qc.Name;
+					coverageNamesByQuote.get(qid).add(covName);
+					coverageCounts.put(qid, coverageCounts.get(qid) + 1);
+				}
+			}
+			wrapper.coverageCounts = coverageCounts;
+			wrapper.coverageNamesByQuote = coverageNamesByQuote;
 
-            return wrapper;
-        } catch (Exception e) {
-            throw new AuraHandledException('Error al cargar detalles de la oportunidad: ' + e.getMessage());
-        }
-    }
+			return wrapper;
+		} catch (Exception e) {
+			throw new AuraHandledException('Error al cargar detalles de la oportunidad: ' + e.getMessage());
+		}
+	}
 
-    public class OpportunityDetailWrapper {
-        @AuraEnabled public Opportunity opportunity;
-        @AuraEnabled public List<Quote> quotes;
-        @AuraEnabled public Map<Id, Integer> coverageCounts;
-        @AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Estructura de datos que agrupa la oportunidad, sus cotizaciones y la informacion de coberturas para exponerla al LWC.
+	 */
+	public class OpportunityDetailWrapper {
+		@AuraEnabled public Opportunity opportunity;
+		@AuraEnabled public List<Quote> quotes;
+		@AuraEnabled public Map<Id, Integer> coverageCounts;
+		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static void deleteOpportunity(String opportunityId) {
-        try {
-            Opportunity opp = [SELECT Id FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
-            delete opp;
-        } catch (Exception e) {
-            throw new AuraHandledException('Error al eliminar oportunidad: ' + e.getMessage());
-        }
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elimina la oportunidad indicada.
+	 * @param opportunityId: Id de la oportunidad a eliminar
+	 * @return void
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void deleteOpportunity(String opportunityId) {
+		try {
+			Opportunity opp = [SELECT Id FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+			delete opp;
+		} catch (Exception e) {
+			throw new AuraHandledException('Error al eliminar oportunidad: ' + e.getMessage());
+		}
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static List<Agente__c> searchAgentsProspectors(String searchTerm) {
-        try {
-            if (String.isBlank(searchTerm) || searchTerm.length() < 3) {
-                return new List<Agente__c>();
-            }
-            String searchQuery = '%' + searchTerm + '%';
-            return [
-                SELECT Id, Name, Email__c, Telefono__c, Contacto__r.Name, Horno_mes__c
-                FROM Agente__c
-                WHERE (Name LIKE :searchQuery
-                       OR Email__c LIKE :searchQuery
-                       OR Contacto__r.Name LIKE :searchQuery)
-                ORDER BY Name
-                LIMIT 10
-            ];
-        } catch (Exception e) {
-            throw new AuraHandledException('Error en búsqueda de agentes: ' + e.getMessage());
-        }
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca agentes/prospectores por nombre, email o nombre de contacto a partir de un termino de al menos 3 caracteres.
+	 * @param searchTerm: Texto de busqueda (minimo 3 caracteres)
+	 * @return Lista de Agente__c coincidentes (maximo 10)
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Agente__c> searchAgentsProspectors(String searchTerm) {
+		try {
+			if (String.isBlank(searchTerm) || searchTerm.length() < 3) {
+				return new List<Agente__c>();
+			}
+			String searchQuery = '%' + searchTerm + '%';
+			return [
+				SELECT Id, Name, Email__c, Telefono__c, Contacto__r.Name, Horno_mes__c
+				FROM Agente__c
+				WHERE (Name LIKE :searchQuery
+					   OR Email__c LIKE :searchQuery
+					   OR Contacto__r.Name LIKE :searchQuery)
+				ORDER BY Name
+				LIMIT 10
+			];
+		} catch (Exception e) {
+			throw new AuraHandledException('Error en búsqueda de agentes: ' + e.getMessage());
+		}
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static List<PdfWrapper> getPdfFiles(Id recordId) {
-        List<PdfWrapper> result = new List<PdfWrapper>();
-        for (ContentDocumentLink cdl : [
-            SELECT ContentDocument.Id,
-                   ContentDocument.Title,
-                   ContentDocument.LatestPublishedVersionId
-            FROM ContentDocumentLink
-            WHERE LinkedEntityId = :recordId
-        ]) {
-            result.add(new PdfWrapper(
-                cdl.ContentDocument.Id,
-                cdl.ContentDocument.Title,
-                cdl.ContentDocument.LatestPublishedVersionId
-            ));
-        }
-        return result;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los archivos (PDF u otros) vinculados a un registro mediante ContentDocumentLink.
+	 * @param recordId: Id del registro cuyos archivos se quieren obtener
+	 * @return Lista de PdfWrapper con id de documento, titulo e id de version
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<PdfWrapper> getPdfFiles(Id recordId) {
+		List<PdfWrapper> result = new List<PdfWrapper>();
+		for (ContentDocumentLink cdl : [
+			SELECT ContentDocument.Id,
+				   ContentDocument.Title,
+				   ContentDocument.LatestPublishedVersionId
+			FROM ContentDocumentLink
+			WHERE LinkedEntityId = :recordId
+		]) {
+			result.add(new PdfWrapper(
+				cdl.ContentDocument.Id,
+				cdl.ContentDocument.Title,
+				cdl.ContentDocument.LatestPublishedVersionId
+			));
+		}
+		return result;
+	}
 
-    public class PdfWrapper {
-        @AuraEnabled public Id documentId;
-        @AuraEnabled public String title;
-        @AuraEnabled public Id versionId;
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Estructura que representa un archivo para exponer su id de documento, titulo e id de version al LWC.
+	 */
+	public class PdfWrapper {
+		@AuraEnabled public Id documentId;
+		@AuraEnabled public String title;
+		@AuraEnabled public Id versionId;
 
-        public PdfWrapper(Id docId, String t, Id vId) {
-            documentId = docId;
-            title = t;
-            versionId = vId;
-        }
-    }
+		/**
+		 * @creation date: 02/07/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Construye el wrapper de archivo con los datos del documento.
+		 * @param docId: Id del ContentDocument
+		 * @param t: Titulo del documento
+		 * @param vId: Id de la ultima version publicada
+		 */
+		public PdfWrapper(Id docId, String t, Id vId) {
+			documentId = docId;
+			title = t;
+			versionId = vId;
+		}
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static Map<String, Object> extractPolicyData(String fileContent) {
-        Map<String, Object> result = new Map<String, Object>();
-        try {
-            Blob fileBlob = EncodingUtil.base64Decode(fileContent.split(',')[1]);
-            // Integración futura con OCR (Google Vision, AWS Textract, etc.)
-            result.put('success', true);
-            result.put('confidence', 85);
-            List<Map<String, Object>> extractedFields = new List<Map<String, Object>>();
-            extractedFields.add(createField('NumeroPoliza__c', 'Número de Póliza', 'P-2024-0012345', 95));
-            extractedFields.add(createField('Aseguradora__c', 'Compañía Aseguradora', 'Mapfre', 90));
-            extractedFields.add(createField('Prima_Total__c', 'Prima Total', '1250.00', 80));
-            result.put('extractedFields', extractedFields);
-        } catch (Exception e) {
-            result.put('success', false);
-            result.put('error', e.getMessage());
-        }
-        return result;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Decodifica el contenido base64 de un archivo y devuelve datos de poliza simulados (placeholder para futura integracion con OCR).
+	 * @param fileContent: Contenido del archivo en formato data URL base64
+	 * @return Mapa con el resultado del proceso, confianza y campos extraidos
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> extractPolicyData(String fileContent) {
+		Map<String, Object> result = new Map<String, Object>();
+		try {
+			Blob fileBlob = EncodingUtil.base64Decode(fileContent.split(',')[1]);
+			// Integración futura con OCR (Google Vision, AWS Textract, etc.)
+			result.put('success', true);
+			result.put('confidence', 85);
+			List<Map<String, Object>> extractedFields = new List<Map<String, Object>>();
+			extractedFields.add(createField('NumeroPoliza__c', 'Número de Póliza', 'P-2024-0012345', 95));
+			extractedFields.add(createField('Aseguradora__c', 'Compañía Aseguradora', 'Mapfre', 90));
+			extractedFields.add(createField('Prima_Total__c', 'Prima Total', '1250.00', 80));
+			result.put('extractedFields', extractedFields);
+		} catch (Exception e) {
+			result.put('success', false);
+			result.put('error', e.getMessage());
+		}
+		return result;
+	}
 
-    private static Map<String, Object> createField(String name, String label, String value, Integer confidence) {
-        Map<String, Object> field = new Map<String, Object>();
-        field.put('name', name);
-        field.put('label', label);
-        field.put('value', value);
-        field.put('confidence', confidence);
-        return field;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Construye un mapa que representa un campo extraido con su nombre, etiqueta, valor y nivel de confianza.
+	 * @param name: Nombre API del campo
+	 * @param label: Etiqueta legible del campo
+	 * @param value: Valor extraido
+	 * @param confidence: Porcentaje de confianza de la extraccion
+	 * @return Mapa con la informacion del campo
+	 */
+	private static Map<String, Object> createField(String name, String label, String value, Integer confidence) {
+		Map<String, Object> field = new Map<String, Object>();
+		field.put('name', name);
+		field.put('label', label);
+		field.put('value', value);
+		field.put('confidence', confidence);
+		return field;
+	}
 
-    public class AccountResult {
-        @AuraEnabled public Id Id;
-        @AuraEnabled public String Name;
-        @AuraEnabled public Boolean IsPersonAccount;
-        @AuraEnabled public String typeLabel;
-        @AuraEnabled public String detailLine;
-        @AuraEnabled public String clienteNombre;
-        @AuraEnabled public String clienteRFC;
-        @AuraEnabled public String clienteEmail;
-        @AuraEnabled public String clienteTelefono;
-        @AuraEnabled public String clienteCP;
-        @AuraEnabled public String clienteDireccion;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Estructura que expone los datos de una cuenta (persona o empresa) para los resultados de busqueda en el LWC.
+	 */
+	public class AccountResult {
+		@AuraEnabled public Id Id;
+		@AuraEnabled public String Name;
+		@AuraEnabled public Boolean IsPersonAccount;
+		@AuraEnabled public String typeLabel;
+		@AuraEnabled public String detailLine;
+		@AuraEnabled public String clienteNombre;
+		@AuraEnabled public String clienteRFC;
+		@AuraEnabled public String clienteEmail;
+		@AuraEnabled public String clienteTelefono;
+		@AuraEnabled public String clienteCP;
+		@AuraEnabled public String clienteDireccion;
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static List<AccountResult> searchAccounts(String searchTerm) {
-        String busqTerm = '%' + searchTerm + '%';
-        List<AccountResult> out = new List<AccountResult>();
-        for (Account a : [
-            SELECT Id, Name, IsPersonAccount, Phone,
-                   BillingStreet, BillingPostalCode,
-                   PersonEmail, PersonMobilePhone,
-                   PersonMailingStreet, PersonMailingPostalCode
-            FROM Account
-            WHERE Name LIKE :busqTerm
-            ORDER BY Name LIMIT 20
-        ]) {
-            AccountResult r = new AccountResult();
-            r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
-            r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
-            r.clienteNombre = a.Name;
-            if (a.IsPersonAccount) {
-                r.clienteEmail = a.PersonEmail;
-                r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
-                r.clienteCP = a.PersonMailingPostalCode;
-                r.clienteDireccion = a.PersonMailingStreet;
-            } else {
-                r.clienteTelefono = a.Phone;
-                r.clienteCP = a.BillingPostalCode;
-                r.clienteDireccion = a.BillingStreet;
-            }
-            r.detailLine = r.typeLabel + (String.isNotBlank(r.clienteRFC) ? '  ·  RFC ' + r.clienteRFC : '');
-            out.add(r);
-        }
-        return out;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca cuentas por nombre y devuelve sus datos de contacto adaptados segun sean cuenta persona o empresa.
+	 * @param searchTerm: Texto de busqueda para el nombre de la cuenta
+	 * @return Lista de AccountResult coincidentes (maximo 20)
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<AccountResult> searchAccounts(String searchTerm) {
+		String busqTerm = '%' + searchTerm + '%';
+		List<AccountResult> out = new List<AccountResult>();
+		for (Account a : [
+			SELECT Id, Name, IsPersonAccount, Phone,
+				   BillingStreet, BillingPostalCode,
+				   PersonEmail, PersonMobilePhone,
+				   PersonMailingStreet, PersonMailingPostalCode
+			FROM Account
+			WHERE Name LIKE :busqTerm
+			ORDER BY Name LIMIT 20
+		]) {
+			AccountResult r = new AccountResult();
+			r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
+			r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
+			r.clienteNombre = a.Name;
+			if (a.IsPersonAccount) {
+				r.clienteEmail = a.PersonEmail;
+				r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
+				r.clienteCP = a.PersonMailingPostalCode;
+				r.clienteDireccion = a.PersonMailingStreet;
+			} else {
+				r.clienteTelefono = a.Phone;
+				r.clienteCP = a.BillingPostalCode;
+				r.clienteDireccion = a.BillingStreet;
+			}
+			r.detailLine = r.typeLabel + (String.isNotBlank(r.clienteRFC) ? '  ·  RFC ' + r.clienteRFC : '');
+			out.add(r);
+		}
+		return out;
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
-        Map<String, Object> d =
-            (Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea o actualiza una oportunidad a partir de un JSON del formulario; opcionalmente crea la cuenta (persona o empresa) y, si el ramo es Automoviles, resuelve o crea el vehiculo asociado.
+	 * @param opportunityJson: Cadena JSON con los datos de la oportunidad, cuenta y vehiculo
+	 * @param isNewAccount: Indica si debe crearse una cuenta nueva
+	 * @return Id de la oportunidad creada o actualizada
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
+		Map<String, Object> d =
+			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
-        Id accountId = d.get('AccountId') != null
-            ? (Id) String.valueOf(d.get('AccountId'))
-            : null;
+		Id accountId = d.get('AccountId') != null
+			? (Id) String.valueOf(d.get('AccountId'))
+			: null;
 
-        // ------------------------------------------------------------
-        // 1) CUENTA NUEVA
-        // ------------------------------------------------------------
-        if (isNewAccount == true && accountId == null) {
-            String tipoCliente = getStr(d, 'tipoCliente');
-            Account acc = new Account();
+		// ------------------------------------------------------------
+		// 1) CUENTA NUEVA
+		// ------------------------------------------------------------
+		if (isNewAccount == true && accountId == null) {
+			String tipoCliente = getStr(d, 'tipoCliente');
+			Account acc = new Account();
 
-            if (tipoCliente == 'Persona') {
-                Id paRtId = getPersonAccountRecordTypeId();
-                if (paRtId != null) {
-                    acc.RecordTypeId = paRtId;
-                }
-                acc.FirstName = getStr(d, 'clienteNombre');
-                acc.LastName  = getStr(d, 'clienteApellidos');
-                if (String.isBlank(acc.LastName)) {
-                    acc.LastName  = String.isNotBlank(acc.FirstName)
-                                    ? acc.FirstName : getStr(d, 'AccountName');
-                    acc.FirstName = null;
-                }
-                acc.PersonEmail             = getStr(d, 'clienteEmail');
-                acc.Phone                   = getStr(d, 'clienteTelefono');
-                acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');
-                acc.PersonMailingPostalCode = getStr(d, 'clienteCP');
-            } else {
-                acc.Name = getStr(d, 'AccountName');
-                if (String.isBlank(acc.Name)) {
-                    acc.Name = getStr(d, 'clienteNombre');
-                }
-                acc.Phone             = getStr(d, 'clienteTelefono');
-                acc.BillingStreet     = getStr(d, 'clienteDireccion');
-                acc.BillingPostalCode = getStr(d, 'clienteCP');
-            }
+			if (tipoCliente == 'Persona') {
+				Id paRtId = getPersonAccountRecordTypeId();
+				if (paRtId != null) {
+					acc.RecordTypeId = paRtId;
+				}
+				acc.FirstName = getStr(d, 'clienteNombre');
+				acc.LastName  = getStr(d, 'clienteApellidos');
+				if (String.isBlank(acc.LastName)) {
+					acc.LastName  = String.isNotBlank(acc.FirstName)
+									? acc.FirstName : getStr(d, 'AccountName');
+					acc.FirstName = null;
+				}
+				acc.PersonEmail             = getStr(d, 'clienteEmail');
+				acc.Phone                   = getStr(d, 'clienteTelefono');
+				acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');
+				acc.PersonMailingPostalCode = getStr(d, 'clienteCP');
+			} else {
+				acc.Name = getStr(d, 'AccountName');
+				if (String.isBlank(acc.Name)) {
+					acc.Name = getStr(d, 'clienteNombre');
+				}
+				acc.Phone             = getStr(d, 'clienteTelefono');
+				acc.BillingStreet     = getStr(d, 'clienteDireccion');
+				acc.BillingPostalCode = getStr(d, 'clienteCP');
+			}
 
-            insert acc;
-            accountId = acc.Id;
-        }
+			insert acc;
+			accountId = acc.Id;
+		}
 
-        // ------------------------------------------------------------
-        // 2) OPORTUNIDAD (crear o actualizar)
-        // ------------------------------------------------------------
-        Opportunity opp = new Opportunity();
-        if (d.get('Id') != null) {
-            opp.Id = (Id) String.valueOf(d.get('Id'));
-        }
-        opp.Name        = getStr(d, 'Name');
-        opp.AccountId   = accountId;
-        // Defaults de negocio (por si llegaran vacíos desde el formulario)
-        opp.Canal__c   = String.isNotBlank(getStr(d, 'Canal__c'))   ? getStr(d, 'Canal__c')   : 'Agente';
-        opp.Mercado__c = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : 'Corporativo';
-        if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
-        if (String.isBlank(opp.Type))      { opp.Type = 'New Business'; }
+		// ------------------------------------------------------------
+		// 2) OPORTUNIDAD (crear o actualizar)
+		// ------------------------------------------------------------
+		Opportunity opp = new Opportunity();
+		if (d.get('Id') != null) {
+			opp.Id = (Id) String.valueOf(d.get('Id'));
+		}
+		opp.Name        = getStr(d, 'Name');
+		opp.AccountId   = accountId;
+		// Defaults de negocio (por si llegaran vacíos desde el formulario)
+		opp.Canal__c   = String.isNotBlank(getStr(d, 'Canal__c'))   ? getStr(d, 'Canal__c')   : 'Agente';
+		opp.Mercado__c = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : 'Corporativo';
+		if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
+		if (String.isBlank(opp.Type))      { opp.Type = 'New Business'; }
 
-        // Agente (lookup a Agente__c) 
-        String agenteId = getStr(d, 'Agente__c');
-        if (String.isNotBlank(agenteId)) {
-            opp.Agente__c = (Id) agenteId;
-        }
-        opp.Ramo__c     = getStr(d, 'Ramo__c');
-        opp.Description = getStr(d, 'Description');
+		// Agente (lookup a Agente__c)
+		String agenteId = getStr(d, 'Agente__c');
+		if (String.isNotBlank(agenteId)) {
+			opp.Agente__c = (Id) agenteId;
+		}
+		opp.Ramo__c     = getStr(d, 'Ramo__c');
+		opp.Description = getStr(d, 'Description');
 
-        // Prima Total (campo custom) — sustituye al Amount estándar
-        Object primaRaw = d.get('Prima_Total__c');
-        if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
-            try {
-                opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
-            } catch (Exception ex) {
-                // Si llega un valor no numérico, lo ignoramos en vez de tronar
-            }
-        }
+		// Prima Total (campo custom) — sustituye al Amount estándar
+		Object primaRaw = d.get('Prima_Total__c');
+		if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
+			try {
+				opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
+			} catch (Exception ex) {
+				// Si llega un valor no numérico, lo ignoramos en vez de tronar
+			}
+		}
 
-        String closeDateStr = getStr(d, 'CloseDate');
-        if (String.isNotBlank(closeDateStr)) {
-            opp.CloseDate = Date.valueOf(closeDateStr);
-        } else if (opp.Id == null) {
-            opp.CloseDate = Date.today().addDays(30);
-        }
+		String closeDateStr = getStr(d, 'CloseDate');
+		if (String.isNotBlank(closeDateStr)) {
+			opp.CloseDate = Date.valueOf(closeDateStr);
+		} else if (opp.Id == null) {
+			opp.CloseDate = Date.today().addDays(30);
+		}
 
-        // Vehículo (solo ramo Automoviles): liga el existente o crea uno nuevo.
-        if (getStr(d, 'Ramo__c') == 'Automoviles') {
-            Id vehId = resolveVehiculo(d, accountId);
-            if (vehId != null) {
-                opp.Automovil__c = vehId;
-            }
-        }
+		// Vehículo (solo ramo Automoviles): liga el existente o crea uno nuevo.
+		if (getStr(d, 'Ramo__c') == 'Automoviles') {
+			Id vehId = resolveVehiculo(d, accountId);
+			if (vehId != null) {
+				opp.Automovil__c = vehId;
+			}
+		}
 
-        upsert opp;
-        return opp.Id;
-    }
+		upsert opp;
+		return opp.Id;
+	}
 
-    private static String getStr(Map<String, Object> m, String key) {
-        Object v = m.get(key);
-        return v == null ? null : String.valueOf(v);
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene de forma segura el valor de una clave del mapa como String, devolviendo null si no existe.
+	 * @param m: Mapa de datos deserializados
+	 * @param key: Clave a leer
+	 * @return Valor como String o null si la clave es nula
+	 */
+	private static String getStr(Map<String, Object> m, String key) {
+		Object v = m.get(key);
+		return v == null ? null : String.valueOf(v);
+	}
 
-    // Devuelve el Id del Automovil__c a ligar: el seleccionado, o uno existente por
-    // Serie, o uno nuevo creado con los datos del formulario (ligado a la cuenta).
-    private static Id resolveVehiculo(Map<String, Object> d, Id accountId) {
-        // 1) ¿Ya se seleccionó un vehículo en el lookup?
-        String vehiculoId = getStr(d, 'Automovil__c');
-        if (String.isNotBlank(vehiculoId)) {
-            return (Id) vehiculoId;
-        }
-        // 2) Datos capturados/extraídos del auto.
-        Object vObj = d.get('vehiculo');
-        if (!(vObj instanceof Map<String, Object>)) {
-            return null;
-        }
-        Map<String, Object> v = (Map<String, Object>) vObj;
-        String serie = getStr(v, 'Serie__c');
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Resuelve el Id del Automovil__c a ligar: el seleccionado en el lookup, uno existente por Serie/VIN, o uno nuevo creado con los datos del formulario y ligado a la cuenta.
+	 * @param d: Mapa de datos del formulario
+	 * @param accountId: Id de la cuenta a la que se ligaria el vehiculo nuevo
+	 * @return Id del Automovil__c resuelto o null si no aplica
+	 */
+	private static Id resolveVehiculo(Map<String, Object> d, Id accountId) {
+		// 1) ¿Ya se seleccionó un vehículo en el lookup?
+		String vehiculoId = getStr(d, 'Automovil__c');
+		if (String.isNotBlank(vehiculoId)) {
+			return (Id) vehiculoId;
+		}
+		// 2) Datos capturados/extraídos del auto.
+		Object vObj = d.get('vehiculo');
+		if (!(vObj instanceof Map<String, Object>)) {
+			return null;
+		}
+		Map<String, Object> v = (Map<String, Object>) vObj;
+		String serie = getStr(v, 'Serie__c');
 
-        // 3) Buscar por Serie/VIN.
-        if (String.isNotBlank(serie)) {
-            List<Automovil__c> ex = [
-                SELECT Id FROM Automovil__c WHERE Serie__c = :serie LIMIT 1
-            ];
-            if (!ex.isEmpty()) {
-                return ex[0].Id;
-            }
-        }
+		// 3) Buscar por Serie/VIN.
+		if (String.isNotBlank(serie)) {
+			List<Automovil__c> ex = [
+				SELECT Id FROM Automovil__c WHERE Serie__c = :serie LIMIT 1
+			];
+			if (!ex.isEmpty()) {
+				return ex[0].Id;
+			}
+		}
 
-        // 4) Crear nuevo (si hay algún dato).
-        // Serie__c es obligatoria en Vehiculo__c: sin serie no se puede crear.
-        if (String.isBlank(serie)) {
-            return null;
-        }
-        String marca = getStr(v, 'Marca__c');
-        String modelo = getStr(v, 'Modelo__c');
-        Automovil__c nv = new Automovil__c();
-        nv.Marca__c = marca;
-        nv.Modelo__c = modelo;
-        nv.Serie__c = serie;
-        nv.Placa__c = getStr(v, 'Placa__c');
-        nv.Motor__c = getStr(v, 'Motor__c');
-        nv.Descripcion_Completa__c = getStr(v, 'descripcion_completa__c');
-        if (accountId != null) {
-            nv.Cuenta__c = accountId;
-        }
-        // Año (solo si creaste el campo Anio__c en Automovil__c)
-        setIfExistsVeh(nv, 'Anio__c', getStr(v, 'Anio__c'));
-        // Name (si no es autonumérico, le ponemos algo legible)
-        Schema.DescribeFieldResult nameDesc = Automovil__c.Name.getDescribe();
-        if (!nameDesc.isAutoNumber()) {
-            String nm = ((marca == null ? '' : marca) + ' ' +
-                         (modelo == null ? '' : modelo) + ' ' +
-                         (serie == null ? '' : serie)).trim();
-            nv.Name = String.isBlank(nm) ? 'Vehículo' : nm.left(80);
-        }
-        insert nv;
-        return nv.Id;
-    }
+		// 4) Crear nuevo (si hay algún dato).
+		// Serie__c es obligatoria en Vehiculo__c: sin serie no se puede crear.
+		if (String.isBlank(serie)) {
+			return null;
+		}
+		String marca = getStr(v, 'Marca__c');
+		String modelo = getStr(v, 'Modelo__c');
+		Automovil__c nv = new Automovil__c();
+		nv.Marca__c = marca;
+		nv.Modelo__c = modelo;
+		nv.Serie__c = serie;
+		nv.Placa__c = getStr(v, 'Placa__c');
+		nv.Motor__c = getStr(v, 'Motor__c');
+		nv.Descripcion_Completa__c = getStr(v, 'descripcion_completa__c');
+		if (accountId != null) {
+			nv.Cuenta__c = accountId;
+		}
+		// Año (solo si creaste el campo Anio__c en Automovil__c)
+		setIfExistsVeh(nv, 'Anio__c', getStr(v, 'Anio__c'));
+		// Name (si no es autonumérico, le ponemos algo legible)
+		Schema.DescribeFieldResult nameDesc = Automovil__c.Name.getDescribe();
+		if (!nameDesc.isAutoNumber()) {
+			String nm = ((marca == null ? '' : marca) + ' ' +
+						 (modelo == null ? '' : modelo) + ' ' +
+						 (serie == null ? '' : serie)).trim();
+			nv.Name = String.isBlank(nm) ? 'Vehículo' : nm.left(80);
+		}
+		insert nv;
+		return nv.Id;
+	}
 
-    // Asigna un campo a Automovil__c solo si existe (p. ej. Anio__c).
-    private static void setIfExistsVeh(SObject so, String field, Object value) {
-        if (value == null || String.isBlank(String.valueOf(value))) { return; }
-        try { so.put(field, value); } catch (Exception ignore) {}
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asigna un valor a un campo del SObject solo si el campo existe, ignorando el error si no esta presente (p. ej. Anio__c).
+	 * @param so: SObject al que se asignara el campo
+	 * @param field: Nombre API del campo
+	 * @param value: Valor a asignar
+	 * @return void
+	 */
+	private static void setIfExistsVeh(SObject so, String field, Object value) {
+		if (value == null || String.isBlank(String.valueOf(value))) { return; }
+		try { so.put(field, value); } catch (Exception ignore) {}
+	}
 
-    private static Id getPersonAccountRecordTypeId() {
-        for (RecordType rt : [
-            SELECT Id FROM RecordType
-            WHERE SObjectType = 'Account' AND IsPersonType = true AND IsActive = true
-            LIMIT 1
-        ]) {
-            return rt.Id;
-        }
-        return null;
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve el Id del RecordType de tipo Persona activo para el objeto Account.
+	 * @return Id del RecordType de cuenta persona o null si no existe
+	 */
+	private static Id getPersonAccountRecordTypeId() {
+		for (RecordType rt : [
+			SELECT Id FROM RecordType
+			WHERE SObjectType = 'Account' AND IsPersonType = true AND IsActive = true
+			LIMIT 1
+		]) {
+			return rt.Id;
+		}
+		return null;
+	}
 
-    @AuraEnabled(cacheable=false)
-    public static List<Automovil__c> searchVehiculos(String searchTerm) {
-        if (String.isBlank(searchTerm) || searchTerm.length() < 2) {
-            return new List<Automovil__c>();
-        }
-        String filtro = '%' + searchTerm + '%';
-        return [
-            SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c,
-                   Descripcion_Completa__c, Cuenta__c, Cuenta__r.Name
-            FROM Automovil__c
-            WHERE Serie__c LIKE :filtro
-               OR Placa__c LIKE :filtro
-               OR Marca__c LIKE :filtro
-               OR Modelo__c LIKE :filtro
-               OR Name LIKE :filtro
-            ORDER BY LastModifiedDate DESC
-            LIMIT 10
-        ];
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca vehiculos por serie, placa, marca, modelo o nombre a partir de un termino de al menos 2 caracteres.
+	 * @param searchTerm: Texto de busqueda (minimo 2 caracteres)
+	 * @return Lista de Automovil__c coincidentes (maximo 10)
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Automovil__c> searchVehiculos(String searchTerm) {
+		if (String.isBlank(searchTerm) || searchTerm.length() < 2) {
+			return new List<Automovil__c>();
+		}
+		String filtro = '%' + searchTerm + '%';
+		return [
+			SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c,
+				   Descripcion_Completa__c, Cuenta__c, Cuenta__r.Name
+			FROM Automovil__c
+			WHERE Serie__c LIKE :filtro
+			   OR Placa__c LIKE :filtro
+			   OR Marca__c LIKE :filtro
+			   OR Modelo__c LIKE :filtro
+			   OR Name LIKE :filtro
+			ORDER BY LastModifiedDate DESC
+			LIMIT 10
+		];
+	}
 
-    @AuraEnabled(cacheable=true)
-    public static List<Product2> getProducts(String ramo) {
-        if (String.isBlank(ramo)) {
-            return new List<Product2>();
-        }
-        return [
-            SELECT Id, Name, ProductCode, Family
-            FROM Product2
-            WHERE IsActive = true
-                AND Family = :ramo
-            ORDER BY Name
-        ];
-    }
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los productos activos de una familia (ramo) dada.
+	 * @param ramo: Familia/ramo de producto a filtrar
+	 * @return Lista de Product2 activos de la familia indicada
+	 */
+	@AuraEnabled(cacheable=true)
+	public static List<Product2> getProducts(String ramo) {
+		if (String.isBlank(ramo)) {
+			return new List<Product2>();
+		}
+		return [
+			SELECT Id, Name, ProductCode, Family
+			FROM Product2
+			WHERE IsActive = true
+				AND Family = :ramo
+			ORDER BY Name
+		];
+	}
 }
