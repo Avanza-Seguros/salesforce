@@ -183,6 +183,12 @@
         <name>ListView</name>
     </types>
     <types>
+        <members>InboundInsurancePayment__c</members>
+        <members>PaymentReconciliation__c</members>
+        <members>PolicyPaymentReceipt__c</members>
+        <name>CustomTab</name>
+    </types>
+    <types>
         <members>InsurancePolicy.PremiumFieldsRequired</members>
         <name>ValidationRule</name>
     </types>
