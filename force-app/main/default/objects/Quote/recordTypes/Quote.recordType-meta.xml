@@ -105,4 +105,27 @@
             <default>false</default>
         </values>
     </picklistValues>
+    <picklistValues>
+        <picklist>TipoValor__c</picklist>
+        <values>
+            <fullName>a confirmar</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>actual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>comercial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>comercial%2B10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>convenido</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
 </RecordType>
