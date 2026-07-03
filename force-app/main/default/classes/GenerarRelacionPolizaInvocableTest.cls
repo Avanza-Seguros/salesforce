@@ -41,9 +41,9 @@ public with sharing class GenerarRelacionPolizaInvocableTest {
         List<GenerarRelacionPolizaInvocable.OutputWrapper> salida2 = GenerarRelacionPolizaInvocable.ejecutar(new List<GenerarRelacionPolizaInvocable.InputWrapper>{ input2 });
         Test.stopTest();
 
-        System.assertEquals(1, salida.size(), 'Debe devolver una respuesta.');
-        System.assertEquals(true, salida[0].exito, 'Debe marcar éxito.');
-        System.assert(salida[0].mensaje.contains('✅'), 'Debe tener mensaje exitoso.');
+        Assert.areEqual(1, salida.size(), 'Debe devolver una respuesta.');
+        Assert.areEqual(true, salida[0].exito, 'Debe marcar éxito.');
+        Assert.isTrue(salida[0].mensaje.contains('✅'), 'Debe tener mensaje exitoso.');
 
         List<Relacion_Poliza__c> rels = [
             SELECT Id, Poliza__c, Asegurado__c, Pago__c, Historico__c

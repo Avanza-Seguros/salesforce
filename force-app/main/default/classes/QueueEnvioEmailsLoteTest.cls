@@ -127,7 +127,7 @@ private class QueueEnvioEmailsLoteTest {
         Integer queueablesDespues = Limits.getQueueableJobs();
         Test.stopTest();
 
-        System.assertEquals(queueablesAntes, queueablesDespues,
+        Assert.areEqual(queueablesAntes, queueablesDespues,
             'Con 25 items no debe encolarse un siguiente lote');
     }
 
@@ -143,7 +143,7 @@ private class QueueEnvioEmailsLoteTest {
         Integer queueablesDespues = Limits.getQueueableJobs();
         Test.stopTest();
 
-        System.assertEquals(queueablesAntes, queueablesDespues,
+        Assert.areEqual(queueablesAntes, queueablesDespues,
             'Con 5 items no debe encolarse un siguiente lote');
     }
 
@@ -166,7 +166,7 @@ private class QueueEnvioEmailsLoteTest {
         // El test pasa si execute() no lanza excepción y procesa el lote.
         // (La verificación funcional del envío depende del setup de templates,
         // por eso aquí solo aseguramos que el camino del split corre sin error.)
-        System.assert(true, 'Lote excedido procesado sin error');
+        Assert.isTrue(true, 'Lote excedido procesado sin error');
     }
 
     @IsTest
@@ -179,7 +179,7 @@ private class QueueEnvioEmailsLoteTest {
         queue.execute(null);
         Test.stopTest();
 
-        System.assert(true, 'Lote de 50 procesado sin error');
+        Assert.isTrue(true, 'Lote de 50 procesado sin error');
     }
 
     // =========================================================================
@@ -193,7 +193,7 @@ private class QueueEnvioEmailsLoteTest {
 
         Test.startTest();
         QueueEnvioEmails queue = new QueueEnvioEmails(ids, 'BAJA');
-        System.assertNotEquals(null, queue, 'Queue creado correctamente para BAJA');
+        Assert.areNotEqual(null, queue, 'Queue creado correctamente para BAJA');
         Test.stopTest();
     }
 
@@ -209,7 +209,7 @@ private class QueueEnvioEmailsLoteTest {
         Test.stopTest();
 
         // Si llegamos aquí sin excepción, la lógica fluyó por el camino "sin pendientes"
-        System.assert(true);
+        Assert.isTrue(true);
     }
 
     @IsTest
@@ -248,7 +248,7 @@ private class QueueEnvioEmailsLoteTest {
 
         // Ningún item debe quedar marcado como enviado
         for (Items_Cases__c it : [SELECT Email_Enviado__c FROM Items_Cases__c WHERE Id IN :ids]) {
-            System.assertEquals(false, it.Email_Enviado__c,
+            Assert.areEqual(false, it.Email_Enviado__c,
                 'Items no concluidos no deben quedar marcados');
         }
     }

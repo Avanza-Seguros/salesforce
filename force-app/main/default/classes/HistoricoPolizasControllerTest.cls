@@ -62,14 +62,14 @@ public with sharing class HistoricoPolizasControllerTest {
         List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscaInicial();
         Test.stopTest();
         
-        System.assertNotEquals(null, resultados, 'La lista no debería ser nula');
-        System.assert(!resultados.isEmpty(), 'Debería haber al menos un resultado');
+        Assert.areNotEqual(null, resultados, 'La lista no debería ser nula');
+        Assert.isTrue(!resultados.isEmpty(), 'Debería haber al menos un resultado');
         
         // Verificar que los wrappers contengan los datos esperados
         HistoricoPolizasController.RelacionPolizaWrapper wrapper = resultados[0];
-        System.assertNotEquals(null, wrapper.polizaId, 'El ID de póliza no debería ser nulo');
-        System.assertNotEquals(null, wrapper.polizaName, 'El nombre de póliza no debería ser nulo');
-        System.assertEquals('Activa', wrapper.estatus, 'El estatus debería ser "Activa"');
+        Assert.areNotEqual(null, wrapper.polizaId, 'El ID de póliza no debería ser nulo');
+        Assert.areNotEqual(null, wrapper.polizaName, 'El nombre de póliza no debería ser nulo');
+        Assert.areEqual('Activa', wrapper.estatus, 'El estatus debería ser "Activa"');
     }
     
     @IsTest
@@ -80,7 +80,7 @@ public with sharing class HistoricoPolizasControllerTest {
             List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscaInicial();
             Test.stopTest();
         } catch (Exception e) {
-            System.assert(e instanceof AuraHandledException, 'Debería lanzar AuraHandledException');
+            Assert.isTrue(e instanceof AuraHandledException, 'Debería lanzar AuraHandledException');
         }
     }
     
@@ -90,8 +90,8 @@ public with sharing class HistoricoPolizasControllerTest {
         List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscarHistorico('POL-001');
         Test.stopTest();
         
-        System.assertNotEquals(null, resultados, 'La lista no debería ser nula');
-        System.assert(!resultados.isEmpty(), 'Debería encontrar resultados para "POL-001"');
+        Assert.areNotEqual(null, resultados, 'La lista no debería ser nula');
+        Assert.isTrue(!resultados.isEmpty(), 'Debería encontrar resultados para "POL-001"');
     }
     
     @IsTest
@@ -100,8 +100,8 @@ public with sharing class HistoricoPolizasControllerTest {
         List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscarHistorico('Juan');
         Test.stopTest();
         
-        System.assertNotEquals(null, resultados, 'La lista no debería ser nula');
-        System.assert(!resultados.isEmpty(), 'Debería encontrar resultados para "Juan"');
+        Assert.areNotEqual(null, resultados, 'La lista no debería ser nula');
+        Assert.isTrue(!resultados.isEmpty(), 'Debería encontrar resultados para "Juan"');
     }
     
     @IsTest
@@ -110,7 +110,7 @@ public with sharing class HistoricoPolizasControllerTest {
         List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscarHistorico('HIST-001');
         Test.stopTest();
         
-        System.assertNotEquals(null, resultados, 'La lista no debería ser nula');
+        Assert.areNotEqual(null, resultados, 'La lista no debería ser nula');
     }
     
     @IsTest
@@ -119,8 +119,8 @@ public with sharing class HistoricoPolizasControllerTest {
         List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscarHistorico('XYZNOEXISTE');
         Test.stopTest();
         
-        System.assertNotEquals(null, resultados, 'La lista no debería ser nula');
-        System.assertEquals(0, resultados.size(), 'No debería encontrar resultados para "XYZNOEXISTE"');
+        Assert.areNotEqual(null, resultados, 'La lista no debería ser nula');
+        Assert.areEqual(0, resultados.size(), 'No debería encontrar resultados para "XYZNOEXISTE"');
     }
     
     @IsTest
@@ -129,7 +129,7 @@ public with sharing class HistoricoPolizasControllerTest {
         List<HistoricoPolizasController.RelacionPolizaWrapper> resultados = HistoricoPolizasController.buscarHistorico('');
         Test.stopTest();
         
-        System.assertNotEquals(null, resultados, 'La lista no debería ser nula');
+        Assert.areNotEqual(null, resultados, 'La lista no debería ser nula');
     }
     
     @IsTest
@@ -141,23 +141,23 @@ public with sharing class HistoricoPolizasControllerTest {
         HistoricoPolizasController.DetalleCompletoWrapper resultado = HistoricoPolizasController.obtenerHistoricoPorRelacion(relacion.Id);
         Test.stopTest();
         
-        System.assertNotEquals(null, resultado, 'El resultado no debería ser nulo');
-        System.assertNotEquals(null, resultado.relacionPrincipal, 'La relación principal no debería ser nula');
-        System.assertNotEquals(null, resultado.asegurados, 'La lista de asegurados no debería ser nula');
-        System.assertNotEquals(null, resultado.historicos, 'La lista de históricos no debería ser nula');
-        System.assertNotEquals(null, resultado.pagos, 'La lista de pagos no debería ser nula');
-        System.assertNotEquals(null, resultado.relaciones, 'La lista de relaciones no debería ser nula');
-        System.assertNotEquals(null, resultado.poliza, 'La póliza no debería ser nula');
+        Assert.areNotEqual(null, resultado, 'El resultado no debería ser nulo');
+        Assert.areNotEqual(null, resultado.relacionPrincipal, 'La relación principal no debería ser nula');
+        Assert.areNotEqual(null, resultado.asegurados, 'La lista de asegurados no debería ser nula');
+        Assert.areNotEqual(null, resultado.historicos, 'La lista de históricos no debería ser nula');
+        Assert.areNotEqual(null, resultado.pagos, 'La lista de pagos no debería ser nula');
+        Assert.areNotEqual(null, resultado.relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areNotEqual(null, resultado.poliza, 'La póliza no debería ser nula');
         
         // Verificar que las listas contengan datos
-        System.assert(!resultado.asegurados.isEmpty(), 'Debería haber al menos un asegurado');
-        System.assert(!resultado.historicos.isEmpty(), 'Debería haber al menos un histórico');
-        System.assert(!resultado.pagos.isEmpty(), 'Debería haber al menos un pago');
-        System.assert(!resultado.relaciones.isEmpty(), 'Debería haber al menos una relación');
+        Assert.isTrue(!resultado.asegurados.isEmpty(), 'Debería haber al menos un asegurado');
+        Assert.isTrue(!resultado.historicos.isEmpty(), 'Debería haber al menos un histórico');
+        Assert.isTrue(!resultado.pagos.isEmpty(), 'Debería haber al menos un pago');
+        Assert.isTrue(!resultado.relaciones.isEmpty(), 'Debería haber al menos una relación');
         
         // Verificar datos específicos
-        System.assertEquals('POL-001', resultado.poliza.name, 'El nombre de la póliza debería ser POL-001');
-        System.assertEquals('Juan Pérez', resultado.asegurados[0].name, 'El nombre del asegurado debería ser Juan Pérez');
+        Assert.areEqual('POL-001', resultado.poliza.name, 'El nombre de la póliza debería ser POL-001');
+        Assert.areEqual('Juan Pérez', resultado.asegurados[0].name, 'El nombre del asegurado debería ser Juan Pérez');
     }
     
     @IsTest
@@ -165,9 +165,9 @@ public with sharing class HistoricoPolizasControllerTest {
         Test.startTest();
         try {
             HistoricoPolizasController.DetalleCompletoWrapper resultado = HistoricoPolizasController.obtenerHistoricoPorRelacion('001000000000000');
-            System.assert(false, 'Debería haber lanzado una excepción');
+            Assert.isTrue(false, 'Debería haber lanzado una excepción');
         } catch (Exception e) {
-            System.assert(e instanceof AuraHandledException, 'Debería lanzar AuraHandledException');
+            Assert.isTrue(e instanceof AuraHandledException, 'Debería lanzar AuraHandledException');
         }
         Test.stopTest();
     }
@@ -205,28 +205,28 @@ public with sharing class HistoricoPolizasControllerTest {
         Test.startTest();
         // Probar PolizaWrapper
         HistoricoPolizasController.PolizaWrapper polizaWrapper = new HistoricoPolizasController.PolizaWrapper(poliza);
-        System.assertEquals(poliza.Id, polizaWrapper.id);
-        System.assertEquals(poliza.Name, polizaWrapper.name);
+        Assert.areEqual(poliza.Id, polizaWrapper.id);
+        Assert.areEqual(poliza.Name, polizaWrapper.name);
         
         // Probar AseguradoWrapper
         HistoricoPolizasController.AseguradoWrapper aseguradoWrapper = new HistoricoPolizasController.AseguradoWrapper(asegurado);
-        System.assertEquals(asegurado.Id, aseguradoWrapper.id);
-        System.assertEquals(asegurado.Name, aseguradoWrapper.name);
+        Assert.areEqual(asegurado.Id, aseguradoWrapper.id);
+        Assert.areEqual(asegurado.Name, aseguradoWrapper.name);
         
         // Probar HistoricoWrapper
         HistoricoPolizasController.HistoricoWrapper historicoWrapper = new HistoricoPolizasController.HistoricoWrapper(historico);
-        System.assertEquals(historico.Id, historicoWrapper.id);
-        System.assertEquals(historico.Name, historicoWrapper.name);
+        Assert.areEqual(historico.Id, historicoWrapper.id);
+        Assert.areEqual(historico.Name, historicoWrapper.name);
         
         // Probar PagoWrapper
         HistoricoPolizasController.PagoWrapper pagoWrapper = new HistoricoPolizasController.PagoWrapper(pago);
-        System.assertEquals(pago.Id, pagoWrapper.id);
-        System.assertEquals(pago.Name, pagoWrapper.name);
+        Assert.areEqual(pago.Id, pagoWrapper.id);
+        Assert.areEqual(pago.Name, pagoWrapper.name);
         
         // Probar RelacionPolizaWrapper
         HistoricoPolizasController.RelacionPolizaWrapper relacionWrapper = new HistoricoPolizasController.RelacionPolizaWrapper(relacion);
-        System.assertEquals(relacion.Id, relacionWrapper.relacionId);
-        System.assertEquals(relacion.Name, relacionWrapper.relacionName);
+        Assert.areEqual(relacion.Id, relacionWrapper.relacionId);
+        Assert.areEqual(relacion.Name, relacionWrapper.relacionName);
         
         // Probar DetalleCompletoWrapper
         List<Asegurado__c> asegurados = new List<Asegurado__c>{asegurado};
@@ -237,12 +237,12 @@ public with sharing class HistoricoPolizasControllerTest {
         HistoricoPolizasController.DetalleCompletoWrapper detalleWrapper = 
             new HistoricoPolizasController.DetalleCompletoWrapper(relacion, asegurados, historicos, pagos, relaciones);
         
-        System.assertNotEquals(null, detalleWrapper.relacionPrincipal);
-        System.assert(!detalleWrapper.asegurados.isEmpty());
-        System.assert(!detalleWrapper.historicos.isEmpty());
-        System.assert(!detalleWrapper.pagos.isEmpty());
-        System.assert(!detalleWrapper.relaciones.isEmpty());
-        System.assertNotEquals(null, detalleWrapper.poliza);
+        Assert.areNotEqual(null, detalleWrapper.relacionPrincipal);
+        Assert.isTrue(!detalleWrapper.asegurados.isEmpty());
+        Assert.isTrue(!detalleWrapper.historicos.isEmpty());
+        Assert.isTrue(!detalleWrapper.pagos.isEmpty());
+        Assert.isTrue(!detalleWrapper.relaciones.isEmpty());
+        Assert.areNotEqual(null, detalleWrapper.poliza);
         Test.stopTest();
     }
     

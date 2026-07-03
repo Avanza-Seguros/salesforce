@@ -104,8 +104,8 @@ public with sharing class BanxicoServiceTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(7.456789, result, 'El valor UDI debería ser 7.456789');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(7.456789, result, 'El valor UDI debería ser 7.456789');
     }
     
     @IsTest
@@ -118,8 +118,8 @@ public with sharing class BanxicoServiceTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(17.1234, result, 'El valor DLLS debería ser 17.1234');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(17.1234, result, 'El valor DLLS debería ser 17.1234');
     }
     
     @IsTest
@@ -131,8 +131,8 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor(BanxicoService.TipoSerie.UDI);
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(7.456789, result, 'El valor UDI debería ser 7.456789');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(7.456789, result, 'El valor UDI debería ser 7.456789');
     }
     
     @IsTest
@@ -144,8 +144,8 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor(BanxicoService.TipoSerie.DLLS);
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(17.1234, result, 'El valor DLLS debería ser 17.1234');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(17.1234, result, 'El valor DLLS debería ser 17.1234');
     }
     
     @IsTest
@@ -157,8 +157,8 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor('UDI');
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(7.456789, result, 'El valor UDI debería ser 7.456789');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(7.456789, result, 'El valor UDI debería ser 7.456789');
     }
     
     @IsTest
@@ -170,8 +170,8 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor('DLLS');
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(17.1234, result, 'El valor DLLS debería ser 17.1234');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(17.1234, result, 'El valor DLLS debería ser 17.1234');
     }
     
     @IsTest
@@ -183,8 +183,8 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor('udi');
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(7.456789, result, 'El valor UDI debería ser 7.456789');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(7.456789, result, 'El valor UDI debería ser 7.456789');
     }
     
     @IsTest
@@ -192,9 +192,9 @@ public with sharing class BanxicoServiceTest {
         Test.startTest();
         try {
             Decimal result = BanxicoService.obtenerValor('INVALIDO');
-            System.assert(false, 'Debería haber lanzado una excepción');
+            Assert.isTrue(false, 'Debería haber lanzado una excepción');
         } catch (IllegalArgumentException e) {
-            System.assert(e.getMessage().contains('Tipo de serie no válido'), 'Debería indicar tipo inválido');
+            Assert.isTrue(e.getMessage().contains('Tipo de serie no válido'), 'Debería indicar tipo inválido');
         }
         Test.stopTest();
     }
@@ -212,7 +212,7 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor(BanxicoService.TipoSerie.UDI, config);
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
     }
     
     @IsTest
@@ -224,7 +224,7 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerValor(BanxicoService.TipoSerie.UDI, null);
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
     }
     
     @IsTest
@@ -236,7 +236,7 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerUDI();
         Test.stopTest();
         
-        System.assertEquals(null, result, 'El resultado debería ser nulo en caso de error HTTP');
+        Assert.areEqual(null, result, 'El resultado debería ser nulo en caso de error HTTP');
     }
     
     @IsTest
@@ -248,7 +248,7 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerUDI();
         Test.stopTest();
         
-        System.assertEquals(null, result, 'El resultado debería ser nulo cuando la respuesta está vacía');
+        Assert.areEqual(null, result, 'El resultado debería ser nulo cuando la respuesta está vacía');
     }
     
     @IsTest
@@ -260,7 +260,7 @@ public with sharing class BanxicoServiceTest {
         Decimal result = BanxicoService.obtenerUDI();
         Test.stopTest();
         
-        System.assertEquals(null, result, 'El resultado debería ser nulo cuando los datos son nulos');
+        Assert.areEqual(null, result, 'El resultado debería ser nulo cuando los datos son nulos');
     }
     
     @IsTest
@@ -276,10 +276,10 @@ public with sharing class BanxicoServiceTest {
         List<BanxicoService.ResultadoWrapper> resultados = BanxicoService.obtenerValorBanxico(solicitudes);
         Test.stopTest();
         
-        System.assertEquals(1, resultados.size(), 'Debería retornar un resultado');
-        System.assertEquals('UDI', resultados[0].tipo, 'El tipo debería ser UDI');
-        System.assertEquals(7.456789, resultados[0].valor, 'El valor debería ser 7.456789');
-        System.assertEquals(true, resultados[0].exito, 'La operación debería ser exitosa');
+        Assert.areEqual(1, resultados.size(), 'Debería retornar un resultado');
+        Assert.areEqual('UDI', resultados[0].tipo, 'El tipo debería ser UDI');
+        Assert.areEqual(7.456789, resultados[0].valor, 'El valor debería ser 7.456789');
+        Assert.areEqual(true, resultados[0].exito, 'La operación debería ser exitosa');
     }
     
     @IsTest
@@ -295,10 +295,10 @@ public with sharing class BanxicoServiceTest {
         List<BanxicoService.ResultadoWrapper> resultados = BanxicoService.obtenerValorBanxico(solicitudes);
         Test.stopTest();
         
-        System.assertEquals(1, resultados.size(), 'Debería retornar un resultado');
-        System.assertEquals('DLLS', resultados[0].tipo, 'El tipo debería ser DLLS');
-        System.assertEquals(17.1234, resultados[0].valor, 'El valor debería ser 17.1234');
-        System.assertEquals(true, resultados[0].exito, 'La operación debería ser exitosa');
+        Assert.areEqual(1, resultados.size(), 'Debería retornar un resultado');
+        Assert.areEqual('DLLS', resultados[0].tipo, 'El tipo debería ser DLLS');
+        Assert.areEqual(17.1234, resultados[0].valor, 'El valor debería ser 17.1234');
+        Assert.areEqual(true, resultados[0].exito, 'La operación debería ser exitosa');
     }
     
     @IsTest
@@ -315,7 +315,7 @@ public with sharing class BanxicoServiceTest {
         List<BanxicoService.ResultadoWrapper> resultados = BanxicoService.obtenerValorBanxico(solicitudes);
         Test.stopTest();
         
-        System.assertEquals(2, resultados.size(), 'Debería retornar dos resultados');
+        Assert.areEqual(2, resultados.size(), 'Debería retornar dos resultados');
     }
     
     @IsTest
@@ -326,7 +326,7 @@ public with sharing class BanxicoServiceTest {
         Map<String, Object> resultados = BanxicoService.obtenerAmbosValoresConDetalles();
         Test.stopTest();
         
-        System.assertEquals(4, resultados.size(), 'Debería retornar lista vacía');
+        Assert.areEqual(4, resultados.size(), 'Debería retornar lista vacía');
     }
     
     @IsTest
@@ -342,9 +342,9 @@ public with sharing class BanxicoServiceTest {
         List<BanxicoService.ResultadoWrapper> resultados = BanxicoService.obtenerValorBanxico(solicitudes);
         Test.stopTest();
         
-        System.assertEquals(1, resultados.size(), 'Debería retornar un resultado');
-        System.assertEquals(null, resultados[0].valor, 'El valor debería ser nulo en caso de error');
-        System.assertEquals(false, resultados[0].exito, 'La operación debería ser fallida');
+        Assert.areEqual(1, resultados.size(), 'Debería retornar un resultado');
+        Assert.areEqual(null, resultados[0].valor, 'El valor debería ser nulo en caso de error');
+        Assert.areEqual(false, resultados[0].exito, 'La operación debería ser fallida');
     }
     
     @IsTest
@@ -354,9 +354,9 @@ public with sharing class BanxicoServiceTest {
         BanxicoService.SolicitudWrapper wrapper2 = new BanxicoService.SolicitudWrapper('UDI');
         Test.stopTest();
         
-        System.assertNotEquals(null, wrapper1, 'Wrapper vacío no debería ser nulo');
-        System.assertNotEquals(null, wrapper2, 'Wrapper con tipo no debería ser nulo');
-        System.assertEquals('UDI', wrapper2.tipo, 'El tipo debería ser UDI');
+        Assert.areNotEqual(null, wrapper1, 'Wrapper vacío no debería ser nulo');
+        Assert.areNotEqual(null, wrapper2, 'Wrapper con tipo no debería ser nulo');
+        Assert.areEqual('UDI', wrapper2.tipo, 'El tipo debería ser UDI');
     }
     
     @IsTest
@@ -365,7 +365,7 @@ public with sharing class BanxicoServiceTest {
         BanxicoService.ResultadoWrapper wrapper1 = new BanxicoService.ResultadoWrapper();
         Test.stopTest();
         
-        System.assertNotEquals(null, wrapper1, 'Wrapper vacío no debería ser nulo');
+        Assert.areNotEqual(null, wrapper1, 'Wrapper vacío no debería ser nulo');
     }
     
     @IsTest
@@ -375,8 +375,8 @@ public with sharing class BanxicoServiceTest {
         Boolean tok = BanxicoService.validarToken();
         Test.stopTest();
         
-        System.assertNotEquals(null, config1, 'La configuración no debería ser nula');
-        System.assertNotEquals(null, config1.token, 'El token no debería ser nulo');
-        System.assertEquals(30000, config1.timeoutMs, 'El timeout debería ser 30000');
+        Assert.areNotEqual(null, config1, 'La configuración no debería ser nula');
+        Assert.areNotEqual(null, config1.token, 'El token no debería ser nulo');
+        Assert.areEqual(30000, config1.timeoutMs, 'El timeout debería ser 30000');
     }
 }

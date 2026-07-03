@@ -35,14 +35,14 @@ private class ContactServiceTest {
             ContactService.processContacts(items);
         Test.stopTest();
 
-        System.assertEquals(
+        Assert.areEqual(
             3,
             result.size(),
             'Debe crear un contacto por cada item'
         );
 
         for (Contact c : result.values()) {
-            System.assertNotEquals(null, c.Id);
+            Assert.areNotEqual(null, c.Id);
         }
     }
 }

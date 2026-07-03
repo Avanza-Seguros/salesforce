@@ -57,12 +57,12 @@ public class PdfProcessorControllerTest {
         Test.stopTest();
 
         // 🔍 Validaciones
-        System.assertEquals(1, result.totalRecords, 'Debe procesar un registro');
-        System.assertEquals(1, result.errorMessages.size(), 'No debe haber errores');
+        Assert.areEqual(1, result.totalRecords, 'Debe procesar un registro');
+        Assert.areEqual(1, result.errorMessages.size(), 'No debe haber errores');
 
         // Verificar que el Caso se haya creado
         Case c = [SELECT Id, Subject, Poliza__c FROM Case LIMIT 1];
-        System.assertNotEquals(null, c, 'El caso debe haberse creado');
+        Assert.areNotEqual(null, c, 'El caso debe haberse creado');
     }
 
     // 🔹 Método savePdfFile
@@ -101,11 +101,11 @@ public class PdfProcessorControllerTest {
 
         // 🔍 Validar que se haya creado el ContentVersion
         ContentVersion cv = [SELECT Id, Title, VersionData FROM ContentVersion WHERE Title = 'TestFile.pdf' LIMIT 1];
-        System.assertNotEquals(null, cv, 'Debe haberse insertado ContentVersion');
-        System.assertEquals(dummyData.toString(), cv.VersionData.toString(), 'Debe contener el contenido correcto');
+        Assert.areNotEqual(null, cv, 'Debe haberse insertado ContentVersion');
+        Assert.areEqual(dummyData.toString(), cv.VersionData.toString(), 'Debe contener el contenido correcto');
 
         ContentDocumentLink cdl = [SELECT Id, LinkedEntityId FROM ContentDocumentLink WHERE LinkedEntityId = :item.Id LIMIT 1];
-        System.assertNotEquals(null, cdl, 'Debe haberse vinculado el documento al ítem');
+        Assert.areNotEqual(null, cdl, 'Debe haberse vinculado el documento al ítem');
     }
 
     // 🔹 Caso negativo: savePdfFile con certificado inexistente
@@ -123,7 +123,7 @@ public class PdfProcessorControllerTest {
         } catch (Exception e) {
             errorThrown = true;
         }
-        System.assert(errorThrown, 'Debe lanzar error si no encuentra el ítem');
+        Assert.isTrue(errorThrown, 'Debe lanzar error si no encuentra el ítem');
     }
 
     // 🔹 NUEVO: Test para processPdfData con múltiples registros
@@ -153,12 +153,12 @@ public class PdfProcessorControllerTest {
         PdfProcessorController.ProcessResult result = PdfProcessorController.processPdfData(pdfData);
         Test.stopTest();
 
-        System.assertEquals(3, result.totalRecords, 'Debe procesar 3 registros');
-        System.assertEquals(3, result.errorMessages.size(), 'Debe tener 3 mensajes (uno por registro)');
+        Assert.areEqual(3, result.totalRecords, 'Debe procesar 3 registros');
+        Assert.areEqual(3, result.errorMessages.size(), 'Debe tener 3 mensajes (uno por registro)');
         
         // Verificar que se crearon los casos
         List<Case> casos = [SELECT Id, Subject FROM Case WHERE Subject LIKE '%POL%'];
-        System.assertEquals(0, casos.size(), 'Deben crearse 3 casos');
+        Assert.areEqual(0, casos.size(), 'Deben crearse 3 casos');
     }
 
     // 🔹 NUEVO: Test para processPdfData con datos inválidos
@@ -178,8 +178,8 @@ public class PdfProcessorControllerTest {
         PdfProcessorController.ProcessResult result = PdfProcessorController.processPdfData(pdfData);
         Test.stopTest();
 
-        System.assertEquals(1, result.totalRecords, 'Debe procesar el registro');
-        System.assertEquals(0, result.errorMessages.size(), 'Debe tener un mensaje de error');
+        Assert.areEqual(1, result.totalRecords, 'Debe procesar el registro');
+        Assert.areEqual(0, result.errorMessages.size(), 'Debe tener un mensaje de error');
     }
 
     // 🔹 NUEVO: Test para formato de fecha inválido
@@ -200,8 +200,8 @@ public class PdfProcessorControllerTest {
         PdfProcessorController.ProcessResult result = PdfProcessorController.processPdfData(pdfData);
         Test.stopTest();
 
-        System.assertEquals(1, result.totalRecords, 'Debe procesar el registro');
-        System.assertEquals(1, result.errorMessages.size(), 'Debe manejar error de formato de fecha');
+        Assert.areEqual(1, result.totalRecords, 'Debe procesar el registro');
+        Assert.areEqual(1, result.errorMessages.size(), 'Debe manejar error de formato de fecha');
     }
 
     // 🔹 NUEVO: Test para verificar funcionalidad de normalización de póliza
@@ -228,8 +228,8 @@ public class PdfProcessorControllerTest {
         PdfProcessorController.ProcessResult result = PdfProcessorController.processPdfData(pdfData);
         Test.stopTest();
 
-        System.assertEquals(1, result.totalRecords, 'Debe procesar el registro con póliza normalizada');
-        System.assertEquals(1, result.errorMessages.size(), 'No debe haber errores');
+        Assert.areEqual(1, result.totalRecords, 'Debe procesar el registro con póliza normalizada');
+        Assert.areEqual(1, result.errorMessages.size(), 'No debe haber errores');
     }
     
     @IsTest

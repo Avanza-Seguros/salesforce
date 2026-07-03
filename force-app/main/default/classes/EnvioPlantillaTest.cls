@@ -101,8 +101,8 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertNotEquals(null, allAttachments);
-        System.assert(allAttachments.containsKey(items[0].Id), 'Debería tener adjuntos para el primer item');
+        Assert.areNotEqual(null, allAttachments);
+        Assert.isTrue(allAttachments.containsKey(items[0].Id), 'Debería tener adjuntos para el primer item');
     }
     
     @IsTest
@@ -157,9 +157,9 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertNotEquals(null, email);
-        System.assertEquals(1, email.getToAddresses().size());
-        System.assertEquals('test@test.com', email.getToAddresses()[0]);
+        Assert.areNotEqual(null, email);
+        Assert.areEqual(1, email.getToAddresses().size());
+        Assert.areEqual('test@test.com', email.getToAddresses()[0]);
     }
     
     @IsTest
@@ -197,8 +197,8 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertNotEquals(null, email);
-        System.assertEquals(1, email.getToAddresses().size());
+        Assert.areNotEqual(null, email);
+        Assert.areEqual(1, email.getToAddresses().size());
     }
     
     @IsTest
@@ -225,7 +225,7 @@ public class EnvioPlantillaTest {
         Test.startTest();
         try {
             EnvioPlantillas.enviarEmailIndividual(item, null);
-            System.assert(true);
+            Assert.isTrue(true);
         } catch (Exception e) {
             // En test, puede fallar pero cubre el código
             System.debug('Error en test (esperado en algunos casos): ' + e.getMessage());
@@ -289,7 +289,7 @@ public class EnvioPlantillaTest {
         Test.startTest();
         try {
             EnvioPlantillas.enviarEmailIndividual(item, itemAttachments);
-            System.assert(true);
+            Assert.isTrue(true);
         } catch (Exception e) {
             System.debug('Error en test: ' + e.getMessage());
         }
@@ -318,7 +318,7 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then - No debería lanzar excepción
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     @IsTest
@@ -343,7 +343,7 @@ public class EnvioPlantillaTest {
         }
         Test.stopTest();
         
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     @IsTest
@@ -353,7 +353,7 @@ public class EnvioPlantillaTest {
         EnvioPlantillas.enviarEmails(new List<Messaging.SingleEmailMessage>());
         Test.stopTest();
         
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     @IsTest
@@ -368,8 +368,8 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertEquals(1, templatesMap.size());
-        System.assert(templatesMap.containsKey(template.Id));
+        Assert.areEqual(1, templatesMap.size());
+        Assert.isTrue(templatesMap.containsKey(template.Id));
     }
     
     @IsTest
@@ -380,7 +380,7 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertEquals(0, templatesMap.size());
+        Assert.areEqual(0, templatesMap.size());
     }
     
     @IsTest
@@ -426,7 +426,7 @@ public class EnvioPlantillaTest {
         Test.startTest();
         try {
             EnvioPlantillas.enviarEmailsBulk(items);
-            System.assert(true);
+            Assert.isTrue(true);
         } catch (Exception e) {
             System.debug('Error en test bulk: ' + e.getMessage());
         }
@@ -479,7 +479,7 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertNotEquals(0, emails.size());
+        Assert.areNotEqual(0, emails.size());
     }
     
     @IsTest
@@ -536,7 +536,7 @@ public class EnvioPlantillaTest {
         
         // Then
         // Solo debería construir email para el item de Alta
-        System.assertEquals(1, emails.size());
+        Assert.areEqual(1, emails.size());
     }
     
     
@@ -551,10 +551,10 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertEquals(3, addresses.size());
-        System.assertEquals('test1@test.com', addresses[0]);
-        System.assertEquals('test2@test.com', addresses[1]);
-        System.assertEquals('test3@test.com', addresses[2]);
+        Assert.areEqual(3, addresses.size());
+        Assert.areEqual('test1@test.com', addresses[0]);
+        Assert.areEqual('test2@test.com', addresses[1]);
+        Assert.areEqual('test3@test.com', addresses[2]);
     }
     
     @IsTest
@@ -565,7 +565,7 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // Then
-        System.assertEquals(0, addresses.size());
+        Assert.areEqual(0, addresses.size());
     }
     
     @IsTest
@@ -576,19 +576,19 @@ public class EnvioPlantillaTest {
         Test.stopTest();
         
         // En test, puede ser null si no existe el registro
-        System.assert(true); // Solo verificar que no lance excepción
+        Assert.isTrue(true); // Solo verificar que no lance excepción
     }
     
     @IsTest
     static void testGetContentType() {
         Test.startTest();
-        System.assertEquals('application/pdf', EnvioPlantillas.getContentType('pdf'));
-        System.assertEquals('image/jpeg', EnvioPlantillas.getContentType('jpg'));
-        System.assertEquals('image/jpeg', EnvioPlantillas.getContentType('jpeg'));
-        System.assertEquals('image/png', EnvioPlantillas.getContentType('png'));
-        System.assertEquals('text/plain', EnvioPlantillas.getContentType('txt'));
-        System.assertEquals('application/octet-stream', EnvioPlantillas.getContentType('unknown'));
-        System.assertEquals('application/octet-stream', EnvioPlantillas.getContentType(null));
+        Assert.areEqual('application/pdf', EnvioPlantillas.getContentType('pdf'));
+        Assert.areEqual('image/jpeg', EnvioPlantillas.getContentType('jpg'));
+        Assert.areEqual('image/jpeg', EnvioPlantillas.getContentType('jpeg'));
+        Assert.areEqual('image/png', EnvioPlantillas.getContentType('png'));
+        Assert.areEqual('text/plain', EnvioPlantillas.getContentType('txt'));
+        Assert.areEqual('application/octet-stream', EnvioPlantillas.getContentType('unknown'));
+        Assert.areEqual('application/octet-stream', EnvioPlantillas.getContentType(null));
         Test.stopTest();
     }
 }

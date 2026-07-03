@@ -78,7 +78,7 @@ public class LuxoftTriggerTest {
         
         // Then - Trigger should execute without errors
         // Verify Contact was created (if ContactQueueable is mocked)
-        System.assert(true, 'Trigger should handle insert with Alta record type');
+        Assert.isTrue(true, 'Trigger should handle insert with Alta record type');
     }
     
     @isTest
@@ -95,7 +95,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then
-        System.assert(true, 'Trigger should handle insert with Baja record type');
+        Assert.isTrue(true, 'Trigger should handle insert with Baja record type');
     }
     
     @isTest
@@ -121,7 +121,7 @@ public class LuxoftTriggerTest {
         
         // Then - Should trigger manual email sending
         // Verify through logs or mock verification
-        System.assert(true, 'Trigger should handle status change to Concluido for Alta');
+        Assert.isTrue(true, 'Trigger should handle status change to Concluido for Alta');
     }
     
     @isTest
@@ -146,7 +146,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then
-        System.assert(true, 'Trigger should handle status change to Concluido for Baja');
+        Assert.isTrue(true, 'Trigger should handle status change to Concluido for Baja');
     }
     
     @isTest
@@ -167,7 +167,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then - Should trigger contact creation process
-        System.assert(true, 'Trigger should detect field changes for contact creation');
+        Assert.isTrue(true, 'Trigger should detect field changes for contact creation');
     }
     
     @isTest
@@ -187,7 +187,7 @@ public class LuxoftTriggerTest {
         // When
         try {
             insert testItem;
-            System.assert(true, 'Trigger should handle items without required fields');
+            Assert.isTrue(true, 'Trigger should handle items without required fields');
         } catch (Exception e) {
             System.debug('Expected validation: ' + e.getMessage());
         }
@@ -216,7 +216,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then - Should still execute but emails might be skipped
-        System.assert(true, 'Trigger should respect EmailContextControl');
+        Assert.isTrue(true, 'Trigger should respect EmailContextControl');
         
         // Reset for other tests
         EmailContextControl.skipEmails = false;
@@ -240,7 +240,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then - Should not trigger email sending
-        System.assert(true, 'Trigger should handle updates without status change');
+        Assert.isTrue(true, 'Trigger should handle updates without status change');
     }
     
     @isTest
@@ -263,7 +263,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then - Should not send baja email when Baja_Por_Defuncion__c is true
-        System.assert(true, 'Trigger should skip baja emails for defuncion cases');
+        Assert.isTrue(true, 'Trigger should skip baja emails for defuncion cases');
     }
     
     @isTest
@@ -284,8 +284,8 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then - Should handle bulk operations
-        System.assertEquals(10, testItems.size(), 'Should insert all bulk items');
-        System.assert(true, 'Trigger should handle bulk insert');
+        Assert.areEqual(10, testItems.size(), 'Should insert all bulk items');
+        Assert.isTrue(true, 'Trigger should handle bulk insert');
     }
     
     @isTest
@@ -313,7 +313,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Then
-        System.assert(true, 'Trigger should handle bulk update');
+        Assert.isTrue(true, 'Trigger should handle bulk update');
     }
     
     
@@ -336,7 +336,7 @@ public class LuxoftTriggerTest {
         // When
         try {
             update testItem;
-            System.assert(true, 'Trigger should handle email sending exceptions');
+            Assert.isTrue(true, 'Trigger should handle email sending exceptions');
         } catch (Exception e) {
             // Exception should be caught in trigger, not propagated
             System.debug('Exception in test (might be expected): ' + e.getMessage());
@@ -374,7 +374,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Trigger should execute in after insert context
-        System.assert(true, 'Trigger should execute in after insert context');
+        Assert.isTrue(true, 'Trigger should execute in after insert context');
     }
     
     @isTest
@@ -394,7 +394,7 @@ public class LuxoftTriggerTest {
         Test.stopTest();
         
         // Trigger should execute in after update context
-        System.assert(true, 'Trigger should execute in after update context');
+        Assert.isTrue(true, 'Trigger should execute in after update context');
     }
     
     // Mock HTTP Response for callouts

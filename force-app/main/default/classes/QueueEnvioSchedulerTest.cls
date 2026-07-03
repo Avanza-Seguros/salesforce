@@ -9,7 +9,7 @@ private class QueueEnvioSchedulerTest {
         Test.stopTest();
         
         // Verificar que no hay excepciones
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     @IsTest
@@ -24,7 +24,7 @@ private class QueueEnvioSchedulerTest {
             FROM CronTrigger 
             WHERE CronJobDetail.Name LIKE 'BatchEnvioEmails_Daily%'
         ];
-        System.assert(!jobs.isEmpty(), 'Debe haber al menos un job programado');
+        Assert.isTrue(!jobs.isEmpty(), 'Debe haber al menos un job programado');
     }
     
     @IsTest
@@ -38,7 +38,7 @@ private class QueueEnvioSchedulerTest {
             FROM CronTrigger 
             WHERE CronJobDetail.Name LIKE 'BatchEnvioEmails_Hourly%'
         ];
-        System.assert(!jobs.isEmpty(), 'Debe haber al menos un job programado');
+        Assert.isTrue(!jobs.isEmpty(), 'Debe haber al menos un job programado');
     }
     
     @IsTest
@@ -56,6 +56,6 @@ private class QueueEnvioSchedulerTest {
             FROM CronTrigger 
             WHERE CronJobDetail.Name LIKE 'BatchEnvioEmails_%'
         ];
-        System.assertEquals(0, jobs.size(), 'Todos los jobs deben estar cancelados');
+        Assert.areEqual(0, jobs.size(), 'Todos los jobs deben estar cancelados');
     }
 }

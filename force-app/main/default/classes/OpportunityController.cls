@@ -56,13 +56,17 @@ public with sharing class OpportunityController {
 		try {
 			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
 			wrapper.opportunity = [
-				SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-					   Ramo__c, CloseDate, Amount, Prima_Total__c,
-					   AccountId, Account.Name, Description
-				FROM Opportunity
-				WHERE Id = :opportunityId
-				LIMIT 1
-			];
+                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+                    Ramo__c, CloseDate, Amount, Prima_Total__c,
+                    AccountId, Account.Name, Description,
+                    Agente_Relacionado__c, Agente_Relacionado__r.Name,
+                    Automovil__c, Automovil__r.Name, Automovil__r.Marca__c, Automovil__r.Modelo__c,
+                    Automovil__r.Serie__c, Automovil__r.Placa__c, Automovil__r.Motor__c,
+                    Automovil__r.Descripcion_Completa__c
+                FROM Opportunity
+                WHERE Id = :opportunityId
+                LIMIT 1
+            ];
 
 			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
 			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)

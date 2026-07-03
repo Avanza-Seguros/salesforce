@@ -27,10 +27,10 @@ const VIEW_MODES = {
     PDF: 'pdf'   // NUEVO - vista de creacion desde PDFs
 };
 const OPPORTUNITY_TYPES = {
-    NEW_BUSINESS: 'New Business',
-    INTERNAL_RENEWAL: 'Internal Renewal',
-    EXTERNAL_RENEWAL: 'External Renewal',
-    REISSUE: 'Reissue'
+    NEW_BUSINESS: 'Nuevo',
+    INTERNAL_RENEWAL: 'Renovación Externa',
+    EXTERNAL_RENEWAL: 'Renovación Interna',
+    REISSUE: 'Rexpedición'
 };
 const RAMO_TYPES = {
     AUTOMOVIL: 'Automoviles',
@@ -48,7 +48,6 @@ const RAMO_TYPES = {
 const STAGES_DATA = [
     { value: 'Gestion Comercial',    label: 'Gestión Comercial',   probability: 40,  icon: 'utility:money',   color: '#0052CC' },
     { value: 'En proceso de emision',label: 'En proceso de emisión', probability: 70,  icon: 'utility:check',   color: '#00A3BF' },
-    { value: 'Emisión',              label: 'Emisión',              probability: 80,  icon: 'utility:check',   color: '#00A3BF' },
     { value: 'Póliza',               label: 'Póliza',               probability: 95,  icon: 'utility:policy',  color: '#00875A' },
     { value: 'Closed Won',           label: 'Ganada',               probability: 100, icon: 'utility:success', color: '#00875A' },
     { value: 'Closed Lost',          label: 'Perdida',              probability: 0,   icon: 'utility:error',   color: '#DE350B' }
@@ -808,6 +807,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Description: detail.Description || '',
             AccountId:   detail.AccountId   || null,
             AccountName: detail.Account?.Name || detail.AccountName || '',
+            Agente__c:   detail.Agente__c    || null,
+            AgenteName:  detail.Agente__r?.Name || detail.AgenteName || '',
+            Vehiculo__c:  detail.Automovil__c || null,
+            VehiculoName: detail.Automovil__r
+                            ? `${detail.Automovil__r.Marca__c || ''} ${detail.Automovil__r.Modelo__c || ''}`.trim()
+                            : (detail.VehiculoName || ''),
             CloseDate:   detail.CloseDate   || null,
             Prima_Total__c: detail.Prima_Total__c || detail.Amount || null,
             clienteNombre:    detail.clienteNombre    || detail.Account?.Name           || '',
@@ -837,8 +842,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (this.opportunity.Ramo__c === RAMO_TYPES.TRANSPORTE || detail.transporte) {
             this.transporte = { ...this.getDefaultTransporte(), ...(detail.transporte || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL || detail.automovil) {
-            const a = detail.automovil || detail;
+        if (this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL || detail.Automovil__r || detail.automovil) {
+            const a = detail.Automovil__r || detail.automovil || detail;
             this.automovil = {
                 ...this.getDefaultAutomovil(),
                 Marca__c:                a.Marca__c                || '',
@@ -846,7 +851,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 Anio__c:                 a.Anio__c                 || '',
                 Placa__c:                a.Placa__c                || '',
                 Serie__c:                a.Serie__c                || '',
-                descripcion_completa__c: a.descripcion_completa__c || ''
+                Motor__c:                a.Motor__c                || '',
+                descripcion_completa__c: a.Descripcion_Completa__c || a.descripcion_completa__c || ''
             };
         }
         if (this.opportunity.Ramo__c === RAMO_TYPES.GASTOS_MEDICOS || detail.gmm) {
@@ -2033,6 +2039,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             // Payload: oportunidad + detalle del ramo + datos del auto (para Vehiculo__c)
             const payload = {
                 ...this.opportunity,
+                Automovil__c: this.opportunity.Vehiculo__c || null,
                 detalleRamo: this.getActiveRamoDetail(),
                 vehiculo: this.automovil
             };

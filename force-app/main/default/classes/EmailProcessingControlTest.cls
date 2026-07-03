@@ -90,7 +90,7 @@ public class EmailProcessingControlTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Test debugItemsStatus completado exitosamente');
+        Assert.isTrue(true, 'Test debugItemsStatus completado exitosamente');
     }
     
     @IsTest
@@ -138,22 +138,22 @@ public class EmailProcessingControlTest {
         // 1. Test con emails deshabilitados
         EmailContextControl.setTestMode(true);
         Boolean wasSent1 = EmailProcessingControl.wasEmailSent(item.Id);
-        System.assertEquals(false, wasSent1, 'Debería retornar true cuando emails están deshabilitados');
+        Assert.areEqual(false, wasSent1, 'Debería retornar true cuando emails están deshabilitados');
         
         // 2. Test con emails habilitados, no enviado
         EmailContextControl.setTestMode(false);
         EmailProcessingControl.clearCache();
         Boolean wasSent2 = EmailProcessingControl.wasEmailSent(item.Id);
-        System.assertEquals(false, wasSent2, 'Debería retornar false cuando no se ha enviado');
+        Assert.areEqual(false, wasSent2, 'Debería retornar false cuando no se ha enviado');
         
         // 3. Test después de marcar como enviado
         EmailProcessingControl.markAsSent(item.Id);
         Boolean wasSent3 = EmailProcessingControl.wasEmailSent(item.Id);
-        System.assertEquals(true, wasSent3, 'Debería retornar true después de marcar como enviado');
+        Assert.areEqual(true, wasSent3, 'Debería retornar true después de marcar como enviado');
         
         // 4. Test con item null
         Boolean wasSent4 = EmailProcessingControl.wasEmailSent(null);
-        System.assertEquals(false, wasSent4, 'Debería retornar true para item null (evitar NPE)');
+        Assert.areEqual(false, wasSent4, 'Debería retornar true para item null (evitar NPE)');
         
         Test.stopTest();
     }
@@ -211,7 +211,7 @@ public class EmailProcessingControlTest {
         System.debug('Marcando como enviado...');
         EmailProcessingControl.markAsSent(item.Id);
         Boolean wasSent1 = EmailProcessingControl.wasEmailSent(item.Id);
-        System.assertEquals(true, wasSent1, 'Debería estar marcado como enviado');
+        Assert.areEqual(true, wasSent1, 'Debería estar marcado como enviado');
         
         // 2. Marcar como NO enviado
         System.debug('Marcando como NO enviado...');
@@ -226,7 +226,7 @@ public class EmailProcessingControlTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Métodos markAsSent y markAsNotSent funcionan correctamente');
+        Assert.isTrue(true, 'Métodos markAsSent y markAsNotSent funcionan correctamente');
     }
     
     @IsTest
@@ -238,7 +238,7 @@ public class EmailProcessingControlTest {
         // 1. Marcar como enviado
         EmailProcessingControl.markAsSent(item.Id);
         Boolean wasSentBefore = EmailProcessingControl.wasEmailSent(item.Id);
-        System.assertEquals(true, wasSentBefore, 'Debería estar marcado como enviado antes de clear');
+        Assert.areEqual(true, wasSentBefore, 'Debería estar marcado como enviado antes de clear');
         
         // 2. Limpiar cache
         EmailProcessingControl.clearCache();
@@ -251,7 +251,7 @@ public class EmailProcessingControlTest {
         
         Test.stopTest();
         
-        System.assert(true, 'clearCache ejecutado sin errores');
+        Assert.isTrue(true, 'clearCache ejecutado sin errores');
     }
     
     @IsTest
@@ -277,7 +277,7 @@ public class EmailProcessingControlTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Integración con campo de BD probada');
+        Assert.isTrue(true, 'Integración con campo de BD probada');
     }
     
     @IsTest
@@ -316,7 +316,7 @@ public class EmailProcessingControlTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Stress test completado exitosamente');
+        Assert.isTrue(true, 'Stress test completado exitosamente');
     }
     
     @IsTest
@@ -341,7 +341,7 @@ public class EmailProcessingControlTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Casos extremos probados sin errores');
+        Assert.isTrue(true, 'Casos extremos probados sin errores');
     }
     
     // Test para verificar que no hay excepciones en producción
@@ -389,11 +389,11 @@ public class EmailProcessingControlTest {
         } catch (Exception e) {
             System.debug('❌ Excepción inesperada: ' + e.getMessage());
             System.debug('Stack: ' + e.getStackTraceString());
-            System.assert(false, 'No debería haber excepciones: ' + e.getMessage());
+            Assert.isTrue(false, 'No debería haber excepciones: ' + e.getMessage());
         }
         
         Test.stopTest();
         
-        System.assert(true, 'Escenario real ejecutado sin excepciones');
+        Assert.isTrue(true, 'Escenario real ejecutado sin excepciones');
     }
 }

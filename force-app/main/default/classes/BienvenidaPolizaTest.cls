@@ -54,7 +54,7 @@ public class BienvenidaPolizaTest {
         
         // Verifica si el estado se actualizó correctamente
         Opportunity updatedOpp = [SELECT StageName FROM Opportunity WHERE Id = :opp.Id];
-        System.assertEquals('Concluido', updatedOpp.StageName, 'La oportunidad debe estar en estado Concluido');
+        Assert.areEqual('Concluido', updatedOpp.StageName, 'La oportunidad debe estar en estado Concluido');
     }
     
     static testmethod void sendEmailTest() {
@@ -82,6 +82,6 @@ public class BienvenidaPolizaTest {
         Test.stopTest();
         
         // Verificar que se intentaron enviar correos electrónicos
-        System.assert(true, 'Se enviaron correos electrónicos de prueba.');
+        Assert.isTrue(true, 'Se enviaron correos electrónicos de prueba.');
     }
 }

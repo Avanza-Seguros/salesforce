@@ -74,7 +74,7 @@ public class QueueEnvioEmailsTest2 {
         Test.stopTest();
         
         // Then
-        System.assertNotEquals(null, jobId, 'Job should be enqueued');
+        Assert.areNotEqual(null, jobId, 'Job should be enqueued');
         
         // Verify items might be updated (implementation dependent)
         List<Items_Cases__c> updatedItems = [
@@ -83,8 +83,8 @@ public class QueueEnvioEmailsTest2 {
             WHERE Id IN :itemIds
         ];
         
-        System.assertEquals(5, updatedItems.size(), 'All items should exist');
-        System.assert(true, 'Integration test completed');
+        Assert.areEqual(5, updatedItems.size(), 'All items should exist');
+        Assert.isTrue(true, 'Integration test completed');
     }
     
     @IsTest
@@ -103,7 +103,7 @@ public class QueueEnvioEmailsTest2 {
         Test.stopTest();
         
         // Each instance should have a unique batch ID
-        System.assert(true, 'Multiple queue instances should work independently');
+        Assert.isTrue(true, 'Multiple queue instances should work independently');
     }
     
     @IsTest
@@ -151,11 +151,11 @@ public class QueueEnvioEmailsTest2 {
         Test.stopTest();
         
         // Verify we didn't hit governor limits
-        System.assert(Limits.getQueries() < Limits.getLimitQueries(), 
+        Assert.isTrue(Limits.getQueries() < Limits.getLimitQueries(), 
             'Should not exceed SOQL queries limit');
-        System.assert(Limits.getDmlStatements() < Limits.getLimitDmlStatements(),
+        Assert.isTrue(Limits.getDmlStatements() < Limits.getLimitDmlStatements(),
             'Should not exceed DML statements limit');
-        System.assert(Limits.getDmlRows() < Limits.getLimitDmlRows(),
+        Assert.isTrue(Limits.getDmlRows() < Limits.getLimitDmlRows(),
             'Should not exceed DML rows limit');
     }
     
@@ -205,7 +205,7 @@ public class QueueEnvioEmailsTest2 {
         Test.stopTest();
         
         // Should handle different categories
-        System.assert(true, 'Should handle different categories');
+        Assert.isTrue(true, 'Should handle different categories');
     }
     
     // Helper para crear respuesta mock

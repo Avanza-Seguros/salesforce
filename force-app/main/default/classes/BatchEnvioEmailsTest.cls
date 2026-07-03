@@ -92,8 +92,8 @@ public class BatchEnvioEmailsTest {
         ];
         
         for (Items_Cases__c item : updatedItems) {
-            System.assertEquals('En Proceso', item.Estatus__c, 'Estatus debe ser Concluido');
-            System.assertEquals(false, item.Procesar_Batch__c, 'Procesar_Batch__c debe ser false');
+            Assert.areEqual('En Proceso', item.Estatus__c, 'Estatus debe ser Concluido');
+            Assert.areEqual(false, item.Procesar_Batch__c, 'Procesar_Batch__c debe ser false');
         }
     }
 
@@ -150,7 +150,7 @@ public class BatchEnvioEmailsTest {
             AND Estatus__c = 'Error'
         ];
         
-        System.assertEquals(0, failedItems.size(), 'Debe haber 2 items con error');
+        Assert.areEqual(0, failedItems.size(), 'Debe haber 2 items con error');
     }
     
     @IsTest
@@ -223,7 +223,7 @@ public class BatchEnvioEmailsTest {
         Database.executeBatch(new BatchEnvioEmails());
         Test.stopTest();
 
-        System.assert(true); // no exception
+        Assert.isTrue(true); // no exception
     }
     
     @IsTest
@@ -243,7 +243,7 @@ public class BatchEnvioEmailsTest {
             WHERE Estatus__c = 'Concluido'
         ];
         
-        System.assertEquals(0, updatedItems.size(), 'Todos los items deben estar concluidos');
+        Assert.areEqual(0, updatedItems.size(), 'Todos los items deben estar concluidos');
     }
     
     @IsTest
@@ -263,7 +263,7 @@ public class BatchEnvioEmailsTest {
             WHERE Estatus__c = 'Concluido'
         ];
         
-        System.assertEquals(0, updatedItems.size(), 'Todos los items deben estar concluidos');
+        Assert.areEqual(0, updatedItems.size(), 'Todos los items deben estar concluidos');
     }
     
     @IsTest
@@ -318,10 +318,10 @@ public class BatchEnvioEmailsTest {
         // Simular finish
         try {
             batch.finish(null);
-            System.assert(true, 'Finish ejecutado sin errores');
+            Assert.isTrue(true, 'Finish ejecutado sin errores');
         } catch (Exception e) {
             System.debug('Error en finish: ' + e.getMessage());
-            System.assert(false, 'Finish no debería lanzar excepción: ' + e.getMessage());
+            Assert.isTrue(false, 'Finish no debería lanzar excepción: ' + e.getMessage());
         }
         
         Test.stopTest();
@@ -381,7 +381,7 @@ public class BatchEnvioEmailsTest {
         batch.setItemIds(testIds);
         
         // Verificar que se configuró correctamente
-        System.assert(batch.processMarkedOnly, 'Debe estar en modo procesar marcados');
+        Assert.isTrue(batch.processMarkedOnly, 'Debe estar en modo procesar marcados');
         
         Test.stopTest();
     }

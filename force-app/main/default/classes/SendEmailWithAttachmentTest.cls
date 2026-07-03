@@ -53,7 +53,7 @@ public class SendEmailWithAttachmentTest {
         Control_de_Folios__c cf = [SELECT Id, Correo__c, Titular__c, Aseguradora__c FROM Control_de_Folios__c LIMIT 1];
         
         // 🔹 Verificación para evitar fallos si el campo es NULL
-        System.assertNotEquals(null, cf.Aseguradora__c, 'El campo Aseguradora__c no debería ser NULL');
+        Assert.areNotEqual(null, cf.Aseguradora__c, 'El campo Aseguradora__c no debería ser NULL');
         
         SendEmailWithAttachment.sendEmail(cf);
         Test.stopTest();

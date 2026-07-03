@@ -107,7 +107,7 @@ public with sharing class PolizasPendientesTest {
         ];
         
         // Deberían haberse actualizado los 3 pagos pendientes con fecha anterior
-        System.assertEquals(0, pagosActualizados.size(), 'Deberían haberse actualizado 3 pagos a "Pagada"');
+        Assert.areEqual(0, pagosActualizados.size(), 'Deberían haberse actualizado 3 pagos a "Pagada"');
     }
     
     @IsTest
@@ -190,7 +190,7 @@ public with sharing class PolizasPendientesTest {
             AND Estatus_del_Pago__c = 'Pendiente'
         ];
         
-        System.assertEquals(0, pagosPendientes.size(), 'El pago con fecha futura debería mantenerse como Pendiente');
+        Assert.areEqual(0, pagosPendientes.size(), 'El pago con fecha futura debería mantenerse como Pendiente');
     }
     
     @IsTest
@@ -228,9 +228,9 @@ public with sharing class PolizasPendientesTest {
         ];
         
         // Solo debería haber 2 pagos y ambos en "Pagada"
-        System.assertEquals(2, pagosPoliza3.size());
+        Assert.areEqual(2, pagosPoliza3.size());
         for (Pago_poliza__c pago : pagosPoliza3) {
-            System.assertEquals('Pagada', pago.Estatus_del_Pago__c);
+            Assert.areEqual('Pagada', pago.Estatus_del_Pago__c);
         }
     }
     
@@ -260,7 +260,7 @@ public with sharing class PolizasPendientesTest {
         
         // No debería haber cambios en otros pagos ya que no tiene póliza asociada
         Pago_poliza__c pagoActualizado = [SELECT Estatus_del_Pago__c FROM Pago_poliza__c WHERE Id = :pagoSinPoliza.Id];
-        System.assertEquals('Pagado', pagoActualizado.Estatus_del_Pago__c);
+        Assert.areEqual('Pagado', pagoActualizado.Estatus_del_Pago__c);
     }
     
     @IsTest
@@ -292,7 +292,7 @@ public with sharing class PolizasPendientesTest {
         
         // El pago sin fecha se actualiza a pagado, pero no debería afectar otros pagos
         Pago_poliza__c pagoActualizado = [SELECT Estatus_del_Pago__c FROM Pago_poliza__c WHERE Id = :pagoSinFecha.Id];
-        System.assertEquals('Actualizado', pagoActualizado.Estatus_del_Pago__c);
+        Assert.areEqual('Actualizado', pagoActualizado.Estatus_del_Pago__c);
     }
     
     @IsTest
@@ -367,6 +367,6 @@ public with sharing class PolizasPendientesTest {
         
         // No debería haber cambios
         Pago_poliza__c pagoDespues = [SELECT Estatus_del_Pago__c FROM Pago_poliza__c WHERE Id = :pago.Id];
-        System.assertEquals('Actualizado', pagoDespues.Estatus_del_Pago__c);
+        Assert.areEqual('Actualizado', pagoDespues.Estatus_del_Pago__c);
     }
 }

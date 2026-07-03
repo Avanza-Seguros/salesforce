@@ -63,7 +63,7 @@ private class InvocableEnviarEmailsTest {
             FROM Items_Cases__c 
             WHERE Procesar_Batch__c = true
         ];
-        System.assertEquals(5, updatedItems.size());
+        Assert.areEqual(5, updatedItems.size());
     }
     
     // Test 2: Ejecución con BatchParameters
@@ -80,7 +80,7 @@ private class InvocableEnviarEmailsTest {
         Test.stopTest();
         
         Integer markedCount = [SELECT COUNT() FROM Items_Cases__c WHERE Procesar_Batch__c = true];
-        System.assertEquals(2, markedCount);
+        Assert.areEqual(2, markedCount);
     }
     
     // Test 3: Ejecución con un solo ID
@@ -95,7 +95,7 @@ private class InvocableEnviarEmailsTest {
         Test.stopTest();
         
         Items_Cases__c updatedItem = [SELECT Procesar_Batch__c FROM Items_Cases__c WHERE Id = :item.Id];
-        System.assertEquals(true, updatedItem.Procesar_Batch__c);
+        Assert.areEqual(true, updatedItem.Procesar_Batch__c);
     }
     
     // Test 4: Lista vacía
@@ -105,7 +105,7 @@ private class InvocableEnviarEmailsTest {
         Invocable_EnviarEmails.ejecutarBatch(new List<Id>());
         Test.stopTest();
         
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     // Test 6: BatchParameters con IDs nulos
@@ -116,7 +116,7 @@ private class InvocableEnviarEmailsTest {
         Invocable_EnviarEmails.ejecutarBatch(new List<Id>());
         Test.stopTest();
         
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     // Test 7: Input como String (ID)
@@ -131,7 +131,7 @@ private class InvocableEnviarEmailsTest {
         Test.stopTest();
         
         Items_Cases__c updatedItem = [SELECT Procesar_Batch__c FROM Items_Cases__c WHERE Id = :item.Id];
-        System.assertEquals(true, updatedItem.Procesar_Batch__c);
+        Assert.areEqual(true, updatedItem.Procesar_Batch__c);
     }
     
     private class MockHttpResponseGenerator implements HttpCalloutMock {

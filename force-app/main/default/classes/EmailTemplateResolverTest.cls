@@ -238,7 +238,7 @@ private class EmailTemplateResolverTest {
         
         // Verificar que se encontró el template (debería convertir DeveloperName a ID)
         EmailTemplate expectedTemplate = [SELECT Id FROM EmailTemplate WHERE DeveloperName = 'Template_Alta' LIMIT 1];
-        System.assertEquals(expectedTemplate.Id, templateId, 'Debería convertir DeveloperName a ID');
+        Assert.areEqual(expectedTemplate.Id, templateId, 'Debería convertir DeveloperName a ID');
     }
     
     // Test: Item con Baja_Por_Defuncion__c = true
@@ -255,7 +255,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
 
         // Verificar que devuelve '01' para baja por defunción
-        System.assertEquals('99', categoria, 'Debería devolver 99 para baja por defunción');
+        Assert.areEqual('99', categoria, 'Debería devolver 99 para baja por defunción');
     }
     
     // Test: Categoría específica en item
@@ -272,7 +272,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que usa la categoría específica
-        System.assertEquals('Cambio Salarial', categoria, 'Debería usar la categoría específica del item');
+        Assert.areEqual('Cambio Salarial', categoria, 'Debería usar la categoría específica del item');
     }
     
     // Test: Alta Dependientes
@@ -289,7 +289,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que devuelve '02' para Alta Dependientes
-        System.assertEquals('02', categoria, 'Debería devolver 02 para Alta Dependientes');
+        Assert.areEqual('02', categoria, 'Debería devolver 02 para Alta Dependientes');
     }
     
     // Test: Cambio Dependientes
@@ -306,7 +306,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que devuelve '22' para Cambio Dependientes
-        System.assertEquals('22', categoria, 'Debería devolver 22 para Cambio Dependientes');
+        Assert.areEqual('22', categoria, 'Debería devolver 22 para Cambio Dependientes');
     }
     
     // Test: Renuncia Voluntaria
@@ -323,7 +323,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que mantiene la categoría específica
-        System.assertEquals('Renuncia Voluntaria', categoria, 'Debería mantener Renuncia Voluntaria');
+        Assert.areEqual('Renuncia Voluntaria', categoria, 'Debería mantener Renuncia Voluntaria');
     }
     
     // Test: Item nulo
@@ -334,7 +334,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que retorna null
-        System.assertEquals(null, templateId, 'Debería retornar null cuando el item es nulo');
+        Assert.areEqual(null, templateId, 'Debería retornar null cuando el item es nulo');
     }
     
     // Test: resolveTemplate con template encontrado
@@ -409,7 +409,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que retorna null
-        System.assertEquals(null, template, 'Debería retornar null cuando no hay asignación');
+        Assert.areEqual(null, template, 'Debería retornar null cuando no hay asignación');
     }
     
     // Test: getTemplateIdByName con nombre existente
@@ -458,7 +458,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que encontró el template
-        System.assertEquals(templateAlta.Id, templateId, 'Debería encontrar template por DeveloperName');
+        Assert.areEqual(templateAlta.Id, templateId, 'Debería encontrar template por DeveloperName');
     }
     
     // Test: getTemplateIdByName con nombre inexistente
@@ -504,7 +504,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que retorna null cuando no encuentra template
-        System.assertEquals(null, templateId, 'Debería retornar null cuando template no existe');
+        Assert.areEqual(null, templateId, 'Debería retornar null cuando template no existe');
     }
     
     // Test: convertRecordTypeToKey con caracteres especiales
@@ -532,13 +532,13 @@ private class EmailTemplateResolverTest {
         String tipoVacio = EmailTemplateResolver.getTipoGeneralFromRecordType('');
         Test.stopTest();
         
-        System.assertEquals('ALTA', tipoAlta, 'Debería identificar ALTA');
-        System.assertEquals('BAJA', tipoBaja, 'Debería identificar BAJA');
-        System.assertEquals('CAMBIO', tipoCambio, 'Debería identificar CAMBIO');
-        System.assertEquals('CONSULTA', tipoConsulta, 'Debería identificar CONSULTA');
-        System.assertEquals(null, tipoOtro, 'Debería retornar null para tipo no reconocido');
-        System.assertEquals(null, tipoNull, 'Debería retornar null para null');
-        System.assertEquals(null, tipoVacio, 'Debería retornar null para string vacío');
+        Assert.areEqual('ALTA', tipoAlta, 'Debería identificar ALTA');
+        Assert.areEqual('BAJA', tipoBaja, 'Debería identificar BAJA');
+        Assert.areEqual('CAMBIO', tipoCambio, 'Debería identificar CAMBIO');
+        Assert.areEqual('CONSULTA', tipoConsulta, 'Debería identificar CONSULTA');
+        Assert.areEqual(null, tipoOtro, 'Debería retornar null para tipo no reconocido');
+        Assert.areEqual(null, tipoNull, 'Debería retornar null para null');
+        Assert.areEqual(null, tipoVacio, 'Debería retornar null para string vacío');
     }
     
     // Test: debugAccountAssignments
@@ -551,7 +551,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // No hay asserts - solo para coverage
-        System.assert(true, 'Método ejecutado sin errores');
+        Assert.isTrue(true, 'Método ejecutado sin errores');
     }
     
     // Test: debugResolveTemplate
@@ -588,8 +588,8 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que retorna información de debug
-        System.assertNotEquals(null, debugInfo, 'Debería retornar información de debug');
-        System.assert(debugInfo.contains('Cuenta:'), 'Debería contener información de la cuenta');
+        Assert.areNotEqual(null, debugInfo, 'Debería retornar información de debug');
+        Assert.isTrue(debugInfo.contains('Cuenta:'), 'Debería contener información de la cuenta');
     }
     
     // Test: preloadAccountTemplates
@@ -673,7 +673,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que ambas llamadas funcionan
-        System.assertEquals(templateId1, templateId2, 'Ambas llamadas deberían retornar lo mismo');
+        Assert.areEqual(templateId1, templateId2, 'Ambas llamadas deberían retornar lo mismo');
     }
     
     // Test: Error en loadAccountTemplates
@@ -688,7 +688,7 @@ private class EmailTemplateResolverTest {
         Test.stopTest();
         
         // Verificar que no hay excepción
-        System.assert(true, 'Debería manejar el error sin excepción');
+        Assert.isTrue(true, 'Debería manejar el error sin excepción');
     }
     
     // Test: findAssignedTemplate con diferentes combinaciones

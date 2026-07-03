@@ -235,10 +235,10 @@ public class EnvioTriggerTest {
             Test.stopTest();
             
             // Verificar que se procesó
-            System.assert(true, 'Trigger ejecutado sin errores para Alta con correo');
+            Assert.isTrue(true, 'Trigger ejecutado sin errores para Alta con correo');
         } else {
             System.debug('⚠️ No hay items de Alta con correo para testear');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -270,10 +270,10 @@ public class EnvioTriggerTest {
             update item;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ejecutado sin errores para Baja con correo');
+            Assert.isTrue(true, 'Trigger ejecutado sin errores para Baja con correo');
         } else {
             System.debug('⚠️ No hay items de Baja con correo para testear');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -303,10 +303,10 @@ public class EnvioTriggerTest {
             update item;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ejecutado sin errores para baja por defunción');
+            Assert.isTrue(true, 'Trigger ejecutado sin errores para baja por defunción');
         } else {
             System.debug('⚠️ No hay items de Baja por defunción para testear');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -336,10 +336,10 @@ public class EnvioTriggerTest {
             update item;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ejecutado sin errores para alta sin correo');
+            Assert.isTrue(true, 'Trigger ejecutado sin errores para alta sin correo');
         } else {
             System.debug('⚠️ No hay items de Alta sin correo para testear');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -369,10 +369,10 @@ public class EnvioTriggerTest {
             update item;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ejecutado sin errores para otro record type');
+            Assert.isTrue(true, 'Trigger ejecutado sin errores para otro record type');
         } else {
             System.debug('⚠️ No hay items con RecordType diferente para testear');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -402,10 +402,10 @@ public class EnvioTriggerTest {
             update item;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ejecutado para cambio de estado diferente');
+            Assert.isTrue(true, 'Trigger ejecutado para cambio de estado diferente');
         } else {
             System.debug('⚠️ No hay items en estado "En proceso" para testear');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -435,10 +435,10 @@ public class EnvioTriggerTest {
             TriggerControl.isExecuting = false;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ignorado por control de recursión');
+            Assert.isTrue(true, 'Trigger ignorado por control de recursión');
         } else {
             System.debug('⚠️ No hay items para testear control de recursión');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -471,10 +471,10 @@ public class EnvioTriggerTest {
             TriggerControl.clearProcessedItems();
             Test.stopTest();
             
-            System.assert(true, 'Trigger ignoró item ya procesado');
+            Assert.isTrue(true, 'Trigger ignoró item ya procesado');
         } else {
             System.debug('⚠️ No hay items para testear item ya procesado');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     
@@ -504,7 +504,7 @@ public class EnvioTriggerTest {
         update items;
         Test.stopTest();
         
-        System.assert(true, 'Bulk update ejecutado sin errores');
+        Assert.isTrue(true, 'Bulk update ejecutado sin errores');
     }
     
     // Test: Sin items válidos para procesar
@@ -566,10 +566,10 @@ public class EnvioTriggerTest {
             update item;
             Test.stopTest();
             
-            System.assert(true, 'Trigger ejecutado sin procesar items (no válidos)');
+            Assert.isTrue(true, 'Trigger ejecutado sin procesar items (no válidos)');
         } else {
             System.debug('⚠️ No hay RecordTypes disponibles para test');
-            System.assert(true, 'Test skipped - no hay RecordTypes');
+            Assert.isTrue(true, 'Test skipped - no hay RecordTypes');
         }
     }
     
@@ -603,7 +603,7 @@ public class EnvioTriggerTest {
         }
         Test.stopTest();
         
-        System.assert(true, 'Manejo de excepción probado');
+        Assert.isTrue(true, 'Manejo de excepción probado');
     }
     
     // Test: Verificar métodos getAltaRecordTypeIds y getBajaRecordTypeIds
@@ -632,7 +632,7 @@ public class EnvioTriggerTest {
         }
         Test.stopTest();
         
-        System.assert(true, 'Métodos RecordType ejecutados (cobertura indirecta)');
+        Assert.isTrue(true, 'Métodos RecordType ejecutados (cobertura indirecta)');
     }
     
     // Test: Verificar que skipEmailTrigger funciona
@@ -659,10 +659,10 @@ public class EnvioTriggerTest {
             TriggerControl.skipEmailTrigger = false;
             Test.stopTest();
             
-            System.assert(true, 'Trigger saltado cuando skipEmailTrigger = true');
+            Assert.isTrue(true, 'Trigger saltado cuando skipEmailTrigger = true');
         } else {
             System.debug('⚠️ No hay items para testear skipEmailTrigger');
-            System.assert(true, 'Test skipped - no hay datos');
+            Assert.isTrue(true, 'Test skipped - no hay datos');
         }
     }
     

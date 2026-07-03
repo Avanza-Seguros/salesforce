@@ -58,14 +58,14 @@ public class MassEmailConsoleControllerTest {
         Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assert(result.containsKey('pending'), 'Debe contener clave pending');
-        System.assert(result.containsKey('sentToday'), 'Debe contener clave sentToday');
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.isTrue(result.containsKey('pending'), 'Debe contener clave pending');
+        Assert.isTrue(result.containsKey('sentToday'), 'Debe contener clave sentToday');
         
         // 5 casos * 1 item pendiente por caso = 5 pendientes
-        System.assertEquals(10, result.get('pending'), 'Debe haber 5 items pendientes para hoy');
+        Assert.areEqual(10, result.get('pending'), 'Debe haber 5 items pendientes para hoy');
         // 5 casos * 1 item enviado por caso = 5 enviados hoy
-        System.assertEquals(5, result.get('sentToday'), 'Debe haber 5 items enviados hoy');
+        Assert.areEqual(5, result.get('sentToday'), 'Debe haber 5 items enviados hoy');
     }
     
     @isTest
@@ -78,15 +78,15 @@ public class MassEmailConsoleControllerTest {
         Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assertEquals(5, result.size(), 'Debe retornar 5 casos');
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.areEqual(5, result.size(), 'Debe retornar 5 casos');
         
         // Verificar que los casos tienen los campos requeridos
         for (Case c : result) {
-            System.assertNotEquals(null, c.Id, 'Caso debe tener Id');
-            System.assertNotEquals(null, c.CaseNumber, 'Caso debe tener CaseNumber');
-            System.assertNotEquals(null, c.Subject, 'Caso debe tener Subject');
-            System.assertNotEquals('Closed', c.Status, 'Caso no debe estar cerrado');
+            Assert.areNotEqual(null, c.Id, 'Caso debe tener Id');
+            Assert.areNotEqual(null, c.CaseNumber, 'Caso debe tener CaseNumber');
+            Assert.areNotEqual(null, c.Subject, 'Caso debe tener Subject');
+            Assert.areNotEqual('Closed', c.Status, 'Caso no debe estar cerrado');
         }
     }
     
@@ -103,8 +103,8 @@ public class MassEmailConsoleControllerTest {
         Test.stopTest();
         
         // Verificar que no retorna casos cuando no hay items
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assertEquals(5, result.size(), 'No debe retornar casos sin items');
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.areEqual(5, result.size(), 'No debe retornar casos sin items');
     }
     
     @isTest
@@ -125,7 +125,7 @@ public class MassEmailConsoleControllerTest {
         
         
         for (Case c : result) {
-            System.assertNotEquals('Closed', c.Status, 'No debe incluir casos cerrados');
+            Assert.areNotEqual('Closed', c.Status, 'No debe incluir casos cerrados');
         }
     }
     
@@ -153,8 +153,8 @@ public class MassEmailConsoleControllerTest {
         System.Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assert(result.startsWith('OK'), 'Debe retornar OK: ' + result);
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.isTrue(result.startsWith('OK'), 'Debe retornar OK: ' + result);
         
         // Contar items relacionados con el caso
         Integer itemCount = [SELECT COUNT() FROM Items_Cases__c WHERE Caso__c = :testCase.Id];
@@ -186,8 +186,8 @@ public class MassEmailConsoleControllerTest {
         System.Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assert(result.startsWith('OK'), 'Debe retornar OK: ' + result);
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.isTrue(result.startsWith('OK'), 'Debe retornar OK: ' + result);
     }
     
     @isTest
@@ -258,8 +258,8 @@ public class MassEmailConsoleControllerTest {
         System.Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assert(result.startsWith('ERROR'), 'Debe retornar ERROR con JSON inválido: ' + result);
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.isTrue(result.startsWith('ERROR'), 'Debe retornar ERROR con JSON inválido: ' + result);
     }
     
     @isTest
@@ -300,7 +300,7 @@ public class MassEmailConsoleControllerTest {
         System.Test.stopTest();
         
         // Verificar que no hay excepción no controlada
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
         // Puede ser OK o ERROR dependiendo de la implementación
     }
     
@@ -322,11 +322,11 @@ public class MassEmailConsoleControllerTest {
         System.Test.stopTest();
         
         // Verificar consistencia
-        System.assertEquals(dash1.get('pending'), dash2.get('pending'), 
+        Assert.areEqual(dash1.get('pending'), dash2.get('pending'), 
                            'Los datos deben ser consistentes entre llamadas');
-        System.assertEquals(dash1.get('sentToday'), dash2.get('sentToday'), 
+        Assert.areEqual(dash1.get('sentToday'), dash2.get('sentToday'), 
                            'Los datos deben ser consistentes entre llamadas');
-        System.assertEquals(cases1.size(), cases2.size(), 
+        Assert.areEqual(cases1.size(), cases2.size(), 
                            'Los casos deben ser consistentes entre llamadas');
     }
     
@@ -355,10 +355,10 @@ public class MassEmailConsoleControllerTest {
         // Verificar rendimiento (debe ser rápido incluso con muchos datos)
         Long executionTime = endTime - startTime;
         System.debug('Tiempo de ejecución getAvailableCases: ' + executionTime + 'ms');
-        System.assert(executionTime < 2000, 'Debe ejecutarse en menos de 2 segundos: ' + executionTime + 'ms');
+        Assert.isTrue(executionTime < 2000, 'Debe ejecutarse en menos de 2 segundos: ' + executionTime + 'ms');
         
         // Verificar límite de 100 registros
-        System.assert(result.size() <= 100, 'No debe exceder el límite de 100 registros');
+        Assert.isTrue(result.size() <= 100, 'No debe exceder el límite de 100 registros');
     }
     
     @isTest
@@ -376,11 +376,11 @@ public class MassEmailConsoleControllerTest {
         System.Test.stopTest();
         
         // Verificar resultados con datos vacíos
-        System.assertEquals(0, (Integer)dashboard.get('pending'), 
+        Assert.areEqual(0, (Integer)dashboard.get('pending'), 
                            'Pending debe ser 0 con base de datos vacía');
-        System.assertEquals(0, (Integer)dashboard.get('sentToday'), 
+        Assert.areEqual(0, (Integer)dashboard.get('sentToday'), 
                            'sentToday debe ser 0 con base de datos vacía');
-        System.assertEquals(0, cases.size(), 
+        Assert.areEqual(0, cases.size(), 
                            'No debe haber casos con base de datos vacía');
     }
 }

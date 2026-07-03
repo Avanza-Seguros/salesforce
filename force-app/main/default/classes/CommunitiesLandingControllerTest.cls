@@ -10,7 +10,7 @@
         if(pageRef != null){
             String url = pageRef.getUrl();
             if(url != null){
-                System.assertEquals(true, String.isEmpty(url));
+                Assert.areEqual(true, String.isEmpty(url));
                 //show up in perforce
             }
         }

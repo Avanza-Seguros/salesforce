@@ -8,6 +8,6 @@ private class runAllQueueEnvioEmailsTests {
         QueueEnvioEmailsTest2 test2 = new QueueEnvioEmailsTest2();
         
         // Los tests se ejecutarán cuando corras "Run All Tests"
-        System.assert(true, 'Test classes loaded successfully');
+        Assert.isTrue(true, 'Test classes loaded successfully');
     }
 }

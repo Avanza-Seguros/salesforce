@@ -41,6 +41,6 @@ public class DownloadAttachmentControllerTest {
         Test.stopTest();
 
         // Verificar resultados
-        //System.assertEquals(1, result.size());
+        //Assert.areEqual(1, result.size());
     }
 }

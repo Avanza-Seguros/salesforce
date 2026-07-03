@@ -117,15 +117,15 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
-        System.assertEquals(2, relaciones.size(), 'Deberían crearse 2 relaciones (uno por cada asegurado)');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areEqual(2, relaciones.size(), 'Deberían crearse 2 relaciones (uno por cada asegurado)');
         
         // Verificar que se usó el pago más reciente y el histórico más reciente
         for (Relacion_Poliza__c relacion : relaciones) {
-            System.assertEquals(polizaConMultiplesAsegurados.Id, relacion.Poliza__c, 'La relación debe apuntar a la póliza correcta');
-            System.assertNotEquals(null, relacion.Asegurado__c, 'Debe tener un asegurado asignado');
-            System.assertNotEquals(null, relacion.Pago__c, 'Debe tener un pago asignado');
-            System.assertNotEquals(null, relacion.Historico__c, 'Debe tener un histórico asignado');
+            Assert.areEqual(polizaConMultiplesAsegurados.Id, relacion.Poliza__c, 'La relación debe apuntar a la póliza correcta');
+            Assert.areNotEqual(null, relacion.Asegurado__c, 'Debe tener un asegurado asignado');
+            Assert.areNotEqual(null, relacion.Pago__c, 'Debe tener un pago asignado');
+            Assert.areNotEqual(null, relacion.Historico__c, 'Debe tener un histórico asignado');
         }
         
         // Verificar que se eliminaron relaciones previas y se crearon nuevas
@@ -133,7 +133,7 @@ public with sharing class GenerarRelacionPolizaControllerTest {
             SELECT Id FROM Relacion_Poliza__c 
             WHERE Poliza__c = :polizaConMultiplesAsegurados.Id
         ];
-        System.assertEquals(2, relacionesEnBD.size(), 'Debería haber exactamente 2 relaciones en la BD');
+        Assert.areEqual(2, relacionesEnBD.size(), 'Debería haber exactamente 2 relaciones en la BD');
     }
     
     @IsTest
@@ -148,13 +148,13 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
-        System.assertEquals(1, relaciones.size(), 'Debería crearse 1 relación (un solo asegurado)');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areEqual(1, relaciones.size(), 'Debería crearse 1 relación (un solo asegurado)');
         
         Relacion_Poliza__c relacion = relaciones[0];
-        System.assertEquals(polizaConUnAsegurado.Id, relacion.Poliza__c, 'La relación debe apuntar a la póliza correcta');
-        System.assertNotEquals(null, relacion.Asegurado__c, 'Debe tener un asegurado asignado');
-        System.assertNotEquals(null, relacion.Historico__c, 'Debe tener un histórico asignado');
+        Assert.areEqual(polizaConUnAsegurado.Id, relacion.Poliza__c, 'La relación debe apuntar a la póliza correcta');
+        Assert.areNotEqual(null, relacion.Asegurado__c, 'Debe tener un asegurado asignado');
+        Assert.areNotEqual(null, relacion.Historico__c, 'Debe tener un histórico asignado');
     }
     
     @IsTest
@@ -169,13 +169,13 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
-        System.assertEquals(1, relaciones.size(), 'Debería crearse 1 relación incluso sin asegurados');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areEqual(1, relaciones.size(), 'Debería crearse 1 relación incluso sin asegurados');
         
         Relacion_Poliza__c relacion = relaciones[0];
-        System.assertEquals(polizaSinAsegurados.Id, relacion.Poliza__c, 'La relación debe apuntar a la póliza correcta');
-        System.assertEquals(null, relacion.Asegurado__c, 'No debe tener asegurado asignado');
-        System.assertNotEquals(null, relacion.Historico__c, 'Debe tener un histórico asignado');
+        Assert.areEqual(polizaSinAsegurados.Id, relacion.Poliza__c, 'La relación debe apuntar a la póliza correcta');
+        Assert.areEqual(null, relacion.Asegurado__c, 'No debe tener asegurado asignado');
+        Assert.areNotEqual(null, relacion.Historico__c, 'Debe tener un histórico asignado');
     }
     
     @IsTest
@@ -192,13 +192,13 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         Test.stopTest();
         
         // Verificar resultados
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
         
         // POL-TEST-0: 2 asegurados = 2 relaciones
         // POL-TEST-1: 1 asegurado = 1 relación
         // POL-TEST-2: 0 asegurados = 1 relación
         // Total: 4 relaciones
-        System.assertEquals(4, relaciones.size(), 'Deberían crearse 4 relaciones en total para las 3 pólizas');
+        Assert.areEqual(4, relaciones.size(), 'Deberían crearse 4 relaciones en total para las 3 pólizas');
 
     }
     
@@ -223,7 +223,7 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         List<Relacion_Poliza__c> relacionesPrevias = [
             SELECT Id FROM Relacion_Poliza__c WHERE Poliza__c = :poliza.Id
         ];
-        System.assertEquals(1, relacionesPrevias.size(), 'Debería existir una relación previa');
+        Assert.areEqual(1, relacionesPrevias.size(), 'Debería existir una relación previa');
         
         Test.startTest();
         List<Relacion_Poliza__c> nuevasRelaciones = GenerarRelacionPolizaController.buildRelaciones(
@@ -235,8 +235,8 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         List<Relacion_Poliza__c> relacionesFinales = [
             SELECT Id FROM Relacion_Poliza__c WHERE Poliza__c = :poliza.Id
         ];
-        System.assertEquals(2, relacionesFinales.size(), 'Deberían haberse creado 2 nuevas relaciones');
-        System.assertEquals(2, nuevasRelaciones.size(), 'Deberían retornarse 2 nuevas relaciones');
+        Assert.areEqual(2, relacionesFinales.size(), 'Deberían haberse creado 2 nuevas relaciones');
+        Assert.areEqual(2, nuevasRelaciones.size(), 'Deberían retornarse 2 nuevas relaciones');
     }
     
     @IsTest
@@ -245,8 +245,8 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         List<Relacion_Poliza__c> relaciones = GenerarRelacionPolizaController.buildRelaciones(new List<Id>());
         Test.stopTest();
         
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
-        System.assertEquals(0, relaciones.size(), 'Debería retornar una lista vacía para IDs vacíos');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areEqual(0, relaciones.size(), 'Debería retornar una lista vacía para IDs vacíos');
     }
     
     @IsTest
@@ -257,8 +257,8 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         );
         Test.stopTest();
         
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
-        System.assertEquals(0, relaciones.size(), 'Debería retornar una lista vacía para ID inválido');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areEqual(0, relaciones.size(), 'Debería retornar una lista vacía para ID inválido');
     }
     
     @IsTest
@@ -290,9 +290,9 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         
         // Verificar que todas las relaciones usan los registros más recientes
         for (Relacion_Poliza__c relacion : relaciones) {
-            System.assertEquals(pagoReciente.Id, relacion.Pago__c, 
+            Assert.areEqual(pagoReciente.Id, relacion.Pago__c, 
                 'Debe usar el pago más reciente por fecha de emisión');
-            System.assertEquals(historicoReciente.Id, relacion.Historico__c, 
+            Assert.areEqual(historicoReciente.Id, relacion.Historico__c, 
                 'Debe usar el histórico más reciente por fecha desde');
         }
     }
@@ -316,9 +316,9 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         );
         Test.stopTest();
         
-        System.assertEquals(1, relaciones.size(), 'Debería crearse 1 relación');
-        System.assertEquals(null, relaciones[0].Pago__c, 'El pago debería ser nulo cuando no hay pagos');
-        System.assertEquals(null, relaciones[0].Historico__c, 'El histórico debería ser nulo cuando no hay históricos');
+        Assert.areEqual(1, relaciones.size(), 'Debería crearse 1 relación');
+        Assert.areEqual(null, relaciones[0].Pago__c, 'El pago debería ser nulo cuando no hay pagos');
+        Assert.areEqual(null, relaciones[0].Historico__c, 'El histórico debería ser nulo cuando no hay históricos');
     }
     
     @IsTest
@@ -381,8 +381,8 @@ public with sharing class GenerarRelacionPolizaControllerTest {
         List<Relacion_Poliza__c> relaciones = GenerarRelacionPolizaController.buildRelaciones(polizaIds);
         Test.stopTest();
         
-        System.assertNotEquals(null, relaciones, 'La lista de relaciones no debería ser nula');
+        Assert.areNotEqual(null, relaciones, 'La lista de relaciones no debería ser nula');
         // Cada póliza sin asegurados crea 1 relación = 10 relaciones
-        System.assertEquals(10, relaciones.size(), 'Deberían crearse 10 relaciones');
+        Assert.areEqual(10, relaciones.size(), 'Deberían crearse 10 relaciones');
     }
 }

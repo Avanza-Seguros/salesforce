@@ -72,15 +72,15 @@ public with sharing class CobranzaControllerTest {
         List<Pago_poliza__c> result = CobranzaController.getUltimosPagosPoliza(fi, ff);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assert(result.isEmpty(), 'Debe haber al menos un pago');
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.isTrue(result.isEmpty(), 'Debe haber al menos un pago');
         
         // Verificar que solo hay un pago por póliza
         Set<Id> polizasIds = new Set<Id>();
         for(Pago_poliza__c pago : result) {
             polizasIds.add(pago.Poliza__c);
         }
-        System.assertEquals(polizasIds.size(), result.size(), 'Debe haber solo un pago por póliza');
+        Assert.areEqual(polizasIds.size(), result.size(), 'Debe haber solo un pago por póliza');
     }
 
     @IsTest
@@ -92,8 +92,8 @@ public with sharing class CobranzaControllerTest {
         List<Pago_poliza__c> result = CobranzaController.getUltimosPagosPoliza(fi, ff);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'El resultado no debe ser nulo');
-        System.assert(result.isEmpty(), 'No debe haber pagos en fechas futuras');
+        Assert.areNotEqual(null, result, 'El resultado no debe ser nulo');
+        Assert.isTrue(result.isEmpty(), 'No debe haber pagos en fechas futuras');
     }
 
     @IsTest
@@ -101,7 +101,7 @@ public with sharing class CobranzaControllerTest {
         Test.startTest();
         try {
             CobranzaController.getUltimosPagosPoliza(null, null);
-            System.assert(false, 'Debió lanzar excepción por fechas nulas');
+            Assert.isTrue(false, 'Debió lanzar excepción por fechas nulas');
         } catch (Exception e) {
             
         }
@@ -116,7 +116,7 @@ public with sharing class CobranzaControllerTest {
         Test.startTest();
         try {
             CobranzaController.getUltimosPagosPoliza(hoy, ayer);
-            System.assert(false, 'Debió lanzar excepción por fechas invertidas');
+            Assert.isTrue(false, 'Debió lanzar excepción por fechas invertidas');
         } catch (Exception e) {
             
         }
@@ -132,15 +132,15 @@ public with sharing class CobranzaControllerTest {
         List<Pago_poliza__c> result = CobranzaController.getUltimosPagosPolizaEficiente(fi, ff);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
-        System.assert(result.isEmpty(), 'Debe haber pagos');
+        Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
+        Assert.isTrue(result.isEmpty(), 'Debe haber pagos');
         
         // Verificar que solo hay un pago por póliza
         Set<Id> polizasIds = new Set<Id>();
         for(Pago_poliza__c pago : result) {
             polizasIds.add(pago.Poliza__c);
         }
-        System.assertEquals(polizasIds.size(), result.size(), 'Debe haber solo un pago por póliza');
+        Assert.areEqual(polizasIds.size(), result.size(), 'Debe haber solo un pago por póliza');
     }
 
     @IsTest
@@ -152,8 +152,8 @@ public with sharing class CobranzaControllerTest {
         List<Pago_poliza__c> result = CobranzaController.getUltimosPagosPolizaEficiente(fi, ff);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
-        System.assert(result.isEmpty(), 'No debe haber pagos en fechas futuras');
+        Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
+        Assert.isTrue(result.isEmpty(), 'No debe haber pagos en fechas futuras');
     }
 
     @IsTest
@@ -161,9 +161,9 @@ public with sharing class CobranzaControllerTest {
         Test.startTest();
         try {
             CobranzaController.getUltimosPagosPolizaEficiente(null, null);
-            System.assert(false, 'Debió lanzar excepción por fechas nulas');
+            Assert.isTrue(false, 'Debió lanzar excepción por fechas nulas');
         } catch (Exception e) {
-            System.assert(e instanceof AuraHandledException, 'Debe ser AuraHandledException');
+            Assert.isTrue(e instanceof AuraHandledException, 'Debe ser AuraHandledException');
         }
         Test.stopTest();
     }
@@ -176,9 +176,9 @@ public with sharing class CobranzaControllerTest {
         Test.startTest();
         try {
             CobranzaController.getUltimosPagosPolizaEficiente(hoy, ayer);
-            System.assert(false, 'Debió lanzar excepción por fechas invertidas');
+            Assert.isTrue(false, 'Debió lanzar excepción por fechas invertidas');
         } catch (Exception e) {
-            System.assert(e instanceof AuraHandledException, 'Debe ser AuraHandledException');
+            Assert.isTrue(e instanceof AuraHandledException, 'Debe ser AuraHandledException');
         }
         Test.stopTest();
     }
@@ -191,8 +191,8 @@ public with sharing class CobranzaControllerTest {
         List<Pago_poliza__c> pagos = CobranzaController.getPagosPol(pago.Id);
         Test.stopTest();
         
-        System.assertEquals(1, pagos.size(), 'Debe traer 1 pago por Id');
-        System.assertEquals(pago.Id, pagos[0].Id, 'Debe ser el mismo pago');
+        Assert.areEqual(1, pagos.size(), 'Debe traer 1 pago por Id');
+        Assert.areEqual(pago.Id, pagos[0].Id, 'Debe ser el mismo pago');
     }
 
     @IsTest
@@ -203,8 +203,8 @@ public with sharing class CobranzaControllerTest {
         Polizas__c poliza = CobranzaController.getPoliza(polizaExistente.Id);
         Test.stopTest();
         
-        System.assertNotEquals(null, poliza, 'La póliza no debe ser nula');
-        System.assertEquals(polizaExistente.Id, poliza.Id, 'Debe ser la misma póliza');
+        Assert.areNotEqual(null, poliza, 'La póliza no debe ser nula');
+        Assert.areEqual(polizaExistente.Id, poliza.Id, 'Debe ser la misma póliza');
     }
 
     @IsTest
@@ -217,16 +217,16 @@ public with sharing class CobranzaControllerTest {
             CobranzaController.getEstadisticasPorMesYEstatusConFechas(fi, ff);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
+        Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
         
         // Verificar que hay datos
         if(!result.isEmpty()) {
             CobranzaController.EstadisticaMensual primera = result[0];
-            System.assertNotEquals(null, primera.anio, 'Año no debe ser nulo');
-            System.assertNotEquals(null, primera.mes, 'Mes no debe ser nulo');
-            System.assertNotEquals(null, primera.estatus, 'Estatus no debe ser nulo');
-            System.assert(primera.totalPagos > 0, 'Debe haber pagos');
-            System.assert(primera.montoTotal > 0, 'Debe haber monto');
+            Assert.areNotEqual(null, primera.anio, 'Año no debe ser nulo');
+            Assert.areNotEqual(null, primera.mes, 'Mes no debe ser nulo');
+            Assert.areNotEqual(null, primera.estatus, 'Estatus no debe ser nulo');
+            Assert.isTrue(primera.totalPagos > 0, 'Debe haber pagos');
+            Assert.isTrue(primera.montoTotal > 0, 'Debe haber monto');
         }
     }
 
@@ -237,7 +237,7 @@ public with sharing class CobranzaControllerTest {
             CobranzaController.getEstadisticasPorMesYEstatusConFechas(null, null);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
+        Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
     }
 
     @IsTest
@@ -247,7 +247,7 @@ public with sharing class CobranzaControllerTest {
             CobranzaController.getEstadisticasPorMesYEstatus();
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
+        Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
     }
 
     @IsTest
@@ -263,11 +263,11 @@ public with sharing class CobranzaControllerTest {
             new CobranzaController.EstadisticaMensual(anio, mes, estatus, totalPagos, montoTotal);
         Test.stopTest();
 
-        System.assertEquals(anio, em.anio, 'El año debe coincidir');
-        System.assertEquals(mes, em.mes, 'El mes debe coincidir');
-        System.assertEquals(estatus, em.estatus, 'El estatus debe coincidir');
-        System.assertEquals(totalPagos, em.totalPagos, 'El total de pagos debe coincidir');
-        System.assertEquals(montoTotal, em.montoTotal, 'El monto total debe coincidir');
+        Assert.areEqual(anio, em.anio, 'El año debe coincidir');
+        Assert.areEqual(mes, em.mes, 'El mes debe coincidir');
+        Assert.areEqual(estatus, em.estatus, 'El estatus debe coincidir');
+        Assert.areEqual(totalPagos, em.totalPagos, 'El total de pagos debe coincidir');
+        Assert.areEqual(montoTotal, em.montoTotal, 'El monto total debe coincidir');
     }
 
     @IsTest
@@ -280,7 +280,7 @@ public with sharing class CobranzaControllerTest {
             // Pero al menos ejecutamos el método
             List<CobranzaController.EstadisticaMensual> result = 
                 CobranzaController.getEstadisticasPorMesYEstatusConFechas(Date.today(), Date.today());
-            System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
+            Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
         } catch (Exception e) {
             // Si ocurre excepción, también es válido para cobertura
         }
@@ -299,6 +299,6 @@ public with sharing class CobranzaControllerTest {
         List<Pago_poliza__c> result = CobranzaController.getUltimosPagosPoliza(fi, ff);
         Test.stopTest();
         
-        System.assertNotEquals(null, result, 'Resultado no debe ser nulo');
+        Assert.areNotEqual(null, result, 'Resultado no debe ser nulo');
     }
 }

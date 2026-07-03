@@ -54,14 +54,14 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals('mensual', result.periodo, 'El período debería ser mensual');
-        System.assertNotEquals(null, result.polizas, 'La lista de pólizas no debería ser nula');
-        System.assert(result.totalPolizas > 0, 'Debería haber pólizas en el período');
-        System.assertNotEquals(null, result.totalPrimas, 'El total de primas no debería ser nulo');
-        System.assertNotEquals(null, result.totalPendiente, 'El total pendiente no debería ser nulo');
-        System.assertNotEquals(null, result.totalSumaAsegurada, 'El total de suma asegurada no debería ser nulo');
-        System.assertNotEquals(null, result.resumenEstatus, 'El resumen por estatus no debería ser nulo');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual('mensual', result.periodo, 'El período debería ser mensual');
+        Assert.areNotEqual(null, result.polizas, 'La lista de pólizas no debería ser nula');
+        Assert.isTrue(result.totalPolizas > 0, 'Debería haber pólizas en el período');
+        Assert.areNotEqual(null, result.totalPrimas, 'El total de primas no debería ser nulo');
+        Assert.areNotEqual(null, result.totalPendiente, 'El total pendiente no debería ser nulo');
+        Assert.areNotEqual(null, result.totalSumaAsegurada, 'El total de suma asegurada no debería ser nulo');
+        Assert.areNotEqual(null, result.resumenEstatus, 'El resumen por estatus no debería ser nulo');
     }
     
     @IsTest
@@ -74,10 +74,10 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals('bimestral', result.periodo, 'El período debería ser bimestral');
-        System.assertNotEquals(null, result.fechaInicio, 'La fecha de inicio no debería ser nula');
-        System.assertNotEquals(null, result.fechaFin, 'La fecha fin no debería ser nula');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual('bimestral', result.periodo, 'El período debería ser bimestral');
+        Assert.areNotEqual(null, result.fechaInicio, 'La fecha de inicio no debería ser nula');
+        Assert.areNotEqual(null, result.fechaFin, 'La fecha fin no debería ser nula');
     }
     
     @IsTest
@@ -90,8 +90,8 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals('semestral', result.periodo, 'El período debería ser semestral');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual('semestral', result.periodo, 'El período debería ser semestral');
     }
     
     @IsTest
@@ -104,7 +104,7 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
     }
     
     @IsTest
@@ -116,12 +116,12 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assert(result.size() > 0, 'Debería haber pólizas vencidas');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.isTrue(result.size() > 0, 'Debería haber pólizas vencidas');
         
         // Verificar que las pólizas tienen fecha de emisión anterior a hoy
         for (Polizas__c poliza : result) {
-            System.assert(poliza.Fecha_de_Emision__c < Date.today(), 
+            Assert.isTrue(poliza.Fecha_de_Emision__c < Date.today(), 
                          'La póliza debería tener fecha de emisión anterior a hoy');
         }
     }
@@ -139,11 +139,11 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones para cuando no hay datos
-        System.assertNotEquals(null, result, 'El resultado no debería ser nulo');
-        System.assertEquals(0, result.totalPolizas, 'No debería haber pólizas');
-        System.assertEquals(0, result.totalPrimas, 'El total de primas debería ser 0');
-        System.assertEquals(0, result.totalPendiente, 'El total pendiente debería ser 0');
-        System.assertEquals(0, result.totalSumaAsegurada, 'El total de suma asegurada debería ser 0');
+        Assert.areNotEqual(null, result, 'El resultado no debería ser nulo');
+        Assert.areEqual(0, result.totalPolizas, 'No debería haber pólizas');
+        Assert.areEqual(0, result.totalPrimas, 'El total de primas debería ser 0');
+        Assert.areEqual(0, result.totalPendiente, 'El total pendiente debería ser 0');
+        Assert.areEqual(0, result.totalSumaAsegurada, 'El total de suma asegurada debería ser 0');
     }
     
     @IsTest
@@ -157,8 +157,8 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertEquals('Test', resumen.estatus, 'El estatus debería coincidir');
-        System.assertEquals(5, resumen.cantidad, 'La cantidad debería coincidir');
+        Assert.areEqual('Test', resumen.estatus, 'El estatus debería coincidir');
+        Assert.areEqual(5, resumen.cantidad, 'La cantidad debería coincidir');
     }
     
     @IsTest
@@ -188,13 +188,13 @@ public with sharing class PolizaDashboardControllerTest {
         Test.stopTest();
         
         // Verificaciones
-        System.assertEquals(polizas, wrapper.polizas, 'Las pólizas deberían coincidir');
-        System.assertEquals(10000, wrapper.totalPrimas, 'El total de primas debería coincidir');
-        System.assertEquals(5000, wrapper.totalPendiente, 'El total pendiente debería coincidir');
-        System.assertEquals(5, wrapper.totalPolizas, 'El total de pólizas debería coincidir');
-        System.assertEquals(500000, wrapper.totalSumaAsegurada, 'El total de suma asegurada debería coincidir');
-        System.assertEquals(resumenList, wrapper.resumenEstatus, 'El resumen por estatus debería coincidir');
-        System.assertEquals('Mensual', wrapper.periodo, 'El período debería coincidir');
-        System.assertEquals(2024, wrapper.year, 'El año debería coincidir');
+        Assert.areEqual(polizas, wrapper.polizas, 'Las pólizas deberían coincidir');
+        Assert.areEqual(10000, wrapper.totalPrimas, 'El total de primas debería coincidir');
+        Assert.areEqual(5000, wrapper.totalPendiente, 'El total pendiente debería coincidir');
+        Assert.areEqual(5, wrapper.totalPolizas, 'El total de pólizas debería coincidir');
+        Assert.areEqual(500000, wrapper.totalSumaAsegurada, 'El total de suma asegurada debería coincidir');
+        Assert.areEqual(resumenList, wrapper.resumenEstatus, 'El resumen por estatus debería coincidir');
+        Assert.areEqual('Mensual', wrapper.periodo, 'El período debería coincidir');
+        Assert.areEqual(2024, wrapper.year, 'El año debería coincidir');
     }
 }

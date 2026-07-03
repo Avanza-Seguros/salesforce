@@ -15,7 +15,7 @@ public class PdfProcessorTest {
         PdfProcessor.PdfProcessorResponse response = PdfProcessor.processPDF(dummyPDF, fileName);
         
         // Verificar resultados
-        System.assert(response != null, 'La respuesta no debe ser nula');
+        Assert.isTrue(response != null, 'La respuesta no debe ser nula');
         
         Test.stopTest();
     }
@@ -31,7 +31,7 @@ public class PdfProcessorTest {
         
         PdfProcessor.PdfProcessorResponse response = PdfProcessor.processPDF(dummyPDF, file_name);
         
-        System.assert(response != null);
+        Assert.isTrue(response != null);
         
         Test.stopTest();
     }
@@ -44,7 +44,7 @@ public class PdfProcessorTest {
         
         PdfProcessor.PdfProcessorResponse response = PdfProcessor.processPDF('', '');
         
-        System.assert(response != null);
+        Assert.isTrue(response != null);
         
         Test.stopTest();
     }

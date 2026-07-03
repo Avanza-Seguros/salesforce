@@ -108,21 +108,21 @@ public with sharing class CobranzaPolizaControllerTest {
         Test.stopTest();
 
         // Verificaciones
-        System.assertNotEquals(null, result, 'La lista de pólizas no debería ser nula');
-        System.assertEquals(3, result.size(), 'Deberían retornarse 3 pólizas');
+        Assert.areNotEqual(null, result, 'La lista de pólizas no debería ser nula');
+        Assert.areEqual(3, result.size(), 'Deberían retornarse 3 pólizas');
         
         // Verificar ordenamiento por Vigencia_hasta__c DESC
         Date previousDate = Date.today().addDays(400); // Fecha futura muy lejana
         for(Polizas__c poliza : result) {
-            System.assert(previousDate >= poliza.Vigencia_hasta__c, 
+            Assert.isTrue(previousDate >= poliza.Vigencia_hasta__c, 
                          'Las pólizas deberían estar ordenadas por Vigencia_hasta__c DESC');
             previousDate = poliza.Vigencia_hasta__c;
         }
 
         // Verificar que los campos están poblados
         for(Polizas__c poliza : result) {
-            System.assert(poliza.Name != null, 'El nombre de la póliza no debería ser nulo');
-            System.assert(poliza.Asegurado__r.Name != null, 'El nombre del asegurado no debería ser nulo');
+            Assert.isTrue(poliza.Name != null, 'El nombre de la póliza no debería ser nulo');
+            Assert.isTrue(poliza.Asegurado__r.Name != null, 'El nombre del asegurado no debería ser nulo');
         }
     }
 
@@ -139,8 +139,8 @@ public with sharing class CobranzaPolizaControllerTest {
         List<Polizas__c> result = CobranzaPolizaController.getPolizas();
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'La lista no debería ser nula incluso cuando está vacía');
-        System.assertEquals(0, result.size(), 'La lista debería estar vacía');
+        Assert.areNotEqual(null, result, 'La lista no debería ser nula incluso cuando está vacía');
+        Assert.areEqual(0, result.size(), 'La lista debería estar vacía');
     }
 
     @IsTest
@@ -151,11 +151,11 @@ public with sharing class CobranzaPolizaControllerTest {
         Test.stopTest();
 
         // Verificaciones
-        System.assertNotEquals(null, result, 'El mapa de resumen no debería ser nulo');
-        System.assertEquals(3, result.get('totalPolizas'), 'Debería haber 3 pólizas en total');
-        System.assertEquals(1, result.get('Vigor'), 'Debería haber 1 póliza Vigor');
-        System.assertEquals(1, result.get('Cancelada'), 'Debería haber 1 póliza Cancelada');
-        System.assertEquals(1, result.get('Vencida'), 'Debería haber 1 póliza Vencida');
+        Assert.areNotEqual(null, result, 'El mapa de resumen no debería ser nulo');
+        Assert.areEqual(3, result.get('totalPolizas'), 'Debería haber 3 pólizas en total');
+        Assert.areEqual(1, result.get('Vigor'), 'Debería haber 1 póliza Vigor');
+        Assert.areEqual(1, result.get('Cancelada'), 'Debería haber 1 póliza Cancelada');
+        Assert.areEqual(1, result.get('Vencida'), 'Debería haber 1 póliza Vencida');
     }
 
     @IsTest
@@ -170,8 +170,8 @@ public with sharing class CobranzaPolizaControllerTest {
         Map<String, Integer> result = CobranzaPolizaController.getResumenPolizas();
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'El mapa no debería ser nulo incluso cuando no hay datos');
-        System.assertEquals(0, result.get('totalPolizas'), 'El total debería ser 0');
+        Assert.areNotEqual(null, result, 'El mapa no debería ser nulo incluso cuando no hay datos');
+        Assert.areEqual(0, result.get('totalPolizas'), 'El total debería ser 0');
     }
 
     @IsTest
@@ -183,13 +183,13 @@ public with sharing class CobranzaPolizaControllerTest {
         List<Pago_Poliza__c> result = CobranzaPolizaController.getPagosPoliza(polizaTest.Id);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'La lista de pagos no debería ser nula');
+        Assert.areNotEqual(null, result, 'La lista de pagos no debería ser nula');
 
         // Verificar campos de los pagos
         for(Pago_Poliza__c pago : result) {
-            System.assert(pago.Name != null, 'El nombre del pago no debería ser nulo');
-            System.assert(pago.Monto__c != null, 'El monto no debería ser nulo');
-            System.assert(pago.Estatus_pago__c != null, 'El estatus del pago no debería ser nulo');
+            Assert.isTrue(pago.Name != null, 'El nombre del pago no debería ser nulo');
+            Assert.isTrue(pago.Monto__c != null, 'El monto no debería ser nulo');
+            Assert.isTrue(pago.Estatus_pago__c != null, 'El estatus del pago no debería ser nulo');
         }
     }
 
@@ -202,8 +202,8 @@ public with sharing class CobranzaPolizaControllerTest {
         List<Pago_Poliza__c> result = CobranzaPolizaController.getPagosPoliza(polizaSinPagos.Id);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'La lista no debería ser nula incluso cuando está vacía');
-        System.assertEquals(0, result.size(), 'Debería retornar lista vacía para póliza sin pagos');
+        Assert.areNotEqual(null, result, 'La lista no debería ser nula incluso cuando está vacía');
+        Assert.areEqual(0, result.size(), 'Debería retornar lista vacía para póliza sin pagos');
     }
 
     @IsTest
@@ -213,8 +213,8 @@ public with sharing class CobranzaPolizaControllerTest {
         List<Pago_Poliza__c> result = CobranzaPolizaController.getPagosPoliza('001000000000000');
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Debería retornar una lista vacía en lugar de null');
-        System.assertEquals(0, result.size(), 'Debería retornar lista vacía para ID inválido');
+        Assert.areNotEqual(null, result, 'Debería retornar una lista vacía en lugar de null');
+        Assert.areEqual(0, result.size(), 'Debería retornar lista vacía para ID inválido');
     }
 
     @IsTest
@@ -224,8 +224,8 @@ public with sharing class CobranzaPolizaControllerTest {
         List<Pago_Poliza__c> result = CobranzaPolizaController.getPagosPoliza(null);
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Debería retornar una lista vacía en lugar de null');
-        System.assertEquals(0, result.size(), 'Debería retornar lista vacía para ID nulo');
+        Assert.areNotEqual(null, result, 'Debería retornar una lista vacía en lugar de null');
+        Assert.areEqual(0, result.size(), 'Debería retornar lista vacía para ID nulo');
     }
 
     @IsTest
@@ -234,19 +234,19 @@ public with sharing class CobranzaPolizaControllerTest {
         Test.startTest();
         
         // Verificar que el usuario tiene acceso de lectura a los objetos
-        System.assert(Schema.sObjectType.Polizas__c.isAccessible(), 
+        Assert.isTrue(Schema.sObjectType.Polizas__c.isAccessible(), 
                      'El usuario debería tener acceso de lectura a Polizas__c');
-        System.assert(Schema.sObjectType.Pago_Poliza__c.isAccessible(), 
+        Assert.isTrue(Schema.sObjectType.Pago_Poliza__c.isAccessible(), 
                      'El usuario debería tener acceso de lectura a Pago_Poliza__c');
-        System.assert(Schema.sObjectType.Account.isAccessible(), 
+        Assert.isTrue(Schema.sObjectType.Account.isAccessible(), 
                      'El usuario debería tener acceso de lectura a Account');
         
         // Verificar acceso a campos específicos de Polizas__c
-        System.assert(Schema.sObjectType.Polizas__c.fields.Name.isAccessible());
-        System.assert(Schema.sObjectType.Polizas__c.fields.Asegurado__c.isAccessible());
-        System.assert(Schema.sObjectType.Polizas__c.fields.Estatus__c.isAccessible());
-        System.assert(Schema.sObjectType.Polizas__c.fields.PrimaTotal__c.isAccessible());
-        System.assert(Schema.sObjectType.Polizas__c.fields.Vigencia_hasta__c.isAccessible());
+        Assert.isTrue(Schema.sObjectType.Polizas__c.fields.Name.isAccessible());
+        Assert.isTrue(Schema.sObjectType.Polizas__c.fields.Asegurado__c.isAccessible());
+        Assert.isTrue(Schema.sObjectType.Polizas__c.fields.Estatus__c.isAccessible());
+        Assert.isTrue(Schema.sObjectType.Polizas__c.fields.PrimaTotal__c.isAccessible());
+        Assert.isTrue(Schema.sObjectType.Polizas__c.fields.Vigencia_hasta__c.isAccessible());
         
         Test.stopTest();
     }
@@ -277,10 +277,10 @@ public with sharing class CobranzaPolizaControllerTest {
         Long executionTime = endTime - startTime;
         
         // Verificar que la consulta se ejecuta en menos de 2 segundos
-        System.assert(executionTime < 2000, 
+        Assert.isTrue(executionTime < 2000, 
                      'La consulta debería ejecutarse en menos de 2 segundos. Tiempo: ' + executionTime + 'ms');
         
-        System.assertEquals(203, result.size(), 'Deberían retornarse 203 pólizas (3 originales + 200 bulk)');
+        Assert.areEqual(203, result.size(), 'Deberían retornarse 203 pólizas (3 originales + 200 bulk)');
         Test.stopTest();
     }
 
@@ -295,9 +295,9 @@ public with sharing class CobranzaPolizaControllerTest {
             // Intentar obtener pagos con un ID mal formado para forzar excepción
             List<Pago_Poliza__c> result = CobranzaPolizaController.getPagosPoliza('INVALID_ID_FORMAT');
             // Si llegamos aquí, el método manejó la excepción correctamente
-            System.assert(true, 'El método debería manejar la excepción sin propagarla');
+            Assert.isTrue(true, 'El método debería manejar la excepción sin propagarla');
         } catch (Exception e) {
-            System.assert(e instanceof AuraHandledException, 
+            Assert.isTrue(e instanceof AuraHandledException, 
                          'Las excepciones deberían ser de tipo AuraHandledException');
         }
         Test.stopTest();

@@ -39,7 +39,7 @@ public class EnvioEmailsOrchestratorTest {
         Test.stopTest();
         
         // Verificación básica
-        System.assertNotEquals(null, reporte, 'Reporte generado');
-        System.assert(true, 'Todos los métodos ejecutados');
+        Assert.areNotEqual(null, reporte, 'Reporte generado');
+        Assert.isTrue(true, 'Todos los métodos ejecutados');
     }
 }

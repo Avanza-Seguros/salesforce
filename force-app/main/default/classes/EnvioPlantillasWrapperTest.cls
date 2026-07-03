@@ -101,9 +101,9 @@ private class EnvioPlantillasWrapperTest {
         
         try {
             EnvioPlantillasWrapper.enviarEmailsBulk(items);
-            System.assert(false, 'Debería lanzar excepción');
+            Assert.isTrue(false, 'Debería lanzar excepción');
         } catch (EnvioPlantillasWrapper.TestException e) {
-            System.assert(e.getMessage().contains('Forced bulk error'), 
+            Assert.isTrue(e.getMessage().contains('Forced bulk error'), 
                          'Mensaje correcto: ' + e.getMessage());
         }
         
@@ -129,9 +129,9 @@ private class EnvioPlantillasWrapperTest {
         
         try {
             EnvioPlantillasWrapper.enviarEmailIndividual(item);
-            System.assert(true, 'Método ejecutado sin error');
+            Assert.isTrue(true, 'Método ejecutado sin error');
         } catch (Exception e) {
-            System.assert(false, 'No debería fallar: ' + e.getMessage());
+            Assert.isTrue(false, 'No debería fallar: ' + e.getMessage());
         }
         
         Test.stopTest();
@@ -148,9 +148,9 @@ private class EnvioPlantillasWrapperTest {
         
         try {
             EnvioPlantillasWrapper.enviarEmailIndividual(item);
-            System.assert(false, 'Debería lanzar excepción');
+            Assert.isTrue(false, 'Debería lanzar excepción');
         } catch (EnvioPlantillasWrapper.TestException e) {
-            System.assert(e.getMessage().contains('Forced individual error'),
+            Assert.isTrue(e.getMessage().contains('Forced individual error'),
                          'Mensaje correcto: ' + e.getMessage());
         }
         
@@ -193,7 +193,7 @@ private class EnvioPlantillasWrapperTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Trigger ejecutado');
+        Assert.isTrue(true, 'Trigger ejecutado');
     }
     
     // Test para enviarEmailDesdeTrigger con actualización
@@ -219,7 +219,7 @@ private class EnvioPlantillasWrapperTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Trigger de actualización ejecutado');
+        Assert.isTrue(true, 'Trigger de actualización ejecutado');
     }
     
     // Test para enviarEmailDesdeTrigger sin cambios
@@ -238,7 +238,7 @@ private class EnvioPlantillasWrapperTest {
         
         Test.stopTest();
         
-        System.assert(true, 'No debería enviar sin cambios');
+        Assert.isTrue(true, 'No debería enviar sin cambios');
     }
     
     // Test para items sin email
@@ -266,7 +266,7 @@ private class EnvioPlantillasWrapperTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Debe manejar items sin email');
+        Assert.isTrue(true, 'Debe manejar items sin email');
     }
     
     // Test para EmailContextControl bloqueado
@@ -285,7 +285,7 @@ private class EnvioPlantillasWrapperTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Debe respetar EmailContextControl');
+        Assert.isTrue(true, 'Debe respetar EmailContextControl');
     }
     
     // Test para métodos de test helpers
@@ -294,17 +294,17 @@ private class EnvioPlantillasWrapperTest {
         Test.startTest();
         
         // Verificar flags iniciales
-        System.assertEquals(false, EnvioPlantillasWrapper.forceBulkError);
-        System.assertEquals(false, EnvioPlantillasWrapper.forceIndividualError);
-        System.assertEquals(false, EnvioPlantillasWrapper.skipEmailSend);
+        Assert.areEqual(false, EnvioPlantillasWrapper.forceBulkError);
+        Assert.areEqual(false, EnvioPlantillasWrapper.forceIndividualError);
+        Assert.areEqual(false, EnvioPlantillasWrapper.skipEmailSend);
         
         // Probar enableTestMode
         EnvioPlantillasWrapper.enableTestMode();
-        System.assertEquals(true, EnvioPlantillasWrapper.skipEmailSend);
+        Assert.areEqual(true, EnvioPlantillasWrapper.skipEmailSend);
         
         // Probar disableTestMode
         EnvioPlantillasWrapper.disableTestMode();
-        System.assertEquals(false, EnvioPlantillasWrapper.skipEmailSend);
+        Assert.areEqual(false, EnvioPlantillasWrapper.skipEmailSend);
         
         // Probar resetTestFlags
         EnvioPlantillasWrapper.forceBulkError = true;
@@ -313,9 +313,9 @@ private class EnvioPlantillasWrapperTest {
         
         EnvioPlantillasWrapper.resetTestFlags();
         
-        System.assertEquals(false, EnvioPlantillasWrapper.forceBulkError);
-        System.assertEquals(false, EnvioPlantillasWrapper.forceIndividualError);
-        System.assertEquals(false, EnvioPlantillasWrapper.skipEmailSend);
+        Assert.areEqual(false, EnvioPlantillasWrapper.forceBulkError);
+        Assert.areEqual(false, EnvioPlantillasWrapper.forceIndividualError);
+        Assert.areEqual(false, EnvioPlantillasWrapper.skipEmailSend);
         
         Test.stopTest();
     }
@@ -333,7 +333,7 @@ private class EnvioPlantillasWrapperTest {
                 
         Test.stopTest();
         
-        System.assert(true, 'Debe manejar null/empty sin excepción');
+        Assert.isTrue(true, 'Debe manejar null/empty sin excepción');
     }
     
     // Test para cobertura completa
@@ -388,7 +388,7 @@ private class EnvioPlantillasWrapperTest {
         
         Test.stopTest();
         
-        System.assert(true, 'Todos los caminos ejecutados');
+        Assert.isTrue(true, 'Todos los caminos ejecutados');
     }
     
     // Mock class

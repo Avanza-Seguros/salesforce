@@ -134,11 +134,11 @@ private class QueueEnvioEmailsTest {
         QueueEnvioEmails queue = new QueueEnvioEmails(itemIds, 'ALTA');
         
         // Verificar que se creó correctamente
-        System.assertNotEquals(null, queue);
+        Assert.areNotEqual(null, queue);
         
         // También probar con BAJA
         QueueEnvioEmails queueBaja = new QueueEnvioEmails(itemIds, 'BAJA');
-        System.assertNotEquals(null, queueBaja);
+        Assert.areNotEqual(null, queueBaja);
         Test.stopTest();
     }
 
@@ -155,7 +155,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con contexto desactivado');
+        Assert.isTrue(true, 'Test ejecutado con contexto desactivado');
     }
 
     @IsTest
@@ -166,7 +166,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con set vacío');
+        Assert.isTrue(true, 'Test ejecutado con set vacío');
     }
 
     @IsTest
@@ -182,7 +182,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con IDs no existentes');
+        Assert.isTrue(true, 'Test ejecutado con IDs no existentes');
     }
 
     @IsTest
@@ -197,7 +197,7 @@ private class QueueEnvioEmailsTest {
         
         // Verificar que Email_Enviado__c sigue siendo false
         Items_Cases__c itemActualizado = [SELECT Email_Enviado__c FROM Items_Cases__c WHERE Id = :item.Id];
-        System.assertEquals(false, itemActualizado.Email_Enviado__c, 'No debe marcar como enviado si no está concluido');
+        Assert.areEqual(false, itemActualizado.Email_Enviado__c, 'No debe marcar como enviado si no está concluido');
     }
 
     @IsTest
@@ -213,7 +213,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado sin permiso de envío');
+        Assert.isTrue(true, 'Test ejecutado sin permiso de envío');
     }
 
     @IsTest
@@ -233,7 +233,7 @@ private class QueueEnvioEmailsTest {
         }
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con excepción');
+        Assert.isTrue(true, 'Test ejecutado con excepción');
     }
 
     @IsTest
@@ -247,7 +247,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con emails vacíos');
+        Assert.isTrue(true, 'Test ejecutado con emails vacíos');
     }
 
     @IsTest
@@ -279,7 +279,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test BAJA ejecutado exitosamente');
+        Assert.isTrue(true, 'Test BAJA ejecutado exitosamente');
     }
 
     @IsTest
@@ -342,7 +342,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con categoría sin template');
+        Assert.isTrue(true, 'Test ejecutado con categoría sin template');
     }
 
     @IsTest
@@ -353,7 +353,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con itemIds null');
+        Assert.isTrue(true, 'Test ejecutado con itemIds null');
     }
 
     @IsTest
@@ -366,7 +366,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true, 'Test ejecutado con tipo email inválido');
+        Assert.isTrue(true, 'Test ejecutado con tipo email inválido');
     }
 
     // ========== TESTS PARA CUBRIR MÉTODOS AUXILIARES ==========
@@ -389,7 +389,7 @@ private class QueueEnvioEmailsTest {
         EmailProcessingControl.markAsNotSent(item.Id);
         Test.stopTest();
         
-        System.assert(true, 'Métodos de EmailProcessingControl testeados');
+        Assert.isTrue(true, 'Métodos de EmailProcessingControl testeados');
     }
 
     @IsTest
@@ -410,7 +410,7 @@ private class QueueEnvioEmailsTest {
         EmailContextControl.setTestMode(false);
         Test.stopTest();
         
-        System.assert(true, 'Métodos de EmailContextControl testeados');
+        Assert.isTrue(true, 'Métodos de EmailContextControl testeados');
     }
 
     @IsTest
@@ -424,7 +424,7 @@ private class QueueEnvioEmailsTest {
         System.debug('Template IDs obtenidos: ' + templateIds);
         Test.stopTest();
         
-        System.assert(templateIds != null, 'EmailTemplateResolver debe retornar template IDs');
+        Assert.isTrue(templateIds != null, 'EmailTemplateResolver debe retornar template IDs');
     }
 
     @IsTest
@@ -454,7 +454,7 @@ private class QueueEnvioEmailsTest {
         }
         Test.stopTest();
         
-        System.assert(true, 'Métodos de EnvioPlantillas testeados');
+        Assert.isTrue(true, 'Métodos de EnvioPlantillas testeados');
     }
     
     // 1. Test para itemIds null
@@ -464,7 +464,7 @@ private class QueueEnvioEmailsTest {
         QueueEnvioEmails queue = new QueueEnvioEmails(new Set<Id>(), 'ALTA');
         queue.execute(null);
         Test.stopTest();
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     // 2. Test para canBatchSend() = false
@@ -477,7 +477,7 @@ private class QueueEnvioEmailsTest {
         QueueEnvioEmails queue = new QueueEnvioEmails(itemIds, 'ALTA');
         queue.execute(null);
         Test.stopTest();
-        System.assert(true);
+        Assert.isTrue(true);
     }
     
     // 3. Test para items sin correo electrónico
@@ -491,7 +491,7 @@ private class QueueEnvioEmailsTest {
         Test.stopTest();
         
         Items_Cases__c updated = [SELECT Email_Enviado__c FROM Items_Cases__c WHERE Id = :item.Id];
-        System.assertEquals(false, updated.Email_Enviado__c);
+        Assert.areEqual(false, updated.Email_Enviado__c);
     }
     
     // 4. Test para excepción en email sending
@@ -507,7 +507,7 @@ private class QueueEnvioEmailsTest {
         queue.execute(null);
         Test.stopTest();
         
-        System.assert(true);
+        Assert.isTrue(true);
     }
 
     // ========== MOCK CLASSES ==========

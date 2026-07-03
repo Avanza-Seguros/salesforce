@@ -72,7 +72,7 @@ public class EnvioBajaTest {
 
     // Afirmaciones para verificar que el correo electrónico se haya enviado con éxito
     // Puedes ajustar estas afirmaciones según tus necesidades específicas.
-    System.assertEquals(1, Limits.getEmailInvocations(), 'Se debe haber enviado un correo electrónico');
+    Assert.areEqual(1, Limits.getEmailInvocations(), 'Se debe haber enviado un correo electrónico');
     // Verifica cualquier otro resultado esperado aquí.
 }
 }

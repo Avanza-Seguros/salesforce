@@ -21,10 +21,10 @@ public class PolizaWrapperTest {
         wrapper.fecha_emision = '2024-01-15';
         
         // Verificar valores
-        System.assertEquals('POL-123456', wrapper.poliza, 'El número de póliza debe coincidir');
-        System.assertEquals('Seguros Test', wrapper.aseguradora, 'La aseguradora debe coincidir');
-        System.assertEquals(1000000.00, wrapper.suma_asegurada, 'La suma asegurada debe coincidir');
-        System.assertEquals('MXN', wrapper.moneda, 'La moneda debe coincidir');
+        Assert.areEqual('POL-123456', wrapper.poliza, 'El número de póliza debe coincidir');
+        Assert.areEqual('Seguros Test', wrapper.aseguradora, 'La aseguradora debe coincidir');
+        Assert.areEqual(1000000.00, wrapper.suma_asegurada, 'La suma asegurada debe coincidir');
+        Assert.areEqual('MXN', wrapper.moneda, 'La moneda debe coincidir');
     }
     
     @IsTest
@@ -34,8 +34,8 @@ public class PolizaWrapperTest {
         asegurado.nombre = 'Carlos López';
         asegurado.fecha_nacimiento = '1990-05-20';
         
-        System.assertEquals('Carlos López', asegurado.nombre, 'El nombre del asegurado debe coincidir');
-        System.assertEquals('1990-05-20', asegurado.fecha_nacimiento, 'La fecha de nacimiento debe coincidir');
+        Assert.areEqual('Carlos López', asegurado.nombre, 'El nombre del asegurado debe coincidir');
+        Assert.areEqual('1990-05-20', asegurado.fecha_nacimiento, 'La fecha de nacimiento debe coincidir');
     }
     
     @IsTest
@@ -49,10 +49,10 @@ public class PolizaWrapperTest {
         historico.desde = '2024-01-01';
         historico.hasta = '2024-12-31';
         
-        System.assertEquals('2024', historico.anualidad, 'La anualidad debe coincidir');
-        System.assertEquals(5000.00, historico.prima_basica, 'La prima básica debe coincidir');
-        System.assertEquals(1000.00, historico.prima_adicional, 'La prima adicional debe coincidir');
-        System.assertEquals(6000.00, historico.pagos_ingresados, 'Los pagos ingresados deben coincidir');
+        Assert.areEqual('2024', historico.anualidad, 'La anualidad debe coincidir');
+        Assert.areEqual(5000.00, historico.prima_basica, 'La prima básica debe coincidir');
+        Assert.areEqual(1000.00, historico.prima_adicional, 'La prima adicional debe coincidir');
+        Assert.areEqual(6000.00, historico.pagos_ingresados, 'Los pagos ingresados deben coincidir');
     }
     
     @IsTest
@@ -67,11 +67,11 @@ public class PolizaWrapperTest {
         pago.Tipo_cambio_del_pago = 17.50;
         pago.Importe_USD = 85.71;
         
-        System.assertEquals('2024-01-15', pago.Fecha_de_ingreso, 'La fecha de ingreso debe coincidir');
-        System.assertEquals(1500.00, pago.Importe_pagado, 'El importe pagado debe coincidir');
-        System.assertEquals('Transferencia', pago.Tipo_de_pago, 'El tipo de pago debe coincidir');
-        System.assertEquals(17.50, pago.Tipo_cambio_del_pago, 'El tipo de cambio debe coincidir');
-        System.assertEquals(85.71, pago.Importe_USD, 'El importe en USD debe coincidir');
+        Assert.areEqual('2024-01-15', pago.Fecha_de_ingreso, 'La fecha de ingreso debe coincidir');
+        Assert.areEqual(1500.00, pago.Importe_pagado, 'El importe pagado debe coincidir');
+        Assert.areEqual('Transferencia', pago.Tipo_de_pago, 'El tipo de pago debe coincidir');
+        Assert.areEqual(17.50, pago.Tipo_cambio_del_pago, 'El tipo de cambio debe coincidir');
+        Assert.areEqual(85.71, pago.Importe_USD, 'El importe en USD debe coincidir');
     }
     
     @IsTest
@@ -130,14 +130,14 @@ public class PolizaWrapperTest {
         polizaCompleta.historico_aportaciones.add(historico);
         
         // Verificaciones
-        System.assertEquals(2, polizaCompleta.asegurados.size(), 'Debe haber 2 asegurados');
-        System.assertEquals(1, polizaCompleta.historico_aportaciones.size(), 'Debe haber 1 histórico de aportaciones');
-        System.assertEquals(2, polizaCompleta.historico_aportaciones[0].detalle_ingresos.size(), 'Debe haber 2 pagos en el detalle');
+        Assert.areEqual(2, polizaCompleta.asegurados.size(), 'Debe haber 2 asegurados');
+        Assert.areEqual(1, polizaCompleta.historico_aportaciones.size(), 'Debe haber 1 histórico de aportaciones');
+        Assert.areEqual(2, polizaCompleta.historico_aportaciones[0].detalle_ingresos.size(), 'Debe haber 2 pagos en el detalle');
         
         // Verificar datos específicos
-        System.assertEquals('Ana Rodríguez', polizaCompleta.asegurados[0].nombre, 'El primer asegurado debe ser Ana Rodríguez');
-        System.assertEquals(7500.00, polizaCompleta.historico_aportaciones[0].prima_basica, 'La prima básica debe ser 7500.00');
-        System.assertEquals('Cheque', polizaCompleta.historico_aportaciones[0].detalle_ingresos[0].Tipo_de_pago, 'El primer pago debe ser por cheque');
+        Assert.areEqual('Ana Rodríguez', polizaCompleta.asegurados[0].nombre, 'El primer asegurado debe ser Ana Rodríguez');
+        Assert.areEqual(7500.00, polizaCompleta.historico_aportaciones[0].prima_basica, 'La prima básica debe ser 7500.00');
+        Assert.areEqual('Cheque', polizaCompleta.historico_aportaciones[0].detalle_ingresos[0].Tipo_de_pago, 'El primer pago debe ser por cheque');
     }
     
     @IsTest
@@ -146,9 +146,9 @@ public class PolizaWrapperTest {
         PolizaWrapper wrapper = new PolizaWrapper();
         
         // Verificar que no hay excepciones con valores nulos
-        System.assertEquals(null, wrapper.poliza, 'La póliza debe ser null por defecto');
-        System.assertEquals(null, wrapper.asegurados, 'La lista de asegurados debe ser null por defecto');
-        System.assertEquals(null, wrapper.historico_aportaciones, 'El histórico debe ser null por defecto');
+        Assert.areEqual(null, wrapper.poliza, 'La póliza debe ser null por defecto');
+        Assert.areEqual(null, wrapper.asegurados, 'La lista de asegurados debe ser null por defecto');
+        Assert.areEqual(null, wrapper.historico_aportaciones, 'El histórico debe ser null por defecto');
         
         // Test con valores decimales extremos
         PolizaWrapper.HistoricoAportacionWrapper historico = new PolizaWrapper.HistoricoAportacionWrapper();
@@ -156,8 +156,8 @@ public class PolizaWrapperTest {
         historico.prima_adicional = 999999999.99;
         historico.pagos_ingresados = 1000000000.00;
         
-        System.assertEquals(0.00, historico.prima_basica, 'La prima básica debe ser 0.00');
-        System.assertEquals(999999999.99, historico.prima_adicional, 'La prima adicional debe ser 999999999.99');
+        Assert.areEqual(0.00, historico.prima_basica, 'La prima básica debe ser 0.00');
+        Assert.areEqual(999999999.99, historico.prima_adicional, 'La prima adicional debe ser 999999999.99');
     }
     
     @IsTest
@@ -169,19 +169,19 @@ public class PolizaWrapperTest {
         String jsonString;
         try {
             jsonString = JSON.serialize(wrapper);
-            System.assertNotEquals(null, jsonString, 'La serialización no debe retornar null');
-            System.assert(jsonString.length() > 0, 'El JSON serializado no debe estar vacío');
+            Assert.areNotEqual(null, jsonString, 'La serialización no debe retornar null');
+            Assert.isTrue(jsonString.length() > 0, 'El JSON serializado no debe estar vacío');
         } catch (Exception e) {
-            System.assert(false, 'No debería haber excepción en la serialización: ' + e.getMessage());
+            Assert.isTrue(false, 'No debería haber excepción en la serialización: ' + e.getMessage());
         }
         
         // Intentar deserializar
         try {
             PolizaWrapper deserializedWrapper = (PolizaWrapper) JSON.deserialize(jsonString, PolizaWrapper.class);
-            System.assertNotEquals(null, deserializedWrapper, 'La deserialización no debe retornar null');
-            System.assertEquals('TEST-001', deserializedWrapper.poliza, 'La póliza deserializada debe coincidir');
+            Assert.areNotEqual(null, deserializedWrapper, 'La deserialización no debe retornar null');
+            Assert.areEqual('TEST-001', deserializedWrapper.poliza, 'La póliza deserializada debe coincidir');
         } catch (Exception e) {
-            System.assert(false, 'No debería haber excepción en la deserialización: ' + e.getMessage());
+            Assert.isTrue(false, 'No debería haber excepción en la deserialización: ' + e.getMessage());
         }
     }
     

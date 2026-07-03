@@ -65,18 +65,18 @@ private class EmailProcessingControlBulkTest {
             FROM Items_Cases__c
             WHERE Id IN :ids
         ];
-        System.assertEquals(ids.size(), actualizados.size(),
+        Assert.areEqual(ids.size(), actualizados.size(),
             'Todos los items deben recuperarse');
         for (Items_Cases__c item : actualizados) {
-            System.assertEquals(true, item.Email_Enviado__c,
+            Assert.areEqual(true, item.Email_Enviado__c,
                 'Email_Enviado__c debe ser true');
-            System.assertEquals('Sent', item.Estado_Envio_Email__c,
+            Assert.areEqual('Sent', item.Estado_Envio_Email__c,
                 'Estado_Envio_Email__c debe ser Sent');
         }
 
         // Cache en memoria: wasEmailSent debe regresar true para todos
         for (Id id : ids) {
-            System.assertEquals(true, EmailProcessingControl.wasEmailSent(id),
+            Assert.areEqual(true, EmailProcessingControl.wasEmailSent(id),
                 'Cache debe reflejar que el item ya se envió');
         }
     }
@@ -95,7 +95,7 @@ private class EmailProcessingControlBulkTest {
         Test.startTest();
         EmailProcessingControl.markAsSentBulk(null);
         Test.stopTest();
-        System.assert(true, 'markAsSentBulk(null) debe ejecutar sin error');
+        Assert.isTrue(true, 'markAsSentBulk(null) debe ejecutar sin error');
     }
 
     @IsTest
@@ -106,13 +106,13 @@ private class EmailProcessingControlBulkTest {
         Test.startTest();
         EmailProcessingControl.clearCache();
         EmailProcessingControl.markForSending(item.Id);
-        System.assertEquals(true, EmailProcessingControl.isMarkedForSending(item.Id),
+        Assert.areEqual(true, EmailProcessingControl.isMarkedForSending(item.Id),
             'Item debe quedar marcado como pendiente');
 
         EmailProcessingControl.markAsSentBulk(new Set<Id>{ item.Id });
         Test.stopTest();
 
-        System.assertEquals(false, EmailProcessingControl.isMarkedForSending(item.Id),
+        Assert.areEqual(false, EmailProcessingControl.isMarkedForSending(item.Id),
             'Después de markAsSentBulk no debe seguir como pendiente');
     }
 
@@ -143,7 +143,7 @@ private class EmailProcessingControlBulkTest {
         EmailProcessingControl.markAsFailedBulk(new Set<Id>());
         EmailProcessingControl.markAsFailedBulk(null);
         Test.stopTest();
-        System.assert(true, 'markAsFailedBulk con set vacío/null no debe fallar');
+        Assert.isTrue(true, 'markAsFailedBulk con set vacío/null no debe fallar');
     }
 
     @IsTest
@@ -180,13 +180,13 @@ private class EmailProcessingControlBulkTest {
             WHERE Id IN :ids
         ];
         for (Items_Cases__c item : actualizados) {
-            System.assertEquals('Pending', item.Estado_Envio_Email__c,
+            Assert.areEqual('Pending', item.Estado_Envio_Email__c,
                 'Estado_Envio_Email__c debe ser Pending');
         }
 
         // Cache: todos deben estar marcados como pendientes
         for (Id id : ids) {
-            System.assertEquals(true, EmailProcessingControl.isMarkedForSending(id),
+            Assert.areEqual(true, EmailProcessingControl.isMarkedForSending(id),
                 'Cache debe reflejar que el item está pendiente de envío');
         }
     }
@@ -197,7 +197,7 @@ private class EmailProcessingControlBulkTest {
         EmailProcessingControl.markForSendingBulk(new Set<Id>());
         EmailProcessingControl.markForSendingBulk(null);
         Test.stopTest();
-        System.assert(true, 'markForSendingBulk con set vacío/null no debe fallar');
+        Assert.isTrue(true, 'markForSendingBulk con set vacío/null no debe fallar');
     }
 
     // =========================================================================
