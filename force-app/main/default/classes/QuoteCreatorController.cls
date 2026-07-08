@@ -44,7 +44,7 @@ public with sharing class QuoteCreatorController {
 			return [
 				SELECT Id, Name, OpportunityId, Opportunity.Name, Aseguradora__r.Name,
 					   Opportunity.Ramo__c, Status, TotalPrice, RatingDate,
-					   ExpirationDate, CreatedDate,
+					   ExpirationDate, CreatedDate, Ramos__c, PrimaAnual__c, Frecuencia_de_prima__c,
 					   Aseguradora__c, Product__c, Product__r.Name, Description
 				FROM Quote
 				WHERE Id = :quoteId
@@ -64,6 +64,24 @@ public with sharing class QuoteCreatorController {
 	@AuraEnabled
 	public static Quote saveQuote(Quote quote) {
 		try {
+			// Salvaguarda: rellena los campos requeridos si el formulario no los envía.
+			// Ramos__c -> del ramo de la oportunidad.
+			if (String.isBlank((String) quote.get('Ramos__c')) && quote.OpportunityId != null) {
+				for (Opportunity o : [SELECT Ramo__c FROM Opportunity WHERE Id = :quote.OpportunityId LIMIT 1]) {
+					quote.put('Ramos__c', o.Ramo__c); 
+				}
+			}
+			// Frecuencia de prima -> 'Mensual' por defecto.
+			if (String.isBlank((String) quote.get('Frecuencia_de_prima__c'))) {
+				quote.put('Frecuencia_de_prima__c', 'Mensual');
+			}
+			// Prima anual -> si no viene, usa TotalPrice o Subtotal.
+			if (quote.get('PrimaAnual__c') == null) {
+				Decimal prima = (quote.TotalPrice != null)
+					? quote.TotalPrice
+					: (quote.Subtotal != null ? quote.Subtotal : null);
+				if (prima != null) { quote.put('Prima_Total__c', prima); }
+			}
 			upsert quote;
 			return quote;
 		} catch (Exception e) {

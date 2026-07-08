@@ -345,8 +345,9 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 ...this.getDefaultQuote(),
                 ...data,
                 Ramo__c: ramoFromOpp,
-                // La prima real vive en PrimaAnual__c (TotalPrice es calculado).
-                TotalPrice: data.PrimaAnual__c ?? data.TotalPrice ?? 0,
+                // En el form la "Prima Total" muestra la prima (Prima_Total__c /
+                // PrimaAnual__c); TotalPrice estándar es calculado.
+                TotalPrice: data.Prima_Total__c ?? data.PrimaAnual__c ?? data.TotalPrice ?? 0,
                 Frecuencia_de_prima__c: data.Frecuencia_de_prima__c || 'Mensual',
                 AseguradoraName: data.Aseguradora__r?.Name || data.AseguradoraName || '',
                 OpportunityName: data.OpportunityName || data.Opportunity?.Name || '',
@@ -705,6 +706,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 Status: this.quote.Status,
                 Ramos__c: this.quote.Ramo__c || '',
                 PrimaAnual__c: parseFloat(this.quote.TotalPrice) || 0,
+                Prima_Total__c: parseFloat(this.quote.TotalPrice) || 0,
                 Frecuencia_de_prima__c: this.quote.Frecuencia_de_prima__c || 'Mensual',
                 RatingDate: this.quote.EffectiveDate || hoy,
                 ExpirationDate: this.quote.ExpirationDate || null
