@@ -1004,10 +1004,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!q) return {};
         // Prima total: prioriza TotalPrice; si no hay, usa Subtotal.
         // Mantengo fallbacks para compatibilidad con esquemas futuros.
-        const totalRaw = q.TotalPrice ?? q.Subtotal
-                    ?? q.GrandTotal
-                    ?? q.Prima_neta__c ?? q.PrimaTotal__c
-                    ?? q.Amount ?? 0;
+        // La prima real vive en los campos custom (Prima_Total__c / PrimaAnual__c).
+        // TotalPrice/Subtotal son calculados y pueden venir en 0.
+        const totalRaw = q.Prima_Total__c ?? q.PrimaAnual__c
+                    ?? q.TotalPrice ?? q.Subtotal ?? q.Amount ?? 0;
         const totalAmount = parseFloat(totalRaw) || 0;
         const status = q.Status || q.Estado__c || q.EstadoCotizacion__c || '';
         // Aseguradora: lookup Aseguradora__r.Name; fallback al producto o cuenta.
@@ -1539,9 +1539,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     getTypeLabel(type) {
         if (!type) return '';
         const map = {
-            'New Business': 'Nueva',
-            'Internal Renewal': 'Renovación interna',
-            'External Renewal': 'Renovación externa',
+            'New_Business': 'Nueva',
+            'Internal_Renewal': 'Renovación interna',
+            'External_Renewal': 'Renovación externa',
             'Reissue': 'Reexpedición'
         };
         return map[type] || type;
