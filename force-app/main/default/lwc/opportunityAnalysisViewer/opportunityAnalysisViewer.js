@@ -2,14 +2,12 @@ import { LightningElement, api, wire } from "lwc";
 import { getRecord, getFieldValue } from "lightning/uiRecordApi";
 import { NavigationMixin } from "lightning/navigation";
 import DESCRIPTION_FIELD from "@salesforce/schema/Opportunity.Description";
+import COMPARATIVO_FIELD from "@salesforce/schema/Opportunity.Descripcion__c";
 import getQuotesByOpportunity from "@salesforce/apex/OpportunityQuotesController.getQuotesByOpportunity";
 import getComparativoLinks from "@salesforce/apex/OpportunityQuotesController.getComparativoLinks";
 
 const RESUMEN_EJEC_TITLE = "RESUMEN EJECUTIVO";
 const COMPARATIVO_TITLE = "COMPARATIVO";
-
-const DATOS_MARKER = "=== DATOS EXTRAÍDOS POR IA ===";
-const ANALISIS_MARKER = "=== ANÁLISIS COMPLETO (IA) ===";
 
 const DATA_ICONS = {
   "Tipo de documento": "utility:file",
@@ -57,16 +55,46 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
   rawQuotes = [];
   comparativoPdfId = null;
   comparativoTitle = "";
+  comparativoHtml = "";
+  _comparativoDirty = false;
 
-  @wire(getRecord, { recordId: "$recordId", fields: [DESCRIPTION_FIELD] })
+  @wire(getRecord, {
+    recordId: "$recordId",
+    fields: [DESCRIPTION_FIELD, COMPARATIVO_FIELD]
+  })
   wiredOpp({ data, error }) {
     if (data) {
       this.description = getFieldValue(data, DESCRIPTION_FIELD) || "";
+      console.log("description::: " + this.description); 
       this.parse();
+      this.comparativoHtml = getFieldValue(data, COMPARATIVO_FIELD) || "";
+      this._comparativoDirty = true;
       this.loaded = true;
     } else if (error) {
       this.errorMsg = "No se pudo cargar la descripción de la oportunidad.";
       this.loaded = true;
+    }
+  }
+
+  get hasComparativoHtml() {
+    return !!(this.comparativoHtml && this.comparativoHtml.trim());
+  }
+
+  // Inyecta el HTML de la IA en un div con lwc:dom="manual". Se evita el iframe
+  // (srcdoc y blob: los bloquea la CSP de Lightning y causaban "Script error").
+  renderedCallback() {
+    if (!this._comparativoDirty) {
+      return;
+    }
+    const host = this.template.querySelector(".comparativo-ia__host");
+    if (!host) {
+      return;
+    }
+    this._comparativoDirty = false;
+    try {
+      host.innerHTML = this.comparativoHtml || "";
+    } catch (e) {
+      // No romper el componente si el HTML no se puede inyectar.
     }
   }
 
@@ -97,7 +125,8 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
       !!this.comparisonTable ||
       this.docAnalyses.length > 0 ||
       this.quoteTiles.length > 0 ||
-      !!this.comparativoPdfId
+      !!this.comparativoPdfId ||
+      this.hasComparativoHtml
     );
   }
 
@@ -137,6 +166,65 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
 
   get hasQuotes() {
     return this.quoteTiles.length > 0;
+  }
+
+  // Matriz comparativa (cobertura × aseguradora) construida con las coberturas
+  // reales de cada cotización. Funciona para cualquier ramo (Autos, GMM, etc.).
+  get coverageMatrix() {
+    const quotes = this.rawQuotes || [];
+    if (quotes.length === 0) {
+      return null;
+    }
+    // Columnas: una por cotización (aseguradora + prima), ya ordenadas por prima.
+    const cols = quotes.map((q, i) => ({
+      key: q.id || "col" + i,
+      aseguradora:
+        (q.aseguradora && q.aseguradora.trim()) || q.name || `Cotización ${i + 1}`,
+      prima: formatCurrency(q.primaAnual)
+    }));
+    // Unión de nombres de cobertura (en orden de aparición, sin repetir).
+    const order = [];
+    const seen = new Set();
+    quotes.forEach((q) => {
+      (q.coberturas || []).forEach((nm) => {
+        const n = (nm || "").trim();
+        const k = n.toLowerCase();
+        if (n && !seen.has(k)) {
+          seen.add(k);
+          order.push(n);
+        }
+      });
+    });
+    if (order.length === 0) {
+      return null;
+    }
+    const sets = quotes.map(
+      (q) => new Set((q.coberturas || []).map((x) => (x || "").trim().toLowerCase()))
+    );
+    const rows = order.map((cov, ri) => {
+      const cells = sets.map((s, ci) => {
+        const has = s.has(cov.toLowerCase());
+        return {
+          key: "r" + ri + "c" + ci,
+          has,
+          value: has ? "Sí" : "—",
+          cls: has ? "cov-cell cov-yes" : "cov-cell cov-no"
+        };
+      });
+      const yes = cells.filter((c) => c.has).length;
+      const partial = yes > 0 && yes < cells.length;
+      return {
+        key: "cov" + ri,
+        label: cov,
+        cells,
+        rowClass: partial ? "cov-row cov-diff" : "cov-row"
+      };
+    });
+    return { cols, rows, total: order.length };
+  }
+
+  get hasCoverageMatrix() {
+    return this.coverageMatrix !== null;
   }
 
   get hasComparativo() {

@@ -30,15 +30,15 @@
         <locationX>0</locationX>
         <locationY>0</locationY>
         <inputAssignments>
-            <field>Pricebook2Id</field>
+            <field>ContactId</field>
             <value>
-                <elementReference>$Record.Opportunity.Pricebook2Id</elementReference>
+                <elementReference>$Record.Opportunity.Contacto__c</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
-            <field>Ramos__c</field>
+            <field>Price_Book__c</field>
             <value>
-                <elementReference>$Record.Opportunity.Ramo__c</elementReference>
+                <elementReference>$Record.Opportunity.Pricebook2Id</elementReference>
             </value>
         </inputAssignments>
         <inputReference>$Record</inputReference>

@@ -2,10 +2,11 @@
 <ListView xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Todas_las_Oportunidades_AG</fullName>
     <columns>OPPORTUNITY.NAME</columns>
-    <columns>Agente_Relacionado__c</columns>
+    <columns>ACCOUNT.NAME</columns>
+    <columns>Agente__c</columns>
     <columns>Ramo__c</columns>
+    <columns>Correo__c</columns>
     <columns>Nomeclatura__c</columns>
-    <columns>Prima_Total__c</columns>
     <columns>OPPORTUNITY.STAGE_NAME</columns>
     <columns>Indicador_de_estatus__c</columns>
     <columns>Indicador_de_Dias_en_Propuesta__c</columns>

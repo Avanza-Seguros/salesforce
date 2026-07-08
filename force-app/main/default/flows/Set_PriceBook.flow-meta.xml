@@ -2,10 +2,14 @@
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
-    <description>Se ejecuta cuando una quote es cambiada a estado Aceptada</description>
     <environments>Default</environments>
-    <interviewLabel>Quote Stage Accepted {!$Flow.CurrentDateTime}</interviewLabel>
-    <label>Quote Stage Accepted</label>
+    <formulas>
+        <name>FechaVencimiento</name>
+        <dataType>Date</dataType>
+        <expression>{!$Flow.CurrentDate} + 45</expression>
+    </formulas>
+    <interviewLabel>Set PriceBook {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Set PriceBook</label>
     <processMetadataValues>
         <name>BuilderType</name>
         <value>
@@ -26,102 +30,93 @@
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
     <recordLookups>
-        <name>Obtiene_Quotes</name>
-        <label>Obtiene Quotes</label>
+        <name>Get_PriceBook</name>
+        <label>Get PriceBook</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
-            <targetReference>Update_Value</targetReference>
+            <targetReference>PriceBook_Vacio</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
-            <field>OpportunityId</field>
+            <field>IsActive</field>
             <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.OpportunityId</elementReference>
-            </value>
-        </filters>
-        <getFirstRecordOnly>false</getFirstRecordOnly>
-        <object>Quote</object>
-        <storeOutputAutomatically>true</storeOutputAutomatically>
-    </recordLookups>
-    <recordUpdates>
-        <name>ACtualiza_prima</name>
-        <label>ACtualiza prima</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Referido_por_oportunidad__c</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.OpportunityId</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Prima_neta__c</field>
-            <value>
-                <elementReference>$Record.Prima_Total__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Opportunity</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_Value</name>
-        <label>Update Value</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <connector>
-            <targetReference>ACtualiza_prima</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>OpportunityId</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.OpportunityId</elementReference>
-            </value>
-        </filters>
-        <filters>
-            <field>Id</field>
-            <operator>NotEqualTo</operator>
-            <value>
-                <elementReference>$Record.Id</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Status</field>
-            <value>
-                <stringValue>Denied</stringValue>
-            </value>
-        </inputAssignments>
-        <object>Quote</object>
-    </recordUpdates>
-    <start>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <connector>
-            <targetReference>Obtiene_Quotes</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Status</field>
-            <operator>IsChanged</operator>
             <value>
                 <booleanValue>true</booleanValue>
             </value>
         </filters>
         <filters>
-            <field>Status</field>
+            <field>Name</field>
             <operator>EqualTo</operator>
             <value>
-                <stringValue>Accepted</stringValue>
+                <stringValue>Avanza Price Book</stringValue>
             </value>
         </filters>
-        <object>Quote</object>
-        <recordTriggerType>Update</recordTriggerType>
-        <triggerType>RecordAfterSave</triggerType>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Pricebook2</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordUpdates>
+        <name>Campos_Requeridos</name>
+        <label>Campos Requeridos</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Get_PriceBook</targetReference>
+        </connector>
+        <inputAssignments>
+            <field>CloseDate</field>
+            <value>
+                <elementReference>FechaVencimiento</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Fecha_de_emision__c</field>
+            <value>
+                <elementReference>$Flow.CurrentDate</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <recordUpdates>
+        <name>PriceBook_Vacio</name>
+        <label>PriceBook Vacio</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Pricebook2Id</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>Pricebook2Id</field>
+            <value>
+                <elementReference>Get_PriceBook.Id</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Campos_Requeridos</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Pricebook2Id</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
     </start>
     <status>Active</status>
 </Flow>

@@ -8,5 +8,29 @@ package.xml
 **/jsconfig.json
 **/.eslintrc.json
 
-# LWC Jest
+# === PRUEBAS DE JEST PARA LWC ===
+# Las pruebas unitarias se ejecutan localmente y no deben subirse a la org
 **/__tests__/**
+
+# === METADATOS PROBLEMÁTICOS O NO DESPLEGABLES ===
+**/appMenus/**
+**/appSwitcher/**
+**/settings/**        # Los Settings pueden causar conflictos
+**/AuthProvider/**
+**/useraccesspolicies/**  # Error conocido (KI) al desplegar [citation:3]
+
+# === PERFILES: UN EJEMPLO DE FILTRADO FINO ===
+# Por defecto, ignoramos TODOS los perfiles...
+**/profiles/**
+# ...excepto los que queremos incluir explícitamente
+!**/profiles/Admin*
+!**/profiles/Read*
+
+# === REGLAS DE COMPARTICIÓN ===
+*.sharingRules
+**/sharingRules/**
+
+# === OTROS ELEMENTOS COMUNES ===
+**/duplicateRules/**
+**/tsconfig.json
+**/*.ts

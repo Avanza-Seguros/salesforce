@@ -325,7 +325,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 					ramo: this.ramoDetectado,
 					ganadora: (res && res.ganadora) || "",
 					recomendacion: recTexto,
-					aviso: (res && res.aviso) || ""
+					aviso: (res && res.aviso) || "",
+						comparativoHtml: (res && res.comparativo_html) || ""
 				})
 			})
 		);

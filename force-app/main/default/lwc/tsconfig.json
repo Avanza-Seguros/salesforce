@@ -1,10 +1,28 @@
 {
-    "extends": "../../../../.sfdx/tsconfig.sfdx.json",
-    "include": [
-        "**/*.ts",
-        "../../../../.sfdx/typings/lwc/**/*.d.ts"
-    ],
-    "exclude": [
-        "**/__tests__/**"
-    ]
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "experimentalDecorators": false,
+    "strict": true
+  },
+  "include": [
+    "**/*",
+    "../../../../.sfdx/typings/lwc/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage"
+  ]
 }

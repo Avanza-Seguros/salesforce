@@ -56,8 +56,5 @@ $RECYCLE.BIN/
 .scannerwork/
 *.tmp
 *.swp
-
-# Optional: ignore generated Experience Cloud / LWR CDN static resources
-# Uncomment only if you DEFINITELY do not want to version these generated assets
-# force-app/main/default/staticresources/SNA_*_sf_default_cdn_*/
-# force-app/main/default/staticresources/SNA_*_sf_default_cdn_*.resource-meta.xml
+.idea/           # Si usas IntelliJ IDEA
+node_modules

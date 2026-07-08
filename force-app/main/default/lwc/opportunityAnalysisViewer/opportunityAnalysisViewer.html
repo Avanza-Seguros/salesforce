@@ -48,8 +48,56 @@
           </div>
         </template>
 
-        <!-- Cotizaciones comparadas (datos estructurados) -->
-        <template lwc:if={hasQuotes}>
+        <!-- Comparativo generado por la IA (tal cual lo regresó el Prompt Builder) -->
+        <template lwc:if={hasComparativoHtml}>
+          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+            Comparativo (IA)
+          </h3>
+          <div class="comparativo-ia slds-m-bottom_medium">
+            <div class="comparativo-ia__host" lwc:dom="manual"></div>
+          </div>
+        </template>
+
+        <!-- Comparativa de coberturas (cobertura × aseguradora) -->
+        <template lwc:if={hasCoverageMatrix}>
+          <h3 class="slds-text-title_caps slds-m-bottom_x-small">
+            Comparativa de coberturas
+          </h3>
+          <div class="slds-scrollable_x slds-m-bottom_x-small">
+            <table class="cov-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="cov-field">Cobertura</th>
+                  <template for:each={coverageMatrix.cols} for:item="c">
+                    <th key={c.key} scope="col" class="cov-col">
+                      <span class="cov-col__aseg">{c.aseguradora}</span>
+                      <span class="cov-col__prima">{c.prima}</span>
+                    </th>
+                  </template>
+                </tr>
+              </thead>
+              <tbody>
+                <template for:each={coverageMatrix.rows} for:item="row">
+                  <tr key={row.key} class={row.rowClass}>
+                    <th scope="row" class="cov-field">{row.label}</th>
+                    <template for:each={row.cells} for:item="cell">
+                      <td key={cell.key} class={cell.cls}>{cell.value}</td>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <p
+            class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium"
+          >
+            Las filas resaltadas marcan coberturas que no están en todas las
+            cotizaciones.
+          </p>
+        </template>
+
+        <!-- Cotizaciones comparadas (respaldo si aún no hay coberturas) -->
+        <template lwc:elseif={hasQuotes}>
           <h3 class="slds-text-title_caps slds-m-bottom_x-small">
             Cotizaciones comparadas
           </h3>

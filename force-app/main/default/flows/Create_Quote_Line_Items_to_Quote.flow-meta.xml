@@ -98,7 +98,7 @@
         <inputAssignments>
             <field>UnitPrice</field>
             <value>
-                <elementReference>$Record.Opportunity.Prima_Total__c</elementReference>
+                <elementReference>$Record.Prima_Total__c</elementReference>
             </value>
         </inputAssignments>
         <object>QuoteLineItem</object>

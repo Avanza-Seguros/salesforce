@@ -62,7 +62,7 @@
             <assignToReference>varQuoteCoverage.Coverage_Name__c</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Loop_Coverages.CoverageType.Name</elementReference>
+                <elementReference>Loop_Coverages.Name</elementReference>
             </value>
         </assignmentItems>
         <assignmentItems>

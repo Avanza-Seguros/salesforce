@@ -377,24 +377,79 @@
                                     </div>
                                     <div class="form-card">
                                         <div class="form-card-header">
+                                            <lightning-icon icon-name="standard:contact" size="x-small"></lightning-icon>
+                                            <h3>Contacto</h3>
+                                        </div>
+                                        <template if:true={showContactoLookup}>
+                                            <div class="lookup-container">
+                                                <lightning-input
+                                                    label=""
+                                                    value={opportunity.ContactoName}
+                                                    placeholder="Buscar contacto..."
+                                                    onfocus={handleContactoFocus}
+                                                    onkeyup={handleContactoInput}
+                                                    variant="label-hidden"
+                                                    disabled={isOpportunityReadOnly}
+                                                    data-field="ContactoSearch">
+                                                </lightning-input>
+                                                <template if:true={showContactoDropdown}>
+                                                    <div class="lookup-dropdown">
+                                                        <ul class="lookup-results">
+                                                            <template if:true={hasContactoResults}>
+                                                                <template for:each={contactoResults} for:item="c">
+                                                                    <li key={c.Id} class="lookup-result-item"
+                                                                        onclick={selectContacto} data-id={c.Id}>
+                                                                        <div class="result-name">{c.Name}</div>
+                                                                        <div class="result-details">{c.Email}</div>
+                                                                    </li>
+                                                                </template>
+                                                            </template>
+                                                            <template if:false={hasContactoResults}>
+                                                                <li class="no-results">Escribe al menos 2 caracteres para buscar</li>
+                                                            </template>
+                                                            <li class="lookup-result-item lookup-create-new" onclick={selectNewContacto}>
+                                                                <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                                                Crear contacto nuevo
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <template if:true={isNewContacto}>
+                                                <p class="helper-text helper-new-account">
+                                                    Contacto nuevo — se creará al guardar con los datos del cliente.
+                                                </p>
+                                            </template>
+                                        </template>
+                                        <template if:false={showContactoLookup}>
+                                            <lightning-input label="" value={contactoIgualCuentaText}
+                                                variant="label-hidden" disabled>
+                                            </lightning-input>
+                                            <p class="helper-text">
+                                                Mercado Individual: el contacto es el mismo de la cuenta.
+                                            </p>
+                                        </template>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
                                             <lightning-icon icon-name="utility:category" size="x-small"></lightning-icon>
                                             <h3>Ramo <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Ramo__c}
                                             placeholder="Seleccione un ramo"
                                             options={ramoPicklistValues} onchange={handleComboboxChange} disabled={isOpportunityReadOnly}
-                                            data-field="Ramo__c" variant="label-hidden" dropdown-alignment="auto">
+                                            data-field="Ramo__c" variant="label-hidden" dropdown-alignment="auto" required>
                                         </lightning-combobox>
                                     </div>
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
-                                            <h3>Tipo de Oportunidad</h3>
+                                            <h3>Tipo de Oportunidad <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Type}
                                             placeholder="Seleccione tipo" options={typePicklistValues}
                                             onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Type"
-                                            variant="label-hidden" dropdown-alignment="auto">
+                                            variant="label-hidden" dropdown-alignment="auto" required>
                                         </lightning-combobox>
                                     </div>
                                 </div>
@@ -402,7 +457,7 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="standard:user" size="x-small"></lightning-icon>
-                                            <h3>Agente</h3>
+                                            <h3>Agente <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <div class="lookup-container">
                                             <lightning-input
@@ -413,7 +468,7 @@
                                                 onkeyup={handleAgenteInput}
                                                 variant="label-hidden"
                                                 disabled={isOpportunityReadOnly}
-                                                data-field="AgenteSearch">
+                                                data-field="AgenteSearch" required>
                                             </lightning-input>
                                             <template if:true={showAgenteDropdown}>
                                                 <div class="lookup-dropdown">
@@ -438,23 +493,23 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
-                                            <h3>Canal</h3>
+                                            <h3>Canal <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Canal__c}
                                             placeholder="Seleccione un canal" options={canalPicklistValues}
                                             onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Canal__c"
-                                            variant="label-hidden" dropdown-alignment="auto">
+                                            variant="label-hidden" dropdown-alignment="auto" required>
                                         </lightning-combobox>
                                     </div>
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:world" size="x-small"></lightning-icon>
-                                            <h3>Mercado</h3>
+                                            <h3>Mercado <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Mercado__c}
                                             placeholder="Seleccione un mercado" options={mercadoPicklistValues}
                                             onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Mercado__c"
-                                            variant="label-hidden" dropdown-alignment="auto">
+                                            variant="label-hidden" dropdown-alignment="auto" required>
                                         </lightning-combobox>
                                     </div>
                                     <div class="form-card">
@@ -465,6 +520,18 @@
                                         <lightning-input type="date" label="" value={opportunity.CloseDate}
                                             onchange={handleInputChange} disabled={isOpportunityReadOnly} data-field="CloseDate"
                                             variant="label-hidden" required>
+                                        </lightning-input>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:moneybag" size="x-small"></lightning-icon>
+                                            <h3>Prima Neta <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-input type="number" formatter="currency" step="0.01"
+                                            label="" value={opportunity.Prima_Neta__c}
+                                            onchange={handleInputChange} disabled={isOpportunityReadOnly}
+                                            data-field="Prima_Neta__c" variant="label-hidden"
+                                            placeholder="0.00" required>
                                         </lightning-input>
                                     </div>
                                 </div>
@@ -935,6 +1002,12 @@
                                                     <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={q.Id} title="Editar cotización">
                                                         <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
                                                     </button>
+                                                    <template if:true={q.puedeAceptar}>
+                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} title="Aceptar cotización">
+                                                            <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
+                                                            Aceptar
+                                                        </button>
+                                                    </template>
                                                 </td>
                                             </tr>
                                         </template>
@@ -1005,6 +1078,12 @@
                                             </template>
                                         </header>
                                         <div class="edit-quote-card__body">
+                                            <div class="eq-field-full">
+                                                <lightning-combobox label="Aseguradora" value={q.aseguradoraId}
+                                                    options={q.aseguradoras} placeholder="Selecciona la aseguradora"
+                                                    data-index={idx} onchange={handleQuoteAseguradoraChange}>
+                                                </lightning-combobox>
+                                            </div>
                                             <div class="eq-field-full">
                                                 <lightning-combobox label="Producto" value={q.productId}
                                                     options={q.productos} placeholder="Selecciona un producto"
@@ -1232,6 +1311,13 @@
                                     Imprimir / PDF
                                 </button>
                             </div>
+
+                            <!-- Comparativo generado por la IA (tal cual lo regresa el Prompt Builder) -->
+                            <template if:true={hasComparativoHtml}>
+                                <div class="comparativo-doc">
+                                    <div class="comparativo-ia__host" lwc:dom="manual"></div>
+                                </div>
+                            </template>
 
                             <!-- KPIs -->
                             <div class="comparison-kpis">

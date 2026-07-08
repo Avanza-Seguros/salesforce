@@ -34,7 +34,7 @@ public with sharing class PdfOpportunityCreatorController {
 	// JSON de respaldo: se usa SOLO si Einstein no está disponible o falla, y en tests.
 	// Los nombres de archivo (PLACEHOLDER_*) se sustituyen en runtime con los títulos reales.
 	private static final String MOCK_COMPARISON_JSON =
-		'{"ramo":"GMM","detalle":{"numAsegurados":1,"tipoEstructura":"Individual","estado":"Nuevo León","redHospitalaria":"Varía por aseguradora (Acceso a todos los hospitales / Círculo Médico Tempus / Optima Tabulador)","maternidad":false,"asegurados":[{"nombre":"MONICA NATAL SAUCEDO MENDEZ","edad":40,"parentesco":"Titular"}]},"cliente":{"nombre":"MONICA NATALIA SAUCEDO MENDEZ","rfc":"","email":"INFO@AVANZASEGURO.COM","telefono":"3315334809","cp":"67174","direccion":""},"aseguradoras":[{"nombre":"MetLife México","plan":"MédicaLife Familiar Básico","no_cotizacion":"73036-1782413280679","archivo_origen":"SGMM METLIFE BASICO (DED 60) $36,027.64  MONICA NATALIA SAUCEDO MENDEZ.pdf","prima_anual":36027.64,"moneda":"MXN","vigencia_fin":"","notas":"Suma Asegurada 26,000 UMAM (92,721,720). Coaseguro 10%. Opciones de deducible: 60,000 / 70,000 / 80,000. Tope de coaseguro $88,000. Residencia Nuevo León, Monterrey y zona metropolitana.","coberturas":[{"nombre":"Suma Asegurada","suma_asegurada":92721720,"deducible":"","coaseguro":""},{"nombre":"Deducible","suma_asegurada":"Incluida","deducible":"60000 / 70000 / 80000","coaseguro":""},{"nombre":"Coaseguro","suma_asegurada":"Incluida","deducible":"","coaseguro":"10% (tope $88,000)"},{"nombre":"Parto normal y cesárea","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"MetDental","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Asistencia Integral","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Tope de coaseguro","suma_asegurada":88000,"deducible":"","coaseguro":""},{"nombre":"Emergencia en el Extranjero","suma_asegurada":"Incluida","deducible":"USD 100","coaseguro":"Sin aplicacion de coaseguro"},{"nombre":"Enfermedades Catastróficas en el Extranjero","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Reducción de deducible por accidente","suma_asegurada":"Incluida","deducible":"","coaseguro":""}]},{"nombre":"GNP","plan":"Línea Azul Flexible Ámbar (Básica con Círculo Médico Tempus)","no_cotizacion":"8990418","archivo_origen":"SGMM GNP AMBAR $31,143.11  MONICA NATALIA SAUCEDO MENDEZ.pdf","prima_anual":31143.11,"moneda":"MXN","vigencia_fin":"2027-06-25","notas":"Suma asegurada 121,353,000. Deducible $69,000. Coaseguro 10% con tope $100,000. Incluye emergencia médica en el extranjero USD100,000 (deducible $150).","coberturas":[{"nombre":"Suma Asegurada","suma_asegurada":121353000,"deducible":"","coaseguro":""},{"nombre":"Deducible","suma_asegurada":"Incluida","deducible":"69000","coaseguro":""},{"nombre":"Coaseguro","suma_asegurada":"Incluida","deducible":"","coaseguro":"10% (tope 100000)"},{"nombre":"Emergencia Médica en el Extranjero","suma_asegurada":"Incluida","deducible":"150 USD","coaseguro":""},{"nombre":"Cero Deducible por Accidente (CDA)","suma_asegurada":"Incluida","deducible":"","coaseguro":""}]},{"nombre":"MAPFRE México","plan":"Protección Médica Alta - Optima","no_cotizacion":"2880013545622","archivo_origen":"SGMM MAPFRE OPTIMA $19,186.01  MONICA NATALIA SAUCEDO MENDEZ.pdf","prima_anual":19186.01,"moneda":"MXN","vigencia_fin":"","notas":"Suma Asegurada $130,000,000. Deducible $60,000. Coaseguro 10% con tope $60,000. Red: Optima Tabulador. Incluye asistencia en viaje, reducción de deducible por accidente.","coberturas":[{"nombre":"Suma Asegurada","suma_asegurada":130000000,"deducible":"","coaseguro":""},{"nombre":"Deducible","suma_asegurada":"Incluida","deducible":"60000","coaseguro":""},{"nombre":"Coaseguro","suma_asegurada":"Incluida","deducible":"","coaseguro":"10% (tope 60000)"},{"nombre":"Gastos Hospitalarios","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Honorarios Médicos","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Asistencia en Viaje","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Reducción de Deducible por Accidente","suma_asegurada":"Incluida","deducible":"","coaseguro":""}]}],"recomendacion":{"ganadoras":[{"nombre":"MAPFRE México","etiqueta":"Mejor prima","porque":"Ofrece la prima anual más baja (19186.01 MXN) con suma asegurada alta y deducible 60,000; red Optima Tabulador y coberturas completas.","a_cambio":"Tope de coaseguro menor (60,000) comparado con otras opciones."},{"nombre":"GNP","etiqueta":"Mejor equilibrio","porque":"Suma asegurada elevada y tope de coaseguro mayor ($100,000), deducible intermedio (69,000) y beneficios adicionales como CDA.","a_cambio":"Prima anual mayor que MAPFRE."}],"guia_frecuencia":[{"riesgo":"Hospitalización por enfermedad aguda","frecuencia":"Moderado","gana":"Coberturas con mayor suma asegurada","detalle":"GNP y MAPFRE ofrecen sumas altas; MetLife también ofrece gran suma pero prima mayor."},{"riesgo":"Emergencia en el extranjero","frecuencia":"Bajo","gana":"MetLife / GNP","detalle":"MetLife y GNP especifican sumas para emergencias en el extranjero; MetLife sin coaseguro para emergencias."},{"riesgo":"Accidente y reducción de deducible","frecuencia":"Frecuente","gana":"Todas","detalle":"Las tres aseguradoras incluyen reducción de deducible por accidente; revisar condiciones y topes."}],"en_pocas_palabras":"MAPFRE tiene la prima más económica con alta suma asegurada; GNP ofrece mejor tope de coaseguro y beneficios adicionales; MetLife aporta amplia cobertura internacional y opciones de deducible."},"validacion":{"mismo_cliente":true,"mismo_vehiculo":true,"alerta":""},"glosario":[{"termino":"Suma Asegurada","definicion":"Límite máximo que la aseguradora pagará por siniestro o periodo de cobertura."},{"termino":"Deducible","definicion":"Monto que el asegurado debe cubrir antes de que la aseguradora pague."},{"termino":"Coaseguro","definicion":"Porcentaje de la reclamación que debe pagar el asegurado después de aplicar el deducible."},{"termino":"Tope de coaseguro","definicion":"Cantidad máxima en pesos que el asegurado pagará por concepto de coaseguro."}],"aviso":"Los datos se extrajeron de las cotizaciones proporcionadas. Verificar vigencias, condiciones generales y requisitos médicos al momento de contratación. Agradezco su tiempo."}';
+	'{"ramo":"GMM","cliente":{"nombre":"MONICA NATALIA SAUCEDO MENDEZ","rfc":"","email":"","telefono":"","cp":"","direccion":""},"detalle":{"numAsegurados":1,"tipoEstructura":"Familiar","estado":"","redHospitalaria":"","maternidad":true,"asegurados":[{"nombre":"MONICA NATALIA SAUCEDO MENDEZ","edad":0,"parentesco":"Titular"}]},"aseguradoras":[{"nombre":"METLIFE MÉXICO","plan":"MédicaLife Familiar Básico","no_cotizacion":"73036-1782413280679","archivo_origen":"SGMM METLIFE BASICO (DED 60) $36,027.64 MONICA NATALIA SAUCEDO MENDEZ.pdf","prima_anual":36027.64,"moneda":"MXN","vigencia_inicio":"","vigencia_fin":"","notas":"Suma Asegurada en UMAM. Deducibles 60,000/70,000/80,000. Coaseguro 10% tope $88,000.","coberturas":[{"nombre":"Suma Asegurada","suma_asegurada":26000,"deducible":"","coaseguro":""},{"nombre":"Deducible","suma_asegurada":"Incluida","deducible":"60,000 / 70,000 / 80,000","coaseguro":""},{"nombre":"Coaseguro","suma_asegurada":"Incluida","deducible":"","coaseguro":"10% (tope $88,000)"},{"nombre":"Parto normal y cesárea","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"MetDental","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Asistencia Integral","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Emergencia en el Extranjero","suma_asegurada":"Incluida","deducible":"","coaseguro":""}]},{"nombre":"GRUPO NACIONAL PROVINCIAL","plan":"Línea Azul Flexible Ámbar","no_cotizacion":"8990418","archivo_origen":"SGMM GNP AMBAR $31,143.11 MONICA NATALIA SAUCEDO MENDEZ.pdf","prima_anual":31143.11,"moneda":"MXN","vigencia_inicio":"","vigencia_fin":"2027-06-25","notas":"Suma asegurada 121,353,000. Deducible $69,000. Coaseguro 10% tope $100,000.","coberturas":[{"nombre":"Suma Asegurada","suma_asegurada":121353000,"deducible":"","coaseguro":""},{"nombre":"Deducible","suma_asegurada":"Incluida","deducible":"69,000","coaseguro":""},{"nombre":"Coaseguro","suma_asegurada":"Incluida","deducible":"","coaseguro":"10% (tope $100,000)"},{"nombre":"Emergencia Médica en el Extranjero","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Cero Deducible por Accidente","suma_asegurada":"Incluida","deducible":"","coaseguro":""}]},{"nombre":"MAPFRE MÉXICO","plan":"Protección Médica Alta - Optima","no_cotizacion":"2880013545622","archivo_origen":"SGMM MAPFRE OPTIMA $19,186.01 MONICA NATALIA SAUCEDO MENDEZ.pdf","prima_anual":19186.01,"moneda":"MXN","vigencia_inicio":"","vigencia_fin":"","notas":"Suma asegurada $130,000,000. Deducible $60,000. Coaseguro 10% tope $60,000.","coberturas":[{"nombre":"Suma Asegurada","suma_asegurada":130000000,"deducible":"","coaseguro":""},{"nombre":"Deducible","suma_asegurada":"Incluida","deducible":"60,000","coaseguro":""},{"nombre":"Coaseguro","suma_asegurada":"Incluida","deducible":"","coaseguro":"10% (tope $60,000)"},{"nombre":"Gastos Hospitalarios","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Honorarios Médicos","suma_asegurada":"Incluida","deducible":"","coaseguro":""},{"nombre":"Asistencia en Viaje","suma_asegurada":"Incluida","deducible":"","coaseguro":""}]}],"recomendacion":{"ganadoras":[{"nombre":"MAPFRE MÉXICO","etiqueta":"Mejor prima","porque":"Prima anual más baja.","a_cambio":"Tope de coaseguro menor ($60,000)."},{"nombre":"GRUPO NACIONAL PROVINCIAL","etiqueta":"Mejor equilibrio","porque":"Suma asegurada alta y tope de coaseguro mayor ($100,000).","a_cambio":"Prima superior a la más barata."}],"guia_frecuencia":[{"riesgo":"Hospitalización por enfermedad","frecuencia":"Frecuente","gana":"MAPFRE MÉXICO","detalle":"Suma asegurada alta y coberturas hospitalarias claras."},{"riesgo":"Parto y maternidad","frecuencia":"Moderado","gana":"METLIFE MÉXICO","detalle":"Menciona parto normal y cesárea y plan familiar."},{"riesgo":"Emergencia en el extranjero","frecuencia":"Bajo","gana":"GRUPO NACIONAL PROVINCIAL","detalle":"Incluye emergencia en el extranjero y cero deducible por accidente."}],"en_pocas_palabras":"MAPFRE es la más económica; GNP mejor equilibrio; MetLife destaca en maternidad y dental."},"validacion":{"mismo_cliente":true,"mismo_vehiculo":true,"alerta":""},"glosario":[{"termino":"Deducible","definicion":"Monto fijo que el asegurado paga en cada siniestro antes de que la aseguradora cubra el resto."},{"termino":"Coaseguro","definicion":"Porcentaje que el asegurado paga sobre los gastos cubiertos después del deducible; puede tener tope."},{"termino":"Suma Asegurada","definicion":"Límite máximo que la aseguradora pagará. Puede expresarse en UMAM o en moneda."}],"comparativo_html":"<!DOCTYPE html><html lang=\\"es\\"><head><meta charset=\\"utf-8\\"><title>Comparativo GMM - MONICA NATALIA SAUCEDO MENDEZ</title><style>body{font-family:Arial,Helvetica,sans-serif;background:#f6f6f6;color:#333;margin:0;padding:20px}.container{max-width:1100px;margin:0 auto;background:#fff;padding:20px;border:1px solid #e6e6e6}h1{font-size:20px;margin:0 0 10px}.table{width:100%;border-collapse:collapse;margin-top:20px}.table th,.table td{border:1px solid #ddd;padding:10px;text-align:left;vertical-align:top}.table th{background:#fafafa}.badge{display:inline-block;background:#ffefdd;color:#b85b00;padding:4px 8px;border-radius:4px;font-weight:700;margin-left:8px}.highlight{background:rgba(255,226,181,0.5);border:1px solid #ffd0a8}.sub{display:block;font-size:12px;color:#666}</style></head><body><div class=\\"container\\"><h1>Comparativo de Seguro GMM - MONICA NATALIA SAUCEDO MENDEZ</h1><table class=\\"table\\"><thead><tr><th>Concepto</th><th class=\\"highlight\\">MAPFRE MÉXICO <span class=\\"badge\\">Mejor precio</span></th><th>GNP <span class=\\"badge\\">Mejor equilibrio</span></th><th>METLIFE MÉXICO</th></tr></thead><tbody><tr><td>Precio Anual</td><td>$19,186 <span class=\\"sub\\">el más barato</span></td><td>$31,143</td><td>$36,028</td></tr><tr><td>Suma Asegurada</td><td>$130,000,000</td><td>$121,353,000</td><td>26,000 UMAM</td></tr><tr><td>Deducible</td><td>$60,000</td><td>$69,000</td><td>60,000/70,000/80,000</td></tr><tr><td>Coaseguro</td><td>10% (tope $60,000)</td><td>10% (tope $100,000)</td><td>10% (tope $88,000)</td></tr><tr><td>Parto y Maternidad</td><td>—</td><td>—</td><td>Incluida</td></tr><tr><td>Cero Deducible por Accidente</td><td>—</td><td>Incluida</td><td>—</td></tr></tbody></table></div></body></html>","aviso":"Revisar condiciones y vigencias antes de contratar."}';
 
 	// ============================================================
 	// Paso 1: crear borrador + subir PDFs (solo DML, sin callouts)
@@ -895,7 +895,8 @@ public with sharing class PdfOpportunityCreatorController {
 			'recomendacion' => comparison.get('recomendacion'),
 			'glosario' => comparison.get('glosario'),
 			'fuente' => lastUsedMock ? 'mock' : 'einstein',
-			'aviso' => stringOf(comparison.get('aviso'))
+			'aviso' => stringOf(comparison.get('aviso')),
+			'comparativo_html' => stringOf(comparison.get('comparativo_html'))
 		};
 	}
 
@@ -1236,7 +1237,11 @@ public with sharing class PdfOpportunityCreatorController {
 			String ramo     = stringOf(m.get('ramo'));
 			String plan     = stringOf(m.get('plan'));
 			Decimal prima   = asDecimal(m.get('primaTotal'));
-			Id asegId       = asegByName.get(compania);
+			Id asegId = asegByName.get(compania);
+			Object aidRaw = m.get('aseguradoraId');
+			if (aidRaw != null && String.isNotBlank(String.valueOf(aidRaw))) {
+				try { asegId = (Id) String.valueOf(aidRaw); } catch (Exception e) { /* id inválido: se ignora */ }
+			}
 			Id productId;
 			Object pidRaw = m.get('productId');
 			if (pidRaw != null && String.isNotBlank(String.valueOf(pidRaw))) {
@@ -1254,7 +1259,7 @@ public with sharing class PdfOpportunityCreatorController {
 			Quote q = new Quote();
 			q.OpportunityId = opportunityId;
 			q.Name = ((String.isBlank(compania)?'Cotización':compania) + (String.isBlank(plan)?'':' - '+plan)).left(255);
-			q.Status = 'Draft';
+			q.Status = 'In Review';
 			q.Pricebook2Id = pbId;
 			if (contactId != null)        { q.ContactId = contactId; }
 			if (String.isNotBlank(email)) { q.Email = email; }
@@ -1266,7 +1271,7 @@ public with sharing class PdfOpportunityCreatorController {
 			q.put(QF_RAMO, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo);
 			q.put(QF_RATINGDATE, Date.today());
 			q.put(QF_FRECUENCIA, 'Mensual');
-			q.PrimaAnual__c = prima;
+			q.Prima_Total__c = prima;
 			toInsert.add(q);
 		}
 
@@ -1410,6 +1415,11 @@ public with sharing class PdfOpportunityCreatorController {
 		}
 		Map<String,Id> asegByName = resolveAseguradoraByName(nombres);
 
+		List<Map<String,Object>> asegOpts = new List<Map<String,Object>>();
+		for (Aseguradora__c a : [SELECT Id, Name FROM Aseguradora__c ORDER BY Name]) {
+			asegOpts.add(new Map<String,Object>{ 'label' => a.Name, 'value' => a.Id });
+		}
+
 		for (Object o : raw) {
 			if (!(o instanceof Map<String,Object>)) { continue; }
 			Map<String,Object> m = (Map<String,Object>) o;
@@ -1445,8 +1455,32 @@ public with sharing class PdfOpportunityCreatorController {
 				'vigencia' => stringOf(m.get('vigencia')),
 				'noCotizacion' => stringOf(m.get('noCotizacion')),
 				'productoSugeridoId' => sugerido,
-				'productos' => productos
+				'productos' => productos,
+				'aseguradoras' => asegOpts
 			});
+		}
+		return out;
+	}
+
+	@AuraEnabled(cacheable=false)
+	public static List<Map<String,Object>> getProductosPorAseguradoraRamo(Id aseguradoraId, String ramo) {
+		List<Map<String,Object>> out = new List<Map<String,Object>>();
+		if (aseguradoraId == null) { return out; }
+	
+		// Primero productos de esa aseguradora + ramo; si no hay, todos los de la aseguradora.
+		List<Product2> prods = new List<Product2>();
+		if (String.isNotBlank(ramo)) {
+			prods = [SELECT Id, Name FROM Product2
+					WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family = :ramo
+					ORDER BY Name];
+		}
+		if (prods.isEmpty()) {
+			prods = [SELECT Id, Name FROM Product2
+					WHERE IsActive = true AND Aseguradora__c = :aseguradoraId
+					ORDER BY Name];
+		}
+		for (Product2 p : prods) {
+			out.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
 		}
 		return out;
 	}

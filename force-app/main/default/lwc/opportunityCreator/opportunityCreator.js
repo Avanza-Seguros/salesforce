@@ -11,11 +11,14 @@ import RAMO_FIELD from '@salesforce/schema/Opportunity.Ramo__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
+import searchContacts from '@salesforce/apex/OpportunityController.searchContacts';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
+import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCotizacion';
 import prepararCotizaciones from '@salesforce/apex/PdfOpportunityCreatorController.prepararCotizaciones';
+import getProductosPorAseguradoraRamo from '@salesforce/apex/PdfOpportunityCreatorController.getProductosPorAseguradoraRamo';
 
 // ============================================================
 // CONSTANTES
@@ -27,10 +30,10 @@ const VIEW_MODES = {
     PDF: 'pdf'   // NUEVO - vista de creacion desde PDFs
 };
 const OPPORTUNITY_TYPES = {
-    NEW_BUSINESS: 'Nuevo',
-    INTERNAL_RENEWAL: 'Renovación Externa',
-    EXTERNAL_RENEWAL: 'Renovación Interna',
-    REISSUE: 'Rexpedición'
+    NEW_BUSINESS: 'New_Business',
+    INTERNAL_RENEWAL: 'External_Renewal',
+    EXTERNAL_RENEWAL: 'Internal_Renewal',
+    REISSUE: 'Reissue'
 };
 const RAMO_TYPES = {
     AUTOMOVIL: 'Automoviles',
@@ -87,6 +90,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track dental = this.getDefaultDental();
     @track vision = this.getDefaultVision();
     @track uploadedQuotes = [];
+    // Comparativo HTML tal cual lo regresa la IA (Prompt Builder).
+    // Se renderiza en un iframe vía blob URL (srcdoc no está permitido en LWC).
+    @track comparativoHtml = '';
+    _comparativoDirty = false;
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
     @track selectedQuoteRamo = '';
@@ -103,6 +110,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track showAgenteDropdown = false;
     @track agenteResults = [];
     _agenteSearchTimer = null;
+    // Lookup de Contacto (mismo comportamiento que Cuenta cuando el Mercado no es Individual)
+    @track showContactoDropdown = false;
+    @track contactoResults = [];
+    @track isNewContacto = false;
+    _contactoSearchTimer = null;
     @track editableQuotes = [];
     // === Estado comparativa (datos extraídos de PDFs) ===
     @track tablaComparativaCache = [];
@@ -184,6 +196,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             this.editableQuotes = (res || []).map(q => ({
                 ...q,
+                aseguradoraId: q.aseguradoraId,
+                aseguradoras: q.aseguradoras || [],
                 productId: q.productoSugeridoId,
                 sinProductos: !(q.productos && q.productos.length)
             }));
@@ -206,7 +220,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const payload = this.editableQuotes.map(q => ({
                 id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
                 primaTotal: q.primaTotal, vigencia: q.vigencia,
-                noCotizacion: q.noCotizacion, productId: q.productId
+                noCotizacion: q.noCotizacion, productId: q.productId,
+                aseguradoraId: q.aseguradoraId
             }));
             const res = await crearCotizacionesDesdePdf({
                 opportunityId: this.opportunity.Id,
@@ -632,6 +647,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.showAccountDropdown = false;
             this.showAgenteDropdown = false;
             this.showVehiculoDropdown = false;
+            this.showContactoDropdown = false;
         }
     }
 
@@ -739,6 +755,63 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             'Captura los datos en "Información del Cliente". La cuenta se creará al guardar.',
             'info');
     }
+
+    // ============================================================
+    // LOOKUP DE CONTACTO
+    // ============================================================
+    get isMercadoIndividual() {
+        return this.opportunity.Mercado__c === 'Individual';
+    }
+    // Cuando NO es Individual se muestra el buscador de contactos.
+    get showContactoLookup() {
+        return !this.isMercadoIndividual;
+    }
+    get hasContactoResults() {
+        return this.contactoResults && this.contactoResults.length > 0;
+    }
+    // Texto a mostrar cuando el Contacto es igual a la Cuenta (Mercado Individual).
+    get contactoIgualCuentaText() {
+        return this.opportunity.AccountName
+            ? `Igual que la cuenta: ${this.opportunity.AccountName}`
+            : 'Igual que la cuenta';
+    }
+    handleContactoFocus() {
+        this.showContactoDropdown = true;
+    }
+    handleContactoInput(event) {
+        const value = event.target.value;
+        this.opportunity = { ...this.opportunity, ContactoName: value, Contacto__c: null };
+        this.isNewContacto = false;
+        this.showContactoDropdown = true;
+        clearTimeout(this._contactoSearchTimer);
+        this._contactoSearchTimer = setTimeout(async () => {
+            if (value && value.length >= 2) {
+                try {
+                    this.contactoResults = await searchContacts({ searchTerm: value });
+                } catch (e) {
+                    this.contactoResults = [];
+                }
+            } else {
+                this.contactoResults = [];
+            }
+        }, 300);
+    }
+    selectContacto(event) {
+        const id = event.currentTarget.dataset.id;
+        const c = (this.contactoResults || []).find(x => x.Id === id);
+        if (!c) return;
+        this.opportunity = { ...this.opportunity, Contacto__c: c.Id, ContactoName: c.Name };
+        this.isNewContacto = false;
+        this.showContactoDropdown = false;
+        this.contactoResults = [];
+    }
+    selectNewContacto() {
+        this.opportunity = { ...this.opportunity, Contacto__c: null };
+        this.isNewContacto = true;
+        this.showContactoDropdown = false;
+        this.contactoResults = [];
+    }
+
     handlePrevPage() {
         if (this.currentPage > 1) this.currentPage -= 1;
     }
@@ -807,12 +880,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Description: detail.Description || '',
             AccountId:   detail.AccountId   || null,
             AccountName: detail.Account?.Name || detail.AccountName || '',
-            Agente__c:   detail.Agente__c    || null,
-            AgenteName:  detail.Agente__r?.Name || detail.AgenteName || '',
+            Agente__c:   detail.Agente_Relacionado__c || detail.Agente__c || null,
+            AgenteName:  detail.Agente_Relacionado__r?.Name || detail.Agente__r?.Name || detail.AgenteName || '',
             Vehiculo__c:  detail.Automovil__c || null,
             VehiculoName: detail.Automovil__r
                             ? `${detail.Automovil__r.Marca__c || ''} ${detail.Automovil__r.Modelo__c || ''}`.trim()
                             : (detail.VehiculoName || ''),
+            Contacto__c:  detail.Contacto__c || null,
+            ContactoName: detail.Contacto__r?.Name || detail.ContactoName || '',
+            Prima_Neta__c: detail.Prima_Neta__c ?? null,
             CloseDate:   detail.CloseDate   || null,
             Prima_Total__c: detail.Prima_Total__c || detail.Amount || null,
             clienteNombre:    detail.clienteNombre    || detail.Account?.Name           || '',
@@ -901,7 +977,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Mantengo fallbacks para compatibilidad con esquemas futuros.
         const totalRaw = q.TotalPrice ?? q.Subtotal
                     ?? q.GrandTotal
-                    ?? q.Prima_Total__c ?? q.PrimaTotal__c
+                    ?? q.Prima_neta__c ?? q.PrimaTotal__c
                     ?? q.Amount ?? 0;
         const totalAmount = parseFloat(totalRaw) || 0;
         const status = q.Status || q.Estado__c || q.EstadoCotizacion__c || '';
@@ -961,7 +1037,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageNames: (coverageNamesByQuote && q.Id && Array.isArray(coverageNamesByQuote[q.Id]))
                 ? coverageNamesByQuote[q.Id]
                 : [],
-            productName
+            productName,
+            esAceptada: /acept/i.test(status),
+            puedeAceptar: !/acept/i.test(status)
         };
     }
     getQuoteStatusBadgeClass(status) {
@@ -975,6 +1053,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     handleViewQuote(event) {
         return this.handleEditRelatedQuote(event);
+    }
+    // Marca la cotización como "Aceptado" y refresca la lista.
+    async handleAceptarQuote(event) {
+        const id = event.currentTarget.dataset.id;
+        if (!id) { return; }
+        try {
+            await aceptarCotizacion({ quoteId: id });
+            this.showToast('Cotización aceptada', 'La cotización se marcó como Aceptado.', 'success');
+            if (this.opportunity?.Id) {
+                await this.openOpportunityInEditMode(this.opportunity.Id);
+            }
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('Error', 'No se pudo aceptar la cotización: ' + msg, 'error');
+        }
     }
     handleEditRelatedQuote(event) {
         const id = event.currentTarget.dataset.id;
@@ -1291,10 +1384,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get opportunitiesCount() { return this.filteredOpportunities.length; }
     get hasOpportunities()   { return this.filteredOpportunities.length > 0; }
     get totalOpportunitiesAmount() {
-        // Usa Prima_Total__c (campo custom de la oportunidad). Fallback a Amount
+        // Usa Prima_neta__c (campo custom de la oportunidad). Fallback a Amount
         // por compatibilidad si algún registro viejo no tiene la prima migrada.
         const total = this.filteredOpportunities.reduce(
-            (sum, opp) => sum + (parseFloat(opp.Prima_Total__c ?? opp.Amount) || 0), 0
+            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c ?? opp.Amount) || 0), 0
         );
         return this.formatCurrency(total);
     }
@@ -1363,7 +1456,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 stageStyle: `background-color: ${stageColor}; color: #fff;`,
                 progressBarStyle: `width: ${probability}%; background-color: ${stageColor};`,
                 progressText: `${probability}% de probabilidad`,
-                amountFormatted: this.formatCurrency(opp.Prima_Total__c ?? opp.Amount),
+                amountFormatted: this.formatCurrency(opp.Prima_neta__c ?? opp.Amount),
                 closeDateFormatted: this.formatDate(opp.CloseDate),
                 createdDateFormatted: opp.CreatedDate ? this.formatDate(opp.CreatedDate) : '',
                 daysRemaining,
@@ -1411,7 +1504,28 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     handleComboboxChange(event) {
         const field = event.target.dataset.field;
-        if (field) this.opportunity[field] = event.detail.value;
+        if (!field) return;
+        const value = event.detail.value;
+        this.opportunity = { ...this.opportunity, [field]: value };
+        // Si el Mercado es Individual, el Contacto es el mismo que la Cuenta.
+        if (field === 'Mercado__c') {
+            this.syncContactoConMercado();
+        }
+    }
+
+    // Cuando el Mercado es Individual, el Contacto se toma de la Cuenta (se
+    // resuelve en el Apex al guardar). Cuando no, se usa el buscador de contactos.
+    syncContactoConMercado() {
+        if (this.isMercadoIndividual) {
+            this.isNewContacto = false;
+            this.showContactoDropdown = false;
+            this.contactoResults = [];
+            this.opportunity = {
+                ...this.opportunity,
+                Contacto__c: null,
+                ContactoName: this.opportunity.AccountName || ''
+            };
+        }
     }
     handleAutomovilChange(event) {
         const field = event.target.dataset?.field?.replace('automovil.', '');
@@ -1682,6 +1796,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.updateBestQuote();
             } catch (e) { /* ignorar */ }
             this.recomputeComparativa();
+            this.setPrimaNetaFromQuotes();
             this.hasExtractedData = true;
             this.showToast('Éxito', `PDF procesado: ${quote.compania || 'Desconocido'} - ${quoteWithIndex.ramoLabel}`, 'success');
         } catch (error) {
@@ -1874,8 +1989,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const mapped = this.mapRamoToOption(extractedData.ramo);
                 if (mapped) this.opportunity.Ramo__c = mapped;
             }
-            if (!this.opportunity.Prima_Total__c && extractedData.primaTotal) {
-                this.opportunity.Prima_Total__c = extractedData.primaTotal;
+            if (!this.opportunity.Prima_neta__c && extractedData.primaTotal) {
+                this.opportunity.Prima_neta__c = extractedData.primaTotal;
             }
             if (extractedData.clienteNombre    && !this.opportunity.clienteNombre)    this.opportunity.clienteNombre    = extractedData.clienteNombre;
             if (extractedData.clienteEmail     && !this.opportunity.clienteEmail)     this.opportunity.clienteEmail     = extractedData.clienteEmail;
@@ -2040,6 +2155,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const payload = {
                 ...this.opportunity,
                 Automovil__c: this.opportunity.Vehiculo__c || null,
+                isNewContacto: this.isNewContacto,
+                Descripcion__c: this.comparativoHtml || null,
                 detalleRamo: this.getActiveRamoDetail(),
                 vehiculo: this.automovil
             };
@@ -2085,8 +2202,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Ramo__c: '', Description: '', AccountId: null, AccountName: '',
             Agente__c: null, AgenteName: '',                  // ← nuevo lookup de Agente
             Vehiculo__c: null, VehiculoName: '',
+            Contacto__c: null, ContactoName: '',              // ← lookup de Contacto
+            Prima_Neta__c: null,                              // ← prima neta de la oportunidad
             Id: null,
-            Prima_Total__c: null,
+            Prima_neta__c: null,
             tipoCliente: 'Persona',
             clienteNombre: '', clienteApellidos: '', clienteRFC: '', clienteCP: '',
             clienteEmail: '', clienteTelefono: '', clienteDireccion: ''
@@ -2138,7 +2257,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handlePdfAnalysisComplete(event) {
         const d = (event && event.detail) || {};
         const n = d.count || this.uploadedQuotes.length;
+        // Primero mostramos el formulario (comportamiento de siempre). El comparativo
+        // de la IA es opcional y NO debe afectar este flujo.
         this.viewMode = VIEW_MODES.CREATE;
+        this.comparativoHtml = d.comparativoHtml || '';
+        this._comparativoDirty = true;
 
         if (d.ganadora) {
             const nota = `Recomendación IA: ${d.ganadora}` +
@@ -2191,6 +2314,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.editableQuotes = this.editableQuotes.map((q, i) =>
             i === idx ? { ...q, productId: val } : q);
     }
+    // Al cambiar la aseguradora, recarga los productos de esa aseguradora + ramo.
+    async handleQuoteAseguradoraChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const val = event.detail.value;
+        const q = this.editableQuotes[idx];
+        if (!q) { return; }
+        let productos = [];
+        try {
+            productos = await getProductosPorAseguradoraRamo({ aseguradoraId: val, ramo: q.ramo });
+        } catch (e) {
+            productos = [];
+        }
+        const productId = (productos && productos.length) ? productos[0].value : null;
+        this.editableQuotes = this.editableQuotes.map((it, i) =>
+            i === idx
+                ? { ...it, aseguradoraId: val, productos: productos || [], productId, sinProductos: !(productos && productos.length) }
+                : it);
+    }
     handleQuoteFieldChange(event) {
         const idx = parseInt(event.target.dataset.index, 10);
         const field = event.target.dataset.field;
@@ -2201,6 +2342,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     get hasPdfQuotes() {
         return this.uploadedQuotes && this.uploadedQuotes.length > 0;
+    }
+    get hasComparativoHtml() {
+        return !!(this.comparativoHtml && this.comparativoHtml.trim());
+    }
+    // Inyecta el HTML de la IA en un div lwc:dom="manual" (evita iframe/blob que
+    // la CSP de Lightning bloquea y provocan "Script error").
+    renderedCallback() {
+        if (!this._comparativoDirty) { return; }
+        const host = this.template.querySelector('.comparativo-ia__host');
+        if (!host) { return; }
+        this._comparativoDirty = false;
+        try {
+            host.innerHTML = this.comparativoHtml || '';
+        } catch (e) {
+            /* no romper el flujo si el HTML no se puede inyectar */
+        }
+    }
+    // Pone en Prima Neta la prima MÁS BAJA de las cotizaciones comparadas.
+    setPrimaNetaFromQuotes() {
+        const primas = (this.uploadedQuotes || [])
+            .map(q => parseFloat(q && q.primaTotal))
+            .filter(v => !isNaN(v) && v > 0);
+        if (primas.length) {
+            this.opportunity = { ...this.opportunity, Prima_Neta__c: Math.min(...primas) };
+        }
     }
     get pdfQuotePreview() {
         return (this.uploadedQuotes || []).map((q, i) => ({
@@ -2319,6 +2485,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.showAccountDropdown = false;
         this.accountResults = [];
         this.isNewAccount = false;
+        this.showContactoDropdown = false;
+        this.contactoResults = [];
+        this.isNewContacto = false;
+        this.comparativoHtml = '';
+        this._comparativoDirty = true;
     }
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));

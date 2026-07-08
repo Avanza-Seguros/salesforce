@@ -23,7 +23,7 @@ public with sharing class OpportunityController {
 					StageName,
 					CloseDate,
 					Amount,
-					Prima_Total__c,
+					Prima_neta__c,
 					Description,
 					Type,
 					LeadSource,
@@ -56,17 +56,18 @@ public with sharing class OpportunityController {
 		try {
 			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
 			wrapper.opportunity = [
-                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-                    Ramo__c, CloseDate, Amount, Prima_Total__c,
-                    AccountId, Account.Name, Description,
-                    Agente_Relacionado__c, Agente_Relacionado__r.Name,
-                    Automovil__c, Automovil__r.Name, Automovil__r.Marca__c, Automovil__r.Modelo__c,
-                    Automovil__r.Serie__c, Automovil__r.Placa__c, Automovil__r.Motor__c,
-                    Automovil__r.Descripcion_Completa__c
-                FROM Opportunity
-                WHERE Id = :opportunityId
-                LIMIT 1
-            ];
+				SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+					Ramo__c, CloseDate, Amount, Prima_Neta__c,
+					AccountId, Account.Name, Description,
+					Agente_Relacionado__c, Agente_Relacionado__r.Name,
+					Automovil__c, Automovil__r.Name, Automovil__r.Marca__c, Automovil__r.Modelo__c,
+					Automovil__r.Serie__c, Automovil__r.Placa__c, Automovil__r.Motor__c,
+					Automovil__r.Descripcion_Completa__c,
+					Contacto__c, Contacto__r.Name
+				FROM Opportunity
+				WHERE Id = :opportunityId
+				LIMIT 1
+			];
 
 			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
 			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)
@@ -244,7 +245,7 @@ public with sharing class OpportunityController {
 			List<Map<String, Object>> extractedFields = new List<Map<String, Object>>();
 			extractedFields.add(createField('NumeroPoliza__c', 'Número de Póliza', 'P-2024-0012345', 95));
 			extractedFields.add(createField('Aseguradora__c', 'Compañía Aseguradora', 'Mapfre', 90));
-			extractedFields.add(createField('Prima_Total__c', 'Prima Total', '1250.00', 80));
+			extractedFields.add(createField('Prima_neta__c', 'Prima Neta', '1250.00', 80));
 			result.put('extractedFields', extractedFields);
 		} catch (Exception e) {
 			result.put('success', false);
@@ -341,8 +342,7 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
-		Map<String, Object> d =
-			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
+		Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
 		Id accountId = d.get('AccountId') != null
 			? (Id) String.valueOf(d.get('AccountId'))
@@ -398,21 +398,21 @@ public with sharing class OpportunityController {
 		opp.Canal__c   = String.isNotBlank(getStr(d, 'Canal__c'))   ? getStr(d, 'Canal__c')   : 'Agente';
 		opp.Mercado__c = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : 'Corporativo';
 		if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
-		if (String.isBlank(opp.Type))      { opp.Type = 'New Business'; }
+		if (String.isBlank(opp.Type))      { opp.Type = 'New_Business'; }
 
-		// Agente (lookup a Agente__c)
-		String agenteId = getStr(d, 'Agente__c');
+		// Agente (lookup a Agente_Relacionado__c)
+		String agenteId = getStr(d, 'Agente_Relacionado__c');
 		if (String.isNotBlank(agenteId)) {
-			opp.Agente__c = (Id) agenteId;
+			opp.Agente_Relacionado__c = (Id) agenteId;
 		}
 		opp.Ramo__c     = getStr(d, 'Ramo__c');
 		opp.Description = getStr(d, 'Description');
 
 		// Prima Total (campo custom) — sustituye al Amount estándar
-		Object primaRaw = d.get('Prima_Total__c');
+		Object primaRaw = d.get('Prima_neta_c');
 		if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
 			try {
-				opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
+				opp.Prima_neta__c = Decimal.valueOf(String.valueOf(primaRaw));
 			} catch (Exception ex) {
 				// Si llega un valor no numérico, lo ignoramos en vez de tronar
 			}
@@ -431,6 +431,33 @@ public with sharing class OpportunityController {
 			if (vehId != null) {
 				opp.Automovil__c = vehId;
 			}
+		}
+
+		Object primaNetaRaw = d.get('Prima_Neta__c');
+		if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
+			try {
+				opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
+			} catch (Exception ex) {
+				// Valor no numérico: se ignora en vez de tronar.
+			}
+		}
+
+		String mercadoSel = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : opp.Mercado__c;
+		if (mercadoSel == 'Individual' && accountId != null) {
+			opp.Contacto__c = getPersonContactId(accountId);
+		} else {
+			String contactoId = getStr(d, 'Contacto__c');
+			Boolean isNewContacto = d.get('isNewContacto') == true;
+			if (String.isNotBlank(contactoId)) {
+				opp.Contacto__c = (Id) contactoId;
+			} else if (isNewContacto && accountId != null) {
+				opp.Contacto__c = crearContacto(d, accountId);
+			}
+		}
+
+		String compHtml = getStr(d, 'Descripcion__c');
+		if (String.isNotBlank(compHtml)) {
+			opp.Descripcion__c = compHtml;
 		}
 
 		upsert opp;
@@ -590,5 +617,73 @@ public with sharing class OpportunityController {
 				AND Family = :ramo
 			ORDER BY Name
 		];
+	}
+
+	// Devuelve el Id del Contacto de una Cuenta Persona (PersonContactId).
+	private static Id getPersonContactId(Id accountId) {
+		try {
+			Account a = [SELECT PersonContactId FROM Account WHERE Id = :accountId LIMIT 1];
+			return a.PersonContactId;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	// Crea un Contacto bajo la cuenta con el nombre escrito (o el del cliente).
+	private static Id crearContacto(Map<String, Object> d, Id accountId) {
+		String nombre = getStr(d, 'ContactoName');
+		if (String.isBlank(nombre)) { nombre = getStr(d, 'clienteNombre'); }
+		if (String.isBlank(nombre)) { return null; }
+		List<String> partes = nombre.trim().split('\\s+');
+		Contact c = new Contact();
+		c.AccountId = accountId;
+		c.Email = getStr(d, 'clienteEmail');
+		c.Phone = getStr(d, 'clienteTelefono');
+		if (partes.size() > 1) {
+			c.LastName = partes[partes.size() - 1];
+			String first = '';
+			for (Integer i = 0; i < partes.size() - 1; i++) {
+				first += (first == '' ? '' : ' ') + partes[i];
+			}
+			c.FirstName = first;
+		} else {
+			c.LastName = nombre.trim();
+		}
+		insert c;
+		return c.Id;
+	}
+
+	// Buscador de contactos para el lookup del LWC (mismo patrón que searchAccounts).
+	@AuraEnabled(cacheable=false)
+	public static List<ContactResult> searchContacts(String searchTerm) {
+		List<ContactResult> out = new List<ContactResult>();
+		if (String.isBlank(searchTerm) || searchTerm.length() < 2) {
+			return out;
+		}
+		String filtro = '%' + searchTerm + '%';
+		for (Contact c : [
+			SELECT Id, Name, Email, Phone, AccountId, Account.Name
+			FROM Contact
+			WHERE Name LIKE :filtro OR Email LIKE :filtro
+			ORDER BY LastModifiedDate DESC
+			LIMIT 10
+		]) {
+			ContactResult r = new ContactResult();
+			r.Id = c.Id;
+			r.Name = c.Name;
+			r.Email = c.Email;
+			r.Phone = c.Phone;
+			r.AccountId = c.AccountId;
+			out.add(r);
+		}
+		return out;
+	}
+
+	public class ContactResult {
+		@AuraEnabled public Id Id;
+		@AuraEnabled public String Name;
+		@AuraEnabled public String Email;
+		@AuraEnabled public String Phone;
+		@AuraEnabled public Id AccountId;
 	}
 }

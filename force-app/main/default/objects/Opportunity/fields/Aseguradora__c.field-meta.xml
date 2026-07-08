@@ -66,6 +66,12 @@
                 <label>CHUBB</label>
             </value>
             <value>
+                <fullName>Continental</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Continental</label>
+            </value>
+            <value>
                 <fullName>Dentegra</fullName>
                 <default>false</default>
                 <label>Dentegra</label>

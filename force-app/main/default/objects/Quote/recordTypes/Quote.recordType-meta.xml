@@ -15,10 +15,6 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Quincenal</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Semestral</fullName>
             <default>false</default>
         </values>
@@ -77,55 +73,12 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Approved</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Denied</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Draft</fullName>
-            <default>true</default>
-        </values>
-        <values>
             <fullName>In Review</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Needs Review</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Presented</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Rejected</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
-        <picklist>TipoValor__c</picklist>
-        <values>
-            <fullName>a confirmar</fullName>
             <default>true</default>
-        </values>
-        <values>
-            <fullName>actual</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>comercial</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>comercial%2B10</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>convenido</fullName>
-            <default>false</default>
         </values>
     </picklistValues>
 </RecordType>

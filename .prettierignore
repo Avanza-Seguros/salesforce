@@ -8,4 +8,17 @@
 .sf
 .vscode
 
+# ==================================
+# Archivos de LWC que Prettier rompe
+# ==================================
+**/lwc/**/*.css
+**/lwc/**/*.html
+**/lwc/**/*.svg
+**/lwc/**/*.xml
+
 coverage/
+
+# ==================================
+# Metadatos que causan problemas en CI/CD
+# ==================================
+flows/

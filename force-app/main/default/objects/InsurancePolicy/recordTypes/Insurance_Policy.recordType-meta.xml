@@ -195,43 +195,7 @@
     <picklistValues>
         <picklist>PolicyType</picklist>
         <values>
-            <fullName>Automoviles</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Danos</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Dental</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Empresarial</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Fianzas</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>GMM</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>RC</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Viajes</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Vida</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -377,6 +341,25 @@
         </values>
         <values>
             <fullName>Presupuesto abandonado</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>collectionPaymentStatus__c</picklist>
+        <values>
+            <fullName>Al dia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Completado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin pago</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Vencido</fullName>
             <default>false</default>
         </values>
     </picklistValues>

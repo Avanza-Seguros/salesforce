@@ -7,6 +7,76 @@
   --sds-c-icon-color-foreground-default: #b0b8c4;
 }
 
+/* Comparativo HTML de la IA (renderizado tal cual en un iframe aislado) */
+.comparativo-ia {
+  width: 100%;
+}
+.comparativo-ia__host {
+  width: 100%;
+  border: 1px solid #d0d7e2;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+/* Matriz comparativa de coberturas (cobertura × aseguradora) */
+.cov-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+  min-width: 520px;
+}
+.cov-table th,
+.cov-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #e5e9f0;
+  text-align: center;
+  vertical-align: middle;
+}
+.cov-table thead th {
+  background: var(--accent-soft);
+  color: #0a2540;
+  position: sticky;
+  top: 0;
+}
+.cov-field {
+  text-align: left !important;
+  font-weight: 600;
+  color: #16325c;
+  background: #fafbfd;
+  white-space: nowrap;
+}
+.cov-col__aseg {
+  display: block;
+  font-weight: 700;
+  color: var(--accent);
+}
+.cov-col__prima {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0a2540;
+}
+.cov-yes {
+  color: #04844b;
+  font-weight: 700;
+}
+.cov-no {
+  color: #b0b8c4;
+}
+.cov-row:hover td,
+.cov-row:hover .cov-field {
+  background: #f5f9ff;
+}
+.cov-diff .cov-field {
+  border-left: 3px solid #fb9a3c;
+}
+.cov-diff td {
+  background: #fff8ef;
+}
+
 /* Encabezado tipo héroe */
 .hero {
   background: linear-gradient(135deg, #0b5cab 0%, #1b96ff 100%);
