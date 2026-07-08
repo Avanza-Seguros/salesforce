@@ -23,7 +23,7 @@ public with sharing class OpportunityController {
 					StageName,
 					CloseDate,
 					Amount,
-					Prima_neta__c,
+					Prima_Total__c,
 					Description,
 					Type,
 					LeadSource,
@@ -56,18 +56,29 @@ public with sharing class OpportunityController {
 		try {
 			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
 			wrapper.opportunity = [
-				SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-					Ramo__c, CloseDate, Amount, Prima_Neta__c,
-					AccountId, Account.Name, Description,
-					Agente_Relacionado__c, Agente_Relacionado__r.Name,
-					Automovil__c, Automovil__r.Name, Automovil__r.Marca__c, Automovil__r.Modelo__c,
-					Automovil__r.Serie__c, Automovil__r.Placa__c, Automovil__r.Motor__c,
-					Automovil__r.Descripcion_Completa__c,
-					Contacto__c, Contacto__r.Name
-				FROM Opportunity
-				WHERE Id = :opportunityId
-				LIMIT 1
-			];
+                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+                    Ramo__c, CloseDate, Amount, Prima_Total__c, Prima_Neta__c,
+                    AccountId, Account.Name, Description,
+                    Agente_Relacionado__c, Agente_Relacionado__r.Name,
+                    Contacto__c, Contacto__r.Name,
+                    Automovil__c
+                FROM Opportunity
+                WHERE Id = :opportunityId
+                LIMIT 1
+            ];
+
+            // El auto vive ligado a la Cuenta; la oportunidad guarda solo la
+            // REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
+            // referencia para llenar el formulario al editar.
+            if (wrapper.opportunity.Automovil__c != null) {
+                List<Automovil__c> autos = [
+                    SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
+                    FROM Automovil__c
+                    WHERE Id = :wrapper.opportunity.Automovil__c
+                    LIMIT 1
+                ];
+                if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
+            }
 
 			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
 			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)
@@ -129,6 +140,7 @@ public with sharing class OpportunityController {
 		@AuraEnabled public List<Quote> quotes;
 		@AuraEnabled public Map<Id, Integer> coverageCounts;
 		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
+		@AuraEnabled public Automovil__c automovil;   // vehículo ligado a la cuenta
 	}
 
 	/**
@@ -263,7 +275,7 @@ public with sharing class OpportunityController {
 			List<Map<String, Object>> extractedFields = new List<Map<String, Object>>();
 			extractedFields.add(createField('NumeroPoliza__c', 'Número de Póliza', 'P-2024-0012345', 95));
 			extractedFields.add(createField('Aseguradora__c', 'Compañía Aseguradora', 'Mapfre', 90));
-			extractedFields.add(createField('Prima_neta__c', 'Prima Neta', '1250.00', 80));
+			extractedFields.add(createField('Prima_Total__c', 'Prima Total', '1250.00', 80));
 			result.put('extractedFields', extractedFields);
 		} catch (Exception e) {
 			result.put('success', false);
@@ -360,7 +372,8 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
-		Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
+		Map<String, Object> d =
+			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
 		Id accountId = d.get('AccountId') != null
 			? (Id) String.valueOf(d.get('AccountId'))
@@ -427,26 +440,38 @@ public with sharing class OpportunityController {
 		opp.Ramo__c     = getStr(d, 'Ramo__c');
 		opp.Description = getStr(d, 'Description');
 
-
-		// Prima Neta (campo custom)
-			Object primaNetaRaw = d.get('Prima_Neta__c');
-			if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
-				try {
-					opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
-				} catch (Exception ex) {
-					// valor no numérico: se ignora
+		// Prima Total (campo custom) — sustituye al Amount estándar
+		Object primaRaw = d.get('Prima_Total__c');
+		if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
+			try {
+				opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
+			} catch (Exception ex) {
+				// Si llega un valor no numérico, lo ignoramos en vez de tronar
 			}
 		}
 
-		String closeDateStr = getStr(d, 'CloseDate');
+		// Prima Neta (campo custom)
+		Object primaNetaRaw = d.get('Prima_Neta__c');
+		if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
+			try {
+				opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
+			} catch (Exception ex) {
+				// valor no numérico: se ignora
+			}
+		}
+
+			String closeDateStr = getStr(d, 'CloseDate');
 		if (String.isNotBlank(closeDateStr)) {
 			opp.CloseDate = Date.valueOf(closeDateStr);
 		} else if (opp.Id == null) {
 			opp.CloseDate = Date.today().addDays(30);
 		}
 
-		// Vehículo (solo ramo Automoviles): liga el existente o crea uno nuevo.
-		if (getStr(d, 'Ramo__c') == 'Automoviles') {
+		// Vehículo (ramo Automóviles): resolveVehiculo crea/liga el auto a la CUENTA
+		// (Automovil__c.Cuenta__c). La oportunidad guarda SOLO la referencia (lookup)
+		// al auto específico de este trato; los datos del auto no se duplican aquí.
+		String ramoOpp = getStr(d, 'Ramo__c');
+		if (ramoOpp != null && ramoOpp.toUpperCase().contains('AUTO')) {
 			Id vehId = resolveVehiculo(d, accountId);
 			if (vehId != null) {
 				opp.Automovil__c = vehId;

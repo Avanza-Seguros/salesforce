@@ -907,7 +907,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* ----- PICKLISTS / DROPDOWNS ----- */
 .content-container, .content-container.glass-effect, .unified-view,
 .unified-section, .form-container, .form-grid, .form-grid.two-columns,
-.form-column, .form-card {
+.form-column, .form-card, .special-section, .vehicle-form {
     overflow: visible !important;
 }
 .form-card:focus-within { z-index: 9999 !important; position: relative; }
@@ -918,7 +918,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .unified-section:focus-within,
 .form-container:focus-within,
 .form-grid:focus-within,
-.form-column:focus-within {
+.form-column:focus-within,
+.special-section:focus-within,
+.vehicle-form:focus-within {
     position: relative;
     z-index: 9999 !important;
 }
