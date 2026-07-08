@@ -679,6 +679,16 @@
                     <!-- AUTOMÓVIL -->
                     <div class="special-section" if:true={isRamoAutomovil}>
                         <div class="vehicle-form">
+                            <template if:true={isVehiculoLocked}>
+                                <div class="readonly-banner">
+                                    <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
+                                    <span>
+                                        Los datos del vehículo <strong>ya no se pueden modificar</strong>
+                                        una vez guardados. Si el vehículo cambió, crea una
+                                        <strong>nueva oportunidad</strong>.
+                                    </span>
+                                </div>
+                            </template>
                             <div class="form-card">
                                 <div class="form-card-header">
                                     <lightning-icon icon-name="standard:vehicle_command" size="x-small"></lightning-icon>
@@ -688,7 +698,7 @@
                                     <lightning-input label="" value={opportunity.VehiculoName}
                                         placeholder="Buscar vehículo existente o capturar uno nuevo abajo..."
                                         onfocus={handleVehiculoFocus} onkeyup={handleVehiculoInput}
-                                        variant="label-hidden" disabled={isOpportunityReadOnly}
+                                        variant="label-hidden" disabled={isVehiculoReadOnly}
                                         data-field="VehiculoSearch">
                                     </lightning-input>
                                     <template if:true={showVehiculoDropdown}>
@@ -715,29 +725,29 @@
                                 <div class="form-column">
                                     <div class="form-card"><h3>Marca <span class="required-asterisk">*</span></h3>
                                         <lightning-combobox label="" value={automovil.Marca__c} options={marcaPicklistValues}
-                                            placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Marca__c" variant="label-hidden" dropdown-alignment="auto"></lightning-combobox>
                                     </div>
                                     <div class="form-card"><h3>Modelo *</h3>
-                                        <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                        <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Año</h3>
-                                        <lightning-input label="" value={automovil.Anio__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                        <lightning-input label="" value={automovil.Anio__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Anio__c" variant="label-hidden" placeholder="Ej: 2024"></lightning-input>
                                     </div>
                                 </div>
                                 <div class="form-column">
                                     <div class="form-card"><h3>Serie (VIN) <span class="required-asterisk">*</span></h3>
-                                        <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                        <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie" required></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Placa</h3>
-                                        <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                        <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Placa__c" variant="label-hidden" placeholder="Número de placa"></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Descripción Completa</h3>
-                                        <lightning-textarea label="" value={automovil.descripcion_completa__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                        <lightning-textarea label="" value={automovil.descripcion_completa__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.descripcion_completa__c" variant="label-hidden" placeholder="Descripción del vehículo"></lightning-textarea>
                                     </div>
                                 </div>

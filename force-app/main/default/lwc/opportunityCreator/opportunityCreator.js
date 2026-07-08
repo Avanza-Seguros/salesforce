@@ -189,6 +189,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.vehiculoResults && this.vehiculoResults.length > 0;
     }
 
+    // El vehículo NO se puede modificar una vez guardado (ya está ligado a la
+    // oportunidad). Si cambió, se debe crear una nueva oportunidad.
+    get isVehiculoLocked() {
+        return this.isEditMode && !!this.opportunity.Vehiculo__c;
+    }
+    get isVehiculoReadOnly() {
+        return this.isOpportunityReadOnly || this.isVehiculoLocked;
+    }
+
     async loadEditableQuotes() {
         if (!this.uploadedQuotes || !this.uploadedQuotes.length) {
             this.editableQuotes = [];
