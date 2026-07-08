@@ -8,6 +8,8 @@ import TYPE_FIELD from '@salesforce/schema/Opportunity.Type';
 import CANAL_FIELD from '@salesforce/schema/Opportunity.Canal__c';
 import MERCADO_FIELD from '@salesforce/schema/Opportunity.Mercado__c';
 import RAMO_FIELD from '@salesforce/schema/Opportunity.Ramo__c';
+import AUTOMOVIL_OBJECT from '@salesforce/schema/Automovil__c';
+import MARCA_FIELD from '@salesforce/schema/Automovil__c.Marca__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
@@ -68,6 +70,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track canalPicklistValues = [];
     @track mercadoPicklistValues = [];
     @track ramoPicklistValues = [];
+    @track marcaPicklistValues = [];
+    automovilObjectInfo = { data: null, error: null };
     // === Estado UI / datos ===
     @track viewMode = VIEW_MODES.LIST;
     @track isLoading = false;
@@ -857,6 +861,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 } else {
                     opportunityData = { ...fromList, ...detail };
                 }
+                // El vehículo NO está en la oportunidad: viene aparte en el wrapper,
+                // buscado por la cuenta de la oportunidad (Automovil__c.Cuenta__c).
+                if (detail.automovil) { opportunityData.automovil = detail.automovil; }
                 quotesData = detail.quotes || detail.Quotes || detail.relatedQuotes || [];
                 coverageCounts = detail.coverageCounts || detail.CoverageCounts || {};
                 coverageNamesByQuote = detail.coverageNamesByQuote
@@ -891,9 +898,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountName: detail.Account?.Name || detail.AccountName || '',
             Agente__c:   detail.Agente_Relacionado__c || detail.Agente__c || null,
             AgenteName:  detail.Agente_Relacionado__r?.Name || detail.Agente__r?.Name || detail.AgenteName || '',
-            Vehiculo__c:  detail.Automovil__c || null,
-            VehiculoName: detail.Automovil__r
-                            ? `${detail.Automovil__r.Marca__c || ''} ${detail.Automovil__r.Modelo__c || ''}`.trim()
+            Vehiculo__c:  detail.automovil?.Id || null,
+            VehiculoName: detail.automovil
+                            ? `${detail.automovil.Marca__c || ''} ${detail.automovil.Modelo__c || ''}`.trim()
                             : (detail.VehiculoName || ''),
             Contacto__c:  detail.Contacto__c || null,
             ContactoName: detail.Contacto__r?.Name || detail.ContactoName || '',
@@ -926,8 +933,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (this.opportunity.Ramo__c === RAMO_TYPES.TRANSPORTE || detail.transporte) {
             this.transporte = { ...this.getDefaultTransporte(), ...(detail.transporte || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL || detail.Automovil__r || detail.automovil) {
-            const a = detail.Automovil__r || detail.automovil || detail;
+        if (this.isRamoAutomovil || detail.automovil) {
+            const a = detail.automovil || detail;
             this.automovil = {
                 ...this.getDefaultAutomovil(),
                 Marca__c:                a.Marca__c                || '',
@@ -1289,6 +1296,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     wiredMercadoPicklistValues({ data }) { if (data) this.mercadoPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
     @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: RAMO_FIELD })
     wiredRamoPicklistValues({ data }) { if (data) this.ramoPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+    // Picklist de Marca (objeto Automovil__c)
+    @wire(getObjectInfo, { objectApiName: AUTOMOVIL_OBJECT })
+    wiredAutomovilObjectInfo(result) { this.automovilObjectInfo = result; }
+    @wire(getPicklistValues, { recordTypeId: '$automovilObjectInfo.data.defaultRecordTypeId', fieldApiName: MARCA_FIELD })
+    wiredMarcaPicklistValues({ data }) { if (data) this.marcaPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
 
     // ============================================================
     // NAVEGACIÓN ENTRANTE
@@ -1537,8 +1549,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     handleAutomovilChange(event) {
         const field = event.target.dataset?.field?.replace('automovil.', '');
+        // event.detail.value para combobox (Marca); event.target.value para inputs.
+        const value = (event.detail && event.detail.value !== undefined)
+            ? event.detail.value : event.target.value;
         if (field && Object.prototype.hasOwnProperty.call(this.automovil, field)) {
-            this.automovil[field] = event.target.value;
+            this.automovil = { ...this.automovil, [field]: value };
         }
     }
     handleGMMChange(event) {
@@ -2136,6 +2151,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!this.opportunity.Name)     { this.showToast('Error', 'El nombre de la oportunidad es requerido', 'error'); return; }
             if (!this.opportunity.StageName){ this.showToast('Error', 'La etapa es requerida', 'error'); return; }
             if (!this.opportunity.Ramo__c)  { this.showToast('Error', 'El ramo es requerido', 'error'); return; }
+            // Serie (VIN) obligatoria cuando el ramo es Automóviles.
+            if (this.isRamoAutomovil && !(this.automovil && this.automovil.Serie__c && String(this.automovil.Serie__c).trim())) {
+                this.showToast('Error', 'El número de serie (VIN) del vehículo es obligatorio.', 'error');
+                return;
+            }
             if (!this.opportunity.AccountId && !this.isNewAccount) {
                 this.showToast('Error', 'Selecciona una cuenta o elige "Crear cuenta nueva".', 'error');
                 return;

@@ -713,9 +713,10 @@
                             </div>
                             <div class="form-grid two-columns">
                                 <div class="form-column">
-                                    <div class="form-card"><h3>Marca *</h3>
-                                        <lightning-input label="" value={automovil.Marca__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
-                                            data-field="automovil.Marca__c" variant="label-hidden" placeholder="Ej: NISSAN" required></lightning-input>
+                                    <div class="form-card"><h3>Marca <span class="required-asterisk">*</span></h3>
+                                        <lightning-combobox label="" value={automovil.Marca__c} options={marcaPicklistValues}
+                                            placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
+                                            data-field="automovil.Marca__c" variant="label-hidden" dropdown-alignment="auto"></lightning-combobox>
                                     </div>
                                     <div class="form-card"><h3>Modelo *</h3>
                                         <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
@@ -727,9 +728,9 @@
                                     </div>
                                 </div>
                                 <div class="form-column">
-                                    <div class="form-card"><h3>Serie (VIN)</h3>
+                                    <div class="form-card"><h3>Serie (VIN) <span class="required-asterisk">*</span></h3>
                                         <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
-                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie"></lightning-input>
+                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie" required></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Placa</h3>
                                         <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isOpportunityReadOnly}
