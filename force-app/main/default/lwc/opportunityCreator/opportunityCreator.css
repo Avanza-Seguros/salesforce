@@ -10,7 +10,10 @@
 /* ------------------------------------------ */
 :host {
     display: block;
-    contain: content;
+    /* OJO: NO usar `contain: content` (ni layout/paint) aquí. Convierte a :host en
+       contenedor de referencia de los elementos position:fixed, y el desplegable de
+       lightning-combobox (fixed) se desalinea: se ve en un lugar pero el área
+       clickeable queda en otro. Por eso las listas "no se dejaban seleccionar". */
     --primary-color: #0052CC;
     --primary-dark: #0041A3;
     --secondary-color: #00A3BF;
@@ -910,7 +913,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .form-column, .form-card, .special-section, .vehicle-form {
     overflow: visible !important;
 }
-.form-card:focus-within { z-index: 9999 !important; position: relative; }
+/* Cuando la tarjeta contiene un combo abierto NO debe transformarse: el
+   transform también la volvería contenedor de referencia del dropdown fixed y
+   lo desalinearía. */
+.form-card:focus-within { z-index: 9999 !important; position: relative; transform: none !important; }
 /* Sube TODA la cadena de contenedores que rodea al combo abierto, para que el
    dropdown (que se desborda hacia abajo) quede por ENCIMA de la sección siguiente
    y se puedan seleccionar las opciones. El problema era que el z-index de la
