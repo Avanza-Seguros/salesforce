@@ -453,6 +453,23 @@
                                         required>
                                     </lightning-input>
                                 </div>
+                                <!-- Frecuencia de prima -->
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:event" size="x-small"></lightning-icon>
+                                        <h3>Frecuencia de prima <span class="required-asterisk">*</span></h3>
+                                    </div>
+                                    <lightning-combobox
+                                        label=""
+                                        value={quote.Frecuencia_de_prima__c}
+                                        options={frecuenciaOptions}
+                                        onchange={handleComboboxChange}
+                                        data-field="Frecuencia_de_prima__c"
+                                        placeholder="Selecciona la frecuencia"
+                                        variant="label-hidden"
+                                        dropdown-alignment="auto">
+                                    </lightning-combobox>
+                                </div>
                             </div>
                         </div>
                     </div>

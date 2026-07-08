@@ -728,13 +728,13 @@
                                             placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Marca__c" variant="label-hidden" dropdown-alignment="auto"></lightning-combobox>
                                     </div>
-                                    <div class="form-card"><h3>Modelo *</h3>
+                                    <div class="form-card"><h3>Modelo <span class="required-asterisk">*</span></h3>
                                         <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
                                     </div>
-                                    <div class="form-card"><h3>Año</h3>
-                                        <lightning-input label="" value={automovil.Anio__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Anio__c" variant="label-hidden" placeholder="Ej: 2024"></lightning-input>
+                                    <div class="form-card"><h3>Motor <span class="required-asterisk">*</span></h3>
+                                        <lightning-input label="" value={automovil.Motor__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.Motor__c" variant="label-hidden" placeholder="Ej: 2.0L"></lightning-input>
                                     </div>
                                 </div>
                                 <div class="form-column">
@@ -1110,6 +1110,9 @@
                                                 <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={q.primaTotal}
                                                     data-index={idx} data-field="primaTotal" onchange={handleQuoteFieldChange}></lightning-input>
                                             </div>
+                                            <lightning-combobox label="Frecuencia de prima" value={q.frecuencia}
+                                                options={frecuenciaOptions} placeholder="Selecciona la frecuencia"
+                                                data-index={idx} onchange={handleQuoteFrecuenciaChange}></lightning-combobox>
                                             <lightning-input type="date" label="Vigencia" value={q.vigencia}
                                                 data-index={idx} data-field="vigencia" onchange={handleQuoteFieldChange}></lightning-input>
                                         </div>

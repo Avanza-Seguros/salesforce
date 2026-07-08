@@ -5,6 +5,7 @@ import LightningConfirm from 'lightning/confirm';
 import { getPicklistValues, getObjectInfo } from 'lightning/uiObjectInfoApi';
 import QUOTE_OBJECT from '@salesforce/schema/Quote';
 import STATUS_FIELD from '@salesforce/schema/Quote.Status';
+import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 
 import getQuotes from '@salesforce/apex/QuoteCreatorController.getQuotes';
 import getQuoteById from '@salesforce/apex/QuoteCreatorController.getQuoteById';
@@ -76,6 +77,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     // ===== Wires =====
     objectInfo = { data: null, error: null };
     @track statusPicklistValues = [];
+    @track frecuenciaPicklistValues = [];
 
     // Timers debounce
     _opportunitySearchTimer = null;
@@ -116,6 +118,23 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 value: item.value
             }));
         }
+    }
+    @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: FRECUENCIA_FIELD })
+    wiredFrecuenciaPicklistValues({ data }) {
+        if (data) this.frecuenciaPicklistValues = data.values.map(i => ({ label: i.label, value: i.value }));
+    }
+    // Opciones de Frecuencia (picklist real; respaldo con valores comunes).
+    get frecuenciaOptions() {
+        if (this.frecuenciaPicklistValues && this.frecuenciaPicklistValues.length) {
+            return this.frecuenciaPicklistValues;
+        }
+        return [
+            { label: 'Mensual', value: 'Mensual' },
+            { label: 'Trimestral', value: 'Trimestral' },
+            { label: 'Semestral', value: 'Semestral' },
+            { label: 'Anual', value: 'Anual' },
+            { label: 'Contado', value: 'Contado' }
+        ];
     }
 
     // ============================================================
@@ -326,6 +345,9 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 ...this.getDefaultQuote(),
                 ...data,
                 Ramo__c: ramoFromOpp,
+                // La prima real vive en PrimaAnual__c (TotalPrice es calculado).
+                TotalPrice: data.PrimaAnual__c ?? data.TotalPrice ?? 0,
+                Frecuencia_de_prima__c: data.Frecuencia_de_prima__c || 'Mensual',
                 AseguradoraName: data.Aseguradora__r?.Name || data.AseguradoraName || '',
                 OpportunityName: data.OpportunityName || data.Opportunity?.Name || '',
                 ProductName: data.Product__r?.Name || ''
@@ -670,14 +692,27 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         if (!this.validateForm()) return;
         this.isSaving = true;
         try {
-            // Quitar campos auxiliares antes de mandar al Apex
-            const payload = { ...this.quote };
-            delete payload.AseguradoraName;
-            delete payload.OpportunityName;
-            delete payload.ProductName;
-            delete payload.Ramo__c; // El ramo es de la Opp, no de la Quote
+            // Construye el Quote con SOLO campos válidos del objeto Quote.
+            // (Antes faltaba llamar a saveQuote y el ramo/prima iban a campos
+            // equivocados: Ramo__c en vez de Ramos__c y TotalPrice —calculado—
+            // en vez de PrimaAnual__c.)
+            const hoy = this.formatDateForInput(new Date());
+            const quotePayload = {
+                Name: this.quote.Name,
+                OpportunityId: this.quote.OpportunityId,
+                Aseguradora__c: this.quote.Aseguradora__c,
+                Product__c: this.quote.Product__c,
+                Status: this.quote.Status,
+                Ramos__c: this.quote.Ramo__c || '',
+                PrimaAnual__c: parseFloat(this.quote.TotalPrice) || 0,
+                Frecuencia_de_prima__c: this.quote.Frecuencia_de_prima__c || 'Mensual',
+                RatingDate: this.quote.EffectiveDate || hoy,
+                ExpirationDate: this.quote.ExpirationDate || null
+            };
+            if (this.quote.Id) { quotePayload.Id = this.quote.Id; }
 
-            const savedQuote = await saveQuote({ quote: payload });
+            const savedQuote = await saveQuote({ quote: quotePayload });
+            this.quote = { ...this.quote, Id: savedQuote.Id };
 
             // Coberturas: upsert sólo con nombre y vínculos
             const coveragesToSave = (this.coverages || []).map(c => ({
@@ -687,7 +722,9 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 Product_Coverage__c: c.Product_Coverage__c || null,
                 Coverage_Name__c: c.Coverage_Name__c || c.Name,
                 Coverage_Code__c: c.Coverage_Code__c || '',
-                Order__c: c.Order__c || null
+                Order__c: c.Order__c || 1,
+                Ramos__c: this.quote.Ramo__c || ''
+
             }));
 
             if (coveragesToSave.length > 0) {
@@ -698,7 +735,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             await this.loadQuotes();
             this.handleBackToList();
         } catch (error) {
-            this.showToast('Error', 'Error al guardar la cotización', 'error');
+            this.showToast('Error', 'Error al guardar la cotización: ' + JSON.stringify(error), 'error');
         } finally {
             this.isSaving = false;
         }
@@ -742,6 +779,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             Product__c: null, ProductName: '',
             Status: 'Draft',
             TotalPrice: 0,
+            Frecuencia_de_prima__c: 'Mensual',
             EffectiveDate: this.formatDateForInput(today),
             ExpirationDate: this.formatDateForInput(oneYearLater),
             Description: ''

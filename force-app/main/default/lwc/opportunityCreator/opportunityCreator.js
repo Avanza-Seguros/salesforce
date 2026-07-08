@@ -10,6 +10,8 @@ import MERCADO_FIELD from '@salesforce/schema/Opportunity.Mercado__c';
 import RAMO_FIELD from '@salesforce/schema/Opportunity.Ramo__c';
 import AUTOMOVIL_OBJECT from '@salesforce/schema/Automovil__c';
 import MARCA_FIELD from '@salesforce/schema/Automovil__c.Marca__c';
+import QUOTE_OBJECT from '@salesforce/schema/Quote';
+import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
@@ -72,6 +74,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track ramoPicklistValues = [];
     @track marcaPicklistValues = [];
     automovilObjectInfo = { data: null, error: null };
+    @track frecuenciaPicklistValues = [];
+    quoteObjectInfo = { data: null, error: null };
     // === Estado UI / datos ===
     @track viewMode = VIEW_MODES.LIST;
     @track isLoading = false;
@@ -212,6 +216,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 aseguradoraId: q.aseguradoraId,
                 aseguradoras: q.aseguradoras || [],
                 productId: q.productoSugeridoId,
+                frecuencia: q.frecuencia || 'Mensual',
                 sinProductos: !(q.productos && q.productos.length)
             }));
         } catch (e) {
@@ -234,7 +239,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
                 primaTotal: q.primaTotal, vigencia: q.vigencia,
                 noCotizacion: q.noCotizacion, productId: q.productId,
-                aseguradoraId: q.aseguradoraId
+                aseguradoraId: q.aseguradoraId, frecuencia: q.frecuencia
             }));
             const res = await crearCotizacionesDesdePdf({
                 opportunityId: this.opportunity.Id,
@@ -1310,6 +1315,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     wiredAutomovilObjectInfo(result) { this.automovilObjectInfo = result; }
     @wire(getPicklistValues, { recordTypeId: '$automovilObjectInfo.data.defaultRecordTypeId', fieldApiName: MARCA_FIELD })
     wiredMarcaPicklistValues({ data }) { if (data) this.marcaPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+    // Picklist de Frecuencia de prima (objeto Quote)
+    @wire(getObjectInfo, { objectApiName: QUOTE_OBJECT })
+    wiredQuoteObjectInfo(result) { this.quoteObjectInfo = result; }
+    @wire(getPicklistValues, { recordTypeId: '$quoteObjectInfo.data.defaultRecordTypeId', fieldApiName: FRECUENCIA_FIELD })
+    wiredFrecuenciaPicklistValues({ data }) { if (data) this.frecuenciaPicklistValues = data.values.map(i => ({ label: i.label, value: i.value })); }
+    // Opciones de Frecuencia (picklist real; fallback a valores comunes).
+    get frecuenciaOptions() {
+        if (this.frecuenciaPicklistValues && this.frecuenciaPicklistValues.length) {
+            return this.frecuenciaPicklistValues;
+        }
+        return [
+            { label: 'Mensual', value: 'Mensual' },
+            { label: 'Trimestral', value: 'Trimestral' },
+            { label: 'Semestral', value: 'Semestral' },
+            { label: 'Anual', value: 'Anual' },
+            { label: 'Contado', value: 'Contado' }
+        ];
+    }
 
     // ============================================================
     // NAVEGACIÓN ENTRANTE
@@ -1702,7 +1725,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             isExpanded: quote.isExpanded !== undefined ? quote.isExpanded : true,
             marca: safeString(quote.marca), modelo: safeString(quote.modelo),
             placa: safeString(quote.placa), serie: safeString(quote.serie),
-            anio: safeString(quote.anio), descripcion: safeString(quote.descripcion),
+            motor: safeString(quote.motor), descripcion: safeString(quote.descripcion),
             destino: safeString(quote.destino), numViajeros: safeNumber(quote.numViajeros) || 1,
             fechaSalida: safeString(quote.fechaSalida),
             edadVida: safeNumber(quote.edadVida),
@@ -2036,7 +2059,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     Modelo__c: extractedData.modelo || this.automovil.Modelo__c,
                     Placa__c:  extractedData.placa  || this.automovil.Placa__c,
                     Serie__c:  extractedData.serie  || this.automovil.Serie__c,
-                    Anio__c:   extractedData.anio   || this.automovil.Anio__c,
+                    Motor__c:   extractedData.motor   || this.automovil.Motor__c,
                     descripcion_completa__c: extractedData.descripcion || this.automovil.descripcion_completa__c
                 };
             }
@@ -2347,6 +2370,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const val = event.detail.value;
         this.editableQuotes = this.editableQuotes.map((q, i) =>
             i === idx ? { ...q, productId: val } : q);
+    }
+    handleQuoteFrecuenciaChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const val = event.detail.value;
+        this.editableQuotes = this.editableQuotes.map((q, i) =>
+            i === idx ? { ...q, frecuencia: val } : q);
     }
     // Al cambiar la aseguradora, recarga los productos de esa aseguradora + ramo.
     async handleQuoteAseguradoraChange(event) {
