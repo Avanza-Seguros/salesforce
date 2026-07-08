@@ -151,6 +151,24 @@ public with sharing class OpportunityController {
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cambia el estatus de una cotizacion (Quote) a 'Aceptado'.
+	 * @param quoteId: Id de la Quote a aceptar.
+	 * @return void
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void aceptarCotizacion(String quoteId) {
+		try {
+			Quote q = [SELECT Id, Status FROM Quote WHERE Id = :quoteId LIMIT 1];
+			q.Status = 'Accepted';
+			update q;
+		} catch (Exception e) {
+			throw new AuraHandledException('Error al aceptar la cotizacion: ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Busca agentes/prospectores por nombre, email o nombre de contacto a partir de un termino de al menos 3 caracteres.
 	 * @param searchTerm: Texto de busqueda (minimo 3 caracteres)
 	 * @return Lista de Agente__c coincidentes (maximo 10)
@@ -397,6 +415,7 @@ public with sharing class OpportunityController {
 		// Defaults de negocio (por si llegaran vacíos desde el formulario)
 		opp.Canal__c   = String.isNotBlank(getStr(d, 'Canal__c'))   ? getStr(d, 'Canal__c')   : 'Agente';
 		opp.Mercado__c = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : 'Corporativo';
+		opp.Type = getStr(d, 'Type');   // ← tomar el Tipo del formulario (antes no se guardaba)
 		if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
 		if (String.isBlank(opp.Type))      { opp.Type = 'New_Business'; }
 
@@ -408,13 +427,14 @@ public with sharing class OpportunityController {
 		opp.Ramo__c     = getStr(d, 'Ramo__c');
 		opp.Description = getStr(d, 'Description');
 
-		// Prima Total (campo custom) — sustituye al Amount estándar
-		Object primaRaw = d.get('Prima_neta_c');
-		if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
-			try {
-				opp.Prima_neta__c = Decimal.valueOf(String.valueOf(primaRaw));
-			} catch (Exception ex) {
-				// Si llega un valor no numérico, lo ignoramos en vez de tronar
+
+		// Prima Neta (campo custom)
+			Object primaNetaRaw = d.get('Prima_Neta__c');
+			if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
+				try {
+					opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
+				} catch (Exception ex) {
+					// valor no numérico: se ignora
 			}
 		}
 
@@ -430,15 +450,6 @@ public with sharing class OpportunityController {
 			Id vehId = resolveVehiculo(d, accountId);
 			if (vehId != null) {
 				opp.Automovil__c = vehId;
-			}
-		}
-
-		Object primaNetaRaw = d.get('Prima_Neta__c');
-		if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
-			try {
-				opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
-			} catch (Exception ex) {
-				// Valor no numérico: se ignora en vez de tronar.
 			}
 		}
 

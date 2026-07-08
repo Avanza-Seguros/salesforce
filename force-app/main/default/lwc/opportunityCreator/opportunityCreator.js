@@ -281,16 +281,25 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // ============================================================
     // IDENTIFICACIÓN DEL RAMO ACTIVO
     // ============================================================
-    get isRamoAutomovil()   { return this.opportunity.Ramo__c === RAMO_TYPES.AUTOMOVIL; }
-    get isRamoGMM()         { return this.opportunity.Ramo__c === RAMO_TYPES.GASTOS_MEDICOS; }
-    get isRamoVida()        { return this.opportunity.Ramo__c === RAMO_TYPES.VIDA; }
-    get isRamoViajes()      { return this.opportunity.Ramo__c === RAMO_TYPES.VIAJE; }
-    get isRamoDanos()       { return this.opportunity.Ramo__c === RAMO_TYPES.DANOS; }
-    get isRamoEmpresarial() { return this.opportunity.Ramo__c === RAMO_TYPES.EMPRESARIAL; }
-    get isRamoFianzas() { return this.opportunity.Ramo__c === RAMO_TYPES.FIANZAS; }
-    get isRamoRC()      { return this.opportunity.Ramo__c === RAMO_TYPES.RESPONSABILIDAD_CIVIL; }
-    get isRamoDental()  { return this.opportunity.Ramo__c === RAMO_TYPES.DENTAL; }
-    get isRamoVision()  { return this.opportunity.Ramo__c === RAMO_TYPES.VISION; }
+    // Detección tolerante a variantes del ramo (acentos, singular/plural, "Auto"),
+    // igual que el flujo de PDFs. Antes comparaba exacto y por eso en manual no salía
+    // el apartado del ramo si el valor del picklist no era idéntico.
+    _ramoEs(keywords, exact) {
+        const r = this.opportunity.Ramo__c;
+        if (!r) return false;
+        if (exact && r === exact) return true;
+        return this.matchRamo(r, keywords);
+    }
+    get isRamoAutomovil()   { return this._ramoEs(['AUTOMOVIL', 'AUTO'], RAMO_TYPES.AUTOMOVIL); }
+    get isRamoGMM()         { return this._ramoEs(['GMM', 'GASTOS'], RAMO_TYPES.GASTOS_MEDICOS); }
+    get isRamoVida()        { return this._ramoEs(['VIDA'], RAMO_TYPES.VIDA); }
+    get isRamoViajes()      { return this._ramoEs(['VIAJE'], RAMO_TYPES.VIAJE); }
+    get isRamoDanos()       { return this._ramoEs(['DAÑOS', 'DANOS'], RAMO_TYPES.DANOS); }
+    get isRamoEmpresarial() { return this._ramoEs(['EMPRESARIAL'], RAMO_TYPES.EMPRESARIAL); }
+    get isRamoFianzas() { return this._ramoEs(['FIANZA'], RAMO_TYPES.FIANZAS); }
+    get isRamoRC()      { return this._ramoEs(['RESPONSABILIDAD'], RAMO_TYPES.RESPONSABILIDAD_CIVIL); }
+    get isRamoDental()  { return this._ramoEs(['DENTAL'], RAMO_TYPES.DENTAL); }
+    get isRamoVision()  { return this._ramoEs(['VISION', 'VISIÓN'], RAMO_TYPES.VISION); }
     get isRamoOtros() {
         return !this.isRamoAutomovil && !this.isRamoGMM && !this.isRamoVida &&
                !this.isRamoViajes && !this.isRamoDanos && !this.isRamoEmpresarial &&
@@ -888,9 +897,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                             : (detail.VehiculoName || ''),
             Contacto__c:  detail.Contacto__c || null,
             ContactoName: detail.Contacto__r?.Name || detail.ContactoName || '',
-            Prima_Neta__c: detail.Prima_Neta__c ?? null,
-            CloseDate:   detail.CloseDate   || null,
-            Prima_Total__c: detail.Prima_Total__c || detail.Amount || null,
+            Prima_Neta__c: detail.Prima_neta__c ?? detail.Prima_Neta__c ?? detail.Prima_Total__c ?? detail.Amount ?? null,
+            CloseDate:   detail.CloseDate   || null ,
             clienteNombre:    detail.clienteNombre    || detail.Account?.Name           || '',
             clienteRFC:       detail.clienteRFC       || detail.Account?.RFC__c          || '',
             clienteEmail:     detail.clienteEmail     || detail.Account?.Email__c        || detail.Account?.PersonEmail || '',
@@ -1387,7 +1395,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Usa Prima_neta__c (campo custom de la oportunidad). Fallback a Amount
         // por compatibilidad si algún registro viejo no tiene la prima migrada.
         const total = this.filteredOpportunities.reduce(
-            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c ?? opp.Amount) || 0), 0
+            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c  || opp.Amount) || 0), 0
         );
         return this.formatCurrency(total);
     }
@@ -1456,7 +1464,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 stageStyle: `background-color: ${stageColor}; color: #fff;`,
                 progressBarStyle: `width: ${probability}%; background-color: ${stageColor};`,
                 progressText: `${probability}% de probabilidad`,
-                amountFormatted: this.formatCurrency(opp.Prima_neta__c ?? opp.Amount),
+                amountFormatted: this.formatCurrency(opp.Prima_neta__c || opp.Amount),
                 closeDateFormatted: this.formatDate(opp.CloseDate),
                 createdDateFormatted: opp.CreatedDate ? this.formatDate(opp.CreatedDate) : '',
                 daysRemaining,
@@ -1866,8 +1874,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     extractPrimaTotal(quote) {
         if (!quote) return 0;
-        const posibles = [quote.primaTotal, quote.prima, quote.primaNeta,
-                          quote.PrimaTotal__c, quote['Prima Total'], quote.total, quote.monto];
+        const posibles = [quote.Prima_neta__c, quote['Prima Neta'], quote.total, quote.monto];
         for (const p of posibles) {
             if (p) {
                 const n = parseFloat(p);
@@ -2120,8 +2127,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (this.isSaving) return;
         if (this.isOpportunityReadOnly) {
             this.showToast('Bloqueado',
-                'Esta oportunidad ya no está en etapa Gestión Comercial; sus datos no se pueden modificar.',
-                'warning');
+                'Esta oportunidad ya no está en etapa Gestión Comercial; sus datos no se pueden modificar.','warning');
             return;
         }
         this.isSaving = true;
@@ -2205,7 +2211,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Contacto__c: null, ContactoName: '',              // ← lookup de Contacto
             Prima_Neta__c: null,                              // ← prima neta de la oportunidad
             Id: null,
-            Prima_neta__c: null,
             tipoCliente: 'Persona',
             clienteNombre: '', clienteApellidos: '', clienteRFC: '', clienteCP: '',
             clienteEmail: '', clienteTelefono: '', clienteDireccion: ''

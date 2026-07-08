@@ -910,7 +910,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .form-column, .form-card {
     overflow: visible !important;
 }
-.form-card:focus-within { z-index: 1000 !important; position: relative; }
+.form-card:focus-within { z-index: 9999 !important; position: relative; }
+/* Sube TODA la cadena de contenedores que rodea al combo abierto, para que el
+   dropdown (que se desborda hacia abajo) quede por ENCIMA de la sección siguiente
+   y se puedan seleccionar las opciones. El problema era que el z-index de la
+   tarjeta quedaba "atrapado" dentro de su sección, y la sección de abajo la tapaba. */
+.unified-section:focus-within,
+.form-container:focus-within,
+.form-grid:focus-within,
+.form-column:focus-within {
+    position: relative;
+    z-index: 9999 !important;
+}
 .slds-dropdown, .slds-listbox_vertical,
 .slds-combobox_container, .slds-has-menu {
     z-index: 9000 !important;
