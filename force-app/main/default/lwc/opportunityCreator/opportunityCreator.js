@@ -1439,7 +1439,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Usa Prima_neta__c (campo custom de la oportunidad). Fallback a Amount
         // por compatibilidad si algún registro viejo no tiene la prima migrada.
         const total = this.filteredOpportunities.reduce(
-            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c  || opp.Amount) || 0), 0
+            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c ?? opp.Prima_Neta__c ?? opp.Amount) || 0), 0
         );
         return this.formatCurrency(total);
     }
@@ -1508,7 +1508,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 stageStyle: `background-color: ${stageColor}; color: #fff;`,
                 progressBarStyle: `width: ${probability}%; background-color: ${stageColor};`,
                 progressText: `${probability}% de probabilidad`,
-                amountFormatted: this.formatCurrency(opp.Prima_neta__c || opp.Amount),
+                amountFormatted: this.formatCurrency(opp.Prima_neta__c ?? opp.Prima_Neta__c ?? opp.Amount),
                 closeDateFormatted: this.formatDate(opp.CloseDate),
                 createdDateFormatted: opp.CreatedDate ? this.formatDate(opp.CreatedDate) : '',
                 daysRemaining,
