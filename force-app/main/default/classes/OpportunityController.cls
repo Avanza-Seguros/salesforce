@@ -58,7 +58,7 @@ public with sharing class OpportunityController {
 			wrapper.opportunity = [
                 SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
                     Ramo__c, CloseDate, Amount, Prima_neta__c,
-                    AccountId, Account.Name, Description,
+                    AccountId, Account.Name, Description, Descripcion__c,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
                     Contacto__c, Contacto__r.Name,
                     Automovil__c

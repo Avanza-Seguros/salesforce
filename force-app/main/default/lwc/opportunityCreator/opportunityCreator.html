@@ -1120,6 +1120,33 @@
                                 </div>
                             </template>
 
+                            <!-- Comparativa de coberturas (cobertura × aseguradora) -->
+                            <template if:true={hasCoberturasComparadas}>
+                                <h3 class="slds-text-title_caps" style="margin:1rem 0 0.5rem 0;">Comparativa de coberturas</h3>
+                                <div class="cov-table-wrap">
+                                    <table class="cov-table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col" class="cov-field">Cobertura</th>
+                                                <template for:each={coberturasComparadas.cols} for:item="c">
+                                                    <th key={c.key} scope="col" class="cov-col">{c.name}</th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template for:each={coberturasComparadas.rows} for:item="row">
+                                                <tr key={row.key} class={row.rowClass}>
+                                                    <th scope="row" class="cov-field">{row.label}</th>
+                                                    <template for:each={row.cells} for:item="cell">
+                                                        <td key={cell.key} class={cell.cls}>{cell.value}</td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </template>
+
                             <!-- KPIs de la comparativa (solo si NO hay comparativo de IA) -->
                             <div class="comparison-kpis" if:false={hasComparativoHtml}>
                                 <div class="kpi-card kpi-best-price">

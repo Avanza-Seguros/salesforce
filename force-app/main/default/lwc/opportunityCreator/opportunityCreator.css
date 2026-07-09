@@ -1122,12 +1122,50 @@ lightning-combobox {
 }
 .comparativo-ia__host {
     width: 100%;
-    border: 1px solid #D0D7E2;
-    border-radius: 12px;
-    background: #ffffff;
-    padding: 12px;
     overflow-x: auto;
+    padding: 1.25rem 1.5rem;
+    background: #ffffff;
+    border: 1px solid #D0D7E2;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 28, 61, 0.08);
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    color: #1c2433;
+    line-height: 1.55;
 }
+.comparativo-ia__host h1 { font-size: 1.4rem; color: #001C3D; font-weight: 800; margin: 0 0 0.4rem; }
+.comparativo-ia__host h2 { font-size: 1.1rem; color: #0052CC; margin: 1.4rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 2px solid #E6EEFB; }
+.comparativo-ia__host h3 { color: #001C3D; margin: 0 0 0.4rem; }
+.comparativo-ia__host p { margin: 0.4rem 0; }
+.comparativo-ia__host table {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    margin: 0.9rem 0 1.2rem !important;
+    border: 1px solid #D0D7E2 !important;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 28, 61, 0.06);
+    font-size: 0.88rem;
+}
+.comparativo-ia__host th { padding: 0.7rem 0.85rem !important; font-weight: 700; }
+.comparativo-ia__host td { padding: 0.6rem 0.85rem !important; border-bottom: 1px solid #EDF0F3 !important; }
+.comparativo-ia__host tbody tr:nth-child(even) td { background: #F8FBFF; }
+.comparativo-ia__host tbody tr:hover td { background: #EEF4FF; }
+.comparativo-ia__host tbody tr:last-child td { border-bottom: none !important; }
+
+/* Matriz de coberturas (cobertura × aseguradora) en la comparativa */
+.cov-table-wrap { width: 100%; overflow-x: auto; border: 1px solid #D0D7E2; border-radius: 12px; margin-bottom: 0.75rem; }
+.cov-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; min-width: 520px; }
+.cov-table th, .cov-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #EDF0F3; text-align: center; vertical-align: middle; }
+.cov-table thead th { background: #EAF2FB; color: #0a2540; font-weight: 700; }
+.cov-table .cov-field { text-align: left !important; font-weight: 600; color: #16325c; background: #FAFBFD; white-space: nowrap; }
+.cov-table thead .cov-col { color: #0052CC; }
+.cov-table .cov-yes { color: #04844b; font-weight: 700; }
+.cov-table .cov-no { color: #b0b8c4; }
+.cov-table .cov-row:hover td, .cov-table .cov-row:hover .cov-field { background: #F5F9FF; }
+.cov-table .cov-diff .cov-field { border-left: 3px solid #FB9A3C; }
+.cov-table .cov-diff td { background: #FFF8EF; }
+.cov-table tbody tr:last-child td, .cov-table tbody tr:last-child .cov-field { border-bottom: none; }
 
 /* Botón "Aceptar" en la tabla de cotizaciones de la oportunidad */
 .accept-quote-btn {

@@ -2418,6 +2418,51 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get showComparativaDoc() {
         return !this.hasComparativoHtml && this.comparativoData.hasData;
     }
+    // Matriz de coberturas (cobertura × aseguradora) para la comparativa, con el
+    // NOMBRE real de la cobertura (viene de coverageNames por cotización).
+    get coberturasComparadas() {
+        const quotes = (this.relatedQuotes || []).filter(
+            q => q && Array.isArray(q.coverageNames)
+        );
+        if (quotes.length === 0) { return null; }
+        const cols = quotes.map((q, i) => ({
+            key: q.Id || ('col' + i),
+            name: q.companiaLabel || `Cotización ${i + 1}`
+        }));
+        const order = [];
+        const seen = new Set();
+        quotes.forEach(q => (q.coverageNames || []).forEach(nm => {
+            const n = (nm || '').trim();
+            const k = n.toLowerCase();
+            if (n && !seen.has(k)) { seen.add(k); order.push(n); }
+        }));
+        if (order.length === 0) { return null; }
+        const sets = quotes.map(
+            q => new Set((q.coverageNames || []).map(x => (x || '').trim().toLowerCase()))
+        );
+        const rows = order.map((cov, ri) => {
+            const cells = sets.map((s, ci) => {
+                const has = s.has(cov.toLowerCase());
+                return {
+                    key: 'r' + ri + 'c' + ci,
+                    value: has ? 'Sí' : '—',
+                    cls: has ? 'cov-cell cov-yes' : 'cov-cell cov-no'
+                };
+            });
+            const yes = cells.filter(c => c.value === 'Sí').length;
+            const partial = yes > 0 && yes < cells.length;
+            return {
+                key: 'cov' + ri,
+                label: cov,
+                cells,
+                rowClass: partial ? 'cov-row cov-diff' : 'cov-row'
+            };
+        });
+        return { cols, rows };
+    }
+    get hasCoberturasComparadas() {
+        return this.coberturasComparadas !== null;
+    }
     // Inyecta el HTML de la IA en un div lwc:dom="manual" (evita iframe/blob que
     // la CSP de Lightning bloquea y provocan "Script error").
     renderedCallback() {
