@@ -19,7 +19,10 @@
         <label>¿Existe InsurancePolicy?</label>
         <locationX>176</locationX>
         <locationY>266</locationY>
-        <defaultConnectorLabel>Sin póliza (legacy)</defaultConnectorLabel>
+        <defaultConnector>
+            <targetReference>Error_Sin_Pago_Reconocido</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Sin póliza (bloquear)</defaultConnectorLabel>
         <rules>
             <name>Policy_Exists</name>
             <conditionLogic>and</conditionLogic>

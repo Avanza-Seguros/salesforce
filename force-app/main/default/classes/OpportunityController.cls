@@ -56,29 +56,29 @@ public with sharing class OpportunityController {
 		try {
 			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
 			wrapper.opportunity = [
-                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-                    Ramo__c, CloseDate, Amount, Prima_neta__c,
-                    AccountId, Account.Name, Description, Descripcion__c,
-                    Agente_Relacionado__c, Agente_Relacionado__r.Name,
-                    Contacto__c, Contacto__r.Name,
-                    Automovil__c
-                FROM Opportunity
-                WHERE Id = :opportunityId
-                LIMIT 1
-            ];
+				SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+					Ramo__c, CloseDate, Amount, Prima_neta__c,
+					AccountId, Account.Name, Description, Descripcion__c,
+					Agente_Relacionado__c, Agente_Relacionado__r.Name,
+					Contacto__c, Contacto__r.Name,
+					Automovil__c
+				FROM Opportunity
+				WHERE Id = :opportunityId
+				LIMIT 1
+			];
 
-            // El auto vive ligado a la Cuenta; la oportunidad guarda solo la
-            // REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
-            // referencia para llenar el formulario al editar.
-            if (wrapper.opportunity.Automovil__c != null) {
-                List<Automovil__c> autos = [
-                    SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
-                    FROM Automovil__c
-                    WHERE Id = :wrapper.opportunity.Automovil__c
-                    LIMIT 1
-                ];
-                if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
-            }
+			// El auto vive ligado a la Cuenta; la oportunidad guarda solo la
+			// REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
+			// referencia para llenar el formulario al editar.
+			if (wrapper.opportunity.Automovil__c != null) {
+				List<Automovil__c> autos = [
+					SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
+					FROM Automovil__c
+					WHERE Id = :wrapper.opportunity.Automovil__c
+					LIMIT 1
+				];
+				if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
+			}
 
 			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
 			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)
