@@ -23,7 +23,7 @@ public with sharing class OpportunityController {
 					StageName,
 					CloseDate,
 					Amount,
-					Prima_Total__c,
+					Prima_neta__c,
 					Description,
 					Type,
 					LeadSource,
@@ -57,7 +57,7 @@ public with sharing class OpportunityController {
 			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
 			wrapper.opportunity = [
                 SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-                    Ramo__c, CloseDate, Amount, Prima_Total__c, Prima_Neta__c,
+                    Ramo__c, CloseDate, Amount, Prima_neta__c,
                     AccountId, Account.Name, Description,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
                     Contacto__c, Contacto__r.Name,

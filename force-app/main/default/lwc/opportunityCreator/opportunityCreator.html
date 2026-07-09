@@ -143,94 +143,62 @@
                     </template>
                     <template if:false={isLoading}>
                         <template if:true={hasOpportunities}>
-                            <div class="opportunities-grid">
-                                <template for:each={processedOpportunities} for:item="opp">
-                                    <div key={opp.Id} class={opp.statusClass} data-card="opportunity">
-                                        <div class="opportunity-card">
-                                            <div class="opportunity-header">
-                                                <div class="opp-title-section">
-                                                    <h3 class="opp-name">{opp.Name}</h3>
-                                                    <div class="opp-meta">
-                                                        <span class="opp-account">
-                                                            <lightning-icon icon-name="standard:account" size="xx-small"></lightning-icon>
-                                                            {opp.Account.Name}
-                                                        </span>
-                                                        <span class="opp-owner">
-                                                            <lightning-icon icon-name="standard:user" size="xx-small"></lightning-icon>
-                                                            {opp.Owner.Name}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div class="opp-actions">
-                                                    <button class="icon-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver">
-                                                        <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
-                                                    </button>
-                                                    <button class="icon-btn" onclick={handleEditOpportunity} data-id={opp.Id} title="Editar">
-                                                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
-                                                    </button>
-                                                    <button class="icon-btn danger" onclick={handleDeleteOpportunity}
-                                                            data-id={opp.Id} data-name={opp.Name} title="Eliminar">
-                                                        <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div class="opportunity-body">
-                                                <div class="opp-stage">
-                                                    <div class="stage-badge" style={opp.stageStyle}>
+                            <div class="opportunities-table-wrapper">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped opportunities-table">
+                                    <thead>
+                                        <tr class="slds-text-title_caps">
+                                            <th scope="col">Oportunidad</th>
+                                            <th scope="col">Cuenta</th>
+                                            <th scope="col">Etapa</th>
+                                            <th scope="col">Ramo</th>
+                                            <th scope="col">Tipo</th>
+                                            <th scope="col">Canal</th>
+                                            <th scope="col">Prima neta</th>
+                                            <th scope="col">Cierre</th>
+                                            <th scope="col">Propietario</th>
+                                            <th scope="col">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={processedOpportunities} for:item="opp">
+                                            <tr key={opp.Id} class={opp.statusClass}>
+                                                <td class="opp-name-cell" title={opp.Name}>{opp.Name}</td>
+                                                <td>{opp.Account.Name}</td>
+                                                <td>
+                                                    <span class="stage-badge" style={opp.stageStyle}>
                                                         <lightning-icon icon-name={opp.stageIcon} size="xx-small"></lightning-icon>
                                                         <span>{opp.stageLabel}</span>
-                                                    </div>
-                                                    <div class="opp-amount">
-                                                        <span class="amount-label">Valor:</span>
-                                                        <span class="amount-value">{opp.amountFormatted}</span>
-                                                    </div>
-                                                </div>
-                                                <!-- Etiquetas de identificación: Ramo, Tipo y Canal -->
-                                                <div class="opp-tags">
-                                                    <template if:true={opp.Ramo__c}>
-                                                        <span class="opp-tag opp-tag-ramo">
-                                                            <lightning-icon icon-name="utility:category" size="xx-small"></lightning-icon>
-                                                            {opp.Ramo__c}
-                                                        </span>
+                                                    </span>
+                                                </td>
+                                                <td>{opp.Ramo__c}</td>
+                                                <td>{opp.typeLabel}</td>
+                                                <td>{opp.Canal__c}</td>
+                                                <td class="amount-cell">{opp.amountFormatted}</td>
+                                                <td class="close-cell">
+                                                    <span>{opp.closeDateFormatted}</span>
+                                                    <template if:true={opp.hasDaysInfo}>
+                                                        <span class={opp.daysClass}>{opp.daysLabel}</span>
                                                     </template>
-                                                    <template if:true={opp.typeLabel}>
-                                                        <span class="opp-tag opp-tag-tipo">
-                                                            <lightning-icon icon-name="utility:tag" size="xx-small"></lightning-icon>
-                                                            {opp.typeLabel}
-                                                        </span>
-                                                    </template>
-                                                    <template if:true={opp.Canal__c}>
-                                                        <span class="opp-tag opp-tag-canal">
-                                                            <lightning-icon icon-name="utility:broadcast" size="xx-small"></lightning-icon>
-                                                            {opp.Canal__c}
-                                                        </span>
-                                                    </template>
-                                                </div>
-                                                <div class="opp-dates">
-                                                    <div class="date-item">
-                                                        <lightning-icon icon-name="utility:date_input" size="xx-small"></lightning-icon>
-                                                        <span>Cierre: {opp.closeDateFormatted}</span>
-                                                        <template if:true={opp.hasDaysInfo}>
-                                                            <span class={opp.daysClass}>{opp.daysLabel}</span>
-                                                        </template>
+                                                </td>
+                                                <td>{opp.Owner.Name}</td>
+                                                <td>
+                                                    <div class="opp-actions">
+                                                        <button class="icon-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver">
+                                                            <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                        </button>
+                                                        <button class="icon-btn" onclick={handleEditOpportunity} data-id={opp.Id} title="Editar">
+                                                            <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                        </button>
+                                                        <button class="icon-btn danger" onclick={handleDeleteOpportunity}
+                                                                data-id={opp.Id} data-name={opp.Name} title="Eliminar">
+                                                            <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                                                        </button>
                                                     </div>
-                                                    <div class="date-item">
-                                                        <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
-                                                        <span>Creada: {opp.createdDateFormatted}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="opportunity-footer">
-                                                <div class="opp-progress">
-                                                    <div class="progress-bar">
-                                                        <div class="progress-fill" style={opp.progressBarStyle}></div>
-                                                    </div>
-                                                    <span class="progress-text">{opp.progressText}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
                             </div>
                             <!-- Paginación -->
                             <div class="pagination-bar">
@@ -1145,8 +1113,15 @@
                                 <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
                             </div>
 
-                            <!-- KPIs de la comparativa -->
-                            <div class="comparison-kpis">
+                            <!-- Comparativo generado por la IA (lo mismo que la pestaña "Comparativo IA") -->
+                            <template if:true={hasComparativoHtml}>
+                                <div class="comparativo-ia">
+                                    <div class="comparativo-ia__host" lwc:dom="manual"></div>
+                                </div>
+                            </template>
+
+                            <!-- KPIs de la comparativa (solo si NO hay comparativo de IA) -->
+                            <div class="comparison-kpis" if:false={hasComparativoHtml}>
                                 <div class="kpi-card kpi-best-price">
                                     <div class="kpi-icon">
                                         <lightning-icon icon-name="utility:currency" size="small"></lightning-icon>
@@ -1200,9 +1175,9 @@
                             </div>
 
                             <!-- ============================================== -->
-                            <!-- DOCUMENTO DEL COMPARATIVO (a la vista)         -->
+                            <!-- DOCUMENTO DEL COMPARATIVO (solo si NO hay IA)  -->
                             <!-- ============================================== -->
-                            <template if:true={comparativoData.hasData}>
+                            <template if:true={showComparativaDoc}>
                                 <div class="comparativo-doc">
                                     <div class="doc-head">
                                         <h1>Comparativo de Seguro de {comparativoData.ramoLabel}</h1>
@@ -1328,13 +1303,13 @@
 
                             <!-- Comparativo generado por la IA (tal cual lo regresa el Prompt Builder) -->
                             <template if:true={hasComparativoHtml}>
-                                <div class="comparativo-doc">
+                                <div class="comparativo-ia">
                                     <div class="comparativo-ia__host" lwc:dom="manual"></div>
                                 </div>
                             </template>
 
-                            <!-- KPIs -->
-                            <div class="comparison-kpis">
+                            <!-- KPIs (solo si NO hay comparativo de IA) -->
+                            <div class="comparison-kpis" if:false={hasComparativoHtml}>
                                 <div class="kpi-card kpi-best-price">
                                     <div class="kpi-icon"><lightning-icon icon-name="utility:currency" size="small"></lightning-icon></div>
                                     <div class="kpi-content">
@@ -1369,8 +1344,8 @@
                                 </div>
                             </div>
 
-                            <!-- Documento comparativo (mismo formato de siempre) -->
-                            <template if:true={comparativoData.hasData}>
+                            <!-- Documento comparativo (solo si NO hay comparativo de IA) -->
+                            <template if:true={showComparativaDoc}>
                                 <div class="comparativo-doc">
                                     <div class="doc-head">
                                         <h1>Comparativo de Seguro de {comparativoData.ramoLabel}</h1>

@@ -929,6 +929,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         };
         this.selectedQuoteRamo = this.opportunity.Ramo__c;
 
+        // Comparativo de la IA guardado en la oportunidad (Descripcion__c) para
+        // mostrarlo en la sección "Comparativa de Cotizaciones" al editar.
+        this.comparativoHtml = detail.Descripcion__c || '';
+        this._comparativoDirty = true;
+
         if (this.opportunity.Ramo__c === RAMO_TYPES.EMPRESARIAL || detail.empresarial) {
             this.empresarial = { ...this.getDefaultEmpresarial(), ...(detail.empresarial || {}) };
         }
@@ -1439,8 +1444,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Usa Prima_neta__c (campo custom de la oportunidad). Fallback a Amount
         // por compatibilidad si algún registro viejo no tiene la prima migrada.
         const total = this.filteredOpportunities.reduce(
-            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c ?? opp.Prima_Neta__c ?? opp.Amount) || 0), 0
-        );
+            (sum, opp) => sum + (parseFloat(opp.Prima_neta__c) || 0), 0);
         return this.formatCurrency(total);
     }
     get totalPages() {
@@ -1508,7 +1512,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 stageStyle: `background-color: ${stageColor}; color: #fff;`,
                 progressBarStyle: `width: ${probability}%; background-color: ${stageColor};`,
                 progressText: `${probability}% de probabilidad`,
-                amountFormatted: this.formatCurrency(opp.Prima_neta__c ?? opp.Prima_Neta__c ?? opp.Amount),
+                amountFormatted: this.formatCurrency(opp.Prima_neta__c ?? opp.Prima_Neta__c ?? opp.Prima_Total__c ?? opp.Amount),
                 closeDateFormatted: this.formatDate(opp.CloseDate),
                 createdDateFormatted: opp.CreatedDate ? this.formatDate(opp.CreatedDate) : '',
                 daysRemaining,
@@ -2408,6 +2412,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     get hasComparativoHtml() {
         return !!(this.comparativoHtml && this.comparativoHtml.trim());
+    }
+    // El comparativo "armado" (KPIs + tabla) solo se muestra si NO hay el
+    // comparativo de la IA; con IA se ve igual que la pestaña "Comparativo IA".
+    get showComparativaDoc() {
+        return !this.hasComparativoHtml && this.comparativoData.hasData;
     }
     // Inyecta el HTML de la IA en un div lwc:dom="manual" (evita iframe/blob que
     // la CSP de Lightning bloquea y provocan "Script error").

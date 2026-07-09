@@ -151,13 +151,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* ----- CONTENIDO PRINCIPAL ----- */
 .content-container.glass-effect {
-    margin: var(--spacing-xl) var(--spacing-2xl);
+    margin: var(--spacing-md) var(--spacing-lg);
     background: white;
-    border-radius: var(--border-radius-2xl);
-    border: 2px solid #E0E0E0;
-    box-shadow: var(--shadow-md);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid #E0E0E0;
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    padding: var(--spacing-2xl);
+    padding: var(--spacing-md);
 }
 
 /* ----- BOTONES ----- */
@@ -212,37 +212,36 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* ----- CARDS / FORMULARIOS ----- */
 .form-card {
     background: white;
-    border-radius: 20px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition-smooth);
-    border: 2px solid #D0D0D0;
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    border: 1px solid #D0D0D0;
     position: relative;
     overflow: hidden;
 }
 .form-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-sm);
     border-color: #0052CC;
 }
 .form-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 6px; background: #0052CC;
+    height: 3px; background: #0052CC;
 }
 .form-card-header {
-    display: flex; align-items: center; gap: 0.75rem;
-    margin-bottom: 1.5rem; padding-bottom: 0.75rem;
-    border-bottom: 2px solid #CCCCCC;
+    display: flex; align-items: center; gap: 0.4rem;
+    margin-bottom: 0.4rem; padding-bottom: 0.3rem;
+    border-bottom: 1px solid #E0E0E0;
 }
 .form-card-header h3 {
-    font-size: 1.1rem; font-weight: 700; margin: 0;
+    font-size: 0.85rem; font-weight: 700; margin: 0;
     color: var(--text-primary); flex: 1;
 }
 
 .form-grid.two-columns {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;
 }
-.form-column { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-column { display: flex; flex-direction: column; gap: 0.75rem; }
 
 /* ----- LOOKUP DE CUENTA ----- */
 .lookup-container { position: relative; }
@@ -425,6 +424,58 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .status-lost     .opportunity-card { border-left: 4px solid #6B7280; }
 .status-overdue  .opportunity-card { border-left: 4px solid #DE350B; }
 
+/* ----- TABLA DE OPORTUNIDADES (vista de lista) ----- */
+.opportunities-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.9rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.opportunities-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+.opportunities-table thead th {
+    background: #F0F4FB;
+    color: #001C3D;
+    font-weight: 700;
+    text-align: left;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 2px solid #B3CCFF;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.opportunities-table tbody td {
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid #EDF0F3;
+    color: #1A1A1A;
+    vertical-align: middle;
+}
+.opportunities-table tbody tr:hover { background: #F5F9FF; }
+.opportunities-table .opp-name-cell {
+    font-weight: 700;
+    color: #001C3D;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.opportunities-table .amount-cell { font-weight: 800; color: #00875A; white-space: nowrap; }
+.opportunities-table .close-cell { white-space: nowrap; }
+.opportunities-table .opp-actions { display: flex; gap: 0.25rem; }
+.opportunities-table .icon-btn { width: 30px; height: 30px; }
+/* Barra de color por estatus al inicio de la fila */
+.opportunities-table tbody tr.status-active  td:first-child { box-shadow: inset 4px 0 0 #0052CC; }
+.opportunities-table tbody tr.status-won     td:first-child { box-shadow: inset 4px 0 0 #00875A; }
+.opportunities-table tbody tr.status-lost    td:first-child { box-shadow: inset 4px 0 0 #6B7280; }
+.opportunities-table tbody tr.status-overdue td:first-child { box-shadow: inset 4px 0 0 #DE350B; }
+
 /* ----- PAGINACIÓN ----- */
 .pagination-bar {
     display: flex; align-items: center; justify-content: center;
@@ -453,19 +504,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* ----- VISTA UNIFICADA ----- */
 .unified-view {
-    display: flex; flex-direction: column; gap: 2rem; padding: 2rem !important;
+    display: flex; flex-direction: column; gap: 1rem; padding: 1rem !important;
 }
 .unified-section {
-    background: white; border-radius: 20px; padding: 1.5rem;
-    box-shadow: var(--shadow-sm); border: 2px solid #D0D0D0;
-    transition: all 0.3s ease;
+    background: white; border-radius: 12px; padding: 1rem;
+    box-shadow: var(--shadow-xs); border: 1px solid #D0D0D0;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.unified-section:hover { box-shadow: var(--shadow-md); border-color: #0052CC; }
+.unified-section:hover { box-shadow: var(--shadow-sm); border-color: #0052CC; }
 
 .section-header-compact {
-    display: flex; align-items: center; gap: 1rem;
-    margin-bottom: 1.5rem; padding-bottom: 1rem;
-    border-bottom: 3px solid #0052CC; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 0.75rem; padding-bottom: 0.5rem;
+    border-bottom: 2px solid #0052CC; flex-wrap: wrap;
 }
 .section-header-compact .section-action-btn { margin-left: auto; }
 
@@ -622,18 +673,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     .doc-table, .doc-card, .doc-decide, .doc-glos { page-break-inside: avoid; }
 }
 .section-icon {
-    width: 40px; height: 40px; background: #0052CC;
-    border-radius: 12px;
+    width: 30px; height: 30px; background: #0052CC;
+    border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    color: white; flex-shrink: 0; border: 2px solid #00A3BF;
+    color: white; flex-shrink: 0; border: 1px solid #00A3BF;
 }
 .section-icon lightning-icon { --sds-c-icon-color-foreground-default: white; }
 .section-title-group { flex: 1; min-width: 200px; }
 .section-title {
-    font-size: 1.25rem; font-weight: 700;
-    margin: 0 0 0.25rem 0; color: #001C3D;
+    font-size: 1.02rem; font-weight: 700;
+    margin: 0; color: #001C3D;
 }
-.section-subtitle { font-size: 0.875rem; color: #333333; margin: 0; }
+.section-subtitle { font-size: 0.78rem; color: #333333; margin: 0; }
 .section-badge {
     padding: 0.35rem 1rem; border-radius: 20px;
     font-size: 0.8rem; font-weight: 700;
@@ -1066,13 +1117,8 @@ lightning-combobox {
 
 /* Comparativo HTML de la IA (renderizado tal cual en un iframe aislado) */
 .comparativo-ia {
-    margin-top: 1.5rem;
-    padding: 24px;
-    background: #fff;
-    border-radius: 14px;
-    border: 1px solid #dfe4ee;
-    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
-    color: #1c2433;
+    width: 100%;
+    margin-top: 0.5rem;
 }
 .comparativo-ia__host {
     width: 100%;
