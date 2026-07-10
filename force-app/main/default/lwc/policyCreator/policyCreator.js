@@ -100,15 +100,18 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.analizando = true;
         try {
             const texto = await this.extractPdfText(file);
+            console.debug('PolicyCreator.handleFileSelected: Texto extraído del PDF: ' + texto);
             if (!texto) {
                 this.showToast('Aviso', 'No se pudo leer texto del PDF (¿está escaneado?).', 'warning');
                 return;
             }
             const jsonStr = await analizarPoliza({ textoPoliza: texto });
+            console.debug('PolicyCreator.handleFileSelected: JSON devuelto por la IA: ' + jsonStr);
             const datos = JSON.parse(jsonStr || '{}');
             this.fillForm(datos);
             this.showToast('Listo', 'Datos de la póliza cargados. Revisa y guarda.', 'success');
         } catch (e) {
+            console.error('PolicyCreator.handleFileSelected: Error al analizar el PDF:', e);
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error al analizar el PDF.';
             this.showToast('Error', msg, 'error');
         } finally {
@@ -121,6 +124,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const fontsUrl = fontsResource + '/';
         try {
             const arrayBuffer = await file.arrayBuffer();
+            console.debug('PolicyCreator.extractPdfText: ArrayBuffer obtenido del archivo PDF.');
             const loadingTask = window.pdfjsLib.getDocument({
                 data: new Uint8Array(arrayBuffer),
                 isEvalSupported: false,
@@ -130,6 +134,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             });
             const pdf = await loadingTask.promise;
             let text = '';
+            console.debug('PolicyCreator.extractPdfText: Número de páginas del PDF: ' + pdf.numPages);
             for (let p = 1; p <= pdf.numPages; p++) {
                 const page = await pdf.getPage(p);
                 const content = await page.getTextContent();
@@ -144,13 +149,25 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // Prellena los campos del formulario con el JSON devuelto por la IA.
     fillForm(d) {
         if (!d) { return; }
-        const v = d.vehiculo || {};
+        const bien = d.bienAsegurado || {};
         const cob = d.cobranza || {};
         let descripcion = d.descripcion || '';
 
-        if (v && (v.descripcion || v.serie || v.placas)) {
-            const veh = `Vehículo: ${v.descripcion || ''}${v.serie ? ' | Serie: ' + v.serie : ''}${v.placas ? ' | Placas: ' + v.placas : ''}`;
-            descripcion = (descripcion ? descripcion + '\n\n' : '') + veh;
+        // Bien asegurado (genérico para cualquier ramo).
+        const bienLines = [];
+        if (bien.descripcion) {
+            bienLines.push(`${bien.tipo ? bien.tipo + ': ' : ''}${bien.descripcion}`);
+        }
+        if (Array.isArray(bien.atributos)) {
+            bien.atributos.forEach((a) => {
+                if (a && a.campo && (a.valor !== null && a.valor !== undefined && a.valor !== '')) {
+                    bienLines.push(`• ${a.campo}: ${a.valor}`);
+                }
+            });
+        }
+        if (bienLines.length) {
+            const titulo = bien.tipo ? bien.tipo : 'Bien asegurado';
+            descripcion = (descripcion ? descripcion + '\n\n' : '') + titulo + ':\n' + bienLines.join('\n');
         }
         if (Array.isArray(d.coberturas) && d.coberturas.length) {
             const cobs = d.coberturas
@@ -182,7 +199,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             UniversalPolicyNumber: d.numeroPoliza,
             PolicyName: d.numeroPoliza,
             Aseguradora__c: d.aseguradora,
-            PolicyType: d.tipoPoliza,
+            PolicyType: d.ramo || d.tipoPoliza,
             PlanType: d.plan,
             EffectiveDate: d.vigenciaDesde,
             ExpirationDate: d.vigenciaHasta,
