@@ -165,8 +165,8 @@
                                                 <td class="opp-name-cell" title={opp.Name}>{opp.Name}</td>
                                                 <td>{opp.Account.Name}</td>
                                                 <td>
-                                                    <span class="stage-badge" style={opp.stageStyle}>
-                                                        <lightning-icon icon-name={opp.stageIcon} size="xx-small"></lightning-icon>
+                                                    <span class="stage-badge">
+                                                        <span class="stage-dot" style={opp.stageDotStyle}></span>
                                                         <span>{opp.stageLabel}</span>
                                                     </span>
                                                 </td>
@@ -183,12 +183,20 @@
                                                 <td>{opp.Owner.Name}</td>
                                                 <td>
                                                     <div class="opp-actions">
-                                                        <button class="icon-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver">
-                                                            <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
-                                                        </button>
-                                                        <button class="icon-btn" onclick={handleEditOpportunity} data-id={opp.Id} title="Editar">
-                                                            <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
-                                                        </button>
+                                                        <template if:true={opp.isPoliza}>
+                                                            <button class="poliza-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver Póliza">
+                                                                <lightning-icon icon-name="standard:policy" size="xx-small"></lightning-icon>
+                                                                <span>Ver Póliza</span>
+                                                            </button>
+                                                        </template>
+                                                        <template if:false={opp.isPoliza}>
+                                                            <button class="icon-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver">
+                                                                <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                            </button>
+                                                            <button class="icon-btn" onclick={handleEditOpportunity} data-id={opp.Id} title="Editar">
+                                                                <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                            </button>
+                                                        </template>
                                                         <button class="icon-btn danger" onclick={handleDeleteOpportunity}
                                                                 data-id={opp.Id} data-name={opp.Name} title="Eliminar">
                                                             <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
@@ -978,13 +986,21 @@
                                                     <button class="icon-btn" onclick={handleViewQuote} data-id={q.Id} title="Ver cotización">
                                                         <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
                                                     </button>
-                                                    <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={q.Id} title="Editar cotización">
-                                                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
-                                                    </button>
+                                                    <template if:false={isOpportunityReadOnly}>
+                                                        <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={q.Id} title="Editar cotización">
+                                                            <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                        </button>
+                                                    </template>
                                                     <template if:true={q.puedeAceptar}>
                                                         <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} title="Aceptar cotización">
                                                             <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
                                                             Aceptar
+                                                        </button>
+                                                    </template>
+                                                    <template if:true={q.esAceptada}>
+                                                        <button class="poliza-quote-btn" onclick={handlePasarAPoliza} data-id={q.Id} title="Pasar la oportunidad a Póliza">
+                                                            <lightning-icon icon-name="utility:contract" size="xx-small"></lightning-icon>
+                                                            Póliza
                                                         </button>
                                                     </template>
                                                 </td>

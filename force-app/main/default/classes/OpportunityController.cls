@@ -23,6 +23,7 @@ public with sharing class OpportunityController {
 					StageName,
 					CloseDate,
 					Amount,
+					Prima_Total__c,
 					Prima_neta__c,
 					Description,
 					Type,
@@ -56,29 +57,29 @@ public with sharing class OpportunityController {
 		try {
 			OpportunityDetailWrapper wrapper = new OpportunityDetailWrapper();
 			wrapper.opportunity = [
-				SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
-					Ramo__c, CloseDate, Amount, Prima_neta__c,
-					AccountId, Account.Name, Description, Descripcion__c,
-					Agente_Relacionado__c, Agente_Relacionado__r.Name,
-					Contacto__c, Contacto__r.Name,
-					Automovil__c
-				FROM Opportunity
-				WHERE Id = :opportunityId
-				LIMIT 1
-			];
+                SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
+                    Ramo__c, CloseDate, Amount, Prima_Total__c, Prima_Neta__c,
+                    AccountId, Account.Name, Description, Descripcion__c,
+                    Agente_Relacionado__c, Agente_Relacionado__r.Name,
+                    Contacto__c, Contacto__r.Name,
+                    Automovil__c
+                FROM Opportunity
+                WHERE Id = :opportunityId
+                LIMIT 1
+            ];
 
-			// El auto vive ligado a la Cuenta; la oportunidad guarda solo la
-			// REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
-			// referencia para llenar el formulario al editar.
-			if (wrapper.opportunity.Automovil__c != null) {
-				List<Automovil__c> autos = [
-					SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
-					FROM Automovil__c
-					WHERE Id = :wrapper.opportunity.Automovil__c
-					LIMIT 1
-				];
-				if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
-			}
+            // El auto vive ligado a la Cuenta; la oportunidad guarda solo la
+            // REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
+            // referencia para llenar el formulario al editar.
+            if (wrapper.opportunity.Automovil__c != null) {
+                List<Automovil__c> autos = [
+                    SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
+                    FROM Automovil__c
+                    WHERE Id = :wrapper.opportunity.Automovil__c
+                    LIMIT 1
+                ];
+                if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
+            }
 
 			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
 			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)
@@ -86,6 +87,7 @@ public with sharing class OpportunityController {
 				SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber,
 					   IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId,
 					   Account.Name, Product__c, Product__r.Name, Is_Selected__c,
+					   Prima_Total__c, PrimaAnual__c,
 					   Aseguradora__c, Aseguradora__r.Name, Price_Book__c,
 					   (SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice, TotalPrice
 						FROM QuoteLineItems)
@@ -98,28 +100,35 @@ public with sharing class OpportunityController {
 			// nombre y el orden. Con eso el LWC arma:
 			//   • el conteo total para la tabla y el KPI
 			//   • el comparativo imprimible (matriz cobertura × compañía)
-			Set<Id> quoteIds = new Set<Id>();
-			for (Quote q : wrapper.quotes) quoteIds.add(q.Id);
+			// Las coberturas de cada cotización se toman del PRODUCTO de la Quote,
+			// a través de ProductCoverageAssignment__c (Coverage_Type__r.Name = nombre real).
+			Set<Id> productIds = new Set<Id>();
+			for (Quote q : wrapper.quotes) { if (q.Product__c != null) productIds.add(q.Product__c); }
+
+			Map<Id, List<String>> coveragesByProduct = new Map<Id, List<String>>();
+			if (!productIds.isEmpty()) {
+				for (ProductCoverageAssignment__c pca : [
+					SELECT Product__c, Coverage_Type__r.Name
+					FROM ProductCoverageAssignment__c
+					WHERE Product__c IN :productIds
+					ORDER BY Coverage_Type__r.Name
+				]) {
+					if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) { continue; }
+					if (!coveragesByProduct.containsKey(pca.Product__c)) {
+						coveragesByProduct.put(pca.Product__c, new List<String>());
+					}
+					coveragesByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
+				}
+			}
 
 			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
 			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
-			if (!quoteIds.isEmpty()) {
-				for (Quote_Coverage__c qc : [
-					SELECT Id, Quote__c, Coverage_Name__c, Name, Order__c
-					FROM Quote_Coverage__c
-					WHERE Quote__c IN :quoteIds
-					ORDER BY Order__c NULLS LAST, Coverage_Name__c
-				]) {
-					Id qid = qc.Quote__c;
-					if (!coverageNamesByQuote.containsKey(qid)) {
-						coverageNamesByQuote.put(qid, new List<String>());
-						coverageCounts.put(qid, 0);
-					}
-					String covName = String.isNotBlank(qc.Coverage_Name__c)
-									 ? qc.Coverage_Name__c : qc.Name;
-					coverageNamesByQuote.get(qid).add(covName);
-					coverageCounts.put(qid, coverageCounts.get(qid) + 1);
-				}
+			for (Quote q : wrapper.quotes) {
+				List<String> names = (q.Product__c != null && coveragesByProduct.containsKey(q.Product__c))
+					? coveragesByProduct.get(q.Product__c)
+					: new List<String>();
+				coverageNamesByQuote.put(q.Id, names);
+				coverageCounts.put(q.Id, names.size());
 			}
 			wrapper.coverageCounts = coverageCounts;
 			wrapper.coverageNamesByQuote = coverageNamesByQuote;
@@ -175,6 +184,24 @@ public with sharing class OpportunityController {
 			update q;
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al aceptar la cotizacion: ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cambia la Etapa (StageName) de la oportunidad a 'Póliza'. Se usa
+	 *               desde el botón "Póliza" que aparece cuando una cotización ya está aceptada.
+	 * @param opportunityId: Id de la oportunidad a pasar a Póliza.
+	 * @return void
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void cambiarEtapaAPoliza(String opportunityId) {
+		try {
+			Opportunity o = new Opportunity(Id = (Id) opportunityId, StageName = 'Póliza');
+			update o;
+		} catch (Exception e) {
+			throw new AuraHandledException('Error al cambiar la etapa a Póliza: ' + e.getMessage());
 		}
 	}
 
@@ -451,14 +478,14 @@ public with sharing class OpportunityController {
 		}
 
 		// Prima Neta (campo custom)
-		Object primaNetaRaw = d.get('Prima_Neta__c');
-		if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
-			try {
-				opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
-			} catch (Exception ex) {
-				// valor no numérico: se ignora
+			Object primaNetaRaw = d.get('Prima_Neta__c');
+			if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
+				try {
+					opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
+				} catch (Exception ex) {
+					// valor no numérico: se ignora
+				}
 			}
-		}
 
 			String closeDateStr = getStr(d, 'CloseDate');
 		if (String.isNotBlank(closeDateStr)) {

@@ -21,6 +21,7 @@ import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOppo
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
 import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCotizacion';
+import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 import prepararCotizaciones from '@salesforce/apex/PdfOpportunityCreatorController.prepararCotizaciones';
 import getProductosPorAseguradoraRamo from '@salesforce/apex/PdfOpportunityCreatorController.getProductosPorAseguradoraRamo';
 
@@ -850,7 +851,28 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     async handleEditOpportunity(event) {
         const id = event.currentTarget.dataset.id;
-        if (id) await this.openOpportunityInEditMode(id);
+        if (!id) return;
+        // Si la oportunidad ya está en etapa Póliza, abre el formulario de la Póliza.
+        const fromList = (this.opportunities || []).find(o => o.Id === id) || {};
+        if (this.isPolizaStage(fromList.StageName)) {
+            this[NavigationMixin.Navigate]({
+                type: 'standard__navItemPage',
+                attributes: { apiName: 'Crear_Poliza' },
+                state: { c__opportunityId: id }
+            });
+            return;
+        }
+        await this.openOpportunityInEditMode(id);
+    }
+    // Reconoce la etapa "Póliza" tolerando acentos/mayúsculas.
+    isPolizaStage(stage) {
+        if (!stage) return false;
+        const s = stage
+            .toString()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '');
+        return s.includes('poliza');
     }
     async openOpportunityInEditMode(id) {
         if (!id) return;
@@ -1072,8 +1094,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 ? coverageNamesByQuote[q.Id]
                 : [],
             productName,
-            esAceptada: /acept/i.test(status),
-            puedeAceptar: !/acept/i.test(status)
+            esAceptada: /accept|acept/i.test(status),
+            puedeAceptar: !/accept|acept/i.test(status)
         };
     }
     getQuoteStatusBadgeClass(status) {
@@ -1101,6 +1123,30 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
             this.showToast('Error', 'No se pudo aceptar la cotización: ' + msg, 'error');
+        }
+    }
+    // Pasa la oportunidad a etapa "Póliza" (desde una cotización ya aceptada)
+    // y abre el formulario de emisión de la Póliza.
+    async handlePasarAPoliza(event) {
+        const id = this.opportunity?.Id;
+        if (!id) { return; }
+        const quoteId = event && event.currentTarget ? event.currentTarget.dataset.id : null;
+        try {
+            // 1) Cambia la etapa; el flujo del org genera la InsurancePolicy.
+            await cambiarEtapaAPoliza({ opportunityId: id });
+            this.showToast('Póliza', 'La oportunidad pasó a la etapa Póliza.', 'success');
+            // 2) Navega al formulario de la Póliza pasando la oportunidad y la cotización.
+            this[NavigationMixin.Navigate]({
+                type: 'standard__navItemPage',
+                attributes: { apiName: 'Crear_Poliza' },
+                state: {
+                    c__quoteId: quoteId || '',
+                    c__opportunityId: id
+                }
+            });
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('Error', 'No se pudo pasar a Póliza: ' + msg, 'error');
         }
     }
     handleEditRelatedQuote(event) {
@@ -1510,6 +1556,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 stageIcon,
                 statusClass,
                 stageStyle: `background-color: ${stageColor}; color: #fff;`,
+                stageDotStyle: `background-color: ${stageColor};`,
                 progressBarStyle: `width: ${probability}%; background-color: ${stageColor};`,
                 progressText: `${probability}% de probabilidad`,
                 amountFormatted: this.formatCurrency(opp.Prima_neta__c ?? opp.Prima_Neta__c ?? opp.Prima_Total__c ?? opp.Amount),
@@ -1521,6 +1568,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 hasDaysInfo: !!daysLabel,
                 isOverdue: statusClass === 'status-overdue',
                 isClosed,
+                isPoliza: this.isPolizaStage(opp.StageName),
                 typeLabel: this.getTypeLabel(opp.Type)
             };
         });

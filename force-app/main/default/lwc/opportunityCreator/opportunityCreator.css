@@ -349,11 +349,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     margin-bottom: 1rem;
 }
 .stage-badge {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    padding: 0.4rem 0.8rem; border-radius: 20px;
-    font-size: 0.85rem; font-weight: 700;
-    color: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.25rem 0.7rem; border-radius: 999px;
+    font-size: 0.8rem; font-weight: 600;
+    color: #1A1A1A; background: #F4F6FA; border: 1px solid #E3E8F0;
+    white-space: nowrap;
 }
+.stage-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .opp-amount { display: flex; flex-direction: column; align-items: flex-end; }
 .amount-label {
     font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em;
@@ -1185,3 +1187,42 @@ lightning-combobox {
 }
 .accept-quote-btn:hover { background: #006B47; }
 .accept-quote-btn lightning-icon { --sds-c-icon-color-foreground-default: #ffffff; }
+
+/* Botón "Póliza" (cuando la cotización ya está aceptada) */
+.poliza-quote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #0052CC;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+}
+.poliza-quote-btn:hover { background: #003D99; }
+.poliza-quote-btn lightning-icon { --sds-c-icon-color-foreground-default: #ffffff; }
+
+/* Botón "Ver Póliza" en la lista de oportunidades (etapa Póliza) */
+.opportunities-table .poliza-list-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.65rem;
+    height: 30px;
+    border: 1px solid #0052CC;
+    border-radius: 0.45rem;
+    background: #0052CC;
+    color: #ffffff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.opportunities-table .poliza-list-btn:hover { background: #003D99; }
+.opportunities-table .poliza-list-btn lightning-icon { --sds-c-icon-color-foreground-default: #ffffff; }

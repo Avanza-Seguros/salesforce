@@ -1,0 +1,117 @@
+<template>
+    <div class="policy-shell">
+
+        <!-- Encabezado -->
+        <div class="policy-header">
+            <div class="policy-header__title">
+                <lightning-icon icon-name="standard:policy" size="small"></lightning-icon>
+                <span>Emisión de Póliza</span>
+            </div>
+            <button class="pdf-btn" onclick={handleAnalizarPdf}>
+                <lightning-icon icon-name="doc:pdf" size="x-small"></lightning-icon>
+                <span>Analizar PDF de Póliza</span>
+            </button>
+        </div>
+
+        <!-- Cargando -->
+        <template if:true={loading}>
+            <div class="policy-state">
+                <lightning-spinner alternative-text="Cargando" size="medium"></lightning-spinner>
+                <p>Localizando la póliza…</p>
+            </div>
+        </template>
+
+        <!-- Error / no encontrada -->
+        <template if:false={loading}>
+            <template if:false={hasPolicy}>
+                <div class="policy-state policy-state--error">
+                    <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
+                    <p>{errorMsg}</p>
+                    <button class="retry-btn" onclick={handleReintentar}>Reintentar</button>
+                </div>
+            </template>
+
+            <!-- Formulario de la Póliza -->
+            <template if:true={hasPolicy}>
+                <lightning-record-edit-form
+                    object-api-name="InsurancePolicy"
+                    record-id={policyId}
+                    onsuccess={handleSuccess}
+                    onerror={handleError}>
+
+                    <lightning-messages></lightning-messages>
+
+                    <!-- Datos generales -->
+                    <div class="policy-section">
+                        <div class="policy-section__title">Datos generales</div>
+                        <div class="policy-grid">
+                            <lightning-input-field field-name="Name"></lightning-input-field>
+                            <lightning-input-field field-name="PolicyName"></lightning-input-field>
+                            <lightning-input-field field-name="UniversalPolicyNumber"></lightning-input-field>
+                            <lightning-input-field field-name="NameInsuredId"></lightning-input-field>
+                            <lightning-input-field field-name="Aseguradora__c"></lightning-input-field>
+                            <lightning-input-field field-name="ProductId"></lightning-input-field>
+                            <lightning-input-field field-name="PolicyType"></lightning-input-field>
+                            <lightning-input-field field-name="PlanType"></lightning-input-field>
+                            <lightning-input-field field-name="Status"></lightning-input-field>
+                        </div>
+                    </div>
+
+                    <!-- Relaciones -->
+                    <div class="policy-section">
+                        <div class="policy-section__title">Relaciones</div>
+                        <div class="policy-grid">
+                            <lightning-input-field field-name="SourceQuoteId"></lightning-input-field>
+                            <lightning-input-field field-name="ParentPolicyId"></lightning-input-field>
+                            <lightning-input-field field-name="PriorPolicyId"></lightning-input-field>
+                        </div>
+                    </div>
+
+                    <!-- Vigencia -->
+                    <div class="policy-section">
+                        <div class="policy-section__title">Vigencia y fechas</div>
+                        <div class="policy-grid">
+                            <lightning-input-field field-name="EffectiveDate"></lightning-input-field>
+                            <lightning-input-field field-name="ExpirationDate"></lightning-input-field>
+                            <lightning-input-field field-name="RenewalDate"></lightning-input-field>
+                            <lightning-input-field field-name="PreviousRenewalDate"></lightning-input-field>
+                            <lightning-input-field field-name="FinalRenewalDate"></lightning-input-field>
+                            <lightning-input-field field-name="SaleDate"></lightning-input-field>
+                            <lightning-input-field field-name="PaymentDueDate"></lightning-input-field>
+                            <lightning-input-field field-name="CancellationDate"></lightning-input-field>
+                            <lightning-input-field field-name="AuditTerm"></lightning-input-field>
+                        </div>
+                    </div>
+
+                    <!-- Primas -->
+                    <div class="policy-section">
+                        <div class="policy-section__title">Primas</div>
+                        <div class="policy-grid">
+                            <lightning-input-field field-name="PremiumFrequency"></lightning-input-field>
+                            <lightning-input-field field-name="PremiumAmount"></lightning-input-field>
+                            <lightning-input-field field-name="GrossWrittenPremium"></lightning-input-field>
+                            <lightning-input-field field-name="PreviousPremium"></lightning-input-field>
+                        </div>
+                    </div>
+
+                    <!-- Descripción -->
+                    <div class="policy-section">
+                        <div class="policy-section__title">Descripción</div>
+                        <div class="policy-grid policy-grid--full">
+                            <lightning-input-field field-name="PolicyDescription"></lightning-input-field>
+                        </div>
+                    </div>
+
+                    <div class="policy-actions">
+                        <lightning-button
+                            variant="brand"
+                            type="submit"
+                            label="Guardar Póliza"
+                            class="save-btn">
+                        </lightning-button>
+                    </div>
+                </lightning-record-edit-form>
+            </template>
+        </template>
+    </div>
+</template>
