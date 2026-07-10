@@ -16,6 +16,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track analizando = false;
 
     _pdfJsLoaded = false;
+    @track isPdfJsLoaded = false;
 
     // Recibe los Ids por navegación (desde el botón "Póliza" de Crear Oportunidad).
     @wire(CurrentPageReference)
@@ -27,30 +28,111 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
 
     renderedCallback() {
-        if (!this._pdfJsLoaded) {
-            this._pdfJsLoaded = true;
+        if (!this.isPdfJsLoaded && !this.pdfJsError) {
             this.loadPdfJs();
         }
     }
 
     async loadPdfJs() {
         try {
-            await loadScript(this, PDFJS + '/pdf.js');
+            console.log('📦 Iniciando carga de PDF.js...');
+            this.checkEnvironment();
+            await this.loadPdfJsScript();
+            await this.setupWorker();
+            await this.testPdfJs();
+            
+            this.isPdfJsLoaded = true;
+            this.pdfJsError = false;
+            console.log('✅ PDF.js cargado exitosamente');
+        } catch (error) {
+            console.error('❌ Error cargando PDF.js:', error);
+            this.handleLoadError(error);
+        }
+    }
+
+    async setupWorker() {
+        try {
+            console.log('🔧 Configurando PDF.js sin worker (modo Locker Service)...');
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
+            
+            if (window.pdfjsLib.GlobalWorkerOptions.workerPort) {
+                window.pdfjsLib.GlobalWorkerOptions.workerPort = PDFJS + '/pdf.worker.min.js';
+            }
+            console.log('✅ PDF.js configurado sin worker');
+        } catch (workerError) {
+            console.warn('⚠️ Error configurando worker:', workerError);
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+        }
+    }
+
+    async testPdfJs() {
+        try {
+            console.log('🧪 Probando PDF.js...');
+            const pdfData = new Uint8Array([
+                0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25,
+                0xC3, 0xA4, 0xC3, 0xBC, 0xC3, 0xB6, 0xC3, 0x9F, 0x0A, 0x31,
+                0x20, 0x30, 0x20, 0x6F, 0x62, 0x6A, 0x0A, 0x3C, 0x3C, 0x2F,
+                0x54, 0x79, 0x70, 0x65, 0x2F, 0x43, 0x61, 0x74, 0x61, 0x6C,
+                0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
+                0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
+            ]);
+            
+            const loadingTask = window.pdfjsLib.getDocument({ data: pdfData });
+            const timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
+            );
+            
+            const pdf = await Promise.race([loadingTask.promise, timeout]);
+            if (pdf && pdf.destroy) {
+                await pdf.destroy();
+            }
+            
+            console.log('✅ PDF.js funciona correctamente');
+        } catch (testError) {
+            console.warn('⚠️ Test de PDF.js falló:', testError.message);
+        }
+    }
+
+    reloadPdfJs() {
+        this.pdfJsError = false;
+        this.isPdfJsLoaded = false;
+        this.loadPdfJs();
+    }
+
+    checkEnvironment() {
+        console.log('🔍 Verificando entorno...');
+        const requiredAPIs = ['FileReader', 'ArrayBuffer', 'Uint8Array', 'Promise'];
+        const missingAPIs = requiredAPIs.filter(api => typeof window[api] === 'undefined');
+        
+        if (missingAPIs.length > 0) {
+            throw new Error(`APIs faltantes: ${missingAPIs.join(', ')}`);
+        }
+        console.log('✅ Entorno verificado');
+    }
+
+    async loadPdfJsScript() {
+        try {
+            console.log('📦 Cargando script PDF.js...');
+            const mainScript = PDFJS + '/pdf.js';
+            await loadScript(this, mainScript);
+            
             if (typeof window.pdfjsLib === 'undefined') {
-                await loadScript(this, PDFJS + '/pdf.min.js');
+                throw new Error('pdfjsLib no se definió después de cargar el script');
             }
-            try {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
-            } catch (e) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+            console.log('✅ Script PDF.js cargado');
+        } catch (error) {
+            console.warn('⚠️ Falló versión principal, intentando versión min...');
+            const minScript = PDFJS + '/pdf.min.js';
+            await loadScript(this, minScript);
+            
+            if (typeof window.pdfjsLib === 'undefined') {
+                throw new Error('pdfjsLib no disponible en ninguna versión');
             }
-        } catch (e) {
-            // Si no carga, el botón de análisis avisará al usuario.
-            this._pdfJsLoaded = false;
         }
     }
 
     async loadPolicy() {
+        console.debug('PolicyCreator.loadPolicy: Cargando póliza para quoteId = ' + this.quoteId + ', opportunityId = ' + this.opportunityId);
         this.loading = true;
         this.errorMsg = '';
         this.policyId = null;
@@ -73,6 +155,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
 
     get hasPolicy() {
+        console.debug('PolicyCreator.hasPolicy: policyId = ' + this.policyId);
         return !!this.policyId;
     }
 
@@ -80,17 +163,20 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
     }
     handleError(event) {
+        console.error('PolicyCreator.handleError: Error al guardar la póliza:', event);
         const msg = (event && event.detail && event.detail.message) || 'No se pudo guardar la póliza.';
         this.showToast('Error', msg, 'error');
     }
 
     // Abre el selector de archivo para analizar un PDF de póliza.
     handleAnalizarPdf() {
+        console.debug('PolicyCreator.handleAnalizarPdf: Abriendo selector de archivo...');
         const input = this.template.querySelector('input.pdf-file-input');
         if (input) { input.value = null; input.click(); }
     }
 
     async handleFileSelected(event) {
+        console.debug('PolicyCreator.handleFileSelected: Archivo seleccionado ');
         const file = event.target.files && event.target.files[0];
         if (!file) { return; }
         if (typeof window.pdfjsLib === 'undefined') {
@@ -121,6 +207,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Extrae el texto de un PDF con pdf.js (mismo enfoque que el flujo de cotizaciones).
     async extractPdfText(file) {
+        console.debug('PolicyCreator.extractPdfText: Extrayendo texto del PDF...');
         const fontsUrl = fontsResource + '/';
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -148,6 +235,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Prellena los campos del formulario con el JSON devuelto por la IA.
     fillForm(d) {
+        console.debug('PolicyCreator.fillForm: Llenando formulario con datos:');
         if (!d) { return; }
         const bien = d.bienAsegurado || {};
         const cob = d.cobranza || {};
@@ -240,6 +328,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
 
     handleReintentar() {
+        console.debug('PolicyCreator.handleReintentar: Reintentando cargar la póliza...');
         this.loadPolicy();
     }
 
