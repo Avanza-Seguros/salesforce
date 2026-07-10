@@ -46,6 +46,25 @@
     transition: background 0.15s ease;
 }
 .pdf-btn:hover { background: #EEF3FB; }
+.pdf-btn:disabled { opacity: 0.6; cursor: default; }
+.pdf-file-input { display: none; }
+
+/* Aviso mientras analiza el PDF */
+.policy-analizando {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: #F0F6FF;
+    border: 1px solid #CFE0FB;
+    border-radius: 10px;
+    color: #0052CC;
+    font-size: 0.85rem;
+    font-weight: 600;
+    position: relative;
+    min-height: 38px;
+}
 
 /* Estados */
 .policy-state {

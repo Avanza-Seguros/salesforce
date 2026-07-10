@@ -54,4 +54,69 @@ public with sharing class PolicyController {
 			throw new AuraHandledException('Error al localizar la póliza: ' + e.getMessage());
 		}
 	}
+
+	// API Name del Prompt Template y de su variable de entrada (Prompt Builder).
+	private static final String PROMPT_TEMPLATE_API_NAME = 'Analizador_Poliza_Auto';
+	private static final String PROMPT_INPUT_PARAM = 'Input:TextoPoliza';
+
+	/**
+	 * @creation date: 10/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Envía a Einstein (Prompt Template) el texto extraído de un PDF de póliza
+	 *               y devuelve el JSON con los datos de la póliza para llenar el formulario.
+	 *               El texto se extrae en el navegador (pdf.js); aquí solo se llama al prompt.
+	 * @param textoPoliza: texto plano de la póliza (extraído del PDF en el LWC).
+	 * @return cadena JSON con los datos de la póliza (limpia de fences de código), o '' si falla.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static String analizarPoliza(String textoPoliza) {
+		if (String.isBlank(textoPoliza)) {
+			throw new AuraHandledException('No se recibió texto de la póliza para analizar.');
+		}
+		if (Test.isRunningTest()) { return '{}'; }
+		try {
+			String texto = textoPoliza.length() > 100000
+				? textoPoliza.substring(0, 100000)
+				: textoPoliza;
+
+			ConnectApi.WrappedValue wrapped = new ConnectApi.WrappedValue();
+			wrapped.value = texto;
+			Map<String, ConnectApi.WrappedValue> inputParams = new Map<String, ConnectApi.WrappedValue>();
+			inputParams.put(PROMPT_INPUT_PARAM, wrapped);
+
+			ConnectApi.EinsteinPromptTemplateGenerationsInput genInput = new ConnectApi.EinsteinPromptTemplateGenerationsInput();
+			genInput.additionalConfig = new ConnectApi.EinsteinLlmAdditionalConfigInput();
+			genInput.additionalConfig.applicationName = 'PromptBuilderPreview';
+			genInput.isPreview = false;
+			genInput.inputParams = inputParams;
+
+			ConnectApi.EinsteinPromptTemplateGenerationsRepresentation gen =
+				ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(PROMPT_TEMPLATE_API_NAME, genInput);
+
+			if (gen != null && gen.generations != null && !gen.generations.isEmpty() && String.isNotBlank(gen.generations[0].text)) {
+				String jsonResult = cleanJson(gen.generations[0].text);
+				System.debug('PolicyController.analizarPoliza: JSON resultante: ' + jsonResult);
+				return jsonResult;
+			}
+			throw new AuraHandledException('La IA no devolvió información de la póliza.');
+		} catch (Exception e) {
+			throw new AuraHandledException('Error al analizar la póliza: ' + e.getMessage());
+		}
+	}
+
+	// Quita fences de Markdown (```json ... ```) y recorta al primer '{' y último '}'.
+	private static String cleanJson(String raw) {
+		if (String.isBlank(raw)) { return '{}'; }
+		String payload = raw.trim();
+		if (payload.startsWith('```')) {
+			payload = payload.replaceFirst('^```[a-zA-Z]*', '').trim();
+			if (payload.endsWith('```')) {
+				payload = payload.substring(0, payload.length() - 3).trim();
+			}
+		}
+		Integer start = payload.indexOf('{');
+		Integer last = payload.lastIndexOf('}');
+		if (start < 0 || last < start) { return '{}'; }
+		return payload.substring(start, last + 1);
+	}
 }

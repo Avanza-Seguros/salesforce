@@ -7,11 +7,21 @@
                 <lightning-icon icon-name="standard:policy" size="small"></lightning-icon>
                 <span>Emisión de Póliza</span>
             </div>
-            <button class="pdf-btn" onclick={handleAnalizarPdf}>
+            <button class="pdf-btn" onclick={handleAnalizarPdf} disabled={analizando}>
                 <lightning-icon icon-name="doc:pdf" size="x-small"></lightning-icon>
                 <span>Analizar PDF de Póliza</span>
             </button>
+            <input type="file" accept="application/pdf"
+                   class="pdf-file-input" onchange={handleFileSelected}></input>
         </div>
+
+        <!-- Analizando PDF -->
+        <template if:true={analizando}>
+            <div class="policy-analizando">
+                <lightning-spinner alternative-text="Analizando" size="small"></lightning-spinner>
+                <span>Analizando el PDF de la póliza…</span>
+            </div>
+        </template>
 
         <!-- Cargando -->
         <template if:true={loading}>
@@ -91,6 +101,28 @@
                             <lightning-input-field field-name="PremiumAmount"></lightning-input-field>
                             <lightning-input-field field-name="GrossWrittenPremium"></lightning-input-field>
                             <lightning-input-field field-name="PreviousPremium"></lightning-input-field>
+                        </div>
+                    </div>
+
+                    <!-- Cobranza -->
+                    <div class="policy-section">
+                        <div class="policy-section__title">Cobranza</div>
+                        <div class="policy-grid">
+                            <lightning-input-field field-name="Moneda__c"></lightning-input-field>
+                            <lightning-input-field field-name="Numero_Pagos__c"></lightning-input-field>
+                            <lightning-input-field field-name="Plazo_Pago_Dias__c"></lightning-input-field>
+                            <lightning-input-field field-name="Primer_Pago__c"></lightning-input-field>
+                            <lightning-input-field field-name="Pago_Subsecuente__c"></lightning-input-field>
+                            <lightning-input-field field-name="Pagos_Subsecuentes__c"></lightning-input-field>
+                            <lightning-input-field field-name="Subtotal__c"></lightning-input-field>
+                            <lightning-input-field field-name="Descuento__c"></lightning-input-field>
+                            <lightning-input-field field-name="Financiamiento__c"></lightning-input-field>
+                            <lightning-input-field field-name="Recargos__c"></lightning-input-field>
+                            <lightning-input-field field-name="Gastos_Expedicion__c"></lightning-input-field>
+                            <lightning-input-field field-name="Derecho_Poliza__c"></lightning-input-field>
+                            <lightning-input-field field-name="IVA__c"></lightning-input-field>
+                            <lightning-input-field field-name="Referencia_Pago__c"></lightning-input-field>
+                            <lightning-input-field field-name="CLABE__c"></lightning-input-field>
                         </div>
                     </div>
 
