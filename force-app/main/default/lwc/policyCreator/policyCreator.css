@@ -101,16 +101,39 @@
     box-shadow: var(--shadow-xs);
     border: 1px solid #D0D0D0;
     position: relative;
-    overflow: hidden;
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .field-card:hover { box-shadow: var(--shadow-sm); border-color: #0052CC; }
 .field-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
     height: 3px; background: #0052CC;
+    border-radius: 10px 10px 0 0;
 }
-/* No usar contain/transform: rompen el desplegable de los combobox (position:fixed) */
-.field-card:focus-within { z-index: 9999; position: relative; }
+
+/* ----- PICKLISTS / DESPLEGABLES ----- */
+/* Los contenedores deben permitir desborde para que la lista no se recorte. */
+.content-container, .content-container.glass-effect, .unified-view,
+.unified-section, .policy-grid, .field-card {
+    overflow: visible !important;
+}
+/* No usar contain/transform: convierten la tarjeta en contenedor de referencia
+   del dropdown (position:fixed) y lo desalinean. */
+.field-card:focus-within {
+    z-index: 9999 !important;
+    position: relative;
+    transform: none !important;
+}
+/* Sube toda la cadena de contenedores del combo abierto para que la lista quede
+   por ENCIMA de la sección siguiente y se puedan seleccionar las opciones. */
+.unified-section:focus-within,
+.policy-grid:focus-within {
+    position: relative;
+    z-index: 9999 !important;
+}
+.slds-dropdown, .slds-listbox_vertical,
+.slds-combobox_container, .slds-has-menu {
+    z-index: 9000 !important;
+}
 
 /* ----- BOTONES ----- */
 .action-btn {
