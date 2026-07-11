@@ -1,13 +1,18 @@
 <template>
-    <div class="policy-shell">
+    <div class="content-container glass-effect unified-view">
 
-        <!-- Encabezado -->
-        <div class="policy-header">
-            <div class="policy-header__title">
-                <lightning-icon icon-name="standard:policy" size="small"></lightning-icon>
-                <span>Emisión de Póliza</span>
+        <!-- Barra superior: título + Analizar PDF -->
+        <div class="policy-topbar">
+            <div class="topbar-left">
+                <div class="section-icon">
+                    <lightning-icon icon-name="standard:policy" size="small"></lightning-icon>
+                </div>
+                <div class="section-title-group">
+                    <h2 class="section-title">Emisión de Póliza</h2>
+                    <p class="section-subtitle">Revisa los datos y guarda la póliza</p>
+                </div>
             </div>
-            <button class="pdf-btn" onclick={handleAnalizarPdf} disabled={analizando}>
+            <button class="action-btn secondary pdf-btn" onclick={handleAnalizarPdf} disabled={analizando}>
                 <lightning-icon icon-name="doc:pdf" size="x-small"></lightning-icon>
                 <span>Analizar PDF de Póliza</span>
             </button>
@@ -37,7 +42,7 @@
                 <div class="policy-state policy-state--error">
                     <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
                     <p>{errorMsg}</p>
-                    <button class="retry-btn" onclick={handleReintentar}>Reintentar</button>
+                    <button class="action-btn primary" onclick={handleReintentar}>Reintentar</button>
                 </div>
             </template>
 
@@ -46,91 +51,142 @@
                 <lightning-record-edit-form
                     object-api-name="InsurancePolicy"
                     record-id={policyId}
+                    onload={handleLoad}
+                    onsubmit={handleSubmit}
                     onsuccess={handleSuccess}
                     onerror={handleError}>
 
                     <lightning-messages></lightning-messages>
 
                     <!-- Datos generales -->
-                    <div class="policy-section">
-                        <div class="policy-section__title">Datos generales</div>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Datos generales</h2>
+                                <p class="section-subtitle">Identificación de la póliza</p>
+                            </div>
+                            <div class="section-badge required-badge">Requerido</div>
+                        </div>
                         <div class="policy-grid">
-                            <lightning-input-field field-name="Name"></lightning-input-field>
-                            <lightning-input-field field-name="PolicyName"></lightning-input-field>
-                            <lightning-input-field field-name="UniversalPolicyNumber"></lightning-input-field>
-                            <lightning-input-field field-name="NameInsuredId"></lightning-input-field>
-                            <lightning-input-field field-name="Aseguradora__c"></lightning-input-field>
-                            <lightning-input-field field-name="ProductId"></lightning-input-field>
-                            <lightning-input-field field-name="PolicyType"></lightning-input-field>
-                            <lightning-input-field field-name="PlanType"></lightning-input-field>
-                            <lightning-input-field field-name="Status"></lightning-input-field>
+                            <div class="field-card"><lightning-input-field field-name="Name"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PolicyName"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="UniversalPolicyNumber"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="NameInsuredId"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Aseguradora__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="ProductId"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PolicyType"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PlanType"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Status"></lightning-input-field></div>
                         </div>
                     </div>
 
                     <!-- Relaciones -->
-                    <div class="policy-section">
-                        <div class="policy-section__title">Relaciones</div>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="utility:link" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Relaciones</h2>
+                                <p class="section-subtitle">Vínculos con otras pólizas y la cotización origen</p>
+                            </div>
+                        </div>
                         <div class="policy-grid">
-                            <lightning-input-field field-name="SourceQuoteId"></lightning-input-field>
-                            <lightning-input-field field-name="ParentPolicyId"></lightning-input-field>
-                            <lightning-input-field field-name="PriorPolicyId"></lightning-input-field>
+                            <div class="field-card"><lightning-input-field field-name="SourceQuoteId"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="ParentPolicyId"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PriorPolicyId"></lightning-input-field></div>
                         </div>
                     </div>
 
                     <!-- Vigencia -->
-                    <div class="policy-section">
-                        <div class="policy-section__title">Vigencia y fechas</div>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="utility:event" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Vigencia y fechas</h2>
+                                <p class="section-subtitle">Periodo de cobertura y fechas clave</p>
+                            </div>
+                        </div>
                         <div class="policy-grid">
-                            <lightning-input-field field-name="EffectiveDate"></lightning-input-field>
-                            <lightning-input-field field-name="ExpirationDate"></lightning-input-field>
-                            <lightning-input-field field-name="RenewalDate"></lightning-input-field>
-                            <lightning-input-field field-name="PreviousRenewalDate"></lightning-input-field>
-                            <lightning-input-field field-name="FinalRenewalDate"></lightning-input-field>
-                            <lightning-input-field field-name="SaleDate"></lightning-input-field>
-                            <lightning-input-field field-name="PaymentDueDate"></lightning-input-field>
-                            <lightning-input-field field-name="CancellationDate"></lightning-input-field>
-                            <lightning-input-field field-name="AuditTerm"></lightning-input-field>
+                            <div class="field-card"><lightning-input type="date" data-field="EffectiveDate" label="Inicio de vigencia" value={dates.EffectiveDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="ExpirationDate" label="Fin de vigencia" value={dates.ExpirationDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="RenewalDate" label="Fecha de renovación" value={dates.RenewalDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="PreviousRenewalDate" label="Renovación anterior" value={dates.PreviousRenewalDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="FinalRenewalDate" label="Renovación final" value={dates.FinalRenewalDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="SaleDate" label="Fecha de venta" value={dates.SaleDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="PaymentDueDate" label="Vencimiento de pago" value={dates.PaymentDueDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="CancellationDate" label="Fecha de cancelación" value={dates.CancellationDate} onchange={handleDateChange}></lightning-input></div>
+                            <div class="field-card"><lightning-input-field field-name="AuditTerm"></lightning-input-field></div>
                         </div>
                     </div>
 
                     <!-- Primas -->
-                    <div class="policy-section">
-                        <div class="policy-section__title">Primas</div>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="utility:moneybag" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Primas</h2>
+                                <p class="section-subtitle">Montos de prima de la póliza</p>
+                            </div>
+                        </div>
                         <div class="policy-grid">
-                            <lightning-input-field field-name="PremiumFrequency"></lightning-input-field>
-                            <lightning-input-field field-name="PremiumAmount"></lightning-input-field>
-                            <lightning-input-field field-name="GrossWrittenPremium"></lightning-input-field>
-                            <lightning-input-field field-name="PreviousPremium"></lightning-input-field>
+                            <div class="field-card"><lightning-input-field field-name="PremiumFrequency"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PremiumAmount"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="GrossWrittenPremium"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PreviousPremium"></lightning-input-field></div>
                         </div>
                     </div>
 
                     <!-- Cobranza -->
-                    <div class="policy-section">
-                        <div class="policy-section__title">Cobranza</div>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="utility:currency" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Cobranza</h2>
+                                <p class="section-subtitle">Esquema de pagos, cargos e impuestos</p>
+                            </div>
+                        </div>
                         <div class="policy-grid">
-                            <lightning-input-field field-name="Moneda__c"></lightning-input-field>
-                            <lightning-input-field field-name="Numero_Pagos__c"></lightning-input-field>
-                            <lightning-input-field field-name="Plazo_Pago_Dias__c"></lightning-input-field>
-                            <lightning-input-field field-name="Primer_Pago__c"></lightning-input-field>
-                            <lightning-input-field field-name="Pago_Subsecuente__c"></lightning-input-field>
-                            <lightning-input-field field-name="Pagos_Subsecuentes__c"></lightning-input-field>
-                            <lightning-input-field field-name="Subtotal__c"></lightning-input-field>
-                            <lightning-input-field field-name="Descuento__c"></lightning-input-field>
-                            <lightning-input-field field-name="Financiamiento__c"></lightning-input-field>
-                            <lightning-input-field field-name="Recargos__c"></lightning-input-field>
-                            <lightning-input-field field-name="Gastos_Expedicion__c"></lightning-input-field>
-                            <lightning-input-field field-name="Derecho_Poliza__c"></lightning-input-field>
-                            <lightning-input-field field-name="IVA__c"></lightning-input-field>
-                            <lightning-input-field field-name="Referencia_Pago__c"></lightning-input-field>
-                            <lightning-input-field field-name="CLABE__c"></lightning-input-field>
+                            <div class="field-card"><lightning-input-field field-name="Moneda__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Numero_Pagos__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Plazo_Pago_Dias__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Primer_Pago__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Pago_Subsecuente__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Pagos_Subsecuentes__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Subtotal__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Descuento__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Financiamiento__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Recargos__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Gastos_Expedicion__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Derecho_Poliza__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="IVA__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="Referencia_Pago__c"></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="CLABE__c"></lightning-input-field></div>
                         </div>
                     </div>
 
                     <!-- Descripción -->
-                    <div class="policy-section">
-                        <div class="policy-section__title">Descripción</div>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="utility:description" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Descripción</h2>
+                                <p class="section-subtitle">Bien asegurado, coberturas y calendario de pagos</p>
+                            </div>
+                        </div>
                         <div class="policy-grid policy-grid--full">
-                            <lightning-input-field field-name="PolicyDescription"></lightning-input-field>
+                            <div class="field-card"><lightning-input-field field-name="PolicyDescription"></lightning-input-field></div>
                         </div>
                     </div>
 
