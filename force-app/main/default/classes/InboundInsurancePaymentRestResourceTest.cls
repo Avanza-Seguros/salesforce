@@ -561,6 +561,207 @@ private class InboundInsurancePaymentRestResourceTest {
 		);
 	}
 
+	@IsTest
+	static void withoutPaymentDateCreatesPendingAndNotEnqueued() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-01",' +
+				'"sourceAmount__c":500.00,' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-1"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(202, RestContext.response.statusCode);
+		Map<String, Object> responseBody = getResponseBody();
+		Assert.areEqual(1, toInteger(responseBody.get('receivedCount')));
+		Assert.areEqual(0, toInteger(responseBody.get('rejectedCount')));
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c, sourcePaymentDate__c
+			FROM InboundInsurancePayment__c
+			WHERE
+				externalPaymentId__c = 'GNP_HB-1'
+				AND inboundStatus__c = 'Pendiente de Pago'
+			LIMIT 1
+		];
+
+		Assert.areEqual('Pendiente de Pago', inboundPayment.inboundStatus__c);
+		Assert.areEqual(null, inboundPayment.sourcePaymentDate__c);
+	}
+
+	@IsTest
+	static void resendWithoutPaymentDateStaysPending() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-02",' +
+				'"sourceAmount__c":500.00,' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-2"' +
+				'}' +
+				']'
+		);
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-02",' +
+				'"sourceAmount__c":750.00,' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-2"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(202, RestContext.response.statusCode);
+		Map<String, Object> responseBody = getResponseBody();
+		Assert.areEqual(1, toInteger(responseBody.get('updatedCount')));
+
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE externalPaymentId__c = 'GNP_HB-2'
+			]
+		);
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c, sourceAmount__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'GNP_HB-2'
+			LIMIT 1
+		];
+		Assert.areEqual('Pendiente de Pago', inboundPayment.inboundStatus__c);
+		Assert.areEqual(750.00, inboundPayment.sourceAmount__c);
+	}
+
+	@IsTest
+	static void pendingTransitionsToParsedWhenPaymentDateArrives() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-03",' +
+				'"sourceAmount__c":500.00,' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-3"' +
+				'}' +
+				']'
+		);
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-03",' +
+				'"sourceAmount__c":500.00,' +
+				'"sourcePaymentDate__c":"10/07/2026",' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-3"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(202, RestContext.response.statusCode);
+
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE externalPaymentId__c = 'GNP_HB-3'
+			]
+		);
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c, sourcePaymentDate__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'GNP_HB-3'
+			LIMIT 1
+		];
+		Assert.areEqual('Normalizado', inboundPayment.inboundStatus__c);
+		Assert.areEqual(
+			Date.newInstance(2026, 7, 10),
+			inboundPayment.sourcePaymentDate__c
+		);
+	}
+
+	@IsTest
+	static void withPaymentDateFromFirstSyncEntersPipeline() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-04",' +
+				'"sourceAmount__c":500.00,' +
+				'"sourcePaymentDate__c":"10/07/2026",' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-4"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(202, RestContext.response.statusCode);
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'GNP_HB-4'
+			LIMIT 1
+		];
+		Assert.areEqual('Normalizado', inboundPayment.inboundStatus__c);
+	}
+
+	@IsTest
+	static void rejectedDoesNotTransitionToPending() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-05",' +
+				'"sourceAmount__c":0,' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-5"' +
+				'}' +
+				']'
+		);
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-HB-05",' +
+				'"sourceAmount__c":500.00,' +
+				'"sourceCarrierCode__c":"GNP",' +
+				'"sourceReceiptNumber__c":"HB-5"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE externalPaymentId__c = 'GNP_HB-5'
+			]
+		);
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'GNP_HB-5'
+			LIMIT 1
+		];
+		Assert.areEqual('Rechazado', inboundPayment.inboundStatus__c);
+	}
+
 	private static void invokeEndpoint(String requestBody) {
 		RestRequest request = new RestRequest();
 		request.requestUri = '/services/apexrest/collections/v1/inbound-payments';

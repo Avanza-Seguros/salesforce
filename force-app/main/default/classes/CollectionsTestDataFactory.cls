@@ -46,6 +46,32 @@ public class CollectionsTestDataFactory {
 		.Id;
 	}
 
+	private static Id cachedAgenteId;
+
+	/**
+	 * @creation date: 05/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Crea (una vez por transaccion de test) un Agente__c valido y
+	 *               cachea su Id. Sirve para satisfacer el lookup requerido
+	 *               Opportunity.Agente_Relacionado__c al crear oportunidades de prueba.
+	 * @param:
+	 * @return: Id Identificador del Agente__c de prueba.
+	 * @exception:
+	 * @throws:
+	 */
+	public static Id getOrCreateAgenteId() {
+		if (cachedAgenteId == null) {
+			Agente__c agente = new Agente__c(
+				Name = 'Collections Test Agente',
+				Status__c = 'Nuevo',
+				Estado_Civil__c = 'Casado'
+			);
+			insert agente;
+			cachedAgenteId = agente.Id;
+		}
+		return cachedAgenteId;
+	}
+
 	/**
 	 * @creation date: 23/04/2026
 	 * @author: Javier Torres - Volestra

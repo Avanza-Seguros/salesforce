@@ -260,7 +260,8 @@ private class PolicyPaymentReceiptTriggerHandlerTest {
 			Name = 'Test Opportunity ' + stageName,
 			AccountId = accountId,
 			StageName = stageName,
-			CloseDate = Date.today().addMonths(1)
+			CloseDate = Date.today().addMonths(1),
+			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId()
 		);
 		insert opp;
 		return opp;

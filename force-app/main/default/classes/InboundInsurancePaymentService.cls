@@ -13,6 +13,7 @@
 public with sharing class InboundInsurancePaymentService {
 	private static final String STATUS_PARSED = 'Parseado';
 	private static final String STATUS_REJECTED = 'Rechazado';
+	private static final String STATUS_PENDING_PAYMENT = 'Pendiente de Pago';
 	private static final String REJECTION_REASON_MALFORMED_PAYLOAD = 'Payload malformado';
 	private static final String REJECTION_REASON_INCOMPLETE_PAYLOAD = 'Payload incompleto';
 	private static final String REJECTION_REASON_INVALID_AMOUNT = 'Importe invalido';
@@ -118,7 +119,7 @@ public with sharing class InboundInsurancePaymentService {
 			}
 		}
 
-		Map<String, Id> existingIdByExternalId = findExistingInboundIds(
+		Map<String, InboundInsurancePayment__c> existingByExternalId = findExistingInbounds(
 			externalIds
 		);
 		Map<String, Id> candidatePolicyByNumber = findCandidatePolicies(
@@ -159,14 +160,17 @@ public with sharing class InboundInsurancePaymentService {
 				continue;
 			}
 
+			Boolean hasPaymentDate = ctx.data.sourcePaymentDate != null;
+
 			if (firstByExternalId.containsKey(ctx.data.externalPaymentId)) {
 				RowContext first = firstByExternalId.get(ctx.data.externalPaymentId);
+				ctx.existingStatus = first.existingStatus;
 				populateInboundData(
 					first.record,
 					ctx.data,
 					ctx.itemJson,
 					ctx.payloadHash,
-					STATUS_PARSED,
+					resolveInboundStatus(hasPaymentDate, first.existingStatus),
 					null,
 					candidatePolicyId
 				);
@@ -176,17 +180,20 @@ public with sharing class InboundInsurancePaymentService {
 				continue;
 			}
 
-			Id existingId = existingIdByExternalId.get(ctx.data.externalPaymentId);
-			if (existingId != null) {
+			InboundInsurancePayment__c existing = existingByExternalId.get(
+				ctx.data.externalPaymentId
+			);
+			if (existing != null) {
+				ctx.existingStatus = existing.inboundStatus__c;
 				InboundInsurancePayment__c rec = new InboundInsurancePayment__c(
-					Id = existingId
+					Id = existing.Id
 				);
 				populateInboundData(
 					rec,
 					ctx.data,
 					ctx.itemJson,
 					ctx.payloadHash,
-					STATUS_PARSED,
+					resolveInboundStatus(hasPaymentDate, existing.inboundStatus__c),
 					null,
 					candidatePolicyId
 				);
@@ -202,7 +209,7 @@ public with sharing class InboundInsurancePaymentService {
 				ctx.data,
 				ctx.itemJson,
 				ctx.payloadHash,
-				STATUS_PARSED,
+				resolveInboundStatus(hasPaymentDate, null),
 				null,
 				candidatePolicyId
 			);
@@ -463,6 +470,32 @@ public with sharing class InboundInsurancePaymentService {
 	}
 
 	/**
+	 * @creation date: 05/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Resuelve el estado de un pago inbound valido segun si trae fecha
+	 *               de pago (historia HB). Un recibo con fecha de pago se marca
+	 *               Parseado y entra al pipeline; uno sin fecha se marca
+	 *               'Pendiente de Pago' y queda fuera del pipeline hasta que el mismo
+	 *               recibo regrese con fecha. Un registro ya Rechazado no transiciona
+	 *               a 'Pendiente de Pago' aunque llegue un reenvio sin fecha.
+	 * @param hasPaymentDate: Indica si el pago trae fecha de pago efectiva.
+	 * @param existingStatus: Estado actual del registro existente, o null si es nuevo.
+	 * @return Estado a asignar: Parseado, Pendiente de Pago o Rechazado.
+	 */
+	private static String resolveInboundStatus(
+		Boolean hasPaymentDate,
+		String existingStatus
+	) {
+		if (hasPaymentDate) {
+			return STATUS_PARSED;
+		}
+		if (existingStatus == STATUS_REJECTED) {
+			return STATUS_REJECTED;
+		}
+		return STATUS_PENDING_PAYMENT;
+	}
+
+	/**
 	 * @creation date: 24/04/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Crea una nueva instancia de InboundInsurancePayment__c y la
@@ -567,9 +600,11 @@ public with sharing class InboundInsurancePaymentService {
 	 * @creation date: 02/05/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Encola un InboundPaymentNormalizerQueueable con los IDs de los
-	 *               registros insertados en estado Parseado y todos los actualizados.
-	 *               Los registros rechazados en el INSERT no se encolan. Solo ejecuta
-	 *               el enqueue si hay al menos un ID elegible.
+	 *               registros (insertados o actualizados) que quedaron en estado
+	 *               Parseado. Los rechazados y los 'Pendiente de Pago' (recibos sin
+	 *               fecha de pago, historia HB) no se encolan: quedan fuera del
+	 *               pipeline hasta transicionar a Parseado. Solo ejecuta el enqueue
+	 *               si hay al menos un ID elegible.
 	 * @param inserted: Registros recien insertados por el DML de este lote.
 	 * @param updated: Registros recien actualizados por el DML de este lote.
 	 * @return
@@ -585,7 +620,9 @@ public with sharing class InboundInsurancePaymentService {
 			}
 		}
 		for (InboundInsurancePayment__c rec : updated) {
-			toNormalize.add(rec.Id);
+			if (rec.inboundStatus__c == STATUS_PARSED) {
+				toNormalize.add(rec.Id);
+			}
 		}
 		if (!toNormalize.isEmpty()) {
 			System.enqueueJob(new InboundPaymentNormalizerQueueable(toNormalize));
@@ -595,25 +632,28 @@ public with sharing class InboundInsurancePaymentService {
 	/**
 	 * @creation date: 24/04/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Consulta los IDs de registros InboundInsurancePayment__c que
-	 *               ya existen para los externalPaymentId__c recibidos. Permite
-	 *               detectar duplicados y rutear el registro a UPDATE en lugar de INSERT.
+	 * @description: Consulta los registros InboundInsurancePayment__c que ya existen
+	 *               para los externalPaymentId__c recibidos, con su estado actual.
+	 *               Permite detectar duplicados, rutear el registro a UPDATE en lugar
+	 *               de INSERT y decidir la transicion de estado (historia HB: un
+	 *               'Pendiente de Pago' que llega con fecha pasa a Parseado; un
+	 *               Rechazado no transiciona a 'Pendiente de Pago').
 	 * @param externalIds: Conjunto de externalPaymentId__c a buscar.
-	 * @return Mapa de externalPaymentId__c a Id del registro existente.
+	 * @return Mapa de externalPaymentId__c al registro existente (Id + estado).
 	 */
-	private static Map<String, Id> findExistingInboundIds(
+	private static Map<String, InboundInsurancePayment__c> findExistingInbounds(
 		Set<String> externalIds
 	) {
-		Map<String, Id> result = new Map<String, Id>();
+		Map<String, InboundInsurancePayment__c> result = new Map<String, InboundInsurancePayment__c>();
 		if (externalIds.isEmpty()) {
 			return result;
 		}
 		for (InboundInsurancePayment__c rec : [
-			SELECT Id, externalPaymentId__c
+			SELECT Id, externalPaymentId__c, inboundStatus__c
 			FROM InboundInsurancePayment__c
 			WHERE externalPaymentId__c IN :externalIds
 		]) {
-			result.put(rec.externalPaymentId__c, rec.Id);
+			result.put(rec.externalPaymentId__c, rec);
 		}
 		return result;
 	}
@@ -994,6 +1034,7 @@ public with sharing class InboundInsurancePaymentService {
 		String payloadHash;
 		String validationReason;
 		String outcome;
+		String existingStatus;
 		InboundInsurancePayment__c record;
 	}
 

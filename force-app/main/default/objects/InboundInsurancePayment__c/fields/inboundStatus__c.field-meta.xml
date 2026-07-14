@@ -37,6 +37,11 @@
                 <label>Rechazado</label>
             </value>
             <value>
+                <fullName>Pendiente de Pago</fullName>
+                <default>false</default>
+                <label>Pendiente de Pago</label>
+            </value>
+            <value>
                 <fullName>Archivado</fullName>
                 <default>false</default>
                 <label>Archivado</label>
