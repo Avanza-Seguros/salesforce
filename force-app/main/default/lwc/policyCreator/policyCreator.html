@@ -76,14 +76,24 @@
                         </div>
                         <div class="policy-grid">
                             <div class="field-card"><lightning-input-field field-name="Name" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="PolicyName" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="UniversalPolicyNumber" disabled={isReadOnly}></lightning-input-field></div>
                             <div class="field-card"><lightning-input-field field-name="NameInsuredId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PolicyName" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PolicyType" disabled={isReadOnly}></lightning-input-field></div>
                             <div class="field-card"><lightning-input-field field-name="Aseguradora__c" disabled={isReadOnly}></lightning-input-field></div>
                             <div class="field-card"><lightning-input-field field-name="ProductId" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="PolicyType" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="PlanType" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input type="date" data-field="EffectiveDate" label="Fecha de vigencia" value={dates.EffectiveDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="ExpirationDate" label="Fecha de Vencimiento" value={dates.ExpirationDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
                             <div class="field-card"><lightning-input-field field-name="Status" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="UniversalPolicyNumber" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PolicyDescription" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="OriginalPolicyId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PriorPolicyId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="ReferencePolicyNumber" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="SourceQuoteId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="SourceOpportunityId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="ContractGroupPlanId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input type="date" data-field="CancellationEffectiveDate" label="Fecha Vigencia de cancelación" value={dates.CancellationEffectiveDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                            <div class="field-card"><lightning-input-field field-name="PolicyTerm" disabled={isReadOnly}></lightning-input-field></div>
                         </div>
                     </div>
 
@@ -94,57 +104,34 @@
                                 <lightning-icon icon-name="utility:link" size="small"></lightning-icon>
                             </div>
                             <div class="section-title-group">
-                                <h2 class="section-title">Relaciones</h2>
-                                <p class="section-subtitle">Vínculos con otras pólizas y la cotización origen</p>
+                                <h2 class="section-title">Detalles de prima</h2>
+                                <p class="section-subtitle">Monto de la prima y condiciones</p>
                             </div>
                         </div>
                         <div class="policy-grid">
-                            <div class="field-card"><lightning-input-field field-name="SourceQuoteId" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="ParentPolicyId" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="PriorPolicyId" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="GrossWrittenPremium" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="PremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input-field field-name="TermPremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
                         </div>
                     </div>
 
-                    <!-- Vigencia -->
+                    <!-- Detalles de pago -->
                     <div class="unified-section">
                         <div class="section-header-compact">
                             <div class="section-icon">
                                 <lightning-icon icon-name="utility:event" size="small"></lightning-icon>
                             </div>
                             <div class="section-title-group">
-                                <h2 class="section-title">Vigencia y fechas</h2>
-                                <p class="section-subtitle">Periodo de cobertura y fechas clave</p>
+                                <h2 class="section-title">Renewal Information</h2>
+                                <p class="section-subtitle">Information about renewal dates and amounts</p>
                             </div>
                         </div>
                         <div class="policy-grid">
-                            <div class="field-card"><lightning-input type="date" data-field="EffectiveDate" label="Inicio de vigencia" value={dates.EffectiveDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input type="date" data-field="ExpirationDate" label="Fin de vigencia" value={dates.ExpirationDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input type="date" data-field="RenewalDate" label="Fecha de renovación" value={dates.RenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input type="date" data-field="PreviousRenewalDate" label="Renovación anterior" value={dates.PreviousRenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input type="date" data-field="FinalRenewalDate" label="Renovación final" value={dates.FinalRenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
                             <div class="field-card"><lightning-input type="date" data-field="SaleDate" label="Fecha de venta" value={dates.SaleDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input type="date" data-field="PaymentDueDate" label="Vencimiento de pago" value={dates.PaymentDueDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input type="date" data-field="CancellationDate" label="Fecha de cancelación" value={dates.CancellationDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                            <div class="field-card"><lightning-input-field field-name="AuditTerm" disabled={isReadOnly}></lightning-input-field></div>
-                        </div>
-                    </div>
-
-                    <!-- Primas -->
-                    <div class="unified-section">
-                        <div class="section-header-compact">
-                            <div class="section-icon">
-                                <lightning-icon icon-name="utility:moneybag" size="small"></lightning-icon>
-                            </div>
-                            <div class="section-title-group">
-                                <h2 class="section-title">Primas</h2>
-                                <p class="section-subtitle">Montos de prima de la póliza</p>
-                            </div>
-                        </div>
-                        <div class="policy-grid">
-                            <div class="field-card"><lightning-input-field field-name="PremiumFrequency" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="PremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="GrossWrittenPremium" disabled={isReadOnly}></lightning-input-field></div>
-                            <div class="field-card"><lightning-input-field field-name="PreviousPremium" disabled={isReadOnly}></lightning-input-field></div>
+                            <div class="field-card"><lightning-input type="date" data-field="PreviousRenewalDate" label="Renovación anterior" value={dates.PreviousRenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="RenewalDate" label="Fecha de renovación" value={dates.RenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                            <div class="field-card"><lightning-input type="date" data-field="PlannedRenewalDate" label="Renovación final" value={dates.PlannedRenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                            <div class="field-card"><lightning-input-field field-name="ProducerId" disabled={isReadOnly}></lightning-input-field></div>
                         </div>
                     </div>
 
@@ -175,22 +162,6 @@
                             <div class="field-card"><lightning-input-field field-name="IVA__c" disabled={isReadOnly}></lightning-input-field></div>
                             <div class="field-card"><lightning-input-field field-name="Referencia_Pago__c" disabled={isReadOnly}></lightning-input-field></div>
                             <div class="field-card"><lightning-input-field field-name="CLABE__c" disabled={isReadOnly}></lightning-input-field></div>
-                        </div>
-                    </div>
-
-                    <!-- Descripción -->
-                    <div class="unified-section">
-                        <div class="section-header-compact">
-                            <div class="section-icon">
-                                <lightning-icon icon-name="utility:description" size="small"></lightning-icon>
-                            </div>
-                            <div class="section-title-group">
-                                <h2 class="section-title">Descripción</h2>
-                                <p class="section-subtitle">Bien asegurado, coberturas y calendario de pagos</p>
-                            </div>
-                        </div>
-                        <div class="policy-grid policy-grid--full">
-                            <div class="field-card"><lightning-input-field field-name="PolicyDescription" disabled={isReadOnly}></lightning-input-field></div>
                         </div>
                     </div>
 

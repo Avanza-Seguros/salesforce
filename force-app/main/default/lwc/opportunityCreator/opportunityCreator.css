@@ -491,6 +491,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     min-width: 140px; text-align: center;
 }
 .pagination-bar .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.pagination-bar .page-size-selector {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-right: auto;
+}
+.pagination-bar .page-size-label {
+    font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;
+    white-space: nowrap;
+}
+.pagination-bar .page-size-combo { width: 90px; }
 
 /* ----- EMPTY STATE ----- */
 .empty-state {

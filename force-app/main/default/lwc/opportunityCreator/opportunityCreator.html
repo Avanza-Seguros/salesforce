@@ -210,6 +210,17 @@
                             </div>
                             <!-- Paginación -->
                             <div class="pagination-bar">
+                                <div class="page-size-selector">
+                                    <span class="page-size-label">Mostrar:</span>
+                                    <lightning-combobox
+                                        variant="label-hidden"
+                                        name="pageSize"
+                                        value={pageSizeValue}
+                                        options={pageSizeOptions}
+                                        onchange={handlePageSizeChange}
+                                        class="page-size-combo">
+                                    </lightning-combobox>
+                                </div>
                                 <button class="action-btn secondary" onclick={handlePrevPage} disabled={isFirstPage}>
                                     <lightning-icon icon-name="utility:chevronleft" size="xx-small"></lightning-icon>
                                     Anterior

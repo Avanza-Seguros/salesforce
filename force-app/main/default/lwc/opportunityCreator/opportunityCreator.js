@@ -85,6 +85,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track stageFilter = '';
     @track showOnlyOverdue = false;
     @track currentPage = 1;
+    @track pageSize = PAGE_SIZE;
     @track opportunities = [];
     // === Estado de creación/edición ===
     @track opportunity = this.getDefaultOpportunity();
@@ -1496,14 +1497,35 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.formatCurrency(total);
     }
     get totalPages() {
-        return Math.max(1, Math.ceil(this.opportunitiesCount / PAGE_SIZE));
+        return Math.max(1, Math.ceil(this.opportunitiesCount / this.pageSize));
     }
     get isFirstPage() { return this.currentPage <= 1; }
     get isLastPage()  { return this.currentPage >= this.totalPages; }
     get pageInfoLabel() { return `Página ${this.currentPage} de ${this.totalPages}`; }
+    get pageSizeOptions() {
+        return [
+            { label: '10', value: '10' },
+            { label: '20', value: '20' },
+            { label: '50', value: '50' },
+            { label: '100', value: '100' },
+            { label: 'Todas', value: 'all' }
+        ];
+    }
+    get pageSizeValue() {
+        return this.pageSize > 100 ? 'all' : String(this.pageSize);
+    }
+    handlePageSizeChange(event) {
+        const val = event.detail.value;
+        if (val === 'all') {
+            this.pageSize = 100000;
+        } else {
+            this.pageSize = parseInt(val, 10) || PAGE_SIZE;
+        }
+        this.currentPage = 1;
+    }
     get processedOpportunities() {
-        const start = (this.currentPage - 1) * PAGE_SIZE;
-        const end = start + PAGE_SIZE;
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
         const slice = this.filteredOpportunities.slice(start, end);
         const today = new Date();
         return slice.map((opp, index) => {
@@ -1553,7 +1575,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 Account: safeAccount,
                 Owner: safeOwner,
                 index,
-                displayNumber: (this.currentPage - 1) * PAGE_SIZE + index + 1,
+                displayNumber: (this.currentPage - 1) * this.pageSize + index + 1,
                 stageLabel,
                 stageIcon,
                 statusClass,
