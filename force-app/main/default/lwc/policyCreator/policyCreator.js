@@ -15,6 +15,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track errorMsg = '';
     @track analizando = false;
     @track dates = {};
+    @track readOnly = false;
 
     _pdfJsLoaded = false;
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
@@ -31,6 +32,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         if (!pageRef || !pageRef.state) { return; }
         this.quoteId = pageRef.state.c__quoteId;
         this.opportunityId = pageRef.state.c__opportunityId;
+        this.readOnly = pageRef.state.c__readonly === '1';
         this.loadPolicy();
     }
 
@@ -83,6 +85,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     get hasPolicy() {
         return !!this.policyId;
     }
+    get isReadOnly() {
+        return this.readOnly;
+    }
+    get isEditable() {
+        return !this.readOnly;
+    }
+
+    get showOverlay() {
+        return this.loading || this.analizando;
+    }
+    get overlayMessage() {
+        return this.analizando ? 'Analizando el PDF de la póliza…' : 'Cargando la póliza…';
+    }
 
     // Al cargar el registro, toma los valores de fecha y detecta si son Fecha/Hora.
     handleLoad(event) {
@@ -134,6 +149,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Abre el selector de archivo para analizar un PDF de póliza.
     handleAnalizarPdf() {
+        if (this.readOnly) { return; }
         const input = this.template.querySelector('input.pdf-file-input');
         if (input) { input.value = null; input.click(); }
     }

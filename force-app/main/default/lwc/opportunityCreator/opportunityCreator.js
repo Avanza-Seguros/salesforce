@@ -852,13 +852,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     async handleEditOpportunity(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) return;
-        // Si la oportunidad ya está en etapa Póliza, abre el formulario de la Póliza.
+        // Si la oportunidad está en Póliza, Ganada o Perdida, abre el formulario de la Póliza.
+        // En Ganada/Perdida se abre en modo SOLO LECTURA.
         const fromList = (this.opportunities || []).find(o => o.Id === id) || {};
-        if (this.isPolizaStage(fromList.StageName)) {
+        if (this.isPolizaStage(fromList.StageName) || this.isClosedStage(fromList.StageName)) {
+            const soloLectura = this.isClosedStage(fromList.StageName) ? '1' : '';
             this[NavigationMixin.Navigate]({
                 type: 'standard__navItemPage',
                 attributes: { apiName: 'Crear_Poliza' },
-                state: { c__opportunityId: id }
+                state: { c__opportunityId: id, c__readonly: soloLectura }
             });
             return;
         }
@@ -1569,6 +1571,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 isOverdue: statusClass === 'status-overdue',
                 isClosed,
                 isPoliza: this.isPolizaStage(opp.StageName),
+                isPolizaView: this.isPolizaStage(opp.StageName) || isClosed,
                 typeLabel: this.getTypeLabel(opp.Type)
             };
         });
