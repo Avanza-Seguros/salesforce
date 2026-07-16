@@ -1,11 +1,16 @@
 import { LightningElement, wire, track } from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
+import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+import EFFECTIVE_DATE from '@salesforce/schema/InsurancePolicy.EffectiveDate';
+import EXPIRATION_DATE from '@salesforce/schema/InsurancePolicy.ExpirationDate';
+import PAYMENT_DUE_DATE from '@salesforce/schema/InsurancePolicy.PaymentDueDate';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
+import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 
 export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track policyId;
@@ -16,6 +21,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track analizando = false;
     @track dates = {};
     @track readOnly = false;
+    @track oppCard = null;
+    @track quoteCards = [];
+    @track policyDates = {};
 
     _pdfJsLoaded = false;
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
@@ -34,6 +42,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.opportunityId = pageRef.state.c__opportunityId;
         this.readOnly = pageRef.state.c__readonly === '1';
         this.loadPolicy();
+        if (this.readOnly) { this.loadResumen(); }
+    }
+
+    // Lee las fechas de la póliza para mostrarlas SIN hora en la vista de solo lectura.
+    @wire(getRecord, { recordId: '$policyId', fields: [EFFECTIVE_DATE, EXPIRATION_DATE, PAYMENT_DUE_DATE] })
+    wiredPolicyDates({ data }) {
+        if (data) {
+            this.policyDates = {
+                EffectiveDate: this.fmtDate(getFieldValue(data, EFFECTIVE_DATE)),
+                ExpirationDate: this.fmtDate(getFieldValue(data, EXPIRATION_DATE)),
+                PaymentDueDate: this.fmtDate(getFieldValue(data, PAYMENT_DUE_DATE))
+            };
+        }
     }
 
     renderedCallback() {
@@ -276,14 +297,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.dates = nuevasFechas;
 
         const map = {
-            // Datos generales
+            // Datos generales.
+            // NO se actualizan por análisis: Aseguradora__c, PolicyType, NameInsuredId,
+            // ProductId, SourceQuoteId y la oportunidad origen (se conservan tal cual).
             UniversalPolicyNumber: d.numeroPoliza,
             PolicyName: d.numeroPoliza,
-            Aseguradora__c: d.aseguradora,
-            PolicyType: d.ramo || d.tipoPoliza,
             PlanType: d.plan,
             // Primas / cobranza en campos estándar
-            PremiumFrequency: cob.formaPago || d.frecuenciaPago,
+            PremiumFrequency: d.frecuenciaPago || cob.formaPago,
             PremiumAmount: cob.primaNeta != null ? cob.primaNeta : d.primaNeta,
             GrossWrittenPremium: cob.totalAPagar != null ? cob.totalAPagar : d.primaTotal,
             // Cobranza en campos personalizados
@@ -327,6 +348,70 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
         });
         console.log('PolicyCreator::: campos llenados =', llenados);
+    }
+
+    // Carga el resumen (Oportunidad + Cotizaciones) para la vista de solo lectura.
+    async loadResumen() {
+        if (!this.opportunityId) { return; }
+        try {
+            const detail = await getOpportunityDetails({ opportunityId: this.opportunityId });
+            const o = (detail && detail.opportunity) || {};
+            this.oppCard = {
+                name: o.Name || '—',
+                cuenta: o.Account && o.Account.Name ? o.Account.Name : '—',
+                etapa: this.stageLabel(o.StageName),
+                ramo: o.Ramo__c || '—',
+                tipo: o.Type || '—',
+                primaNeta: this.fmtCurrency(o.Prima_neta__c != null ? o.Prima_neta__c
+                    : (o.Prima_Neta__c != null ? o.Prima_Neta__c
+                    : (o.Prima_Total__c != null ? o.Prima_Total__c : o.Amount))),
+                cierre: this.fmtDate(o.CloseDate),
+                agente: o.Agente_Relacionado__r && o.Agente_Relacionado__r.Name
+                    ? o.Agente_Relacionado__r.Name : '—'
+            };
+            const counts = (detail && detail.coverageCounts) || {};
+            this.quoteCards = ((detail && detail.quotes) || []).map((q) => ({
+                id: q.Id,
+                numero: q.QuoteNumber || q.Name || '—',
+                aseguradora: q.Aseguradora__r && q.Aseguradora__r.Name ? q.Aseguradora__r.Name : '—',
+                primaTotal: this.fmtCurrency(q.Prima_Total__c != null ? q.Prima_Total__c : q.TotalPrice),
+                status: q.Status || '—',
+                aceptada: /accept|acept/i.test(q.Status || ''),
+                coberturas: counts[q.Id] != null ? counts[q.Id] : 0
+            }));
+        } catch (e) {
+            // Silencioso: si falla el resumen, igual se muestra la póliza.
+            console.warn('PolicyCreator::: no se pudo cargar el resumen', e);
+        }
+    }
+
+    get hasQuoteCards() {
+        return this.quoteCards && this.quoteCards.length > 0;
+    }
+
+    stageLabel(stage) {
+        if (!stage) { return '—'; }
+        if (/won|ganad/i.test(stage)) { return 'Ganada'; }
+        if (/lost|perdid/i.test(stage)) { return 'Perdida'; }
+        return stage;
+    }
+    fmtCurrency(n) {
+        if (n === null || n === undefined || n === '') { return '—'; }
+        return Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+    }
+    fmtDate(v) {
+        if (!v) { return '—'; }
+        const d = new Date(v);
+        if (isNaN(d.getTime())) { return String(v); }
+        return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // Regresa a la lista de Oportunidades.
+    handleRegresar() {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__navItemPage',
+            attributes: { apiName: 'Crear_Oportunidad' }
+        });
     }
 
     handleReintentar() {
