@@ -90,6 +90,16 @@
         <members>InboundInsurancePayment__c.sourceSynchronizedAt__c</members>
         <members>InboundInsurancePayment__c.sourceSystem__c</members>
         <members>InboundInsurancePayment__c.sourceVatCommission__c</members>
+        <members>InboundInsurancePayment__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundInsurancePayment__c.sourceCustomerName__c</members>
+        <members>InboundInsurancePayment__c.sourceIsCollective__c</members>
+        <members>InboundInsurancePayment__c.sourceRetryCount__c</members>
+        <members>InboundInsurancePayment__c.sourceRejectionReason__c</members>
+        <members
+		>InboundInsurancePayment__c.sourceCancellationReason__c</members>
+        <members>InboundInsurancePayment__c.sourcePolicyStartDate__c</members>
+        <members>InboundInsurancePayment__c.sourcePolicyRenewalDate__c</members>
+        <members>InboundInsurancePayment__c.sourcePolicyIssueDate__c</members>
         <members>PaymentPlanInstallment__c.daysOverdue__c</members>
         <members>PaymentPlanInstallment__c.dueDate__c</members>
         <members>PaymentPlanInstallment__c.expectedAmount__c</members>

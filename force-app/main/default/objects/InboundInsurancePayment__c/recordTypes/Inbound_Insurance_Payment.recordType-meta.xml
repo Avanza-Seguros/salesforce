@@ -41,6 +41,10 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Pendiente de Pago</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Rechazado</fullName>
             <default>false</default>
         </values>

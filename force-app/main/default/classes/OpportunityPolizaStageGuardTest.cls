@@ -189,29 +189,37 @@ private class OpportunityPolizaStageGuardTest {
 	}
 
 	/**
-	 * @description: CA-6: Una Opportunity sin InsurancePolicy vinculada (legacy) no es
-	 *               bloqueada por el flow — el guard solo aplica al modelo nuevo.
+	 * @description: CA-6: Con el retiro del modelo legacy (se reemplaza al desplegar a
+	 *               produccion), una Opportunity sin InsurancePolicy vinculada tampoco
+	 *               puede cerrarse manualmente a Closed Won: el guard exige un pago
+	 *               reconocido del modelo nuevo en todos los casos.
 	 */
 	@IsTest
-	static void allowsManualClosedWonWhenNoPolicyLinked() {
+	static void blocksManualClosedWonWhenNoPolicyLinked() {
 		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
 		Opportunity opp = createOpportunity(accountId, STAGE_POLIZA);
 
 		Test.startTest();
 		Boolean threwException = false;
+		String errorMessage = '';
 		try {
 			update new Opportunity(Id = opp.Id, StageName = STAGE_CLOSED_WON);
 		} catch (DmlException e) {
 			threwException = true;
+			errorMessage = e.getMessage();
 		}
 		Test.stopTest();
 
-		Assert.isFalse(
+		Assert.isTrue(
 			threwException,
-			'Una oportunidad sin InsurancePolicy vinculada no debe ser bloqueada (ruta legacy)'
+			'Una Opportunity sin InsurancePolicy vinculada tampoco debe poder cerrarse a Closed Won sin pago reconocido (el modelo nuevo reemplaza al legacy)'
+		);
+		Assert.isTrue(
+			errorMessage.containsIgnoreCase(ERROR_MSG_FRAGMENT),
+			'El mensaje debe indicar que falta un pago reconocido'
 		);
 		Assert.areEqual(
-			STAGE_CLOSED_WON,
+			STAGE_POLIZA,
 			[SELECT StageName FROM Opportunity WHERE Id = :opp.Id].StageName
 		);
 	}
@@ -223,7 +231,8 @@ private class OpportunityPolizaStageGuardTest {
 			Name = 'Test 191 ' + stageName,
 			AccountId = accountId,
 			StageName = stageName,
-			CloseDate = Date.today().addMonths(1)
+			CloseDate = Date.today().addMonths(1),
+			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId()
 		);
 		insert opp;
 		return opp;
