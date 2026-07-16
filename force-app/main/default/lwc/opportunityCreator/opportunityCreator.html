@@ -183,10 +183,16 @@
                                                 <td>{opp.Owner.Name}</td>
                                                 <td>
                                                     <div class="opp-actions">
-                                                        <template if:true={opp.isPolizaView}>
+                                                        <template if:true={opp.isPoliza}>
                                                             <button class="poliza-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver Póliza">
                                                                 <lightning-icon icon-name="standard:policy" size="xx-small"></lightning-icon>
                                                                 <span>Ver Póliza</span>
+                                                            </button>
+                                                        </template>
+                                                        <template if:true={opp.isClosed}>
+                                                            <button class="info-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver información (solo lectura)">
+                                                                <lightning-icon icon-name="utility:info" size="xx-small"></lightning-icon>
+                                                                <span>Información</span>
                                                             </button>
                                                         </template>
                                                         <template if:false={opp.isPolizaView}>

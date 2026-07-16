@@ -1235,3 +1235,23 @@ lightning-combobox {
 }
 .opportunities-table .poliza-list-btn:hover { background: #003D99; }
 .opportunities-table .poliza-list-btn lightning-icon { --sds-c-icon-color-foreground-default: #ffffff; }
+
+/* Botón "Información" (oportunidad Ganada/Perdida, solo lectura) */
+.opportunities-table .info-list-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.65rem;
+    height: 30px;
+    border: 1px solid #A0A0A0;
+    border-radius: 0.45rem;
+    background: #F4F6FA;
+    color: #1A1A1A;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.opportunities-table .info-list-btn:hover { background: #E6EAF2; border-color: #0052CC; }
+.opportunities-table .info-list-btn lightning-icon { --sds-c-icon-color-foreground-default: #4D4D4D; }
