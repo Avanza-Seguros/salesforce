@@ -15,7 +15,15 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
             <default>false</default>
         </values>
         <values>
@@ -28,6 +36,14 @@
         </values>
         <values>
             <fullName>Viajes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>

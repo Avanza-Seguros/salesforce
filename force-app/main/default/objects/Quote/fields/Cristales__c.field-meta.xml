@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Dotal_11_a_os__c</fullName>
+    <fullName>Cristales__c</fullName>
     <defaultValue>false</defaultValue>
-    <label>Dotal 11 años</label>
-    <trackFeedHistory>false</trackFeedHistory>
+    <label>Rotura de Cristales</label>
+    <trackHistory>false</trackHistory>
     <type>Checkbox</type>
 </CustomField>

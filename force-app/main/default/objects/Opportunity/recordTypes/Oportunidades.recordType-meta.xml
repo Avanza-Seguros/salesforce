@@ -3,14 +3,14 @@
     <fullName>Oportunidades</fullName>
     <active>true</active>
     <businessProcess>Polizas</businessProcess>
-    <compactLayoutAssignment>Financial_Opportunities</compactLayoutAssignment>
+    <compactLayoutAssignment>New_Awesome_Companct_Layout</compactLayoutAssignment>
     <description>Oportunidades</description>
     <label>Oportunidades</label>
     <picklistValues>
         <picklist>Agente__c</picklist>
         <values>
             <fullName>Abraham Gonzalez</fullName>
-            <default>false</default>
+            <default>true</default>
         </values>
         <values>
             <fullName>Adriana Franco</fullName>
@@ -367,7 +367,7 @@
         <picklist>Canal__c</picklist>
         <values>
             <fullName>Agente</fullName>
-            <default>false</default>
+            <default>true</default>
         </values>
         <values>
             <fullName>Digital</fullName>

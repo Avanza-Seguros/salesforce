@@ -161,6 +161,7 @@
         <type>Text</type>
     </nameField>
     <pluralLabel>Vehiculos</pluralLabel>
+    <recordTypeTrackHistory>false</recordTypeTrackHistory>
     <searchLayouts></searchLayouts>
     <sharingModel>ReadWrite</sharingModel>
     <visibility>Public</visibility>
