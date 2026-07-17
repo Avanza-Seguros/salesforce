@@ -1,0 +1,1535 @@
+<template>
+    <div class="wizard-container premium-theme" onclick={handleClickOutside}>
+        <!-- ============================================================ -->
+        <!-- HEADER                                                       -->
+        <!-- ============================================================ -->
+        <div class="premium-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <lightning-icon icon-name="standard:opportunity"
+                                   class="header-icon"
+                                   size="large"
+                                   variant="inverse">
+                    </lightning-icon>
+                    <div class="header-text">
+                        <h1 class="wizard-title">{pageTitle}</h1>
+                        <p class="wizard-subtitle">
+                            <template if:true={showListView}>
+                                Gestiona todas tus oportunidades de venta
+                            </template>
+                            <template if:true={showCreateView}>
+                                <template if:true={isEditMode}>
+                                    Editando oportunidad existente
+                                </template>
+                                <template if:false={isEditMode}>
+                                    Transforma prospectos en negocios exitosos
+                                </template>
+                            </template>
+                            <!-- NUEVO -->
+                            <template if:true={showPdfView}>
+                                Sube los documentos del cliente y deja que la IA cree la oportunidad
+                            </template>
+                        </p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <template if:true={showListView}>
+                        <div class="opportunities-stats">
+                            <div class="stat-item">
+                                <lightning-icon icon-name="utility:list" size="small" class="stat-icon"></lightning-icon>
+                                <div class="stat-text">
+                                    <span class="stat-label">Oportunidades</span>
+                                    <span class="stat-value">{opportunitiesCount}</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <lightning-icon icon-name="utility:currency" size="small" class="stat-icon"></lightning-icon>
+                                <div class="stat-text">
+                                    <span class="stat-label">Valor total</span>
+                                    <span class="stat-value">{totalOpportunitiesAmount}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <template if:true={showCreateView}>
+                        <div class="step-indicator-badge">
+                            <div class="badge-circle">
+                                <lightning-icon icon-name="utility:edit" size="small"></lightning-icon>
+                            </div>
+                            <div class="badge-text">
+                                <span class="badge-label">Modo</span>
+                                <span class="badge-total">
+                                    <template if:true={isEditMode}>Edición</template>
+                                    <template if:false={isEditMode}>Creación</template>
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                    <!-- NUEVO -->
+                    <template if:true={showPdfView}>
+                        <div class="step-indicator-badge">
+                            <div class="badge-circle">
+                                <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
+                            </div>
+                            <div class="badge-text">
+                                <span class="badge-label">Modo</span>
+                                <span class="badge-total">PDFs</span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================================ -->
+        <!-- VISTA DE LISTA                                               -->
+        <!-- ============================================================ -->
+        <template if:true={showListView}>
+            <div class="list-view-container">
+                <!-- Barra de acciones: búsqueda + filtros + nuevo -->
+                <div class="list-actions-bar">
+                    <div class="search-container">
+                        <lightning-input
+                            label="Buscar oportunidades"
+                            placeholder="Buscar por nombre, etapa, cuenta o propietario..."
+                            onchange={handleSearchChange}
+                            variant="label-hidden"
+                            class="search-input">
+                            <lightning-icon
+                                slot="prefix"
+                                icon-name="utility:search"
+                                size="x-small">
+                            </lightning-icon>
+                        </lightning-input>
+                    </div>
+                    <div class="filter-container">
+                        <lightning-combobox
+                            label="Filtrar por etapa"
+                            variant="label-hidden"
+                            value={stageFilter}
+                            options={stageFilterOptions}
+                            onchange={handleStageFilterChange}
+                            placeholder="Todas las etapas"
+                            class="stage-filter">
+                        </lightning-combobox>
+                        <lightning-input
+                            type="toggle"
+                            label="Sólo vencidas"
+                            checked={showOnlyOverdue}
+                            onchange={handleOverdueToggle}
+                            message-toggle-active="Sí"
+                            message-toggle-inactive="No"
+                            class="overdue-toggle">
+                        </lightning-input>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="action-btn primary" onclick={handleCreateNew}>
+                            <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                            Nueva Oportunidad
+                        </button>
+                        <!-- NUEVO -->
+                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Crear oportunidad subiendo PDFs">
+                            <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
+                            Crear desde PDFs
+                        </button>
+                    </div>
+                </div>
+                <!-- Listado -->
+                <div class="opportunities-list-container">
+                    <template if:true={isLoading}>
+                        <div class="loading-container">
+                            <lightning-spinner alternative-text="Cargando..." size="large"></lightning-spinner>
+                            <p>Cargando oportunidades...</p>
+                        </div>
+                    </template>
+                    <template if:false={isLoading}>
+                        <template if:true={hasOpportunities}>
+                            <div class="opportunities-table-wrapper">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped opportunities-table">
+                                    <thead>
+                                        <tr class="slds-text-title_caps">
+                                            <th scope="col">Oportunidad</th>
+                                            <th scope="col">Cuenta</th>
+                                            <th scope="col">Etapa</th>
+                                            <th scope="col">Ramo</th>
+                                            <th scope="col">Tipo</th>
+                                            <th scope="col">Canal</th>
+                                            <th scope="col">Prima neta</th>
+                                            <th scope="col">Cierre</th>
+                                            <th scope="col">Propietario</th>
+                                            <th scope="col">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={processedOpportunities} for:item="opp">
+                                            <tr key={opp.Id} class={opp.statusClass}>
+                                                <td class="opp-name-cell" title={opp.Name}>{opp.Name}</td>
+                                                <td>{opp.Account.Name}</td>
+                                                <td>
+                                                    <span class="stage-badge">
+                                                        <span class="stage-dot" style={opp.stageDotStyle}></span>
+                                                        <span>{opp.stageLabel}</span>
+                                                    </span>
+                                                </td>
+                                                <td>{opp.Ramo__c}</td>
+                                                <td>{opp.typeLabel}</td>
+                                                <td>{opp.Canal__c}</td>
+                                                <td class="amount-cell">{opp.amountFormatted}</td>
+                                                <td class="close-cell">
+                                                    <span>{opp.closeDateFormatted}</span>
+                                                    <template if:true={opp.hasDaysInfo}>
+                                                        <span class={opp.daysClass}>{opp.daysLabel}</span>
+                                                    </template>
+                                                </td>
+                                                <td>{opp.Owner.Name}</td>
+                                                <td>
+                                                    <div class="opp-actions">
+                                                        <template if:true={opp.isPoliza}>
+                                                            <button class="poliza-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver Póliza">
+                                                                <lightning-icon icon-name="standard:policy" size="xx-small"></lightning-icon>
+                                                                <span>Ver Póliza</span>
+                                                            </button>
+                                                        </template>
+                                                        <template if:true={opp.isClosed}>
+                                                            <button class="info-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver información (solo lectura)">
+                                                                <lightning-icon icon-name="utility:info" size="xx-small"></lightning-icon>
+                                                                <span>Información</span>
+                                                            </button>
+                                                        </template>
+                                                        <template if:false={opp.isPolizaView}>
+                                                            <button class="icon-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver">
+                                                                <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                            </button>
+                                                            <button class="icon-btn" onclick={handleEditOpportunity} data-id={opp.Id} title="Editar">
+                                                                <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Paginación -->
+                            <div class="pagination-bar">
+                                <div class="page-size-selector">
+                                    <span class="page-size-label">Mostrar:</span>
+                                    <lightning-combobox
+                                        variant="label-hidden"
+                                        name="pageSize"
+                                        value={pageSizeValue}
+                                        options={pageSizeOptions}
+                                        onchange={handlePageSizeChange}
+                                        class="page-size-combo">
+                                    </lightning-combobox>
+                                </div>
+                                <button class="action-btn secondary" onclick={handlePrevPage} disabled={isFirstPage}>
+                                    <lightning-icon icon-name="utility:chevronleft" size="xx-small"></lightning-icon>
+                                    Anterior
+                                </button>
+                                <span class="page-info">{pageInfoLabel}</span>
+                                <button class="action-btn secondary" onclick={handleNextPage} disabled={isLastPage}>
+                                    Siguiente
+                                    <lightning-icon icon-name="utility:chevronright" size="xx-small"></lightning-icon>
+                                </button>
+                            </div>
+                        </template>
+                        <template if:false={hasOpportunities}>
+                            <div class="empty-state">
+                                <lightning-icon icon-name="standard:opportunity" size="large"></lightning-icon>
+                                <h3>No hay oportunidades</h3>
+                                <p>
+                                    <template if:true={searchTerm}>
+                                        No se encontraron oportunidades que coincidan con "{searchTerm}".
+                                    </template>
+                                    <template if:false={searchTerm}>
+                                        No hay oportunidades disponibles con los filtros actuales.
+                                    </template>
+                                </p>
+                                <button class="action-btn primary" onclick={handleCreateNew}>
+                                    <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                    Crear Oportunidad
+                                </button>
+                                <!-- NUEVO -->
+                                <button class="action-btn pdf-action" onclick={handleCreateFromPdf}>
+                                    <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
+                                    Crear desde PDFs
+                                </button>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+            </div>
+        </template>
+        <!-- ============================================================ -->
+        <!-- VISTA CREAR / EDITAR                                         -->
+        <!-- ============================================================ -->
+        <template if:true={showCreateView}>
+            <div class="back-to-list">
+                <button class="back-btn" onclick={handleBackToList}>
+                    <lightning-icon icon-name="utility:back" size="xx-small"></lightning-icon>
+                    Volver a la lista
+                </button>
+            </div>
+            <div class="content-container glass-effect unified-view">
+                <!-- Aviso de bloqueo: la oportunidad ya no está en Gestión Comercial -->
+                <template if:true={isOpportunityReadOnly}>
+                    <div class="readonly-banner">
+                        <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
+                        <span>
+                            Esta oportunidad está en etapa <strong>{readOnlyStageLabel}</strong>.
+                            Los datos solo se pueden editar mientras la oportunidad está en
+                            <strong>Gestión Comercial</strong>.
+                        </span>
+                    </div>
+                </template>
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 1: INFORMACIÓN BÁSICA DE LA OPORTUNIDAD        -->
+                <!-- ====================================================== -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="utility:lead" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Información Básica</h2>
+                            <p class="section-subtitle">Completa los datos generales de la oportunidad</p>
+                        </div>
+                        <div class="section-badge required-badge">Requerido</div>
+                    </div>
+                    <template if:true={isLoadingPicklists}>
+                        <div class="loading-picklists">
+                            <lightning-spinner alternative-text="Cargando opciones..." size="small"></lightning-spinner>
+                            <p>Cargando opciones de picklists...</p>
+                        </div>
+                    </template>
+                    <template if:false={isLoadingPicklists}>
+                        <div class="form-container">
+                            <div class="form-grid two-columns">
+                                <div class="form-column">
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Nombre de la Oportunidad <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.Name} onchange={handleInputChange} disabled={isOpportunityReadOnly}
+                                            data-field="Name" variant="label-hidden" placeholder="Ej: Auto - Mapfre - Juan Pérez" required>
+                                        </lightning-input>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="standard:account" size="x-small"></lightning-icon>
+                                            <h3>Cuenta <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <div class="lookup-container">
+                                            <lightning-input
+                                                label=""
+                                                value={opportunity.AccountName}
+                                                placeholder="Buscar cuenta o persona..."
+                                                onfocus={handleAccountFocus}
+                                                onkeyup={handleAccountInput}
+                                                variant="label-hidden"
+                                                disabled={isOpportunityReadOnly}
+                                                data-field="AccountSearch">
+                                            </lightning-input>
+                                            <template if:true={showAccountDropdown}>
+                                                <div class="lookup-dropdown">
+                                                    <ul class="lookup-results">
+                                                        <template if:true={hasAccountResults}>
+                                                            <template for:each={accountResults} for:item="acc">
+                                                                <li key={acc.Id} class="lookup-result-item"
+                                                                    onclick={selectAccount} data-id={acc.Id}>
+                                                                    <div class="result-name">
+                                                                        {acc.Name}
+                                                                        <span class="account-type-tag">{acc.typeLabel}</span>
+                                                                    </div>
+                                                                    <div class="result-details">{acc.detailLine}</div>
+                                                                </li>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasAccountResults}>
+                                                            <li class="no-results">Escribe al menos 2 caracteres para buscar</li>
+                                                        </template>
+                                                        <li class="lookup-result-item lookup-create-new" onclick={selectNewAccount}>
+                                                            <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                                            Crear cuenta nueva
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <template if:true={isNewAccount}>
+                                            <p class="helper-text helper-new-account">
+                                                Cuenta nueva — captura los datos en "Información del Cliente". Se creará al guardar.
+                                            </p>
+                                        </template>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="standard:contact" size="x-small"></lightning-icon>
+                                            <h3>Contacto</h3>
+                                        </div>
+                                        <template if:true={showContactoLookup}>
+                                            <div class="lookup-container">
+                                                <lightning-input
+                                                    label=""
+                                                    value={opportunity.ContactoName}
+                                                    placeholder="Buscar contacto..."
+                                                    onfocus={handleContactoFocus}
+                                                    onkeyup={handleContactoInput}
+                                                    variant="label-hidden"
+                                                    disabled={isOpportunityReadOnly}
+                                                    data-field="ContactoSearch">
+                                                </lightning-input>
+                                                <template if:true={showContactoDropdown}>
+                                                    <div class="lookup-dropdown">
+                                                        <ul class="lookup-results">
+                                                            <template if:true={hasContactoResults}>
+                                                                <template for:each={contactoResults} for:item="c">
+                                                                    <li key={c.Id} class="lookup-result-item"
+                                                                        onclick={selectContacto} data-id={c.Id}>
+                                                                        <div class="result-name">{c.Name}</div>
+                                                                        <div class="result-details">{c.Email}</div>
+                                                                    </li>
+                                                                </template>
+                                                            </template>
+                                                            <template if:false={hasContactoResults}>
+                                                                <li class="no-results">Escribe al menos 2 caracteres para buscar</li>
+                                                            </template>
+                                                            <li class="lookup-result-item lookup-create-new" onclick={selectNewContacto}>
+                                                                <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                                                Crear contacto nuevo
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <template if:true={isNewContacto}>
+                                                <p class="helper-text helper-new-account">
+                                                    Contacto nuevo — se creará al guardar con los datos del cliente.
+                                                </p>
+                                            </template>
+                                        </template>
+                                        <template if:false={showContactoLookup}>
+                                            <lightning-input label="" value={contactoIgualCuentaText}
+                                                variant="label-hidden" disabled>
+                                            </lightning-input>
+                                            <p class="helper-text">
+                                                Mercado Individual: el contacto es el mismo de la cuenta.
+                                            </p>
+                                        </template>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:category" size="x-small"></lightning-icon>
+                                            <h3>Ramo <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Ramo__c}
+                                            placeholder="Seleccione un ramo"
+                                            options={ramoPicklistValues} onchange={handleComboboxChange} disabled={isOpportunityReadOnly}
+                                            data-field="Ramo__c" variant="label-hidden" dropdown-alignment="auto" required>
+                                        </lightning-combobox>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
+                                            <h3>Tipo de Oportunidad <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Type}
+                                            placeholder="Seleccione tipo" options={typePicklistValues}
+                                            onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Type"
+                                            variant="label-hidden" dropdown-alignment="auto" required>
+                                        </lightning-combobox>
+                                    </div>
+                                </div>
+                                <div class="form-column">
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="standard:user" size="x-small"></lightning-icon>
+                                            <h3>Agente <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <div class="lookup-container">
+                                            <lightning-input
+                                                label=""
+                                                value={opportunity.AgenteName}
+                                                placeholder="Buscar agente..."
+                                                onfocus={handleAgenteFocus}
+                                                onkeyup={handleAgenteInput}
+                                                variant="label-hidden"
+                                                disabled={isOpportunityReadOnly}
+                                                data-field="AgenteSearch" required>
+                                            </lightning-input>
+                                            <template if:true={showAgenteDropdown}>
+                                                <div class="lookup-dropdown">
+                                                    <ul class="lookup-results">
+                                                        <template if:true={hasAgenteResults}>
+                                                            <template for:each={agenteResults} for:item="ag">
+                                                                <li key={ag.Id} class="lookup-result-item"
+                                                                    onclick={selectAgente} data-id={ag.Id}>
+                                                                    <div class="result-name">{ag.Name}</div>
+                                                                    <div class="result-details">{ag.Email__c}</div>
+                                                                </li>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasAgenteResults}>
+                                                            <li class="no-results">Escribe al menos 3 caracteres para buscar</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:chart" size="x-small"></lightning-icon>
+                                            <h3>Canal <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Canal__c}
+                                            placeholder="Seleccione un canal" options={canalPicklistValues}
+                                            onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Canal__c"
+                                            variant="label-hidden" dropdown-alignment="auto" required>
+                                        </lightning-combobox>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:world" size="x-small"></lightning-icon>
+                                            <h3>Mercado <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Mercado__c}
+                                            placeholder="Seleccione un mercado" options={mercadoPicklistValues}
+                                            onchange={handleComboboxChange} disabled={isOpportunityReadOnly} data-field="Mercado__c"
+                                            variant="label-hidden" dropdown-alignment="auto" required>
+                                        </lightning-combobox>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:date_input" size="x-small"></lightning-icon>
+                                            <h3>Fecha de Cierre <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-input type="date" label="" value={opportunity.CloseDate}
+                                            onchange={handleInputChange} disabled={isOpportunityReadOnly} data-field="CloseDate"
+                                            variant="label-hidden" required>
+                                        </lightning-input>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:moneybag" size="x-small"></lightning-icon>
+                                            <h3>Prima Neta <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-input type="number" formatter="currency" step="0.01"
+                                            label="" value={opportunity.Prima_Neta__c}
+                                            onchange={handleInputChange} disabled={isOpportunityReadOnly}
+                                            data-field="Prima_Neta__c" variant="label-hidden"
+                                            placeholder="0.00" required>
+                                        </lightning-input>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 2: INFORMACIÓN DEL CLIENTE                     -->
+                <!-- ====================================================== -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="standard:contact" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Información del Cliente</h2>
+                            <p class="section-subtitle">Datos de contacto del cliente asociado a la oportunidad</p>
+                        </div>
+                        <div class="section-badge">Opcional</div>
+                    </div>
+                    <div class="form-container">
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <!-- Tipo de cuenta: define si se crea Person Account o Account de empresa -->
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:people" size="x-small"></lightning-icon>
+                                        <h3>Tipo de cuenta <span class="required-asterisk">*</span></h3>
+                                    </div>
+                                    <lightning-combobox label="" value={opportunity.tipoCliente}
+                                        options={tipoClienteOptions} onchange={handleComboboxChange} disabled={isOpportunityReadOnly}
+                                        data-field="tipoCliente" variant="label-hidden">
+                                    </lightning-combobox>
+                                </div>
+                                <!-- PERSONA: Nombre(s) + Apellidos -->
+                                <template if:true={isPersonAccount}>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Nombre(s)</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteNombre} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteNombre" variant="label-hidden" placeholder="Ej: Juan Carlos">
+                                        </lightning-input>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Apellidos</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteApellidos} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteApellidos" variant="label-hidden" placeholder="Ej: Pérez García">
+                                        </lightning-input>
+                                    </div>
+                                </template>
+                                <!-- EMPRESA: Razón Social -->
+                                <template if:false={isPersonAccount}>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Razón Social</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteNombre} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteNombre" variant="label-hidden" placeholder="Ej: Comercializadora ABC S.A. de C.V.">
+                                        </lightning-input>
+                                    </div>
+                                </template>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                        <h3>RFC</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteRFC} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteRFC" variant="label-hidden" placeholder="Ej: PEÑA710313HDF">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                        <h3>Código Postal</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteCP} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteCP" variant="label-hidden" placeholder="Ej: 03100">
+                                    </lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
+                                        <h3>Email</h3>
+                                    </div>
+                                    <lightning-input type="email" label="" value={opportunity.clienteEmail} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:call" size="x-small"></lightning-icon>
+                                        <h3>Teléfono</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:location" size="x-small"></lightning-icon>
+                                        <h3>Dirección</h3>
+                                    </div>
+                                    <lightning-textarea label="" value={opportunity.clienteDireccion} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteDireccion" variant="label-hidden" placeholder="Calle, número, colonia, ciudad...">
+                                    </lightning-textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
+                <!-- ====================================================== -->
+                <div class="unified-section" if:true={showCreateView}>
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="utility:product" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">
+                                <template if:true={isRamoAutomovil}>Detalles del Automóvil</template>
+                                <template if:true={isRamoGMM}>Detalles de Gastos Médicos</template>
+                                <template if:true={isRamoVida}>Detalles del Seguro de Vida</template>
+                                <template if:true={isRamoViajes}>Detalles del Seguro de Viaje</template>
+                                <template if:true={isRamoDanos}>Detalles de Daños</template>
+                                <template if:true={isRamoEmpresarial}>Detalles Empresariales</template>
+                                <template if:true={isRamoFianzas}>Detalles de la Fianza</template>
+                                <template if:true={isRamoRC}>Detalles de Responsabilidad Civil</template>
+                                <template if:true={isRamoDental}>Detalles del Seguro Dental</template>
+                                <template if:true={isRamoVision}>Detalles del Seguro de Visión</template>
+                                <template if:true={isRamoOtros}>Información Adicional</template>
+                            </h2>
+                            <p class="section-subtitle">Información específica del ramo seleccionado.</p>
+                        </div>
+                    </div>
+                    <!-- AUTOMÓVIL -->
+                    <div class="special-section" if:true={isRamoAutomovil}>
+                        <div class="vehicle-form">
+                            <template if:true={isVehiculoLocked}>
+                                <div class="readonly-banner">
+                                    <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
+                                    <span>
+                                        Los datos del vehículo <strong>ya no se pueden modificar</strong>
+                                        una vez guardados. Si el vehículo cambió, crea una
+                                        <strong>nueva oportunidad</strong>.
+                                    </span>
+                                </div>
+                            </template>
+                            <div class="form-card">
+                                <div class="form-card-header">
+                                    <lightning-icon icon-name="standard:vehicle_command" size="x-small"></lightning-icon>
+                                    <h3>Buscar vehículo (serie, placa, marca...)</h3>
+                                </div>
+                                <div class="lookup-container">
+                                    <lightning-input label="" value={opportunity.VehiculoName}
+                                        placeholder="Buscar vehículo existente o capturar uno nuevo abajo..."
+                                        onfocus={handleVehiculoFocus} onkeyup={handleVehiculoInput}
+                                        variant="label-hidden" disabled={isVehiculoReadOnly}
+                                        data-field="VehiculoSearch">
+                                    </lightning-input>
+                                    <template if:true={showVehiculoDropdown}>
+                                        <div class="lookup-dropdown">
+                                            <ul class="lookup-results">
+                                                <template if:true={hasVehiculoResults}>
+                                                    <template for:each={vehiculoResults} for:item="v">
+                                                        <li key={v.Id} class="lookup-result-item"
+                                                            onclick={selectVehiculo} data-id={v.Id}>
+                                                            <div class="result-name">{v.Marca__c} {v.Modelo__c}</div>
+                                                            <div class="result-details">Serie: {v.Serie__c} · Placa: {v.Placa__c}</div>
+                                                        </li>
+                                                    </template>
+                                                </template>
+                                                <template if:false={hasVehiculoResults}>
+                                                    <li class="no-results">Escribe al menos 2 caracteres para buscar</li>
+                                                </template>
+                                            </ul>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="form-grid two-columns">
+                                <div class="form-column">
+                                    <div class="form-card"><h3>Marca <span class="required-asterisk">*</span></h3>
+                                        <lightning-combobox label="" value={automovil.Marca__c} options={marcaPicklistValues}
+                                            placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.Marca__c" variant="label-hidden" dropdown-alignment="auto"></lightning-combobox>
+                                    </div>
+                                    <div class="form-card"><h3>Modelo <span class="required-asterisk">*</span></h3>
+                                        <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Motor <span class="required-asterisk">*</span></h3>
+                                        <lightning-input label="" value={automovil.Motor__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.Motor__c" variant="label-hidden" placeholder="Ej: 2.0L"></lightning-input>
+                                    </div>
+                                </div>
+                                <div class="form-column">
+                                    <div class="form-card"><h3>Serie (VIN) <span class="required-asterisk">*</span></h3>
+                                        <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie" required></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Placa</h3>
+                                        <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.Placa__c" variant="label-hidden" placeholder="Número de placa"></lightning-input>
+                                    </div>
+                                    <div class="form-card"><h3>Descripción Completa</h3>
+                                        <lightning-textarea label="" value={automovil.descripcion_completa__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
+                                            data-field="automovil.descripcion_completa__c" variant="label-hidden" placeholder="Descripción del vehículo"></lightning-textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- GMM -->
+                    <div class="special-section" if:true={isRamoGMM}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Estado de la República</h3>
+                                    <lightning-input label="" value={gmm.estado} onchange={handleGMMChange} disabled={isOpportunityReadOnly}
+                                        data-field="gmm.estado" variant="label-hidden" placeholder="Ej: CDMX"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Tipo de estructura</h3>
+                                    <lightning-combobox label="" value={gmm.tipoEstructura} placeholder="Seleccione"
+                                        options={tipoEstructuraOptions} onchange={handleGMMChange} disabled={isOpportunityReadOnly}
+                                        data-field="gmm.tipoEstructura" variant="label-hidden">
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Número de Asegurados</h3>
+                                    <lightning-input type="number" label="" value={gmm.numAsegurados} onchange={handleGMMChange} disabled={isOpportunityReadOnly}
+                                        data-field="gmm.numAsegurados" variant="label-hidden" min="1"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- VIDA -->
+                    <div class="special-section" if:true={isRamoVida}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Asegurado Principal</h3>
+                                    <lightning-input label="" value={vida.aseguradoPrincipal} onchange={handleVidaChange} disabled={isOpportunityReadOnly}
+                                        data-field="vida.aseguradoPrincipal" variant="label-hidden" placeholder="Nombre completo"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Subramo *</h3>
+                                    <lightning-combobox label="" value={vida.subramo} placeholder="Seleccione"
+                                        options={vidaSubramos} onchange={handleVidaChange} disabled={isOpportunityReadOnly}
+                                        data-field="vida.subramo" variant="label-hidden" required>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Contratante</h3>
+                                    <lightning-input label="" value={vida.contratante} onchange={handleVidaChange} disabled={isOpportunityReadOnly}
+                                        data-field="vida.contratante" variant="label-hidden" placeholder="Si es diferente al asegurado"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- VIAJES -->
+                    <div class="special-section" if:true={isRamoViajes}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Destino</h3>
+                                    <lightning-input label="" value={viaje.destino} onchange={handleViajeChange} disabled={isOpportunityReadOnly}
+                                        data-field="viaje.destino" variant="label-hidden" placeholder="Ej: Mundial, Europa, México"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Número de Pasajeros</h3>
+                                    <lightning-input type="number" label="" value={viaje.numPasajeros} onchange={handleViajeChange} disabled={isOpportunityReadOnly}
+                                        data-field="viaje.numPasajeros" variant="label-hidden" min="1"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- DAÑOS -->
+                    <div class="special-section" if:true={isRamoDanos}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Subramo *</h3>
+                                    <lightning-combobox label="" value={danos.subramo} placeholder="Seleccione"
+                                        options={danosSubramos} onchange={handleDanosChange} disabled={isOpportunityReadOnly}
+                                        data-field="danos.subramo" variant="label-hidden" required>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="form-column"></div>
+                        </div>
+                    </div>
+                    <!-- EMPRESARIAL -->
+                    <div class="special-section" if:true={isRamoEmpresarial}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Giro</h3>
+                                    <lightning-input label="" value={empresarial.giro} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="empresarial.giro" variant="label-hidden" placeholder="Ej: Comercio, Manufactura"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Actividad</h3>
+                                    <lightning-input label="" value={empresarial.actividad} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="empresarial.actividad" variant="label-hidden" placeholder="Actividad principal"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Ubicación</h3>
+                                    <lightning-input label="" value={empresarial.ubicacion} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="empresarial.ubicacion" variant="label-hidden" placeholder="Domicilio del riesgo"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Valor del Inmueble</h3>
+                                    <lightning-input type="number" label="" value={empresarial.valorInmueble} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="empresarial.valorInmueble" variant="label-hidden" min="0"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Valor de Contenidos</h3>
+                                    <lightning-input type="number" label="" value={empresarial.valorContenidos} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="empresarial.valorContenidos" variant="label-hidden" min="0"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FIANZAS -->
+                    <div class="special-section" if:true={isRamoFianzas}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Tipo de Fianza</h3>
+                                    <lightning-input label="" value={fianzas.tipoFianza} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="fianzas.tipoFianza" variant="label-hidden" placeholder="Ej: Cumplimiento, Fidelidad"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Fiado</h3>
+                                    <lightning-input label="" value={fianzas.fiado} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="fianzas.fiado" variant="label-hidden" placeholder="Quien debe cumplir la obligación"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Beneficiario</h3>
+                                    <lightning-input label="" value={fianzas.beneficiario} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="fianzas.beneficiario" variant="label-hidden" placeholder="A favor de quién"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Monto Afianzado</h3>
+                                    <lightning-input type="number" label="" value={fianzas.montoAfianzado} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="fianzas.montoAfianzado" variant="label-hidden" min="0"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RESPONSABILIDAD CIVIL -->
+                    <div class="special-section" if:true={isRamoRC}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Tipo de RC</h3>
+                                    <lightning-input label="" value={rc.tipoRC} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="rc.tipoRC" variant="label-hidden" placeholder="Ej: General, Profesional"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Profesión</h3>
+                                    <lightning-input label="" value={rc.profesion} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="rc.profesion" variant="label-hidden" placeholder="Profesión del asegurado"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Actividad</h3>
+                                    <lightning-input label="" value={rc.actividad} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="rc.actividad" variant="label-hidden" placeholder="Actividad cubierta"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Giro</h3>
+                                    <lightning-input label="" value={rc.giro} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="rc.giro" variant="label-hidden" placeholder="Giro del negocio"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DENTAL -->
+                    <div class="special-section" if:true={isRamoDental}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Plan</h3>
+                                    <lightning-input label="" value={dental.plan} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="dental.plan" variant="label-hidden" placeholder="Plan dental"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Red</h3>
+                                    <lightning-input label="" value={dental.red} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="dental.red" variant="label-hidden" placeholder="Red de dentistas"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Número de Asegurados</h3>
+                                    <lightning-input type="number" label="" value={dental.numAsegurados} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="dental.numAsegurados" variant="label-hidden" min="1"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VISIÓN -->
+                    <div class="special-section" if:true={isRamoVision}>
+                        <div class="form-grid two-columns">
+                            <div class="form-column">
+                                <div class="form-card"><h3>Plan</h3>
+                                    <lightning-input label="" value={vision.plan} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="vision.plan" variant="label-hidden" placeholder="Plan de visión"></lightning-input>
+                                </div>
+                                <div class="form-card"><h3>Red</h3>
+                                    <lightning-input label="" value={vision.red} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="vision.red" variant="label-hidden" placeholder="Red de ópticas/oftalmólogos"></lightning-input>
+                                </div>
+                            </div>
+                            <div class="form-column">
+                                <div class="form-card"><h3>Número de Asegurados</h3>
+                                    <lightning-input type="number" label="" value={vision.numAsegurados} onchange={handleRamoDetailChange} disabled={isOpportunityReadOnly}
+                                        data-field="vision.numAsegurados" variant="label-hidden" min="1"></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 4: COTIZACIONES RELACIONADAS                   -->
+                <!-- (sólo en modo edición — en modo creación no existen)   -->
+                <!-- ====================================================== -->
+                <template if:true={isEditMode}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Cotizaciones de la Oportunidad</h2>
+                                <p class="section-subtitle">Cotizaciones asociadas a esta oportunidad</p>
+                            </div>
+                            <div class="section-badge">{relatedQuotesCount}</div>
+                            <button class="action-btn primary section-action-btn" onclick={handleAddNewQuote}>
+                                <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                Nueva Cotización
+                            </button>
+                        </div>
+                        <div class="quotes-list-container">
+                            <template if:true={hasRelatedQuotes}>
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped quotes-table">
+                                    <thead>
+                                        <tr class="slds-text-title_caps">
+                                            <th scope="col">Número</th>
+                                            <th scope="col">Nombre</th>
+                                            <th scope="col">Compañía</th>
+                                            <th scope="col">Producto</th>
+                                            <th scope="col">Coberturas</th>
+                                            <th scope="col">Estado</th>
+                                            <th scope="col">Prima</th>
+                                            <th scope="col">Vigencia</th>
+                                            <th scope="col">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={relatedQuotes} for:item="q">
+                                            <tr key={q.Id}>
+                                                <td>{q.QuoteNumber}</td>
+                                                <td>{q.Name}</td>
+                                                <td>{q.companiaLabel}</td>
+                                                <td>{q.productName}</td>
+                                                <td>{q.coverageLabel}</td>
+                                                <td>
+                                                    <lightning-badge label={q.statusLabel} class={q.statusBadgeClass}></lightning-badge>
+                                                </td>
+                                                <td class="amount-cell">{q.totalFormatted}</td>
+                                                <td>{q.expirationFormatted}</td>
+                                                <td>
+                                                    <button class="icon-btn" onclick={handleViewQuote} data-id={q.Id} title="Ver cotización">
+                                                        <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
+                                                    </button>
+                                                    <template if:false={isOpportunityReadOnly}>
+                                                        <button class="icon-btn" onclick={handleEditRelatedQuote} data-id={q.Id} title="Editar cotización">
+                                                            <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                                                        </button>
+                                                    </template>
+                                                    <template if:true={q.puedeAceptar}>
+                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} title="Aceptar cotización">
+                                                            <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
+                                                            Aceptar
+                                                        </button>
+                                                    </template>
+                                                    <template if:true={q.esAceptada}>
+                                                        <button class="poliza-quote-btn" onclick={handlePasarAPoliza} data-id={q.Id} title="Pasar la oportunidad a Póliza">
+                                                            <lightning-icon icon-name="utility:contract" size="xx-small"></lightning-icon>
+                                                            Póliza
+                                                        </button>
+                                                    </template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+                            <template if:false={hasRelatedQuotes}>
+                                <div class="empty-state quotes-empty">
+                                    <lightning-icon icon-name="standard:quotes" size="medium"></lightning-icon>
+                                    <h3>Sin cotizaciones</h3>
+                                    <p>Esta oportunidad no tiene cotizaciones asociadas.</p>
+                                    <button class="action-btn primary" onclick={handleAddNewQuote}>
+                                        <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                        Agregar cotización
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Aviso cuando hay 1 sola cotización -->
+                    <template if:true={hasSingleQuote}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <template if:true={hasPdfQuotes}>
+                                        <p class="section-subtitle">Vista previa de los PDFs — revisa y presiona "Aceptar y crear cotizaciones".</p>
+                                    </template>
+                                    <template if:false={hasPdfQuotes}>
+                                        <p class="section-subtitle">Compara prima, estado y vigencia para elegir la mejor opción</p>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="empty-state quotes-empty">
+                                <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
+                                <p>Agrega una segunda cotización para comparar precios, vigencias y estados.</p>
+                                <button class="action-btn primary" onclick={handleAddNewQuote}>
+                                    <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                    Agregar otra cotización
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <template if:true={hasEditableQuotes}>
+                        <div class="unified-section edit-quotes-section" style="margin-top:1.25rem;">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:edit" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Revisar y editar cotizaciones</h2>
+                                    <p class="section-subtitle">Verifica el producto de cada cotización antes de crearlas.</p>
+                                </div>
+                                <div class="section-badge compare-badge">{editableQuotesCount} cotizaciones</div>
+                            </div>
+
+                            <div class="edit-quotes-grid">
+                                <template for:each={editableQuotes} for:item="q" for:index="idx">
+                                    <article key={q.id} class="edit-quote-card">
+                                        <header class="edit-quote-card__head">
+                                            <span class="edit-quote-card__aseg">{q.compania}</span>
+                                            <template if:true={q.esGanadora}>
+                                                <span class="edit-quote-card__badge">★ Recomendada</span>
+                                            </template>
+                                        </header>
+                                        <div class="edit-quote-card__body">
+                                            <div class="eq-field-full">
+                                                <lightning-combobox label="Aseguradora" value={q.aseguradoraId}
+                                                    options={q.aseguradoras} placeholder="Selecciona la aseguradora"
+                                                    data-index={idx} onchange={handleQuoteAseguradoraChange}>
+                                                </lightning-combobox>
+                                            </div>
+                                            <div class="eq-field-full">
+                                                <lightning-combobox label="Producto" value={q.productId}
+                                                    options={q.productos} placeholder="Selecciona un producto"
+                                                    data-index={idx} onchange={handleQuoteProductChange}>
+                                                </lightning-combobox>
+                                                <template if:true={q.sinProductos}>
+                                                    <p class="eq-warn">No hay productos de esta aseguradora/ramo. Elige otro o da uno de alta.</p>
+                                                </template>
+                                            </div>
+                                            <div class="eq-row">
+                                                <lightning-input label="Plan" value={q.plan}
+                                                    data-index={idx} data-field="plan" onchange={handleQuoteFieldChange}></lightning-input>
+                                                <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={q.primaTotal}
+                                                    data-index={idx} data-field="primaTotal" onchange={handleQuoteFieldChange}></lightning-input>
+                                            </div>
+                                            <lightning-combobox label="Frecuencia de prima" value={q.frecuencia}
+                                                options={frecuenciaOptions} placeholder="Selecciona la frecuencia"
+                                                data-index={idx} onchange={handleQuoteFrecuenciaChange}></lightning-combobox>
+                                            <lightning-input type="date" label="Vigencia" value={q.vigencia}
+                                                data-index={idx} data-field="vigencia" onchange={handleQuoteFieldChange}></lightning-input>
+                                        </div>
+                                    </article>
+                                </template>
+                            </div>
+                            <div class="edit-quotes-footer">
+                                <button class="action-btn primary edit-quotes-accept"
+                                        onclick={handleCrearCotizaciones} disabled={isSaving}>
+                                    <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
+                                    Aceptar y crear cotizaciones
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <!-- ====================================================== -->
+                    <!-- SECCIÓN 4.B: COMPARATIVA DE COTIZACIONES               -->
+                    <!-- Sólo se muestra si hay 2 o más cotizaciones            -->
+                    <!-- ====================================================== -->
+                    <template if:true={hasQuoteComparison}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">Compara prima, estado y vigencia para elegir la mejor opción</p>
+                                </div>
+                                <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
+                            </div>
+
+                            <!-- Comparativo generado por la IA (lo mismo que la pestaña "Comparativo IA") -->
+                            <template if:true={hasComparativoHtml}>
+                                <div class="comparativo-ia">
+                                    <div class="comparativo-ia__host" lwc:dom="manual"></div>
+                                </div>
+                            </template>
+
+                            <!-- Comparativa de coberturas (cobertura × aseguradora) -->
+                            <template if:true={hasCoberturasComparadas}>
+                                <h3 class="slds-text-title_caps" style="margin:1rem 0 0.5rem 0;">Comparativa de coberturas</h3>
+                                <div class="cov-table-wrap">
+                                    <table class="cov-table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col" class="cov-field">Cobertura</th>
+                                                <template for:each={coberturasComparadas.cols} for:item="c">
+                                                    <th key={c.key} scope="col" class="cov-col">{c.name}</th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template for:each={coberturasComparadas.rows} for:item="row">
+                                                <tr key={row.key} class={row.rowClass}>
+                                                    <th scope="row" class="cov-field">{row.label}</th>
+                                                    <template for:each={row.cells} for:item="cell">
+                                                        <td key={cell.key} class={cell.cls}>{cell.value}</td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </template>
+
+                            <!-- KPIs de la comparativa (solo si NO hay comparativo de IA) -->
+                            <div class="comparison-kpis" if:false={hasComparativoHtml}>
+                                <div class="kpi-card kpi-best-price">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:currency" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Mejor precio</span>
+                                        <span class="kpi-value">{comparisonSummary.bestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.bestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-highest-price">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:up" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Precio más alto</span>
+                                        <span class="kpi-value">{comparisonSummary.highestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.highestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-average">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:chart" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Prima promedio</span>
+                                        <span class="kpi-value">{comparisonSummary.averageFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.totalQuotes} cotizaciones</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-savings">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:success" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Ahorro potencial</span>
+                                        <span class="kpi-value">{comparisonSummary.savingsFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.savingsPercent}% vs. más alto</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-coverage">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:shield" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Más coberturas</span>
+                                        <span class="kpi-value">{comparisonSummary.mostCoveragesCount}</span>
+                                        <span class="kpi-detail">{comparisonSummary.mostCoveragesCompany}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ============================================== -->
+                            <!-- DOCUMENTO DEL COMPARATIVO (solo si NO hay IA)  -->
+                            <!-- ============================================== -->
+                            <template if:true={showComparativaDoc}>
+                                <div class="comparativo-doc">
+                                    <div class="doc-head">
+                                        <h1>Comparativo de Seguro de {comparativoData.ramoLabel}</h1>
+                                        <p>{comparativoData.opportunityName} · {comparativoData.clienteName} · Vigencia {comparativoData.vigInicio} – {comparativoData.vigFin}</p>
+                                        <span class="doc-tag">{comparativoData.totalQuotes} aseguradoras comparadas · Cotizado por Avanza Seguro</span>
+                                    </div>
+
+                                    <table class="doc-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="doc-th doc-th-lbl">Cobertura</th>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <th key={col.Id} class={col.headerClass}>
+                                                        {col.name}
+                                                        <template if:true={col.hasBadge}>
+                                                            <span class="doc-rec-badge">{col.badge}</span>
+                                                        </template>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="doc-row-price">
+                                                <td class="doc-cell doc-cell-lbl doc-cell-lbl-price">
+                                                    <span class="doc-cn">PRECIO ANUAL (Prima Total)</span>
+                                                </td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>
+                                                        <strong>{col.priceFormatted}</strong>
+                                                        <template if:true={col.hasPriceSub}>
+                                                            <span class="doc-sub">{col.priceSub}</span>
+                                                        </template>
+                                                    </td>
+                                                </template>
+                                            </tr>
+                                            <tr>
+                                                <td class="doc-cell doc-cell-lbl">
+                                                    <span class="doc-cn">Coberturas incluidas (total)</span>
+                                                    <span class="doc-cd">Número de coberturas que trae cada cotización</span>
+                                                </td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>{col.coverageCount}</td>
+                                                </template>
+                                            </tr>
+                                            <template for:each={comparativoData.rows} for:item="row">
+                                                <tr key={row.key}>
+                                                    <td class="doc-cell doc-cell-lbl">
+                                                        <span class="doc-cn">{row.name}</span>
+                                                    </td>
+                                                    <template for:each={row.cells} for:item="cell">
+                                                        <td key={cell.key} class={cell.cellClass}>{cell.text}</td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+
+                                    <p class="doc-note">
+                                        Las columnas resaltadas en naranja son las opciones recomendadas según precio y número de coberturas.
+                                        Este documento es informativo; los detalles finales (sumas aseguradas, deducibles y coaseguros) se definen en cada póliza.
+                                    </p>
+
+                                    <div class="doc-recs">
+                                        <h2>Las mejores opciones — tú decides</h2>
+                                        <div class="doc-twocol">
+                                            <template for:each={comparativoData.cards} for:item="card">
+                                                <div key={card.key} class="doc-card doc-card-win">
+                                                    <h3>{card.title}</h3>
+                                                    <p>{card.text}</p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <div class="doc-decide">
+                                        <h2>Recomendación</h2>
+                                        <div class="doc-bottom">{comparativoData.recomendacion}</div>
+                                    </div>
+
+                                    <div class="doc-glos">
+                                        <h2>Glosario — términos de seguros en palabras sencillas</h2>
+                                        <dl>
+                                            <dt>Prima</dt><dd>El precio del seguro: lo que pagas por estar cubierto durante el periodo de vigencia.</dd>
+                                            <dt>Cobertura</dt><dd>Cada uno de los riesgos o servicios que la aseguradora se compromete a pagar o brindar.</dd>
+                                            <dt>Suma asegurada</dt><dd>El monto máximo que la aseguradora puede pagarte por una cobertura.</dd>
+                                            <dt>Deducible</dt><dd>La parte que tú pagas de tu bolsillo cuando usas el seguro; el resto lo cubre la aseguradora.</dd>
+                                            <dt>Coaseguro</dt><dd>Porcentaje del gasto que el asegurado paga después del deducible.</dd>
+                                            <dt>Vigencia</dt><dd>Periodo durante el cual la póliza está activa y te protege.</dd>
+                                            <dt>Pérdida total</dt><dd>Cuando el bien asegurado se daña tanto, o se pierde, que la aseguradora paga su valor completo en vez de repararlo.</dd>
+                                            <dt>Responsabilidad Civil</dt><dd>Cubre los daños que tú le causes a otras personas o a sus bienes.</dd>
+                                        </dl>
+                                    </div>
+
+                                    <div class="doc-foot">
+                                        Documento generado el {comparativoData.generatedAt} con base en las cotizaciones registradas en Salesforce.
+                                        Información informativa, no es una póliza. · Avanza Seguro Consultores.
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </template>
+                <!-- En modo CREACIÓN -->
+                <template if:false={isEditMode}>
+                    <!-- Comparativa (vista previa desde PDFs, sin guardar) -->
+                    <template if:true={hasQuoteComparison}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones (vista previa)</h2>
+                                    <p class="section-subtitle">Datos extraídos de los PDFs. Aún NO se han guardado.</p>
+                                </div>
+                                <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
+                                <button class="action-btn primary section-action-btn print-comparativo-btn"
+                                        onclick={handlePrintComparativo} title="Imprimir o guardar como PDF">
+                                    <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
+                                    Imprimir / PDF
+                                </button>
+                            </div>
+
+                            <!-- Comparativo generado por la IA (tal cual lo regresa el Prompt Builder) -->
+                            <template if:true={hasComparativoHtml}>
+                                <div class="comparativo-ia">
+                                    <div class="comparativo-ia__host" lwc:dom="manual"></div>
+                                </div>
+                            </template>
+
+                            <!-- KPIs (solo si NO hay comparativo de IA) -->
+                            <div class="comparison-kpis" if:false={hasComparativoHtml}>
+                                <div class="kpi-card kpi-best-price">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:currency" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Mejor precio</span>
+                                        <span class="kpi-value">{comparisonSummary.bestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.bestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-highest-price">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:up" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Precio más alto</span>
+                                        <span class="kpi-value">{comparisonSummary.highestPriceFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.highestPriceCompany}</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-savings">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:success" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Ahorro potencial</span>
+                                        <span class="kpi-value">{comparisonSummary.savingsFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.savingsPercent}% vs. más alto</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-card kpi-coverage">
+                                    <div class="kpi-icon"><lightning-icon icon-name="utility:shield" size="small"></lightning-icon></div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Más coberturas</span>
+                                        <span class="kpi-value">{comparisonSummary.mostCoveragesCount}</span>
+                                        <span class="kpi-detail">{comparisonSummary.mostCoveragesCompany}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Documento comparativo (solo si NO hay comparativo de IA) -->
+                            <template if:true={showComparativaDoc}>
+                                <div class="comparativo-doc">
+                                    <div class="doc-head">
+                                        <h1>Comparativo de Seguro de {comparativoData.ramoLabel}</h1>
+                                        <p>{comparativoData.opportunityName} · {comparativoData.clienteName} · Vigencia {comparativoData.vigInicio} – {comparativoData.vigFin}</p>
+                                        <span class="doc-tag">{comparativoData.totalQuotes} aseguradoras comparadas · Cotizado por Avanza Seguro</span>
+                                    </div>
+                                    <table class="doc-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="doc-th doc-th-lbl">Cobertura</th>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <th key={col.Id} class={col.headerClass}>
+                                                        {col.name}
+                                                        <template if:true={col.hasBadge}><span class="doc-rec-badge">{col.badge}</span></template>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="doc-row-price">
+                                                <td class="doc-cell doc-cell-lbl doc-cell-lbl-price"><span class="doc-cn">PRECIO ANUAL (Prima Total)</span></td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>
+                                                        <strong>{col.priceFormatted}</strong>
+                                                        <template if:true={col.hasPriceSub}><span class="doc-sub">{col.priceSub}</span></template>
+                                                    </td>
+                                                </template>
+                                            </tr>
+                                            <tr>
+                                                <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Coberturas incluidas (total)</span></td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>{col.coverageCount}</td>
+                                                </template>
+                                            </tr>
+                                            <template for:each={comparativoData.rows} for:item="row">
+                                                <tr key={row.key}>
+                                                    <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{row.name}</span></td>
+                                                    <template for:each={row.cells} for:item="cell">
+                                                        <td key={cell.key} class={cell.cellClass}>{cell.text}</td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+
+                                    <div class="doc-recs">
+                                        <h2>Las mejores opciones — tú decides</h2>
+                                        <div class="doc-twocol">
+                                            <template for:each={comparativoData.cards} for:item="card">
+                                                <div key={card.key} class="doc-card doc-card-win">
+                                                    <h3>{card.title}</h3>
+                                                    <p>{card.text}</p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="doc-decide">
+                                        <h2>Recomendación</h2>
+                                        <div class="doc-bottom">{comparativoData.recomendacion}</div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div class="readonly-banner" style="margin-top:1rem;">
+                                <lightning-icon icon-name="utility:info" size="x-small"></lightning-icon>
+                                <span>Es una <strong>vista previa</strong>; las cotizaciones se crearán cuando confirmes los datos.</span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Si no hay cotizaciones del PDF, el aviso de siempre -->
+                    <template if:false={hasPdfQuotes}>
+                        <div class="unified-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon"><lightning-icon icon-name="standard:quotes" size="small"></lightning-icon></div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Cotizaciones</h2>
+                                    <p class="section-subtitle">Las cotizaciones podrán asociarse una vez creada la oportunidad</p>
+                                </div>
+                            </div>
+                            <div class="quotes-list-container">
+                                <div class="empty-state quotes-empty">
+                                    <lightning-icon icon-name="utility:info" size="medium"></lightning-icon>
+                                    <p>Primero guarda la oportunidad; después podrás añadir cotizaciones desde su detalle.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 5: RESUMEN Y GUARDAR                           -->
+                <!-- ====================================================== -->
+                <div class="unified-section summary-section">
+                    <div class="summary-actions">
+                        <button class="action-btn secondary" onclick={handleBackToList} disabled={isSaving}>
+                            <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
+                            Cancelar
+                        </button>
+                        <button class="action-btn primary" onclick={saveOpportunity} disabled={isSaveDisabled}>
+                            <template if:true={isSaving}>
+                                <lightning-spinner alternative-text="Guardando..." size="x-small" variant="inverse"></lightning-spinner>
+                                Guardando...
+                            </template>
+                            <template if:false={isSaving}>
+                                <lightning-icon icon-name="utility:save" size="xx-small"></lightning-icon>
+                                {createButtonLabel}
+                            </template>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <!-- ============================================================ -->
+        <!-- NUEVO - VISTA CREAR DESDE PDFs                                -->
+        <!-- ============================================================ -->
+        <template if:true={showPdfView}>
+            <div class="back-to-list">
+                <button class="back-btn" onclick={handleBackToList}>
+                    <lightning-icon icon-name="utility:back" size="xx-small"></lightning-icon>
+                    Volver a la lista
+                </button>
+            </div>
+            <div class="content-container glass-effect unified-view pdf-view-container">
+                <c-pdf-opportunity-creator
+                    onpdfdataextracted={handlePDFDataExtracted}
+                    onanalysiscomplete={handlePdfAnalysisComplete}>
+                </c-pdf-opportunity-creator>
+            </div>
+        </template>
+    </div>
+</template>

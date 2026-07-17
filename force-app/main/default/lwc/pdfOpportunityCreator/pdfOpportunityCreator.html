@@ -1,0 +1,71 @@
+<template>
+  <div class="pdf-content">
+    <!-- Paso de carga -->
+    <template lwc:if={showUploadStep}>
+      <p class="pdf-intro">
+        Sube 2 o más PDFs (cotizaciones de distintas aseguradoras para el mismo cliente).
+        Los nombres de los archivos deben compartir un prefijo común. La IA leerá los
+        documentos y llenará automáticamente el formulario de la oportunidad.
+      </p>
+
+      <div class="pdf-dropzone">
+        <lightning-icon icon-name="utility:upload" size="large" class="pdf-dropzone__icon"></lightning-icon>
+        <lightning-input type="file" label="Documentos PDF" accept="application/pdf,.pdf"
+          multiple onchange={handleFileChange} disabled={isProcessing} variant="label-hidden">
+        </lightning-input>
+        <p class="pdf-dropzone__hint">Formato PDF · máx. ~4.5 MB por archivo</p>
+      </div>
+
+      <template lwc:if={hasFiles}>
+        <div class="pdf-files">
+          <template for:each={fileList} for:item="f">
+            <div key={f.name} class="pdf-file">
+              <lightning-icon icon-name="doctype:pdf" size="small" class="slds-m-right_x-small"></lightning-icon>
+              <span class="pdf-file__name" title={f.name}>{f.name}</span>
+            </div>
+          </template>
+          <template lwc:if={sharedPrefix}>
+            <p class="pdf-prefix">Prefijo común detectado: <b>{sharedPrefix}</b></p>
+          </template>
+          <template lwc:elseif={prefixWarning}>
+            <div class="pdf-warn">{prefixWarning}</div>
+          </template>
+        </div>
+      </template>
+
+      <div class="pdf-actions">
+        <button class="pdf-btn" onclick={handleContinue} disabled={continueDisabled}>
+          <lightning-icon icon-name="utility:einstein" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+          Analizar y llenar formulario
+        </button>
+      </div>
+    </template>
+
+    <!-- Procesando -->
+    <template lwc:if={isProcessing}>
+      <div class="pdf-loading">
+        <lightning-spinner alternative-text="Procesando" size="medium"></lightning-spinner>
+        <p class="pdf-loading__msg">{statusMessage}</p>
+      </div>
+    </template>
+
+    <!-- Error -->
+    <template lwc:if={error}>
+      <div class="pdf-error">
+        <lightning-icon icon-name="utility:error" variant="inverse" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+        {error}
+      </div>
+    </template>
+
+    <!-- Confirmación -->
+    <template lwc:if={done}>
+      <div class="pdf-done">
+        <lightning-icon icon-name="utility:success" variant="inverse" size="small" class="slds-m-right_small"></lightning-icon>
+        <p>{doneMessage}</p>
+      </div>
+      <div class="pdf-actions">
+        <button class="pdf-btn pdf-btn--secondary" onclick={handleReset}>Procesar otros PDFs</button>
+      </div>
+    </template>
+  </div>
+</template>
