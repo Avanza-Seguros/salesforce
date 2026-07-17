@@ -418,13 +418,42 @@ public with sharing class OpportunityController {
 				if (paRtId != null) {
 					acc.RecordTypeId = paRtId;
 				}
-				acc.FirstName = getStr(d, 'clienteNombre');
-				acc.LastName  = getStr(d, 'clienteApellidos');
-				if (String.isBlank(acc.LastName)) {
-					acc.LastName  = String.isNotBlank(acc.FirstName)
-									? acc.FirstName : getStr(d, 'AccountName');
-					acc.FirstName = null;
+				// Nombre separado en: Nombre(s) -> FirstName, Apellido Paterno -> MiddleName,
+				// Apellido Materno -> LastName. Así los apellidos quedan bien diferenciados.
+				String nombre  = getStr(d, 'clienteNombre');
+				String paterno = getStr(d, 'clienteApellidoPaterno');
+				String materno = getStr(d, 'clienteApellidoMaterno');
+
+				// Compatibilidad: si no llegan los apellidos separados, se usa el campo anterior.
+				if (String.isBlank(paterno) && String.isBlank(materno)) {
+					String apellidos = getStr(d, 'clienteApellidos');
+					if (String.isNotBlank(apellidos)) {
+						List<String> partes = apellidos.trim().split('\\s+');
+						paterno = partes.size() > 0 ? partes[0] : null;
+						if (partes.size() > 1) {
+							List<String> resto = new List<String>();
+							for (Integer i = 1; i < partes.size(); i++) { resto.add(partes[i]); }
+							materno = String.join(resto, ' ');
+						}
+					}
 				}
+
+				acc.FirstName = nombre;
+				String last;
+				if (String.isNotBlank(materno)) {
+					// Nombre(s) | Apellido Paterno (MiddleName) | Apellido Materno (LastName)
+					setIfExistsVeh(acc, 'MiddleName', paterno);
+					last = materno;
+				} else if (String.isNotBlank(paterno)) {
+					// Sin materno: el paterno va en LastName (LastName es obligatorio).
+					last = paterno;
+				} else {
+					// Sin apellidos: usa el nombre o la razón/nombre de cuenta como LastName.
+					last = String.isNotBlank(nombre) ? nombre : getStr(d, 'AccountName');
+					if (String.isNotBlank(nombre)) { acc.FirstName = null; }
+				}
+				acc.LastName = String.isNotBlank(last) ? last : getStr(d, 'AccountName');
+
 				acc.PersonEmail             = getStr(d, 'clienteEmail');
 				acc.Phone                   = getStr(d, 'clienteTelefono');
 				acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');

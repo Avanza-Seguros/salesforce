@@ -770,6 +770,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountId: null,
             AccountName: typedName,
             clienteNombre: '',
+            clienteApellidoPaterno: '',
+            clienteApellidoMaterno: '',
             clienteApellidos: '',
             clienteRFC: '',
             clienteEmail: '',
@@ -1694,9 +1696,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!field) return;
         const value = event.target.value;
         const updated = { ...this.opportunity, [field]: value };
-        if (this.isNewAccount && (field === 'clienteNombre' || field === 'clienteApellidos')) {
+        const nameFields = ['clienteNombre', 'clienteApellidoPaterno', 'clienteApellidoMaterno', 'clienteApellidos'];
+        if (this.isNewAccount && nameFields.includes(field)) {
             if (updated.tipoCliente === 'Persona') {
-                updated.AccountName = `${updated.clienteNombre || ''} ${updated.clienteApellidos || ''}`.trim();
+                updated.AccountName = `${updated.clienteNombre || ''} ${updated.clienteApellidoPaterno || ''} ${updated.clienteApellidoMaterno || ''}`
+                    .replace(/\s+/g, ' ').trim();
             } else {
                 updated.AccountName = updated.clienteNombre || '';
             }
@@ -2273,7 +2277,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 let newAccName = this.opportunity.AccountName;
                 if (!newAccName) {
                     if (this.opportunity.tipoCliente === 'Persona') {
-                        newAccName = `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidos || ''}`.trim();
+                        newAccName = `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidoPaterno || ''} ${this.opportunity.clienteApellidoMaterno || ''}`
+                            .replace(/\s+/g, ' ').trim();
                     } else {
                         newAccName = this.opportunity.clienteNombre || '';
                     }
@@ -2341,7 +2346,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Prima_Neta__c: null,                              // ← prima neta de la oportunidad
             Id: null,
             tipoCliente: 'Persona',
-            clienteNombre: '', clienteApellidos: '', clienteRFC: '', clienteCP: '',
+            clienteNombre: '', clienteApellidoPaterno: '', clienteApellidoMaterno: '',
+            clienteApellidos: '', clienteRFC: '', clienteCP: '',
             clienteEmail: '', clienteTelefono: '', clienteDireccion: ''
         };
     }

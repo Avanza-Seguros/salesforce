@@ -556,7 +556,7 @@
                                         data-field="tipoCliente" variant="label-hidden">
                                     </lightning-combobox>
                                 </div>
-                                <!-- PERSONA: Nombre(s) + Apellidos -->
+                                <!-- PERSONA: Nombre(s) + Apellido Paterno + Apellido Materno -->
                                 <template if:true={isPersonAccount}>
                                     <div class="form-card">
                                         <div class="form-card-header">
@@ -570,10 +570,19 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
-                                            <h3>Apellidos</h3>
+                                            <h3>Apellido Paterno</h3>
                                         </div>
-                                        <lightning-input label="" value={opportunity.clienteApellidos} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                            data-field="clienteApellidos" variant="label-hidden" placeholder="Ej: Pérez García">
+                                        <lightning-input label="" value={opportunity.clienteApellidoPaterno} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteApellidoPaterno" variant="label-hidden" placeholder="Ej: Pérez">
+                                        </lightning-input>
+                                    </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                            <h3>Apellido Materno</h3>
+                                        </div>
+                                        <lightning-input label="" value={opportunity.clienteApellidoMaterno} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                            data-field="clienteApellidoMaterno" variant="label-hidden" placeholder="Ej: García">
                                         </lightning-input>
                                     </div>
                                 </template>

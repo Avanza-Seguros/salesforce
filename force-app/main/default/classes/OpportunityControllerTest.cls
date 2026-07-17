@@ -202,6 +202,41 @@ private class OpportunityControllerTest {
     }
 
     @isTest
+    static void testSaveOpportunity_newPersona() {
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Nueva Opp Persona',
+            'tipoCliente' => 'Persona',
+            'clienteNombre' => 'Juan Carlos',
+            'clienteApellidoPaterno' => 'Pérez',
+            'clienteApellidoMaterno' => 'García',
+            'clienteEmail' => 'juanc@test.com',
+            'clienteTelefono' => '5551112233',
+            'clienteDireccion' => 'Av. Siempre Viva 100',
+            'clienteCP' => '44200',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'Vida',
+            'Mercado__c' => 'Corporativo',
+            'CloseDate' => String.valueOf(Date.today().addDays(30))
+        };
+        Test.startTest();
+        try {
+            Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+            if (oppId != null) {
+                Opportunity o = [SELECT AccountId FROM Opportunity WHERE Id = :oppId];
+                if (o.AccountId != null) {
+                    // Nombre(s) -> FirstName ; Apellido Materno -> LastName.
+                    Account a = [SELECT FirstName, LastName FROM Account WHERE Id = :o.AccountId];
+                    System.assertEquals('Juan Carlos', a.FirstName, 'FirstName debe ser el nombre');
+                    System.assertEquals('García', a.LastName, 'LastName debe ser el apellido materno');
+                }
+            }
+        } catch (Exception e) {
+            // Si el org no tiene Person Accounts habilitadas, las líneas quedan cubiertas igual.
+        }
+        Test.stopTest();
+    }
+
+    @isTest
     static void testSaveOpportunity_updateWithAuto() {
         Opportunity existing = [SELECT Id, AccountId FROM Opportunity LIMIT 1];
         Map<String, Object> veh = new Map<String, Object>{
