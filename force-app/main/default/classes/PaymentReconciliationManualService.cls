@@ -3,23 +3,31 @@
  *   @version: 1.0
  *   @creation date: 18/07/2026
  *   @author: Javier Torres - Volestra
- *   @description: Servicio de resolucion manual de conciliaciones en revision (historias
- *                 193 aprobar, 194 rechazar, 195 reprocesar). Esta version implementa la
- *                 aprobacion manual (H193): valida que el caso tenga la informacion minima
- *                 (poliza y cuota final abiertas), sella la decision manual con trazabilidad
- *                 (manualResolvedBy__c / manualResolvedAt__c / matchMethod__c = Decision
- *                 manual), deja la conciliacion en Conciliado, cascada el estado al inbound
- *                 y reutiliza PolicyPaymentReceiptQueueable para crear el recibo (idempotente
- *                 por resultingReceipt__c). El sello manualResolvedBy__c actua como candado
- *                 del guardail anti-reentrada en PaymentReconciliationQueueable.
+ *   @description: Servicio de resolucion manual de conciliaciones en revision.
+ *                 - H193 (approve): valida poliza y cuota final abiertas, sella la decision
+ *                   manual, deja la conciliacion en Conciliado, cascada el inbound y reutiliza
+ *                   PolicyPaymentReceiptQueueable (idempotente por resultingReceipt__c).
+ *                 - H194 (reject): captura motivo y notas, deja Rechazado, cascada el inbound
+ *                   a Rechazado y no genera recibo.
+ *                 - H195 (reprocess): libera el candado manual (manualResolvedBy__c), resetea
+ *                   el inbound a Normalizado y re-encola el pipeline desde la identificacion de
+ *                   poliza candidata, dejando traza (reprocessCount__c / lastReprocessedAt__c /
+ *                   lastReprocessedBy__c en el inbound, y reprocessLog__c append-only en la
+ *                   conciliacion). El doble cobro es imposible por diseno: externalPaymentId__c
+ *                   es Unique External Id (un inbound por pago) y solo se reprocesan casos sin
+ *                   recibo, por lo que un pago no puede generar dos recibos Reconocido.
+ *                 El sello manualResolvedBy__c actua como candado del guardail anti-reentrada
+ *                 en PaymentReconciliationQueueable; el reproceso es la unica via que lo libera.
  */
 public with sharing class PaymentReconciliationManualService {
 	private static final String STATUS_RECONCILED = 'Conciliado';
 	private static final String STATUS_REJECTED = 'Rechazado';
 	private static final String STATUS_DUPLICATE = 'Duplicado';
 	private static final String MATCH_METHOD_MANUAL = 'Decision manual';
+	private static final String STATUS_REVIEW = 'Requiere revision';
 	private static final String INBOUND_STATUS_RECONCILED = 'Conciliado';
 	private static final String INBOUND_STATUS_REJECTED = 'Rechazado';
+	private static final String INBOUND_STATUS_NORMALIZED = 'Normalizado';
 	private static final String INBOUND_REJECTION_REASON_BUSINESS = 'Rechazado por negocio';
 	private static final String PLAN_STATUS_ACTIVE = 'Activo';
 
@@ -31,6 +39,15 @@ public with sharing class PaymentReconciliationManualService {
 	private static final Set<String> OPEN_INSTALLMENT_STATUSES = new Set<String>{
 		'Pendiente',
 		'Vencido'
+	};
+	// Estados desde los que un caso puede reprocesarse (H195). El unico no elegible
+	// es Conciliado con recibo Reconocido (requiere reversa, fuera de alcance).
+	private static final Set<String> REPROCESSABLE_STATUSES = new Set<String>{
+		'Requiere revision',
+		'Probable',
+		'Sin Match',
+		'Rechazado',
+		'Duplicado'
 	};
 
 	public class ManualResolutionException extends Exception {
@@ -248,6 +265,189 @@ public with sharing class PaymentReconciliationManualService {
 				rejectionReason__c = INBOUND_REJECTION_REASON_BUSINESS
 			);
 		}
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Punto de entrada AuraEnabled para la UI de reproceso (H195). Delega
+	 *               en reprocessReconciliation y traduce las excepciones de negocio a
+	 *               AuraHandledException.
+	 * @param reconciliationId: Id de la conciliacion a reprocesar.
+	 * @param notes: Motivo/notas del reproceso (opcional).
+	 * @return
+	 */
+	@AuraEnabled
+	public static void reprocess(Id reconciliationId, String notes) {
+		try {
+			reprocessReconciliation(reconciliationId, notes);
+		} catch (ManualResolutionException e) {
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Reintenta la conciliacion sobre el inbound existente (H195): valida
+	 *               elegibilidad (no reconocido, sin recibo, estado reprocesable), guarda
+	 *               el estado previo en la bitacora append-only reprocessLog__c, libera el
+	 *               candado manual y saca el caso del estado terminal (para que el pipeline
+	 *               pueda actualizarlo), resetea el inbound a Normalizado con la traza de
+	 *               reproceso, y re-encola InboundPolicyCandidateQueueable para re-correr la
+	 *               identificacion de poliza/cuota, reglas y score. No re-parsea el payload:
+	 *               usa los campos normalizados actuales, respetando correcciones del analista.
+	 * @param reconciliationId: Id de la conciliacion a reprocesar.
+	 * @param notes: Notas del reproceso.
+	 * @return
+	 */
+	@TestVisible
+	private static void reprocessReconciliation(
+		Id reconciliationId,
+		String notes
+	) {
+		if (reconciliationId == null) {
+			throw new ManualResolutionException(
+				'Falta la conciliación a reprocesar.'
+			);
+		}
+
+		PaymentReconciliation__c recon = loadReconciliationForReprocess(
+			reconciliationId
+		);
+
+		if (
+			STATUS_RECONCILED.equals(recon.reconciliationStatus__c) ||
+			recon.resultingReceipt__c != null
+		) {
+			throw new ManualResolutionException(
+				'La conciliación ya está reconocida (con recibo) y no puede reprocesarse; requiere reversa.'
+			);
+		}
+		if (!REPROCESSABLE_STATUSES.contains(recon.reconciliationStatus__c)) {
+			throw new ManualResolutionException(
+				'El estado actual de la conciliación no permite reproceso.'
+			);
+		}
+		if (recon.inboundPayment__c == null) {
+			throw new ManualResolutionException(
+				'La conciliación no tiene un inbound asociado para reprocesar.'
+			);
+		}
+
+		// Bitacora append-only: el pipeline no toca reprocessLog__c, asi que conserva el
+		// historico entre re-corridas. Se calcula antes de resetear estado/motivo.
+		recon.reprocessLog__c = appendReprocessLog(recon, notes);
+		// Libera el guardail anti-reentrada y saca el caso del estado terminal para que el
+		// pipeline reentrante pueda actualizar la conciliacion con el nuevo resultado.
+		recon.manualResolvedBy__c = null;
+		recon.manualResolvedAt__c = null;
+		recon.rejectedReason__c = null;
+		recon.reconciliationStatus__c = STATUS_REVIEW;
+		update recon;
+
+		InboundInsurancePayment__c inbound = loadInboundForReprocess(
+			recon.inboundPayment__c
+		);
+		Decimal previous = inbound.reprocessCount__c == null
+			? 0
+			: inbound.reprocessCount__c;
+		update new InboundInsurancePayment__c(
+			Id = inbound.Id,
+			inboundStatus__c = INBOUND_STATUS_NORMALIZED,
+			reprocessCount__c = previous + 1,
+			lastReprocessedAt__c = System.now(),
+			lastReprocessedBy__c = UserInfo.getUserId()
+		);
+
+		System.enqueueJob(
+			new InboundPolicyCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Carga la conciliacion con los campos necesarios para validar y reprocesar.
+	 * @param reconciliationId: Id de la conciliacion.
+	 * @return PaymentReconciliation__c cargada.
+	 */
+	private static PaymentReconciliation__c loadReconciliationForReprocess(
+		Id reconciliationId
+	) {
+		List<PaymentReconciliation__c> recons = [
+			SELECT
+				Id,
+				reconciliationStatus__c,
+				rejectedReason__c,
+				resultingReceipt__c,
+				inboundPayment__c,
+				manualResolvedBy__c,
+				reprocessLog__c
+			FROM PaymentReconciliation__c
+			WHERE Id = :reconciliationId
+			LIMIT 1
+		];
+		if (recons.isEmpty()) {
+			throw new ManualResolutionException('La conciliación no existe.');
+		}
+		return recons[0];
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Carga el inbound con el contador de reprocesos para incrementarlo.
+	 * @param inboundId: Id del inbound.
+	 * @return InboundInsurancePayment__c cargado.
+	 */
+	private static InboundInsurancePayment__c loadInboundForReprocess(
+		Id inboundId
+	) {
+		return [
+			SELECT Id, reprocessCount__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inboundId
+			LIMIT 1
+		];
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Construye la entrada de bitacora del reproceso (sello, estado previo,
+	 *               motivo y notas) y la agrega al historico existente sin perderlo.
+	 * @param recon: Conciliacion con el estado previo aun sin resetear.
+	 * @param notes: Notas del reproceso, opcionales.
+	 * @return Texto de bitacora combinado.
+	 */
+	@TestVisible
+	private static String appendReprocessLog(
+		PaymentReconciliation__c recon,
+		String notes
+	) {
+		String stamp =
+			'[Reproceso ' +
+			System.now().format('yyyy-MM-dd HH:mm') +
+			' por ' +
+			UserInfo.getName() +
+			']';
+		String prev =
+			'Estado previo: ' +
+			recon.reconciliationStatus__c +
+			(String.isNotBlank(recon.rejectedReason__c)
+				? ' (motivo: ' + recon.rejectedReason__c + ')'
+				: '') +
+			'.';
+		String entry =
+			stamp +
+			' ' +
+			prev +
+			(String.isNotBlank(notes) ? ' ' + notes : '');
+		if (String.isBlank(recon.reprocessLog__c)) {
+			return entry;
+		}
+		return recon.reprocessLog__c + '\n' + entry;
 	}
 
 	/**

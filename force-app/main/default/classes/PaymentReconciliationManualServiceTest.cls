@@ -371,6 +371,126 @@ private class PaymentReconciliationManualServiceTest {
 		);
 	}
 
+	// ---------- H195: reproceso ----------
+
+	@IsTest
+	static void reprocessResetsInboundAndClearsLock() {
+		Scenario sc = buildScenario('POL-195-001', 'Rechazado');
+		sc.recon.rejectedReason__c = 'Duplicado';
+		sc.recon.manualResolvedBy__c = UserInfo.getUserId();
+		sc.recon.manualResolvedAt__c = System.now();
+		update sc.recon;
+
+		Test.startTest();
+		PaymentReconciliationManualService.reprocessReconciliation(
+			sc.recon.Id,
+			'Ya se creó la póliza'
+		);
+		Test.stopTest();
+
+		PaymentReconciliation__c recon = [
+			SELECT
+				reconciliationStatus__c,
+				manualResolvedBy__c,
+				manualResolvedAt__c,
+				rejectedReason__c,
+				reprocessLog__c
+			FROM PaymentReconciliation__c
+			WHERE Id = :sc.recon.Id
+		];
+		Assert.areEqual('Requiere revision', recon.reconciliationStatus__c);
+		Assert.isNull(
+			recon.manualResolvedBy__c,
+			'El reproceso libera el candado del guardaíl'
+		);
+		Assert.isNull(recon.manualResolvedAt__c);
+		Assert.isNotNull(recon.reprocessLog__c);
+		Assert.isTrue(recon.reprocessLog__c.contains('Ya se creó la póliza'));
+		Assert.isTrue(recon.reprocessLog__c.contains('Estado previo: Rechazado'));
+
+		InboundInsurancePayment__c inbound = [
+			SELECT
+				inboundStatus__c,
+				reprocessCount__c,
+				lastReprocessedAt__c,
+				lastReprocessedBy__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :sc.inbound.Id
+		];
+		Assert.areEqual('Normalizado', inbound.inboundStatus__c);
+		Assert.areEqual(1, inbound.reprocessCount__c);
+		Assert.isNotNull(inbound.lastReprocessedAt__c);
+		Assert.areEqual(UserInfo.getUserId(), inbound.lastReprocessedBy__c);
+	}
+
+	@IsTest
+	static void reprocessTwiceIncrementsCounterAndKeepsHistory() {
+		Scenario sc = buildScenario('POL-195-002', 'Sin Match');
+
+		Test.startTest();
+		PaymentReconciliationManualService.reprocessReconciliation(
+			sc.recon.Id,
+			'intento uno'
+		);
+		PaymentReconciliationManualService.reprocessReconciliation(
+			sc.recon.Id,
+			'intento dos'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c inbound = [
+			SELECT reprocessCount__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :sc.inbound.Id
+		];
+		Assert.areEqual(2, inbound.reprocessCount__c);
+
+		PaymentReconciliation__c recon = [
+			SELECT reprocessLog__c
+			FROM PaymentReconciliation__c
+			WHERE Id = :sc.recon.Id
+		];
+		Assert.isTrue(recon.reprocessLog__c.contains('intento uno'));
+		Assert.isTrue(
+			recon.reprocessLog__c.contains('intento dos'),
+			'La bitácora conserva ambos reprocesos'
+		);
+	}
+
+	@IsTest
+	static void reprocessFailsWhenReconciled() {
+		Scenario sc = buildScenario('POL-195-003', 'Conciliado');
+		assertReprocessBlocked(sc.recon.Id, 'reconocida');
+	}
+
+	@IsTest
+	static void reprocessFailsWhenReceiptExists() {
+		Scenario sc = buildScenario('POL-195-004', 'Requiere revision');
+		PolicyPaymentReceipt__c receipt = new PolicyPaymentReceipt__c(
+			insurancePolicy__c = sc.policy.Id,
+			paymentReconciliation__c = sc.recon.Id,
+			receiptAmount__c = 400,
+			receiptDate__c = Date.today(),
+			receiptStatus__c = 'Reconocido'
+		);
+		insert receipt;
+		sc.recon.resultingReceipt__c = receipt.Id;
+		update sc.recon;
+		assertReprocessBlocked(sc.recon.Id, 'reconocida');
+	}
+
+	@IsTest
+	static void publicReprocessWrapsErrorAsAuraHandled() {
+		Scenario sc = buildScenario('POL-195-005', 'Conciliado');
+		Boolean thrown = false;
+		try {
+			PaymentReconciliationManualService.reprocess(sc.recon.Id, 'x');
+		} catch (AuraHandledException e) {
+			thrown = true;
+		}
+		Assert.isTrue(thrown);
+	}
+
 	// ---------- helpers ----------
 
 	private static void assertBlocked(
@@ -418,6 +538,20 @@ private class PaymentReconciliationManualServiceTest {
 			);
 		}
 		Assert.isTrue(thrown, 'Debia bloquear el rechazo (' + fragment + ')');
+	}
+
+	private static void assertReprocessBlocked(Id reconId, String fragment) {
+		Boolean thrown = false;
+		try {
+			PaymentReconciliationManualService.reprocessReconciliation(reconId, 'x');
+		} catch (PaymentReconciliationManualService.ManualResolutionException e) {
+			thrown = true;
+			Assert.isTrue(
+				e.getMessage().toLowerCase().contains(fragment.toLowerCase()),
+				'Mensaje inesperado: ' + e.getMessage()
+			);
+		}
+		Assert.isTrue(thrown, 'Debia bloquear el reproceso (' + fragment + ')');
 	}
 
 	private class Scenario {

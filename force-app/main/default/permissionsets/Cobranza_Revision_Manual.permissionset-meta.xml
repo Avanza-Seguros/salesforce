@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
-	>Otorga al analista de cobranzas la resolución manual de conciliaciones en revisión: aprobar (H193), y las acciones asociadas sobre conciliación, cuota, recibo e inbound.</description>
+	>Otorga al analista de cobranzas la resolución manual de conciliaciones en revisión: aprobar (H193), rechazar (H194) y reprocesar (H195), con las acciones asociadas sobre conciliación, cuota, recibo e inbound.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Cobranza - Revisión Manual</label>
     <classAccesses>
@@ -14,6 +14,26 @@
     </classAccesses>
     <classAccesses>
         <apexClass>PaymentInstallmentMatchQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>InboundPolicyCandidateQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>InboundInstallmentCandidateQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>InboundReconciliationRulesQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>InboundConfidenceScoreQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>PaymentReconciliationQueueable</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <objectPermissions>
@@ -254,6 +274,26 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>InboundInsurancePayment__c.sourceReceiptNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.reprocessCount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.lastReprocessedAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.lastReprocessedBy__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PaymentReconciliation__c.reprocessLog__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <recordTypeVisibilities>

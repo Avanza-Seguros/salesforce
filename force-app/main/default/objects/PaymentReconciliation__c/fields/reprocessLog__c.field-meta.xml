@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reprocessLog__c</fullName>
+    <description
+	>Bitácora append-only de reprocesos (H195): cada entrada guarda fecha/hora, usuario, estado previo y notas. El pipeline no la sobrescribe, a diferencia de decisionNotes__c, por lo que conserva el histórico entre re-corridas.</description>
+    <label>Bitácora de reprocesos</label>
+    <length>32768</length>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>
