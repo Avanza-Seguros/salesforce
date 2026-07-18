@@ -177,10 +177,12 @@
     </types>
     <types>
         <members>reconciliationManualApprove</members>
+        <members>reconciliationManualReject</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
         <members>PaymentReconciliation__c.Aprobar_manualmente</members>
+        <members>PaymentReconciliation__c.Rechazar_manualmente</members>
         <name>QuickAction</name>
     </types>
     <types>

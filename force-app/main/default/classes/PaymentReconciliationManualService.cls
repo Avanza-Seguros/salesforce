@@ -19,6 +19,8 @@ public with sharing class PaymentReconciliationManualService {
 	private static final String STATUS_DUPLICATE = 'Duplicado';
 	private static final String MATCH_METHOD_MANUAL = 'Decision manual';
 	private static final String INBOUND_STATUS_RECONCILED = 'Conciliado';
+	private static final String INBOUND_STATUS_REJECTED = 'Rechazado';
+	private static final String INBOUND_REJECTION_REASON_BUSINESS = 'Rechazado por negocio';
 	private static final String PLAN_STATUS_ACTIVE = 'Activo';
 
 	private static final Set<String> CLOSED_STATUSES = new Set<String>{
@@ -156,6 +158,96 @@ public with sharing class PaymentReconciliationManualService {
 		System.enqueueJob(
 			new PolicyPaymentReceiptQueueable(new Set<Id>{ recon.Id })
 		);
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Punto de entrada AuraEnabled para la UI de rechazo manual (H194).
+	 *               Delega en rejectReconciliation y traduce las excepciones de negocio
+	 *               a AuraHandledException.
+	 * @param reconciliationId: Id de la PaymentReconciliation__c en revision.
+	 * @param rejectedReason: Motivo de rechazo (picklist rejectedReason__c).
+	 * @param notes: Notas de decision del analista (obligatorias).
+	 * @return
+	 */
+	@AuraEnabled
+	public static void reject(
+		Id reconciliationId,
+		String rejectedReason,
+		String notes
+	) {
+		try {
+			rejectReconciliation(reconciliationId, rejectedReason, notes);
+		} catch (ManualResolutionException e) {
+			throw new AuraHandledException(e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 18/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Aplica el rechazo manual sobre la conciliacion (H194): valida
+	 *               elegibilidad (caso no cerrado, sin recibo) y captura minima (motivo
+	 *               y notas), deja la conciliacion en Rechazado con el motivo, sella la
+	 *               decision manual y cascada el inbound a Rechazado. No genera recibo.
+	 *               El sello manualResolvedBy__c activa el guardail anti-reentrada.
+	 * @param reconciliationId: Id de la conciliacion a rechazar.
+	 * @param rejectedReason: Motivo de rechazo.
+	 * @param notes: Notas de decision.
+	 * @return
+	 */
+	@TestVisible
+	private static void rejectReconciliation(
+		Id reconciliationId,
+		String rejectedReason,
+		String notes
+	) {
+		if (reconciliationId == null) {
+			throw new ManualResolutionException('Falta la conciliación a rechazar.');
+		}
+		if (String.isBlank(rejectedReason)) {
+			throw new ManualResolutionException(
+				'Debe seleccionar un motivo de rechazo.'
+			);
+		}
+		if (String.isBlank(notes)) {
+			throw new ManualResolutionException(
+				'Debe capturar notas de decisión para rechazar.'
+			);
+		}
+
+		PaymentReconciliation__c recon = loadReconciliation(reconciliationId);
+
+		if (CLOSED_STATUSES.contains(recon.reconciliationStatus__c)) {
+			throw new ManualResolutionException(
+				'La conciliación ya está cerrada y no puede rechazarse de nuevo.'
+			);
+		}
+		if (recon.resultingReceipt__c != null) {
+			throw new ManualResolutionException(
+				'La conciliación ya tiene un recibo generado y no puede rechazarse.'
+			);
+		}
+
+		recon.reconciliationStatus__c = STATUS_REJECTED;
+		recon.rejectedReason__c = rejectedReason;
+		recon.manualResolvedBy__c = UserInfo.getUserId();
+		recon.manualResolvedAt__c = System.now();
+		recon.decisionNotes__c = appendManualNote(
+			recon.decisionNotes__c,
+			'Rechazo manual',
+			notes
+		);
+		update recon;
+
+		if (recon.inboundPayment__c != null) {
+			update new InboundInsurancePayment__c(
+				Id = recon.inboundPayment__c,
+				inboundStatus__c = INBOUND_STATUS_REJECTED,
+				rejectionReason__c = INBOUND_REJECTION_REASON_BUSINESS
+			);
+		}
 	}
 
 	/**

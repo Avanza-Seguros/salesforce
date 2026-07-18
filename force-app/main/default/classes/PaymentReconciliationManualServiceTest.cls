@@ -244,6 +244,133 @@ private class PaymentReconciliationManualServiceTest {
 		Assert.isTrue(appended.length() > fromBlank.length());
 	}
 
+	// ---------- H194: rechazo manual ----------
+
+	@IsTest
+	static void rejectSealsDecisionAndCascadesInbound() {
+		Scenario sc = buildScenario('POL-194-001', 'Requiere revision');
+
+		Test.startTest();
+		PaymentReconciliationManualService.rejectReconciliation(
+			sc.recon.Id,
+			'Sin coincidencia de poliza',
+			'No corresponde a ninguna póliza vigente'
+		);
+		Test.stopTest();
+
+		PaymentReconciliation__c recon = [
+			SELECT
+				reconciliationStatus__c,
+				rejectedReason__c,
+				manualResolvedBy__c,
+				manualResolvedAt__c,
+				resultingReceipt__c,
+				decisionNotes__c
+			FROM PaymentReconciliation__c
+			WHERE Id = :sc.recon.Id
+		];
+		Assert.areEqual('Rechazado', recon.reconciliationStatus__c);
+		Assert.areEqual('Sin coincidencia de poliza', recon.rejectedReason__c);
+		Assert.areEqual(UserInfo.getUserId(), recon.manualResolvedBy__c);
+		Assert.isNotNull(recon.manualResolvedAt__c);
+		Assert.isNull(
+			recon.resultingReceipt__c,
+			'El rechazo no debe generar recibo'
+		);
+		Assert.isTrue(recon.decisionNotes__c.contains('No corresponde'));
+
+		InboundInsurancePayment__c inbound = [
+			SELECT inboundStatus__c, rejectionReason__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :sc.inbound.Id
+		];
+		Assert.areEqual('Rechazado', inbound.inboundStatus__c);
+		Assert.areEqual('Rechazado por negocio', inbound.rejectionReason__c);
+
+		List<PolicyPaymentReceipt__c> receipts = [
+			SELECT Id
+			FROM PolicyPaymentReceipt__c
+			WHERE paymentReconciliation__c = :sc.recon.Id
+		];
+		Assert.areEqual(0, receipts.size());
+	}
+
+	@IsTest
+	static void rejectFailsWhenReasonMissing() {
+		Scenario sc = buildScenario('POL-194-002', 'Requiere revision');
+		assertRejectBlocked(sc.recon.Id, null, 'notas', 'motivo');
+	}
+
+	@IsTest
+	static void rejectFailsWhenNotesMissing() {
+		Scenario sc = buildScenario('POL-194-003', 'Requiere revision');
+		assertRejectBlocked(sc.recon.Id, 'Duplicado', '', 'notas');
+	}
+
+	@IsTest
+	static void rejectFailsWhenAlreadyClosed() {
+		Scenario sc = buildScenario('POL-194-004', 'Rechazado');
+		assertRejectBlocked(sc.recon.Id, 'Duplicado', 'x', 'cerrada');
+	}
+
+	@IsTest
+	static void rejectFailsWhenReceiptExists() {
+		Scenario sc = buildScenario('POL-194-005', 'Requiere revision');
+		PolicyPaymentReceipt__c receipt = new PolicyPaymentReceipt__c(
+			insurancePolicy__c = sc.policy.Id,
+			paymentReconciliation__c = sc.recon.Id,
+			receiptAmount__c = 400,
+			receiptDate__c = Date.today(),
+			receiptStatus__c = 'Reconocido'
+		);
+		insert receipt;
+		sc.recon.resultingReceipt__c = receipt.Id;
+		update sc.recon;
+		assertRejectBlocked(sc.recon.Id, 'Duplicado', 'x', 'recibo');
+	}
+
+	@IsTest
+	static void publicRejectWrapsErrorAsAuraHandled() {
+		Scenario sc = buildScenario('POL-194-006', 'Requiere revision');
+		Boolean thrown = false;
+		try {
+			PaymentReconciliationManualService.reject(sc.recon.Id, null, 'x');
+		} catch (AuraHandledException e) {
+			thrown = true;
+		}
+		Assert.isTrue(thrown);
+	}
+
+	@IsTest
+	static void guardrailProtectsRejectionOnReprocess() {
+		Scenario sc = buildScenario('POL-194-007', 'Requiere revision');
+		PaymentReconciliationManualService.rejectReconciliation(
+			sc.recon.Id,
+			'Ambiguo',
+			'Rechazo de prueba'
+		);
+		sc.inbound.inboundStatus__c = 'Revision Manual';
+		sc.inbound.reconciliationMethod__c = 'POLICY_ONLY';
+		update sc.inbound;
+
+		Test.startTest();
+		System.enqueueJob(
+			new PaymentReconciliationQueueable(new Set<Id>{ sc.inbound.Id })
+		);
+		Test.stopTest();
+
+		PaymentReconciliation__c recon = [
+			SELECT reconciliationStatus__c
+			FROM PaymentReconciliation__c
+			WHERE Id = :sc.recon.Id
+		];
+		Assert.areEqual(
+			'Rechazado',
+			recon.reconciliationStatus__c,
+			'El pipeline no debe reabrir un rechazo manual'
+		);
+	}
+
 	// ---------- helpers ----------
 
 	private static void assertBlocked(
@@ -268,6 +395,29 @@ private class PaymentReconciliationManualServiceTest {
 			);
 		}
 		Assert.isTrue(thrown, 'Debia bloquear la aprobacion (' + fragment + ')');
+	}
+
+	private static void assertRejectBlocked(
+		Id reconId,
+		String reason,
+		String notes,
+		String fragment
+	) {
+		Boolean thrown = false;
+		try {
+			PaymentReconciliationManualService.rejectReconciliation(
+				reconId,
+				reason,
+				notes
+			);
+		} catch (PaymentReconciliationManualService.ManualResolutionException e) {
+			thrown = true;
+			Assert.isTrue(
+				e.getMessage().toLowerCase().contains(fragment.toLowerCase()),
+				'Mensaje inesperado: ' + e.getMessage()
+			);
+		}
+		Assert.isTrue(thrown, 'Debia bloquear el rechazo (' + fragment + ')');
 	}
 
 	private class Scenario {
