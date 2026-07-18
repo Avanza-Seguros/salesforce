@@ -30,8 +30,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Campos de fecha que se manejan como "solo fecha".
     DATE_FIELDS = [
-        'EffectiveDate', 'ExpirationDate', 'RenewalDate', 'PreviousRenewalDate',
-        'FinalRenewalDate', 'SaleDate', 'PaymentDueDate', 'CancellationDate'
+        'EffectiveDate', 'ExpirationDate', 'CancellationEffectiveDate', 'SaleDate',
+        'PreviousRenewalDate', 'RenewalDate', 'PlannedRenewalDate', 'PaymentDueDate'
     ];
 
     // Recibe los Ids por navegación (desde el botón "Póliza" de Crear Oportunidad).
@@ -288,7 +288,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const dateVals = {
             EffectiveDate: d.vigenciaDesde,
             ExpirationDate: d.vigenciaHasta,
-            PaymentDueDate: nuevaFechaVenc
+            SaleDate: d.fechaEmision,
+            CancellationEffectiveDate: d.fechaCancelacion,
+            PaymentDueDate: cob.fechaVencimientoPrimerPago
+                || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null)
         };
         const nuevasFechas = { ...this.dates };
         Object.keys(dateVals).forEach((k) => {
@@ -303,6 +306,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             UniversalPolicyNumber: d.numeroPoliza,
             PolicyName: d.numeroPoliza,
             PlanType: d.plan,
+            Status: d.estatusPoliza,
+            CancellationReason: d.motivoCancelacion,
             // Primas / cobranza en campos estándar
             PremiumFrequency: d.frecuenciaPago || cob.formaPago,
             PremiumAmount: cob.primaNeta != null ? cob.primaNeta : d.primaNeta,
