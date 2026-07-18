@@ -342,6 +342,8 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String typeLabel;
 		@AuraEnabled public String detailLine;
 		@AuraEnabled public String clienteNombre;
+		@AuraEnabled public String clienteApellidoPaterno;
+		@AuraEnabled public String clienteApellidoMaterno;
 		@AuraEnabled public String clienteRFC;
 		@AuraEnabled public String clienteEmail;
 		@AuraEnabled public String clienteTelefono;
@@ -360,25 +362,30 @@ public with sharing class OpportunityController {
 	public static List<AccountResult> searchAccounts(String searchTerm) {
 		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
-		for (Account a : [
-			SELECT Id, Name, IsPersonAccount, Phone,
-				   BillingStreet, BillingPostalCode,
-				   PersonEmail, PersonMobilePhone,
-				   PersonMailingStreet, PersonMailingPostalCode
-			FROM Account
-			WHERE Name LIKE :busqTerm
-			ORDER BY Name LIMIT 20
-		]) {
+
+		// MiddleName (Apellido Paterno) solo existe si "Middle Names" está habilitado.
+		Boolean hasMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		String campos = 'Id, Name, IsPersonAccount, Phone, BillingStreet, BillingPostalCode, '
+			+ 'FirstName, LastName, PersonEmail, PersonMobilePhone, '
+			+ 'PersonMailingStreet, PersonMailingPostalCode';
+		if (hasMiddle) { campos += ', MiddleName'; }
+		String soql = 'SELECT ' + campos + ' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
+
+		for (Account a : (List<Account>) Database.query(soql)) {
 			AccountResult r = new AccountResult();
 			r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
 			r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
-			r.clienteNombre = a.Name;
 			if (a.IsPersonAccount) {
+				// Nombre(s) -> FirstName ; Apellido Paterno -> MiddleName ; Apellido Materno -> LastName
+				r.clienteNombre = a.FirstName;
+				r.clienteApellidoPaterno = hasMiddle ? (String) a.get('MiddleName') : null;
+				r.clienteApellidoMaterno = a.LastName;
 				r.clienteEmail = a.PersonEmail;
 				r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
 				r.clienteCP = a.PersonMailingPostalCode;
 				r.clienteDireccion = a.PersonMailingStreet;
 			} else {
+				r.clienteNombre = a.Name;
 				r.clienteTelefono = a.Phone;
 				r.clienteCP = a.BillingPostalCode;
 				r.clienteDireccion = a.BillingStreet;
@@ -552,7 +559,28 @@ public with sharing class OpportunityController {
 			opp.Descripcion__c = compHtml;
 		}
 
+		// Detalle del ramo (todos los ramos): se resume en la descripción de la oportunidad.
+		Map<String, Object> detalleRamo = (d.get('detalleRamo') instanceof Map<String, Object>)
+			? (Map<String, Object>) d.get('detalleRamo') : null;
+		String resumenRamo = buildRamoResumen(ramoOpp, detalleRamo);
+		if (String.isNotBlank(resumenRamo)) {
+			opp.Description = String.isBlank(opp.Description)
+				? resumenRamo
+				: (opp.Description + '\n\n' + resumenRamo);
+			if (opp.Description != null && opp.Description.length() > 32000) {
+				opp.Description = opp.Description.left(32000);
+			}
+		}
+
 		upsert opp;
+
+		// Persistencia con objetos ESTÁNDAR de FSC (Autos usa Automovil__c, ya resuelto arriba):
+		//   - Bienes asegurados   -> Asset ligado a la Cuenta
+		//   - Asegurados/personas -> Contact + OpportunityContactRole
+		if (ramoOpp != null && !ramoOpp.toUpperCase().contains('AUTO')) {
+			persistRamoStandardData(opp.Id, accountId, ramoOpp, detalleRamo);
+		}
+
 		return opp.Id;
 	}
 
@@ -743,6 +771,195 @@ public with sharing class OpportunityController {
 		}
 		insert c;
 		return c.Id;
+	}
+
+	// ============================================================
+	// Persistencia por ramo con objetos ESTÁNDAR de FSC
+	// ============================================================
+
+	/**
+	 * @description Devuelve un resumen legible del detalle del ramo para la descripción.
+	 * @param ramo Ramo de la oportunidad.
+	 * @param det Mapa con el detalle capturado en el formulario.
+	 * @return Texto resumen o null si no hay datos.
+	 */
+	private static String buildRamoResumen(String ramo, Map<String, Object> det) {
+		if (det == null || det.isEmpty()) { return null; }
+		Map<String, String> etiquetas = new Map<String, String>{
+			'estado' => 'Estado', 'tipoEstructura' => 'Tipo de estructura', 'numAsegurados' => 'No. de asegurados',
+			'aseguradoPrincipal' => 'Asegurado principal', 'contratante' => 'Contratante', 'subramo' => 'Subramo',
+			'destino' => 'Destino', 'numPasajeros' => 'No. de pasajeros',
+			'giro' => 'Giro', 'actividad' => 'Actividad', 'ubicacion' => 'Ubicación',
+			'valorInmueble' => 'Valor del inmueble', 'valorContenidos' => 'Valor de contenidos',
+			'tipoFianza' => 'Tipo de fianza', 'fiado' => 'Fiado', 'beneficiario' => 'Beneficiario', 'montoAfianzado' => 'Monto afianzado',
+			'tipoRC' => 'Tipo de RC', 'profesion' => 'Profesión',
+			'plan' => 'Plan', 'red' => 'Red médica'
+		};
+		List<String> lineas = new List<String>();
+		for (String k : det.keySet()) {
+			Object v = det.get(k);
+			if (v == null) { continue; }
+			// La lista de asegurados se resume como nombres separados por coma.
+			if (k == 'asegurados' && v instanceof List<Object>) {
+				List<String> noms = new List<String>();
+				for (Object ao : (List<Object>) v) {
+					if (ao instanceof Map<String, Object>) {
+						String nom = getStr((Map<String, Object>) ao, 'nombre');
+						if (String.isNotBlank(nom)) { noms.add(nom); }
+					}
+				}
+				if (!noms.isEmpty()) { lineas.add('• Asegurados: ' + String.join(noms, ', ')); }
+				continue;
+			}
+			if (String.isBlank(String.valueOf(v))) { continue; }
+			String etq = etiquetas.containsKey(k) ? etiquetas.get(k) : k;
+			lineas.add('• ' + etq + ': ' + String.valueOf(v));
+		}
+		if (lineas.isEmpty()) { return null; }
+		return 'Detalle del ramo' + (String.isBlank(ramo) ? '' : ' (' + ramo + ')') + ':\n' + String.join(lineas, '\n');
+	}
+
+	/**
+	 * @description Persiste el detalle del ramo con objetos estándar: Asset para bienes
+	 *              asegurados y Contact + OpportunityContactRole para los asegurados.
+	 * @param opportunityId Id de la oportunidad (ya insertada).
+	 * @param accountId Id de la cuenta ligada.
+	 * @param ramo Ramo de la oportunidad.
+	 * @param det Detalle capturado en el formulario.
+	 */
+	private static void persistRamoStandardData(Id opportunityId, Id accountId, String ramo, Map<String, Object> det) {
+		if (det == null || det.isEmpty()) { return; }
+		String r = ramo.toUpperCase();
+
+		// ---- Bienes asegurados -> Asset ----
+		List<Asset> assets = new List<Asset>();
+		if (accountId != null) {
+			if (r.contains('EMPRESAR')) {
+				String giro = getStr(det, 'giro');
+				String ubic = getStr(det, 'ubicacion');
+				String nombre = String.isNotBlank(giro) ? giro : 'Riesgo empresarial';
+				if (String.isNotBlank(ubic)) { nombre += ' - ' + ubic; }
+				Asset a = new Asset(Name = nombre.left(255), AccountId = accountId);
+				Decimal valInm = toDecimalSafe(det.get('valorInmueble'));
+				Decimal valCon = toDecimalSafe(det.get('valorContenidos'));
+				if (valInm != null) { a.Price = valInm; }
+				a.Description = ('Actividad: ' + getStr(det, 'actividad')
+					+ ' | Inmueble: ' + String.valueOf(valInm)
+					+ ' | Contenidos: ' + String.valueOf(valCon)).left(255);
+				assets.add(a);
+			} else if (r.contains('DAÑO') || r.contains('DANO') || r.contains('HOGAR')) {
+				String sub = getStr(det, 'subramo');
+				Asset a = new Asset(
+					Name = ('Bien asegurado - ' + (String.isBlank(sub) ? ramo : sub)).left(255),
+					AccountId = accountId
+				);
+				assets.add(a);
+			}
+		}
+		if (!assets.isEmpty()) {
+			try { insert assets; } catch (Exception e) { System.debug('RAMO::: Asset -> ' + e.getMessage()); }
+		}
+
+		// ---- Asegurados/personas -> Contact + OpportunityContactRole ----
+		List<OpportunityContactRole> roles = new List<OpportunityContactRole>();
+
+		// Vida: asegurado principal (titular) y contratante (si difiere).
+		if (r.contains('VIDA')) {
+			Id titular = crearContactoDeNombre(getStr(det, 'aseguradoPrincipal'), accountId);
+			if (titular == null && accountId != null) { titular = getPersonContactId(accountId); }
+			if (titular != null) {
+				roles.add(new OpportunityContactRole(
+					OpportunityId = opportunityId, ContactId = titular, IsPrimary = true,
+					Role = pickRole(new List<String>{ 'Insured', 'Policy Holder', 'Business User', 'Other' })
+				));
+			}
+			String contrat = getStr(det, 'contratante');
+			if (String.isNotBlank(contrat)) {
+				Id cId = crearContactoDeNombre(contrat, accountId);
+				if (cId != null && cId != titular) {
+					roles.add(new OpportunityContactRole(
+						OpportunityId = opportunityId, ContactId = cId,
+						Role = pickRole(new List<String>{ 'Contratante', 'Decision Maker', 'Economic Buyer', 'Other' })
+					));
+				}
+			}
+		}
+
+		// GMM / Dental / Visión: se crea un Contacto + rol por cada asegurado capturado.
+		if (r.contains('GMM') || r.contains('GASTOS') || r.contains('DENTAL') || r.contains('VISION') || r.contains('VISIÓN')) {
+			String rolAseg = pickRole(new List<String>{ 'Insured', 'Policy Holder', 'Business User', 'Other' });
+			Set<Id> yaLigados = new Set<Id>();
+			Boolean primero = true;
+			Object asegObj = det.get('asegurados');
+			if (asegObj instanceof List<Object>) {
+				for (Object ao : (List<Object>) asegObj) {
+					if (!(ao instanceof Map<String, Object>)) { continue; }
+					String nom = getStr((Map<String, Object>) ao, 'nombre');
+					if (String.isBlank(nom)) { continue; }
+					Id cId = crearContactoDeNombre(nom, accountId);
+					if (cId == null && accountId != null) { cId = getPersonContactId(accountId); }
+					if (cId != null && !yaLigados.contains(cId)) {
+						roles.add(new OpportunityContactRole(
+							OpportunityId = opportunityId, ContactId = cId, IsPrimary = primero, Role = rolAseg
+						));
+						yaLigados.add(cId);
+						primero = false;
+					}
+				}
+			}
+			// Respaldo: si no se capturaron asegurados, se liga el contacto de la Cuenta Persona.
+			if (yaLigados.isEmpty()) {
+				Id personContact = accountId != null ? getPersonContactId(accountId) : null;
+				if (personContact != null) {
+					roles.add(new OpportunityContactRole(
+						OpportunityId = opportunityId, ContactId = personContact, IsPrimary = true, Role = rolAseg
+					));
+				}
+			}
+		}
+
+		if (!roles.isEmpty()) {
+			try { Database.insert(roles, false); } catch (Exception e) { System.debug('RAMO::: OCR -> ' + e.getMessage()); }
+		}
+	}
+
+	// Crea (o reutiliza) un Contacto bajo la cuenta a partir de un nombre completo. Devuelve su Id o null.
+	private static Id crearContactoDeNombre(String nombreCompleto, Id accountId) {
+		if (String.isBlank(nombreCompleto) || accountId == null) { return null; }
+		String limpio = nombreCompleto.trim();
+		List<Contact> existentes = [
+			SELECT Id FROM Contact WHERE AccountId = :accountId AND Name = :limpio LIMIT 1
+		];
+		if (!existentes.isEmpty()) { return existentes[0].Id; }
+		List<String> partes = limpio.split('\\s+');
+		Contact c = new Contact(AccountId = accountId);
+		if (partes.size() > 1) {
+			c.LastName = partes[partes.size() - 1];
+			List<String> first = new List<String>();
+			for (Integer i = 0; i < partes.size() - 1; i++) { first.add(partes[i]); }
+			c.FirstName = String.join(first, ' ');
+		} else {
+			c.LastName = limpio;
+		}
+		try { insert c; return c.Id; } catch (Exception e) { return null; }
+	}
+
+	// Cache y selección del primer rol válido del picklist OpportunityContactRole.Role.
+	private static Set<String> ocrRolesCache;
+	private static String pickRole(List<String> preferidos) {
+		if (ocrRolesCache == null) {
+			ocrRolesCache = new Set<String>();
+			for (Schema.PicklistEntry pe : OpportunityContactRole.Role.getDescribe().getPicklistValues()) {
+				if (pe.isActive()) { ocrRolesCache.add(pe.getValue()); }
+			}
+		}
+		for (String p : preferidos) { if (ocrRolesCache.contains(p)) { return p; } }
+		return null;
+	}
+
+	private static Decimal toDecimalSafe(Object o) {
+		if (o == null) { return null; }
+		try { return Decimal.valueOf(String.valueOf(o)); } catch (Exception e) { return null; }
 	}
 
 	// Buscador de contactos para el lookup del LWC (mismo patrón que searchAccounts).

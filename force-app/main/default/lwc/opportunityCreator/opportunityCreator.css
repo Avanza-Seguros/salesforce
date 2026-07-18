@@ -969,6 +969,37 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     margin-left: 2px; font-weight: 800;
 }
 
+/* ----- LISTA DE ASEGURADOS (GMM / Dental / Visión) ----- */
+.asegurados-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-bottom: 0.6rem;
+}
+.asegurados-title { font-size: 0.95rem; font-weight: 700; color: #001C3D; margin: 0; }
+.asegurado-add { padding: 0.4rem 0.85rem; font-size: 0.8rem; border-radius: 10px; }
+.asegurado-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 1fr 40px;
+    align-items: end;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    margin-bottom: 0.5rem;
+    background: #FFFFFF;
+    border: 1px solid #D0D0D0;
+    border-radius: 10px;
+}
+.asegurado-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #0052CC; color: #fff; font-size: 0.75rem; font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+.asegurado-del { align-self: center; }
+.asegurados-empty { color: #667085; font-size: 0.85rem; margin: 0.25rem 0; }
+@media (max-width: 640px) {
+    .asegurado-row { grid-template-columns: 24px 1fr 36px; }
+    .asegurado-parentesco { grid-column: 2 / 3; }
+}
+
 /* ----- PICKLISTS / DROPDOWNS ----- */
 .content-container, .content-container.glass-effect, .unified-view,
 .unified-section, .form-container, .form-grid, .form-grid.two-columns,

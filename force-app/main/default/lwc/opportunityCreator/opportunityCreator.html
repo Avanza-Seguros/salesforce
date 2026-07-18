@@ -607,15 +607,6 @@
                                         data-field="clienteRFC" variant="label-hidden" placeholder="Ej: PEÑA710313HDF">
                                     </lightning-input>
                                 </div>
-                                <div class="form-card">
-                                    <div class="form-card-header">
-                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
-                                        <h3>Código Postal</h3>
-                                    </div>
-                                    <lightning-input label="" value={opportunity.clienteCP} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                        data-field="clienteCP" variant="label-hidden" placeholder="Ej: 03100">
-                                    </lightning-input>
-                                </div>
                             </div>
                             <div class="form-column">
                                 <div class="form-card">
@@ -644,6 +635,15 @@
                                     <lightning-textarea label="" value={opportunity.clienteDireccion} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
                                         data-field="clienteDireccion" variant="label-hidden" placeholder="Calle, número, colonia, ciudad...">
                                     </lightning-textarea>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                        <h3>Código Postal</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteCP} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteCP" variant="label-hidden" placeholder="Ej: 03100">
+                                    </lightning-input>
                                 </div>
                             </div>
                         </div>
@@ -953,6 +953,35 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- ASEGURADOS: lista repetible (GMM, Dental, Visión) -->
+                    <div class="special-section" if:true={showAsegurados}>
+                        <div class="asegurados-bar">
+                            <h3 class="asegurados-title">Asegurados</h3>
+                            <button class="add-btn primary asegurado-add" onclick={handleAddAsegurado} disabled={isOpportunityReadOnly}>
+                                <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
+                                <span>Agregar asegurado</span>
+                            </button>
+                        </div>
+                        <template for:each={aseguradosActivos} for:item="aseg">
+                            <div key={aseg._idx} class="asegurado-row">
+                                <span class="asegurado-num">{aseg._num}</span>
+                                <lightning-input class="asegurado-nombre" label="Nombre completo" value={aseg.nombre}
+                                    data-idx={aseg._idx} data-field="nombre" onchange={handleAseguradoChange}
+                                    disabled={isOpportunityReadOnly} placeholder="Nombre y apellidos"></lightning-input>
+                                <lightning-input class="asegurado-parentesco" label="Parentesco" value={aseg.parentesco}
+                                    data-idx={aseg._idx} data-field="parentesco" onchange={handleAseguradoChange}
+                                    disabled={isOpportunityReadOnly} placeholder="Titular, Cónyuge, Hijo(a)..."></lightning-input>
+                                <button class="icon-btn danger asegurado-del" data-idx={aseg._idx} onclick={handleRemoveAsegurado}
+                                    disabled={isOpportunityReadOnly} title="Quitar asegurado">
+                                    <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                                </button>
+                            </div>
+                        </template>
+                        <template if:true={sinAsegurados}>
+                            <p class="asegurados-empty">Aún no has agregado asegurados. Usa "Agregar asegurado".</p>
+                        </template>
                     </div>
                 </div>
                 <!-- ====================================================== -->

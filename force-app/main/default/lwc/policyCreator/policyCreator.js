@@ -30,8 +30,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Campos de fecha que se manejan como "solo fecha".
     DATE_FIELDS = [
-        'EffectiveDate', 'ExpirationDate', 'RenewalDate', 'PreviousRenewalDate',
-        'FinalRenewalDate', 'SaleDate', 'PaymentDueDate', 'CancellationDate'
+        'EffectiveDate', 'ExpirationDate', 'CancellationEffectiveDate', 'SaleDate',
+        'PreviousRenewalDate', 'RenewalDate', 'PlannedRenewalDate'
     ];
 
     // Recibe los Ids por navegación (desde el botón "Póliza" de Crear Oportunidad).
@@ -268,6 +268,26 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Coberturas:\n' + cobs;
         }
 
+        // Datos del contratante / asegurado (apoyo; la Cuenta se liga aparte).
+        const cont = d.contratante || {};
+        const dir = cont.direccion || {};
+        const persLines = [];
+        if (d.tipoPersona) persLines.push(`• Tipo de persona: ${d.tipoPersona}`);
+        if (cont.nombre || d.aseguradoNombre) persLines.push(`• Contratante: ${cont.nombre || d.aseguradoNombre}`);
+        if (cont.rfc || d.rfc) persLines.push(`• RFC: ${cont.rfc || d.rfc}`);
+        if (cont.email) persLines.push(`• Email: ${cont.email}`);
+        if (cont.telefono) persLines.push(`• Teléfono: ${cont.telefono}`);
+        const dirParts = [dir.calle, dir.colonia, dir.cp ? 'CP ' + dir.cp : null, dir.municipio, dir.estado].filter(Boolean);
+        if (dirParts.length) persLines.push(`• Dirección: ${dirParts.join(', ')}`);
+        const aseg = d.asegurado || {};
+        if (aseg.difiereDelContratante && aseg.nombre) {
+            persLines.push(`• Asegurado (distinto): ${aseg.nombre}${aseg.rfc ? ' (RFC ' + aseg.rfc + ')' : ''}`);
+        }
+        if (d.motivoCancelacion) persLines.push(`• Motivo de cancelación: ${d.motivoCancelacion}`);
+        if (persLines.length) {
+            descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Contratante / asegurado:\n' + persLines.join('\n');
+        }
+
         // Calendario de recibos (lista variable) dentro de la descripción.
         const money = (n) => (n === null || n === undefined || n === '')
             ? null
@@ -283,12 +303,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
 
         // Fechas (solo fecha) que llenó la IA → se manejan aparte de los input-field.
-        const nuevaFechaVenc = cob.fechaVencimientoPrimerPago
-            || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null);
         const dateVals = {
             EffectiveDate: d.vigenciaDesde,
             ExpirationDate: d.vigenciaHasta,
-            PaymentDueDate: nuevaFechaVenc
+            SaleDate: d.fechaEmision,
+            CancellationEffectiveDate: d.fechaCancelacion
         };
         const nuevasFechas = { ...this.dates };
         Object.keys(dateVals).forEach((k) => {
@@ -303,6 +322,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             UniversalPolicyNumber: d.numeroPoliza,
             PolicyName: d.numeroPoliza,
             PlanType: d.plan,
+            Status: d.estatusPoliza,
             // Primas / cobranza en campos estándar
             PremiumFrequency: d.frecuenciaPago || cob.formaPago,
             PremiumAmount: cob.primaNeta != null ? cob.primaNeta : d.primaNeta,

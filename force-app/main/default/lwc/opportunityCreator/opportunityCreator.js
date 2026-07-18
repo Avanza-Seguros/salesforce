@@ -628,11 +628,22 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     formatDate(dateString) {
         if (!dateString) return 'Sin fecha';
-        const date = new Date(dateString);
-        if (isNaN(date.getTime()) || date.getFullYear() < 1970) return 'Sin fecha';
+        const date = this.toLocalDate(dateString);
+        if (!date || isNaN(date.getTime()) || date.getFullYear() < 1970) return 'Sin fecha';
         return date.toLocaleDateString('es-MX', {
             day: '2-digit', month: 'short', year: 'numeric'
         });
+    }
+    // Convierte a Date SIN desfase de zona horaria: una fecha 'YYYY-MM-DD' (campo Date)
+    // se construye como local; los datetime ISO se dejan tal cual.
+    toLocalDate(value) {
+        if (!value) return null;
+        const s = String(value);
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) {
+            return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        }
+        return new Date(s);
     }
     formatDateForInput(date) {
         if (!date) return '';
@@ -726,6 +737,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     AccountName: exact.Name,
                     tipoCliente: exact.IsPersonAccount ? 'Persona' : 'Empresa',
                     clienteNombre: exact.clienteNombre || exact.Name || this.opportunity.clienteNombre,
+                    clienteApellidoPaterno: exact.clienteApellidoPaterno || this.opportunity.clienteApellidoPaterno,
+                    clienteApellidoMaterno: exact.clienteApellidoMaterno || this.opportunity.clienteApellidoMaterno,
                     clienteRFC: exact.clienteRFC || this.opportunity.clienteRFC,
                     clienteEmail: exact.clienteEmail || this.opportunity.clienteEmail,
                     clienteTelefono: exact.clienteTelefono || this.opportunity.clienteTelefono,
@@ -753,6 +766,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountName: acc.Name,
             tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
             clienteNombre: acc.clienteNombre || acc.Name || '',
+            clienteApellidoPaterno: acc.clienteApellidoPaterno || '',
+            clienteApellidoMaterno: acc.clienteApellidoMaterno || '',
             clienteRFC: acc.clienteRFC || '',
             clienteEmail: acc.clienteEmail || '',
             clienteTelefono: acc.clienteTelefono || '',
@@ -1602,8 +1617,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     parseSafeDate(value) {
         if (!value) return null;
-        const d = new Date(value);
-        if (isNaN(d.getTime())) return null;
+        const d = this.toLocalDate(value);
+        if (!d || isNaN(d.getTime())) return null;
         if (d.getFullYear() < 1970) return null;
         return d;
     }
@@ -1672,6 +1687,61 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (field && Object.prototype.hasOwnProperty.call(this.gmm, field)) {
             this.gmm[field] = event.detail?.value || event.target.value;
         }
+    }
+
+    // ===== Lista repetible de asegurados (GMM, Dental, Visión) =====
+    get showAsegurados() {
+        return this.isRamoGMM || this.isRamoDental || this.isRamoVision;
+    }
+    _activeAseguradoKey() {
+        if (this.isRamoGMM) return 'gmm';
+        if (this.isRamoDental) return 'dental';
+        if (this.isRamoVision) return 'vision';
+        return null;
+    }
+    get aseguradosActivos() {
+        const key = this._activeAseguradoKey();
+        if (!key) return [];
+        const list = (this[key] && this[key].asegurados) || [];
+        return list.map((a, i) => ({ ...a, _idx: String(i), _num: i + 1 }));
+    }
+    get sinAsegurados() {
+        return this.aseguradosActivos.length === 0;
+    }
+    _setAseguradosList(list) {
+        const key = this._activeAseguradoKey();
+        if (!key) return;
+        this[key] = { ...this[key], asegurados: list, numAsegurados: list.length };
+    }
+    handleAddAsegurado() {
+        const key = this._activeAseguradoKey();
+        if (!key) return;
+        const list = [...((this[key] && this[key].asegurados) || [])];
+        list.push({ nombre: '', parentesco: '' });
+        this._setAseguradosList(list);
+    }
+    handleRemoveAsegurado(event) {
+        const key = this._activeAseguradoKey();
+        if (!key) return;
+        const idx = parseInt(event.currentTarget.dataset.idx, 10);
+        const list = [...((this[key] && this[key].asegurados) || [])];
+        if (idx >= 0 && idx < list.length) {
+            list.splice(idx, 1);
+            this._setAseguradosList(list);
+        }
+    }
+    handleAseguradoChange(event) {
+        const key = this._activeAseguradoKey();
+        if (!key) return;
+        const idx = parseInt(event.currentTarget.dataset.idx, 10);
+        const field = event.currentTarget.dataset.field;
+        const value = event.detail?.value ?? event.target.value;
+        const list = [...((this[key] && this[key].asegurados) || [])];
+        if (!list[idx]) return;
+        list[idx] = { ...list[idx], [field]: value };
+        // No recalcula numAsegurados aquí (ya es la longitud); solo actualiza el dato.
+        const active = this._activeAseguradoKey();
+        this[active] = { ...this[active], asegurados: list };
     }
     handleVidaChange(event) {
         const field = event.target.dataset?.field?.replace('vida.', '');
@@ -2368,15 +2438,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return map[this.opportunity.Ramo__c] || {};
     }
     getDefaultAutomovil() { return { descripcion_completa__c: '', Placa__c: '', Serie__c: '', Modelo__c: '', Marca__c: '', Anio__c: '', Motor__c: '' }; }
-    getDefaultGMM()       { return { estado: '', tipoEstructura: '', numAsegurados: 1 }; }
+    getDefaultGMM()       { return { estado: '', tipoEstructura: '', numAsegurados: 1, asegurados: [] }; }
     getDefaultVida()      { return { aseguradoPrincipal: '', contratante: '', subramo: '' }; }
     getDefaultViaje()     { return { destino: '', numPasajeros: 1 }; }
     getDefaultDanos()     { return { subramo: '' }; }
     getDefaultEmpresarial() { return { giro: '', actividad: '', ubicacion: '', valorInmueble: '', valorContenidos: '' }; }
     getDefaultFianzas()     { return { tipoFianza: '', fiado: '', beneficiario: '', montoAfianzado: '' }; }
     getDefaultRC()          { return { tipoRC: '', profesion: '', actividad: '', giro: '' }; }
-    getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '' }; }
-    getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '' }; }
+    getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '', asegurados: [] }; }
+    getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '', asegurados: [] }; }
     handleBackToList() {
         this.viewMode = VIEW_MODES.LIST;
         this.resetWizard();

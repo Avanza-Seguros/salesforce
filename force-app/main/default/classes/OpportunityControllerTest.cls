@@ -116,6 +116,35 @@ private class OpportunityControllerTest {
     }
 
     @isTest
+    static void testSearchAccounts_persona() {
+        // Requiere Person Accounts habilitadas; si no, se omite sin fallar.
+        List<RecordType> rts = [
+            SELECT Id FROM RecordType
+            WHERE SObjectType = 'Account' AND IsPersonType = true AND IsActive = true LIMIT 1
+        ];
+        if (rts.isEmpty()) { return; }
+        Boolean hasMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+        Account pa = new Account(RecordTypeId = rts[0].Id, FirstName = 'Ana Karina', LastName = 'García');
+        if (hasMiddle) { pa.put('MiddleName', 'Pérez'); }
+        try { insert pa; } catch (Exception e) { return; }
+
+        Test.startTest();
+        List<OpportunityController.AccountResult> res = OpportunityController.searchAccounts('García');
+        Test.stopTest();
+
+        OpportunityController.AccountResult persona;
+        for (OpportunityController.AccountResult r : res) {
+            if (r.Id == pa.Id) { persona = r; }
+        }
+        System.assertNotEquals(null, persona, 'Debe encontrar la cuenta persona');
+        System.assertEquals('Ana Karina', persona.clienteNombre, 'Nombres = FirstName');
+        System.assertEquals('García', persona.clienteApellidoMaterno, 'Apellido Materno = LastName');
+        if (hasMiddle) {
+            System.assertEquals('Pérez', persona.clienteApellidoPaterno, 'Apellido Paterno = MiddleName');
+        }
+    }
+
+    @isTest
     static void testSearchContactsWithData() {
         Account acc = [SELECT Id FROM Account LIMIT 1];
         Contact c = new Contact(LastName = 'Contacto Buscable', Email = 'cb@test.com', AccountId = acc.Id);
@@ -234,6 +263,102 @@ private class OpportunityControllerTest {
             // Si el org no tiene Person Accounts habilitadas, las líneas quedan cubiertas igual.
         }
         Test.stopTest();
+    }
+
+    @isTest
+    static void testSaveOpportunity_vidaAsegurados() {
+        Map<String, Object> det = new Map<String, Object>{
+            'aseguradoPrincipal' => 'María López Pérez',
+            'contratante' => 'Pedro Ruiz Gómez',
+            'subramo' => 'Individual'
+        };
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp Vida Test',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Contratante Vida SA',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'Vida',
+            'Mercado__c' => 'Corporativo',
+            'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'detalleRamo' => det
+        };
+        Test.startTest();
+        Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+        Test.stopTest();
+        System.assertNotEquals(null, oppId, 'Debe crear la oportunidad de Vida');
+        Integer roles = [SELECT COUNT() FROM OpportunityContactRole WHERE OpportunityId = :oppId];
+        System.assert(roles >= 1, 'Debe registrar al menos un asegurado como rol de contacto');
+    }
+
+    @isTest
+    static void testSaveOpportunity_gmmAsegurados() {
+        Map<String, Object> det = new Map<String, Object>{
+            'estado' => 'CDMX', 'tipoEstructura' => 'Familiar', 'numAsegurados' => 2,
+            'asegurados' => new List<Object>{
+                new Map<String, Object>{ 'nombre' => 'Ana López García', 'parentesco' => 'Titular' },
+                new Map<String, Object>{ 'nombre' => 'Luis López García', 'parentesco' => 'Cónyuge' }
+            }
+        };
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp GMM Test',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Familia GMM SA',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'GMM',
+            'Mercado__c' => 'Corporativo',
+            'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'detalleRamo' => det
+        };
+        Test.startTest();
+        Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+        Test.stopTest();
+        Integer roles = [SELECT COUNT() FROM OpportunityContactRole WHERE OpportunityId = :oppId];
+        System.assert(roles >= 2, 'Debe registrar un rol de contacto por cada asegurado capturado');
+    }
+
+    @isTest
+    static void testSaveOpportunity_empresarialAsset() {
+        Map<String, Object> det = new Map<String, Object>{
+            'giro' => 'Comercio', 'actividad' => 'Venta al público',
+            'ubicacion' => 'CDMX', 'valorInmueble' => '1000000', 'valorContenidos' => '200000'
+        };
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp Empresarial Test',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Negocio Empresarial SA',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'Empresarial',
+            'Mercado__c' => 'Corporativo',
+            'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'detalleRamo' => det
+        };
+        Test.startTest();
+        Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+        Test.stopTest();
+        Opportunity o = [SELECT AccountId FROM Opportunity WHERE Id = :oppId];
+        Integer assets = [SELECT COUNT() FROM Asset WHERE AccountId = :o.AccountId];
+        System.assert(assets >= 1, 'Debe crear un Asset para el bien asegurado empresarial');
+    }
+
+    @isTest
+    static void testSaveOpportunity_danosAsset() {
+        Map<String, Object> det = new Map<String, Object>{ 'subramo' => 'Incendio' };
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp Daños Test',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Cliente Daños SA',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'Danos',
+            'Mercado__c' => 'Corporativo',
+            'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'detalleRamo' => det
+        };
+        Test.startTest();
+        Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+        Test.stopTest();
+        Opportunity o = [SELECT AccountId FROM Opportunity WHERE Id = :oppId];
+        Integer assets = [SELECT COUNT() FROM Asset WHERE AccountId = :o.AccountId];
+        System.assert(assets >= 1, 'Debe crear un Asset para el bien asegurado de Daños');
     }
 
     @isTest
