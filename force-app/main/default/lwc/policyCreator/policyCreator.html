@@ -222,10 +222,11 @@
                                 </div>
                             </div>
                             <div class="policy-grid">
-                                <div class="field-card"><lightning-input-field field-name="GrossWrittenPremium" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="GrossWrittenPremium" onchange={handlePremiumChange} disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="PremiumFrequency" onchange={handlePremiumChange} disabled={isReadOnly}></lightning-input-field></div>
+                                <!-- Calculado: prima total anualizada / exhibiciones de la frecuencia -->
                                 <div class="field-card"><lightning-input-field field-name="TermPremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="PremiumFrequency" disabled={isReadOnly}></lightning-input-field></div>
                             </div>
                         </div>
 

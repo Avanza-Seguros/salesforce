@@ -321,6 +321,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             PremiumFrequency: d.frecuenciaPago || cob.formaPago,
             PremiumAmount: cob.primaNeta != null ? cob.primaNeta : d.primaNeta,
             GrossWrittenPremium: cob.totalAPagar != null ? cob.totalAPagar : d.primaTotal,
+            // Prima del periodo actual: si la póliza trae el importe real del primer pago
+            // se usa ese (incluye financiamiento); si no, se calcula por frecuencia.
+            TermPremiumAmount: cob.primerPago != null
+                ? cob.primerPago
+                : this.calcularTermPremium(
+                    cob.totalAPagar != null ? cob.totalAPagar : d.primaTotal,
+                    d.frecuenciaPago || cob.formaPago
+                  ),
             // Cobranza en campos personalizados
             Moneda__c: cob.moneda,
             Numero_Pagos__c: cob.numeroPagos,
@@ -440,6 +448,54 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             type: 'standard__navItemPage',
             attributes: { apiName: 'Crear_Oportunidad' }
         });
+    }
+
+    // ============================================================
+    // Cálculos de negocio
+    // ============================================================
+
+    // Exhibiciones al año según la frecuencia de pago.
+    periodosPorFrecuencia(freq) {
+        const f = (freq || '').toString().toLowerCase();
+        if (f.includes('mensual')) { return 12; }
+        if (f.includes('bimestr')) { return 6; }
+        if (f.includes('trimestr')) { return 4; }
+        if (f.includes('cuatrimestr')) { return 3; }
+        if (f.includes('semestr')) { return 2; }
+        return 1; // Anual, Único, Contado o no especificada
+    }
+
+    // Lee/escribe el valor actual de un campo del formulario.
+    _getFieldValue(fieldName) {
+        const el = Array.from(this.template.querySelectorAll('lightning-input-field'))
+            .find((f) => f.fieldName === fieldName);
+        return el ? el.value : null;
+    }
+    _setFieldValue(fieldName, value) {
+        const el = Array.from(this.template.querySelectorAll('lightning-input-field'))
+            .find((f) => f.fieldName === fieldName);
+        if (el && value !== null && value !== undefined) {
+            try { el.value = value; } catch (e) { /* campo no editable */ }
+        }
+    }
+
+    // Term Premium = prima del periodo actual de pago.
+    // Regla: prima total anualizada / exhibiciones de la frecuencia.
+    calcularTermPremium(gwp, freq) {
+        const total = Number(gwp);
+        if (!total || isNaN(total)) { return null; }
+        const periodos = this.periodosPorFrecuencia(freq);
+        return Math.round((total / periodos) * 100) / 100;
+    }
+
+    // Recalcula el Term Premium al cambiar la prima total o la frecuencia.
+    handlePremiumChange(event) {
+        const campo = event.target.fieldName;
+        const valor = event.detail ? event.detail.value : event.target.value;
+        const gwp = campo === 'GrossWrittenPremium' ? valor : this._getFieldValue('GrossWrittenPremium');
+        const freq = campo === 'PremiumFrequency' ? valor : this._getFieldValue('PremiumFrequency');
+        const term = this.calcularTermPremium(gwp, freq);
+        if (term !== null) { this._setFieldValue('TermPremiumAmount', term); }
     }
 
     handleReintentar() {
