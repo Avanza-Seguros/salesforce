@@ -29,10 +29,15 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
 
     // Campos de fecha que se manejan como "solo fecha".
+    // Solo las fechas que se muestran en el formulario (campos del Excel).
     DATE_FIELDS = [
         'EffectiveDate', 'ExpirationDate', 'CancellationEffectiveDate', 'SaleDate',
         'PreviousRenewalDate', 'RenewalDate', 'PlannedRenewalDate', 'PaymentDueDate'
     ];
+
+    // Valores recuperados por la IA que NO se muestran en el formulario,
+    // pero que sí se guardan al enviar (no se pierde información).
+    hiddenFields = {};
 
     // Recibe los Ids por navegación (desde el botón "Póliza" de Crear Oportunidad).
     @wire(CurrentPageReference)
@@ -146,10 +151,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.dates = { ...this.dates, [f]: event.target.value };
     }
 
-    // Intercepta el guardado para inyectar las fechas (con formato correcto).
+    // Intercepta el guardado para inyectar las fechas y los datos recuperados
+    // que no se muestran en el formulario (así no se pierde información).
     handleSubmit(event) {
         event.preventDefault();
-        const fields = { ...event.detail.fields };
+        const fields = { ...this.hiddenFields, ...event.detail.fields };
         this.DATE_FIELDS.forEach((f) => {
             const val = this.dates[f];
             if (val) {
@@ -288,8 +294,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const dateVals = {
             EffectiveDate: d.vigenciaDesde,
             ExpirationDate: d.vigenciaHasta,
-            SaleDate: d.fechaEmision,
-            CancellationEffectiveDate: d.fechaCancelacion,
+            // SaleDate y CancellationEffectiveDate NO se llenan desde el PDF:
+            // el primero se calcula al pasar la Oportunidad a Emisión y el segundo
+            // lo alimenta el módulo de pagos.
             PaymentDueDate: cob.fechaVencimientoPrimerPago
                 || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null)
         };
@@ -303,12 +310,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // Datos generales.
             // NO se actualizan por análisis: Aseguradora__c, PolicyType, NameInsuredId,
             // ProductId, SourceQuoteId y la oportunidad origen (se conservan tal cual).
-            UniversalPolicyNumber: d.numeroPoliza,
-            PolicyName: d.numeroPoliza,
+            // El número de póliza va en Name. Universal Policy Number NO se llena aquí:
+            // solo aplica a pólizas colectivas/flotilla/grupal y se captura aparte.
+            Name: d.numeroPoliza,
             PlanType: d.plan,
             Status: d.estatusPoliza,
             CancellationReason: d.motivoCancelacion,
-            // Primas / cobranza en campos estándar
+            // Primas (definición de negocio): GrossWrittenPremium = prima TOTAL anualizada,
+            // PremiumAmount = prima NETA sin impuestos.
             PremiumFrequency: d.frecuenciaPago || cob.formaPago,
             PremiumAmount: cob.primaNeta != null ? cob.primaNeta : d.primaNeta,
             GrossWrittenPremium: cob.totalAPagar != null ? cob.totalAPagar : d.primaTotal,
@@ -339,7 +348,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 'warning');
         }
         let llenados = 0;
+        const enFormulario = new Set();
         fields.forEach((f) => {
+            enFormulario.add(f.fieldName);
             if (Object.prototype.hasOwnProperty.call(map, f.fieldName)) {
                 const val = map[f.fieldName];
                 if (val !== null && val !== undefined && val !== '') {
@@ -352,7 +363,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 }
             }
         });
-        console.log('PolicyCreator::: campos llenados =', llenados);
+
+        // Los datos recuperados que NO están en el formulario (descripción, desglose de
+        // cobranza, referencia, CLABE, etc.) se guardan igual al enviar, sin mostrarse.
+        const ocultos = { ...this.hiddenFields };
+        Object.keys(map).forEach((k) => {
+            if (enFormulario.has(k)) { return; }
+            const v = map[k];
+            if (v !== null && v !== undefined && v !== '') { ocultos[k] = v; }
+        });
+        this.hiddenFields = ocultos;
+
+        console.log('PolicyCreator::: campos llenados =', llenados,
+            '| guardados sin mostrar =', Object.keys(this.hiddenFields).length);
     }
 
     // Carga el resumen (Oportunidad + Cotizaciones) para la vista de solo lectura.
