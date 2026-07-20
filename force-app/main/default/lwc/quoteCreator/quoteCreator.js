@@ -779,7 +779,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             Aseguradora__c: null, AseguradoraName: '',
             Ramo__c: '',
             Product__c: null, ProductName: '',
-            Status: 'Draft',
+            // El estado de una cotización nueva siempre entra "In Review" y no se edita.
+            Status: 'In Review',
             TotalPrice: 0,
             Frecuencia_de_prima__c: 'Mensual',
             EffectiveDate: this.formatDateForInput(today),

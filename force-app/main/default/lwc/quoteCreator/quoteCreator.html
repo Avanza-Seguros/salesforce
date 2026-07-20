@@ -395,15 +395,14 @@
                                         <lightning-icon icon-name="utility:check" size="x-small"></lightning-icon>
                                         <h3>Estado <span class="required-asterisk">*</span></h3>
                                     </div>
+                                    <!-- Fijo en "In Review": no editable por el usuario -->
                                     <lightning-combobox
                                         label=""
                                         value={quote.Status}
-                                        placeholder="Seleccionar estado"
                                         options={statusOptions}
-                                        onchange={handleComboboxChange}
                                         data-field="Status"
                                         variant="label-hidden"
-                                        required>
+                                        disabled>
                                     </lightning-combobox>
                                 </div>
 
