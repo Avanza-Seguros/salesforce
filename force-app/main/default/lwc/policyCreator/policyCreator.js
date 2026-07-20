@@ -1,6 +1,6 @@
 import { LightningElement, wire, track } from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
-import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+import { getRecord, getFieldValue, notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
 import EFFECTIVE_DATE from '@salesforce/schema/InsurancePolicy.EffectiveDate';
 import EXPIRATION_DATE from '@salesforce/schema/InsurancePolicy.ExpirationDate';
 import PAYMENT_DUE_DATE from '@salesforce/schema/InsurancePolicy.PaymentDueDate';
@@ -155,7 +155,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // que no se muestran en el formulario (así no se pierde información).
     handleSubmit(event) {
         event.preventDefault();
-        const fields = { ...this.hiddenFields, ...event.detail.fields };
+        // Lo capturado en pantalla manda; lo recuperado por la IA rellena lo que venga vacío.
+        const fields = { ...(event.detail ? event.detail.fields : {}) };
+        Object.keys(this.hiddenFields).forEach((k) => {
+            const actual = fields[k];
+            if (actual === undefined || actual === null || actual === '') {
+                fields[k] = this.hiddenFields[k];
+            }
+        });
         this.DATE_FIELDS.forEach((f) => {
             const val = this.dates[f];
             if (val) {
@@ -168,6 +175,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     handleSuccess() {
         this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
+        // Ya se guardaron: se limpian para no reescribirlos en un guardado posterior.
+        this.hiddenFields = {};
+        // Refresca el registro para que la pantalla muestre lo guardado.
+        if (this.policyId) {
+            notifyRecordUpdateAvailable([{ recordId: this.policyId }]);
+        }
     }
     handleError(event) {
         const msg = (event && event.detail && event.detail.message) || 'No se pudo guardar la póliza.';
@@ -372,15 +385,15 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
         });
 
-        // Los datos recuperados que NO están en el formulario (descripción, desglose de
-        // cobranza, referencia, CLABE, etc.) se guardan igual al enviar, sin mostrarse.
-        const ocultos = { ...this.hiddenFields };
+        // TODOS los valores recuperados se guardan al enviar (estén o no en el formulario).
+        // Así la persistencia no depende de que el formulario "detecte" los valores
+        // asignados por código: es lo que hacía que al guardar no se actualizaran.
+        const pendientes = { ...this.hiddenFields };
         Object.keys(map).forEach((k) => {
-            if (enFormulario.has(k)) { return; }
             const v = map[k];
-            if (v !== null && v !== undefined && v !== '') { ocultos[k] = v; }
+            if (v !== null && v !== undefined && v !== '') { pendientes[k] = v; }
         });
-        this.hiddenFields = ocultos;
+        this.hiddenFields = pendientes;
 
         console.log('PolicyCreator::: campos llenados =', llenados,
             '| guardados sin mostrar =', Object.keys(this.hiddenFields).length);
