@@ -419,12 +419,31 @@ public with sharing class OpportunityController {
 					acc.RecordTypeId = paRtId;
 				}
 				acc.FirstName = getStr(d, 'clienteNombre');
-				acc.LastName  = getStr(d, 'clienteApellidos');
-				if (String.isBlank(acc.LastName)) {
-					acc.LastName  = String.isNotBlank(acc.FirstName)
-									? acc.FirstName : getStr(d, 'AccountName');
+				String paterno = getStr(d, 'clienteApellidoPaterno');
+				String materno = getStr(d, 'clienteApellidoMaterno');
+				if (String.isBlank(paterno) && String.isBlank(materno)) {
+					String apellidos = getStr(d, 'clienteApellidos');
+					if (String.isNotBlank(apellidos)) {
+						List<String> partes = apellidos.trim().split('\\s+');
+						paterno = partes.size() > 0 ? partes[0] : null;
+						if (partes.size() > 1) {
+							List<String> resto = new List<String>();
+							for (Integer i = 1; i < partes.size(); i++) { resto.add(partes[i]); }
+							materno = String.join(resto, ' ');
+						}
+					}
+				}
+				String last;
+				if (String.isNotBlank(materno)) {
+					try { acc.put('MiddleName', paterno); } catch (Exception ignore) {}
+					last = materno;
+				} else if (String.isNotBlank(paterno)) {
+					last = paterno;
+				} else {
+					last = String.isNotBlank(acc.FirstName) ? acc.FirstName : getStr(d, 'AccountName');
 					acc.FirstName = null;
 				}
+				acc.LastName = String.isNotBlank(last) ? last : getStr(d, 'AccountName');
 				acc.PersonEmail             = getStr(d, 'clienteEmail');
 				acc.Phone                   = getStr(d, 'clienteTelefono');
 				acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');

@@ -770,6 +770,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountId: null,
             AccountName: typedName,
             clienteNombre: '',
+            clienteApellidoPaterno: '',
+            clienteApellidoMaterno: '',
             clienteApellidos: '',
             clienteRFC: '',
             clienteEmail: '',
@@ -1694,9 +1696,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!field) return;
         const value = event.target.value;
         const updated = { ...this.opportunity, [field]: value };
-        if (this.isNewAccount && (field === 'clienteNombre' || field === 'clienteApellidos')) {
+        const camposNombre = ['clienteNombre', 'clienteApellidoPaterno', 'clienteApellidoMaterno'];
+        if (this.isNewAccount && camposNombre.includes(field)) {
             if (updated.tipoCliente === 'Persona') {
-                updated.AccountName = `${updated.clienteNombre || ''} ${updated.clienteApellidos || ''}`.trim();
+                updated.AccountName = `${updated.clienteNombre || ''} ${updated.clienteApellidoPaterno || ''} ${updated.clienteApellidoMaterno || ''}`
+                    .replace(/\s+/g, ' ').trim();
             } else {
                 updated.AccountName = updated.clienteNombre || '';
             }
@@ -1996,9 +2000,27 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         return {};
     }
+    // Separa un nombre completo en Nombre(s) / Apellido Paterno / Apellido Materno.
+    // Heurística MX: último = materno, penúltimo = paterno, el resto = nombres.
+    separarNombre(nombreCompleto) {
+        const limpio = (nombreCompleto || '').trim().replace(/\s+/g, ' ');
+        if (!limpio) { return { nombres: '', paterno: '', materno: '' }; }
+        const p = limpio.split(' ');
+        if (p.length === 1) { return { nombres: p[0], paterno: '', materno: '' }; }
+        if (p.length === 2) { return { nombres: p[0], paterno: p[1], materno: '' }; }
+        const materno = p[p.length - 1];
+        const paterno = p[p.length - 2];
+        const nombres = p.slice(0, p.length - 2).join(' ');
+        return { nombres, paterno, materno };
+    }
+
     extractPrimaTotal(quote) {
         if (!quote) return 0;
-        const posibles = [quote.Prima_neta__c, quote['Prima Neta'], quote.total, quote.monto];
+        // El análisis nuevo envía la prima como "primaTotal"; se contemplan también los nombres viejos.
+        const posibles = [
+            quote.primaTotal, quote.Prima_Total__c, quote.PrimaAnual__c, quote.TotalPrice,
+            quote.Prima_neta__c, quote['Prima Neta'], quote.total, quote.monto
+        ];
         for (const p of posibles) {
             if (p) {
                 const n = parseFloat(p);
@@ -2123,7 +2145,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!this.opportunity.Prima_neta__c && extractedData.primaTotal) {
                 this.opportunity.Prima_neta__c = extractedData.primaTotal;
             }
-            if (extractedData.clienteNombre    && !this.opportunity.clienteNombre)    this.opportunity.clienteNombre    = extractedData.clienteNombre;
+            if (extractedData.clienteNombre && !this.opportunity.clienteNombre && !this.opportunity.clienteApellidoPaterno) {
+                // Separa "DIEGO HUERTA HURTADO" → Nombre(s) / Apellido Paterno / Apellido Materno.
+                const partes = this.separarNombre(extractedData.clienteNombre);
+                this.opportunity.clienteNombre = partes.nombres;
+                this.opportunity.clienteApellidoPaterno = partes.paterno;
+                this.opportunity.clienteApellidoMaterno = partes.materno;
+            }
             if (extractedData.clienteEmail     && !this.opportunity.clienteEmail)     this.opportunity.clienteEmail     = extractedData.clienteEmail;
             if (extractedData.clienteTelefono  && !this.opportunity.clienteTelefono)  this.opportunity.clienteTelefono  = extractedData.clienteTelefono;
             if (extractedData.clienteRFC       && !this.opportunity.clienteRFC)       this.opportunity.clienteRFC       = extractedData.clienteRFC;
@@ -2341,7 +2369,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Prima_Neta__c: null,                              // ← prima neta de la oportunidad
             Id: null,
             tipoCliente: 'Persona',
-            clienteNombre: '', clienteApellidos: '', clienteRFC: '', clienteCP: '',
+            clienteNombre: '', clienteApellidoPaterno: '', clienteApellidoMaterno: '',
+            clienteApellidos: '', clienteRFC: '', clienteCP: '',
             clienteEmail: '', clienteTelefono: '', clienteDireccion: ''
         };
     }
@@ -2555,7 +2584,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             .map(q => parseFloat(q && q.primaTotal))
             .filter(v => !isNaN(v) && v > 0);
         if (primas.length) {
-            this.opportunity = { ...this.opportunity, Prima_Neta__c: Math.min(...primas) };
+            const minima = Math.min(...primas);
+            // Se fija en ambas variantes de mayúsculas por compatibilidad del campo.
+            this.opportunity = { ...this.opportunity, Prima_Neta__c: minima, Prima_neta__c: minima };
         }
     }
     get pdfQuotePreview() {
