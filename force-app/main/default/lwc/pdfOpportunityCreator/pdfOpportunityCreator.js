@@ -244,9 +244,18 @@ export default class PdfOpportunityCreator extends LightningElement {
 
 			// ¿La IA detectó que NO son del mismo cliente/auto? Pedimos confirmación.
 			const val = (res && res.validacion) || {};
-			if (val.alerta) {
+			const hayDiscrepancia =
+				val.alerta || val.mismo_cliente === false || val.mismo_vehiculo === false;
+			if (hayDiscrepancia) {
+				let msg = val.alerta || "";
+				if (!msg) {
+					const partes = [];
+					if (val.mismo_cliente === false) partes.push("los documentos parecen ser de clientes distintos");
+					if (val.mismo_vehiculo === false) partes.push("los documentos parecen ser de vehículos distintos");
+					msg = "Atención: " + partes.join(" y ") + ". Verifica el cliente y el vehículo antes de continuar.";
+				}
 				this._pendingRes = res;
-				this.validacionAlerta = val.alerta;
+				this.validacionAlerta = msg;
 				this.needsConfirm = true;
 				return; // esperamos a que el usuario confirme o revise
 			}

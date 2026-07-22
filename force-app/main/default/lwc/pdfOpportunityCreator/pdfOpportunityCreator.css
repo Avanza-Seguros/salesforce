@@ -62,6 +62,16 @@
 }
 .pdf-error lightning-icon { --sds-c-icon-color-foreground-default: #B3260A; }
 
+/* Alerta de validación (posible discrepancia de cliente/vehículo) */
+.pdf-validacion {
+  display: flex; align-items: flex-start; gap: 0.75rem; margin-top: 1rem;
+  background: #FFF7E6; border: 1px solid #FFC400; border-left: 5px solid #FF8C00;
+  border-radius: 10px; padding: 1rem 1.1rem;
+}
+.pdf-validacion__icon { --sds-c-icon-color-foreground-default: #B25E00; flex: 0 0 auto; margin-top: 2px; }
+.pdf-validacion__title { margin: 0 0 0.25rem; font-size: 0.95rem; font-weight: 800; color: #7A4F01; }
+.pdf-validacion__msg { margin: 0; font-size: 0.88rem; color: #6B4A00; line-height: 1.4; }
+
 .pdf-done {
   display: flex; align-items: center; background: #E6F4EA;
   border: 1px solid #B2DBC1; border-left: 4px solid #00875A; border-radius: 12px;

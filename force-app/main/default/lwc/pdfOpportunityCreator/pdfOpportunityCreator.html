@@ -57,6 +57,21 @@
       </div>
     </template>
 
+    <!-- Alerta de validación: posible discrepancia de cliente/vehículo -->
+    <template lwc:if={needsConfirm}>
+      <div class="pdf-validacion">
+        <lightning-icon icon-name="utility:warning" size="small" class="pdf-validacion__icon"></lightning-icon>
+        <div class="pdf-validacion__body">
+          <h3 class="pdf-validacion__title">Revisa antes de continuar</h3>
+          <p class="pdf-validacion__msg">{validacionAlerta}</p>
+        </div>
+      </div>
+      <div class="pdf-actions">
+        <button class="pdf-btn pdf-btn--secondary" onclick={cancelValidation}>Revisar los PDFs</button>
+        <button class="pdf-btn" onclick={confirmAndContinue}>Continuar de todos modos</button>
+      </div>
+    </template>
+
     <!-- Confirmación -->
     <template lwc:if={done}>
       <div class="pdf-done">
