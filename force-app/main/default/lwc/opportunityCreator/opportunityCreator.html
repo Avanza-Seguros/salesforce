@@ -996,7 +996,18 @@
                                         Cerrar
                                     </button>
                                 </div>
+
+                                <!-- Spinner mientras analiza los PDFs -->
+                                <template if:true={pdfAnalyzing}>
+                                    <div class="pdf-analyzing-overlay">
+                                        <lightning-spinner alternative-text="Analizando" size="medium" variant="brand"></lightning-spinner>
+                                        <span>Analizando los PDFs y generando el comparativo…</span>
+                                    </div>
+                                </template>
+
                                 <c-pdf-opportunity-creator
+                                    onanalysisstart={handlePdfAnalyzing}
+                                    onanalysisdone={handlePdfAnalyzingDone}
                                     onpdfdataextracted={handlePDFDataExtracted}
                                     onanalysiscomplete={handlePdfAnalysisComplete}>
                                 </c-pdf-opportunity-creator>

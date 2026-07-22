@@ -128,6 +128,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track editableQuotes = [];
     // Modo "agregar cotizaciones por PDF" a una oportunidad EXISTENTE (no crea oportunidad).
     @track addQuotesMode = false;
+    // Verdadero mientras el componente de PDF está analizando (para mostrar spinner).
+    @track pdfAnalyzing = false;
     // === Estado comparativa (datos extraídos de PDFs) ===
     @track tablaComparativaCache = [];
     @track companiasConCoberturasCache = [];
@@ -266,11 +268,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 quotesJson: JSON.stringify(payload)
             });
             const n = (res && res.creadas) || 0;
+            const eraAgregar = this.addQuotesMode;
             this.showToast('Cotizaciones', `Se agregaron ${n} cotización(es) a la oportunidad.`, 'success');
             this.uploadedQuotes = [];
             this.editableQuotes = [];
             this.addQuotesMode = false;
+            this.pdfAnalyzing = false;
             await this.openOpportunityInEditMode(this.opportunity.Id);
+            // Comparativo NUEVO con TODO (nuevas + existentes): al recargar, relatedQuotes ya
+            // incluye todas; limpiamos el comparativo IA viejo para que se muestre la matriz
+            // comparativa reconstruida con todas las cotizaciones.
+            if (eraAgregar) {
+                this.comparativoHtml = '';
+                this._comparativoDirty = true;
+                try { this.recomputeComparativa(); } catch (e) { /* ignorar */ }
+            }
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
             this.showToast('Error', 'No se pudieron crear las cotizaciones: ' + msg, 'error');
@@ -1225,9 +1237,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Cierra el panel sin agregar nada.
     handleCancelAddPdf() {
         this.addQuotesMode = false;
+        this.pdfAnalyzing = false;
         this.uploadedQuotes = [];
         this.editableQuotes = [];
     }
+    // El componente de PDF empezó/terminó de analizar (para el spinner).
+    handlePdfAnalyzing()     { this.pdfAnalyzing = true; }
+    handlePdfAnalyzingDone() { this.pdfAnalyzing = false; }
 
     get hasRelatedQuotes()   { return this.relatedQuotes && this.relatedQuotes.length > 0; }
     get relatedQuotesCount() { return this.relatedQuotes ? this.relatedQuotes.length : 0; }

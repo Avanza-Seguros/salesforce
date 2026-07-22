@@ -223,6 +223,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 
 		this.isProcessing = true;
 		this.error = "";
+		// Avisa al padre que empezó el análisis (para mostrar spinner).
+		this.dispatchEvent(new CustomEvent("analysisstart"));
 		try {
 			this.statusMessage = "Leyendo el contenido de los PDFs…";
 			const fileNames = this.files.map((f) => f.name);
@@ -256,6 +258,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 		} finally {
 			this.isProcessing = false;
 			this.statusMessage = "";
+			// Avisa al padre que terminó el análisis (para ocultar el spinner).
+			this.dispatchEvent(new CustomEvent("analysisdone"));
 		}
 	}
 

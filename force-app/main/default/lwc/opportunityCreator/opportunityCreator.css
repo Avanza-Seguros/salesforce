@@ -1078,6 +1078,23 @@ lightning-combobox {
     margin-top: 1rem;
     border: 1px dashed #0052CC;
     background: #F7FAFF;
+    position: relative;
+}
+.pdf-analyzing-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5rem;
+    padding: 2rem;
+    margin: 0.5rem 0 1rem;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid #CFE0FB;
+    border-radius: 10px;
+    color: #0052CC;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-align: center;
 }
 
 /* ---- Revisar y editar cotizaciones ---- */
