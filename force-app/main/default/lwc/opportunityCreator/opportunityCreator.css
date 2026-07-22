@@ -1098,10 +1098,11 @@ lightning-combobox {
     flex-direction: column;
 }
 .edit-quote-card__head {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; gap: 0.5rem;
     margin-bottom: 0.85rem; padding-bottom: 0.6rem; border-bottom: 1px solid #EDF0F3;
 }
-.edit-quote-card__aseg { font-size: 1.05rem; font-weight: 800; color: #001C3D; }
+.edit-quote-card__check { flex: 0 0 auto; }
+.edit-quote-card__aseg { font-size: 1.05rem; font-weight: 800; color: #001C3D; flex: 1; }
 .edit-quote-card__badge {
     background: #E6F4EA; color: #00875A; border: 1px solid #B2DBC1;
     font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px;

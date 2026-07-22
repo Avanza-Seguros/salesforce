@@ -1109,13 +1109,18 @@
                                     <h2 class="section-title">Revisar y editar cotizaciones</h2>
                                     <p class="section-subtitle">Verifica el producto de cada cotización antes de crearlas.</p>
                                 </div>
-                                <div class="section-badge compare-badge">{editableQuotesCount} cotizaciones</div>
+                                <div class="section-badge compare-badge">{editableQuotesBadge}</div>
                             </div>
 
                             <div class="edit-quotes-grid">
                                 <template for:each={editableQuotes} for:item="q" for:index="idx">
                                     <article key={q.id} class="edit-quote-card">
                                         <header class="edit-quote-card__head">
+                                            <lightning-input type="checkbox" class="edit-quote-card__check"
+                                                checked={q.seleccionada} data-index={idx}
+                                                onchange={handleQuoteSelectChange}
+                                                variant="label-hidden" label="Agregar esta cotización">
+                                            </lightning-input>
                                             <span class="edit-quote-card__aseg">{q.compania}</span>
                                             <template if:true={q.esGanadora}>
                                                 <span class="edit-quote-card__badge">★ Recomendada</span>

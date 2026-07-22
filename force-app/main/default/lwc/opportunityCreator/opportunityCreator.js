@@ -221,17 +221,33 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 aseguradoras: q.aseguradoras || [],
                 productId: q.productoSugeridoId,
                 frecuencia: q.frecuencia || 'Mensual',
-                sinProductos: !(q.productos && q.productos.length)
+                sinProductos: !(q.productos && q.productos.length),
+                seleccionada: true
             }));
         } catch (e) {
             this.editableQuotes = [];
         }
     }
 
+    // Marca/desmarca una cotización de la lista de revisión.
+    handleQuoteSelectChange(event) {
+        const idx = parseInt(event.currentTarget.dataset.index, 10);
+        const checked = event.target.checked;
+        this.editableQuotes = this.editableQuotes.map((q, i) =>
+            i === idx ? { ...q, seleccionada: checked } : q
+        );
+    }
+
     async handleCrearCotizaciones() {
         if (!this.opportunity.Id || !this.hasEditableQuotes) { return; }
-        // Validar que cada cotización tenga producto
-        const sinProd = this.editableQuotes.filter(q => !q.productId);
+        // Solo se crean las cotizaciones seleccionadas.
+        const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
+        if (!seleccionadas.length) {
+            this.showToast('Sin selección', 'Marca al menos una cotización para agregarla.', 'warning');
+            return;
+        }
+        // Validar que cada cotización seleccionada tenga producto
+        const sinProd = seleccionadas.filter(q => !q.productId);
         if (sinProd.length) {
             this.showToast('Falta producto',
                 `Selecciona el producto de: ${sinProd.map(q => q.compania).join(', ')}`, 'warning');
@@ -239,7 +255,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         this.isSaving = true; this.isLoading = true;
         try {
-            const payload = this.editableQuotes.map(q => ({
+            const payload = seleccionadas.map(q => ({
                 id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
                 primaTotal: q.primaTotal, vigencia: q.vigencia,
                 noCotizacion: q.noCotizacion, productId: q.productId,
@@ -382,6 +398,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     get editableQuotesCount() {
         return this.editableQuotes ? this.editableQuotes.length : 0;
+    }
+    get editableQuotesSelectedCount() {
+        return (this.editableQuotes || []).filter(q => q.seleccionada).length;
+    }
+    get editableQuotesBadge() {
+        return `${this.editableQuotesSelectedCount} de ${this.editableQuotesCount} seleccionadas`;
     }
 
     /**
