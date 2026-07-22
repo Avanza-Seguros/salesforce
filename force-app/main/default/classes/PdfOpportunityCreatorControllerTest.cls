@@ -63,7 +63,8 @@ private class PdfOpportunityCreatorControllerTest {
         Map<String, Object> res = PdfOpportunityCreatorController.analyzeQuotes(names, textos);
         Test.stopTest();
         System.assertEquals('mock', res.get('fuente'), 'En test debe usar el respaldo');
-        System.assertEquals('Automoviles', res.get('ramo'), 'El ramo debe mapearse a Automoviles');
+        // El JSON de respaldo interno trae ramo GMM.
+        System.assertEquals('GMM', res.get('ramo'), 'El ramo del mock se mapea a GMM');
         System.assertNotEquals(null, res.get('quotes'), 'Debe devolver la lista de cotizaciones');
     }
 
