@@ -181,11 +181,36 @@
 .ro-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.6rem 1.25rem;
+    gap: 0;
+    border-top: 1px solid #EEF1F6;
+    border-left: 1px solid #EEF1F6;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
 }
 @media (max-width: 900px) { .ro-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .ro-grid { grid-template-columns: 1fr; } }
 
+/* Celda uniforme: misma altura y separadores, para que TODO se vea parejo */
+.ro-field {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 52px;
+    padding: 0.45rem 0.7rem;
+    border-right: 1px solid #EEF1F6;
+    border-bottom: 1px solid #EEF1F6;
+    background: #FFFFFF;
+    overflow: hidden;
+}
+/* El output-field estándar hereda la tipografía; queda igual que las celdas de fecha */
+.ro-field lightning-output-field {
+    --slds-c-icon-color-foreground-default: #667085;
+    font-size: 0.9rem;
+}
+
+/* Compatibilidad con celdas antiguas */
 .ro-item {
     display: flex;
     flex-direction: column;
@@ -206,6 +231,28 @@
     color: #1A1A1A;
     word-break: break-word;
 }
+
+/* Montos resaltados (color y peso se heredan hacia el valor del output-field) */
+.ro-field.ro-amount {
+    background: #F3FBF7;
+    color: #00875A;
+    font-weight: 800;
+    font-size: 0.98rem;
+}
+.ro-field.ro-amount .ro-value { color: #00875A; font-weight: 800; }
+
+/* Subtítulos de cada bloque dentro de la tarjeta de póliza */
+.ro-subtitle {
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #0052CC;
+    margin: 0.9rem 0 0.35rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 2px solid #E6EEF9;
+}
+.ro-subtitle:first-child { margin-top: 0; }
 
 /* Tarjetas de cotización */
 .ro-card-grid {

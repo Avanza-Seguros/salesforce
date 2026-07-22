@@ -121,25 +121,67 @@
                         </div>
                     </div>
                     <template if:true={hasPolicy}>
-                        <lightning-record-view-form record-id={policyId} object-api-name="InsurancePolicy">
+                        <lightning-record-view-form record-id={policyId} object-api-name="InsurancePolicy" density="compact">
+
+                            <p class="ro-subtitle">Identificación</p>
                             <div class="ro-grid">
-                                <lightning-output-field field-name="UniversalPolicyNumber"></lightning-output-field>
-                                <lightning-output-field field-name="Aseguradora__c"></lightning-output-field>
-                                <lightning-output-field field-name="PolicyType"></lightning-output-field>
-                                <lightning-output-field field-name="PlanType"></lightning-output-field>
-                                <lightning-output-field field-name="Status"></lightning-output-field>
-                                <div class="ro-item"><span class="ro-label">Inicio de vigencia</span><span class="ro-value">{policyDates.EffectiveDate}</span></div>
-                                <div class="ro-item"><span class="ro-label">Fin de vigencia</span><span class="ro-value">{policyDates.ExpirationDate}</span></div>
-                                <lightning-output-field field-name="PremiumFrequency"></lightning-output-field>
-                                <lightning-output-field field-name="PremiumAmount"></lightning-output-field>
-                                <lightning-output-field field-name="GrossWrittenPremium"></lightning-output-field>
-                                <lightning-output-field field-name="Numero_Pagos__c"></lightning-output-field>
-                                <lightning-output-field field-name="Primer_Pago__c"></lightning-output-field>
-                                <lightning-output-field field-name="Pago_Subsecuente__c"></lightning-output-field>
-                                <div class="ro-item"><span class="ro-label">Vencimiento de pago</span><span class="ro-value">{policyDates.PaymentDueDate}</span></div>
-                                <lightning-output-field field-name="Referencia_Pago__c"></lightning-output-field>
-                                <lightning-output-field field-name="CLABE__c"></lightning-output-field>
+                                <div class="ro-field"><lightning-output-field field-name="Name"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="PolicyType"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Aseguradora__c"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="ProductId"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="NameInsuredId"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Status"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="UniversalPolicyNumber"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="SourceQuoteId"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="SourceOpportunityId"></lightning-output-field></div>
                             </div>
+
+                            <p class="ro-subtitle">Vigencia y fechas</p>
+                            <div class="ro-grid">
+                                <div class="ro-field"><span class="ro-label">Inicio de vigencia</span><span class="ro-value">{policyDates.EffectiveDate}</span></div>
+                                <div class="ro-field"><span class="ro-label">Fin de vigencia</span><span class="ro-value">{policyDates.ExpirationDate}</span></div>
+                                <div class="ro-field"><span class="ro-label">Primer vencimiento de pago</span><span class="ro-value">{policyDates.PaymentDueDate}</span></div>
+                                <div class="ro-field"><span class="ro-label">Fecha de emisión</span><span class="ro-value">{policyDates.SaleDate}</span></div>
+                                <div class="ro-field"><lightning-output-field field-name="PolicyTerm"></lightning-output-field></div>
+                                <div class="ro-field"><span class="ro-label">Vigencia de cancelación</span><span class="ro-value">{policyDates.CancellationEffectiveDate}</span></div>
+                                <div class="ro-field"><lightning-output-field field-name="CancellationReason"></lightning-output-field></div>
+                            </div>
+
+                            <p class="ro-subtitle">Prima y forma de pago</p>
+                            <div class="ro-grid">
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="GrossWrittenPremium"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="PremiumAmount"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="TermPremiumAmount"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="PremiumFrequency"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Numero_Pagos__c"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Moneda__c"></lightning-output-field></div>
+                            </div>
+
+                            <p class="ro-subtitle">Cobranza</p>
+                            <div class="ro-grid">
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Primer_Pago__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Pago_Subsecuente__c"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Pagos_Subsecuentes__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Subtotal__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Descuento__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Financiamiento__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Recargos__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Gastos_Expedicion__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="Derecho_Poliza__c"></lightning-output-field></div>
+                                <div class="ro-field ro-amount"><lightning-output-field field-name="IVA__c"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Referencia_Pago__c"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="CLABE__c"></lightning-output-field></div>
+                            </div>
+
+                            <p class="ro-subtitle">Renovación</p>
+                            <div class="ro-grid">
+                                <div class="ro-field"><span class="ro-label">Renovación anterior</span><span class="ro-value">{policyDates.PreviousRenewalDate}</span></div>
+                                <div class="ro-field"><span class="ro-label">Fecha de renovación</span><span class="ro-value">{policyDates.RenewalDate}</span></div>
+                                <div class="ro-field"><span class="ro-label">Renovación planeada</span><span class="ro-value">{policyDates.PlannedRenewalDate}</span></div>
+                                <div class="ro-field"><lightning-output-field field-name="ProducerId"></lightning-output-field></div>
+                            </div>
+
+                            <p class="ro-subtitle">Descripción</p>
                             <div class="ro-desc">
                                 <lightning-output-field field-name="PolicyDescription"></lightning-output-field>
                             </div>

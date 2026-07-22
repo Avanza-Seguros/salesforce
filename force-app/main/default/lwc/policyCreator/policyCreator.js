@@ -4,6 +4,11 @@ import { getRecord, getFieldValue, notifyRecordUpdateAvailable } from 'lightning
 import EFFECTIVE_DATE from '@salesforce/schema/InsurancePolicy.EffectiveDate';
 import EXPIRATION_DATE from '@salesforce/schema/InsurancePolicy.ExpirationDate';
 import PAYMENT_DUE_DATE from '@salesforce/schema/InsurancePolicy.PaymentDueDate';
+import CANCELLATION_EFF_DATE from '@salesforce/schema/InsurancePolicy.CancellationEffectiveDate';
+import SALE_DATE from '@salesforce/schema/InsurancePolicy.SaleDate';
+import PREVIOUS_RENEWAL_DATE from '@salesforce/schema/InsurancePolicy.PreviousRenewalDate';
+import RENEWAL_DATE from '@salesforce/schema/InsurancePolicy.RenewalDate';
+import PLANNED_RENEWAL_DATE from '@salesforce/schema/InsurancePolicy.PlannedRenewalDate';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
@@ -51,13 +56,21 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
 
     // Lee las fechas de la póliza para mostrarlas SIN hora en la vista de solo lectura.
-    @wire(getRecord, { recordId: '$policyId', fields: [EFFECTIVE_DATE, EXPIRATION_DATE, PAYMENT_DUE_DATE] })
+    @wire(getRecord, { recordId: '$policyId', fields: [
+        EFFECTIVE_DATE, EXPIRATION_DATE, PAYMENT_DUE_DATE, CANCELLATION_EFF_DATE,
+        SALE_DATE, PREVIOUS_RENEWAL_DATE, RENEWAL_DATE, PLANNED_RENEWAL_DATE
+    ] })
     wiredPolicyDates({ data }) {
         if (data) {
             this.policyDates = {
                 EffectiveDate: this.fmtDate(getFieldValue(data, EFFECTIVE_DATE)),
                 ExpirationDate: this.fmtDate(getFieldValue(data, EXPIRATION_DATE)),
-                PaymentDueDate: this.fmtDate(getFieldValue(data, PAYMENT_DUE_DATE))
+                PaymentDueDate: this.fmtDate(getFieldValue(data, PAYMENT_DUE_DATE)),
+                CancellationEffectiveDate: this.fmtDate(getFieldValue(data, CANCELLATION_EFF_DATE)),
+                SaleDate: this.fmtDate(getFieldValue(data, SALE_DATE)),
+                PreviousRenewalDate: this.fmtDate(getFieldValue(data, PREVIOUS_RENEWAL_DATE)),
+                RenewalDate: this.fmtDate(getFieldValue(data, RENEWAL_DATE)),
+                PlannedRenewalDate: this.fmtDate(getFieldValue(data, PLANNED_RENEWAL_DATE))
             };
         }
     }
