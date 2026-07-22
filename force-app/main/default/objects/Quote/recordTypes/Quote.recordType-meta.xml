@@ -5,13 +5,107 @@
     <compactLayoutAssignment>Quote</compactLayoutAssignment>
     <label>Quote</label>
     <picklistValues>
-        <picklist>Status</picklist>
+        <picklist>Frecuencia_de_prima__c</picklist>
         <values>
-            <fullName>Accepted</fullName>
+            <fullName>Anual</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Approved</fullName>
+            <fullName>Mensual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Semestral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trimestral</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Ramos__c</picklist>
+        <values>
+            <fullName>Accidentes Personales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ahorro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Asistencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Construcción</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Danos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Embarcaciones</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesionistas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transporte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viajes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Status</picklist>
+        <values>
+            <fullName>Accepted</fullName>
             <default>false</default>
         </values>
         <values>
@@ -19,23 +113,30 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Draft</fullName>
+            <fullName>In Review</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>TipoValor__c</picklist>
+        <values>
+            <fullName>a confirmar</fullName>
             <default>true</default>
         </values>
         <values>
-            <fullName>In Review</fullName>
+            <fullName>actual</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Needs Review</fullName>
+            <fullName>comercial</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Presented</fullName>
+            <fullName>comercial%2B10</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Rejected</fullName>
+            <fullName>convenido</fullName>
             <default>false</default>
         </values>
     </picklistValues>

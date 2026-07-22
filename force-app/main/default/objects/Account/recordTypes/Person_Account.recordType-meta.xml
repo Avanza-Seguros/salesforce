@@ -2,6 +2,7 @@
 <RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Person_Account</fullName>
     <active>true</active>
+    <compactLayoutAssignment>Account_Compact_Layout</compactLayoutAssignment>
     <label>Person Account</label>
     <picklistValues>
         <picklist>AccountSource</picklist>
@@ -1236,10 +1237,6 @@
         <picklist>Type</picklist>
         <values>
             <fullName>Colectivo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Individual</fullName>
             <default>false</default>
         </values>
     </picklistValues>

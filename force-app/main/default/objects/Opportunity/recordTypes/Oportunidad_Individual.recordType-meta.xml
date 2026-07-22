@@ -3,6 +3,7 @@
     <fullName>Oportunidad_Individual</fullName>
     <active>true</active>
     <businessProcess>Polizas</businessProcess>
+    <compactLayoutAssignment>Financial_Opportunities</compactLayoutAssignment>
     <label>Oportunidad Individual</label>
     <picklistValues>
         <picklist>Agente__c</picklist>
@@ -362,6 +363,21 @@
         </values>
     </picklistValues>
     <picklistValues>
+        <picklist>Canal__c</picklist>
+        <values>
+            <fullName>Agente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Digital</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Directo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>Estado_civil__c</picklist>
         <values>
             <fullName>Casado</fullName>
@@ -588,19 +604,7 @@
     <picklistValues>
         <picklist>Mercado__c</picklist>
         <values>
-            <fullName>Amistad</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Asesores En Alianza</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Campaña Mailing</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Facebook</fullName>
+            <fullName>Corporativo</fullName>
             <default>false</default>
         </values>
         <values>
@@ -608,67 +612,15 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Frio</fullName>
+            <fullName>Gobierno</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Instagram</fullName>
+            <fullName>Individual</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Linkedin</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Natural</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Networking</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Pláticas Empresariales</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Referido</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Rifas</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Servicio</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Siniestro Accidente</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Siniestro Enfermedad</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Siniestros</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Siniestros Maternidad</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Traspaso</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Web</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Whatsapp</fullName>
+            <fullName>PyME</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -856,502 +808,6 @@
             <fullName>Accidentes</fullName>
             <default>false</default>
         </values>
-        <values>
-            <fullName>Accidentes Grupo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Alfa Medical Flex A</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Alfa Medical Flex B</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Alfa Medical Integro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Alfa Medical Internacional</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Alfa Medical Pleno</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Amplia</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Autos</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Avanzado</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Capitaliza</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Conexión</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Conexión Médica</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Consolida</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Contactado</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Daños</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Daños Avyna</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Dental</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Dotal</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Dotal 10</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Dotal 20</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Dotal 20 Udis</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Educacion</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Elige</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Escencial</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Estándar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Fianzas</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex A</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex Ambar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex B</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex Cuarzo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex Indigo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flex Plus</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flexible Óptimo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Flotilla</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Gmm</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Gmm Colectivo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Golden salud</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Hogar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Hogar Flexible Apex</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Hogar Versatil</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Hombre Clave</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Imagina Ser</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Imagina Ser %2B</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Imagina Ser 55</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Imagina Ser 60</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Imagina Ser 65</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Imagina Ser 70</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Impulsa</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Individual</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Integral</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Integro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Intermedio</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Internacional</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Legado</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Maxima</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Mi Doc Deducible</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Mi Mascota</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Negocio Protegido</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Nuevo Plenitud</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Nuevo Plenitud 55 15</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Nuevo Plenitud 60</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Objetivo Vida S%2E A%2E F%2E</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Optimo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Ordinario</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 10</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 15</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 20</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 6</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 99 10</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 99 10 Udis</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 99 15</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 99 20</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Orvi 99 6</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>PROFECIONAL</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Planmed Hibrido</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Planmed Optimo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Platino</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Platino Universa</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Pleno</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Plus</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Practico</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Premier 200 Tempus</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Premier 300 Omnia</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Premium</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Privilegio</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Privilegio Universal</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Profesional</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Profesional Abuelos</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Proyecta</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Qsalud</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Qsalud Colectivo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>RC Contratista</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>RC Oficina</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Realiza</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Realiza Creciente</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Responsabilidad Civil</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Se Adapta</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Segubeca</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Segubeca 18</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Segubeca 18 Udi</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Segubeca 18 Udi Prima Constante</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Seguro de Automóviles</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Seguro de Viaje</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Sl Alfa Medical Flex</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Sl Integro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Sl Practico</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Temporal</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Temporal 1 Renovable Star</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Temporal 10</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Temporal 20</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Transciende</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Transportes</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Versatil</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida A Tus Sueños</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida Grupo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida Individual Vitalicio</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida Inversion</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida Mujer</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vida Mujer Ahorro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vision Plus</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Vital</fullName>
-            <default>false</default>
-        </values>
     </picklistValues>
     <picklistValues>
         <picklist>Prospectador__c</picklist>
@@ -1499,11 +955,7 @@
     <picklistValues>
         <picklist>Ramo__c</picklist>
         <values>
-            <fullName>Accidentes</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Administrativa</fullName>
+            <fullName>Accidentes Personales</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1511,7 +963,15 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Auto</fullName>
+            <fullName>Asistencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1523,19 +983,31 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Embarcaciones</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Fianzas</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Flotilla</fullName>
+            <fullName>GMM</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Gastos medicos</fullName>
+            <fullName>Hogar</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Mascota</fullName>
+            <fullName>Personas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesionistas</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1543,7 +1015,7 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Retiro</fullName>
+            <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1552,6 +1024,10 @@
         </values>
         <values>
             <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -1751,11 +1227,19 @@
     <picklistValues>
         <picklist>Type</picklist>
         <values>
-            <fullName>Existing Business</fullName>
+            <fullName>External_Renewal</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>New Business</fullName>
+            <fullName>Internal_Renewal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>New_Business</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reissue</fullName>
             <default>false</default>
         </values>
     </picklistValues>

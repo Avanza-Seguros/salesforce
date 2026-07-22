@@ -7,5 +7,10 @@
     <columns>PRODUCT2.PRODUCT_TYPE</columns>
     <columns>PRODUCT2.CONFIGURE_DURING_SALE</columns>
     <filterScope>Everything</filterScope>
+    <filters>
+        <field>Aseguradora__c</field>
+        <operation>contains</operation>
+        <value>AXA</value>
+    </filters>
     <label>Bundled Products</label>
 </ListView>

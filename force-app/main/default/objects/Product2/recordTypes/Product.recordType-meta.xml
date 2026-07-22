@@ -7,7 +7,23 @@
     <picklistValues>
         <picklist>Family</picklist>
         <values>
+            <fullName>Accidentes Personales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ahorro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Asistencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
@@ -15,7 +31,19 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Embarcaciones</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
             <default>false</default>
         </values>
         <values>
@@ -23,11 +51,35 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesionistas</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>RC</fullName>
             <default>false</default>
         </values>
         <values>
+            <fullName>Transporte</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Viajes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>
