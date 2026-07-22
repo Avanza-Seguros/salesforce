@@ -234,8 +234,8 @@
                                 <div class="field-card"><lightning-input-field field-name="PolicyType" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="Aseguradora__c" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="ProductId" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input type="date" data-field="EffectiveDate" label="Fecha de vigencia" value={dates.EffectiveDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                                <div class="field-card"><lightning-input type="date" data-field="ExpirationDate" label="Fecha de Vencimiento" value={dates.ExpirationDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                                <div class="field-card"><lightning-input-field field-name="EffectiveDate" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="ExpirationDate" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="Status" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="UniversalPolicyNumber" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PolicyDescription" disabled={isReadOnly}></lightning-input-field></div>
@@ -245,7 +245,7 @@
                                 <div class="field-card"><lightning-input-field field-name="SourceOpportunityId" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="ContractGroupPlanId" disabled={isReadOnly}></lightning-input-field></div>
                                 <!-- Automático desde el módulo de pagos: no editable -->
-                                <div class="field-card"><lightning-input type="date" data-field="CancellationEffectiveDate" label="Fecha Vigencia de cancelación (automática)" value={dates.CancellationEffectiveDate} disabled></lightning-input></div>
+                                <div class="field-card"><lightning-input-field field-name="CancellationEffectiveDate" disabled></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="CancellationReason" disabled={isReadOnly}></lightning-input-field></div>
                                 <!-- Calculado: Expiration Date - Effective Date -->
                                 <div class="field-card"><lightning-input-field field-name="PolicyTerm" disabled></lightning-input-field></div>
@@ -285,10 +285,10 @@
                             </div>
                             <div class="policy-grid">
                                 <!-- Automática: fecha en que la Oportunidad pasó de Gestión Comercial a Emisión -->
-                                <div class="field-card"><lightning-input type="date" data-field="SaleDate" label="Fecha de emisión (automática)" value={dates.SaleDate} disabled></lightning-input></div>
-                                <div class="field-card"><lightning-input type="date" data-field="PreviousRenewalDate" label="Renovación anterior" value={dates.PreviousRenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                                <div class="field-card"><lightning-input type="date" data-field="RenewalDate" label="Fecha de renovación" value={dates.RenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
-                                <div class="field-card"><lightning-input type="date" data-field="PlannedRenewalDate" label="Renovación final" value={dates.PlannedRenewalDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                                <div class="field-card"><lightning-input-field field-name="SaleDate" disabled></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="PreviousRenewalDate" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="RenewalDate" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="PlannedRenewalDate" disabled={isReadOnly}></lightning-input-field></div>
                                 <!-- Automático desde Gestión Comercial (ejecutivo responsable) -->
                                 <div class="field-card"><lightning-input-field field-name="ProducerId"></lightning-input-field></div>
                             </div>
@@ -306,7 +306,7 @@
                                 </div>
                             </div>
                             <div class="policy-grid">
-                                <div class="field-card"><lightning-input type="date" data-field="PaymentDueDate" label="Vencimiento de pago" value={dates.PaymentDueDate} onchange={handleDateChange} disabled={isReadOnly}></lightning-input></div>
+                                <div class="field-card"><lightning-input-field field-name="PaymentDueDate" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="Moneda__c" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="Numero_Pagos__c" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="Plazo_Pago_Dias__c" disabled={isReadOnly}></lightning-input-field></div>

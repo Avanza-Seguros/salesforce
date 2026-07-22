@@ -34,11 +34,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
 
     // Campos de fecha que se manejan como "solo fecha".
-    // Solo las fechas que se muestran en el formulario (campos del Excel).
-    DATE_FIELDS = [
-        'EffectiveDate', 'ExpirationDate', 'CancellationEffectiveDate', 'SaleDate',
-        'PreviousRenewalDate', 'RenewalDate', 'PlannedRenewalDate', 'PaymentDueDate'
-    ];
+    // Las fechas ahora son lightning-input-field (se guardan de forma nativa por el
+    // record-edit-form), por eso ya no se manejan aquí. Se deja vacío para no inyectar
+    // valores viejos al guardar. Solo la vista de solo lectura usa el wire de fechas.
+    DATE_FIELDS = [];
 
     // Valores recuperados por la IA que NO se muestran en el formulario,
     // pero que sí se guardan al enviar (no se pierde información).
@@ -314,25 +313,17 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Calendario de pagos:\n' + recs;
         }
 
-        // Fechas (solo fecha) que llenó la IA → se manejan aparte de los input-field.
-        const nuevaFechaVenc = cob.fechaVencimientoPrimerPago
+        // Fechas que llena el análisis (solo fecha, YYYY-MM-DD). Ahora son input-field,
+        // así que van dentro del mapeo normal. SaleDate y CancellationEffectiveDate NO se
+        // llenan desde el PDF (son automáticas).
+        const soloFecha = (v) => (v ? String(v).substring(0, 10) : null);
+        const fechaPrimerVenc = cob.fechaVencimientoPrimerPago
             || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null);
-        const dateVals = {
-            EffectiveDate: d.vigenciaDesde,
-            ExpirationDate: d.vigenciaHasta,
-            // SaleDate y CancellationEffectiveDate NO se llenan desde el PDF:
-            // el primero se calcula al pasar la Oportunidad a Emisión y el segundo
-            // lo alimenta el módulo de pagos.
-            PaymentDueDate: cob.fechaVencimientoPrimerPago
-                || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null)
-        };
-        const nuevasFechas = { ...this.dates };
-        Object.keys(dateVals).forEach((k) => {
-            if (dateVals[k]) { nuevasFechas[k] = String(dateVals[k]).substring(0, 10); }
-        });
-        this.dates = nuevasFechas;
 
         const map = {
+            EffectiveDate: soloFecha(d.vigenciaDesde),
+            ExpirationDate: soloFecha(d.vigenciaHasta),
+            PaymentDueDate: soloFecha(fechaPrimerVenc),
             // Datos generales.
             // NO se actualizan por análisis: Aseguradora__c, PolicyType, NameInsuredId,
             // ProductId, SourceQuoteId y la oportunidad origen (se conservan tal cual).
