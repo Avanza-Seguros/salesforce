@@ -1,0 +1,200 @@
+/**
+ *   @name: OpportunityQuotesController
+ *   @version: 1.0
+ *   @creation date: 02/07/2026
+ *   @author: Sergio Uribe Toledo - Volestra
+ *   @description: Controlador cacheable que expone al comparativo de IA las Quotes hijas de una Opportunity con sus campos custom y los ContentDocumentLinks del PDF comparativo. Las coberturas de cada cotización se obtienen del PRODUCTO de la Quote a través de ProductCoverageAssignment__c (nombre real en Coverage_Type__r.Name).
+ */
+public with sharing class OpportunityQuotesController {
+
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve las Quotes hijas de una Opportunity con los campos custom usados por el comparativo de IA, envueltas en QuoteSummary y ordenadas por prima anual ascendente. Las coberturas se sacan del producto vía ProductCoverageAssignment__c.
+	 * @param opportunityId: Id de la Opportunity de la que se obtienen las Quotes.
+	 * @return Lista de QuoteSummary con los datos de cada Quote.
+	 */
+	@AuraEnabled(cacheable = true)
+	public static List<QuoteSummary> getQuotesByOpportunity(Id opportunityId) {
+		if (opportunityId == null) {
+			throw new AuraHandledException('Falta el Id de la oportunidad.');
+		}
+		List<QuoteSummary> out = new List<QuoteSummary>();
+		for (Quote q : [
+			SELECT
+				Id,
+				Name,
+				Product__c,
+				Aseguradora__r.Name,
+				PrimaAnual__c,
+				SumaAsegurada__c,
+				TipoValor__c,
+				DeducibleDanos_Pct__c,
+				DeducibleDanos_Mxn__c,
+				DeducibleRobo_Pct__c,
+				DeducibleRobo_Mxn__c,
+				Cristales__c,
+				ResponsabilidadCivil__c,
+				GastosMedicos__c,
+				AsistenciaVial__c,
+				DefensaJuridica__c,
+				VidaConductor__c,
+				RCExtranjero__c,
+				Notas_IA__c,
+				ExpirationDate
+			FROM Quote
+			WHERE OpportunityId = :opportunityId
+			ORDER BY PrimaAnual__c ASC NULLS LAST
+		]) {
+			out.add(new QuoteSummary(q));
+		}
+
+		// Coberturas de cada cotización = las del PRODUCTO de la Quote, tomadas de
+		// ProductCoverageAssignment__c. El nombre real está en Coverage_Type__r.Name.
+		Set<Id> productIds = new Set<Id>();
+		for (QuoteSummary s : out) {
+			if (s.productId != null) { productIds.add(s.productId); }
+		}
+
+		Map<Id, List<String>> covByProduct = new Map<Id, List<String>>();
+		if (!productIds.isEmpty()) {
+			for (ProductCoverageAssignment__c pca : [
+				SELECT Product__c, Coverage_Type__r.Name
+				FROM ProductCoverageAssignment__c
+				WHERE Product__c IN :productIds
+				ORDER BY Coverage_Type__r.Name
+			]) {
+				if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) {
+					continue;
+				}
+				if (!covByProduct.containsKey(pca.Product__c)) {
+					covByProduct.put(pca.Product__c, new List<String>());
+				}
+				covByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
+			}
+		}
+
+		for (QuoteSummary s : out) {
+			s.coberturas = (s.productId != null && covByProduct.containsKey(s.productId))
+				? covByProduct.get(s.productId)
+				: new List<String>();
+		}
+		return out;
+	}
+
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los ContentDocumentLinks de la Opportunity cuyo título empieza con "Comparativo_", permitiendo mostrar un acceso directo al PDF comparativo desde el record page.
+	 * @param opportunityId: Id de la Opportunity de la que se obtienen los enlaces de documentos.
+	 * @return Lista de ComparativoLink con los documentos comparativos encontrados.
+	 */
+	@AuraEnabled(cacheable = true)
+	public static List<ComparativoLink> getComparativoLinks(Id opportunityId) {
+		if (opportunityId == null) {
+			return new List<ComparativoLink>();
+		}
+		List<ComparativoLink> out = new List<ComparativoLink>();
+		for (ContentDocumentLink link : [
+			SELECT
+				ContentDocumentId,
+				ContentDocument.Title,
+				ContentDocument.LatestPublishedVersionId
+			FROM ContentDocumentLink
+			WHERE LinkedEntityId = :opportunityId
+			ORDER BY SystemModstamp DESC
+		]) {
+			String title = link.ContentDocument != null
+				? link.ContentDocument.Title
+				: null;
+			if (String.isNotBlank(title) && title.startsWith('Comparativo_')) {
+				ComparativoLink c = new ComparativoLink();
+				c.contentDocumentId = link.ContentDocumentId;
+				c.title = title;
+				c.latestVersionId = link.ContentDocument.LatestPublishedVersionId;
+				out.add(c);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Wrapper serializable que expone los datos relevantes de una Quote al comparativo de IA en el frontend.
+	 */
+	public class QuoteSummary {
+		@AuraEnabled public Id id;
+		@AuraEnabled public String name;
+		@AuraEnabled public Id productId;
+		@AuraEnabled public String aseguradora;
+		@AuraEnabled public Decimal primaAnual;
+		@AuraEnabled public Decimal sumaAsegurada;
+		@AuraEnabled public String tipoValor;
+		@AuraEnabled public Decimal deducibleDanosPct;
+		@AuraEnabled public Decimal deducibleDanosMxn;
+		@AuraEnabled public Decimal deducibleRoboPct;
+		@AuraEnabled public Decimal deducibleRoboMxn;
+		@AuraEnabled public Boolean cristales;
+		@AuraEnabled public Decimal responsabilidadCivil;
+		@AuraEnabled public Decimal gastosMedicos;
+		@AuraEnabled public Boolean asistenciaVial;
+		@AuraEnabled public Boolean defensaJuridica;
+		@AuraEnabled public Decimal vidaConductor;
+		@AuraEnabled public Boolean rcExtranjero;
+		@AuraEnabled public String notas;
+		@AuraEnabled public Date expirationDate;
+		@AuraEnabled public List<String> coberturas;
+
+		/**
+		 * @creation date: 02/07/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Constructor por defecto vacío requerido para la serialización.
+		 * @return void
+		 */
+		public QuoteSummary() {
+		}
+
+		/**
+		 * @creation date: 02/07/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Construye el wrapper a partir de un registro Quote, copiando cada campo custom al atributo correspondiente.
+		 * @param q: Registro Quote origen de los datos.
+		 * @return void
+		 */
+		public QuoteSummary(Quote q) {
+			this.id = q.Id;
+			this.name = q.Name;
+			this.productId = q.Product__c;
+			this.aseguradora = (q.Aseguradora__r != null) ? q.Aseguradora__r.Name : null;
+			this.primaAnual = q.PrimaAnual__c;
+			this.sumaAsegurada = q.SumaAsegurada__c;
+			this.tipoValor = q.TipoValor__c;
+			this.deducibleDanosPct = q.DeducibleDanos_Pct__c;
+			this.deducibleDanosMxn = q.DeducibleDanos_Mxn__c;
+			this.deducibleRoboPct = q.DeducibleRobo_Pct__c;
+			this.deducibleRoboMxn = q.DeducibleRobo_Mxn__c;
+			this.cristales = q.Cristales__c;
+			this.responsabilidadCivil = q.ResponsabilidadCivil__c;
+			this.gastosMedicos = q.GastosMedicos__c;
+			this.asistenciaVial = q.AsistenciaVial__c;
+			this.defensaJuridica = q.DefensaJuridica__c;
+			this.vidaConductor = q.VidaConductor__c;
+			this.rcExtranjero = q.RCExtranjero__c;
+			this.notas = q.Notas_IA__c;
+			this.expirationDate = q.ExpirationDate;
+			this.coberturas = new List<String>();
+		}
+	}
+
+	/**
+	 * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Wrapper serializable que representa un enlace a un documento comparativo (PDF) asociado a la Opportunity.
+	 */
+	public class ComparativoLink {
+		@AuraEnabled public Id contentDocumentId;
+		@AuraEnabled public Id latestVersionId;
+		@AuraEnabled public String title;
+	}
+}
