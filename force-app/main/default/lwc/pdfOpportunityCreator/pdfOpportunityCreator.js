@@ -102,7 +102,10 @@ export default class PdfOpportunityCreator extends LightningElement {
 					
 					const loadingTask = window.pdfjsLib.getDocument({ 
 						data: pdfData,
-						standardFontDataUrl: fontsUrl
+						isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+						useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+						standardFontDataUrl: fontsUrl,
+						disableFontFace: true     // ← evita cargar fuentes externas
 					});
 					const timeout = new Promise((_, reject) => 
 							setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
