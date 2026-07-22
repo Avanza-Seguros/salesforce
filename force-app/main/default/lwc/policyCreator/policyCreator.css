@@ -102,7 +102,20 @@
     border: 1px solid #D0D0D0;
     position: relative;
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    /* Misma altura para todas las tarjetas (fechas e input-field quedan parejas) */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 5rem;
+    box-sizing: border-box;
 }
+/* Los controles ocupan el mismo ancho y no agregan alto extra */
+.field-card lightning-input,
+.field-card lightning-input-field {
+    display: block;
+    width: 100%;
+}
+.field-card lightning-input { margin: 0; }
 .field-card:hover { box-shadow: var(--shadow-sm); border-color: #0052CC; }
 .field-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
