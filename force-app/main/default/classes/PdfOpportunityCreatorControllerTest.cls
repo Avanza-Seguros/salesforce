@@ -217,11 +217,11 @@ private class PdfOpportunityCreatorControllerTest {
         Opportunity nueva = new Opportunity();
         PdfOpportunityCreatorController.applyOpportunityDefaults(nueva);
 
-        String desc = PdfOpportunityCreatorController.buildOpportunityDescription(
+        String descTexto = PdfOpportunityCreatorController.buildOpportunityDescription(
             'Aviso importante',
             new Map<String, Object>{ 'en_pocas_palabras' => 'GNP es la mejor opción' },
             'Advertencia de cuenta');
-        System.assert(desc.contains('GNP'), 'Debe incluir la recomendación');
+        System.assert(descTexto.contains('GNP'), 'Debe incluir la recomendación');
 
         PdfOpportunityCreatorController.resolveAseguradoraLookups(new List<Object>{
             new Map<String, Object>{ 'nombre' => 'HDI' },
