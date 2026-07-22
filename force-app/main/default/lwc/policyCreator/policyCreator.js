@@ -167,11 +167,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // que no se muestran en el formulario (así no se pierde información).
     handleSubmit(event) {
         event.preventDefault();
-        // Lo capturado en pantalla manda; lo recuperado por la IA rellena lo que venga vacío.
+        // Lo capturado en pantalla manda. Los datos de la IA solo se agregan para campos
+        // que NO están en el formulario; si el campo está presente (aunque el usuario lo
+        // haya vaciado a propósito) se respeta lo que envía el formulario.
         const fields = { ...(event.detail ? event.detail.fields : {}) };
         Object.keys(this.hiddenFields).forEach((k) => {
-            const actual = fields[k];
-            if (actual === undefined || actual === null || actual === '') {
+            if (!(k in fields)) {
                 fields[k] = this.hiddenFields[k];
             }
         });
@@ -271,6 +272,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const bien = d.bienAsegurado || {};
         const cob = d.cobranza || {};
         let descripcion = d.descripcion || '';
+        // El plan/paquete no se guarda en PlanType (picklist); se conserva en la descripción.
+        if (d.plan) { descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Plan/Paquete: ' + d.plan; }
 
         // Bien asegurado (genérico para cualquier ramo).
         const bienLines = [];
@@ -330,8 +333,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // El número de póliza va en Name. Universal Policy Number NO se llena aquí:
             // solo aplica a pólizas colectivas/flotilla/grupal y se captura aparte.
             Name: d.numeroPoliza,
-            PlanType: d.plan,
-            Status: d.estatusPoliza,
+            // PlanType es picklist y NO está en el formulario; NO se fuerza desde la IA
+            // (un valor fuera del catálogo rompería el guardado). El plan queda en la descripción.
+            Status: this.normalizarEstatus(d.estatusPoliza),
             CancellationReason: d.motivoCancelacion,
             // Primas (definición de negocio): GrossWrittenPremium = prima TOTAL anualizada,
             // PremiumAmount = prima NETA sin impuestos.
@@ -471,13 +475,23 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // Cálculos de negocio
     // ============================================================
 
+    // Normaliza el estatus de la IA al catálogo del picklist (Inicial / Vigente / Cancelada).
+    normalizarEstatus(valor) {
+        const v = (valor || '').toString().toLowerCase();
+        if (!v) { return null; }
+        if (v.includes('cancel')) { return 'Cancelada'; }
+        if (v.includes('inicial') || v.includes('tramite') || v.includes('trámite')) { return 'Inicial'; }
+        if (v.includes('vigen') || v.includes('vigor') || v.includes('emitid') || v.includes('renovad')) { return 'Vigente'; }
+        return null;
+    }
+
     // Exhibiciones al año según la frecuencia de pago.
     periodosPorFrecuencia(freq) {
         const f = (freq || '').toString().toLowerCase();
         if (f.includes('mensual')) { return 12; }
         if (f.includes('bimestr')) { return 6; }
+        if (f.includes('cuatrimestr')) { return 3; }   // antes que "trimestr" (lo contiene)
         if (f.includes('trimestr')) { return 4; }
-        if (f.includes('cuatrimestr')) { return 3; }
         if (f.includes('semestr')) { return 2; }
         return 1; // Anual, Único, Contado o no especificada
     }
@@ -512,7 +526,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const gwp = campo === 'GrossWrittenPremium' ? valor : this._getFieldValue('GrossWrittenPremium');
         const freq = campo === 'PremiumFrequency' ? valor : this._getFieldValue('PremiumFrequency');
         const term = this.calcularTermPremium(gwp, freq);
-        if (term !== null) { this._setFieldValue('TermPremiumAmount', term); }
+        if (term !== null) {
+            this._setFieldValue('TermPremiumAmount', term);
+            // Se guarda también en hiddenFields para que el valor recalculado se persista al enviar.
+            this.hiddenFields = { ...this.hiddenFields, TermPremiumAmount: term };
+        }
     }
 
     handleReintentar() {

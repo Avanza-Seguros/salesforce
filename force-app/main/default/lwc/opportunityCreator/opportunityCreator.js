@@ -2364,6 +2364,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const payload = {
                 ...this.opportunity,
                 Automovil__c: this.opportunity.Vehiculo__c || null,
+                // El agente se captura en Agente__c pero el Apex lo guarda en Agente_Relacionado__c.
+                Agente_Relacionado__c: this.opportunity.Agente__c || this.opportunity.Agente_Relacionado__c || null,
                 isNewContacto: this.isNewContacto,
                 Descripcion__c: this.comparativoHtml || null,
                 detalleRamo: this.getActiveRamoDetail(),

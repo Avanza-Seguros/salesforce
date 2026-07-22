@@ -94,11 +94,12 @@ public with sharing class PolicyController {
 				ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(PROMPT_TEMPLATE_API_NAME, genInput);
 
 			if (gen != null && gen.generations != null && !gen.generations.isEmpty() && String.isNotBlank(gen.generations[0].text)) {
-				String jsonResult = cleanJson(gen.generations[0].text);
-				System.debug('PolicyController.analizarPoliza: JSON resultante: ' + jsonResult);
-				return jsonResult;
+				return cleanJson(gen.generations[0].text);
 			}
 			throw new AuraHandledException('La IA no devolvió información de la póliza.');
+		} catch (AuraHandledException ahe) {
+			// Se re-lanza tal cual para conservar el mensaje real (si no, queda "Script-thrown exception").
+			throw ahe;
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al analizar la póliza: ' + e.getMessage());
 		}

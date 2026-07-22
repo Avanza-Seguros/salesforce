@@ -20,7 +20,7 @@ public with sharing class QuoteCreatorController {
 			// coberturas en cada tarjeta de la lista sin queries extra.
 			return [
 				SELECT Id, Name, OpportunityId, Opportunity.Name, Aseguradora__r.Name,
-					   Opportunity.Ramo__c, Status, TotalPrice, RatingDate,
+					   Opportunity.Ramo__c, Status, TotalPrice, Prima_Total__c, PrimaAnual__c, RatingDate,
 					   ExpirationDate, CreatedDate,
 					   (SELECT Id FROM Quotes_Coverages__r)
 				FROM Quote
@@ -44,7 +44,7 @@ public with sharing class QuoteCreatorController {
 			return [
 				SELECT Id, Name, OpportunityId, Opportunity.Name, Aseguradora__r.Name,
 					   Opportunity.Ramo__c, Status, TotalPrice, RatingDate,
-					   ExpirationDate, CreatedDate, Ramos__c, PrimaAnual__c, Frecuencia_de_prima__c,
+					   ExpirationDate, CreatedDate, Ramos__c, Prima_Total__c, PrimaAnual__c, Frecuencia_de_prima__c,
 					   Aseguradora__c, Product__c, Product__r.Name, Description
 				FROM Quote
 				WHERE Id = :quoteId

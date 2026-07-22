@@ -187,7 +187,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     get hasQuotes()   { return this.filteredQuotes.length > 0; }
 
     get totalPremium() {
-        return this.filteredQuotes.reduce((sum, q) => sum + (parseFloat(q.TotalPrice) || 0), 0);
+        return this.filteredQuotes.reduce((sum, q) =>
+            sum + (parseFloat(q.Prima_Total__c ?? q.PrimaAnual__c ?? q.TotalPrice) || 0), 0);
     }
     get totalPremiumFormatted() { return this.formatCurrency(this.totalPremium); }
 
@@ -205,15 +206,15 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             const aseguradoraName = q.Aseguradora__r?.Name || q.AseguradoraName || '—';
             const ramoName = q.Opportunity?.Ramo__c || q.Ramo__c || '—';
             const oppName  = q.OpportunityName || q.Opportunity?.Name || '—';
-            const totalPrice = q.TotalPrice ?? 0;
+            const totalPrice = q.Prima_Total__c ?? q.PrimaAnual__c ?? q.TotalPrice ?? 0;
             const expDate = this.parseSafeDate(q.ExpirationDate);
             const isExpired = expDate && expDate < today && q.Status !== 'Accepted';
-            // Conteo de coberturas del subquery Quote_Coverages__r
+            // Conteo de coberturas del subquery Quotes_Coverages__r
             let coveragesCount = 0;
-            if (Array.isArray(q.Quote_Coverages__r)) {
-                coveragesCount = q.Quote_Coverages__r.length;
-            } else if (q.Quote_Coverages__r && Array.isArray(q.Quote_Coverages__r.records)) {
-                coveragesCount = q.Quote_Coverages__r.records.length;
+            if (Array.isArray(q.Quotes_Coverages__r)) {
+                coveragesCount = q.Quotes_Coverages__r.length;
+            } else if (q.Quotes_Coverages__r && Array.isArray(q.Quotes_Coverages__r.records)) {
+                coveragesCount = q.Quotes_Coverages__r.records.length;
             }
 
             return {
@@ -348,6 +349,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 // En el form la "Prima Total" muestra la prima (Prima_Total__c /
                 // PrimaAnual__c); TotalPrice estándar es calculado.
                 TotalPrice: data.Prima_Total__c ?? data.PrimaAnual__c ?? data.TotalPrice ?? 0,
+                // La "Fecha Inicio" se guarda en RatingDate; al cargar se mapea de vuelta.
+                EffectiveDate: this.formatDateForInput(data.RatingDate) || data.EffectiveDate || '',
                 Frecuencia_de_prima__c: data.Frecuencia_de_prima__c || 'Mensual',
                 AseguradoraName: data.Aseguradora__r?.Name || data.AseguradoraName || '',
                 OpportunityName: data.OpportunityName || data.Opportunity?.Name || '',
@@ -709,7 +712,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 Prima_Total__c: parseFloat(this.quote.TotalPrice) || 0,
                 Frecuencia_de_prima__c: this.quote.Frecuencia_de_prima__c || 'Mensual',
                 RatingDate: this.quote.EffectiveDate || hoy,
-                ExpirationDate: this.quote.ExpirationDate || null
+                ExpirationDate: this.quote.ExpirationDate || null,
+                Description: this.quote.Description || null
             };
             if (this.quote.Id) { quotePayload.Id = this.quote.Id; }
 
