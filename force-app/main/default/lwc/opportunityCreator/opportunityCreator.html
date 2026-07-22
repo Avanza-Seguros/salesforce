@@ -970,11 +970,38 @@
                                 <p class="section-subtitle">Cotizaciones asociadas a esta oportunidad</p>
                             </div>
                             <div class="section-badge">{relatedQuotesCount}</div>
+                            <button class="action-btn secondary section-action-btn" onclick={handleAgregarConPdf}>
+                                <lightning-icon icon-name="doc:pdf" size="xx-small"></lightning-icon>
+                                Agregar con PDF
+                            </button>
                             <button class="action-btn primary section-action-btn" onclick={handleAddNewQuote}>
                                 <lightning-icon icon-name="utility:add" size="xx-small"></lightning-icon>
                                 Nueva Cotización
                             </button>
                         </div>
+
+                        <!-- Panel: agregar cotizaciones desde PDF a ESTA oportunidad -->
+                        <template if:true={addQuotesMode}>
+                            <div class="unified-section pdf-add-panel">
+                                <div class="section-header-compact">
+                                    <div class="section-icon">
+                                        <lightning-icon icon-name="doc:pdf" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="section-title-group">
+                                        <h2 class="section-title">Agregar cotizaciones desde PDF</h2>
+                                        <p class="section-subtitle">Sube los PDFs; las cotizaciones detectadas se agregarán a esta oportunidad</p>
+                                    </div>
+                                    <button class="action-btn secondary section-action-btn" onclick={handleCancelAddPdf}>
+                                        <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
+                                        Cerrar
+                                    </button>
+                                </div>
+                                <c-pdf-opportunity-creator
+                                    onpdfdataextracted={handlePDFDataExtracted}
+                                    onanalysiscomplete={handlePdfAnalysisComplete}>
+                                </c-pdf-opportunity-creator>
+                            </div>
+                        </template>
                         <div class="quotes-list-container">
                             <template if:true={hasRelatedQuotes}>
                                 <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped quotes-table">

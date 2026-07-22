@@ -126,6 +126,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track isNewContacto = false;
     _contactoSearchTimer = null;
     @track editableQuotes = [];
+    // Modo "agregar cotizaciones por PDF" a una oportunidad EXISTENTE (no crea oportunidad).
+    @track addQuotesMode = false;
     // === Estado comparativa (datos extraídos de PDFs) ===
     @track tablaComparativaCache = [];
     @track companiasConCoberturasCache = [];
@@ -248,9 +250,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 quotesJson: JSON.stringify(payload)
             });
             const n = (res && res.creadas) || 0;
-            this.showToast('Cotizaciones', `Se crearon ${n} cotización(es).`, 'success');
+            this.showToast('Cotizaciones', `Se agregaron ${n} cotización(es) a la oportunidad.`, 'success');
             this.uploadedQuotes = [];
             this.editableQuotes = [];
+            this.addQuotesMode = false;
             await this.openOpportunityInEditMode(this.opportunity.Id);
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
@@ -1187,6 +1190,23 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
         });
     }
+    // Abre el panel para agregar cotizaciones desde PDF a la oportunidad ACTUAL.
+    handleAgregarConPdf() {
+        if (!this.opportunity || !this.opportunity.Id) {
+            this.showToast('Aviso', 'Guarda la oportunidad antes de agregar cotizaciones.', 'warning');
+            return;
+        }
+        this.uploadedQuotes = [];
+        this.editableQuotes = [];
+        this.addQuotesMode = true;
+    }
+    // Cierra el panel sin agregar nada.
+    handleCancelAddPdf() {
+        this.addQuotesMode = false;
+        this.uploadedQuotes = [];
+        this.editableQuotes = [];
+    }
+
     get hasRelatedQuotes()   { return this.relatedQuotes && this.relatedQuotes.length > 0; }
     get relatedQuotesCount() { return this.relatedQuotes ? this.relatedQuotes.length : 0; }
 
@@ -1928,11 +1948,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.uploadedQuotes = [...this.uploadedQuotes, quoteWithIndex];
             }
             try {
-                this.updateOpportunityFromExtractedData(quoteWithIndex);
+                // En modo "agregar a oportunidad existente" NO se tocan los datos de la
+                // oportunidad (nombre, cliente, prima); solo se recolectan las cotizaciones.
+                if (!this.addQuotesMode) {
+                    this.updateOpportunityFromExtractedData(quoteWithIndex);
+                }
                 this.updateBestQuote();
             } catch (e) { /* ignorar */ }
             this.recomputeComparativa();
-            this.setPrimaNetaFromQuotes();
+            if (!this.addQuotesMode) { this.setPrimaNetaFromQuotes(); }
             this.hasExtractedData = true;
             this.showToast('Éxito', `PDF procesado: ${quote.compania || 'Desconocido'} - ${quoteWithIndex.ramoLabel}`, 'success');
         } catch (error) {
@@ -2420,6 +2444,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handlePdfAnalysisComplete(event) {
         const d = (event && event.detail) || {};
         const n = d.count || this.uploadedQuotes.length;
+
+        // Modo "agregar a oportunidad existente": no cambia de vista ni toca la oportunidad.
+        // Solo prepara las cotizaciones para que el usuario las revise y confirme.
+        if (this.addQuotesMode) {
+            this.loadEditableQuotes();
+            this.showToast('Cotizaciones detectadas',
+                `Se detectaron ${n} cotización(es). Revisa el producto y confirma para agregarlas.`, 'success');
+            return;
+        }
+
         // Primero mostramos el formulario (comportamiento de siempre). El comparativo
         // de la IA es opcional y NO debe afectar este flujo.
         this.viewMode = VIEW_MODES.CREATE;

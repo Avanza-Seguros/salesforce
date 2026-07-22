@@ -1074,6 +1074,11 @@ lightning-combobox {
     --sds-c-icon-color-foreground-default: #fff;
 }
 .pdf-view-container { padding: 1rem; }
+.pdf-add-panel {
+    margin-top: 1rem;
+    border: 1px dashed #0052CC;
+    background: #F7FAFF;
+}
 
 /* ---- Revisar y editar cotizaciones ---- */
 .edit-quotes-grid {
