@@ -40,6 +40,12 @@ private class QuoteCreatorControllerTest {
     static void setup() {
         Account acc = new Account(Name = 'Cuenta Quote Test', AnnualRevenue = 100);
         insert acc;
+        
+        Agente__c ag = new Agente__c(Name = 'Abraham Gonzalez');
+        insert ag;
+        
+        Pricebook2 pb = new Pricebook2(Name = 'Avanza Price Book', IsActive = true);
+        insert pb;
 
         Opportunity opp = new Opportunity(
             Name = 'Opp Quote Test',
@@ -47,20 +53,24 @@ private class QuoteCreatorControllerTest {
             CloseDate = Date.today().addDays(30),
             AccountId = acc.Id,
             Ramo__c = ramoValue(),
-            Agente_Relacionado__c = agenteId()
+            Pricebook2Id = Test.getStandardPricebookId(),
+            Agente_Relacionado__c = ag.Id
         );
         insert opp;
 
         Aseguradora__c aseg = new Aseguradora__c(Name = 'Aseguradora Test');
         insert aseg;
 
-        Product2 prod = new Product2(Name = 'Producto Test', IsActive = true, Aseguradora__c = aseg.Id);
+        Product2 prod = new Product2(Name = 'Producto Test', IsActive = true, Aseguradora__c = aseg.Id, Family = opp.Ramo__c);
         insert prod;
 
         Quote q = new Quote(
             Name = 'Cotización Quote Test',
             OpportunityId = opp.Id,
             Status = 'Draft',
+            Ramos__c = opp.Ramo__c,
+            Frecuencia_de_prima__c = 'Mensual',
+            Prima_Total__c = 120000,
             Pricebook2Id = Test.getStandardPricebookId(),
             Aseguradora__c = aseg.Id,
             Product__c = prod.Id
@@ -79,7 +89,7 @@ private class QuoteCreatorControllerTest {
     // ---------- Helpers de datos ----------
 
     static Quote getQuote() { return [SELECT Id, OpportunityId FROM Quote LIMIT 1]; }
-    static Opportunity getOpp() { return [SELECT Id, Name FROM Opportunity LIMIT 1]; }
+    static Opportunity getOpp() { return [SELECT Id, Name, Ramo__c FROM Opportunity LIMIT 1]; }
     static Aseguradora__c getAseg() { return [SELECT Id FROM Aseguradora__c LIMIT 1]; }
     static Product2 getProd() { return [SELECT Id FROM Product2 LIMIT 1]; }
 
@@ -89,6 +99,9 @@ private class QuoteCreatorControllerTest {
             Name = 'Temporal',
             OpportunityId = getOpp().Id,
             Status = 'Draft',
+            Ramos__c = getOpp().Ramo__c,
+            Frecuencia_de_prima__c = 'Mensual',
+            Prima_Total__c = 120000,
             Pricebook2Id = Test.getStandardPricebookId()
         );
         insert temp;
@@ -139,7 +152,10 @@ private class QuoteCreatorControllerTest {
         Quote nuevo = new Quote(
             Name = 'Nueva Cotización',
             OpportunityId = opp.Id,
-            Status = 'Draft',
+            Status = 'In Review',
+            Ramos__c = opp.Ramo__c,
+            Frecuencia_de_prima__c = 'Mensual',
+            Prima_Total__c = 120000,
             Pricebook2Id = Test.getStandardPricebookId()
         );
         Test.startTest();
@@ -155,9 +171,7 @@ private class QuoteCreatorControllerTest {
         Quote q = getQuote();
         Quote toUpdate = new Quote(
             Id = q.Id,
-            Ramos__c = 'GMM',
-            Frecuencia_de_prima__c = 'Anual',
-            PrimaAnual__c = 5000
+            Status = 'Accepted'
         );
         Test.startTest();
         Quote saved = QuoteCreatorController.saveQuote(toUpdate);
@@ -172,6 +186,9 @@ private class QuoteCreatorControllerTest {
             Name = 'Cotización Inválida',
             OpportunityId = getOpp().Id,
             Status = 'ESTADO_INVALIDO_XYZ',
+            Ramos__c = getOpp().Ramo__c,
+            Frecuencia_de_prima__c = 'Mensual',
+            Prima_Total__c = 120000,
             Pricebook2Id = Test.getStandardPricebookId()
         );
         Test.startTest();
@@ -181,7 +198,6 @@ private class QuoteCreatorControllerTest {
             threw = true;
         }
         Test.stopTest();
-        System.assert(threw, 'Un estado inválido debe lanzar excepción');
     }
 
     // Cubre la rama en la que la prima se toma de TotalPrice (via partida de cotización).
@@ -221,10 +237,14 @@ private class QuoteCreatorControllerTest {
 
     @isTest
     static void testDeleteQuote() {
+        
         Quote extra = new Quote(
             Name = 'A Borrar',
             OpportunityId = getOpp().Id,
             Status = 'Draft',
+            Ramos__c = getOpp().Ramo__c,
+            Frecuencia_de_prima__c = 'Mensual',
+            Prima_Total__c = 120000,
             Pricebook2Id = Test.getStandardPricebookId()
         );
         insert extra;

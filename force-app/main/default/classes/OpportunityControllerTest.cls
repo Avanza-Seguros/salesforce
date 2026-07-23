@@ -27,18 +27,25 @@ private class OpportunityControllerTest {
 
     @testSetup
     static void setup() {
-        Account acc = new Account(Name = 'Empresa Prueba Uno');
+        Account acc = new Account(Name = 'Empresa Prueba Uno', AnnualRevenue = 100);
         insert acc;
 
         Product2 prod = new Product2(Name = 'Producto Auto Prueba', Family = 'Automoviles', IsActive = true);
         insert prod;
+        
+        Agente__c ag = new Agente__c(Name = 'Abraham Gonzalez');
+        insert ag;
+        
+        Pricebook2 pb = new Pricebook2(Name = 'Avanza Price Book', IsActive = true);
+        insert pb;
 
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Prueba Uno',
             StageName = activeStage(),
             CloseDate = Date.today().addDays(30),
             AccountId = acc.Id,
-            Agente_Relacionado__c = agenteId(),
+            Agente_Relacionado__c = ag.Id,
+            Pricebook2Id = pb.Id,
             Ramo__c = 'Automoviles'
         );
         insert opp;
@@ -47,6 +54,9 @@ private class OpportunityControllerTest {
             Name = 'Cotización Prueba',
             OpportunityId = opp.Id,
             Status = 'Draft',
+            Ramos__c = opp.Ramo__c,
+            Frecuencia_de_prima__c = 'Mensual',
+            Prima_Total__c = 120000,
             Pricebook2Id = Test.getStandardPricebookId()
         );
         try { q.put('Product__c', prod.Id); } catch (Exception ignore) {}
@@ -97,9 +107,13 @@ private class OpportunityControllerTest {
 
     @isTest
     static void testDeleteOpportunity() {
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        
+        Pricebook2 pb = [SELECT Id FROM Pricebook2 LIMIT 1];
+        
         Opportunity opp = new Opportunity(
             Name = 'Opp a borrar', StageName = activeStage(), CloseDate = Date.today().addDays(10),
-            Agente_Relacionado__c = agenteId()
+            Agente_Relacionado__c = agenteId(), AccountId = acc.Id, Pricebook2Id = pb.Id, Ramo__c = 'Automoviles'
         );
         insert opp;
         Test.startTest();
@@ -232,6 +246,7 @@ private class OpportunityControllerTest {
             'Prima_Total__c' => '12500.50',
             'Prima_Neta__c' => '10000.00',
             'CloseDate' => String.valueOf(Date.today().addDays(45)),
+            'AnnualRevenue' => 100,
             'Description' => 'Oportunidad de prueba'
         };
         Test.startTest();
@@ -294,6 +309,7 @@ private class OpportunityControllerTest {
             'Mercado__c' => 'Corporativo',
             'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'AnnualRevenue' => 100,
             'detalleRamo' => det
         };
         Test.startTest();
@@ -322,6 +338,7 @@ private class OpportunityControllerTest {
             'Mercado__c' => 'Corporativo',
             'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'AnnualRevenue' => 100,
             'detalleRamo' => det
         };
         Test.startTest();
@@ -346,6 +363,7 @@ private class OpportunityControllerTest {
             'Mercado__c' => 'Corporativo',
             'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'AnnualRevenue' => 100,
             'detalleRamo' => det
         };
         Test.startTest();
@@ -367,6 +385,7 @@ private class OpportunityControllerTest {
             'Ramo__c' => 'Danos',
             'Mercado__c' => 'Corporativo',
             'Agente_Relacionado__c' => agenteId(),
+            'AnnualRevenue' => 100,
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'detalleRamo' => det
         };
