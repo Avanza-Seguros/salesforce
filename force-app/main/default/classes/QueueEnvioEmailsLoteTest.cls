@@ -20,7 +20,8 @@ private class QueueEnvioEmailsLoteTest {
         // Cuenta
         Account acc = new Account(
             Name = 'Empresa Test Lote',
-            Correo_electronico__c = 'empresa.lote@test.com'
+            Correo_electronico__c = 'empresa.lote@test.com',
+            AnnualRevenue = 5000000
         );
         insert acc;
 

@@ -2,7 +2,7 @@ import { LightningElement, track } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import { loadScript } from "lightning/platformResourceLoader";
 import PDFJS from "@salesforce/resourceUrl/pdfjs";
-import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
+import fontsResource from "@salesforce/resourceUrl/fuentes_pdf";
 import analyzeQuotes from "@salesforce/apex/PdfOpportunityCreatorController.analyzeQuotes";
 
 const MAX_SIZE = 4500000; // ~4.5 MB por archivo: límite práctico para enviar base64/texto a Apex

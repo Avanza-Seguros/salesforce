@@ -2,6 +2,7 @@ import { LightningElement, track, api } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
+import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILE_DIVIDE = MAX_FILE_SIZE / 1024 / 1024;
@@ -123,8 +124,16 @@ export default class CotizacionOpLector extends LightningElement {
                 0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
                 0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
             ]);
+
+            const fontsUrl = fontsResource + '/';
             
-            const loadingTask = window.pdfjsLib.getDocument({ data: pdfData });
+            const loadingTask = window.pdfjsLib.getDocument({ 
+                data: pdfData,
+                isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+                useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+                standardFontDataUrl: fontsUrl,
+                disableFontFace: true     // ← evita cargar fuentes externas
+            });
             const timeout = new Promise((_, reject) => 
                 setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
             );
@@ -298,8 +307,16 @@ export default class CotizacionOpLector extends LightningElement {
             }
             
             const buffer = await file.arrayBuffer();
+
+            const fontsUrl = fontsResource + '/';
             
-            const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+            const loadingTask = window.pdfjsLib.getDocument({ 
+                data: buffer,
+                isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+                useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+                standardFontDataUrl: fontsUrl,
+                disableFontFace: true     // ← evita cargar fuentes externas 
+            });
             pdf = await loadingTask.promise;
             
             let textoCompleto = '';
