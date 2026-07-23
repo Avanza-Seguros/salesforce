@@ -208,7 +208,7 @@ private class PdfOpportunityCreatorControllerTest {
 
     @isTest
     static void testHelpersOportunidadYCuenta() {
-        Account acc = new Account(Name = 'Empresa Dup Test');
+        Account acc = new Account(Name = 'Empresa Dup Test', AnnualRevenue = 100);
         insert acc;
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Dup', StageName = activeStage(),

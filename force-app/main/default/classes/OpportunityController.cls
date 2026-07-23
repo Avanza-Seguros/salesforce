@@ -459,6 +459,13 @@ public with sharing class OpportunityController {
 				acc.Phone             = getStr(d, 'clienteTelefono');
 				acc.BillingStreet     = getStr(d, 'clienteDireccion');
 				acc.BillingPostalCode = getStr(d, 'clienteCP');
+				// AnnualRevenue es obligatorio para cuentas empresariales en este org.
+				Object arRaw = d.get('AnnualRevenue');
+				Decimal annualRev = 0;
+				if (arRaw != null && String.isNotBlank(String.valueOf(arRaw))) {
+					try { annualRev = Decimal.valueOf(String.valueOf(arRaw)); } catch (Exception ex) { annualRev = 0; }
+				}
+				acc.AnnualRevenue = annualRev;
 			}
 
 			insert acc;

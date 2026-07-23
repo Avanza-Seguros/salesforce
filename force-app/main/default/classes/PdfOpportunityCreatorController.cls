@@ -720,7 +720,7 @@ public with sharing class PdfOpportunityCreatorController {
 				RecordTypeId = personAccountRtId
 			);
 		} else {
-			acct = new Account(Name = clean.left(255));
+			acct = new Account(Name = clean.left(255), AnnualRevenue = 0);
 		}
 		insert acct;
 		return acct;
