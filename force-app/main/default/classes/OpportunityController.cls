@@ -342,6 +342,8 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String typeLabel;
 		@AuraEnabled public String detailLine;
 		@AuraEnabled public String clienteNombre;
+		@AuraEnabled public String clienteApellidoPaterno;
+		@AuraEnabled public String clienteApellidoMaterno;
 		@AuraEnabled public String clienteRFC;
 		@AuraEnabled public String clienteEmail;
 		@AuraEnabled public String clienteTelefono;
@@ -360,25 +362,26 @@ public with sharing class OpportunityController {
 	public static List<AccountResult> searchAccounts(String searchTerm) {
 		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
-		for (Account a : [
-			SELECT Id, Name, IsPersonAccount, Phone,
-				   BillingStreet, BillingPostalCode,
-				   PersonEmail, PersonMobilePhone,
-				   PersonMailingStreet, PersonMailingPostalCode
-			FROM Account
-			WHERE Name LIKE :busqTerm
-			ORDER BY Name LIMIT 20
-		]) {
+		Boolean hasMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		String campos = 'Id, Name, IsPersonAccount, Phone, BillingStreet, BillingPostalCode, '
+			+ 'FirstName, LastName, PersonEmail, PersonMobilePhone, '
+			+ 'PersonMailingStreet, PersonMailingPostalCode';
+		if (hasMiddle) { campos += ', MiddleName'; }
+		String soql = 'SELECT ' + campos + ' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
+		for (Account a : (List<Account>) Database.query(soql)) {
 			AccountResult r = new AccountResult();
 			r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
 			r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
-			r.clienteNombre = a.Name;
 			if (a.IsPersonAccount) {
+				r.clienteNombre = a.FirstName;
+				r.clienteApellidoPaterno = hasMiddle ? (String) a.get('MiddleName') : null;
+				r.clienteApellidoMaterno = a.LastName;
 				r.clienteEmail = a.PersonEmail;
 				r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
 				r.clienteCP = a.PersonMailingPostalCode;
 				r.clienteDireccion = a.PersonMailingStreet;
 			} else {
+				r.clienteNombre = a.Name;
 				r.clienteTelefono = a.Phone;
 				r.clienteCP = a.BillingPostalCode;
 				r.clienteDireccion = a.BillingStreet;

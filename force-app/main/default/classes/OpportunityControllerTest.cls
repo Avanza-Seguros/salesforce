@@ -16,6 +16,15 @@ private class OpportunityControllerTest {
         return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
     }
 
+    // Crea (o reutiliza) un Agente para satisfacer la validacion "No existe Agente".
+    static Id agenteId() {
+        List<Agente__c> ag = [SELECT Id FROM Agente__c LIMIT 1];
+        if (!ag.isEmpty()) { return ag[0].Id; }
+        Agente__c a = new Agente__c(Name = 'Agente Test');
+        insert a;
+        return a.Id;
+    }
+
     @testSetup
     static void setup() {
         Account acc = new Account(Name = 'Empresa Prueba Uno');
@@ -29,6 +38,7 @@ private class OpportunityControllerTest {
             StageName = activeStage(),
             CloseDate = Date.today().addDays(30),
             AccountId = acc.Id,
+            Agente_Relacionado__c = agenteId(),
             Ramo__c = 'Automoviles'
         );
         insert opp;
@@ -88,7 +98,8 @@ private class OpportunityControllerTest {
     @isTest
     static void testDeleteOpportunity() {
         Opportunity opp = new Opportunity(
-            Name = 'Opp a borrar', StageName = activeStage(), CloseDate = Date.today().addDays(10)
+            Name = 'Opp a borrar', StageName = activeStage(), CloseDate = Date.today().addDays(10),
+            Agente_Relacionado__c = agenteId()
         );
         insert opp;
         Test.startTest();
@@ -216,6 +227,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Vida',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'Canal__c' => 'Agente',
             'Prima_Total__c' => '12500.50',
             'Prima_Neta__c' => '10000.00',
@@ -245,6 +257,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Vida',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30))
         };
         Test.startTest();
@@ -279,6 +292,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Vida',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'detalleRamo' => det
         };
@@ -306,6 +320,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'GMM',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'detalleRamo' => det
         };
@@ -329,6 +344,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Empresarial',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'detalleRamo' => det
         };
@@ -350,6 +366,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Danos',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'detalleRamo' => det
         };
@@ -378,6 +395,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Automoviles',
             'Mercado__c' => 'Corporativo',
+            'Agente_Relacionado__c' => agenteId(),
             'Prima_Total__c' => '9000',
             'CloseDate' => String.valueOf(Date.today().addDays(60)),
             'isNewContacto' => true,

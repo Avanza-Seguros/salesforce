@@ -15,6 +15,15 @@ private class PolicyControllerTest {
         return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
     }
 
+    // Crea (o reutiliza) un Agente para satisfacer la validacion "No existe Agente".
+    static Id agenteId() {
+        List<Agente__c> ag = [SELECT Id FROM Agente__c LIMIT 1];
+        if (!ag.isEmpty()) { return ag[0].Id; }
+        Agente__c a = new Agente__c(Name = 'Agente Test');
+        insert a;
+        return a.Id;
+    }
+
     @testSetup
     static void setup() {
         Account acc = new Account(Name = 'Cuenta Póliza Test');
@@ -24,7 +33,8 @@ private class PolicyControllerTest {
             Name = 'Opp Póliza Test',
             StageName = activeStage(),
             CloseDate = Date.today().addDays(30),
-            AccountId = acc.Id
+            AccountId = acc.Id,
+            Agente_Relacionado__c = agenteId()
         );
         insert opp;
 

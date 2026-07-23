@@ -18,6 +18,15 @@ private class PdfOpportunityCreatorControllerTest {
         return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
     }
 
+    // Crea (o reutiliza) un Agente para satisfacer la validacion "No existe Agente".
+    static Id agenteId() {
+        List<Agente__c> ag = [SELECT Id FROM Agente__c LIMIT 1];
+        if (!ag.isEmpty()) { return ag[0].Id; }
+        Agente__c a = new Agente__c(Name = 'Agente Test');
+        insert a;
+        return a.Id;
+    }
+
     // ---------------- uploadAndCreateDraft ----------------
     @isTest
     static void testUploadAndCreateDraft_ok() {
@@ -73,7 +82,8 @@ private class PdfOpportunityCreatorControllerTest {
     static void testCrearCotizaciones() {
         Opportunity opp = new Opportunity(
             Name = 'Opp Cotizaciones', StageName = activeStage(),
-            CloseDate = Date.today().addDays(30), Ramo__c = 'Automoviles'
+            CloseDate = Date.today().addDays(30), Ramo__c = 'Automoviles',
+            Agente_Relacionado__c = agenteId()
         );
         insert opp;
 
@@ -202,7 +212,8 @@ private class PdfOpportunityCreatorControllerTest {
         insert acc;
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Dup', StageName = activeStage(),
-            CloseDate = Date.today().addDays(15), AccountId = acc.Id
+            CloseDate = Date.today().addDays(15), AccountId = acc.Id,
+            Agente_Relacionado__c = agenteId()
         );
         insert opp;
 
