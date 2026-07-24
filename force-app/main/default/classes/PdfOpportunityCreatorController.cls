@@ -885,6 +885,14 @@ public with sharing class PdfOpportunityCreatorController {
 					'alerta' => ''
 				};
 
+		// El HTML del comparativo lo genera la IA, pero a veces llega truncado
+		// (p. ej. solo la etiqueta de apertura). Si viene incompleto lo armamos
+		// nosotros con los datos ya estructurados para no mostrar algo roto.
+		String htmlIa = stringOf(comparison.get('comparativo_html'));
+		String htmlComparativo = esHtmlComparativoCompleto(htmlIa)
+			? htmlIa
+			: construirComparativoHtml(ramoForm, cliente, quotes, ganadora);
+
 		return new Map<String, Object>{
 			'ramo' => ramoForm,
 			'detalle' => detalle,
@@ -896,8 +904,138 @@ public with sharing class PdfOpportunityCreatorController {
 			'glosario' => comparison.get('glosario'),
 			'fuente' => lastUsedMock ? 'mock' : 'einstein',
 			'aviso' => stringOf(comparison.get('aviso')),
-			'comparativo_html' => stringOf(comparison.get('comparativo_html'))
+			'comparativo_html' => htmlComparativo
 		};
+	}
+
+	// ============================================================
+	// Comparativo HTML de respaldo (cuando la IA lo devuelve truncado)
+	// ============================================================
+
+	// Se considera completo si trae una etiqueta de cierre real (no solo la de
+	// apertura que a veces devuelve truncada la IA).
+	private static Boolean esHtmlComparativoCompleto(String html) {
+		if (String.isBlank(html)) { return false; }
+		String h = html.toLowerCase();
+		Boolean cierra = h.contains('</table>') || h.contains('</html>') || h.contains('</body>');
+		return cierra && html.length() > 300;
+	}
+
+	// Arma un comparativo en HTML a partir de los datos ya estructurados
+	// (aseguradoras y coberturas). Se usa como respaldo confiable.
+	private static String construirComparativoHtml(
+		String ramoForm,
+		Map<String, Object> cliente,
+		List<Map<String, Object>> quotes,
+		String ganadora
+	) {
+		if (quotes == null || quotes.isEmpty()) { return ''; }
+
+		String nombreCliente = cliente != null ? stringOf(cliente.get('nombre')) : '';
+
+		// Nombres de cobertura en orden de aparicion (union de todas las aseguradoras).
+		List<String> nombresCob = new List<String>();
+		Set<String> vistos = new Set<String>();
+		for (Map<String, Object> q : quotes) {
+			for (Map<String, Object> c : coberturasDe(q)) {
+				String nom = stringOf(c.get('cobertura'));
+				if (String.isNotBlank(nom) && !vistos.contains(nom.toLowerCase())) {
+					vistos.add(nom.toLowerCase());
+					nombresCob.add(nom);
+				}
+			}
+		}
+
+		String th = 'padding:8px 10px;border:1px solid #d9dee6;text-align:left;font-size:13px;';
+		String td = 'padding:8px 10px;border:1px solid #eef1f5;text-align:left;font-size:13px;vertical-align:top;';
+
+		String html = '<div style="font-family:\'Segoe UI\',Arial,sans-serif;color:#1c2433;">';
+		html += '<h2 style="font-size:18px;margin:0 0 12px;">Comparativo ' + htmlEscape(ramoForm);
+		if (String.isNotBlank(nombreCliente)) { html += ' - ' + htmlEscape(nombreCliente); }
+		html += '</h2>';
+		html += '<table style="width:100%;border-collapse:collapse;">';
+
+		// Encabezado: aseguradoras
+		html += '<tr><th style="' + th + 'background:#f4f6f9;">Concepto</th>';
+		for (Map<String, Object> q : quotes) {
+			String comp = stringOf(q.get('compania'));
+			Boolean esGan = String.isNotBlank(ganadora) && ganadora.equalsIgnoreCase(comp);
+			String bg = esGan ? 'background:#fff3e0;' : 'background:#f4f6f9;';
+			html += '<th style="' + th + bg + '">' + htmlEscape(comp);
+			if (esGan) { html += ' <span style="color:#b85b00;font-size:11px;">&#9733; Recomendada</span>'; }
+			html += '</th>';
+		}
+		html += '</tr>';
+
+		// Plan
+		html += filaHtml('Plan', quotes, 'plan', td, th);
+
+		// Prima anual
+		html += '<tr><th style="' + th + '">Prima Anual</th>';
+		for (Map<String, Object> q : quotes) {
+			Decimal prima = asDecimal(q.get('primaTotal'));
+			String moneda = coalesceStr(stringOf(q.get('moneda')), 'MXN');
+			String txt = prima != null ? ('$' + formatoMonto(prima) + ' ' + moneda) : '-';
+			html += '<td style="' + td + '">' + htmlEscape(txt) + '</td>';
+		}
+		html += '</tr>';
+
+		// Coberturas
+		for (String nom : nombresCob) {
+			html += '<tr><th style="' + th + '">' + htmlEscape(nom) + '</th>';
+			for (Map<String, Object> q : quotes) {
+				html += '<td style="' + td + '">' + htmlEscape(valorCobertura(q, nom)) + '</td>';
+			}
+			html += '</tr>';
+		}
+
+		html += '</table></div>';
+		return html;
+	}
+
+	private static String filaHtml(String etiqueta, List<Map<String, Object>> quotes, String key, String td, String th) {
+		String row = '<tr><th style="' + th + '">' + htmlEscape(etiqueta) + '</th>';
+		for (Map<String, Object> q : quotes) {
+			String v = stringOf(q.get(key));
+			row += '<td style="' + td + '">' + (String.isBlank(v) ? '-' : htmlEscape(v)) + '</td>';
+		}
+		return row + '</tr>';
+	}
+
+	private static List<Map<String, Object>> coberturasDe(Map<String, Object> q) {
+		List<Map<String, Object>> out = new List<Map<String, Object>>();
+		if (q.get('tablaCompletaCoberturas') instanceof List<Object>) {
+			for (Object o : (List<Object>) q.get('tablaCompletaCoberturas')) {
+				if (o instanceof Map<String, Object>) { out.add((Map<String, Object>) o); }
+			}
+		}
+		return out;
+	}
+
+	private static String valorCobertura(Map<String, Object> q, String nombre) {
+		for (Map<String, Object> c : coberturasDe(q)) {
+			if (nombre.equalsIgnoreCase(stringOf(c.get('cobertura')))) {
+				String suma = stringOf(c.get('sumaAsegurada'));
+				String ded = stringOf(c.get('deducible'));
+				String coa = stringOf(c.get('coaseguro'));
+				List<String> partes = new List<String>();
+				if (String.isNotBlank(suma)) { partes.add(suma); }
+				if (String.isNotBlank(ded)) { partes.add('Ded: ' + ded); }
+				if (String.isNotBlank(coa)) { partes.add('Coa: ' + coa); }
+				return partes.isEmpty() ? '-' : String.join(partes, ' | ');
+			}
+		}
+		return '-';
+	}
+
+	private static String formatoMonto(Decimal d) {
+		if (d == null) { return '0'; }
+		return d.setScale(0).format();
+	}
+
+	private static String htmlEscape(String s) {
+		if (String.isBlank(s)) { return ''; }
+		return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;');
 	}
 
 	/**

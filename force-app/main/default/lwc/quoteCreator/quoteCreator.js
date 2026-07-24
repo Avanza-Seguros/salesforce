@@ -674,7 +674,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             this.quotes = this.quotes.filter(q => q.Id !== id);
             this.showToast('Éxito', 'Cotización eliminada correctamente', 'success');
         } catch (error) {
-            this.showToast('Error', 'No se pudo eliminar la cotización', 'error');
+            this.showToast('Error', this.errorMessage(error, 'No se pudo eliminar la cotización'), 'error');
         }
     }
 
@@ -741,7 +741,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             await this.loadQuotes();
             this.handleBackToList();
         } catch (error) {
-            this.showToast('Error', 'Error al guardar la cotización: ' + JSON.stringify(error), 'error');
+            this.showToast('Error', this.errorMessage(error, 'No se pudo guardar la cotización'), 'error');
         } finally {
             this.isSaving = false;
         }
@@ -769,6 +769,21 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
         return true;
     }
     toastError(msg) { this.showToast('Error', msg, 'error'); return false; }
+
+    // Extrae el mensaje real del error devuelto por Apex (validaciones, campos, etc.).
+    errorMessage(error, prefijo) {
+        let detalle = '';
+        if (Array.isArray(error && error.body)) {
+            detalle = error.body.map((e) => e.message).join(' | ');
+        } else if (error && error.body && error.body.message) {
+            detalle = error.body.message;
+        } else if (error && error.body && Array.isArray(error.body.pageErrors) && error.body.pageErrors.length) {
+            detalle = error.body.pageErrors.map((e) => e.message).join(' | ');
+        } else if (error && error.message) {
+            detalle = error.message;
+        }
+        return prefijo + (detalle ? ': ' + detalle : '');
+    }
 
     // ============================================================
     // UTILIDADES

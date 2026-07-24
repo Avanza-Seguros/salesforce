@@ -196,7 +196,18 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
     }
     handleError(event) {
-        const msg = (event && event.detail && event.detail.message) || 'No se pudo guardar la póliza.';
+        const d = (event && event.detail) ? event.detail : {};
+        const partes = [];
+        // Errores de página (reglas de validación, triggers, flujos)
+        const pageErrors = (d.output && d.output.errors) ? d.output.errors : [];
+        pageErrors.forEach((e) => { if (e && e.message) { partes.push(e.message); } });
+        // Errores por campo (campo obligatorio, formato, etc.)
+        const fieldErrors = (d.output && d.output.fieldErrors) ? d.output.fieldErrors : {};
+        Object.keys(fieldErrors).forEach((campo) => {
+            (fieldErrors[campo] || []).forEach((fe) => { if (fe && fe.message) { partes.push(fe.message); } });
+        });
+        let msg = partes.length ? partes.join(' | ') : (d.message || '');
+        if (!msg) { msg = 'No se pudo guardar la póliza.'; }
         this.showToast('Error', msg, 'error');
     }
 
