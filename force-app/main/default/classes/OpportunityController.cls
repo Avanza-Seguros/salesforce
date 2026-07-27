@@ -526,7 +526,14 @@ public with sharing class OpportunityController {
 
 		String mercadoSel = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : opp.Mercado__c;
 		if (mercadoSel == 'Individual' && accountId != null) {
-			opp.Contacto__c = getPersonContactId(accountId);
+			Id personContact = getPersonContactId(accountId);
+			// Respaldo: si la cuenta no tiene contacto de persona (p. ej. no es
+			// Cuenta Persona), creamos/ligamos uno con el nombre del cliente para
+			// no dejar la oportunidad sin contacto.
+			if (personContact == null) {
+				personContact = crearContactoIndividual(d, accountId);
+			}
+			opp.Contacto__c = personContact;
 		} else {
 			String contactoId = getStr(d, 'Contacto__c');
 			Boolean isNewContacto = d.get('isNewContacto') == true;
@@ -747,6 +754,57 @@ public with sharing class OpportunityController {
 		}
 		insert c;
 		return c.Id;
+	}
+
+	// Crea (o reutiliza) un Contacto de persona bajo la cuenta usando el nombre y
+	// apellidos del cliente. Respaldo para Individual cuando la cuenta no tiene
+	// contacto de persona. Como solo se invoca si PersonContactId vino vacio, la
+	// cuenta no es Cuenta Persona y por eso si se permite crear un Contacto normal.
+	private static Id crearContactoIndividual(Map<String, Object> d, Id accountId) {
+		if (accountId == null) { return null; }
+		String nombre  = getStr(d, 'clienteNombre');
+		String paterno = getStr(d, 'clienteApellidoPaterno');
+		String materno = getStr(d, 'clienteApellidoMaterno');
+
+		// Nombre completo para de-duplicar.
+		List<String> ps = new List<String>();
+		if (String.isNotBlank(nombre))  { ps.add(nombre.trim()); }
+		if (String.isNotBlank(paterno)) { ps.add(paterno.trim()); }
+		if (String.isNotBlank(materno)) { ps.add(materno.trim()); }
+		String fullName = String.join(ps, ' ').trim();
+
+		// Si ya existe un contacto con ese nombre bajo la cuenta, se reutiliza.
+		if (String.isNotBlank(fullName)) {
+			for (Contact ex : [SELECT Id FROM Contact WHERE AccountId = :accountId AND Name = :fullName LIMIT 1]) {
+				return ex.Id;
+			}
+		}
+
+		// LastName (Apellido) es obligatorio en Contact.
+		String lastName = materno;
+		if (String.isBlank(lastName)) { lastName = paterno; }
+		if (String.isBlank(lastName)) { lastName = nombre; }
+		if (String.isBlank(lastName)) {
+			for (Account a : [SELECT Name FROM Account WHERE Id = :accountId LIMIT 1]) { lastName = a.Name; }
+		}
+		if (String.isBlank(lastName)) { return null; }
+
+		Contact c = new Contact(AccountId = accountId);
+		if (String.isNotBlank(nombre)) { c.FirstName = nombre; }
+		// Si hay paterno y materno, el paterno va como segundo nombre (MiddleName)
+		// y el materno como apellido, igual que en la Cuenta Persona.
+		if (String.isNotBlank(paterno) && String.isNotBlank(materno)) {
+			try { c.put('MiddleName', paterno); } catch (Exception ignore) {}
+		}
+		c.LastName = lastName;
+		c.Email = getStr(d, 'clienteEmail');
+		c.Phone = getStr(d, 'clienteTelefono');
+		try {
+			insert c;
+			return c.Id;
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	// ============================================================
