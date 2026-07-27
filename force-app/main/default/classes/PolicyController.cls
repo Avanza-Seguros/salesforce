@@ -184,10 +184,15 @@ public with sharing class PolicyController {
 			// 5) Crear el vínculo póliza-bien.
 			InsurancePolicyAsset ipa = new InsurancePolicyAsset(
 				InsurancePolicyId = policyId,
-				CustomerPropertyId = assetId,
 				AssetName = assetName,
 				IsActive = true
 			);
+			// El campo que liga el bien (CustomerPropertyId) puede apuntar a Asset o a
+			// otro objeto según la configuración del org. Solo lo asignamos si acepta Asset,
+			// para no romper el guardado con "id value of incorrect type".
+			if (assetId != null && campoAceptaAsset(InsurancePolicyAsset.CustomerPropertyId.getDescribe())) {
+				ipa.CustomerPropertyId = assetId;
+			}
 			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 			if (pol.PremiumAmount != null) { ipa.StandardPremiumAmount = pol.PremiumAmount; }
 			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
@@ -200,6 +205,15 @@ public with sharing class PolicyController {
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo crear el vínculo póliza-bien: ' + e.getMessage());
 		}
+	}
+
+	// Indica si un campo de tipo lookup acepta registros del objeto Asset.
+	private static Boolean campoAceptaAsset(Schema.DescribeFieldResult f) {
+		if (f == null) { return false; }
+		for (Schema.SObjectType t : f.getReferenceTo()) {
+			if (t == Asset.SObjectType) { return true; }
+		}
+		return false;
 	}
 
 	// Cuenta del asegurado: por la oportunidad origen o, si NameInsured es una cuenta, esa.

@@ -40,6 +40,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // valores viejos al guardar. Solo la vista de solo lectura usa el wire de fechas.
     DATE_FIELDS = [];
 
+    // Fechas de la póliza que en algunas orgs son de tipo Fecha/Hora (requieren hora).
+    POLICY_DATE_FIELDS = ['EffectiveDate', 'ExpirationDate', 'PaymentDueDate',
+        'CancellationEffectiveDate', 'SaleDate', 'PreviousRenewalDate',
+        'RenewalDate', 'PlannedRenewalDate'];
+
     // Valores recuperados por la IA que NO se muestran en el formulario,
     // pero que sí se guardan al enviar (no se pierde información).
     hiddenFields = {};
@@ -154,6 +159,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 if (!d[f]) { d[f] = s.substring(0, 10); } // solo YYYY-MM-DD
             }
         });
+        // Detecta cuáles fechas de la póliza son Fecha/Hora en esta org (traen 'T').
+        this.POLICY_DATE_FIELDS.forEach((f) => {
+            const cell = rec.fields[f];
+            const v = cell ? cell.value : null;
+            if (v) { flags[f] = String(v).includes('T'); }
+        });
         this.dates = d;
         this._dtFlags = flags;
     }
@@ -181,6 +192,18 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             const val = this.dates[f];
             if (val) {
                 fields[f] = this._dtFlags[f] ? (val + 'T00:00:00.000Z') : val;
+            }
+        });
+        // Las fechas que en esta org son Fecha/Hora requieren componente de hora
+        // (ISO 8601). Si llega solo la fecha (YYYY-MM-DD) se le agrega el mediodía UTC
+        // para no desfasar el día al mostrarla.
+        const soloFechaRegex = /^\d{4}-\d{2}-\d{2}$/;
+        this.POLICY_DATE_FIELDS.forEach((f) => {
+            const v = fields[f];
+            if (typeof v === 'string' && soloFechaRegex.test(v)) {
+                const esFechaHora = this._dtFlags[f] === true
+                    || (this._dtFlags[f] === undefined && (f === 'EffectiveDate' || f === 'ExpirationDate'));
+                if (esFechaHora) { fields[f] = v + 'T12:00:00.000Z'; }
             }
         });
         const form = this.template.querySelector('lightning-record-edit-form');

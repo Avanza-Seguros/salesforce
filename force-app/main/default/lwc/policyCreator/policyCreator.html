@@ -197,14 +197,6 @@
             <!-- MODO EDICIÓN: formulario                        -->
             <!-- ============================================= -->
             <template if:false={isReadOnly}>
-                <template if:false={hasPolicy}>
-                    <div class="policy-state policy-state--error">
-                        <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
-                        <p>{errorMsg}</p>
-                        <button class="action-btn primary" onclick={handleReintentar}>Reintentar</button>
-                    </div>
-                </template>
-
                 <template if:true={hasPolicy}>
                     <lightning-record-edit-form
                         object-api-name="InsurancePolicy"
@@ -334,6 +326,13 @@
                             </lightning-button>
                         </div>
                     </lightning-record-edit-form>
+                </template>
+                <template if:false={hasPolicy}>
+                    <div class="policy-state policy-state--error">
+                        <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
+                        <p>{errorMsg}</p>
+                        <button class="action-btn primary" onclick={handleReintentar}>Reintentar</button>
+                    </div>
                 </template>
             </template>
         </template>
