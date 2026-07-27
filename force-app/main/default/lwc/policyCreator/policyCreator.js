@@ -14,6 +14,7 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
+import crearVinculoBien from '@salesforce/apex/PolicyController.crearVinculoBien';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 
@@ -186,13 +187,28 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         if (form) { form.submit(fields); }
     }
 
-    handleSuccess() {
-        this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
+    async handleSuccess(event) {
+        // Id de la póliza (nueva o existente).
+        const savedId = (event && event.detail && event.detail.id) || this.policyId;
+        this.policyId = savedId;
         // Ya se guardaron: se limpian para no reescribirlos en un guardado posterior.
         this.hiddenFields = {};
         // Refresca el registro para que la pantalla muestre lo guardado.
-        if (this.policyId) {
-            notifyRecordUpdateAvailable([{ recordId: this.policyId }]);
+        if (savedId) {
+            notifyRecordUpdateAvailable([{ recordId: savedId }]);
+        }
+        // Crea el vínculo póliza-bien (Asset + InsurancePolicyAsset). Reúsa el
+        // Asset de la oportunidad si existe; si no, lo crea.
+        try {
+            if (savedId) {
+                await crearVinculoBien({ policyId: savedId });
+            }
+            this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message)
+                || 'La póliza se guardó, pero no se pudo vincular el bien.';
+            // No bloquea: la póliza ya quedó guardada.
+            this.showToast('Aviso', msg, 'warning');
         }
     }
     handleError(event) {

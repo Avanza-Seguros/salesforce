@@ -998,22 +998,22 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.comparativoHtml = detail.Descripcion__c || '';
         this._comparativoDirty = true;
 
-        if (this.opportunity.Ramo__c === RAMO_TYPES.EMPRESARIAL || detail.empresarial) {
+        if (this.isRamoEmpresarial || detail.empresarial) {
             this.empresarial = { ...this.getDefaultEmpresarial(), ...(detail.empresarial || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.FIANZAS || detail.fianzas) {
+        if (this.isRamoFianzas || detail.fianzas) {
             this.fianzas = { ...this.getDefaultFianzas(), ...(detail.fianzas || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.RESPONSABILIDAD_CIVIL || detail.rc) {
+        if (this.isRamoRC || detail.rc) {
             this.rc = { ...this.getDefaultRC(), ...(detail.rc || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.DENTAL || detail.dental) {
+        if (this.isRamoDental || detail.dental) {
             this.dental = { ...this.getDefaultDental(), ...(detail.dental || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.VISION || detail.vision) {
+        if (this.isRamoVision || detail.vision) {
             this.vision = { ...this.getDefaultVision(), ...(detail.vision || {}) };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.TRANSPORTE || detail.transporte) {
+        if (this.matchRamo(this.opportunity.Ramo__c, ['TRANSPORTE']) || detail.transporte) {
             this.transporte = { ...this.getDefaultTransporte(), ...(detail.transporte || {}) };
         }
         if (this.isRamoAutomovil || detail.automovil) {
@@ -1029,7 +1029,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 descripcion_completa__c: a.Descripcion_Completa__c || a.descripcion_completa__c || ''
             };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.GASTOS_MEDICOS || detail.gmm) {
+        if (this.isRamoGMM || detail.gmm) {
             const g = detail.gmm || detail;
             this.gmm = {
                 ...this.getDefaultGMM(),
@@ -1038,7 +1038,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 numAsegurados:  g.numAsegurados  || 1
             };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.VIDA || detail.vida) {
+        if (this.isRamoVida || detail.vida) {
             const v = detail.vida || detail;
             this.vida = {
                 ...this.getDefaultVida(),
@@ -1047,7 +1047,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 subramo:            v.subramo            || ''
             };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.VIAJE || detail.viaje) {
+        if (this.isRamoViajes || detail.viaje) {
             const vj = detail.viaje || detail;
             this.viaje = {
                 ...this.getDefaultViaje(),
@@ -1055,7 +1055,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 numPasajeros: vj.numPasajeros || 1
             };
         }
-        if (this.opportunity.Ramo__c === RAMO_TYPES.DANOS || detail.danos) {
+        if (this.isRamoDanos || detail.danos) {
             const d = detail.danos || detail;
             this.danos = {
                 ...this.getDefaultDanos(),
@@ -2253,7 +2253,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
             // ===== Subramo: a Daños o a Vida según el ramo =====
             if (extractedData.subramo) {
-                if (this.opportunity.Ramo__c === RAMO_TYPES.DANOS) {
+                if (this.isRamoDanos) {
                     this.danos.subramo = extractedData.subramo;
                 } else {
                     this.vida.subramo = extractedData.subramo;
@@ -2261,8 +2261,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
 
             // ===== Ramos con sección propia (Empresarial, Fianzas, RC, Dental, Visión) =====
-            const ramoActual = this.opportunity.Ramo__c;
-            if (ramoActual === RAMO_TYPES.EMPRESARIAL) {
+            if (this.isRamoEmpresarial) {
                 this.empresarial = {
                     ...this.empresarial,
                     giro: extractedData.giro || this.empresarial.giro,
@@ -2271,7 +2270,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     valorInmueble: extractedData.valorInmueble || this.empresarial.valorInmueble,
                     valorContenidos: extractedData.valorContenidos || this.empresarial.valorContenidos
                 };
-            } else if (ramoActual === RAMO_TYPES.FIANZAS) {
+            } else if (this.isRamoFianzas) {
                 this.fianzas = {
                     ...this.fianzas,
                     tipoFianza: extractedData.tipoFianza || this.fianzas.tipoFianza,
@@ -2279,7 +2278,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     beneficiario: extractedData.beneficiario || this.fianzas.beneficiario,
                     montoAfianzado: extractedData.montoAfianzado || this.fianzas.montoAfianzado
                 };
-            } else if (ramoActual === RAMO_TYPES.RESPONSABILIDAD_CIVIL) {
+            } else if (this.isRamoRC) {
                 this.rc = {
                     ...this.rc,
                     tipoRC: extractedData.tipoRC || this.rc.tipoRC,
@@ -2287,14 +2286,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     actividad: extractedData.actividad || this.rc.actividad,
                     giro: extractedData.giro || this.rc.giro
                 };
-            } else if (ramoActual === RAMO_TYPES.DENTAL) {
+            } else if (this.isRamoDental) {
                 this.dental = {
                     ...this.dental,
                     plan: extractedData.plan || this.dental.plan,
                     numAsegurados: extractedData.numAsegurados || this.dental.numAsegurados,
                     red: extractedData.red || this.dental.red
                 };
-            } else if (ramoActual === RAMO_TYPES.VISION) {
+            } else if (this.isRamoVision) {
                 this.vision = {
                     ...this.vision,
                     plan: extractedData.plan || this.vision.plan,

@@ -859,10 +859,13 @@ public with sharing class OpportunityController {
 				Decimal valCon = toDecimalSafe(det.get('valorContenidos'));
 				if (valInm != null) { a.Price = valInm; }
 				a.Description = ('Actividad: ' + getStr(det, 'actividad') + ' | Inmueble: ' + String.valueOf(valInm) + ' | Contenidos: ' + String.valueOf(valCon)).left(255);
+				a.put('Oportunidad__c', opportunityId);
 				assets.add(a);
 			} else if (r.contains('DA\u00d1O') || r.contains('DANO') || r.contains('HOGAR')) {
 				String sub = getStr(det, 'subramo');
-				assets.add(new Asset(Name = ('Bien asegurado - ' + (String.isBlank(sub) ? ramo : sub)).left(255), AccountId = accountId));
+				Asset ad = new Asset(Name = ('Bien asegurado - ' + (String.isBlank(sub) ? ramo : sub)).left(255), AccountId = accountId);
+				ad.put('Oportunidad__c', opportunityId);
+				assets.add(ad);
 			}
 		}
 		if (!assets.isEmpty()) {
