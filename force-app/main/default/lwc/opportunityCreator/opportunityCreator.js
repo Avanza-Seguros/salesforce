@@ -1588,6 +1588,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const end = start + this.pageSize;
         const slice = this.filteredOpportunities.slice(start, end);
         const today = new Date();
+        today.setHours(0, 0, 0, 0); // comparar por día calendario (hora local)
         return slice.map((opp, index) => {
             // BLINDAJE: las plantillas LWC no soportan optional chaining,
             // así que aseguramos que Account y Owner SIEMPRE existan.
@@ -1608,7 +1609,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             let daysLabel = '';
             let daysClass = 'days-remaining';
             if (hasValidCloseDate && !isClosed) {
-                const diff = Math.ceil((closeDate - today) / 86400000);
+                const diff = Math.round((closeDate - today) / 86400000);
                 daysRemaining = diff;
                 if (diff < 0) {
                     daysLabel = `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`;
@@ -1660,9 +1661,18 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     parseSafeDate(value) {
         if (!value) return null;
-        const d = new Date(value);
+        let d;
+        // "YYYY-MM-DD" se interpreta como fecha LOCAL (evita el corrimiento de un día
+        // por zona horaria que provoca new Date('YYYY-MM-DD'), que la toma como UTC).
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            const partes = value.substring(0, 10).split('-').map(Number);
+            d = new Date(partes[0], partes[1] - 1, partes[2]);
+        } else {
+            d = new Date(value);
+        }
         if (isNaN(d.getTime())) return null;
         if (d.getFullYear() < 1970) return null;
+        d.setHours(0, 0, 0, 0);
         return d;
     }
     isClosedStage(stageName) {
