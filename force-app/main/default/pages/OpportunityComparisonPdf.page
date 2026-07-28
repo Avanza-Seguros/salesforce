@@ -4,9 +4,5 @@
            sidebar="false"
            standardStylesheets="false"
            controller="OpportunityComparisonPdfController">
-  <html>
-    <body>
-      <apex:outputText value="{!htmlBody}" escape="false"/>
-    </body>
-  </html>
+  <apex:outputText value="{!htmlBody}" escape="false"/>
 </apex:page>

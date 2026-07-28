@@ -4,6 +4,14 @@ public with sharing class EnvioPlantillas {
        API PRINCIPAL (BULK)
        ===================================================== */
     private static final String DEFAULT_EMAIL = 'info@avanzaseguro.com';
+    // Correo que SIEMPRE va en copia (CC) en todos los envíos.
+    private static final String ALWAYS_CC = 'correos@avanzaseguro.com';
+    // Contenido por defecto cuando NO se encuentra plantilla (el correo igual se envía).
+    private static final String DEFAULT_SUBJECT = 'Notificación - Avanza Seguro';
+    private static final String DEFAULT_BODY =
+        '<p>Estimado(a) cliente,</p>'
+        + '<p>Adjuntamos la documentación correspondiente a su trámite.</p>'
+        + '<p>Saludos,<br/>Avanza Seguro</p>';
     
     // Cache para almacenar archivos ya consultados
     private static Map<Id, List<ContentVersion>> fileCache = new Map<Id, List<ContentVersion>>();
@@ -26,13 +34,21 @@ public with sharing class EnvioPlantillas {
 
         // SEGUNDO: Construir emails usando los datos precargados
         Integer processedCount = 0;
-        
+        Integer banderaCorreoBajas = 0;
+        // Items cuyo correo es inválido/vacío: se marcarán como NO enviados.
+        List<Items_Cases__c> invalidos = new List<Items_Cases__c>();
         for (Items_Cases__c item : items) {
             processedCount++;
             
             System.debug('🔍 Procesando item ' + processedCount + ' de ' + items.size() + ': ' + item.Id);
             
-            if (String.isBlank(item.Correo_electronico__c)) {
+            // Correo inválido o vacío: se marca como NO enviado (Failed) y no se reintenta.
+            if (!hayCorreoValido(item.Correo_electronico__c)) {
+                invalidos.add(new Items_Cases__c(
+                    Id = item.Id,
+                    Email_Enviado__c = true,          // true = el orquestador ya no lo vuelve a tomar
+                    Estado_Envio_Email__c = 'Failed'
+                ));
                 continue;
             }
             
@@ -40,6 +56,8 @@ public with sharing class EnvioPlantillas {
             List<ContentVersion> itemAttachments = allAttachments.get(item.Id);
             if(item.Tipo_de_peticion__c == 'Baja') {
                 enviarEmailIndividual(item, itemAttachments);
+                EmailProcessingControl.markAsSent(item.Id);
+                banderaCorreoBajas++;
             } else {
                 Messaging.SingleEmailMessage email = construirEmailControlado(item, templatesByName, itemAttachments);
                 if (email != null) emails.add(email);
@@ -52,10 +70,21 @@ public with sharing class EnvioPlantillas {
             }
         }
         
+        // Marcar como NO enviados los items con correo inválido/vacío.
+        if (!invalidos.isEmpty()) {
+            try {
+                update invalidos;
+                System.debug('📧 Items con correo inválido marcados como no enviados: ' + invalidos.size());
+            } catch (Exception e) {
+                System.debug('⚠️ No se pudieron marcar los correos inválidos: ' + e.getMessage());
+            }
+        }
+
         System.debug('📧 === FIN construirEmails ===');
         System.debug('📧 Total emails construidos: ' + emails.size());
         System.debug('📊 SOQL queries utilizadas: ' + Limits.getQueries());
         System.debug('📊 Heap size final: ' + Limits.getHeapSize());
+        System.debug('📊 Emails de bajas enviados: ' + banderaCorreoBajas);
         
         return emails;
     }
@@ -168,14 +197,13 @@ public with sharing class EnvioPlantillas {
         
         if (template != null) {
             email.setTemplateId(template.Id);
-            if (item.Contacto__c != null) {
-                email.setTargetObjectId(item.Contacto__c);
-            } else {
-                email.setTargetObjectId(item.Asegurado__c);
-            }
+            email.setTargetObjectId(item.Contacto__c);
+            email.setWhatId(item.Id); // WhatId solo es válido junto con plantilla y destinatario
+        } else {
+            // Sin plantilla: se envía igual con contenido genérico (+ adjuntos).
+            email.setSubject(DEFAULT_SUBJECT);
+            email.setHtmlBody(DEFAULT_BODY);
         }
-        
-        email.setWhatId(item.Id);
         email.setSaveAsActivity(false);
         
         // Configurar direcciones de email
@@ -183,10 +211,8 @@ public with sharing class EnvioPlantillas {
         if (!toAddresses.isEmpty()) {
             email.setToAddresses(toAddresses);
         }
-        List<String> toAddressesCC = getEmailAddresses(item.Correo_Copia__c);
-        if (!toAddressesCC.isEmpty()) {
-            email.setCcAddresses(toAddressesCC);
-        }
+        // Siempre con copia a ALWAYS_CC, además de los correos de copia del item.
+        email.setCcAddresses(buildCcAddresses(item.Correo_Copia__c));
         
         // Configurar remitente
         Id senderEmailId = getSenderEmailId();
@@ -240,14 +266,13 @@ public with sharing class EnvioPlantillas {
                 }
             }
             
-            if (template != null) {
-                Messaging.SingleEmailMessage email = construirEmailIndividual(item, template, attachments);
-                if (email != null) {
-                    Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{email}, true);
-                    System.debug('✅ Email individual enviado para: ' + item.Correo_electronico__c);
-                }
-            } else {
-                System.debug('⚠️ No se encontró template para el item');
+            if (template == null) {
+                System.debug('⚠️ Sin plantilla: se enviará con contenido genérico');
+            }
+            Messaging.SingleEmailMessage email = construirEmailIndividual(item, template, attachments);
+            if (email != null) {
+                Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{email}, false);
+                System.debug('✅ Email individual enviado para: ' + item.Correo_electronico__c);
             }
         } catch (Exception e) {
             System.debug('🔥 Error enviando email individual: ' + e.getMessage());
@@ -262,42 +287,29 @@ public with sharing class EnvioPlantillas {
     public static Messaging.SingleEmailMessage construirEmailIndividual(Items_Cases__c item, EmailTemplate template, List<ContentVersion> attachments) {
         Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
         
-        if (template.Id != null) {
-            email.setTemplateId(template.Id);
-            if (item.Contacto__c != null) {
+        try {
+            if (template != null && template.Id != null) {
+                email.setTemplateId(template.Id);
                 email.setTargetObjectId(item.Contacto__c);
+                email.setWhatId(item.Id); // WhatId solo válido con plantilla y destinatario
             } else {
-                email.setTargetObjectId(item.Asegurado__c);
+                // Sin plantilla: contenido genérico para que el correo igual salga.
+                email.setSubject(DEFAULT_SUBJECT);
+                email.setHtmlBody(DEFAULT_BODY);
             }
-        }
-        
-        email.setWhatId(item.Id);
-        email.setSaveAsActivity(false);
-        
-        List<String> toAddresses = getEmailAddresses(item.Correo_electronico__c);
-        if (toAddresses.isEmpty()) {
+            email.setSaveAsActivity(false);
+            email.setToAddresses(getEmailAddresses(item.Correo_electronico__c));
+            // Siempre con copia a ALWAYS_CC, además de los correos de copia del item.
+            email.setCcAddresses(buildCcAddresses(item.Correo_Copia__c));
+            email.setOrgWideEmailAddressId(getSenderEmailId());
+            // Agregar adjuntos si existen
+            if(attachments != null && !attachments.isEmpty()) {
+                email.setFileAttachments(createEmailAttachments(attachments));
+            }
+        }catch(Exception e) {
+            System.debug('Error construyendo email individual: ' + e.getMessage());
             return null;
         }
-        List<String> toAddressesCC = new List<String>();
-        if(item.Correo_Copia__c != null) {
-            email.setCcAddresses(getEmailAddresses(item.Correo_Copia__c));
-        }
-        
-        email.setToAddresses(toAddresses);
-        email.setCcAddresses(toAddressesCC);
-        
-        // Agregar adjuntos si existen
-        try {
-            email.setFileAttachments(createEmailAttachments(attachments));
-        }catch(Exception e) {
-            System.debug('No se encontraron archivos adjuntos');
-        }
-        
-        Id senderEmailId = getSenderEmailId();
-        if (senderEmailId != null) {
-            email.setOrgWideEmailAddressId(senderEmailId);
-        }
-        
         return email;
     }
     
@@ -313,6 +325,44 @@ public with sharing class EnvioPlantillas {
             }
         }
         return toAddresses;
+    }
+
+    // Construye la lista de CC: los correos de copia del item + ALWAYS_CC (siempre),
+    // sin duplicados (comparación sin distinguir mayúsculas/minúsculas).
+    public static List<String> buildCcAddresses(String correoCopia) {
+        List<String> result = new List<String>();
+        Set<String> vistos = new Set<String>();
+        for (String em : getEmailAddresses(correoCopia)) {
+            String key = em.toLowerCase();
+            if (!vistos.contains(key)) { vistos.add(key); result.add(em); }
+        }
+        if (!vistos.contains(ALWAYS_CC.toLowerCase())) {
+            result.add(ALWAYS_CC);
+        }
+        return result;
+    }
+
+    // Valida el formato básico de un correo, sin regex, para evitar problemas de escape.
+    public static Boolean esCorreoValido(String correo) {
+        if (String.isBlank(correo)) { return false; }
+        String c = correo.trim();
+        if (c.contains(' ')) { return false; }
+        Integer at = c.indexOf('@');
+        if (at <= 0) { return false; }                       // debe haber texto antes de @
+        if (c.indexOf('@', at + 1) != -1) { return false; }  // un solo @
+        String dominio = c.substring(at + 1);
+        Integer dot = dominio.indexOf('.');
+        if (dot <= 0) { return false; }                      // dominio con punto (no al inicio)
+        if (dominio.endsWith('.')) { return false; }         // ni al final
+        return true;
+    }
+
+    // Indica si en el campo (puede traer varios separados por coma) hay al menos un correo válido.
+    public static Boolean hayCorreoValido(String correoString) {
+        for (String em : getEmailAddresses(correoString)) {
+            if (esCorreoValido(em)) { return true; }
+        }
+        return false;
     }
     
     public static List<Messaging.EmailFileAttachment> createEmailAttachments(List<ContentVersion> versions) {

@@ -254,4 +254,53 @@ private class PdfOpportunityCreatorControllerTest {
         PdfOpportunityCreatorController.resolveAseguradoraByName(new Set<String>{ 'HDI', 'GNP' });
         Test.stopTest();
     }
+
+    // ---------------- guardarArchivoEnOportunidad ----------------
+    @isTest
+    static void testGuardarArchivoEnOportunidad() {
+        Opportunity opp = new Opportunity(
+            Name = 'Opp Archivo Test',
+            StageName = activeStage(),
+            CloseDate = Date.today().addDays(15),
+            Agente_Relacionado__c = agenteId()
+        );
+        insert opp;
+
+        Test.startTest();
+        Id docId = PdfOpportunityCreatorController.guardarArchivoEnOportunidad(
+            opp.Id, 'Cotizacion.pdf', base64Demo());
+        Boolean threw = false;
+        try {
+            PdfOpportunityCreatorController.guardarArchivoEnOportunidad(null, null, null);
+        } catch (AuraHandledException e) { threw = true; }
+        Test.stopTest();
+
+        System.assertNotEquals(null, docId, 'Debe crear el archivo');
+        Integer links = [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :opp.Id];
+        System.assert(links > 0, 'El archivo debe quedar ligado a la oportunidad');
+        System.assert(threw, 'Sin datos debe lanzar excepción');
+    }
+
+    // ---------------- guardarComparativoPdf ----------------
+    @isTest
+    static void testGuardarComparativoPdf() {
+        Opportunity opp = new Opportunity(
+            Name = 'Opp Comparativo Test',
+            StageName = activeStage(),
+            CloseDate = Date.today().addDays(15),
+            Agente_Relacionado__c = agenteId()
+        );
+        insert opp;
+
+        Test.startTest();
+        Id docId = PdfOpportunityCreatorController.guardarComparativoPdf(
+            opp.Id, '<div><table><tr><td>Comparativo</td></tr></table></div>', 'Cliente Demo');
+        Id nulo = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, '', 'x');
+        Test.stopTest();
+
+        System.assertNotEquals(null, docId, 'Debe generar el PDF del comparativo');
+        System.assertEquals(null, nulo, 'Sin HTML debe regresar null');
+        Integer links = [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :opp.Id];
+        System.assert(links > 0, 'El PDF debe quedar ligado a la oportunidad');
+    }
 }

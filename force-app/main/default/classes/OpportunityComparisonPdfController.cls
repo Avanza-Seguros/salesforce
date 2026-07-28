@@ -27,8 +27,24 @@ public with sharing class OpportunityComparisonPdfController {
     String key = ApexPages.currentPage() == null
       ? null
       : ApexPages.currentPage().getParameters().get('k');
-    htmlBody = (key != null && htmlByKey.containsKey(key))
+    String raw = (key != null && htmlByKey.containsKey(key))
       ? htmlByKey.get(key)
       : '';
+    htmlBody = normalize(raw);
+  }
+
+  // Deja el HTML listo para renderizar como PDF:
+  // - Si ya es un documento completo (<html ...>), se usa tal cual.
+  // - Si es un fragmento (p. ej. <div>...</div>), se envuelve en <html><body>.
+  // Esto evita el HTML anidado (documento dentro de <html><body>) que producía PDFs en blanco.
+  private String normalize(String html) {
+    if (String.isBlank(html)) {
+      return '';
+    }
+    String lower = html.toLowerCase();
+    if (lower.contains('<html')) {
+      return html;
+    }
+    return '<html><body>' + html + '</body></html>';
   }
 }

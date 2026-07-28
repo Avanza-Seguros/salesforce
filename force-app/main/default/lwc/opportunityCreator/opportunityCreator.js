@@ -19,6 +19,8 @@ import searchContacts from '@salesforce/apex/OpportunityController.searchContact
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
+import guardarArchivoEnOportunidad from '@salesforce/apex/PdfOpportunityCreatorController.guardarArchivoEnOportunidad';
+import guardarComparativoPdf from '@salesforce/apex/PdfOpportunityCreatorController.guardarComparativoPdf';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
 import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCotizacion';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
@@ -103,6 +105,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Comparativo HTML tal cual lo regresa la IA (Prompt Builder).
     // Se renderiza en un iframe vía blob URL (srcdoc no está permitido en LWC).
     @track comparativoHtml = '';
+    @track pdfArchivos = []; // PDFs cargados (base64) para guardarlos en la oportunidad
     _comparativoDirty = false;
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
@@ -282,6 +285,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.comparativoHtml = '';
                 this._comparativoDirty = true;
                 try { this.recomputeComparativa(); } catch (e) { /* ignorar */ }
+                // Adjuntar los PDFs recién cargados + comparativo actualizado a la oportunidad.
+                try { await this.guardarArchivosPdf(this.opportunity.Id); } catch (e) { /* ignorar */ }
             }
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
@@ -2399,8 +2404,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             await this.loadOpportunities();
 
             if (this.hasPdfQuotes && savedId) {
-                // Venimos del flujo de PDFs: nos quedamos en la oportunidad para
-                // validar la comparativa y crear las cotizaciones al confirmar.
+                // Venimos del flujo de PDFs: guardamos los PDFs y el comparativo (como PDF)
+                // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
+                await this.guardarArchivosPdf(savedId);
                 this.viewMode = VIEW_MODES.EDIT;
             } else {
                 setTimeout(() => this.handleBackToList(), 1000);
@@ -2480,9 +2486,45 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
     // Cambiamos a la vista de creación para que el usuario revise y guarde.
+    // Sube los PDFs cargados y el comparativo (como PDF) a la oportunidad indicada.
+    async guardarArchivosPdf(oppId) {
+        if (!oppId) { return; }
+        const archivos = this.pdfArchivos || [];
+        let subidos = 0;
+        for (const a of archivos) {
+            if (!a || !a.base64) { continue; }
+            try {
+                await guardarArchivoEnOportunidad({ opportunityId: oppId, fileName: a.nombre, base64Data: a.base64 });
+                subidos++;
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
+            }
+        }
+        if (this.comparativoHtml) {
+            try {
+                await guardarComparativoPdf({
+                    opportunityId: oppId,
+                    comparativoHtml: this.comparativoHtml,
+                    nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones'
+                });
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error(':::OpportunityCreator::: No se pudo generar el PDF del comparativo', e);
+            }
+        }
+        // Ya se guardaron: se limpian para no duplicar en un guardado posterior.
+        this.pdfArchivos = [];
+        if (subidos > 0 || this.comparativoHtml) {
+            this.showToast('Archivos', 'Se guardaron los PDFs y el comparativo en la oportunidad.', 'success');
+        }
+    }
+
     handlePdfAnalysisComplete(event) {
         const d = (event && event.detail) || {};
         const n = d.count || this.uploadedQuotes.length;
+        // Guardamos los PDFs (base64) para adjuntarlos a la oportunidad al guardar/confirmar.
+        this.pdfArchivos = d.archivos || [];
 
         // Modo "agregar a oportunidad existente": no cambia de vista ni toca la oportunidad.
         // Solo prepara las cotizaciones para que el usuario las revise y confirme.

@@ -475,6 +475,62 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
+	 * @description: Sube UN archivo (PDF) y lo liga a una Opportunity YA EXISTENTE.
+	 *               Se llama uno por uno desde el LWC para no exceder el tamaño de request.
+	 * @param opportunityId: Id de la oportunidad a la que se adjunta.
+	 * @param fileName: nombre del archivo.
+	 * @param base64Data: contenido del archivo en base64.
+	 * @return Id del ContentDocument creado.
+	 */
+	@AuraEnabled
+	public static Id guardarArchivoEnOportunidad(Id opportunityId, String fileName, String base64Data) {
+		if (opportunityId == null || String.isBlank(fileName) || String.isBlank(base64Data)) {
+			throw new AuraHandledException('Faltan datos para guardar el archivo.');
+		}
+		try {
+			ContentVersion cv = new ContentVersion(
+				Title = fileName,
+				PathOnClient = fileName,
+				VersionData = EncodingUtil.base64Decode(base64Data),
+				Origin = 'H'
+			);
+			insert cv;
+			ContentVersion stored = [
+				SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
+			];
+			insert new ContentDocumentLink(
+				ContentDocumentId = stored.ContentDocumentId,
+				LinkedEntityId = opportunityId,
+				ShareType = 'V',
+				Visibility = 'AllUsers'
+			);
+			return stored.ContentDocumentId;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo guardar el archivo "' + fileName + '": ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @description: Renderiza el HTML del comparativo a PDF y lo liga a la Opportunity.
+	 *               Devuelve null si no hay HTML.
+	 * @param opportunityId: Id de la oportunidad.
+	 * @param comparativoHtml: HTML del comparativo.
+	 * @param nombreArchivo: base para el nombre del PDF.
+	 * @return Id del ContentDocument, o null si no había HTML.
+	 */
+	@AuraEnabled
+	public static Id guardarComparativoPdf(Id opportunityId, String comparativoHtml, String nombreArchivo) {
+		if (opportunityId == null || String.isBlank(comparativoHtml)) {
+			return null;
+		}
+		try {
+			return renderAndLinkComparativo(comparativoHtml, nombreArchivo, opportunityId);
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo generar el PDF del comparativo: ' + e.getMessage());
+		}
+	}
+
+	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Devuelve el Id del Pricebook estandar. En contexto de test usa
