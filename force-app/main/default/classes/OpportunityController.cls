@@ -342,8 +342,6 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String typeLabel;
 		@AuraEnabled public String detailLine;
 		@AuraEnabled public String clienteNombre;
-		@AuraEnabled public String clienteApellidoPaterno;
-		@AuraEnabled public String clienteApellidoMaterno;
 		@AuraEnabled public String clienteRFC;
 		@AuraEnabled public String clienteEmail;
 		@AuraEnabled public String clienteTelefono;
@@ -362,26 +360,25 @@ public with sharing class OpportunityController {
 	public static List<AccountResult> searchAccounts(String searchTerm) {
 		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
-		Boolean hasMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
-		String campos = 'Id, Name, IsPersonAccount, Phone, BillingStreet, BillingPostalCode, '
-			+ 'FirstName, LastName, PersonEmail, PersonMobilePhone, '
-			+ 'PersonMailingStreet, PersonMailingPostalCode';
-		if (hasMiddle) { campos += ', MiddleName'; }
-		String soql = 'SELECT ' + campos + ' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
-		for (Account a : (List<Account>) Database.query(soql)) {
+		for (Account a : [
+			SELECT Id, Name, IsPersonAccount, Phone,
+				   BillingStreet, BillingPostalCode,
+				   PersonEmail, PersonMobilePhone,
+				   PersonMailingStreet, PersonMailingPostalCode
+			FROM Account
+			WHERE Name LIKE :busqTerm
+			ORDER BY Name LIMIT 20
+		]) {
 			AccountResult r = new AccountResult();
 			r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
 			r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
+			r.clienteNombre = a.Name;
 			if (a.IsPersonAccount) {
-				r.clienteNombre = a.FirstName;
-				r.clienteApellidoPaterno = hasMiddle ? (String) a.get('MiddleName') : null;
-				r.clienteApellidoMaterno = a.LastName;
 				r.clienteEmail = a.PersonEmail;
 				r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
 				r.clienteCP = a.PersonMailingPostalCode;
 				r.clienteDireccion = a.PersonMailingStreet;
 			} else {
-				r.clienteNombre = a.Name;
 				r.clienteTelefono = a.Phone;
 				r.clienteCP = a.BillingPostalCode;
 				r.clienteDireccion = a.BillingStreet;
@@ -402,7 +399,6 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
-		try {
 		Map<String, Object> d =
 			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
@@ -460,13 +456,6 @@ public with sharing class OpportunityController {
 				acc.Phone             = getStr(d, 'clienteTelefono');
 				acc.BillingStreet     = getStr(d, 'clienteDireccion');
 				acc.BillingPostalCode = getStr(d, 'clienteCP');
-				// AnnualRevenue es obligatorio para cuentas empresariales en este org.
-				Object arRaw = d.get('AnnualRevenue');
-				Decimal annualRev = 0;
-				if (arRaw != null && String.isNotBlank(String.valueOf(arRaw))) {
-					try { annualRev = Decimal.valueOf(String.valueOf(arRaw)); } catch (Exception ex) { annualRev = 0; }
-				}
-				acc.AnnualRevenue = annualRev;
 			}
 
 			insert acc;
@@ -537,7 +526,14 @@ public with sharing class OpportunityController {
 
 		String mercadoSel = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : opp.Mercado__c;
 		if (mercadoSel == 'Individual' && accountId != null) {
-			opp.Contacto__c = getPersonContactId(accountId);
+			Id personContact = getPersonContactId(accountId);
+			// Respaldo: si la cuenta no tiene contacto de persona (p. ej. no es
+			// Cuenta Persona), creamos/ligamos uno con el nombre del cliente para
+			// no dejar la oportunidad sin contacto.
+			if (personContact == null) {
+				personContact = crearContactoIndividual(d, accountId);
+			}
+			opp.Contacto__c = personContact;
 		} else {
 			String contactoId = getStr(d, 'Contacto__c');
 			Boolean isNewContacto = d.get('isNewContacto') == true;
@@ -569,32 +565,6 @@ public with sharing class OpportunityController {
 		}
 
 		return opp.Id;
-		} catch (AuraHandledException e) {
-			// Ya trae un mensaje legible: se reenvia tal cual.
-			throw e;
-		} catch (Exception e) {
-			// Se envuelve para que el mensaje REAL (validacion, campo obligatorio,
-			// etc.) llegue a la pantalla en lugar de un error generico.
-			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
-		}
-	}
-
-	/**
-	 * @description: Devuelve un texto de error legible. Para errores de guardado (DML)
-	 *               arma el detalle de las validaciones/campos que fallaron; para el
-	 *               resto usa el mensaje de la excepcion.
-	 */
-	private static String detalleError(Exception e) {
-		if (e instanceof DmlException) {
-			DmlException de = (DmlException) e;
-			List<String> partes = new List<String>();
-			for (Integer i = 0; i < de.getNumDml(); i++) {
-				String m = de.getDmlMessage(i);
-				if (String.isNotBlank(m)) { partes.add(m); }
-			}
-			if (!partes.isEmpty()) { return String.join(partes, ' | '); }
-		}
-		return e.getMessage();
 	}
 
 	/**
@@ -786,6 +756,57 @@ public with sharing class OpportunityController {
 		return c.Id;
 	}
 
+	// Crea (o reutiliza) un Contacto de persona bajo la cuenta usando el nombre y
+	// apellidos del cliente. Respaldo para Individual cuando la cuenta no tiene
+	// contacto de persona. Como solo se invoca si PersonContactId vino vacio, la
+	// cuenta no es Cuenta Persona y por eso si se permite crear un Contacto normal.
+	private static Id crearContactoIndividual(Map<String, Object> d, Id accountId) {
+		if (accountId == null) { return null; }
+		String nombre  = getStr(d, 'clienteNombre');
+		String paterno = getStr(d, 'clienteApellidoPaterno');
+		String materno = getStr(d, 'clienteApellidoMaterno');
+
+		// Nombre completo para de-duplicar.
+		List<String> ps = new List<String>();
+		if (String.isNotBlank(nombre))  { ps.add(nombre.trim()); }
+		if (String.isNotBlank(paterno)) { ps.add(paterno.trim()); }
+		if (String.isNotBlank(materno)) { ps.add(materno.trim()); }
+		String fullName = String.join(ps, ' ').trim();
+
+		// Si ya existe un contacto con ese nombre bajo la cuenta, se reutiliza.
+		if (String.isNotBlank(fullName)) {
+			for (Contact ex : [SELECT Id FROM Contact WHERE AccountId = :accountId AND Name = :fullName LIMIT 1]) {
+				return ex.Id;
+			}
+		}
+
+		// LastName (Apellido) es obligatorio en Contact.
+		String lastName = materno;
+		if (String.isBlank(lastName)) { lastName = paterno; }
+		if (String.isBlank(lastName)) { lastName = nombre; }
+		if (String.isBlank(lastName)) {
+			for (Account a : [SELECT Name FROM Account WHERE Id = :accountId LIMIT 1]) { lastName = a.Name; }
+		}
+		if (String.isBlank(lastName)) { return null; }
+
+		Contact c = new Contact(AccountId = accountId);
+		if (String.isNotBlank(nombre)) { c.FirstName = nombre; }
+		// Si hay paterno y materno, el paterno va como segundo nombre (MiddleName)
+		// y el materno como apellido, igual que en la Cuenta Persona.
+		if (String.isNotBlank(paterno) && String.isNotBlank(materno)) {
+			try { c.put('MiddleName', paterno); } catch (Exception ignore) {}
+		}
+		c.LastName = lastName;
+		c.Email = getStr(d, 'clienteEmail');
+		c.Phone = getStr(d, 'clienteTelefono');
+		try {
+			insert c;
+			return c.Id;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
 	// ============================================================
 	// Persistencia por ramo con objetos ESTÁNDAR de FSC
 	// ============================================================
@@ -838,10 +859,13 @@ public with sharing class OpportunityController {
 				Decimal valCon = toDecimalSafe(det.get('valorContenidos'));
 				if (valInm != null) { a.Price = valInm; }
 				a.Description = ('Actividad: ' + getStr(det, 'actividad') + ' | Inmueble: ' + String.valueOf(valInm) + ' | Contenidos: ' + String.valueOf(valCon)).left(255);
+				a.put('Oportunidad__c', opportunityId);
 				assets.add(a);
 			} else if (r.contains('DA\u00d1O') || r.contains('DANO') || r.contains('HOGAR')) {
 				String sub = getStr(det, 'subramo');
-				assets.add(new Asset(Name = ('Bien asegurado - ' + (String.isBlank(sub) ? ramo : sub)).left(255), AccountId = accountId));
+				Asset ad = new Asset(Name = ('Bien asegurado - ' + (String.isBlank(sub) ? ramo : sub)).left(255), AccountId = accountId);
+				ad.put('Oportunidad__c', opportunityId);
+				assets.add(ad);
 			}
 		}
 		if (!assets.isEmpty()) {

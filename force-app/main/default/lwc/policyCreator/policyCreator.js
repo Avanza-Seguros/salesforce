@@ -14,6 +14,7 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
+import crearVinculoBien from '@salesforce/apex/PolicyController.crearVinculoBien';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 
@@ -38,6 +39,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // record-edit-form), por eso ya no se manejan aquí. Se deja vacío para no inyectar
     // valores viejos al guardar. Solo la vista de solo lectura usa el wire de fechas.
     DATE_FIELDS = [];
+
+    // Fechas de la póliza que en algunas orgs son de tipo Fecha/Hora (requieren hora).
+    POLICY_DATE_FIELDS = ['EffectiveDate', 'ExpirationDate', 'PaymentDueDate',
+        'CancellationEffectiveDate', 'SaleDate', 'PreviousRenewalDate',
+        'RenewalDate', 'PlannedRenewalDate'];
 
     // Valores recuperados por la IA que NO se muestran en el formulario,
     // pero que sí se guardan al enviar (no se pierde información).
@@ -153,6 +159,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 if (!d[f]) { d[f] = s.substring(0, 10); } // solo YYYY-MM-DD
             }
         });
+        // Detecta cuáles fechas de la póliza son Fecha/Hora en esta org (traen 'T').
+        this.POLICY_DATE_FIELDS.forEach((f) => {
+            const cell = rec.fields[f];
+            const v = cell ? cell.value : null;
+            if (v) { flags[f] = String(v).includes('T'); }
+        });
         this.dates = d;
         this._dtFlags = flags;
     }
@@ -182,32 +194,48 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 fields[f] = this._dtFlags[f] ? (val + 'T00:00:00.000Z') : val;
             }
         });
+        // Las fechas que en esta org son Fecha/Hora requieren componente de hora
+        // (ISO 8601). Si llega solo la fecha (YYYY-MM-DD) se le agrega el mediodía UTC
+        // para no desfasar el día al mostrarla.
+        const soloFechaRegex = /^\d{4}-\d{2}-\d{2}$/;
+        this.POLICY_DATE_FIELDS.forEach((f) => {
+            const v = fields[f];
+            if (typeof v === 'string' && soloFechaRegex.test(v)) {
+                const esFechaHora = this._dtFlags[f] === true
+                    || (this._dtFlags[f] === undefined && (f === 'EffectiveDate' || f === 'ExpirationDate'));
+                if (esFechaHora) { fields[f] = v + 'T12:00:00.000Z'; }
+            }
+        });
         const form = this.template.querySelector('lightning-record-edit-form');
         if (form) { form.submit(fields); }
     }
 
-    handleSuccess() {
-        this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
+    async handleSuccess(event) {
+        // Id de la póliza (nueva o existente).
+        const savedId = (event && event.detail && event.detail.id) || this.policyId;
+        this.policyId = savedId;
         // Ya se guardaron: se limpian para no reescribirlos en un guardado posterior.
         this.hiddenFields = {};
         // Refresca el registro para que la pantalla muestre lo guardado.
-        if (this.policyId) {
-            notifyRecordUpdateAvailable([{ recordId: this.policyId }]);
+        if (savedId) {
+            notifyRecordUpdateAvailable([{ recordId: savedId }]);
+        }
+        // Crea el vínculo póliza-bien (Asset + InsurancePolicyAsset). Reúsa el
+        // Asset de la oportunidad si existe; si no, lo crea.
+        try {
+            if (savedId) {
+                await crearVinculoBien({ policyId: savedId });
+            }
+            this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message)
+                || 'La póliza se guardó, pero no se pudo vincular el bien.';
+            // No bloquea: la póliza ya quedó guardada.
+            this.showToast('Aviso', msg, 'warning');
         }
     }
     handleError(event) {
-        const d = (event && event.detail) ? event.detail : {};
-        const partes = [];
-        // Errores de página (reglas de validación, triggers, flujos)
-        const pageErrors = (d.output && d.output.errors) ? d.output.errors : [];
-        pageErrors.forEach((e) => { if (e && e.message) { partes.push(e.message); } });
-        // Errores por campo (campo obligatorio, formato, etc.)
-        const fieldErrors = (d.output && d.output.fieldErrors) ? d.output.fieldErrors : {};
-        Object.keys(fieldErrors).forEach((campo) => {
-            (fieldErrors[campo] || []).forEach((fe) => { if (fe && fe.message) { partes.push(fe.message); } });
-        });
-        let msg = partes.length ? partes.join(' | ') : (d.message || '');
-        if (!msg) { msg = 'No se pudo guardar la póliza.'; }
+        const msg = (event && event.detail && event.detail.message) || 'No se pudo guardar la póliza.';
         this.showToast('Error', msg, 'error');
     }
 

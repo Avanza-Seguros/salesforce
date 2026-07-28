@@ -120,4 +120,121 @@ public with sharing class PolicyController {
 		if (start < 0 || last < start) { return '{}'; }
 		return payload.substring(start, last + 1);
 	}
+
+	/**
+	 * @creation date: 27/07/2026
+	 * @description: Al emitir la póliza, crea el vínculo póliza–bien (InsurancePolicyAsset).
+	 *               Reúsa el Asset creado por la oportunidad si existe; si no, crea uno con
+	 *               los datos de la póliza. Es idempotente: si el vínculo ya existe, no duplica.
+	 * @param policyId: Id de la InsurancePolicy recién emitida.
+	 * @return Id del InsurancePolicyAsset creado o existente.
+	 */
+	@AuraEnabled
+	public static Id crearVinculoBien(Id policyId) {
+		if (policyId == null) {
+			throw new AuraHandledException('No se recibió la póliza para vincular el bien.');
+		}
+		try {
+			// 1) Datos de la póliza.
+			InsurancePolicy pol = [
+				SELECT Id, Name, NameInsuredId, SourceOpportunityId, SourceQuoteId,
+					   Ramo__c, ProductId, PremiumAmount, EffectiveDate
+				FROM InsurancePolicy
+				WHERE Id = :policyId
+				LIMIT 1
+			];
+
+			// 2) Si ya existe el vínculo, no duplicar (idempotente).
+			List<InsurancePolicyAsset> existentes = [
+				SELECT Id FROM InsurancePolicyAsset
+				WHERE InsurancePolicyId = :policyId
+				LIMIT 1
+			];
+			if (!existentes.isEmpty()) { return existentes[0].Id; }
+
+			// 3) Cuenta del asegurado (por la oportunidad origen o por NameInsured).
+			Id accountId = resolverCuentaDePoliza(pol);
+
+			// 4) Reusar el Asset de la oportunidad si existe; si no, crear uno.
+			Id assetId = null;
+			String assetName = null;
+			if (pol.SourceOpportunityId != null) {
+				for (Asset a : [
+					SELECT Id, Name FROM Asset
+					WHERE Oportunidad__c = :pol.SourceOpportunityId
+					ORDER BY CreatedDate DESC LIMIT 1
+				]) {
+					assetId = a.Id;
+					assetName = a.Name;
+				}
+			}
+			if (assetId == null) {
+				String nombreBien = String.isNotBlank(pol.Ramo__c)
+					? ('Bien asegurado - ' + pol.Ramo__c)
+					: 'Bien asegurado';
+				Asset nuevo = new Asset(Name = nombreBien.left(255));
+				if (accountId != null) { nuevo.AccountId = accountId; }
+				if (pol.ProductId != null) { nuevo.Product2Id = pol.ProductId; }
+				nuevo.put('Oportunidad__c', pol.SourceOpportunityId);
+				insert nuevo;
+				assetId = nuevo.Id;
+				assetName = nuevo.Name;
+			}
+
+			// 5) Crear el vínculo póliza-bien.
+			InsurancePolicyAsset ipa = new InsurancePolicyAsset(
+				InsurancePolicyId = policyId,
+				AssetName = assetName,
+				IsActive = true
+			);
+			// El campo que liga el bien (CustomerPropertyId) puede apuntar a Asset o a
+			// otro objeto según la configuración del org. Solo lo asignamos si acepta Asset,
+			// para no romper el guardado con "id value of incorrect type".
+			if (assetId != null && campoAceptaAsset(InsurancePolicyAsset.CustomerPropertyId.getDescribe())) {
+				ipa.CustomerPropertyId = assetId;
+			}
+			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
+			if (pol.PremiumAmount != null) { ipa.StandardPremiumAmount = pol.PremiumAmount; }
+			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+			insert ipa;
+			return ipa.Id;
+		} catch (AuraHandledException ahe) {
+			throw ahe;
+		} catch (DmlException e) {
+			throw new AuraHandledException('No se pudo crear el vínculo póliza-bien: ' + detalleDml(e));
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo crear el vínculo póliza-bien: ' + e.getMessage());
+		}
+	}
+
+	// Indica si un campo de tipo lookup acepta registros del objeto Asset.
+	private static Boolean campoAceptaAsset(Schema.DescribeFieldResult f) {
+		if (f == null) { return false; }
+		for (Schema.SObjectType t : f.getReferenceTo()) {
+			if (t == Asset.SObjectType) { return true; }
+		}
+		return false;
+	}
+
+	// Cuenta del asegurado: por la oportunidad origen o, si NameInsured es una cuenta, esa.
+	private static Id resolverCuentaDePoliza(InsurancePolicy pol) {
+		if (pol.SourceOpportunityId != null) {
+			for (Opportunity o : [SELECT AccountId FROM Opportunity WHERE Id = :pol.SourceOpportunityId LIMIT 1]) {
+				if (o.AccountId != null) { return o.AccountId; }
+			}
+		}
+		if (pol.NameInsuredId != null && ((Id) pol.NameInsuredId).getSObjectType() == Account.SObjectType) {
+			return (Id) pol.NameInsuredId;
+		}
+		return null;
+	}
+
+	private static String detalleDml(DmlException e) {
+		List<String> partes = new List<String>();
+		for (Integer i = 0; i < e.getNumDml(); i++) {
+			String m = e.getDmlMessage(i);
+			if (String.isNotBlank(m)) { partes.add(m); }
+		}
+		return partes.isEmpty() ? e.getMessage() : String.join(partes, ' | ');
+	}
 }
