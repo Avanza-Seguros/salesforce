@@ -2,20 +2,21 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Agente_Relacionado__c</fullName>
     <deleteConstraint>Restrict</deleteConstraint>
-    <label>Agente Relacionado</label>
+    <label>Agente</label>
     <lookupFilter>
         <active>true</active>
+        <errorMessage>El valor no existe o no coincide con los criterios de filtrado.</errorMessage>
         <filterItems>
             <field>Agente__c.Status__c</field>
             <operation>notEqual</operation>
-            <value>Descartado</value>
+            <value>Descartado, Inactivo</value>
         </filterItems>
-        <isOptional>true</isOptional>
+        <isOptional>false</isOptional>
     </lookupFilter>
     <referenceTo>Agente__c</referenceTo>
     <relationshipLabel>Oportunidades (Agente Relacionado)</relationshipLabel>
     <relationshipName>Oportunidades1</relationshipName>
-    <required>false</required>
+    <required>true</required>
     <trackFeedHistory>false</trackFeedHistory>
     <type>Lookup</type>
 </CustomField>

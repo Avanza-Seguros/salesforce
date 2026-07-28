@@ -168,7 +168,8 @@ public with sharing class PdfProcessorController {
             SELECT Id, Name, Numero_Polizas__c, Estatus__c, Tipo_de_poliza__c
             FROM Polizas__c 
             WHERE Name LIKE :likeTerm
-            ORDER BY CreatedDate DESC
+            AND Estatus__c = 'Vigor'
+            ORDER BY CreatedDate ASC
         ];
     }
 

@@ -2,6 +2,7 @@
 <RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Default_Account</fullName>
     <active>true</active>
+    <compactLayoutAssignment>Account_Compact_Layout</compactLayoutAssignment>
     <label>Default Account</label>
     <picklistValues>
         <picklist>AccountSource</picklist>
@@ -1240,10 +1241,6 @@
         </values>
         <values>
             <fullName>Financial</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Individual</fullName>
             <default>false</default>
         </values>
     </picklistValues>

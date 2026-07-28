@@ -3,6 +3,21 @@
     <fullName>Product__c</fullName>
     <deleteConstraint>SetNull</deleteConstraint>
     <label>Product</label>
+    <lookupFilter>
+        <active>true</active>
+        <booleanFilter>1 AND 2</booleanFilter>
+        <filterItems>
+            <field>Product2.Family</field>
+            <operation>equals</operation>
+            <valueField>$Source.Ramos__c</valueField>
+        </filterItems>
+        <filterItems>
+            <field>Product2.Aseguradora__c</field>
+            <operation>equals</operation>
+            <valueField>$Source.Aseguradora__c</valueField>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
     <referenceTo>Product2</referenceTo>
     <relationshipLabel>Quotes</relationshipLabel>
     <relationshipName>Quote_Product</relationshipName>
