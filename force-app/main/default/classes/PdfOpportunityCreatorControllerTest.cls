@@ -288,18 +288,29 @@ private class PdfOpportunityCreatorControllerTest {
             Name = 'Opp Comparativo Test',
             StageName = activeStage(),
             CloseDate = Date.today().addDays(15),
-            Agente_Relacionado__c = agenteId()
+            Agente_Relacionado__c = agenteId(),
+            Descripcion__c = '<div><table><tr><td>Comparativo</td></tr></table></div>'
         );
         insert opp;
 
+        Opportunity vacia = new Opportunity(
+            Name = 'Opp Sin Comparativo',
+            StageName = activeStage(),
+            CloseDate = Date.today().addDays(15),
+            Agente_Relacionado__c = agenteId()
+        );
+        insert vacia;
+
         Test.startTest();
-        Id docId = PdfOpportunityCreatorController.guardarComparativoPdf(
-            opp.Id, '<div><table><tr><td>Comparativo</td></tr></table></div>', 'Cliente Demo');
-        Id nulo = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, '', 'x');
+        // Actualiza el comparativo en la oportunidad y genera el PDF leyéndolo de ahí.
+        PdfOpportunityCreatorController.actualizarComparativoOpp(opp.Id, '<div>Comparativo actualizado</div>');
+        Id docId = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, 'Cliente Demo');
+        // Oportunidad sin comparativo -> null.
+        Id nulo = PdfOpportunityCreatorController.guardarComparativoPdf(vacia.Id, 'x');
         Test.stopTest();
 
         System.assertNotEquals(null, docId, 'Debe generar el PDF del comparativo');
-        System.assertEquals(null, nulo, 'Sin HTML debe regresar null');
+        System.assertEquals(null, nulo, 'Sin comparativo debe regresar null');
         Integer links = [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :opp.Id];
         System.assert(links > 0, 'El PDF debe quedar ligado a la oportunidad');
     }

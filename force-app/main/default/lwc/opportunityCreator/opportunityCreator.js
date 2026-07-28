@@ -16,11 +16,13 @@ import getOpportunities from '@salesforce/apex/OpportunityController.getOpportun
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
 import searchContacts from '@salesforce/apex/OpportunityController.searchContacts';
+import getArchivosDeOportunidad from '@salesforce/apex/OpportunityController.getArchivosDeOportunidad';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
 import guardarArchivoEnOportunidad from '@salesforce/apex/PdfOpportunityCreatorController.guardarArchivoEnOportunidad';
 import guardarComparativoPdf from '@salesforce/apex/PdfOpportunityCreatorController.guardarComparativoPdf';
+import actualizarComparativoOpp from '@salesforce/apex/PdfOpportunityCreatorController.actualizarComparativoOpp';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
 import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCotizacion';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
@@ -156,6 +158,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         rawData: null
     };
     @track showComparisonSummary = false;
+    @track archivosModalOpen = false;
+    @track archivosList = [];
+    @track archivosLoading = false;
+    @track archivosOppName = '';
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
     // directamente dentro de la sección de comparativa.)
@@ -2486,6 +2492,63 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
     // Cambiamos a la vista de creación para que el usuario revise y guarde.
+    // ---------- Archivos de la oportunidad ----------
+    async handleVerArchivos(event) {
+        const oppId = event.currentTarget.dataset.id;
+        const oppName = event.currentTarget.dataset.name || '';
+        if (!oppId) { return; }
+        this.archivosOppName = oppName;
+        this.archivosModalOpen = true;
+        this.archivosLoading = true;
+        this.archivosList = [];
+        try {
+            const files = await getArchivosDeOportunidad({ opportunityId: oppId });
+            this.archivosList = (files || []).map((f) => this.decorarArchivo(f));
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || 'No se pudieron cargar los archivos';
+            this.showToast('Error', msg, 'error');
+        } finally {
+            this.archivosLoading = false;
+        }
+    }
+
+    decorarArchivo(f) {
+        const docId = f.contentDocumentId;
+        return {
+            contentDocumentId: docId,
+            title: f.title,
+            sizeText: this.formatFileSize(f.size),
+            iconName: this.iconoPorExtension(f.extension),
+            viewUrl: `/lightning/r/ContentDocument/${docId}/view`,
+            downloadUrl: `/sfc/servlet.shepherd/document/download/${docId}`
+        };
+    }
+
+    formatFileSize(bytes) {
+        if (!bytes || bytes <= 0) { return ''; }
+        if (bytes < 1024) { return bytes + ' B'; }
+        if (bytes < 1048576) { return Math.round(bytes / 1024) + ' KB'; }
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    iconoPorExtension(ext) {
+        const e = (ext || '').toLowerCase();
+        if (e === 'pdf') { return 'doctype:pdf'; }
+        if (['png', 'jpg', 'jpeg', 'gif'].includes(e)) { return 'doctype:image'; }
+        if (['doc', 'docx'].includes(e)) { return 'doctype:word'; }
+        if (['xls', 'xlsx', 'csv'].includes(e)) { return 'doctype:excel'; }
+        return 'doctype:unknown';
+    }
+
+    closeArchivosModal() {
+        this.archivosModalOpen = false;
+        this.archivosList = [];
+    }
+
+    get tieneArchivos() {
+        return this.archivosList && this.archivosList.length > 0;
+    }
+
     // Sube los PDFs cargados y el comparativo (como PDF) a la oportunidad indicada.
     async guardarArchivosPdf(oppId) {
         if (!oppId) { return; }
@@ -2503,9 +2566,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         if (this.comparativoHtml) {
             try {
+                // 1) Guarda el comparativo en la oportunidad (dato committed) y
+                // 2) genera el PDF leyéndolo desde ahí (mecanismo confiable).
+                await actualizarComparativoOpp({ opportunityId: oppId, comparativoHtml: this.comparativoHtml });
                 await guardarComparativoPdf({
                     opportunityId: oppId,
-                    comparativoHtml: this.comparativoHtml,
                     nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones'
                 });
             } catch (e) {

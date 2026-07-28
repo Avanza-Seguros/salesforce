@@ -432,4 +432,38 @@ private class OpportunityControllerTest {
         }
         Test.stopTest();
     }
+
+    @isTest
+    static void testGetArchivosDeOportunidad() {
+        Opportunity opp = new Opportunity(
+            Name = 'Opp Archivos Test',
+            StageName = activeStage(),
+            CloseDate = Date.today().addDays(15),
+            Agente_Relacionado__c = agenteId()
+        );
+        insert opp;
+
+        List<OpportunityController.ArchivoOpp> vacia = OpportunityController.getArchivosDeOportunidad(opp.Id);
+        System.assert(vacia.isEmpty(), 'Sin archivos debe regresar vacío');
+
+        ContentVersion cv = new ContentVersion(
+            Title = 'Doc Test', PathOnClient = 'doc.pdf',
+            VersionData = Blob.valueOf('contenido'), Origin = 'H'
+        );
+        insert cv;
+        ContentVersion stored = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1];
+        insert new ContentDocumentLink(
+            ContentDocumentId = stored.ContentDocumentId,
+            LinkedEntityId = opp.Id, ShareType = 'V', Visibility = 'AllUsers'
+        );
+
+        Test.startTest();
+        List<OpportunityController.ArchivoOpp> archivos = OpportunityController.getArchivosDeOportunidad(opp.Id);
+        List<OpportunityController.ArchivoOpp> nula = OpportunityController.getArchivosDeOportunidad(null);
+        Test.stopTest();
+
+        System.assertEquals(1, archivos.size(), 'Debe listar el archivo adjunto');
+        System.assertEquals('Doc Test', archivos[0].title, 'Debe traer el título');
+        System.assert(nula.isEmpty(), 'Id nulo debe regresar vacío');
+    }
 }

@@ -203,6 +203,9 @@
                                                                 <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
                                                             </button>
                                                         </template>
+                                                        <button class="icon-btn" onclick={handleVerArchivos} data-id={opp.Id} data-name={opp.Name} title="Ver archivos">
+                                                            <lightning-icon icon-name="utility:attach" size="xx-small"></lightning-icon>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1582,6 +1585,47 @@
                     onanalysiscomplete={handlePdfAnalysisComplete}>
                 </c-pdf-opportunity-creator>
             </div>
+        </template>
+
+        <!-- Modal: archivos de la oportunidad -->
+        <template if:true={archivosModalOpen}>
+            <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close" title="Cerrar" onclick={closeArchivosModal}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-modal__title slds-hyphenate">Archivos de la oportunidad</h2>
+                        <p class="slds-m-top_x-small">{archivosOppName}</p>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <template if:true={archivosLoading}>
+                            <lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner>
+                        </template>
+                        <template if:false={archivosLoading}>
+                            <template if:true={tieneArchivos}>
+                                <ul class="slds-has-dividers_bottom-space">
+                                    <template for:each={archivosList} for:item="f">
+                                        <li key={f.contentDocumentId} class="slds-item slds-p-vertical_x-small">
+                                            <lightning-icon icon-name={f.iconName} size="small" class="slds-m-right_x-small"></lightning-icon>
+                                            <a href={f.viewUrl} target="_blank">{f.title}</a>
+                                            <span class="slds-text-color_weak slds-m-left_x-small">{f.sizeText}</span>
+                                            <a href={f.downloadUrl} target="_blank" class="slds-m-left_small" title="Descargar">Descargar</a>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <template if:false={tieneArchivos}>
+                                <p>Esta oportunidad no tiene archivos.</p>
+                            </template>
+                        </template>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <button class="action-btn secondary" onclick={closeArchivosModal}>Cerrar</button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
     </div>
 </template>

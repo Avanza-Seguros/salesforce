@@ -519,12 +519,61 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @return Id del ContentDocument, o null si no había HTML.
 	 */
 	@AuraEnabled
-	public static Id guardarComparativoPdf(Id opportunityId, String comparativoHtml, String nombreArchivo) {
-		if (opportunityId == null || String.isBlank(comparativoHtml)) {
-			return null;
-		}
+	public static void actualizarComparativoOpp(Id opportunityId, String comparativoHtml) {
+		if (opportunityId == null || String.isBlank(comparativoHtml)) { return; }
 		try {
-			return renderAndLinkComparativo(comparativoHtml, nombreArchivo, opportunityId);
+			Opportunity o = new Opportunity(Id = opportunityId);
+			o.Descripcion__c = comparativoHtml.length() > 131072
+				? comparativoHtml.substring(0, 131072)
+				: comparativoHtml;
+			update o;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo actualizar el comparativo: ' + e.getMessage());
+		}
+	}
+
+	@AuraEnabled
+	public static Id guardarComparativoPdf(Id opportunityId, String nombreArchivo) {
+		if (opportunityId == null) { return null; }
+		try {
+			// El HTML se lee desde la Oportunidad (Descripcion__c), un registro ya COMMITTED,
+			// para que la página VF lo reciba de forma confiable (los statics no sobreviven a
+			// getContentAsPDF). No se hace DML antes de getContentAsPDF (evita "uncommitted work").
+			String html;
+			for (Opportunity o : [SELECT Descripcion__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1]) {
+				html = o.Descripcion__c;
+			}
+			if (String.isBlank(html)) { return null; }
+
+			String filename = 'Comparativo_' +
+				(String.isBlank(nombreArchivo) ? 'cotizaciones' : nombreArchivo) + '.pdf';
+
+			Blob pdfBlob;
+			if (Test.isRunningTest()) {
+				pdfBlob = Blob.valueOf(html);
+			} else {
+				PageReference pr = Page.OpportunityComparisonPdf;
+				pr.getParameters().put('oppId', opportunityId);
+				pdfBlob = pr.getContentAsPDF();
+			}
+
+			ContentVersion cv = new ContentVersion(
+				Title = filename,
+				PathOnClient = filename,
+				VersionData = pdfBlob,
+				Origin = 'H'
+			);
+			insert cv;
+			ContentVersion stored = [
+				SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
+			];
+			insert new ContentDocumentLink(
+				ContentDocumentId = stored.ContentDocumentId,
+				LinkedEntityId = opportunityId,
+				ShareType = 'V',
+				Visibility = 'AllUsers'
+			);
+			return stored.ContentDocumentId;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo generar el PDF del comparativo: ' + e.getMessage());
 		}
