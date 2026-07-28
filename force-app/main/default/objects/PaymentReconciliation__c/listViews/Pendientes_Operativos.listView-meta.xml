@@ -26,6 +26,11 @@
         <operation>notEqual</operation>
         <value>Duplicado</value>
     </filters>
+    <filters>
+        <field>reconciliationStatus__c</field>
+        <operation>notEqual</operation>
+        <value>Rechazado</value>
+    </filters>
     <label>Pendientes Operativos</label>
     <language>es</language>
 </ListView>

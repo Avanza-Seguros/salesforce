@@ -1,0 +1,41 @@
+<template>
+	<div class="slds-p-around_medium">
+		<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+			Rechazar cierra el caso sin generar recibo. El motivo y las notas quedan
+			en la conciliación para auditoría.
+		</p>
+
+		<lightning-combobox
+			name="reason"
+			label="Motivo de rechazo"
+			placeholder="Seleccione el motivo"
+			value={rejectedReason}
+			options={reasonOptions}
+			onchange={handleReasonChange}
+			required
+		></lightning-combobox>
+
+		<lightning-textarea
+			class="slds-m-top_small"
+			name="notes"
+			label="Notas de decisión"
+			value={notes}
+			onchange={handleNotesChange}
+			required
+		></lightning-textarea>
+
+		<div class="slds-m-top_medium slds-grid slds-grid_align-end">
+			<lightning-button
+				label="Cancelar"
+				onclick={close}
+				class="slds-m-right_x-small"
+			></lightning-button>
+			<lightning-button
+				variant="destructive"
+				label="Rechazar"
+				onclick={handleReject}
+				disabled={disableReject}
+			></lightning-button>
+		</div>
+	</div>
+</template>

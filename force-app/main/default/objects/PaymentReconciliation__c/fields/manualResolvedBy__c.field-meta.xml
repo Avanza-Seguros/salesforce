@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>manualResolvedBy__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description
+	>Usuario que resolvió manualmente la conciliación (aprobación o rechazo). Sella la decisión manual y actúa como candado del guardaíl anti-reentrada: mientras esté poblado, el pipeline reentrante no sobrescribe la conciliación.</description>
+    <label>Resuelto manualmente por</label>
+    <referenceTo>User</referenceTo>
+    <relationshipName>PaymentReconciliationsManuallyResolved</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

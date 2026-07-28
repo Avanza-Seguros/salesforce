@@ -1,0 +1,37 @@
+<template>
+	<div class="slds-p-around_medium">
+		<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+			El motor volverá a intentar la conciliación sobre este pago usando los
+			datos actuales del inbound. El resultado se refleja en unos segundos.
+		</p>
+
+		<template if:true={hasPriorReprocess}>
+			<div
+				class="slds-box slds-box_x-small slds-theme_warning slds-m-bottom_small slds-text-body_small"
+			>
+				{priorReprocessMessage}
+			</div>
+		</template>
+
+		<lightning-textarea
+			name="notes"
+			label="Notas del reproceso (opcional)"
+			value={notes}
+			onchange={handleNotesChange}
+		></lightning-textarea>
+
+		<div class="slds-m-top_medium slds-grid slds-grid_align-end">
+			<lightning-button
+				label="Cancelar"
+				onclick={close}
+				class="slds-m-right_x-small"
+			></lightning-button>
+			<lightning-button
+				variant="brand"
+				label="Reprocesar"
+				onclick={handleReprocess}
+				disabled={disableReprocess}
+			></lightning-button>
+		</div>
+	</div>
+</template>
