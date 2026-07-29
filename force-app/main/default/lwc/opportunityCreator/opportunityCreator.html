@@ -22,12 +22,12 @@
                                     Editando oportunidad existente
                                 </template>
                                 <template if:false={isEditMode}>
-                                    Transforma prospectos en negocios exitosos
+                                    Captura al cliente y sus cotizaciones en un solo lugar.
                                 </template>
                             </template>
                             <!-- NUEVO -->
                             <template if:true={showPdfView}>
-                                Sube los documentos del cliente y deja que la IA cree la oportunidad
+                                Sube los PDFs y la oportunidad se arma sola. Sin capturar a mano.
                             </template>
                         </p>
                     </div>
@@ -127,9 +127,9 @@
                             Nueva Oportunidad
                         </button>
                         <!-- NUEVO -->
-                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Crear oportunidad subiendo PDFs">
+                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Sube las cotizaciones en PDF y la IA arma la oportunidad, sin capturar a mano">
                             <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
-                            Crear desde PDFs
+                            Crear desde PDFs (IA)
                         </button>
                     </div>
                 </div>
@@ -246,7 +246,7 @@
                                         No se encontraron oportunidades que coincidan con "{searchTerm}".
                                     </template>
                                     <template if:false={searchTerm}>
-                                        No hay oportunidades disponibles con los filtros actuales.
+                                        Arranca tu primera oportunidad: sube las cotizaciones en PDF y deja que se arme sola, sin teclear nada.
                                     </template>
                                 </p>
                                 <button class="action-btn primary" onclick={handleCreateNew}>
@@ -256,7 +256,7 @@
                                 <!-- NUEVO -->
                                 <button class="action-btn pdf-action" onclick={handleCreateFromPdf}>
                                     <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
-                                    Crear desde PDFs
+                                    Crear desde PDFs (IA)
                                 </button>
                             </div>
                         </template>

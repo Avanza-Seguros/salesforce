@@ -3,17 +3,17 @@
     <!-- Paso de carga -->
     <template lwc:if={showUploadStep}>
       <p class="pdf-intro">
-        Sube 2 o más PDFs (cotizaciones de distintas aseguradoras para el mismo cliente).
-        Los nombres de los archivos deben compartir un prefijo común. La IA leerá los
-        documentos y llenará automáticamente el formulario de la oportunidad.
+        Deja de capturar a mano. Sube 2 o más cotizaciones en PDF del mismo cliente y la IA
+        las lee, compara las aseguradoras y llena la oportunidad por ti en segundos.
       </p>
+      <p class="pdf-steps">1) Sube los PDFs &middot; 2) Revisa &middot; 3) Confirma</p>
 
       <div class="pdf-dropzone">
         <lightning-icon icon-name="utility:upload" size="large" class="pdf-dropzone__icon"></lightning-icon>
         <lightning-input type="file" label="Documentos PDF" accept="application/pdf,.pdf"
           multiple onchange={handleFileChange} disabled={isProcessing} variant="label-hidden">
         </lightning-input>
-        <p class="pdf-dropzone__hint">Formato PDF · máx. ~4.5 MB por archivo</p>
+        <p class="pdf-dropzone__hint">Formato PDF · máx. ~4.5 MB · nombres con prefijo común</p>
       </div>
 
       <template lwc:if={hasFiles}>
@@ -36,7 +36,7 @@
       <div class="pdf-actions">
         <button class="pdf-btn" onclick={handleContinue} disabled={continueDisabled}>
           <lightning-icon icon-name="utility:einstein" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-          Analizar y llenar formulario
+          Leer PDFs y llenar por mí
         </button>
       </div>
     </template>

@@ -2596,7 +2596,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (this.addQuotesMode) {
             this.loadEditableQuotes();
             this.showToast('Cotizaciones detectadas',
-                `Se detectaron ${n} cotización(es). Revisa el producto y confirma para agregarlas.`, 'success');
+                `Detecté ${n} cotización(es) en tus PDFs. Revisa el producto y confirma: yo las agrego por ti.`, 'success');
             return;
         }
 
@@ -2633,10 +2633,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.loadEditableQuotes();
 
         this.showToast(
-            'Datos listos',
+            'La IA ya lo llenó',
             d.ganadora
-                ? `Se extrajeron ${n} cotizaciones. Recomendada: ${d.ganadora}. Revisa y guarda.`
-                : `Se extrajeron ${n} cotizaciones. Revisa el formulario y guarda.`,
+                ? `Listo, sin capturar a mano: ${n} cotizaciones leídas. Recomendada: ${d.ganadora}. Solo revisa y guarda.`
+                : `Listo, sin capturar a mano: ${n} cotizaciones leídas. Solo revisa y guarda.`,
             'success'
         );
     }
