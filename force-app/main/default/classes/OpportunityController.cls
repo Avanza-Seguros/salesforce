@@ -458,8 +458,16 @@ public with sharing class OpportunityController {
 				acc.BillingPostalCode = getStr(d, 'clienteCP');
 			}
 
-			insert acc;
-			accountId = acc.Id;
+			// Evita duplicados: si ya existe una cuenta que coincide (por email de la
+			// persona o por nombre exacto), se reutiliza en vez de crear otra.
+			String nombreBuscar = (tipoCliente == 'Persona') ? nombrePersona(acc) : acc.Name;
+			Id cuentaExistente = buscarCuentaExistente(d, tipoCliente, nombreBuscar);
+			if (cuentaExistente != null) {
+				accountId = cuentaExistente;
+			} else {
+				insert acc;
+				accountId = acc.Id;
+			}
 		}
 
 		// ------------------------------------------------------------
@@ -578,6 +586,33 @@ public with sharing class OpportunityController {
 	private static String getStr(Map<String, Object> m, String key) {
 		Object v = m.get(key);
 		return v == null ? null : String.valueOf(v);
+	}
+
+	// Nombre completo de una Cuenta Persona a partir de sus componentes.
+	private static String nombrePersona(Account acc) {
+		List<String> partes = new List<String>();
+		if (String.isNotBlank(acc.FirstName)) { partes.add(acc.FirstName); }
+		String mid;
+		try { mid = (String) acc.get('MiddleName'); } catch (Exception e) { mid = null; }
+		if (String.isNotBlank(mid)) { partes.add(mid); }
+		if (String.isNotBlank(acc.LastName)) { partes.add(acc.LastName); }
+		return String.join(partes, ' ').trim();
+	}
+
+	// Busca una cuenta existente para evitar duplicados: primero por email (si es persona),
+	// luego por nombre exacto (la comparación de texto en SOQL no distingue mayúsculas).
+	private static Id buscarCuentaExistente(Map<String, Object> d, String tipoCliente, String nombreCuenta) {
+		String email = getStr(d, 'clienteEmail');
+		if (tipoCliente == 'Persona' && String.isNotBlank(email)) {
+			for (Account a : [SELECT Id FROM Account WHERE PersonEmail = :email AND IsPersonAccount = true LIMIT 1]) {
+				return a.Id;
+			}
+		}
+		if (String.isBlank(nombreCuenta)) { return null; }
+		for (Account a : [SELECT Id FROM Account WHERE Name = :nombreCuenta ORDER BY CreatedDate ASC LIMIT 1]) {
+			return a.Id;
+		}
+		return null;
 	}
 
 	/**

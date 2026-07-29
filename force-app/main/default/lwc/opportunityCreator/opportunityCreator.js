@@ -16,9 +16,13 @@ import getOpportunities from '@salesforce/apex/OpportunityController.getOpportun
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
 import searchContacts from '@salesforce/apex/OpportunityController.searchContacts';
+import getArchivosDeOportunidad from '@salesforce/apex/OpportunityController.getArchivosDeOportunidad';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
+import guardarArchivoEnOportunidad from '@salesforce/apex/PdfOpportunityCreatorController.guardarArchivoEnOportunidad';
+import guardarComparativoPdf from '@salesforce/apex/PdfOpportunityCreatorController.guardarComparativoPdf';
+import actualizarComparativoOpp from '@salesforce/apex/PdfOpportunityCreatorController.actualizarComparativoOpp';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
 import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCotizacion';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
@@ -103,6 +107,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Comparativo HTML tal cual lo regresa la IA (Prompt Builder).
     // Se renderiza en un iframe vía blob URL (srcdoc no está permitido en LWC).
     @track comparativoHtml = '';
+    @track pdfArchivos = []; // PDFs cargados (base64) para guardarlos en la oportunidad
     _comparativoDirty = false;
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
@@ -153,6 +158,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         rawData: null
     };
     @track showComparisonSummary = false;
+    @track archivosModalOpen = false;
+    @track archivosList = [];
+    @track archivosLoading = false;
+    @track archivosOppName = '';
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
     // directamente dentro de la sección de comparativa.)
@@ -282,6 +291,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.comparativoHtml = '';
                 this._comparativoDirty = true;
                 try { this.recomputeComparativa(); } catch (e) { /* ignorar */ }
+                // Adjuntar los PDFs recién cargados + comparativo actualizado a la oportunidad.
+                try { await this.guardarArchivosPdf(this.opportunity.Id); } catch (e) { /* ignorar */ }
             }
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
@@ -1588,7 +1599,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const end = start + this.pageSize;
         const slice = this.filteredOpportunities.slice(start, end);
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // comparar por día calendario (hora local)
         return slice.map((opp, index) => {
             // BLINDAJE: las plantillas LWC no soportan optional chaining,
             // así que aseguramos que Account y Owner SIEMPRE existan.
@@ -1609,7 +1619,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             let daysLabel = '';
             let daysClass = 'days-remaining';
             if (hasValidCloseDate && !isClosed) {
-                const diff = Math.round((closeDate - today) / 86400000);
+                const diff = Math.ceil((closeDate - today) / 86400000);
                 daysRemaining = diff;
                 if (diff < 0) {
                     daysLabel = `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`;
@@ -1661,18 +1671,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     parseSafeDate(value) {
         if (!value) return null;
-        let d;
-        // "YYYY-MM-DD" se interpreta como fecha LOCAL (evita el corrimiento de un día
-        // por zona horaria que provoca new Date('YYYY-MM-DD'), que la toma como UTC).
-        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-            const partes = value.substring(0, 10).split('-').map(Number);
-            d = new Date(partes[0], partes[1] - 1, partes[2]);
-        } else {
-            d = new Date(value);
-        }
+        const d = new Date(value);
         if (isNaN(d.getTime())) return null;
         if (d.getFullYear() < 1970) return null;
-        d.setHours(0, 0, 0, 0);
         return d;
     }
     isClosedStage(stageName) {
@@ -2409,8 +2410,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             await this.loadOpportunities();
 
             if (this.hasPdfQuotes && savedId) {
-                // Venimos del flujo de PDFs: nos quedamos en la oportunidad para
-                // validar la comparativa y crear las cotizaciones al confirmar.
+                // Venimos del flujo de PDFs: guardamos los PDFs y el comparativo (como PDF)
+                // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
+                await this.guardarArchivosPdf(savedId);
                 this.viewMode = VIEW_MODES.EDIT;
             } else {
                 setTimeout(() => this.handleBackToList(), 1000);
@@ -2490,9 +2492,104 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
     // Cambiamos a la vista de creación para que el usuario revise y guarde.
+    // ---------- Archivos de la oportunidad ----------
+    async handleVerArchivos(event) {
+        const oppId = event.currentTarget.dataset.id;
+        const oppName = event.currentTarget.dataset.name || '';
+        if (!oppId) { return; }
+        this.archivosOppName = oppName;
+        this.archivosModalOpen = true;
+        this.archivosLoading = true;
+        this.archivosList = [];
+        try {
+            const files = await getArchivosDeOportunidad({ opportunityId: oppId });
+            this.archivosList = (files || []).map((f) => this.decorarArchivo(f));
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || 'No se pudieron cargar los archivos';
+            this.showToast('Error', msg, 'error');
+        } finally {
+            this.archivosLoading = false;
+        }
+    }
+
+    decorarArchivo(f) {
+        const docId = f.contentDocumentId;
+        return {
+            contentDocumentId: docId,
+            title: f.title,
+            sizeText: this.formatFileSize(f.size),
+            iconName: this.iconoPorExtension(f.extension),
+            viewUrl: `/lightning/r/ContentDocument/${docId}/view`,
+            downloadUrl: `/sfc/servlet.shepherd/document/download/${docId}`
+        };
+    }
+
+    formatFileSize(bytes) {
+        if (!bytes || bytes <= 0) { return ''; }
+        if (bytes < 1024) { return bytes + ' B'; }
+        if (bytes < 1048576) { return Math.round(bytes / 1024) + ' KB'; }
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    iconoPorExtension(ext) {
+        const e = (ext || '').toLowerCase();
+        if (e === 'pdf') { return 'doctype:pdf'; }
+        if (['png', 'jpg', 'jpeg', 'gif'].includes(e)) { return 'doctype:image'; }
+        if (['doc', 'docx'].includes(e)) { return 'doctype:word'; }
+        if (['xls', 'xlsx', 'csv'].includes(e)) { return 'doctype:excel'; }
+        return 'doctype:unknown';
+    }
+
+    closeArchivosModal() {
+        this.archivosModalOpen = false;
+        this.archivosList = [];
+    }
+
+    get tieneArchivos() {
+        return this.archivosList && this.archivosList.length > 0;
+    }
+
+    // Sube los PDFs cargados y el comparativo (como PDF) a la oportunidad indicada.
+    async guardarArchivosPdf(oppId) {
+        if (!oppId) { return; }
+        const archivos = this.pdfArchivos || [];
+        let subidos = 0;
+        for (const a of archivos) {
+            if (!a || !a.base64) { continue; }
+            try {
+                await guardarArchivoEnOportunidad({ opportunityId: oppId, fileName: a.nombre, base64Data: a.base64 });
+                subidos++;
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
+            }
+        }
+        if (this.comparativoHtml) {
+            try {
+                // 1) Guarda el comparativo en la oportunidad (dato committed) y
+                // 2) genera el PDF leyéndolo desde ahí (mecanismo confiable).
+                await actualizarComparativoOpp({ opportunityId: oppId, comparativoHtml: this.comparativoHtml });
+                await guardarComparativoPdf({
+                    opportunityId: oppId,
+                    nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones'
+                });
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error(':::OpportunityCreator::: No se pudo generar el PDF del comparativo', e);
+            }
+        }
+        // Ya se guardaron: se limpian para no duplicar en un guardado posterior.
+        this.pdfArchivos = [];
+        if (subidos > 0 || this.comparativoHtml) {
+            this.showToast('Archivos', 'Se guardaron los PDFs y el comparativo en la oportunidad.', 'success');
+        }
+    }
+
     handlePdfAnalysisComplete(event) {
         const d = (event && event.detail) || {};
         const n = d.count || this.uploadedQuotes.length;
+        // Guardamos los PDFs (base64) para adjuntarlos a la oportunidad al guardar/confirmar.
+        this.pdfArchivos = d.archivos || [];
 
         // Modo "agregar a oportunidad existente": no cambia de vista ni toca la oportunidad.
         // Solo prepara las cotizaciones para que el usuario las revise y confirme.
@@ -2520,8 +2617,18 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             };
         }
 
-        // Cuenta: usar el cliente detectado (buscar o marcar para crear) + agente por default.
-        this.resolveAccountByName(this.opportunity.clienteNombre);
+        // Cuenta: usar el nombre COMPLETO del cliente (el nombre de pila y los apellidos
+        // van separados). Antes se buscaba solo con el nombre de pila y por eso nunca
+        // encontraba la cuenta existente y la marcaba como nueva.
+        const nombreCuenta = [
+            this.opportunity.clienteNombre,
+            this.opportunity.clienteApellidoPaterno,
+            this.opportunity.clienteApellidoMaterno
+        ].filter(Boolean).join(' ').trim();
+        if (nombreCuenta) {
+            this.opportunity = { ...this.opportunity, AccountName: nombreCuenta };
+            this.resolveAccountByName(nombreCuenta);
+        }
         this.setDefaultAgente();
         this.loadEditableQuotes();
 
