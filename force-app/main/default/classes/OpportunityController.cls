@@ -1017,4 +1017,43 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String Phone;
 		@AuraEnabled public Id AccountId;
 	}
+	/**
+	 * @description: Devuelve los archivos (ContentDocument) ligados a una oportunidad,
+	 *               con lo necesario para mostrarlos y abrirlos/descargarlos desde el LWC.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<ArchivoOpp> getArchivosDeOportunidad(Id opportunityId) {
+		List<ArchivoOpp> out = new List<ArchivoOpp>();
+		if (opportunityId == null) { return out; }
+		try {
+			Set<Id> docIds = new Set<Id>();
+			for (ContentDocumentLink l : [SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId = :opportunityId]) {
+				docIds.add(l.ContentDocumentId);
+			}
+			if (docIds.isEmpty()) { return out; }
+			for (ContentVersion v : [
+				SELECT ContentDocumentId, Title, FileExtension, ContentSize, CreatedDate
+				FROM ContentVersion
+				WHERE ContentDocumentId IN :docIds AND IsLatest = true
+				ORDER BY CreatedDate DESC
+			]) {
+				ArchivoOpp a = new ArchivoOpp();
+				a.contentDocumentId = v.ContentDocumentId;
+				a.title = v.Title;
+				a.extension = v.FileExtension;
+				a.size = (Integer) v.ContentSize;
+				out.add(a);
+			}
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudieron cargar los archivos: ' + e.getMessage());
+		}
+		return out;
+	}
+
+	public class ArchivoOpp {
+		@AuraEnabled public Id contentDocumentId;
+		@AuraEnabled public String title;
+		@AuraEnabled public String extension;
+		@AuraEnabled public Integer size;
+	}
 }
