@@ -1,0 +1,25 @@
+<template>
+	<lightning-card title={cardTitle} icon-name="standard:partner_fund_claim">
+		<div class="slds-p-horizontal_small">
+			<template if:true={error}>
+				<p class="slds-text-color_error slds-text-body_small">{error}</p>
+			</template>
+
+			<template if:true={isEmpty}>
+				<p class="slds-text-color_weak slds-text-body_small">
+					Esta póliza todavía no tiene cuotas generadas.
+				</p>
+			</template>
+
+			<template if:true={hasRows}>
+				<lightning-datatable
+					key-field="Id"
+					data={rows}
+					columns={columns}
+					hide-checkbox-column
+					resize-column-disabled
+				></lightning-datatable>
+			</template>
+		</div>
+	</lightning-card>
+</template>
