@@ -1398,6 +1398,60 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         };
     }
 
+    // Arma el HTML COMPLETO del comparativo (precios + matriz de coberturas + resumen),
+    // igual a lo que se ve en pantalla, con estilos en línea seguros para el motor de PDF.
+    buildComparativoHtmlCompleto() {
+        const d = this.comparativoData;
+        if (!d || !d.hasData) { return ''; }
+        const esc = (v) => String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
+        const th = 'padding:7px 9px;border:1px solid #d9dee6;font-size:12px;text-align:left;background:#f4f6f9;';
+        const thRec = th + 'background:#fff3e0;';
+        const td = 'padding:7px 9px;border:1px solid #eef1f5;font-size:12px;text-align:left;';
+        const tdHl = td + 'background:#fff8ef;';
+
+        let h = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c2433;">';
+        h += `<h2 style="font-size:18px;margin:0 0 4px;">Comparativo de Seguro de ${esc(d.ramoLabel)}</h2>`;
+        h += `<p style="font-size:11px;color:#667;margin:0 0 4px;">${esc(d.opportunityName)} &middot; ${esc(d.clienteName)} &middot; Vigencia ${esc(d.vigInicio)} – ${esc(d.vigFin)}</p>`;
+        h += `<p style="font-size:11px;color:#b85b00;margin:0 0 12px;">${d.totalQuotes} aseguradoras comparadas &middot; Cotizado por Avanza Seguro</p>`;
+
+        h += '<table style="width:100%;border-collapse:collapse;">';
+        h += `<tr><th style="${th}">Concepto</th>`;
+        d.columns.forEach((c) => {
+            h += `<th style="${c.hasBadge ? thRec : th}">${esc(c.name)}`;
+            if (c.hasBadge) { h += `<br><span style="font-size:10px;color:#b85b00;">${esc(c.badge)}</span>`; }
+            h += '</th>';
+        });
+        h += '</tr>';
+        h += `<tr><th style="${th}">Prima</th>`;
+        d.columns.forEach((c) => {
+            h += `<td style="${c.hasBadge ? tdHl : td}">${esc(c.priceFormatted)}`;
+            if (c.hasPriceSub) { h += `<br><span style="font-size:10px;color:#667;">${esc(c.priceSub)}</span>`; }
+            h += '</td>';
+        });
+        h += '</tr>';
+        h += `<tr><th style="${th}">Coberturas incluidas</th>`;
+        d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${c.coverageCount}</td>`; });
+        h += '</tr>';
+        d.rows.forEach((row) => {
+            h += `<tr><th style="${th}">${esc(row.name)}</th>`;
+            row.cells.forEach((cell) => {
+                const style = cell.text === 'Sí' ? td : (td + 'color:#a94442;');
+                h += `<td style="${style}">${esc(cell.text)}</td>`;
+            });
+            h += '</tr>';
+        });
+        h += '</table>';
+
+        h += '<h3 style="font-size:15px;margin:16px 0 6px;">Resumen y recomendación</h3>';
+        d.cards.forEach((card) => {
+            h += `<p style="margin:0 0 8px;"><b style="color:#b85b00;">${esc(card.title)}</b><br><span style="font-size:12px;">${esc(card.text)}</span></p>`;
+        });
+        h += `<p style="margin:8px 0 0;padding:10px;background:#f4f6f9;border:1px solid #e6e9ef;font-size:12px;">${esc(d.recomendacion)}</p>`;
+        h += '</div>';
+        return h;
+    }
+
     /** @deprecated — sustituido por render declarativo bajo LWS. */
     handleDeleteOpportunity(event) {
         const id = event.currentTarget.dataset.id;
@@ -2564,11 +2618,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
             }
         }
-        if (this.comparativoHtml) {
+        // Se arma el comparativo COMPLETO (precios + coberturas + resumen), igual a la
+        // pestaña; si no hay datos estructurados, se usa el HTML de la IA como respaldo.
+        const htmlComparativo = this.buildComparativoHtmlCompleto() || this.comparativoHtml;
+        if (htmlComparativo) {
             try {
                 // 1) Guarda el comparativo en la oportunidad (dato committed) y
                 // 2) genera el PDF leyéndolo desde ahí (mecanismo confiable).
-                await actualizarComparativoOpp({ opportunityId: oppId, comparativoHtml: this.comparativoHtml });
+                await actualizarComparativoOpp({ opportunityId: oppId, comparativoHtml: htmlComparativo });
                 await guardarComparativoPdf({
                     opportunityId: oppId,
                     nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones'
@@ -2580,7 +2637,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         // Ya se guardaron: se limpian para no duplicar en un guardado posterior.
         this.pdfArchivos = [];
-        if (subidos > 0 || this.comparativoHtml) {
+        if (subidos > 0 || htmlComparativo) {
             this.showToast('Archivos', 'Se guardaron los PDFs y el comparativo en la oportunidad.', 'success');
         }
     }

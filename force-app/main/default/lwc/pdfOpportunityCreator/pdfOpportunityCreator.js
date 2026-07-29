@@ -294,7 +294,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 	}
 
 	// Emite las cotizaciones al padre (combinando vehículo + cliente comunes).
-	emitResults(res) {
+	async emitResults(res) {
 		console.log(':::pdfOpportunityCreator::: Emitiendo resultados al padre:', JSON.stringify(res));
 		const quotes = (res && res.quotes) || [];
 		const det = (res && res.detalle) || (res && res.vehiculo) || {};
@@ -333,6 +333,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 		const recTexto =
 			(res && res.recomendacion && res.recomendacion.en_pocas_palabras) || "";
 
+		// Lee los PDFs a base64 para que el padre los guarde en la oportunidad.
+		const archivos = await this.filesToBase64();
 		this.dispatchEvent(
 			new CustomEvent("analysiscomplete", {
 				detail: toPlainObject({
@@ -342,7 +344,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 					ganadora: (res && res.ganadora) || "",
 					recomendacion: recTexto,
 					aviso: (res && res.aviso) || "",
-						comparativoHtml: (res && res.comparativo_html) || ""
+					comparativoHtml: (res && res.comparativo_html) || "",
+					archivos: archivos
 				})
 			})
 		);
@@ -375,6 +378,34 @@ export default class PdfOpportunityCreator extends LightningElement {
 	// Extrae el texto de un PDF con pdf.js. Devuelve "" si no se puede (p. ej. escaneado
 	// o si pdf.js falla en este entorno). Tiene un timeout para no dejar el spinner
 	// girando si pdf.js se cuelga (caso del "fake worker" en Lightning Web Security).
+	// Lee todos los PDFs cargados y los devuelve como [{nombre, base64}].
+	async filesToBase64() {
+		const out = [];
+		for (const f of this.files) {
+			try {
+				const base64 = await this.readFileAsBase64(f);
+				out.push({ nombre: f.name, base64 });
+			} catch (e) {
+				// Si un archivo no se puede leer, se omite (no bloquea el flujo).
+			}
+		}
+		return out;
+	}
+
+	// Convierte un File a base64 (sin el prefijo data:).
+	readFileAsBase64(file) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result || "";
+				const comma = result.indexOf(",");
+				resolve(comma >= 0 ? result.substring(comma + 1) : result);
+			};
+			reader.onerror = () => reject(reader.error);
+			reader.readAsDataURL(file);
+		});
+	}
+
 	async extractPdfText(file) {
 
 		const TIMEOUT_MS = 15000;
