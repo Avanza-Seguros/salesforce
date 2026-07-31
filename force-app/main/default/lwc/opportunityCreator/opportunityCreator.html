@@ -519,11 +519,12 @@
                                             <lightning-icon icon-name="utility:moneybag" size="x-small"></lightning-icon>
                                             <h3>Prima Neta <span class="required-asterisk">*</span></h3>
                                         </div>
-                                        <lightning-input type="number" formatter="currency" step="0.01"
+                                        <lightning-input type="number" formatter="currency" step="0.01" min="0.01"
                                             label="" value={opportunity.Prima_Neta__c}
                                             onchange={handleInputChange} disabled={isOpportunityReadOnly}
                                             data-field="Prima_Neta__c" variant="label-hidden"
-                                            placeholder="0.00" required>
+                                            placeholder="0.00" required
+                                            message-when-range-underflow="La prima neta debe ser mayor a 0" message-when-value-missing="La prima neta es obligatoria">
                                         </lightning-input>
                                     </div>
                                 </div>
@@ -615,19 +616,22 @@
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
-                                        <h3>Email</h3>
+                                        <h3>Email <span class="required-asterisk">*</span></h3>
                                     </div>
                                     <lightning-input type="email" label="" value={opportunity.clienteEmail} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                        data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com">
+                                        data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com"
+                                        required message-when-value-missing="El correo es obligatorio" message-when-bad-input="Ingresa un correo válido" message-when-type-mismatch="Ingresa un correo válido">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:call" size="x-small"></lightning-icon>
-                                        <h3>Teléfono</h3>
+                                        <h3>Teléfono <span class="required-asterisk">*</span></h3>
                                     </div>
-                                    <lightning-input label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                        data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678">
+                                    <lightning-input type="tel" label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678 o +525512345678"
+                                        pattern="(\+52)?[0-9]{10}" maxlength="13" required
+                                        message-when-value-missing="El teléfono es obligatorio" message-when-pattern-mismatch="El teléfono debe tener 10 dígitos (opcional +52)">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">

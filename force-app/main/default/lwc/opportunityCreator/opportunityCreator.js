@@ -1817,7 +1817,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleClienteChange(event) {
         const field = event.target.dataset.field;
         if (!field) return;
-        const value = event.target.value;
+        let value = event.target.value;
+        // Máscara del teléfono: solo números, máximo 10 dígitos.
+        if (field === 'clienteTelefono') {
+            // Permite un +52 opcional al inicio; el resto solo dígitos (10).
+            const raw = (value || '');
+            const conPlus = raw.trim().startsWith('+');
+            let digitos = raw.replace(/[^0-9]/g, '');
+            if (conPlus && digitos.startsWith('52')) {
+                value = '+' + digitos.slice(0, 12);   // +52 + 10 dígitos
+            } else {
+                value = digitos.slice(0, 10);          // 10 dígitos sin lada
+            }
+            event.target.value = value;
+        }
         const updated = { ...this.opportunity, [field]: value };
         const camposNombre = ['clienteNombre', 'clienteApellidoPaterno', 'clienteApellidoMaterno'];
         if (this.isNewAccount && camposNombre.includes(field)) {
@@ -2414,6 +2427,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!this.opportunity.Name)     { this.showToast('Error', 'El nombre de la oportunidad es requerido', 'error'); return; }
             if (!this.opportunity.StageName){ this.showToast('Error', 'La etapa es requerida', 'error'); return; }
             if (!this.opportunity.Ramo__c)  { this.showToast('Error', 'El ramo es requerido', 'error'); return; }
+            // Correo obligatorio y válido.
+            const emailVal = (this.opportunity.clienteEmail || '').trim();
+            if (!emailVal) { this.showToast('Error', 'El correo es obligatorio', 'error'); return; }
+            const atPos = emailVal.indexOf('@');
+            const dotPos = emailVal.lastIndexOf('.');
+            const emailOk = atPos > 0 && dotPos > atPos + 1 && dotPos < emailVal.length - 1
+                && emailVal.indexOf(' ') === -1 && emailVal.indexOf('@', atPos + 1) === -1;
+            if (!emailOk) { this.showToast('Error', 'Ingresa un correo válido', 'error'); return; }
+            // Teléfono: 10 dígitos, o +52 (lada) + 10 dígitos.
+            const telDigits = (this.opportunity.clienteTelefono || '').replace(/[^0-9]/g, '');
+            const telOk = telDigits.length === 10 || (telDigits.length === 12 && telDigits.startsWith('52'));
+            if (!telOk) { this.showToast('Error', 'El teléfono debe tener 10 dígitos (opcional +52)', 'error'); return; }
+            // Prima neta mayor a 0.
+            const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
+            if (!primaVal || primaVal <= 0) { this.showToast('Error', 'La prima neta debe ser mayor a 0', 'error'); return; }
             // Serie (VIN) obligatoria cuando el ramo es Automóviles.
             if (this.isRamoAutomovil && !(this.automovil && this.automovil.Serie__c && String(this.automovil.Serie__c).trim())) {
                 this.showToast('Error', 'El número de serie (VIN) del vehículo es obligatorio.', 'error');
