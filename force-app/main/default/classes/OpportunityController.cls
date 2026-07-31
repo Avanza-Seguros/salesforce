@@ -100,35 +100,32 @@ public with sharing class OpportunityController {
 			// nombre y el orden. Con eso el LWC arma:
 			//   • el conteo total para la tabla y el KPI
 			//   • el comparativo imprimible (matriz cobertura × compañía)
-			// Las coberturas de cada cotización se toman del PRODUCTO de la Quote,
-			// a través de ProductCoverageAssignment__c (Coverage_Type__r.Name = nombre real).
-			Set<Id> productIds = new Set<Id>();
-			for (Quote q : wrapper.quotes) { if (q.Product__c != null) productIds.add(q.Product__c); }
-
-			Map<Id, List<String>> coveragesByProduct = new Map<Id, List<String>>();
-			if (!productIds.isEmpty()) {
-				for (ProductCoverageAssignment__c pca : [
-					SELECT Product__c, Coverage_Type__r.Name
-					FROM ProductCoverageAssignment__c
-					WHERE Product__c IN :productIds
-					ORDER BY Coverage_Type__r.Name
-				]) {
-					if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) { continue; }
-					if (!coveragesByProduct.containsKey(pca.Product__c)) {
-						coveragesByProduct.put(pca.Product__c, new List<String>());
-					}
-					coveragesByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
-				}
-			}
+			// Las coberturas se toman de las REALES guardadas en cada cotización
+			// (Quote_Coverage__c), para que lista y comparativa muestren lo mismo.
+			Set<Id> quoteIds = new Set<Id>();
+			for (Quote q : wrapper.quotes) { quoteIds.add(q.Id); }
 
 			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
 			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
 			for (Quote q : wrapper.quotes) {
-				List<String> names = (q.Product__c != null && coveragesByProduct.containsKey(q.Product__c))
-					? coveragesByProduct.get(q.Product__c)
-					: new List<String>();
-				coverageNamesByQuote.put(q.Id, names);
-				coverageCounts.put(q.Id, names.size());
+				coverageNamesByQuote.put(q.Id, new List<String>());
+			}
+			if (!quoteIds.isEmpty()) {
+				for (Quote_Coverage__c qc : [
+					SELECT Quote__c, Coverage_Name__c
+					FROM Quote_Coverage__c
+					WHERE Quote__c IN :quoteIds
+					ORDER BY Order__c NULLS LAST, Coverage_Name__c
+				]) {
+					if (String.isBlank(qc.Coverage_Name__c)) { continue; }
+					if (!coverageNamesByQuote.containsKey(qc.Quote__c)) {
+						coverageNamesByQuote.put(qc.Quote__c, new List<String>());
+					}
+					coverageNamesByQuote.get(qc.Quote__c).add(qc.Coverage_Name__c);
+				}
+			}
+			for (Quote q : wrapper.quotes) {
+				coverageCounts.put(q.Id, coverageNamesByQuote.get(q.Id).size());
 			}
 			wrapper.coverageCounts = coverageCounts;
 			wrapper.coverageNamesByQuote = coverageNamesByQuote;

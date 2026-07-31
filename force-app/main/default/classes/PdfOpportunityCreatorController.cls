@@ -1295,6 +1295,34 @@ public with sharing class PdfOpportunityCreatorController {
 			throw new AuraHandledException('No se pudieron crear las cotizaciones: ' + e.getMessage());
 		}
 
+		// Hereda las coberturas del PRODUCTO a cada cotización (igual que el alta manual),
+		// para que no queden en 0 y coincidan la lista y la comparativa.
+		try {
+			List<Quote_Coverage__c> covsToInsert = new List<Quote_Coverage__c>();
+			for (Integer i = 0; i < toInsert.size(); i++) {
+				Id qId = toInsert[i].Id;
+				Id pId = (Id) detalle[i].get('productId');
+				Id aId = (Id) detalle[i].get('aseguradoraId');
+				if (pId == null) { continue; }
+				Integer orden = 0;
+				for (QuoteCreatorController.CoverageTemplateWrapper w : QuoteCreatorController.getCoveragesByProduct(pId)) {
+					orden++;
+					Quote_Coverage__c qc = new Quote_Coverage__c();
+					qc.Quote__c = qId;
+					qc.Product__c = pId;
+					qc.Coverage_Name__c = w.coverageName;
+					qc.Coverage_Code__c = w.coverageCode;
+					qc.Order__c = (w.orderNum != null) ? w.orderNum : orden;
+					if (aId != null) { qc.Aseguradora__c = aId; }
+					covsToInsert.add(qc);
+				}
+			}
+			if (!covsToInsert.isEmpty()) { insert covsToInsert; }
+		} catch (Exception e) {
+			// No bloquea la creación de las cotizaciones si las coberturas fallan.
+			System.debug('COT-COB::: ' + e.getMessage());
+		}
+
 		return new Map<String,Object>{ 'creadas' => toInsert.size(), 'detalle' => detalle };
 	}
 
