@@ -80,12 +80,7 @@ private class PdfOpportunityCreatorControllerTest {
         List<Object> quotes = new List<Object>{
             new Map<String, Object>{
                 'compania' => 'HDI', 'ramo' => 'Automoviles', 'plan' => 'Amplia',
-                'primaTotal' => 12500, 'vigencia' => String.valueOf(Date.today().addYears(1))
             },
-            new Map<String, Object>{
-                'compania' => 'GNP', 'ramo' => 'Automoviles', 'plan' => 'Premier', 'primaTotal' => 13000
-            }
-        };
         Test.startTest();
         Map<String, Object> vacio = PdfOpportunityCreatorController.crearCotizacionesDesdePdf(opp.Id, '');
         System.assertEquals(0, vacio.get('creadas'), 'JSON vacío no crea nada');
@@ -198,11 +193,12 @@ private class PdfOpportunityCreatorControllerTest {
 
     @isTest
     static void testHelpersOportunidadYCuenta() {
-        Account acc = new Account(Name = 'Empresa Dup Test');
+        Account acc = new Account(Name = 'Empresa Dup Test', AnnualRevenue = 100);
         insert acc;
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Dup', StageName = activeStage(),
-            CloseDate = Date.today().addDays(15), AccountId = acc.Id
+            CloseDate = Date.today().addDays(15), AccountId = acc.Id,
+            Agente_Relacionado__c = agenteId()
         );
         insert opp;
 

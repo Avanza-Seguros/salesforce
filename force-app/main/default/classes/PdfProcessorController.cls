@@ -145,15 +145,19 @@ public with sharing class PdfProcessorController {
 			System.debug('   Pólizas recibidas: ' + policyNumbers);
 			System.debug('   Certificados recibidos: ' + certificateNumbers);
 
-			// Primero: Buscar las Polizas__c que coinciden con los números
-			List<Items_Cases__c> items = [
-				SELECT Id, Poliza__c, Poliza__r.Numero_Polizas__c,
-					   Certificado__c, Parentesco__c, Name
-				FROM Items_Cases__c
-				WHERE Poliza__r.Numero_Polizas__c IN :policyNumbers
-				AND Parentesco__c IN ('01','01 Titular')
-				ORDER BY CreatedDate DESC
-			];
+    // Método Apex para buscar pólizas
+    @AuraEnabled(cacheable=false)
+    public static List<Polizas__c> findPolicies(String searchTerm) {
+        String likeTerm = '%' + searchTerm + '%';
+        
+        return [
+            SELECT Id, Name, Numero_Polizas__c, Estatus__c, Tipo_de_poliza__c
+            FROM Polizas__c 
+            WHERE Name LIKE :likeTerm
+            AND Estatus__c = 'Vigor'
+            ORDER BY CreatedDate ASC
+        ];
+    }
 
 			System.debug('Items_Cases encontrados con Parentesco__c = "01": ' + items.size());
 

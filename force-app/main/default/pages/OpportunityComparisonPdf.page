@@ -1,0 +1,12 @@
+<apex:page renderAs="pdf"
+           applyHtmlTag="false"
+           showHeader="false"
+           sidebar="false"
+           standardStylesheets="false"
+           controller="OpportunityComparisonPdfController">
+  <html>
+    <body>
+      <apex:outputText value="{!htmlBody}" escape="false"/>
+    </body>
+  </html>
+</apex:page>

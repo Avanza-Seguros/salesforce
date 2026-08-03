@@ -26,10 +26,32 @@
     <picklistValues>
         <picklist>Ramos__c</picklist>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Accidentes Personales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ahorro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Asistencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Automoviles</fullName>
             <default>false</default>
         </values>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Construcción</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Danos</fullName>
             <default>false</default>
         </values>
@@ -38,6 +60,13 @@
             <default>false</default>
         </values>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Embarcaciones</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Empresarial</fullName>
             <default>false</default>
         </values>
@@ -50,10 +79,32 @@
             <default>false</default>
         </values>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesionistas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>RC</fullName>
             <default>false</default>
         </values>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Transporte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Viajes</fullName>
             <default>false</default>
         </values>
@@ -79,6 +130,32 @@
         <values>
             <fullName>In Review</fullName>
             <default>true</default>
+<<<<<<< HEAD
+=======
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>TipoValor__c</picklist>
+        <values>
+            <fullName>a confirmar</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>actual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>comercial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>comercial%2B10</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>convenido</fullName>
+            <default>false</default>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
         </values>
     </picklistValues>
 </RecordType>

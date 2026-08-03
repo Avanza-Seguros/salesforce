@@ -1,0 +1,54 @@
+<template>
+	<div class="slds-p-around_medium">
+		<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+			Confirme la póliza y la cuota a las que corresponde este pago. El importe,
+			la fecha y el número de recibo se toman del pago inbound.
+		</p>
+
+		<lightning-record-picker
+			label="Póliza final"
+			placeholder="Buscar póliza..."
+			object-api-name="InsurancePolicy"
+			value={policyId}
+			onchange={handlePolicyChange}
+		></lightning-record-picker>
+
+		<lightning-combobox
+			class="slds-m-top_small"
+			name="installment"
+			label="Cuota final"
+			placeholder="Seleccione la cuota"
+			value={installmentId}
+			options={installmentOptions}
+			onchange={handleInstallmentChange}
+		></lightning-combobox>
+
+		<template if:true={noInstallments}>
+			<p class="slds-text-color_error slds-text-body_small slds-m-top_xx-small">
+				La póliza seleccionada no tiene cuotas abiertas disponibles.
+			</p>
+		</template>
+
+		<lightning-textarea
+			class="slds-m-top_small"
+			name="notes"
+			label="Notas / justificación"
+			value={notes}
+			onchange={handleNotesChange}
+		></lightning-textarea>
+
+		<div class="slds-m-top_medium slds-grid slds-grid_align-end">
+			<lightning-button
+				label="Cancelar"
+				onclick={close}
+				class="slds-m-right_x-small"
+			></lightning-button>
+			<lightning-button
+				variant="brand"
+				label="Aprobar"
+				onclick={handleApprove}
+				disabled={disableApprove}
+			></lightning-button>
+		</div>
+	</div>
+</template>

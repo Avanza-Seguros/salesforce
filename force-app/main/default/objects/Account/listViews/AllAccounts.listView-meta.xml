@@ -7,7 +7,7 @@
     <columns>ACCOUNT.TYPE</columns>
     <columns>IS_PERSON_ACCOUNT</columns>
     <columns>IS_EMAIL_ADDRESS_BOUNCED</columns>
-    <columns>PC_TITLE</columns>
+    <columns>ACCOUNT.IS_BUYER</columns>
     <columns>ACCOUNT.RECORDTYPE</columns>
     <filterScope>Everything</filterScope>
     <label>Todas las Cuentas</label>

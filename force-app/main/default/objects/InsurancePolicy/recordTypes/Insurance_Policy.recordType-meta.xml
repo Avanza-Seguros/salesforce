@@ -195,7 +195,46 @@
     <picklistValues>
         <picklist>PolicyType</picklist>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Danos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dental</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viajes</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>

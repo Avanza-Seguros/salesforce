@@ -8,6 +8,7 @@ package.xml
 **/jsconfig.json
 **/.eslintrc.json
 
+<<<<<<< HEAD
 # === PRUEBAS DE JEST PARA LWC ===
 # Las pruebas unitarias se ejecutan localmente y no deben subirse a la org
 **/__tests__/**
@@ -32,5 +33,9 @@ package.xml
 
 # === OTROS ELEMENTOS COMUNES ===
 **/duplicateRules/**
+=======
+# LWC Jest
+**/__tests__/**
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
 **/tsconfig.json
 **/*.ts

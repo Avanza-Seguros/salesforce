@@ -92,7 +92,7 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 
 		Map<Id, PaymentReconciliation__c> existingByInbound = new Map<Id, PaymentReconciliation__c>();
 		for (PaymentReconciliation__c existing : [
-			SELECT Id, inboundPayment__c
+			SELECT Id, inboundPayment__c, manualResolvedBy__c
 			FROM PaymentReconciliation__c
 			WHERE inboundPayment__c IN :inboundPaymentIds
 		]) {
@@ -132,6 +132,14 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 					: null;
 
 				PaymentReconciliation__c existing = existingByInbound.get(p.Id);
+				// Guardail anti-reentrada (H193/H194): una conciliacion resuelta
+				// manualmente (manualResolvedBy__c poblado) no la sobrescribe el
+				// pipeline reentrante. Solo un reproceso explicito (H195) la libera
+				// limpiando manualResolvedBy__c antes de re-correr el motor.
+				if (existing != null && existing.manualResolvedBy__c != null) {
+					continue;
+				}
+
 				PaymentReconciliation__c rec = existing != null
 					? new PaymentReconciliation__c(Id = existing.Id)
 					: new PaymentReconciliation__c(inboundPayment__c = p.Id);

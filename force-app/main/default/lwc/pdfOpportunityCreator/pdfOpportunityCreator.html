@@ -16,11 +16,7 @@
         <p class="pdf-dropzone__hint">Formato PDF · máx. ~4.5 MB · nombres con prefijo común</p>
       </div>
 
-      <template lwc:if={hasFiles}>
         <div class="pdf-files">
-          <template for:each={fileList} for:item="f">
-            <div key={f.name} class="pdf-file">
-              <lightning-icon icon-name="doctype:pdf" size="small" class="slds-m-right_x-small"></lightning-icon>
               <span class="pdf-file__name" title={f.name}>{f.name}</span>
             </div>
           </template>

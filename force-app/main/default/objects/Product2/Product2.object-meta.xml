@@ -141,6 +141,7 @@
         <type>Default</type>
     </actionOverrides>
     <compactLayoutAssignment>Product</compactLayoutAssignment>
+    <enableDataTranslation>true</enableDataTranslation>
     <enableFeeds>false</enableFeeds>
     <externalSharingModel>Private</externalSharingModel>
     <recordTypeTrackHistory>false</recordTypeTrackHistory>

@@ -7,7 +7,23 @@
     <picklistValues>
         <picklist>Family</picklist>
         <values>
+            <fullName>Accidentes Personales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Ahorro</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Asistencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
@@ -19,6 +35,13 @@
             <default>false</default>
         </values>
         <values>
+<<<<<<< HEAD
+=======
+            <fullName>Embarcaciones</fullName>
+            <default>false</default>
+        </values>
+        <values>
+>>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Empresarial</fullName>
             <default>false</default>
         </values>
@@ -31,7 +54,23 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Hogar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Profesionistas</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>RC</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>

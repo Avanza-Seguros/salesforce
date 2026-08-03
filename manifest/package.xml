@@ -18,6 +18,8 @@
         <members>InsurancePolicyTriggerHandler</members>
         <members>PaymentReconciliationQueueable</members>
         <members>PaymentReconciliationQueueableTest</members>
+        <members>PaymentReconciliationManualService</members>
+        <members>PaymentReconciliationManualServiceTest</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
         <members>PaymentInstallmentMatchQueueable</members>
@@ -59,6 +61,9 @@
         <members>InboundInsurancePayment__c.confidenceScore__c</members>
         <members>InboundInsurancePayment__c.manualReviewRequired__c</members>
         <members>InboundInsurancePayment__c.externalPaymentId__c</members>
+        <members>InboundInsurancePayment__c.reprocessCount__c</members>
+        <members>InboundInsurancePayment__c.lastReprocessedAt__c</members>
+        <members>InboundInsurancePayment__c.lastReprocessedBy__c</members>
         <members>InboundInsurancePayment__c.inboundStatus__c</members>
         <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
         <members>InboundInsurancePayment__c.parsedAt__c</members>
@@ -139,6 +144,9 @@
         <members>PaymentReconciliation__c.reconciliationStatus__c</members>
         <members>PaymentReconciliation__c.rejectedReason__c</members>
         <members>PaymentReconciliation__c.resultingReceipt__c</members>
+        <members>PaymentReconciliation__c.manualResolvedBy__c</members>
+        <members>PaymentReconciliation__c.manualResolvedAt__c</members>
+        <members>PaymentReconciliation__c.reprocessLog__c</members>
         <members>PolicyPaymentReceipt__c.daysPastDueAtRecognition__c</members>
         <members>PolicyPaymentReceipt__c.insurancePolicy__c</members>
         <members>PolicyPaymentReceipt__c.isLatePayment__c</members>
@@ -168,7 +176,20 @@
     </types>
     <types>
         <members>MuleSoft_InboundPayments</members>
+        <members>Cobranza_Revision_Manual</members>
         <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>reconciliationManualApprove</members>
+        <members>reconciliationManualReject</members>
+        <members>reconciliationManualReprocess</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>PaymentReconciliation__c.Aprobar_manualmente</members>
+        <members>PaymentReconciliation__c.Rechazar_manualmente</members>
+        <members>PaymentReconciliation__c.Reprocesar</members>
+        <name>QuickAction</name>
     </types>
     <types>
         <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>

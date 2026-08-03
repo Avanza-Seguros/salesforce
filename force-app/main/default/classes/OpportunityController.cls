@@ -126,7 +126,6 @@ public with sharing class OpportunityController {
 			}
 			for (Quote q : wrapper.quotes) {
 				coverageCounts.put(q.Id, coverageNamesByQuote.get(q.Id).size());
-			}
 			wrapper.coverageCounts = coverageCounts;
 			wrapper.coverageNamesByQuote = coverageNamesByQuote;
 
@@ -142,13 +141,6 @@ public with sharing class OpportunityController {
 	 * @description: Estructura de datos que agrupa la oportunidad, sus cotizaciones y la informacion de coberturas para exponerla al LWC.
 	 */
 	public class OpportunityDetailWrapper {
-		@AuraEnabled public Opportunity opportunity;
-		@AuraEnabled public List<Quote> quotes;
-		@AuraEnabled public Map<Id, Integer> coverageCounts;
-		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
-		@AuraEnabled public Automovil__c automovil;   // vehículo ligado a la cuenta
-	}
-
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
