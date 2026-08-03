@@ -24,7 +24,8 @@ private class VisualforcePdfRendererTest {
     Test.setCurrentPage(pr);
 
     OpportunityComparisonPdfController ctrl = new OpportunityComparisonPdfController();
-    System.assertEquals(html, ctrl.htmlBody);
+    // El fragmento se normaliza a un documento HTML completo.
+    System.assertEquals('<html><body>' + html + '</body></html>', ctrl.htmlBody);
 
     OpportunityComparisonPdfController.remove(key);
   }

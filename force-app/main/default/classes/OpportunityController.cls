@@ -126,6 +126,7 @@ public with sharing class OpportunityController {
 			}
 			for (Quote q : wrapper.quotes) {
 				coverageCounts.put(q.Id, coverageNamesByQuote.get(q.Id).size());
+			}
 			wrapper.coverageCounts = coverageCounts;
 			wrapper.coverageNamesByQuote = coverageNamesByQuote;
 
@@ -141,6 +142,13 @@ public with sharing class OpportunityController {
 	 * @description: Estructura de datos que agrupa la oportunidad, sus cotizaciones y la informacion de coberturas para exponerla al LWC.
 	 */
 	public class OpportunityDetailWrapper {
+		@AuraEnabled public Opportunity opportunity;
+		@AuraEnabled public Automovil__c automovil;
+		@AuraEnabled public List<Quote> quotes;
+		@AuraEnabled public Map<Id, Integer> coverageCounts;
+		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
+	}
+
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -388,6 +396,7 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
+		try {
 		Map<String, Object> d =
 			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
@@ -445,6 +454,13 @@ public with sharing class OpportunityController {
 				acc.Phone             = getStr(d, 'clienteTelefono');
 				acc.BillingStreet     = getStr(d, 'clienteDireccion');
 				acc.BillingPostalCode = getStr(d, 'clienteCP');
+				// AnnualRevenue es obligatorio para cuentas empresariales en este org.
+				Object arRaw = d.get('AnnualRevenue');
+				Decimal annualRev = 0;
+				if (arRaw != null && String.isNotBlank(String.valueOf(arRaw))) {
+					try { annualRev = Decimal.valueOf(String.valueOf(arRaw)); } catch (Exception ex) { annualRev = 0; }
+				}
+				acc.AnnualRevenue = annualRev;
 			}
 
 			// Evita duplicados: si ya existe una cuenta que coincide (por email de la
@@ -562,6 +578,27 @@ public with sharing class OpportunityController {
 		}
 
 		return opp.Id;
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			// Se envuelve para que el mensaje REAL (validacion, campo obligatorio, etc.)
+			// llegue a la pantalla en lugar de un error generico.
+			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
+		}
+	}
+
+	// Devuelve un texto de error legible; para DML arma el detalle de las validaciones.
+	private static String detalleError(Exception e) {
+		if (e instanceof DmlException) {
+			DmlException de = (DmlException) e;
+			List<String> partes = new List<String>();
+			for (Integer i = 0; i < de.getNumDml(); i++) {
+				String m = de.getDmlMessage(i);
+				if (String.isNotBlank(m)) { partes.add(m); }
+			}
+			if (!partes.isEmpty()) { return String.join(partes, ' | '); }
+		}
+		return e.getMessage();
 	}
 
 	/**
