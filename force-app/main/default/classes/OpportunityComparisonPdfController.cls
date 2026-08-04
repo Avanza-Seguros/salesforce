@@ -1,14 +1,10 @@
 /**
  * Controlador de la página Visualforce que materializa el comparativo en PDF.
  *
- * El HTML a renderizar se entrega leyéndolo desde la Oportunidad (Descripcion__c),
- * un registro ya COMMITTED: getContentAsPDF() emite un GET HTTP interno en una
- * transacción propia, por lo que las variables static NO sobreviven a esa llamada.
- * Por compatibilidad se conserva el respaldo por Map estático (parámetro 'k').
- *
- * El HTML del comparativo puede llegar como fragmento (<div ...>) o como documento
- * completo (<!DOCTYPE html><html>...). normalize() garantiza que siempre se emita un
- * documento HTML válido, por eso la página VF no debe envolverlo en <html><body>.
+ * Recibe el HTML a renderizar mediante un Map estático poblado por
+ * VisualforcePdfRenderer: getContentAsPDF() emite un GET HTTP interno en la
+ * MISMA transacción Apex, por lo que el static persiste durante esa llamada
+ * sin necesidad de Platform Cache.
  */
 public with sharing class OpportunityComparisonPdfController {
   private static Map<String, String> htmlByKey = new Map<String, String>();
@@ -28,20 +24,22 @@ public with sharing class OpportunityComparisonPdfController {
   public String htmlBody { get; private set; }
 
   public OpportunityComparisonPdfController() {
-    String raw = '';
     PageReference pg = ApexPages.currentPage();
+    String raw = '';
     if (pg != null) {
-      // 1) Vía principal: HTML committed en la Oportunidad.
+      // Preferido: leer el comparativo desde la Oportunidad (dato ya guardado/committed).
+      // Es confiable porque las variables estáticas NO sobreviven a getContentAsPDF.
       String oppId = pg.getParameters().get('oppId');
       if (String.isNotBlank(oppId)) {
-        for (Opportunity o : [
-          SELECT Descripcion__c FROM Opportunity WHERE Id = :oppId LIMIT 1
-        ]) {
-          raw = o.Descripcion__c;
+        try {
+          for (Opportunity o : [SELECT Descripcion__c FROM Opportunity WHERE Id = :oppId LIMIT 1]) {
+            raw = o.Descripcion__c;
+          }
+        } catch (Exception e) {
+          raw = '';
         }
-      }
-      // 2) Respaldo: Map estático por clave 'k'.
-      if (String.isBlank(raw)) {
+      } else {
+        // Compatibilidad: mecanismo previo por variable estática.
         String key = pg.getParameters().get('k');
         if (String.isNotBlank(key) && htmlByKey.containsKey(key)) {
           raw = htmlByKey.get(key);
@@ -51,12 +49,18 @@ public with sharing class OpportunityComparisonPdfController {
     htmlBody = normalize(raw);
   }
 
-  // Garantiza un documento HTML válido: si ya es documento completo lo deja igual;
-  // si es fragmento lo envuelve. Cadena vacía se conserva vacía.
-  private static String normalize(String html) {
-    if (String.isBlank(html)) { return ''; }
-    return html.toLowerCase().contains('<html')
-      ? html
-      : '<html><body>' + html + '</body></html>';
+  // Deja el HTML listo para renderizar como PDF:
+  // - Si ya es un documento completo (<html ...>), se usa tal cual.
+  // - Si es un fragmento (p. ej. <div>...</div>), se envuelve en <html><body>.
+  // Esto evita el HTML anidado (documento dentro de <html><body>) que producía PDFs en blanco.
+  private String normalize(String html) {
+    if (String.isBlank(html)) {
+      return '';
+    }
+    String lower = html.toLowerCase();
+    if (lower.contains('<html')) {
+      return html;
+    }
+    return '<html><body>' + html + '</body></html>';
   }
 }

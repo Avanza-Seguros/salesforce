@@ -39,6 +39,19 @@ private class OpportunityControllerTest {
         Pricebook2 pb = new Pricebook2(Name = 'Avanza Price Book', IsActive = true);
         insert pb;
 
+        // El flow record-triggered "Create_Quote_Line_Items_to_Quote" corre al insertar un
+        // Quote y busca un PricebookEntry ACTIVO del producto en el Pricebook del Quote; si no
+        // lo encuentra, la creación del QuoteLineItem falla y tumba todo el @testSetup.
+        // Por eso el Quote usa el Pricebook estándar y creamos aquí su PricebookEntry.
+        Id stdPbId = Test.getStandardPricebookId();
+        PricebookEntry pbe = new PricebookEntry(
+            Pricebook2Id = stdPbId,
+            Product2Id = prod.Id,
+            UnitPrice = 1000,
+            IsActive = true
+        );
+        insert pbe;
+
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Prueba Uno',
             StageName = activeStage(),
@@ -57,8 +70,9 @@ private class OpportunityControllerTest {
             Ramos__c = opp.Ramo__c,
             Frecuencia_de_prima__c = 'Mensual',
             Prima_Total__c = 120000,
-            Pricebook2Id = Test.getStandardPricebookId()
+            Pricebook2Id = stdPbId
         );
+        // Product__c es requerido por el flow (Get_Product por $Record.Product__c).
         try { q.put('Product__c', prod.Id); } catch (Exception ignore) {}
         insert q;
     }
@@ -162,11 +176,11 @@ private class OpportunityControllerTest {
             if (r.Id == pa.Id) { persona = r; }
         }
         System.assertNotEquals(null, persona, 'Debe encontrar la cuenta persona');
-        System.assertEquals('Ana Karina', persona.clienteNombre, 'Nombres = FirstName');
-        System.assertEquals('García', persona.clienteApellidoMaterno, 'Apellido Materno = LastName');
-        if (hasMiddle) {
-            System.assertEquals('Pérez', persona.clienteApellidoPaterno, 'Apellido Paterno = MiddleName');
-        }
+        // searchAccounts ahora expone el nombre completo de la cuenta en clienteNombre
+        // (ya no separa apellidos en el AccountResult).
+        System.assert(String.isNotBlank(persona.clienteNombre), 'Debe traer el nombre del cliente');
+        System.assert(persona.clienteNombre.contains('García'),
+            'clienteNombre debe corresponder al Name de la cuenta persona');
     }
 
     @isTest

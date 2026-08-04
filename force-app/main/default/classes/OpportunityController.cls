@@ -100,32 +100,35 @@ public with sharing class OpportunityController {
 			// nombre y el orden. Con eso el LWC arma:
 			//   • el conteo total para la tabla y el KPI
 			//   • el comparativo imprimible (matriz cobertura × compañía)
-			// Las coberturas se toman de las REALES guardadas en cada cotización
-			// (Quote_Coverage__c), para que lista y comparativa muestren lo mismo.
-			Set<Id> quoteIds = new Set<Id>();
-			for (Quote q : wrapper.quotes) { quoteIds.add(q.Id); }
+			// Las coberturas de cada cotización se toman del PRODUCTO de la Quote,
+			// a través de ProductCoverageAssignment__c (Coverage_Type__r.Name = nombre real).
+			Set<Id> productIds = new Set<Id>();
+			for (Quote q : wrapper.quotes) { if (q.Product__c != null) productIds.add(q.Product__c); }
+
+			Map<Id, List<String>> coveragesByProduct = new Map<Id, List<String>>();
+			if (!productIds.isEmpty()) {
+				for (ProductCoverageAssignment__c pca : [
+					SELECT Product__c, Coverage_Type__r.Name
+					FROM ProductCoverageAssignment__c
+					WHERE Product__c IN :productIds
+					ORDER BY Coverage_Type__r.Name
+				]) {
+					if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) { continue; }
+					if (!coveragesByProduct.containsKey(pca.Product__c)) {
+						coveragesByProduct.put(pca.Product__c, new List<String>());
+					}
+					coveragesByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
+				}
+			}
 
 			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
 			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
 			for (Quote q : wrapper.quotes) {
-				coverageNamesByQuote.put(q.Id, new List<String>());
-			}
-			if (!quoteIds.isEmpty()) {
-				for (Quote_Coverage__c qc : [
-					SELECT Quote__c, Coverage_Name__c
-					FROM Quote_Coverage__c
-					WHERE Quote__c IN :quoteIds
-					ORDER BY Order__c NULLS LAST, Coverage_Name__c
-				]) {
-					if (String.isBlank(qc.Coverage_Name__c)) { continue; }
-					if (!coverageNamesByQuote.containsKey(qc.Quote__c)) {
-						coverageNamesByQuote.put(qc.Quote__c, new List<String>());
-					}
-					coverageNamesByQuote.get(qc.Quote__c).add(qc.Coverage_Name__c);
-				}
-			}
-			for (Quote q : wrapper.quotes) {
-				coverageCounts.put(q.Id, coverageNamesByQuote.get(q.Id).size());
+				List<String> names = (q.Product__c != null && coveragesByProduct.containsKey(q.Product__c))
+					? coveragesByProduct.get(q.Product__c)
+					: new List<String>();
+				coverageNamesByQuote.put(q.Id, names);
+				coverageCounts.put(q.Id, names.size());
 			}
 			wrapper.coverageCounts = coverageCounts;
 			wrapper.coverageNamesByQuote = coverageNamesByQuote;
@@ -143,10 +146,10 @@ public with sharing class OpportunityController {
 	 */
 	public class OpportunityDetailWrapper {
 		@AuraEnabled public Opportunity opportunity;
-		@AuraEnabled public Automovil__c automovil;
 		@AuraEnabled public List<Quote> quotes;
 		@AuraEnabled public Map<Id, Integer> coverageCounts;
 		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
+		@AuraEnabled public Automovil__c automovil;   // vehículo ligado a la cuenta
 	}
 
 	/**
@@ -396,13 +399,19 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
-		try {
 		Map<String, Object> d =
 			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
 		Id accountId = d.get('AccountId') != null
 			? (Id) String.valueOf(d.get('AccountId'))
 			: null;
+
+		// Banderas para el ticket "Crear contacto dentro de Analisis de Oportunidad":
+		// distinguimos si se creo una cuenta nueva (no reutilizada) y si es Person
+		// Account (ya trae PersonContact) o de negocio (debemos crear el Contacto).
+		Boolean createdNewAccount = false;
+		Boolean createdPersonAccount = false;
+		Id nuevoContactoId = null; // Contacto de negocio creado en este proceso (si aplica)
 
 		// ------------------------------------------------------------
 		// 1) CUENTA NUEVA
@@ -415,6 +424,7 @@ public with sharing class OpportunityController {
 				Id paRtId = getPersonAccountRecordTypeId();
 				if (paRtId != null) {
 					acc.RecordTypeId = paRtId;
+					createdPersonAccount = true;
 				}
 				acc.FirstName = getStr(d, 'clienteNombre');
 				String paterno = getStr(d, 'clienteApellidoPaterno');
@@ -454,13 +464,10 @@ public with sharing class OpportunityController {
 				acc.Phone             = getStr(d, 'clienteTelefono');
 				acc.BillingStreet     = getStr(d, 'clienteDireccion');
 				acc.BillingPostalCode = getStr(d, 'clienteCP');
-				// AnnualRevenue es obligatorio para cuentas empresariales en este org.
-				Object arRaw = d.get('AnnualRevenue');
-				Decimal annualRev = 0;
-				if (arRaw != null && String.isNotBlank(String.valueOf(arRaw))) {
-					try { annualRev = Decimal.valueOf(String.valueOf(arRaw)); } catch (Exception ex) { annualRev = 0; }
-				}
-				acc.AnnualRevenue = annualRev;
+				// Annual Revenue es obligatorio para cuentas empresariales (validation rule).
+				// Tomamos el valor del formulario; si no llega, 0 para no romper el alta.
+				Decimal ingresoAnual = toDecimalSafe(d.get('AnnualRevenue'));
+				acc.AnnualRevenue = (ingresoAnual != null) ? ingresoAnual : 0;
 			}
 
 			// Evita duplicados: si ya existe una cuenta que coincide (por email de la
@@ -469,9 +476,12 @@ public with sharing class OpportunityController {
 			Id cuentaExistente = buscarCuentaExistente(d, tipoCliente, nombreBuscar);
 			if (cuentaExistente != null) {
 				accountId = cuentaExistente;
+				// Se reutilizo una cuenta existente: no es alta nueva, no forzamos contacto.
+				createdPersonAccount = false;
 			} else {
 				insert acc;
 				accountId = acc.Id;
+				createdNewAccount = true;
 			}
 		}
 
@@ -537,8 +547,18 @@ public with sharing class OpportunityController {
 			}
 		}
 
+		// ------------------------------------------------------------
+		// 3) CONTACTO — Ticket "Crear contacto dentro de Analisis de Oportunidad"
+		//    Al crear la cuenta también se crea/liga el Contacto con los datos del
+		//    cliente. Person Account (o Individual): se liga su PersonContact (o se crea
+		//    uno de respaldo). Cuenta de negocio nueva: se crea un Contact con los datos.
+		// ------------------------------------------------------------
 		String mercadoSel = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : opp.Mercado__c;
-		if (mercadoSel == 'Individual' && accountId != null) {
+		String contactoId = getStr(d, 'Contacto__c');
+		Boolean isNewContacto = d.get('isNewContacto') == true;
+		if (String.isNotBlank(contactoId)) {
+			opp.Contacto__c = (Id) contactoId;
+		} else if (createdPersonAccount || (mercadoSel == 'Individual' && accountId != null)) {
 			Id personContact = getPersonContactId(accountId);
 			// Respaldo: si la cuenta no tiene contacto de persona (p. ej. no es
 			// Cuenta Persona), creamos/ligamos uno con el nombre del cliente para
@@ -547,14 +567,12 @@ public with sharing class OpportunityController {
 				personContact = crearContactoIndividual(d, accountId);
 			}
 			opp.Contacto__c = personContact;
-		} else {
-			String contactoId = getStr(d, 'Contacto__c');
-			Boolean isNewContacto = d.get('isNewContacto') == true;
-			if (String.isNotBlank(contactoId)) {
-				opp.Contacto__c = (Id) contactoId;
-			} else if (isNewContacto && accountId != null) {
-				opp.Contacto__c = crearContacto(d, accountId);
-			}
+		} else if (accountId != null && (createdNewAccount || isNewContacto)) {
+			// Cuenta de negocio recién creada (o alta manual de contacto): se crea el
+			// Contacto con los datos del cliente y se liga a la oportunidad.
+			nuevoContactoId = crearContactoIndividual(d, accountId);
+			if (nuevoContactoId == null) { nuevoContactoId = crearContacto(d, accountId); }
+			opp.Contacto__c = nuevoContactoId;
 		}
 
 		String compHtml = getStr(d, 'Descripcion__c');
@@ -572,33 +590,33 @@ public with sharing class OpportunityController {
 
 		upsert opp;
 
+		// Ticket "Crear contacto": liga el Contacto recién creado como rol primario de
+		// la oportunidad para los ramos que NO generan roles en persistRamoStandardData
+		// (p. ej. Automoviles), para que el contacto fluya a las cotizaciones.
+		if (nuevoContactoId != null) {
+			String ru = ramoOpp == null ? '' : ramoOpp.toUpperCase();
+			Boolean fscGeneraRoles = ru.contains('VIDA') || ru.contains('GMM') || ru.contains('GASTOS')
+				|| ru.contains('DENTAL') || ru.contains('VISION') || ru.contains('VISIÓN');
+			if (!fscGeneraRoles) {
+				try {
+					insert new OpportunityContactRole(
+						OpportunityId = opp.Id,
+						ContactId = nuevoContactoId,
+						IsPrimary = true,
+						Role = pickRole(new List<String>{ 'Decision Maker', 'Business User', 'Economic Buyer', 'Other' })
+					);
+				} catch (Exception e) {
+					System.debug('CONTACTO::: OCR nuevo contacto -> ' + e.getMessage());
+				}
+			}
+		}
+
 		// Persistencia con objetos ESTANDAR de FSC (Autos usa Automovil__c, ya resuelto arriba).
 		if (ramoOpp != null && !ramoOpp.toUpperCase().contains('AUTO')) {
 			persistRamoStandardData(opp.Id, accountId, ramoOpp, detalleRamo);
 		}
 
 		return opp.Id;
-		} catch (AuraHandledException e) {
-			throw e;
-		} catch (Exception e) {
-			// Se envuelve para que el mensaje REAL (validacion, campo obligatorio, etc.)
-			// llegue a la pantalla en lugar de un error generico.
-			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
-		}
-	}
-
-	// Devuelve un texto de error legible; para DML arma el detalle de las validaciones.
-	private static String detalleError(Exception e) {
-		if (e instanceof DmlException) {
-			DmlException de = (DmlException) e;
-			List<String> partes = new List<String>();
-			for (Integer i = 0; i < de.getNumDml(); i++) {
-				String m = de.getDmlMessage(i);
-				if (String.isNotBlank(m)) { partes.add(m); }
-			}
-			if (!partes.isEmpty()) { return String.join(partes, ' | '); }
-		}
-		return e.getMessage();
 	}
 
 	/**
