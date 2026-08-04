@@ -773,7 +773,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     AccountId: exact.Id,
                     AccountName: exact.Name,
                     tipoCliente: exact.IsPersonAccount ? 'Persona' : 'Empresa',
-                    clienteNombre: exact.clienteNombre || exact.Name || this.opportunity.clienteNombre,
+                    ...this.nombrePartesDesdeCuenta(exact),
                     clienteRFC: exact.clienteRFC || this.opportunity.clienteRFC,
                     clienteEmail: exact.clienteEmail || this.opportunity.clienteEmail,
                     clienteTelefono: exact.clienteTelefono || this.opportunity.clienteTelefono,
@@ -800,7 +800,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountId: acc.Id,
             AccountName: acc.Name,
             tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
-            clienteNombre: acc.clienteNombre || acc.Name || '',
+            ...this.nombrePartesDesdeCuenta(acc),
             clienteRFC: acc.clienteRFC || '',
             clienteEmail: acc.clienteEmail || '',
             clienteTelefono: acc.clienteTelefono || '',
@@ -2152,6 +2152,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const paterno = p[p.length - 2];
         const nombres = p.slice(0, p.length - 2).join(' ');
         return { nombres, paterno, materno };
+    }
+    // Devuelve Nombre(s) / Apellido Paterno / Apellido Materno para llenar el formulario
+    // al recuperar una cuenta. Usa las partes que ya separa el Apex; si no vienen
+    // (datos viejos), separa el nombre completo. Para empresa, el nombre es la razón social.
+    nombrePartesDesdeCuenta(acc) {
+        if (acc && acc.IsPersonAccount) {
+            if (acc.clienteApellidoPaterno || acc.clienteApellidoMaterno) {
+                return {
+                    clienteNombre: acc.clienteNombre || '',
+                    clienteApellidoPaterno: acc.clienteApellidoPaterno || '',
+                    clienteApellidoMaterno: acc.clienteApellidoMaterno || ''
+                };
+            }
+            const partes = this.separarNombre(acc.clienteNombre || acc.Name || '');
+            return {
+                clienteNombre: partes.nombres,
+                clienteApellidoPaterno: partes.paterno,
+                clienteApellidoMaterno: partes.materno
+            };
+        }
+        return {
+            clienteNombre: (acc && (acc.clienteNombre || acc.Name)) || '',
+            clienteApellidoPaterno: '',
+            clienteApellidoMaterno: ''
+        };
     }
 
     extractPrimaTotal(quote) {
