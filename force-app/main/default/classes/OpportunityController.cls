@@ -362,49 +362,84 @@ public with sharing class OpportunityController {
 	public static List<AccountResult> searchAccounts(String searchTerm) {
 		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
-		// MiddleName (segundo nombre) solo existe si el org lo tiene habilitado; lo
-		// incluimos en la consulta de forma dinamica para no romper en orgs sin el.
 		Boolean tieneMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
-		String soql =
-			'SELECT Id, Name, IsPersonAccount, Phone, FirstName, LastName, ' +
-			'BillingStreet, BillingPostalCode, PersonEmail, PersonMobilePhone, ' +
-			'PersonMailingStreet, PersonMailingPostalCode, RFC__pc' +
-			(tieneMiddle ? ', MiddleName' : '') +
+		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
 			' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
 		for (Account a : Database.query(soql)) {
-			AccountResult r = new AccountResult();
-			r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
-			r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
-			if (a.IsPersonAccount) {
-				// Se invierte el mapeo usado al crear la cuenta persona:
-				//   FirstName = Nombre(s), MiddleName = Apellido Paterno, LastName = Apellido Materno.
-				// Si no hay segundo nombre, el unico apellido guardado (LastName) es el Paterno.
-				String mid = tieneMiddle ? (String) a.get('MiddleName') : null;
-				r.clienteNombre = a.FirstName;
-				if (String.isNotBlank(mid)) {
-					r.clienteApellidoPaterno = mid;
-					r.clienteApellidoMaterno = a.LastName;
-				} else {
-					r.clienteApellidoPaterno = a.LastName;
-					r.clienteApellidoMaterno = null;
-				}
-				r.clienteEmail = a.PersonEmail;
-				r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
-				r.clienteCP = a.PersonMailingPostalCode;
-				r.clienteDireccion = a.PersonMailingStreet;
-				// RFC de la persona: campo espejo en la Cuenta (Account.RFC__pc).
-				r.clienteRFC = (String) a.get('RFC__pc');
-			} else {
-				// Empresa: el nombre completo es la razon social.
-				r.clienteNombre = a.Name;
-				r.clienteTelefono = a.Phone;
-				r.clienteCP = a.BillingPostalCode;
-				r.clienteDireccion = a.BillingStreet;
-			}
-			r.detailLine = r.typeLabel + (String.isNotBlank(r.clienteRFC) ? '  ·  RFC ' + r.clienteRFC : '');
-			out.add(r);
+			out.add(toAccountResult(a, tieneMiddle));
 		}
 		return out;
+	}
+
+	/**
+	 * @description Recupera una cuenta por su Id con el MISMO mapeo que searchAccounts.
+	 *              Se usa al cargar una oportunidad para llenar los datos del cliente
+	 *              (nombre separado, RFC, correo, telefono, CP, direccion).
+	 * @param accountId Id de la cuenta.
+	 * @return AccountResult con los datos, o null si no existe.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static AccountResult getAccountById(Id accountId) {
+		if (accountId == null) { return null; }
+		Boolean tieneMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
+			' FROM Account WHERE Id = :accountId LIMIT 1';
+		for (Account a : Database.query(soql)) {
+			return toAccountResult(a, tieneMiddle);
+		}
+		return null;
+	}
+
+	// Campos de Account que necesita el formulario. MiddleName (segundo nombre) solo
+	// existe si el org lo tiene habilitado, por eso se agrega de forma dinamica.
+	private static String camposCuenta(Boolean tieneMiddle) {
+		return 'Id, Name, IsPersonAccount, Phone, FirstName, LastName, ' +
+			'BillingStreet, BillingPostalCode, PersonEmail, PersonMobilePhone, ' +
+			'PersonMailingStreet, PersonMailingPostalCode, RFC__pc' +
+			(tieneMiddle ? ', MiddleName' : '');
+	}
+
+	// Convierte una Account en AccountResult para el formulario.
+	private static AccountResult toAccountResult(Account a, Boolean tieneMiddle) {
+		AccountResult r = new AccountResult();
+		r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
+		r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
+		if (a.IsPersonAccount) {
+			// Se invierte el mapeo usado al crear la cuenta persona:
+			//   FirstName = Nombre(s), MiddleName = Apellido Paterno, LastName = Apellido Materno.
+			String mid = tieneMiddle ? (String) a.get('MiddleName') : null;
+			r.clienteNombre = a.FirstName;
+			if (String.isNotBlank(mid)) {
+				r.clienteApellidoPaterno = mid;
+				r.clienteApellidoMaterno = a.LastName;
+			} else {
+				// Sin segundo nombre: LastName puede traer ambos apellidos juntos.
+				// Se separa por convencion MX: primer token = Paterno, resto = Materno.
+				String ln = (a.LastName == null) ? '' : a.LastName.trim();
+				if (ln.contains(' ')) {
+					Integer sp = ln.indexOf(' ');
+					r.clienteApellidoPaterno = ln.substring(0, sp);
+					r.clienteApellidoMaterno = ln.substring(sp + 1).trim();
+				} else {
+					r.clienteApellidoPaterno = ln;
+					r.clienteApellidoMaterno = null;
+				}
+			}
+			r.clienteEmail = a.PersonEmail;
+			r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
+			r.clienteCP = a.PersonMailingPostalCode;
+			r.clienteDireccion = a.PersonMailingStreet;
+			// RFC de la persona: campo espejo en la Cuenta (Account.RFC__pc).
+			r.clienteRFC = (String) a.get('RFC__pc');
+		} else {
+			// Empresa: el nombre completo es la razon social.
+			r.clienteNombre = a.Name;
+			r.clienteTelefono = a.Phone;
+			r.clienteCP = a.BillingPostalCode;
+			r.clienteDireccion = a.BillingStreet;
+		}
+		r.detailLine = r.typeLabel + (String.isNotBlank(r.clienteRFC) ? '  ·  RFC ' + r.clienteRFC : '');
+		return r;
 	}
 
 	/**

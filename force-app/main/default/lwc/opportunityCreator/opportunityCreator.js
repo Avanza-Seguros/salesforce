@@ -15,6 +15,7 @@ import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
+import getAccountById from '@salesforce/apex/OpportunityController.getAccountById';
 import searchContacts from '@salesforce/apex/OpportunityController.searchContacts';
 import getArchivosDeOportunidad from '@salesforce/apex/OpportunityController.getArchivosDeOportunidad';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
@@ -1003,6 +1004,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             clienteDireccion: detail.clienteDireccion || detail.Account?.BillingStreet    || ''
         };
         this.selectedQuoteRamo = this.opportunity.Ramo__c;
+
+        // Recupera los datos del cliente desde la Cuenta (nombre separado, RFC, correo,
+        // teléfono, CP, dirección) para que al cargar la oportunidad no aparezca el
+        // nombre completo en un solo campo ni queden vacíos los demás.
+        if (this.opportunity.AccountId) {
+            this.recuperarDetallesCuenta(this.opportunity.AccountId);
+        }
 
         // Comparativo de la IA guardado en la oportunidad (Descripcion__c) para
         // mostrarlo en la sección "Comparativa de Cotizaciones" al editar.
@@ -2177,6 +2185,26 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             clienteApellidoPaterno: '',
             clienteApellidoMaterno: ''
         };
+    }
+    // Al cargar una oportunidad existente, trae los datos del cliente desde la Cuenta
+    // (por Id) y llena nombre separado, RFC, correo, teléfono, CP y dirección.
+    async recuperarDetallesCuenta(accountId) {
+        try {
+            const acc = await getAccountById({ accountId });
+            if (!acc) { return; }
+            this.opportunity = {
+                ...this.opportunity,
+                tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
+                ...this.nombrePartesDesdeCuenta(acc),
+                clienteRFC:       acc.clienteRFC       || this.opportunity.clienteRFC       || '',
+                clienteEmail:     acc.clienteEmail     || this.opportunity.clienteEmail     || '',
+                clienteTelefono:  acc.clienteTelefono  || this.opportunity.clienteTelefono  || '',
+                clienteCP:        acc.clienteCP        || this.opportunity.clienteCP        || '',
+                clienteDireccion: acc.clienteDireccion || this.opportunity.clienteDireccion || ''
+            };
+        } catch (e) {
+            // Si falla, se conserva lo que ya se mostró.
+        }
     }
 
     extractPrimaTotal(quote) {
