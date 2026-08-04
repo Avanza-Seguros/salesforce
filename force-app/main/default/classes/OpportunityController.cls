@@ -399,6 +399,7 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
+		try {
 		Map<String, Object> d =
 			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
@@ -617,6 +618,27 @@ public with sharing class OpportunityController {
 		}
 
 		return opp.Id;
+		} catch (AuraHandledException ahe) {
+			throw ahe;
+		} catch (DmlException e) {
+			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
+		}
+	}
+
+	// Arma un mensaje de error legible para el usuario a partir de errores de DML.
+	private static String detalleError(Exception e) {
+		if (e instanceof DmlException) {
+			DmlException de = (DmlException) e;
+			List<String> partes = new List<String>();
+			for (Integer i = 0; i < de.getNumDml(); i++) {
+				String m = de.getDmlMessage(i);
+				if (String.isNotBlank(m)) { partes.add(m); }
+			}
+			if (!partes.isEmpty()) { return String.join(partes, ' | '); }
+		}
+		return e.getMessage();
 	}
 
 	/**

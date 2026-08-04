@@ -85,7 +85,7 @@ public with sharing class QuoteCreatorController {
 			upsert quote;
 			return quote;
 		} catch (Exception e) {
-			throw new AuraHandledException('Error saving quote: ' + e.getMessage());
+			throw new AuraHandledException('No se pudo guardar la cotización: ' + detalleError(e));
 		}
 	}
 
@@ -136,7 +136,7 @@ public with sharing class QuoteCreatorController {
 		try {
 			upsert coverages;
 		} catch (Exception e) {
-			throw new AuraHandledException('Error saving coverages: ' + e.getMessage());
+			throw new AuraHandledException('No se pudieron guardar las coberturas: ' + detalleError(e));
 		}
 	}
 
@@ -281,5 +281,19 @@ public with sharing class QuoteCreatorController {
 			this.StageName = o.StageName;
 			this.AccountName = o.Account != null ? o.Account.Name : '';
 		}
+	}
+
+	// Arma un mensaje de error legible para el usuario a partir de errores de DML.
+	private static String detalleError(Exception e) {
+		if (e instanceof DmlException) {
+			DmlException de = (DmlException) e;
+			List<String> partes = new List<String>();
+			for (Integer i = 0; i < de.getNumDml(); i++) {
+				String m = de.getDmlMessage(i);
+				if (String.isNotBlank(m)) { partes.add(m); }
+			}
+			if (!partes.isEmpty()) { return String.join(partes, ' | '); }
+		}
+		return e.getMessage();
 	}
 }
