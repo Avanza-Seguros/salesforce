@@ -11,6 +11,7 @@
     <columns>collectionNextDueDate__c</columns>
     <columns>Ramo__c</columns>
     <columns>PolicyType</columns>
+    <columns>CreatedDate</columns>
     <filterScope>Everything</filterScope>
     <label>Todas las Pólizas de seguros</label>
 </ListView>

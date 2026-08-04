@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Numero_Pagos__c</fullName>
-<<<<<<< HEAD
-    <label>Numero de Pagos</label>
-    <type>Number</type>
-    <precision>3</precision>
-    <scale>0</scale>
-    <required>false</required>
-=======
     <externalId>false</externalId>
     <label>Numero de Pagos</label>
     <precision>3</precision>
@@ -16,5 +9,4 @@
     <trackHistory>false</trackHistory>
     <type>Number</type>
     <unique>false</unique>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
 </CustomField>

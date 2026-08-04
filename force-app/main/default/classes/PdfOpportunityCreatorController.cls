@@ -1540,6 +1540,7 @@ public with sharing class PdfOpportunityCreatorController {
 
 		// Hereda las coberturas del PRODUCTO a cada cotización (igual que el alta manual),
 		// para que no queden en 0 y coincidan la lista y la comparativa.
+		try {
 			List<Quote_Coverage__c> covsToInsert = new List<Quote_Coverage__c>();
 			for (Integer i = 0; i < toInsert.size(); i++) {
 				Id qId = toInsert[i].Id;
@@ -1566,6 +1567,8 @@ public with sharing class PdfOpportunityCreatorController {
 		}
 
 		return new Map<String,Object>{ 'creadas' => toInsert.size(), 'detalle' => detalle };
+	}
+
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra

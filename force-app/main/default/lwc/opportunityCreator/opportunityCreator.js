@@ -160,8 +160,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track showComparisonSummary = false;
     @track archivosModalOpen = false;
     @track archivosList = [];
+    @track archivosLoading = false;
     @track archivosOppName = '';
 
+    // (Antes había un overlay/modal para el comparativo; ahora se renderiza
+    // directamente dentro de la sección de comparativa.)
     // Timer para debounce de la búsqueda
     _searchTimer = null;
 

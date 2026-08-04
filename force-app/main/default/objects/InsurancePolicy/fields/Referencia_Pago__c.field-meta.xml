@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Referencia_Pago__c</fullName>
-<<<<<<< HEAD
-    <label>Referencia de Pago</label>
-    <type>Text</type>
-    <length>80</length>
-    <required>false</required>
-=======
     <externalId>false</externalId>
     <label>Referencia de Pago</label>
     <length>80</length>
@@ -14,5 +8,4 @@
     <trackHistory>false</trackHistory>
     <type>Text</type>
     <unique>false</unique>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
 </CustomField>

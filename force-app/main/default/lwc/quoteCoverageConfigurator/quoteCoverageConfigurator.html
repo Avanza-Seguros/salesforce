@@ -1,0 +1,167 @@
+<template>
+    <lightning-card title="Configurador de Coberturas" variant="Narrow">
+        <!-- Header con acciones -->
+        <div slot="actions" class="slds-grid slds-gutters_small">
+            <lightning-button-icon 
+                icon-name="utility:refresh" 
+                alternative-text="Refrescar"
+                onclick={handleRefresh}
+                title="Refrescar coberturas">
+            </lightning-button-icon>
+            <lightning-button-icon 
+                icon-name="utility:info_alt" 
+                alternative-text="Ayuda"
+                onclick={showHelp}>
+            </lightning-button-icon>
+        </div>
+
+        <!-- Loading State -->
+        <template if:true={isLoading}>
+            <div class="slds-is-relative" style="min-height: 200px;">
+                <lightning-spinner 
+                    alternative-text="Cargando coberturas..." 
+                    size="medium">
+                </lightning-spinner>
+                <p class="slds-text-align_center slds-p-top_large">Cargando coberturas disponibles...</p>
+            </div>
+        </template>
+
+        <!-- Empty State -->
+        <template if:false={isLoading}>
+            <template if:false={hasCoverages}>
+                <div class="slds-p-around_xx-large slds-text-align_center">
+                    <lightning-icon 
+                        icon-name="utility:warning" 
+                        size="large" 
+                        alternative-text="Sin coberturas">
+                    </lightning-icon>
+                    <p class="slds-p-top_medium">No hay coberturas disponibles para esta cotización.</p>
+                </div>
+            </template>
+
+            <!-- Contenido principal -->
+            <template if:true={hasCoverages}>
+                <div class="slds-p-around_medium">
+                    <!-- Resumen de selección -->
+                    <div class="slds-grid slds-grid_align-spread slds-p-bottom_medium slds-border_bottom">
+                        <div>
+                            <span class="slds-text-body_small">
+                                <lightning-icon icon-name="utility:check" size="x-small"></lightning-icon>
+                                {selectedCount} de {totalCount} coberturas seleccionadas
+                            </span>
+                        </div>
+                        <div>
+                            <span class="slds-text-body_small">
+                                <lightning-icon icon-name="utility:currency" size="x-small"></lightning-icon>
+                                Prima Total: {formattedTotalPremium}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Lista de coberturas -->
+                    <template for:each={coverages} for:item="cov">
+                        <div key={cov.Id} class="slds-box slds-m-bottom_small coverage-item">
+                            <div class="slds-grid slds-wrap">
+                                <!-- Checkbox -->
+                                <div class="slds-col slds-size_1-of-12 slds-p-top_x-small">
+                                    <lightning-input 
+                                        type="checkbox"
+                                        label="Seleccionar"
+                                        variant="label-hidden"
+                                        checked={cov.Is_Selected__c}
+                                        data-id={cov.Id}
+                                        onchange={handleCheckbox}
+                                        class="coverage-checkbox">
+                                    </lightning-input>
+                                </div>
+
+                                <!-- Información de cobertura -->
+                                <div class="slds-col slds-size_4-of-12">
+                                    <div class="slds-text-heading_small slds-m-bottom_xx-small">
+                                        <strong>{cov.name}</strong>
+                                    </div>
+                                    <div class="slds-text-body_small slds-text-color_weak">
+                                        {cov.Description}
+                                    </div>
+                                </div>
+
+                                <!-- Suma Asegurada -->
+                                <div class="slds-col slds-size_2-of-12">
+                                    <lightning-input 
+                                        type="number"
+                                        label="Suma Asegurada"
+                                        name="Sum_Insured__c"
+                                        value={cov.Sum_Insured__c}
+                                        data-id={cov.Id}
+                                        onchange={handleInput}
+                                        disabled={cov.Is_Selected__c}
+                                        min="0"
+                                        step="1000"
+                                        formatter="currency"
+                                        class="sum-input">
+                                    </lightning-input>
+                                </div>
+
+                                <!-- Deducible -->
+                                <div class="slds-col slds-size_2-of-12">
+                                    <lightning-input 
+                                        type="number"
+                                        label="Deducible"
+                                        name="Deductible__c"
+                                        value={cov.Deductible__c}
+                                        data-id={cov.Id}
+                                        onchange={handleInput}
+                                        disabled={cov.Is_Selected__c}
+                                        min="0"
+                                        max="100"
+                                        step="0.5"
+                                        class="deductible-input">
+                                    </lightning-input>
+                                </div>
+
+                                <!-- Prima calculada -->
+                                <div class="slds-col slds-size_3-of-12 slds-p-top_x-small">
+                                    <div class="slds-text-body_small slds-text-color_weak">Prima Estimada</div>
+                                    <div class="slds-text-heading_small slds-text-color_success">
+                                        {formatCurrency(cov.Premium__c)}
+                                    </div>
+                                    <template if:true={cov.Premium__c}>
+                                        <div class="slds-text-body_small slds-text-color_error">
+                                            <lightning-icon icon-name="utility:warning" size="x-small"></lightning-icon>
+                                            Prima actualizada
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Acciones -->
+                    <div class="slds-grid slds-grid_align-center slds-p-top_large slds-border_top">
+                        <div class="slds-grid slds-gutters_small">
+                            <lightning-button 
+                                label="Seleccionar Todos"
+                                variant="neutral"
+                                onclick={selectAll}
+                                disabled={allSelected}>
+                            </lightning-button>
+                            <lightning-button 
+                                label="Deseleccionar Todos"
+                                variant="neutral"
+                                onclick={deselectAll}
+                                disabled={noneSelected}>
+                            </lightning-button>
+                            <lightning-button 
+                                label="Guardar Cambios"
+                                variant="brand"
+                                onclick={handleSave}
+                                disabled={hasChanges}
+                                class="slds-m-left_small">
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </template>
+    </lightning-card>
+</template>
