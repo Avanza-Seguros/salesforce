@@ -395,7 +395,7 @@ public with sharing class OpportunityController {
 	private static String camposCuenta(Boolean tieneMiddle) {
 		return 'Id, Name, IsPersonAccount, Phone, FirstName, LastName, ' +
 			'BillingStreet, BillingPostalCode, PersonEmail, PersonMobilePhone, ' +
-			'PersonMailingStreet, PersonMailingPostalCode, RFC__pc' +
+			'PersonMailingStreet, PersonMailingPostalCode, RFC__pc, Correo_electronico__c' +
 			(tieneMiddle ? ', MiddleName' : '');
 	}
 
@@ -425,15 +425,17 @@ public with sharing class OpportunityController {
 					r.clienteApellidoMaterno = null;
 				}
 			}
-			r.clienteEmail = a.PersonEmail;
+			// Correo: se prioriza PersonEmail; si no, el campo universal Correo_electronico__c.
+			r.clienteEmail = String.isNotBlank(a.PersonEmail) ? a.PersonEmail : a.Correo_electronico__c;
 			r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
 			r.clienteCP = a.PersonMailingPostalCode;
 			r.clienteDireccion = a.PersonMailingStreet;
 			// RFC de la persona: campo espejo en la Cuenta (Account.RFC__pc).
 			r.clienteRFC = (String) a.get('RFC__pc');
 		} else {
-			// Empresa: el nombre completo es la razon social.
+			// Empresa: el nombre completo es la razon social; el correo va en Correo_electronico__c.
 			r.clienteNombre = a.Name;
+			r.clienteEmail = a.Correo_electronico__c;
 			r.clienteTelefono = a.Phone;
 			r.clienteCP = a.BillingPostalCode;
 			r.clienteDireccion = a.BillingStreet;
@@ -540,18 +542,41 @@ public with sharing class OpportunityController {
 		}
 
 		// ------------------------------------------------------------
-		// 1.b) RFC de la persona: se guarda en el campo espejo de la Cuenta
-		//      (Account.RFC__pc). Aplica tanto a cuentas nuevas como reutilizadas.
+		// 1.b) Sincroniza los datos del cliente capturados en el formulario con la
+		//      Cuenta, sea NUEVA o EXISTENTE (seleccionada o reutilizada). Así, si una
+		//      cuenta ya existía sin correo y se le agrega uno, ahora sí se guarda.
+		//      Solo se escriben los campos con valor (no se borra lo ya capturado).
 		// ------------------------------------------------------------
-		if (accountId != null && getStr(d, 'tipoCliente') == 'Persona') {
-			String rfcPersona = getStr(d, 'clienteRFC');
-			if (String.isNotBlank(rfcPersona)) {
-				try {
-					Account accRfc = new Account(Id = accountId);
-					accRfc.put('RFC__pc', rfcPersona);
-					update accRfc;
-				} catch (Exception ignore) {}
+		if (accountId != null) {
+			// El tipo (persona/empresa) se determina por la CUENTA real, no por el
+			// formulario, para no escribir campos de persona en una cuenta de negocio.
+			Boolean esPersona = false;
+			for (Account ac : [SELECT IsPersonAccount FROM Account WHERE Id = :accountId LIMIT 1]) {
+				esPersona = ac.IsPersonAccount;
 			}
+			Account accUpd = new Account(Id = accountId);
+			Boolean hayCambio = false;
+			String fEmail = getStr(d, 'clienteEmail');
+			String fTel   = getStr(d, 'clienteTelefono');
+			String fCP    = getStr(d, 'clienteCP');
+			String fDir   = getStr(d, 'clienteDireccion');
+			String fRfc   = getStr(d, 'clienteRFC');
+			// Correo: campo universal para ambos tipos; en persona tambien PersonEmail.
+			if (String.isNotBlank(fEmail)) {
+				accUpd.Correo_electronico__c = fEmail;
+				if (esPersona) { accUpd.PersonEmail = fEmail; }
+				hayCambio = true;
+			}
+			if (String.isNotBlank(fTel)) { accUpd.Phone = fTel; hayCambio = true; }
+			if (esPersona) {
+				if (String.isNotBlank(fCP))  { accUpd.PersonMailingPostalCode = fCP; hayCambio = true; }
+				if (String.isNotBlank(fDir)) { accUpd.PersonMailingStreet = fDir; hayCambio = true; }
+				if (String.isNotBlank(fRfc)) { accUpd.put('RFC__pc', fRfc); hayCambio = true; }
+			} else {
+				if (String.isNotBlank(fCP))  { accUpd.BillingPostalCode = fCP; hayCambio = true; }
+				if (String.isNotBlank(fDir)) { accUpd.BillingStreet = fDir; hayCambio = true; }
+			}
+			if (hayCambio) { update accUpd; }
 		}
 
 		// ------------------------------------------------------------
