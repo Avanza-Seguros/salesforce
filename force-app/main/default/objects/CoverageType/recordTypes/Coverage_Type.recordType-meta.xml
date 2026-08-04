@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Coverage_Type</fullName>
+    <active>true</active>
+    <compactLayoutAssignment>Coverage_Type</compactLayoutAssignment>
+    <label>Coverage Type</label>
+    <picklistValues>
+        <picklist>BenefitPaymentFrequency</picklist>
+        <values>
+            <fullName>Anual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mensual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Quincenal %28dos veces al mes%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Semestral %28dos veces al año%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trimestral</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Category</picklist>
+        <values>
+            <fullName>Cláusula</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cobertura</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Componente límite</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Deducible</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Descuento</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Endoso</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>CategoryGroup</picklist>
+        <values>
+            <fullName>Automático</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cobertura adicional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cobertura de motorista sin asegurar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cobertura incluida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Compensación de trabajadores</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Formularios y Anotaciones</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>General</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Otros</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Responsabilidad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sección 1%2FCobertura material</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sección 2%2FCobertura de responsabilidad</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>CategoryGroupType</picklist>
+        <values>
+            <fullName>Colisión</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Completo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daños materiales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Discapacidad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gastos médicos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lesiones corporales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Muerte</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rehabilitación</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>CategoryGroupTypeValue</picklist>
+        <values>
+            <fullName>Antigüedad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Beneficio por edad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Beneficio por periodo específico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Beneficio vitalicio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Booleano</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Duración</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Importe</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Importe por aparición</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Importe por persona</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Intervalo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Por ciento</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Porcentaje</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Valor en efectivo real</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>DeathBenefitOptionType</picklist>
+        <values>
+            <fullName>Ajustable</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Disminución basándose en un valor conmutado</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>IncomeOptionType</picklist>
+        <values>
+            <fullName>Carencia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Carencia de depósito</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cliente especificado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Indexado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago de dividendos</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Seguir adelante</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>LimitRange</picklist>
+        <values>
+            <fullName>100%2F200%2F50</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>15%2F30%2F5</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>200%2F500%2F100</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>25%2F50%2F25</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>50%2F100%2F50</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

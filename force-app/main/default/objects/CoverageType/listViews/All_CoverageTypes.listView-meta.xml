@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All_CoverageTypes</fullName>
+    <columns>Name</columns>
+    <columns>CategoryGroup</columns>
+    <columns>Category</columns>
+    <columns>CategoryCode</columns>
+    <columns>BenefitPaymentFrequency</columns>
+    <columns>CategoryGroupType</columns>
+    <columns>CoverageCode</columns>
+    <columns>CategoryGroupTypeValue</columns>
+    <columns>DeductibleAmount</columns>
+    <columns>Discount</columns>
+    <columns>IncomeOptionType</columns>
+    <columns>PremiumAmount</columns>
+    <filterScope>Everything</filterScope>
+    <label>Todos los tipos de coberturas</label>
+</ListView>

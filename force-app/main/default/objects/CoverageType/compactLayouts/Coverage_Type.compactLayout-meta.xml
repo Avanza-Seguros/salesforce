@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Coverage_Type</fullName>
+    <fields>BenefitPaymentFrequency</fields>
+    <fields>Category</fields>
+    <fields>IncomeOptionType</fields>
+    <fields>PremiumAmount</fields>
+    <fields>DeathBenefitOptionType</fields>
+    <fields>DeductibleAmount</fields>
+    <fields>CoverageCode</fields>
+    <fields>Name</fields>
+    <fields>CategoryCode</fields>
+    <fields>Discount</fields>
+    <label>Coverage Type</label>
+</CompactLayout>
