@@ -452,7 +452,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const expDate = this.parseSafeDate(q.expirationDateRaw);
             if (expDate) {
                 hasDaysInfo = true;
-                const diffDays = Math.ceil((expDate - today) / 86400000);
+                const diffDays = this.diasCalendario(today, expDate);
                 if (diffDays < 0) {
                     daysLabel = `Vencida hace ${Math.abs(diffDays)} día${Math.abs(diffDays) === 1 ? '' : 's'}`;
                     daysClass = 'days-remaining is-overdue';
@@ -1614,8 +1614,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (this.showOnlyOverdue) {
                 if (this.isClosedStage(opp.StageName)) return false;
                 if (!opp.CloseDate) return false;
-                const cd = new Date(opp.CloseDate);
-                if (isNaN(cd.getTime()) || cd >= today) return false;
+                const cd = this.parseSafeDate(opp.CloseDate);
+                if (!cd || this.diasCalendario(today, cd) >= 0) return false;
             }
             return true;
         });
@@ -1681,7 +1681,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             let daysLabel = '';
             let daysClass = 'days-remaining';
             if (hasValidCloseDate && !isClosed) {
-                const diff = Math.ceil((closeDate - today) / 86400000);
+                const diff = this.diasCalendario(today, closeDate);
                 daysRemaining = diff;
                 if (diff < 0) {
                     daysLabel = `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`;
@@ -1733,10 +1733,26 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     parseSafeDate(value) {
         if (!value) return null;
-        const d = new Date(value);
+        let d;
+        // Las fechas de solo día ("2026-08-06") se interpretan en horario LOCAL.
+        // new Date('YYYY-MM-DD') las asume en UTC y eso corre la fecha un día en
+        // zonas horarias detrás de UTC (p. ej. México), causando días mal contados.
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [y, m, dd] = value.split('-').map(Number);
+            d = new Date(y, m - 1, dd);
+        } else {
+            d = new Date(value);
+        }
         if (isNaN(d.getTime())) return null;
         if (d.getFullYear() < 1970) return null;
         return d;
+    }
+    // Días de calendario entre dos fechas (ignora la hora): cuenta de medianoche a
+    // medianoche en local, así "hoy" a "pasado mañana" siempre da 2, sin importar la hora.
+    diasCalendario(desde, hasta) {
+        const a = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate());
+        const b = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+        return Math.round((b - a) / 86400000);
     }
     isClosedStage(stageName) {
         return stageName === 'Closed Won' || stageName === 'Closed Lost';
