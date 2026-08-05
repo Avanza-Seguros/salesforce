@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
+        <members>AppLogFinalizer</members>
+        <members>AppLogger</members>
+        <members>AppLoggerTest</members>
+        <members>CobranzaLog</members>
+        <members>CobranzaLogTest</members>
         <members>CollectionsTestDataFactory</members>
         <members>InboundInsurancePaymentRestResource</members>
         <members>InboundInsurancePaymentRestResourceTest</members>
@@ -20,6 +25,8 @@
         <members>PaymentReconciliationQueueableTest</members>
         <members>PaymentReconciliationManualService</members>
         <members>PaymentReconciliationManualServiceTest</members>
+        <members>PolicyInstallmentsController</members>
+        <members>PolicyInstallmentsControllerTest</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
         <members>PaymentInstallmentMatchQueueable</members>
@@ -46,6 +53,7 @@
         <name>ApexTrigger</name>
     </types>
     <types>
+        <members>AppLog__c</members>
         <members>InboundInsurancePayment__c</members>
         <members>PaymentPlanInstallment__c</members>
         <members>PaymentPlan__c</members>
@@ -54,6 +62,22 @@
         <name>CustomObject</name>
     </types>
     <types>
+        <members>AppLog__c.className__c</members>
+        <members>AppLog__c.domain__c</members>
+        <members>AppLog__c.eventCode__c</members>
+        <members>AppLog__c.inboundPayment__c</members>
+        <members>AppLog__c.jobId__c</members>
+        <members>AppLog__c.message__c</members>
+        <members>AppLog__c.methodName__c</members>
+        <members>AppLog__c.occurredAt__c</members>
+        <members>AppLog__c.paymentReconciliation__c</members>
+        <members>AppLog__c.recordId__c</members>
+        <members>AppLog__c.recordObject__c</members>
+        <members>AppLog__c.runningUser__c</members>
+        <members>AppLog__c.severity__c</members>
+        <members>AppLog__c.stackTrace__c</members>
+        <members>AppLog__c.stage__c</members>
+        <members>AppLog__c.transactionId__c</members>
         <members>InboundInsurancePayment__c.candidateCount__c</members>
         <members>InboundInsurancePayment__c.candidateInstallment__c</members>
         <members>InboundInsurancePayment__c.candidatePolicy__c</members>
@@ -67,6 +91,7 @@
         <members>InboundInsurancePayment__c.inboundStatus__c</members>
         <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
         <members>InboundInsurancePayment__c.parsedAt__c</members>
+        <members>InboundInsurancePayment__c.pipelineStage__c</members>
         <members>InboundInsurancePayment__c.rawBankReference__c</members>
         <members>InboundInsurancePayment__c.receivedAt__c</members>
         <members>InboundInsurancePayment__c.reconciledAt__c</members>
@@ -164,6 +189,7 @@
         <name>CustomField</name>
     </types>
     <types>
+        <members>AppLog__c-App Log Layout</members>
         <members
 		>InboundInsurancePayment__c-Inbound Insurance Payment Layout</members>
         <members
@@ -172,9 +198,11 @@
         <members
 		>PaymentReconciliation__c-Payment Reconciliation Layout</members>
         <members>PolicyPaymentReceipt__c-Policy Payment Receipt Layout</members>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
         <name>Layout</name>
     </types>
     <types>
+        <members>App_Log_Read</members>
         <members>MuleSoft_InboundPayments</members>
         <members>Cobranza_Revision_Manual</members>
         <name>PermissionSet</name>
@@ -183,6 +211,7 @@
         <members>reconciliationManualApprove</members>
         <members>reconciliationManualReject</members>
         <members>reconciliationManualReprocess</members>
+        <members>policyInstallments</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
@@ -205,7 +234,10 @@
         <name>Flow</name>
     </types>
     <types>
+        <members>AppLog__c.Errores_Por_Dominio</members>
+        <members>AppLog__c.Errores_Ultimos_7_Dias</members>
         <members>InboundInsurancePayment__c.En_Revision_Manual</members>
+        <members>InboundInsurancePayment__c.Pagos_Detenidos</members>
         <members>InboundInsurancePayment__c.Sin_Match</members>
         <members>PaymentReconciliation__c.En_Revision_Manual</members>
         <members>PaymentReconciliation__c.Pendientes_Operativos</members>
@@ -214,6 +246,7 @@
         <name>ListView</name>
     </types>
     <types>
+        <members>AppLog__c</members>
         <members>InboundInsurancePayment__c</members>
         <members>PaymentReconciliation__c</members>
         <members>PolicyPaymentReceipt__c</members>
@@ -237,6 +270,15 @@
         <members>IPolicySubStatusCode</members>
         <members>IPolicyTerm</members>
         <name>StandardValueSet</name>
+    </types>
+    <types>
+        <members>Payment_Plan</members>
+        <members>Payment_Plan_Installment</members>
+        <members>Inbound_Insurance_Payment</members>
+        <members>Payment_Reconciliation</members>
+        <members>Policy_Payment_Receipt</members>
+        <members>Insurance_Policy_Record_Page</members>
+        <name>FlexiPage</name>
     </types>
     <version>66.0</version>
 </Package>
