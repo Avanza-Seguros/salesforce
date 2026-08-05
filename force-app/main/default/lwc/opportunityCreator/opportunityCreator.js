@@ -677,8 +677,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     formatDate(dateString) {
         if (!dateString) return 'Sin fecha';
-        const date = new Date(dateString);
-        if (isNaN(date.getTime()) || date.getFullYear() < 1970) return 'Sin fecha';
+        // Usa el mismo parseo que el conteo (fechas solo-día en LOCAL) para que la
+        // fecha mostrada coincida con los días restantes y no se corra un día.
+        const date = this.parseSafeDate(dateString);
+        if (!date) return 'Sin fecha';
         return date.toLocaleDateString('es-MX', {
             day: '2-digit', month: 'short', year: 'numeric'
         });
