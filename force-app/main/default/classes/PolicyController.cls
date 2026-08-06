@@ -229,6 +229,57 @@ public with sharing class PolicyController {
 		return null;
 	}
 
+	/**
+	 * @description Guarda (adjunta) el PDF seleccionado como archivo de la Póliza.
+	 *              Es idempotente: si ya existe un archivo con el mismo nombre ligado
+	 *              a la póliza, no lo vuelve a subir.
+	 * @param base64 Contenido del PDF en base64 (sin el prefijo data:).
+	 * @param nombreArchivo Nombre del archivo (con extensión).
+	 * @param policyId Id de la InsurancePolicy a la que se adjunta.
+	 * @return Id del ContentDocument adjuntado o existente, o null.
+	 */
+	@AuraEnabled
+	public static Id guardarArchivoEnPoliza(String base64, String nombreArchivo, Id policyId) {
+		if (String.isBlank(base64) || policyId == null) { return null; }
+		try {
+			String nombre = String.isBlank(nombreArchivo) ? 'Poliza.pdf' : nombreArchivo;
+			// Evita duplicar: busca un archivo con el mismo nombre ya ligado a la póliza.
+			Set<Id> docsLigados = new Set<Id>();
+			for (ContentDocumentLink cdl : [
+				SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId = :policyId
+			]) {
+				docsLigados.add(cdl.ContentDocumentId);
+			}
+			if (!docsLigados.isEmpty()) {
+				for (ContentVersion cvExist : [
+					SELECT ContentDocumentId FROM ContentVersion
+					WHERE ContentDocumentId IN :docsLigados AND Title = :nombre LIMIT 1
+				]) {
+					return cvExist.ContentDocumentId;
+				}
+			}
+			ContentVersion cv = new ContentVersion(
+				Title = nombre,
+				PathOnClient = nombre,
+				VersionData = EncodingUtil.base64Decode(base64),
+				Origin = 'H'
+			);
+			insert cv;
+			ContentVersion stored = [
+				SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
+			];
+			insert new ContentDocumentLink(
+				ContentDocumentId = stored.ContentDocumentId,
+				LinkedEntityId = policyId,
+				ShareType = 'V',
+				Visibility = 'AllUsers'
+			);
+			return stored.ContentDocumentId;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo guardar el archivo en la póliza: ' + e.getMessage());
+		}
+	}
+
 	private static String detalleDml(DmlException e) {
 		List<String> partes = new List<String>();
 		for (Integer i = 0; i < e.getNumDml(); i++) {

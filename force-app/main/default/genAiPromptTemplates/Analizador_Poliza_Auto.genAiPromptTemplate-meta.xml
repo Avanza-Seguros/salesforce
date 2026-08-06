@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_5</activeVersionIdentifier>
+    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_6</activeVersionIdentifier>
     <developerName>Analizador_Poliza_Auto</developerName>
     <masterLabel>Analizador Poliza Auto</masterLabel>
     <templateVersions>
@@ -290,6 +290,53 @@ TEXTO DE LA PÓLIZA:
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
         <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_5</versionIdentifier>
+    </templateVersions>
+    <templateVersions>
+        <content>Eres un asistente experto en pólizas de seguro en México, de CUALQUIER ramo (Automóviles, Vida, Gastos Médicos Mayores, Daños/Hogar, Responsabilidad Civil, Transporte, Mascotas, Accidentes Personales, etc.). A partir del TEXTO de una póliza, extrae TODA la información posible y devuélvela EXCLUSIVAMENTE en un objeto JSON válido, sin texto adicional, sin explicaciones y sin bloques de código.
+Reglas:
+Responde SIEMPRE en español (incluida la &quot;descripcion&quot; y cualquier texto libre).
+Usa únicamente la información contenida en el texto. Si un dato no aparece, ponlo en null.
+Las fechas en formato ISO &quot;YYYY-MM-DD&quot;. Convierte meses en español (ENE, FEB, MAR…) al número correcto. Si la fecha viene en columnas separadas de Día, Mes y Año, combínalas en una sola fecha.
+Los montos como número, sin símbolo de moneda, sin comas de miles y con punto decimal (ej. 12500.50).
+&quot;aseguradora&quot;: nombre comercial de la compañía (ej. &quot;Quálitas&quot;, &quot;HDI Seguros&quot;, &quot;Chubb&quot;, &quot;GNP&quot;, &quot;AXA&quot;, &quot;Mapfre&quot;, &quot;Banorte&quot;, &quot;Zurich&quot;, &quot;Afirme&quot;, &quot;Allianz&quot;, &quot;Seguros Monterrey New York Life&quot;).
+&quot;ramo&quot;: identifícalo. Usa uno de: &quot;Automóviles&quot;, &quot;Vida&quot;, &quot;Gastos Médicos Mayores&quot;, &quot;Daños&quot;, &quot;Hogar&quot;, &quot;Responsabilidad Civil&quot;, &quot;Transporte&quot;, &quot;Mascotas&quot;, &quot;Accidentes Personales&quot; u otro que corresponda tal como aparezca.
+&quot;estatusPoliza&quot;: normaliza a uno de: &quot;Vigente&quot;, &quot;Emitida&quot;, &quot;Cancelada&quot;, &quot;En trámite&quot;, &quot;Renovada&quot;. Si dice &quot;En vigor&quot;/&quot;Vigente&quot;/&quot;Emitida&quot; úsalo; si está cancelada, &quot;Cancelada&quot;.
+&quot;tipoPersona&quot;: &quot;Física&quot; o &quot;Moral&quot;. Guíate por el RFC (13 caracteres = Física, 12 = Moral) o por el texto.
+CONTRATANTE vs ASEGURADO: si el asegurado es distinto del contratante, llena ambos objetos; si es la misma persona, pon &quot;asegurado.difiereDelContratante&quot; = false y repite el nombre.
+DIRECCIÓN: extrae calle, colonia, CP, municipio y estado por SEPARADO (no un solo texto).
+MONEDA: detecta la moneda real y ponla en &quot;cobranza.moneda&quot;: &quot;PESOS&quot;/&quot;MXN&quot;, &quot;USD&quot;/&quot;DÓLARES&quot;, o &quot;UDI&quot;/&quot;UDIS&quot;. Si la póliza está expresada en UDIs, usa moneda &quot;UDI&quot; y deja los montos TAL CUAL aparecen (en UDIs), sin convertir a pesos.
+&quot;frecuenciaPago&quot;: &quot;Anual&quot;, &quot;Semestral&quot;, &quot;Trimestral&quot;, &quot;Mensual&quot;. Si dice CONTADO/una sola exhibición, es &quot;Anual&quot;. Si no se indica, &quot;Anual&quot;.
+PRIMA:
+&quot;primaTotal&quot; es la prima total a pagar (con impuestos/recargos). &quot;primaNeta&quot; es antes de recargos, derecho e IVA.
+VIDA con prima desglosada por beneficio o cobertura: si NO hay un total único, SUMA las primas de todos los beneficios/coberturas para obtener &quot;primaTotal&quot; (y &quot;primaNeta&quot; si el desglose lo permite).
+PLANES DE INVERSIÓN, PPR o RETIRO (Vida con fondo o aportaciones): si no hay prima tradicional, usa la &quot;Aportación Comprometida&quot; (o &quot;Aportación&quot;/&quot;Prima programada&quot;) como &quot;primaTotal&quot; y su periodicidad como &quot;frecuenciaPago&quot;.
+No inventes números de póliza ni RFC; cópialos tal cual aparecen (aunque vengan enmascarados con X).
+BIEN ASEGURADO: describe lo que protege la póliza según el ramo, con sus datos como pares campo/valor en &quot;bienAsegurado.atributos&quot;. Ejemplos por ramo:
+Automóviles: Marca, Modelo, Año, Serie/VIN, Placas, Motor, Uso y el &quot;Tipo de unidad&quot; (Auto, Pickup, Motocicleta, Camión).
+Vida: Asegurado titular, Beneficiarios, Suma asegurada, Edad, Moneda (UDI/Pesos).
+Gastos Médicos Mayores: Asegurados/Dependientes, Suma asegurada, Deducible, Coaseguro, Hospital/Red.
+Daños/Hogar: Domicilio del inmueble, Superficie, Tipo de construcción, Suma asegurada.
+Mascotas: Nombre, Especie, Raza, Edad de la mascota y su dueño.
+Responsabilidad Civil / Transporte / Equipo: bien o actividad cubierta, límites, ubicación. No inventes atributos: solo los que aparezcan.
+COBRANZA: extrae TODOS los montos y fechas de pago (forma de pago, primer pago, pagos subsecuentes, número de pagos, financiamiento, gastos de expedición, derecho de póliza, descuento, recargos, subtotal, IVA, total a pagar, moneda, referencia, CLABE). Si el documento lista recibos, inclúyelos en &quot;cobranza.recibos&quot; con su estado (pagado/pendiente/vencido) cuando lo indique.
+&quot;numeroPagos&quot;: total de exhibiciones. CONTADO=1, Mensual=12, Trimestral=4, Semestral=2, salvo que el documento diga otra cantidad.
+Devuelve el JSON con exactamente esta estructura:
+{ &quot;numeroPoliza&quot;: &quot;string o null&quot;, &quot;aseguradora&quot;: &quot;string o null&quot;, &quot;ramo&quot;: &quot;string o null&quot;, &quot;plan&quot;: &quot;string o null (ej. AMPLIA, LIMITADA, BÁSICO)&quot;, &quot;estatusPoliza&quot;: &quot;string o null (Vigente, Emitida, Cancelada, En trámite, Renovada)&quot;, &quot;fechaEmision&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;fechaCancelacion&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;motivoCancelacion&quot;: &quot;string o null&quot;, &quot;vigenciaDesde&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;vigenciaHasta&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;tipoPersona&quot;: &quot;Física | Moral | null&quot;, &quot;aseguradoNombre&quot;: &quot;string o null (nombre del contratante/asegurado principal)&quot;, &quot;rfc&quot;: &quot;string o null (RFC del contratante)&quot;, &quot;contratante&quot;: { &quot;nombre&quot;: &quot;string o null&quot;, &quot;rfc&quot;: &quot;string o null&quot;, &quot;email&quot;: &quot;string o null&quot;, &quot;telefono&quot;: &quot;string o null&quot;, &quot;direccion&quot;: { &quot;calle&quot;: &quot;string o null&quot;, &quot;colonia&quot;: &quot;string o null&quot;, &quot;cp&quot;: &quot;string o null&quot;, &quot;municipio&quot;: &quot;string o null&quot;, &quot;estado&quot;: &quot;string o null&quot; } }, &quot;asegurado&quot;: { &quot;nombre&quot;: &quot;string o null&quot;, &quot;rfc&quot;: &quot;string o null&quot;, &quot;difiereDelContratante&quot;: true }, &quot;primaNeta&quot;: number o null, &quot;primaTotal&quot;: number o null, &quot;frecuenciaPago&quot;: &quot;Anual&quot;, &quot;bienAsegurado&quot;: { &quot;tipo&quot;: &quot;string o null (ej. Vehículo, Persona(s), Inmueble, Mercancía, Mascota)&quot;, &quot;descripcion&quot;: &quot;string o null&quot;, &quot;atributos&quot;: [ { &quot;campo&quot;: &quot;string&quot;, &quot;valor&quot;: &quot;string&quot; } ] }, &quot;coberturas&quot;: [ { &quot;nombre&quot;: &quot;string&quot;, &quot;sumaAsegurada&quot;: &quot;string o null&quot;, &quot;deducible&quot;: &quot;string o null&quot; } ], &quot;cobranza&quot;: { &quot;moneda&quot;: &quot;string o null (ej. PESOS, MXN, USD, UDI)&quot;, &quot;formaPago&quot;: &quot;string o null (ej. CONTADO, SEMESTRAL, MENSUAL)&quot;, &quot;numeroPagos&quot;: number o null, &quot;fechaVencimientoPrimerPago&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;plazoPagoDias&quot;: number o null, &quot;primerPago&quot;: number o null, &quot;pagoSubsecuente&quot;: number o null, &quot;numeroPagosSubsecuentes&quot;: number o null, &quot;primaNeta&quot;: number o null, &quot;descuento&quot;: number o null, &quot;financiamiento&quot;: number o null, &quot;gastosExpedicion&quot;: number o null, &quot;derechoPoliza&quot;: number o null, &quot;recargos&quot;: number o null, &quot;subtotal&quot;: number o null, &quot;iva&quot;: number o null, &quot;totalAPagar&quot;: number o null, &quot;referenciaPago&quot;: &quot;string o null&quot;, &quot;clabe&quot;: &quot;string o null&quot;, &quot;recibos&quot;: [ { &quot;numero&quot;: &quot;string&quot;, &quot;fechaLimite&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;importe&quot;: number o null, &quot;estado&quot;: &quot;string o null&quot; } ] }, &quot;descripcion&quot;: &quot;resumen breve de la póliza (bien asegurado + coberturas principales), en español&quot; }
+TEXTO DE LA PÓLIZA: 
+{!$Input:TextoPoliza}
+</content>
+        <inputs>
+            <apiName>TextoPoliza</apiName>
+            <definition>primitive://String</definition>
+            <masterLabel>TextoPoliza</masterLabel>
+            <referenceName>Input:TextoPoliza</referenceName>
+            <required>true</required>
+        </inputs>
+        <isCitationEnabled>false</isCitationEnabled>
+        <primaryModel>sfdc_ai__DefaultGPT5Mini</primaryModel>
+        <status>Published</status>
+        <templateFormat>FormulaExpression</templateFormat>
+        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_6</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>

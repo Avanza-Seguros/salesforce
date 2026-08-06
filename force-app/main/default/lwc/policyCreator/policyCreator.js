@@ -16,6 +16,7 @@ import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import crearVinculoBien from '@salesforce/apex/PolicyController.crearVinculoBien';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
+import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 
 export default class PolicyCreator extends NavigationMixin(LightningElement) {
@@ -32,6 +33,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track policyDates = {};
 
     _pdfJsLoaded = false;
+    // PDF seleccionado que se adjuntará a la póliza (queda pendiente si la póliza aún no existe).
+    _pdfPendiente = null;
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
 
     // Campos de fecha que se manejan como "solo fecha".
@@ -219,6 +222,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         // Refresca el registro para que la pantalla muestre lo guardado.
         if (savedId) {
             notifyRecordUpdateAvailable([{ recordId: savedId }]);
+            // Adjunta el PDF que se haya seleccionado antes de que existiera la póliza.
+            await this.guardarPdfEnPoliza();
         }
         // Crea el vínculo póliza-bien (Asset + InsurancePolicyAsset). Reúsa el
         // Asset de la oportunidad si existe; si no, lo crea.
@@ -255,6 +260,16 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
         this.analizando = true;
         try {
+            // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
+            // queda pendiente y se adjunta al guardarla (handleSuccess).
+            try {
+                const base64 = await this.readFileAsBase64(file);
+                this._pdfPendiente = { base64, nombre: file.name };
+                await this.guardarPdfEnPoliza();
+            } catch (fileErr) {
+                // No bloquea el análisis del PDF; se reintenta al guardar la póliza.
+            }
+
             const texto = await this.extractPdfText(file);
             if (!texto) {
                 this.showToast('Aviso', 'No se pudo leer texto del PDF (¿está escaneado?).', 'warning');
@@ -278,6 +293,35 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         } finally {
             this.analizando = false;
         }
+    }
+
+    // Adjunta a la póliza el PDF pendiente (si hay uno y la póliza ya existe).
+    async guardarPdfEnPoliza() {
+        if (!this._pdfPendiente || !this.policyId) { return; }
+        try {
+            await guardarArchivoEnPoliza({
+                base64: this._pdfPendiente.base64,
+                nombreArchivo: this._pdfPendiente.nombre,
+                policyId: this.policyId
+            });
+            this._pdfPendiente = null;
+        } catch (e) {
+            // Si falla, se conserva pendiente para reintentar al guardar la póliza.
+        }
+    }
+
+    // Lee un archivo y devuelve su contenido en base64 (sin el prefijo data:).
+    readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = String(reader.result || '');
+                const comma = result.indexOf(',');
+                resolve(comma >= 0 ? result.substring(comma + 1) : result);
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
     }
 
     // Extrae el texto de un PDF con pdf.js (mismo enfoque que el flujo de cotizaciones).
@@ -353,6 +397,31 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 return '• ' + parts.join(' — ');
             }).join('\n');
             descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Calendario de pagos:\n' + recs;
+        }
+
+        // Datos del cliente extraídos del PDF (contratante, asegurado si difiere, y
+        // domicilio). Se agregan a la descripción; el asegurado formal de la póliza se
+        // conserva desde la oportunidad y no se sobrescribe.
+        const cont = d.contratante || {};
+        const aseg = d.asegurado || {};
+        const dir = cont.direccion || {};
+        const datosCliente = [];
+        const nombreCont = cont.nombre || d.aseguradoNombre;
+        const rfcCont = cont.rfc || d.rfc;
+        if (nombreCont) {
+            datosCliente.push(`Contratante: ${nombreCont}${rfcCont ? ' (RFC ' + rfcCont + ')' : ''}`);
+        }
+        if (aseg && aseg.difiereDelContratante && aseg.nombre) {
+            datosCliente.push(`Asegurado: ${aseg.nombre}${aseg.rfc ? ' (RFC ' + aseg.rfc + ')' : ''}`);
+        }
+        if (d.tipoPersona) { datosCliente.push(`Tipo de persona: ${d.tipoPersona}`); }
+        if (cont.email) { datosCliente.push(`Correo: ${cont.email}`); }
+        if (cont.telefono) { datosCliente.push(`Teléfono: ${cont.telefono}`); }
+        const domPartes = [dir.calle, dir.colonia, dir.cp ? 'C.P. ' + dir.cp : null, dir.municipio, dir.estado].filter(Boolean);
+        if (domPartes.length) { datosCliente.push(`Domicilio: ${domPartes.join(', ')}`); }
+        if (datosCliente.length) {
+            descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Datos del cliente:\n'
+                + datosCliente.map((l) => '• ' + l).join('\n');
         }
 
         // Fechas que llena el análisis (solo fecha, YYYY-MM-DD). Ahora son input-field,
