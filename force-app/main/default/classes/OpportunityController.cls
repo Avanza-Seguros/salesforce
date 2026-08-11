@@ -179,11 +179,23 @@ public with sharing class OpportunityController {
 	@AuraEnabled(cacheable=false)
 	public static void aceptarCotizacion(String quoteId) {
 		try {
-			Quote q = [SELECT Id, Status FROM Quote WHERE Id = :quoteId LIMIT 1];
+			Quote q = [SELECT Id, Status, OpportunityId FROM Quote WHERE Id = :quoteId LIMIT 1];
+			// 1) Marca la cotización como aceptada.
 			q.Status = 'Accepted';
 			update q;
+			// 2) Dispara la sincronización con la oportunidad (equivale al botón "Start Sync"):
+			//    al fijar SyncedQuoteId, esta cotización queda como la sincronizada y sus
+			//    partidas se copian a la oportunidad. IsSyncing es de solo lectura (por eso
+			//    asignarlo no sincronizaba); la vía correcta es Opportunity.SyncedQuoteId.
+			//    Requiere que compartan Pricebook (las cotizaciones de la app heredan el de
+			//    la oportunidad, así que coinciden).
+			if (q.OpportunityId != null) {
+				update new Opportunity(Id = q.OpportunityId, SyncedQuoteId = q.Id);
+			}
+		} catch (DmlException e) {
+			throw new AuraHandledException('No se pudo aceptar/sincronizar la cotización: ' + detalleError(e));
 		} catch (Exception e) {
-			throw new AuraHandledException('Error al aceptar la cotizacion: ' + e.getMessage());
+			throw new AuraHandledException('No se pudo aceptar/sincronizar la cotización: ' + detalleError(e));
 		}
 	}
 
@@ -198,7 +210,7 @@ public with sharing class OpportunityController {
 	@AuraEnabled(cacheable=false)
 	public static void cambiarEtapaAPoliza(String opportunityId) {
 		try {
-			Opportunity o = new Opportunity(Id = (Id) opportunityId, StageName = 'Póliza');
+			Opportunity o = new Opportunity(Id = (Id) opportunityId, StageName = 'Póliza'); 
 			update o;
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al cambiar la etapa a Póliza: ' + e.getMessage());

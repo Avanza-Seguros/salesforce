@@ -1179,7 +1179,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!id) { return; }
         try {
             await aceptarCotizacion({ quoteId: id });
-            this.showToast('Cotización aceptada', 'La cotización se marcó como Aceptado.', 'success');
+            this.showToast('Cotización aceptada', 'La cotización quedó Aceptada y sincronizada con la oportunidad.', 'success');
             if (this.opportunity?.Id) {
                 await this.openOpportunityInEditMode(this.opportunity.Id);
             }

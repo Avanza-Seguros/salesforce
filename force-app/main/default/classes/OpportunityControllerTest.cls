@@ -58,7 +58,8 @@ private class OpportunityControllerTest {
             CloseDate = Date.today().addDays(30),
             AccountId = acc.Id,
             Agente_Relacionado__c = ag.Id,
-            Pricebook2Id = pb.Id,
+            // Mismo Pricebook que la cotización para que "Start Sync" (SyncedQuoteId) funcione.
+            Pricebook2Id = stdPbId,
             Ramo__c = 'Automoviles'
         );
         insert opp;
@@ -102,8 +103,11 @@ private class OpportunityControllerTest {
         Test.startTest();
         OpportunityController.aceptarCotizacion(q.Id);
         Test.stopTest();
-        Quote after = [SELECT Status FROM Quote WHERE Id = :q.Id];
+        Quote after = [SELECT Status, OpportunityId FROM Quote WHERE Id = :q.Id];
         System.assertEquals('Accepted', after.Status, 'La cotización debe quedar aceptada');
+        // Además debe quedar sincronizada: la oportunidad apunta a esta cotización.
+        Opportunity opp = [SELECT SyncedQuoteId FROM Opportunity WHERE Id = :after.OpportunityId];
+        System.assertEquals(q.Id, opp.SyncedQuoteId, 'La cotización debe quedar sincronizada (SyncedQuoteId)');
     }
 
     @isTest
