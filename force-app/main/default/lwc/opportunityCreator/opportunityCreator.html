@@ -188,6 +188,10 @@
                                                                 <lightning-icon icon-name="standard:policy" size="xx-small"></lightning-icon>
                                                                 <span>Ver Póliza</span>
                                                             </button>
+                                                            <button class="poliza-list-btn" onclick={handleEnviarCorreo} data-id={opp.Id} title="Enviar correo de la oportunidad">
+                                                                <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon>
+                                                                <span>Enviar Correo</span>
+                                                            </button>
                                                         </template>
                                                         <template if:true={opp.isClosed}>
                                                             <button class="info-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver información (solo lectura)">
@@ -1559,6 +1563,12 @@
                             <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
                             Cancelar
                         </button>
+                        <template if:true={isEtapaPoliza}>
+                            <button class="action-btn secondary" onclick={handleEnviarCorreo} title="Enviar correo de la oportunidad">
+                                <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon>
+                                Enviar Correo
+                            </button>
+                        </template>
                         <button class="action-btn primary" onclick={saveOpportunity} disabled={isSaveDisabled}>
                             <template if:true={isSaving}>
                                 <lightning-spinner alternative-text="Guardando..." size="x-small" variant="inverse"></lightning-spinner>
@@ -1627,6 +1637,27 @@
                     <footer class="slds-modal__footer">
                         <button class="action-btn secondary" onclick={closeArchivosModal}>Cerrar</button>
                     </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+        <!-- Modal: Enviar Correo (Flow "Enviar Correo Oportunidad") -->
+        <template if:true={correoFlowOpen}>
+            <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close" title="Cerrar" onclick={closeCorreoFlow}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-modal__title slds-hyphenate">Enviar Correo</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <lightning-flow
+                            flow-api-name="Enviar_Correo_Oportunidad"
+                            onstatuschange={handleCorreoFlowStatus}>
+                        </lightning-flow>
+                    </div>
                 </div>
             </section>
             <div class="slds-backdrop slds-backdrop_open"></div>

@@ -104,6 +104,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track rc = this.getDefaultRC();
     @track dental = this.getDefaultDental();
     @track vision = this.getDefaultVision();
+    @track transporte = this.getDefaultTransporte();
     @track uploadedQuotes = [];
     // Comparativo HTML tal cual lo regresa la IA (Prompt Builder).
     // Se renderiza en un iframe vía blob URL (srcdoc no está permitido en LWC).
@@ -163,6 +164,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track archivosList = [];
     @track archivosLoading = false;
     @track archivosOppName = '';
+    // Modal del Flow "Enviar Correo Oportunidad".
+    @track correoFlowOpen = false;
+    correoFlowOppId = null;
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
     // directamente dentro de la sección de comparativa.)
@@ -970,10 +974,28 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(':::OpportunityCreator::: Error al cargar oportunidad para edición', e);
-            this.showToast('Error', 'No se pudo cargar la oportunidad para edición', 'error');
+            const detalle = this.extraerMensajeError(e);
+            this.showToast('Error', 'No se pudo cargar la oportunidad para edición: ' + detalle, 'error');
         } finally {
             this.isLoading = false;
         }
+    }
+    // Arma un mensaje legible desde distintos formatos de error (Apex, JS, page errors).
+    extraerMensajeError(e) {
+        if (!e) { return 'Error desconocido'; }
+        if (e.body) {
+            const b = e.body;
+            if (typeof b.message === 'string' && b.message) { return b.message; }
+            if (Array.isArray(b.pageErrors) && b.pageErrors.length) { return b.pageErrors[0].message; }
+            if (b.fieldErrors) {
+                const first = Object.values(b.fieldErrors)[0];
+                if (Array.isArray(first) && first.length) { return first[0].message; }
+            }
+            if (Array.isArray(b) && b.length && b[0].message) { return b[0].message; }
+            if (typeof b === 'string') { return b; }
+        }
+        if (e.message) { return e.message; }
+        try { return JSON.stringify(e); } catch (err) { return String(e); }
     }
     populateFormFromOpportunity(detail, id) {
         this.opportunity = {
@@ -1212,6 +1234,42 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.showToast('Error', 'No se pudo pasar a Póliza: ' + msg, 'error');
         }
     }
+    // ============================================================
+    // ENVIAR CORREO (Flow "Enviar Correo Oportunidad")
+    // Solo disponible cuando la oportunidad está en etapa "Póliza".
+    // ============================================================
+    // El botón del pie del formulario se muestra si la oportunidad abierta está en Póliza.
+    get isEtapaPoliza() {
+        return this.isPolizaStage(this.opportunity?.StageName) && !!this.opportunity?.Id;
+    }
+    // Variable de entrada del Flow: el Id de la oportunidad como recordId.
+    get correoFlowInputs() {
+        return [{ name: 'recordId', type: 'String', value: this.correoFlowOppId }];
+    }
+    // Abre el modal con el Flow. Toma el Id del botón (lista) o de la oportunidad abierta.
+    handleEnviarCorreo(event) {
+        const id = (event && event.currentTarget && event.currentTarget.dataset.id) || this.opportunity?.Id;
+        if (!id) {
+            this.showToast('Aviso', 'No se encontró la oportunidad para enviar el correo.', 'warning');
+            return;
+        }
+        this.correoFlowOppId = id;
+        this.correoFlowOpen = true;
+    }
+    closeCorreoFlow() {
+        this.correoFlowOpen = false;
+        this.correoFlowOppId = null;
+    }
+    // Cierra el modal cuando el Flow termina.
+    handleCorreoFlowStatus(event) {
+        const status = event && event.detail ? event.detail.status : '';
+        if (status === 'FINISHED' || status === 'FINISHED_SCREEN') {
+            this.correoFlowOpen = false;
+            this.correoFlowOppId = null;
+            this.showToast('Correo', 'El correo se envió correctamente.', 'success');
+        }
+    }
+
     handleEditRelatedQuote(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) return;
@@ -2628,6 +2686,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     getDefaultRC()          { return { tipoRC: '', profesion: '', actividad: '', giro: '' }; }
     getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '' }; }
     getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '' }; }
+    getDefaultTransporte()  { return { bienesCubiertos: '', medioTransporte: '', origen: '', destino: '', limiteEmbarque: '' }; }
     handleBackToList() {
         this.viewMode = VIEW_MODES.LIST;
         this.resetWizard();
@@ -2985,9 +3044,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasAgenteResults() {
         return this.agenteResults && this.agenteResults.length > 0;
     }
+    
     handleAgenteFocus() {
         this.showAgenteDropdown = true;
     }
+
     handleAgenteInput(event) {
         const value = event.target.value;
         this.opportunity = { ...this.opportunity, AgenteName: value, Agente__c: null };
@@ -3005,6 +3066,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
         }, 300);
     }
+
     selectAgente(event) {
         const id = event.currentTarget.dataset.id;
         const ag = (this.agenteResults || []).find(a => a.Id === id);
@@ -3041,6 +3103,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.rc = this.getDefaultRC();
         this.dental = this.getDefaultDental();
         this.vision = this.getDefaultVision();
+        this.transporte = this.getDefaultTransporte();
         this.uploadedQuotes = [];
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
@@ -3058,13 +3121,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.comparativoHtml = '';
         this._comparativoDirty = true;
     }
+
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
+
     addMoreQuotes() {
         const uploader = this.template.querySelector('c-cotizacion-op-lector');
         if (uploader && typeof uploader.openFilePicker === 'function') uploader.openFilePicker();
     }
+
     toggleQuoteExpand(event) {
         event.preventDefault(); event.stopPropagation();
         const quoteId = event.currentTarget.dataset.quoteId;
@@ -3079,6 +3145,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             };
         });
     }
+
     removeQuote(event) {
         const quoteId = event.currentTarget.dataset.quoteId;
         if (!quoteId) return;
