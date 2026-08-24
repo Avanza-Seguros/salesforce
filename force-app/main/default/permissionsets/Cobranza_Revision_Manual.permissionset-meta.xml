@@ -9,6 +9,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>PolicyInstallmentsController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PolicyPaymentReceiptQueueable</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -254,6 +258,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>InboundInsurancePayment__c.inboundStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InboundInsurancePayment__c.pipelineStage__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

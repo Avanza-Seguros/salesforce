@@ -1,12 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Layout xmlns="http://soap.sforce.com/2006/04/metadata">
     <excludeButtons>ChangeOwnerOne</excludeButtons>
     <excludeButtons>ChangeRecordType</excludeButtons>
-    <excludeButtons>Clone</excludeButtons>
     <excludeButtons>Delete</excludeButtons>
     <excludeButtons>Edit</excludeButtons>
     <excludeButtons>EndorseInsurancePolicy</excludeButtons>
-    <excludeButtons>PrintableView</excludeButtons>
+    <excludeButtons>OpenSlackRecordChannel</excludeButtons>
     <excludeButtons>RepurposeInsurancePolicy</excludeButtons>
     <excludeButtons>Share</excludeButtons>
     <excludeButtons>Submit</excludeButtons>
@@ -110,10 +109,6 @@
         <editHeading>true</editHeading>
         <label>Asegurado y entidades</label>
         <layoutColumns>
-            <layoutItems>
-                <behavior>Required</behavior>
-                <field>NameInsuredId</field>
-            </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>PolicyType</field>
@@ -278,18 +273,18 @@
                 <behavior>Edit</behavior>
                 <field>PaidToDate</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Required</behavior>
+                <field>PremiumFrequency</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
                 <behavior>Required</behavior>
                 <field>PaymentDueDate</field>
             </layoutItems>
-            <layoutItems>
-                <behavior>Required</behavior>
-                <field>PremiumFrequency</field>
-            </layoutItems>
         </layoutColumns>
-        <style>TwoColumnsLeftToRight</style>
+        <style>TwoColumnsTopToBottom</style>
     </layoutSections>
     <layoutSections>
         <customLabel>true</customLabel>
@@ -307,7 +302,11 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>ProducerId</field>
+                <field>PlannedRenewalDate</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>RenewalChannel</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -321,7 +320,11 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>PlannedRenewalDate</field>
+                <field>DateRenewed</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>ActualRenewalDate</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
@@ -397,95 +400,11 @@
         <detailHeading>false</detailHeading>
         <editHeading>false</editHeading>
         <label>Custom Links</label>
-        <layoutColumns/>
-        <layoutColumns/>
-        <layoutColumns/>
+        <layoutColumns />
+        <layoutColumns />
+        <layoutColumns />
         <style>CustomLinks</style>
     </layoutSections>
-    <platformActionList>
-        <actionListContext>Record</actionListContext>
-        <platformActionListItems>
-            <actionName>InsurancePolicy.Enviar_Correo</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>0</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>FeedItem.ContentPost</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>1</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>FeedItem.PollPost</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>2</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>FeedItem.RypplePost</actionName>
-            <actionType>QuickAction</actionType>
-            <sortOrder>3</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>RenewInsurancePolicy</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>4</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>Clone</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>5</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>PrintableView</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>6</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>IssueInsurancePolicy</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>7</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>IssueEndorsedInsurancePolicy</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>8</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>Submit</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>9</sortOrder>
-        </platformActionListItems>
-        <platformActionListItems>
-            <actionName>CancelInsurancePolicy</actionName>
-            <actionType>StandardButton</actionType>
-            <sortOrder>10</sortOrder>
-        </platformActionListItems>
-    </platformActionList>
-    <relatedLists>
-        <fields>Name</fields>
-        <fields>InsurancePolicy</fields>
-        <fields>BillToContact</fields>
-        <fields>ProductSellingModel</fields>
-        <relatedList>InsPolicyBillingInformation</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>PolicyPaymentReceipt__c.insurancePolicy__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>Name</fields>
-        <fields>AssetClass</fields>
-        <fields>Price</fields>
-        <fields>PercentChange</fields>
-        <relatedList>SecuritiesHoldings</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>PaymentPlan__c.insurancePolicy__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <relatedList>InboundInsurancePayment__c.candidatePolicy__c</relatedList>
-    </relatedLists>
     <relatedLists>
         <fields>Name</fields>
         <fields>Amount</fields>
@@ -570,8 +489,6 @@
         <fields>PrimaryParticipantAccount</fields>
         <fields>Role</fields>
         <fields>RelationshipToInsured</fields>
-        <fields>IsActiveParticipant</fields>
-        <fields>BeneficiarySharePercentage</fields>
         <relatedList>InsurancePolicyParticipants</relatedList>
     </relatedLists>
     <relatedLists>
