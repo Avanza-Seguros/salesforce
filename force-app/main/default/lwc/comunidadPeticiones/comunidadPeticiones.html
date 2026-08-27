@@ -1,0 +1,150 @@
+<template>
+    <lightning-card title="Peticiones por póliza" icon-name="standard:contact_list">
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+
+            <!-- Picklist de póliza con autocompletado -->
+            <div class="slds-form-element slds-m-bottom_small lookup-wrap">
+                <label class="slds-form-element__label" for="polizaAuto">
+                    Selecciona una póliza (escribe el nombre para buscar)
+                </label>
+                <lightning-input
+                    name="polizaAuto"
+                    variant="label-hidden"
+                    placeholder="Escribe el nombre de la póliza..."
+                    value={polizaSearch}
+                    autocomplete="off"
+                    onfocus={handlePolizaFocus}
+                    onkeyup={handlePolizaInput}
+                    onblur={handlePolizaBlur}>
+                </lightning-input>
+
+                <template if:true={showPolizaDropdown}>
+                    <template if:true={hasPolizaResults}>
+                        <ul class="slds-listbox slds-listbox_vertical resultados" role="listbox">
+                            <template for:each={filteredPolizas} for:item="p">
+                                <li key={p.value} class="slds-listbox__item"
+                                    data-id={p.value} onmousedown={selectPolizaOption}>
+                                    <div class="slds-media slds-listbox__option slds-listbox__option_entity">
+                                        <span class="slds-media__body">
+                                            <span class="slds-listbox__option-text">{p.label}</span>
+                                        </span>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                    <template if:false={hasPolizaResults}>
+                        <ul class="slds-listbox slds-listbox_vertical resultados" role="listbox">
+                            <li class="slds-listbox__item">
+                                <div class="slds-p-around_x-small slds-text-color_weak">Sin coincidencias</div>
+                            </li>
+                        </ul>
+                    </template>
+                </template>
+            </div>
+
+            <!-- Cargando -->
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner>
+            </template>
+
+            <!-- Contactos -->
+            <template if:true={hasContactos}>
+                <h3 class="slds-text-heading_small slds-m-bottom_x-small">{tituloContactos}</h3>
+
+                <lightning-datatable
+                    key-field="id"
+                    data={contactosPagina}
+                    columns={columns}
+                    hide-checkbox-column
+                    onrowaction={handleRowAction}>
+                </lightning-datatable>
+
+                <!-- Controles de paginado -->
+                <div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-m-top_small" style="gap:0.75rem;">
+                    <div class="slds-col">
+                        <lightning-button-group>
+                            <lightning-button label="Anterior" icon-name="utility:chevronleft"
+                                onclick={handlePrevPage} disabled={isFirstPage}>
+                            </lightning-button>
+                            <lightning-button label="Siguiente" icon-name="utility:chevronright" icon-position="right"
+                                onclick={handleNextPage} disabled={isLastPage}>
+                            </lightning-button>
+                        </lightning-button-group>
+                    </div>
+                    <div class="slds-col slds-text-body_small slds-text-color_weak">
+                        {pageInfo}
+                    </div>
+                    <div class="slds-col slds-grow-none" style="width:8rem;">
+                        <lightning-combobox
+                            label="Por página"
+                            variant="label-inline"
+                            value={pageSizeValue}
+                            options={pageSizeOptions}
+                            onchange={handlePageSizeChange}>
+                        </lightning-combobox>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Vacío -->
+            <template if:true={sinContactos}>
+                <div class="slds-box slds-box_x-small slds-text-align_center slds-text-color_weak slds-m-top_small">
+                    Esta póliza no tiene contactos relacionados.
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+
+    <!-- Modal: crear petición -->
+    <template if:true={modalOpen}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                        title="Cerrar" onclick={closeModal}>
+                        <lightning-icon icon-name="utility:close" size="small" variant="inverse"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title slds-hyphenate">Crear petición</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-m-bottom_x-small">
+                        <strong>Contacto:</strong> {contactoNombreSel}
+                    </p>
+                    <p class="slds-m-bottom_small">
+                        <strong>Certificado:</strong> {certificadoSel}
+                    </p>
+
+                    <lightning-combobox
+                        label="Tipo de petición"
+                        value={tipo}
+                        options={tipoOptions}
+                        onchange={handleTipoChange}
+                        class="slds-m-bottom_small">
+                    </lightning-combobox>
+
+                    <lightning-input
+                        type="date"
+                        label="Fecha de nacimiento del contacto"
+                        value={fechaNacimiento}
+                        onchange={handleFechaNacChange}
+                        class="slds-m-bottom_small">
+                    </lightning-input>
+
+                    <p class="slds-text-body_small slds-text-color_weak">
+                        Fecha de la petición: {hoyTexto}
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <button class="slds-button slds-button_neutral" onclick={closeModal} disabled={isSaving}>
+                        Cancelar
+                    </button>
+                    <button class="slds-button slds-button_brand" onclick={confirmarPeticion} disabled={isSaving}>
+                        Crear petición
+                    </button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

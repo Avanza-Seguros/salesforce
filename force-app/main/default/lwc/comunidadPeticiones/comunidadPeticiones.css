@@ -1,0 +1,20 @@
+.lookup-wrap {
+    position: relative;
+}
+.resultados {
+    position: absolute;
+    z-index: 9000;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #dddbda;
+    border-radius: 0 0 0.25rem 0.25rem;
+    max-height: 16rem;
+    overflow-y: auto;
+    box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.16);
+}
+.resultados .slds-listbox__option {
+    cursor: pointer;
+}
+.resultados .slds-listbox__option:hover {
+    background-color: #f3f2f2;
+}
