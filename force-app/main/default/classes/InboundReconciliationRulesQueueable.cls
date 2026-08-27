@@ -65,6 +65,11 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(CobranzaLog.STAGE_REGLAS, inboundPaymentIds)
+		);
+
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
@@ -109,7 +114,14 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 				rec.reconciliationMethod__c = METHOD_ERROR;
 				rec.reconciliationResult__c = RESULT_MANUAL_REVIEW;
 				rec.reconciledAt__c = now;
+				CobranzaLog.error(
+						CobranzaLog.STAGE_REGLAS,
+						CobranzaLog.EVENT_RULES_EVALUATION_FAILED,
+						e
+					)
+					.onInbound(p.Id);
 			}
+			rec.pipelineStage__c = CobranzaLog.STAGE_REGLAS;
 			toUpdate.add(rec);
 		}
 
@@ -122,7 +134,15 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 		try {
 			System.enqueueJob(new InboundConfidenceScoreQueueable(allIds));
 		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_REGLAS,
+				e,
+				'InboundConfidenceScoreQueueable',
+				allIds
+			);
 		}
+
+		AppLogger.flush();
 	}
 
 	/**
@@ -215,6 +235,8 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 			return Decimal.valueOf(payment.sourceInstallmentNumber__c.trim()) ==
 				inst.sequenceNumber__c;
 		} catch (Exception e) {
+			// Numero de cuota no numerico: condicion de dato esperada, no un fallo. La
+			// advertencia ya se emitio en el eslabon de cuota candidata, una vez por pago.
 			return false;
 		}
 	}

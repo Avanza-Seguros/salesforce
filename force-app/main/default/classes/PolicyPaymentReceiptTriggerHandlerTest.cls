@@ -149,6 +149,188 @@ private class PolicyPaymentReceiptTriggerHandlerTest {
 	}
 
 	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: cuando la poliza no tiene oportunidad de origen, la decision de
+	 *               no cerrar nada queda registrada como advertencia. Sin esta traza el
+	 *               motivo es invisible: no hay ningun dato que lo explique.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void logsWarningWhenPolicyHasNoOpportunity() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = CollectionsTestDataFactory.createPolicy(
+			accountId,
+			'Cancelado'
+		);
+
+		Test.startTest();
+		insert buildReceipt(policy.Id, RECEIPT_STATUS_RECOGNIZED);
+		Test.stopTest();
+
+		List<AppLog__c> logs = [
+			SELECT severity__c, stage__c, eventCode__c, recordId__c
+			FROM AppLog__c
+		];
+		Assert.areEqual(1, logs.size(), 'Debe registrarse una unica advertencia');
+		Assert.areEqual(
+			'Advertencia',
+			logs[0].severity__c,
+			'No cerrar por falta de oportunidad es una decision de negocio, no un error'
+		);
+		Assert.areEqual(
+			CobranzaLog.EVENT_OPPORTUNITY_MISSING,
+			logs[0].eventCode__c,
+			'Debe usar el codigo de poliza sin oportunidad de origen'
+		);
+		Assert.areEqual(
+			CobranzaLog.STAGE_OPORTUNIDAD,
+			logs[0].stage__c,
+			'Debe indicar la etapa de oportunidad'
+		);
+		Assert.isNotNull(
+			logs[0].recordId__c,
+			'Debe apuntar al recibo que origino la decision'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: cuando la oportunidad esta en Closed Lost, el motivo de no
+	 *               reabrirla queda registrado como advertencia y la etapa no se toca.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void logsWarningWhenOpportunityIsClosedLost() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		Opportunity opp = createOpportunity(accountId, STAGE_POLIZA);
+		update new Opportunity(Id = opp.Id, StageName = STAGE_CLOSED_LOST);
+		InsurancePolicy policy = createPolicyLinkedToOpportunity(accountId, opp.Id);
+
+		Test.startTest();
+		insert buildReceipt(policy.Id, RECEIPT_STATUS_RECOGNIZED);
+		Test.stopTest();
+
+		List<AppLog__c> logs = [SELECT severity__c, eventCode__c FROM AppLog__c];
+		Assert.areEqual(1, logs.size(), 'Debe registrarse una unica advertencia');
+		Assert.areEqual(
+			'Advertencia',
+			logs[0].severity__c,
+			'No reabrir un negocio perdido es una decision de negocio, no un error'
+		);
+		Assert.areEqual(
+			CobranzaLog.EVENT_OPPORTUNITY_LOST,
+			logs[0].eventCode__c,
+			'Debe usar el codigo de oportunidad perdida'
+		);
+		Assert.areEqual(
+			STAGE_CLOSED_LOST,
+			[SELECT StageName FROM Opportunity WHERE Id = :opp.Id].StageName,
+			'La etapa no debe modificarse'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: el cierre exitoso NO genera registro. El resultado ya es visible
+	 *               en la propia oportunidad y registrarlo seria ruido en cada recibo.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void doesNotLogWhenOpportunityClosesSuccessfully() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		Opportunity opp = createOpportunity(accountId, STAGE_POLIZA);
+		InsurancePolicy policy = createPolicyLinkedToOpportunity(accountId, opp.Id);
+
+		Test.startTest();
+		insert buildReceipt(policy.Id, RECEIPT_STATUS_RECOGNIZED);
+		Test.stopTest();
+
+		Assert.areEqual(
+			STAGE_CLOSED_WON,
+			[SELECT StageName FROM Opportunity WHERE Id = :opp.Id].StageName,
+			'Setup: la oportunidad debe haberse cerrado'
+		);
+		Assert.areEqual(
+			0,
+			[SELECT COUNT() FROM AppLog__c],
+			'El camino exitoso no debe generar registros'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: si la actualizacion de la oportunidad falla tecnicamente, queda
+	 *               registrado como Error con el mensaje de la plataforma, y el recibo se
+	 *               crea igual: el cierre comercial no puede bloquear el cobro.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void logsErrorWhenOpportunityUpdateFails() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		Opportunity opp = createOpportunity(accountId, STAGE_POLIZA);
+		InsurancePolicy policy = createPolicyLinkedToOpportunity(accountId, opp.Id);
+		PolicyPaymentReceiptTriggerHandler.forceOpportunityFailureForTest = true;
+
+		Test.startTest();
+		insert buildReceipt(policy.Id, RECEIPT_STATUS_RECOGNIZED);
+		Test.stopTest();
+
+		List<AppLog__c> logs = [
+			SELECT severity__c, eventCode__c, message__c, stackTrace__c
+			FROM AppLog__c
+		];
+		Assert.areEqual(1, logs.size(), 'Debe registrarse un unico error');
+		Assert.areEqual(
+			'Error',
+			logs[0].severity__c,
+			'Un fallo tecnico si es un error, a diferencia de las decisiones de negocio'
+		);
+		Assert.areEqual(
+			CobranzaLog.EVENT_OPPORTUNITY_UPDATE_FAILED,
+			logs[0].eventCode__c,
+			'Debe usar el codigo de fallo al actualizar la oportunidad'
+		);
+		Assert.isTrue(
+			logs[0].message__c.contains('No se pudo cerrar la oportunidad'),
+			'El mensaje debe explicar que fallo'
+		);
+		Assert.isTrue(
+			logs[0].stackTrace__c.contains(String.valueOf(opp.Id)),
+			'El detalle debe identificar la oportunidad afectada'
+		);
+		Assert.areEqual(
+			STAGE_POLIZA,
+			[SELECT StageName FROM Opportunity WHERE Id = :opp.Id].StageName,
+			'La oportunidad debe quedar sin cambios'
+		);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM PolicyPaymentReceipt__c
+				WHERE insurancePolicy__c = :policy.Id
+			],
+			'El recibo debe crearse aunque el cierre comercial falle'
+		);
+	}
+
+	/**
 	 * @creation date: 15/06/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: CA-5: Verifica que una oportunidad en Closed Lost no se

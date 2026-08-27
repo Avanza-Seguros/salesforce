@@ -60,8 +60,17 @@ public with sharing class PaymentInstallmentMatchQueueable implements Queueable 
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(CobranzaLog.STAGE_CUOTA, receiptIds)
+		);
+
 		List<PolicyPaymentReceipt__c> receipts = [
-			SELECT Id, receiptAmount__c, paymentPlanInstallment__c
+			SELECT
+				Id,
+				receiptAmount__c,
+				paymentPlanInstallment__c,
+				sourceInboundPayment__c
 			FROM PolicyPaymentReceipt__c
 			WHERE Id IN :receiptIds AND paymentPlanInstallment__c != NULL
 		];
@@ -117,14 +126,32 @@ public with sharing class PaymentInstallmentMatchQueueable implements Queueable 
 				updatesById.put(inst.Id, upd);
 				claimedInstallments.add(inst.Id);
 			} catch (Exception e) {
+				CobranzaLog.error(
+						CobranzaLog.STAGE_CUOTA,
+						CobranzaLog.EVENT_INSTALLMENT_MATCH_FAILED,
+						e
+					)
+					.onRecord(receipt.Id)
+					.onInbound(receipt.sourceInboundPayment__c);
 			}
 		}
 
+		Set<Id> stampedInboundIds = new Set<Id>();
+		for (PolicyPaymentReceipt__c receipt : receipts) {
+			if (receipt.sourceInboundPayment__c != null) {
+				stampedInboundIds.add(receipt.sourceInboundPayment__c);
+			}
+		}
+		CobranzaLog.markStage(stampedInboundIds, CobranzaLog.STAGE_CUOTA);
+
 		if (updatesById.isEmpty()) {
+			AppLogger.flush();
 			return;
 		}
 
 		update updatesById.values();
+
+		AppLogger.flush();
 	}
 
 	/**

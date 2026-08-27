@@ -762,6 +762,184 @@ private class InboundInsurancePaymentRestResourceTest {
 		Assert.areEqual('Rechazado', inboundPayment.inboundStatus__c);
 	}
 
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: si la integracion reenvia un pago YA CONCILIADO con un importe o
+	 *               una fecha distintos a los conciliados, queda constancia. Es la senal de
+	 *               que lo conciliado dejo de coincidir con lo que informa la aseguradora.
+	 */
+	@IsTest
+	static void logsInfoWhenReconciledPaymentIsResentWithChanges() {
+		insert new InboundInsurancePayment__c(
+			externalPaymentId__c = 'AXA_7001',
+			inboundStatus__c = 'Conciliado',
+			sourceAmount__c = 1000.00,
+			sourcePaymentDate__c = Date.newInstance(2026, 4, 24),
+			sourcePolicyNumber__c = 'POL-RESENT-001',
+			sourceSystem__c = 'MuleSoft',
+			receivedAt__c = System.now()
+		);
+
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-RESENT-001",' +
+				'"sourceAmount__c":1250.00,' +
+				'"sourcePaymentDate__c":"24/04/2026",' +
+				'"sourceCarrierCode__c":"AXA",' +
+				'"sourceReceiptNumber__c":"7001"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		List<AppLog__c> logs = [
+			SELECT severity__c, eventCode__c, message__c, inboundPayment__c
+			FROM AppLog__c
+			WHERE eventCode__c = :CobranzaLog.EVENT_INBOUND_RESENT_CHANGED
+		];
+		Assert.areEqual(
+			1,
+			logs.size(),
+			'Debe registrarse un unico aviso de reenvio'
+		);
+		Assert.areEqual(
+			'Informacion',
+			logs[0].severity__c,
+			'Un reenvio con cambios se informa, no es un error del motor'
+		);
+		Assert.areEqual(
+			CobranzaLog.EVENT_INBOUND_RESENT_CHANGED,
+			logs[0].eventCode__c,
+			'Debe usar el codigo de reenvio con cambios'
+		);
+		Assert.isTrue(
+			logs[0].message__c.contains('importe'),
+			'El mensaje debe indicar que dato cambio'
+		);
+		Assert.isNotNull(
+			logs[0].inboundPayment__c,
+			'Debe quedar visible desde el pago afectado'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: el reenvio rutinario de un pago sin cambios NO genera registro.
+	 *               La integracion reenvia el historico constantemente y registrarlo
+	 *               inundaria el objeto sin aportar nada.
+	 */
+	@IsTest
+	static void doesNotLogWhenReconciledPaymentIsResentWithoutChanges() {
+		insert new InboundInsurancePayment__c(
+			externalPaymentId__c = 'AXA_7002',
+			inboundStatus__c = 'Conciliado',
+			sourceAmount__c = 1000.00,
+			sourcePaymentDate__c = Date.newInstance(2026, 4, 24),
+			sourcePolicyNumber__c = 'POL-RESENT-002',
+			sourceSystem__c = 'MuleSoft',
+			receivedAt__c = System.now()
+		);
+
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-RESENT-002",' +
+				'"sourceAmount__c":1000.00,' +
+				'"sourcePaymentDate__c":"24/04/2026",' +
+				'"sourceCarrierCode__c":"AXA",' +
+				'"sourceReceiptNumber__c":"7002"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			0,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_INBOUND_RESENT_CHANGED
+			],
+			'Un reenvio sin cambios no debe generar ruido en el registro'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: todo pago recibido queda sellado en la primera etapa del
+	 *               pipeline, que es lo que permite listar despues los pagos detenidos.
+	 *               Se usa un pago SIN fecha de pago porque queda en 'Pendiente de Pago' y
+	 *               no entra al pipeline: asi la etapa se puede observar en Recepcion. Un
+	 *               pago con fecha avanzaria a Normalizacion al ejecutarse el primer
+	 *               eslabon, que es justamente lo que verifica el caso siguiente.
+	 */
+	@IsTest
+	static void stampsReceptionStageOnReceivedPayment() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-STAGE-001",' +
+				'"sourceAmount__c":300.00,' +
+				'"sourceCarrierCode__c":"AXA",' +
+				'"sourceReceiptNumber__c":"8001"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			CobranzaLog.STAGE_RECEPCION,
+			[
+				SELECT pipelineStage__c
+				FROM InboundInsurancePayment__c
+				WHERE externalPaymentId__c = 'AXA_8001'
+			]
+			.pipelineStage__c,
+			'El pago debe quedar sellado en la etapa de recepcion'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: un pago que entra al pipeline avanza la etapa alcanzada. Es lo
+	 *               que permite distinguir despues hasta donde llego cada pago.
+	 */
+	@IsTest
+	static void advancesStageWhenPaymentEntersPipeline() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"sourcePolicyNumber__c":"POL-STAGE-002",' +
+				'"sourceAmount__c":300.00,' +
+				'"sourcePaymentDate__c":"24/04/2026",' +
+				'"sourceCarrierCode__c":"AXA",' +
+				'"sourceReceiptNumber__c":"8002"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			CobranzaLog.STAGE_NORMALIZACION,
+			[
+				SELECT pipelineStage__c
+				FROM InboundInsurancePayment__c
+				WHERE externalPaymentId__c = 'AXA_8002'
+			]
+			.pipelineStage__c,
+			'Tras ejecutarse el primer eslabon la etapa debe haber avanzado'
+		);
+	}
+
 	private static void invokeEndpoint(String requestBody) {
 		RestRequest request = new RestRequest();
 		request.requestUri = '/services/apexrest/collections/v1/inbound-payments';

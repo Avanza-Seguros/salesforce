@@ -26,6 +26,8 @@
         <members>PaymentReconciliationManualService</members>
         <members>PaymentReconciliationManualServiceTest</members>
         <members>PolicyInstallmentsController</members>
+        <members>PolicyPaymentReceiptReversalService</members>
+        <members>PolicyPaymentReceiptReversalServiceTest</members>
         <members>PolicyInstallmentsControllerTest</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
@@ -183,7 +185,15 @@
         <members>PolicyPaymentReceipt__c.receiptDate__c</members>
         <members>PolicyPaymentReceipt__c.receiptNumber__c</members>
         <members>PolicyPaymentReceipt__c.receiptStatus__c</members>
+        <members>PolicyPaymentReceipt__c.reversalNotes__c</members>
+        <members>PolicyPaymentReceipt__c.reversalReason__c</members>
+        <members>PolicyPaymentReceipt__c.reversedAt__c</members>
+        <members>PolicyPaymentReceipt__c.reversedBy__c</members>
         <members>PolicyPaymentReceipt__c.sourceInboundPayment__c</members>
+        <members>Opportunity.collectionReversalReason__c</members>
+        <members>Opportunity.collectionReversedFlag__c</members>
+        <members>Opportunity.collectionReversedOn__c</members>
+        <members>Opportunity.collectionReversedReceipt__c</members>
         <members>InsurancePolicy.collectionPaymentStatus__c</members>
         <members>InsurancePolicy.collectionNextDueDate__c</members>
         <name>CustomField</name>
@@ -212,12 +222,14 @@
         <members>reconciliationManualReject</members>
         <members>reconciliationManualReprocess</members>
         <members>policyInstallments</members>
+        <members>policyPaymentReceiptReverse</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
         <members>PaymentReconciliation__c.Aprobar_manualmente</members>
         <members>PaymentReconciliation__c.Rechazar_manualmente</members>
         <members>PaymentReconciliation__c.Reprocesar</members>
+        <members>PolicyPaymentReceipt__c.Reversar_recibo</members>
         <name>QuickAction</name>
     </types>
     <types>
@@ -238,6 +250,7 @@
         <members>AppLog__c.Errores_Ultimos_7_Dias</members>
         <members>InboundInsurancePayment__c.En_Revision_Manual</members>
         <members>InboundInsurancePayment__c.Pagos_Detenidos</members>
+        <members>Opportunity.Oportunidades_Con_Cobro_Reversado</members>
         <members>InboundInsurancePayment__c.Sin_Match</members>
         <members>PaymentReconciliation__c.En_Revision_Manual</members>
         <members>PaymentReconciliation__c.Pendientes_Operativos</members>
@@ -254,6 +267,9 @@
     </types>
     <types>
         <members>InsurancePolicy.PremiumFieldsRequired</members>
+        <members>PolicyPaymentReceipt__c.ReversalIsTerminal</members>
+        <members
+		>PolicyPaymentReceipt__c.ReversalRequiresReasonAndNotes</members>
         <name>ValidationRule</name>
     </types>
     <types>

@@ -54,6 +54,14 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(
+				CobranzaLog.STAGE_POLIZA_CANDIDATA,
+				inboundPaymentIds
+			)
+		);
+
 		List<InboundInsurancePayment__c> payments = [
 			SELECT Id, sourcePolicyNumber__c
 			FROM InboundInsurancePayment__c
@@ -89,7 +97,14 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 				);
 			} catch (Exception e) {
 				rec.candidatePolicy__c = null;
+				CobranzaLog.error(
+						CobranzaLog.STAGE_POLIZA_CANDIDATA,
+						CobranzaLog.EVENT_POLICY_MATCH_FAILED,
+						e
+					)
+					.onInbound(p.Id);
 			}
+			rec.pipelineStage__c = CobranzaLog.STAGE_POLIZA_CANDIDATA;
 			toUpdate.add(rec);
 		}
 
@@ -102,7 +117,15 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 		try {
 			System.enqueueJob(new InboundInstallmentCandidateQueueable(allIds));
 		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_POLIZA_CANDIDATA,
+				e,
+				'InboundInstallmentCandidateQueueable',
+				allIds
+			);
 		}
+
+		AppLogger.flush();
 	}
 
 	/**

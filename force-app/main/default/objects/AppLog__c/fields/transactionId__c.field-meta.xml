@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>transactionId__c</fullName>
+    <description
+	>Identificador de la petición que originó el evento. Todos los registros generados durante una misma ejecución lo comparten, de modo que filtrando por él se recupera lo que pasó en esa corrida completa.</description>
+    <label>Id de transacción</label>
+    <length>36</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

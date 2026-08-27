@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>collectionReversedReceipt__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description
+	>Recibo cuya reversa dejo a la poliza sin cobros validos, para poder abrir el caso y ver que paso sin buscarlo.</description>
+    <label>Recibo reversado</label>
+    <referenceTo>PolicyPaymentReceipt__c</referenceTo>
+    <relationshipLabel>Oportunidades señaladas</relationshipLabel>
+    <relationshipName>SignaledOpportunities</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

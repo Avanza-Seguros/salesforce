@@ -80,6 +80,14 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(
+				CobranzaLog.STAGE_CUOTA_CANDIDATA,
+				inboundPaymentIds
+			)
+		);
+
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
@@ -112,6 +120,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			InboundInsurancePayment__c rec = new InboundInsurancePayment__c(
 				Id = p.Id
 			);
+			warnIfInstallmentNumberNotNumeric(p);
 			try {
 				if (forceFailureForTest) {
 					throw new InstallmentMatchException('Forced failure for test');
@@ -125,7 +134,14 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			} catch (Exception e) {
 				rec.candidateInstallment__c = null;
 				rec.installmentMatchReason__c = null;
+				CobranzaLog.error(
+						CobranzaLog.STAGE_CUOTA_CANDIDATA,
+						CobranzaLog.EVENT_INSTALLMENT_CANDIDATE_FAILED,
+						e
+					)
+					.onInbound(p.Id);
 			}
+			rec.pipelineStage__c = CobranzaLog.STAGE_CUOTA_CANDIDATA;
 			toUpdate.add(rec);
 		}
 
@@ -138,6 +154,46 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		try {
 			System.enqueueJob(new InboundReconciliationRulesQueueable(allIds));
 		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_CUOTA_CANDIDATA,
+				e,
+				'InboundReconciliationRulesQueueable',
+				allIds
+			);
+		}
+
+		AppLogger.flush();
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Deja una advertencia cuando la aseguradora envio un numero de cuota que
+	 *               no es numerico. No es un fallo del motor sino calidad de dato de origen,
+	 *               pero importa: la secuencia exacta es la senal de mayor peso del scoring
+	 *               (+6 puntos), asi que sin ella el pago tiene mucha mas chance de caer a
+	 *               revision manual. Se evalua una vez por pago y no dentro del scoring,
+	 *               que corre una vez por cada cuota candidata y generaria ruido.
+	 * @param payment: Pago inbound a evaluar.
+	 * @return
+	 */
+	private static void warnIfInstallmentNumberNotNumeric(
+		InboundInsurancePayment__c payment
+	) {
+		if (String.isBlank(payment.sourceInstallmentNumber__c)) {
+			return;
+		}
+		try {
+			Decimal.valueOf(payment.sourceInstallmentNumber__c.trim());
+		} catch (Exception e) {
+			CobranzaLog.warn(
+					CobranzaLog.STAGE_CUOTA_CANDIDATA,
+					CobranzaLog.EVENT_INSTALLMENT_NUMBER_NOT_NUMERIC,
+					'El número de cuota recibido no es numérico ("' +
+						payment.sourceInstallmentNumber__c +
+						'"): el matching pierde la señal de secuencia exacta.'
+				)
+				.onInbound(payment.Id);
 		}
 	}
 
@@ -277,6 +333,10 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 					score += SCORE_SEQUENCE_EXACT;
 				}
 			} catch (Exception e) {
+				// Numero de cuota no numerico: condicion de dato esperada, no un fallo. Se
+				// omiten los puntos de secuencia. La traza se emite una unica vez por pago
+				// en warnIfInstallmentNumberNotNumeric; registrarla aca la repetiria por
+				// cada cuota candidata evaluada.
 			}
 		}
 
