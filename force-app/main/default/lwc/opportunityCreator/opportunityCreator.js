@@ -3331,9 +3331,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasAgenteResults() {
         return this.agenteResults && this.agenteResults.length > 0;
     }
+    
     handleAgenteFocus() {
         this.showAgenteDropdown = true;
     }
+
     handleAgenteInput(event) {
         const value = event.target.value;
         this.opportunity = { ...this.opportunity, AgenteName: value, Agente__c: null };
@@ -3351,6 +3353,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
         }, 300);
     }
+
     selectAgente(event) {
         const id = event.currentTarget.dataset.id;
         const ag = (this.agenteResults || []).find(a => a.Id === id);
@@ -3406,13 +3409,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.comparativoHtml = '';
         this._comparativoDirty = true;
     }
+
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
+
     addMoreQuotes() {
         const uploader = this.template.querySelector('c-cotizacion-op-lector');
         if (uploader && typeof uploader.openFilePicker === 'function') uploader.openFilePicker();
     }
+
     toggleQuoteExpand(event) {
         event.preventDefault(); event.stopPropagation();
         const quoteId = event.currentTarget.dataset.quoteId;
@@ -3427,6 +3433,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             };
         });
     }
+
     removeQuote(event) {
         const quoteId = event.currentTarget.dataset.quoteId;
         if (!quoteId) return;
