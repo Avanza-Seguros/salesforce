@@ -3,11 +3,8 @@
     <fullName>Todas_las_Oportunidades_AG</fullName>
     <columns>OPPORTUNITY.NAME</columns>
     <columns>ACCOUNT.NAME</columns>
-<<<<<<< HEAD
     <columns>Agente__c</columns>
-=======
     <columns>Agente_Relacionado__c</columns>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
     <columns>Ramo__c</columns>
     <columns>Correo__c</columns>
     <columns>Nomeclatura__c</columns>

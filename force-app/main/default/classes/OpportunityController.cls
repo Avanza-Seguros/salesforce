@@ -59,6 +59,7 @@ public with sharing class OpportunityController {
 			wrapper.opportunity = [
                 SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
                     Ramo__c, CloseDate, Amount, Prima_Total__c, Prima_Neta__c,
+                    Tipo_Contratacion__c,
                     AccountId, Account.Name, Description, Descripcion__c,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
                     Contacto__c, Contacto__r.Name,
@@ -606,6 +607,10 @@ public with sharing class OpportunityController {
 		opp.Type = getStr(d, 'Type');   // ← tomar el Tipo del formulario (antes no se guardaba)
 		if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
 		if (String.isBlank(opp.Type))      { opp.Type = 'New_Business'; }
+
+		// Individual / Colectiva (marca de oportunidad con varios asegurados).
+		String tipoContr = getStr(d, 'Tipo_Contratacion__c');
+		if (String.isNotBlank(tipoContr)) { opp.Tipo_Contratacion__c = tipoContr; }
 
 		// Agente (lookup a Agente_Relacionado__c)
 		String agenteId = getStr(d, 'Agente_Relacionado__c');

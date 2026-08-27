@@ -29,6 +29,9 @@ import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCot
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 import prepararCotizaciones from '@salesforce/apex/PdfOpportunityCreatorController.prepararCotizaciones';
 import getProductosPorAseguradoraRamo from '@salesforce/apex/PdfOpportunityCreatorController.getProductosPorAseguradoraRamo';
+import getAsegurados from '@salesforce/apex/AseguradosController.getAsegurados';
+import guardarAsegurados from '@salesforce/apex/AseguradosController.guardarAsegurados';
+import eliminarAsegurado from '@salesforce/apex/AseguradosController.eliminarAsegurado';
 
 // ============================================================
 // CONSTANTES
@@ -104,6 +107,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track rc = this.getDefaultRC();
     @track dental = this.getDefaultDental();
     @track vision = this.getDefaultVision();
+    @track transporte = this.getDefaultTransporte();
     @track uploadedQuotes = [];
     // Comparativo HTML tal cual lo regresa la IA (Prompt Builder).
     // Se renderiza en un iframe vía blob URL (srcdoc no está permitido en LWC).
@@ -163,6 +167,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track archivosList = [];
     @track archivosLoading = false;
     @track archivosOppName = '';
+    // Modal del Flow "Enviar Correo Oportunidad".
+    @track correoFlowOpen = false;
+
+    // ===== Colectivas: asegurados del grupo (Rol de Contacto de Oportunidad) =====
+    @track asegurados = [];
+    correoFlowOppId = null;
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
     // directamente dentro de la sección de comparativa.)
@@ -963,6 +973,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
 
             this.populateFormFromOpportunity(opportunityData, id);
+            // Colectiva: trae los asegurados del grupo para mostrarlos/editarlos.
+            if (opportunityData.Tipo_Contratacion__c === 'Colectiva') {
+                await this.cargarAsegurados(id);
+            }
             this.relatedQuotes = Array.isArray(quotesData)
                 ? quotesData.map(q => this.mapRelatedQuote(q, coverageCounts, coverageNamesByQuote))
                 : [];
@@ -970,10 +984,28 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(':::OpportunityCreator::: Error al cargar oportunidad para edición', e);
-            this.showToast('Error', 'No se pudo cargar la oportunidad para edición', 'error');
+            const detalle = this.extraerMensajeError(e);
+            this.showToast('Error', 'No se pudo cargar la oportunidad para edición: ' + detalle, 'error');
         } finally {
             this.isLoading = false;
         }
+    }
+    // Arma un mensaje legible desde distintos formatos de error (Apex, JS, page errors).
+    extraerMensajeError(e) {
+        if (!e) { return 'Error desconocido'; }
+        if (e.body) {
+            const b = e.body;
+            if (typeof b.message === 'string' && b.message) { return b.message; }
+            if (Array.isArray(b.pageErrors) && b.pageErrors.length) { return b.pageErrors[0].message; }
+            if (b.fieldErrors) {
+                const first = Object.values(b.fieldErrors)[0];
+                if (Array.isArray(first) && first.length) { return first[0].message; }
+            }
+            if (Array.isArray(b) && b.length && b[0].message) { return b[0].message; }
+            if (typeof b === 'string') { return b; }
+        }
+        if (e.message) { return e.message; }
+        try { return JSON.stringify(e); } catch (err) { return String(e); }
     }
     populateFormFromOpportunity(detail, id) {
         this.opportunity = {
@@ -984,6 +1016,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Type:        detail.Type        || OPPORTUNITY_TYPES.NEW_BUSINESS,
             Canal__c:    detail.Canal__c    || '',
             Mercado__c:  detail.Mercado__c  || '',
+            Tipo_Contratacion__c: detail.Tipo_Contratacion__c || 'Individual',
             Ramo__c:     detail.Ramo__c     || '',
             Description: detail.Description || '',
             AccountId:   detail.AccountId   || null,
@@ -1212,6 +1245,303 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.showToast('Error', 'No se pudo pasar a Póliza: ' + msg, 'error');
         }
     }
+    // ============================================================
+    // ENVIAR CORREO (Flow "Enviar Correo Oportunidad")
+    // Solo disponible cuando la oportunidad está en etapa "Póliza".
+    // ============================================================
+    // El botón del pie del formulario se muestra si la oportunidad abierta está en Póliza.
+    get isEtapaPoliza() {
+        return this.isPolizaStage(this.opportunity?.StageName) && !!this.opportunity?.Id;
+    }
+    // Variable de entrada del Flow: el Id de la oportunidad como recordId.
+    get correoFlowInputs() {
+        return [{ name: 'recordId', type: 'String', value: this.correoFlowOppId }];
+    }
+    // Abre el modal con el Flow. Toma el Id del botón (lista) o de la oportunidad abierta.
+    handleEnviarCorreo(event) {
+        const id = (event && event.currentTarget && event.currentTarget.dataset.id) || this.opportunity?.Id;
+        if (!id) {
+            this.showToast('Aviso', 'No se encontró la oportunidad para enviar el correo.', 'warning');
+            return;
+        }
+        this.correoFlowOppId = id;
+        this.correoFlowOpen = true;
+    }
+    closeCorreoFlow() {
+        this.correoFlowOpen = false;
+        this.correoFlowOppId = null;
+    }
+    // Cierra el modal cuando el Flow termina.
+    handleCorreoFlowStatus(event) {
+        const status = event && event.detail ? event.detail.status : '';
+        if (status === 'FINISHED' || status === 'FINISHED_SCREEN') {
+            this.correoFlowOpen = false;
+            this.correoFlowOppId = null;
+            this.showToast('Correo', 'El correo se envió correctamente.', 'success');
+        }
+    }
+
+    // ============================================================
+    // ASEGURADOS (oportunidad COLECTIVA)
+    // ============================================================
+    get isColectiva() {
+        return this.opportunity && this.opportunity.Tipo_Contratacion__c === 'Colectiva';
+    }
+    get tipoContratacionOptions() {
+        return [
+            { label: 'Individual', value: 'Individual' },
+            { label: 'Colectiva', value: 'Colectiva' }
+        ];
+    }
+    get parentescoOptions() {
+        return [
+            { label: 'Contratante', value: 'Contratante' },
+            { label: 'Asegurado titular', value: 'Asegurado titular' },
+            { label: 'Cónyuge', value: 'Conyuge' },
+            { label: 'Hijo(a)', value: 'Hijo' },
+            { label: 'Padre o Madre', value: 'Padre o Madre' },
+            { label: 'Empleado', value: 'Empleado' },
+            { label: 'Otro', value: 'Otro' }
+        ];
+    }
+    get hasAsegurados() { return this.asegurados && this.asegurados.length > 0; }
+    // Lista con número de fila para la tabla.
+    get aseguradosView() {
+        return (this.asegurados || []).map((a, i) => ({ ...a, displayNum: i + 1 }));
+    }
+    get aseguradosCount() { return this.asegurados ? this.asegurados.length : 0; }
+    get aseguradosBadge() {
+        const n = this.aseguradosCount;
+        return `${n} asegurado${n === 1 ? '' : 's'}`;
+    }
+    // Payload al Apex (contrato de guardarAsegurados).
+    get aseguradosPayload() {
+        return (this.asegurados || []).map(a => ({
+            contactId: a.contactId || null,
+            nombreCompleto: a.nombre || '',
+            parentesco: a.parentesco || '',
+            fechaNacimiento: a.fechaNacimiento || '',
+            edad: (a.edad === '' || a.edad === undefined) ? null : a.edad,
+            rfc: a.rfc || '',
+            email: a.email || '',
+            telefono: a.telefono || ''
+        }));
+    }
+    // Cambia Individual/Colectiva. Al pasar a Colectiva en una oportunidad ya
+    // guardada, trae los asegurados existentes.
+    handleTipoContratacionChange(event) {
+        const value = event.detail.value;
+        this.opportunity = { ...this.opportunity, Tipo_Contratacion__c: value };
+        if (value === 'Colectiva' && this.opportunity.Id) {
+            this.cargarAsegurados(this.opportunity.Id);
+        }
+    }
+    async cargarAsegurados(oppId) {
+        if (!oppId) { return; }
+        try {
+            const res = await getAsegurados({ opportunityId: oppId });
+            this.asegurados = (res || []).map((a, i) => this.decorarAsegurado(a, i));
+        } catch (e) {
+            this.asegurados = [];
+        }
+    }
+    decorarAsegurado(a, i) {
+        a = a || {};
+        let edad = (a.edad !== undefined && a.edad !== null) ? a.edad : '';
+        if ((edad === '' || edad === null) && a.fechaNacimiento) {
+            edad = this.calcularEdad(a.fechaNacimiento);
+        }
+        return {
+            key: a.ocrId || ('nuevo-' + i + '-' + Date.now()),
+            ocrId: a.ocrId || null,
+            contactId: a.contactId || null,
+            nombre: a.nombre || '',
+            parentesco: a.parentesco || 'Asegurado titular',
+            fechaNacimiento: a.fechaNacimiento || '',
+            edad,
+            email: a.email || '',
+            telefono: a.telefono || '',
+            rfc: a.rfc || ''
+        };
+    }
+    calcularEdad(fechaStr) {
+        const d = this.parseSafeDate(fechaStr);
+        if (!d) { return ''; }
+        const hoy = new Date();
+        let e = hoy.getFullYear() - d.getFullYear();
+        const m = hoy.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && hoy.getDate() < d.getDate())) { e--; }
+        return e >= 0 ? e : '';
+    }
+    handleAgregarAsegurado() {
+        this.asegurados = [
+            ...this.asegurados,
+            this.decorarAsegurado({ parentesco: 'Asegurado titular' }, this.asegurados.length)
+        ];
+    }
+    handleAseguradoChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const field = event.target.dataset.field;
+        if (isNaN(idx) || !field) { return; }
+        const value = (event.detail && event.detail.value !== undefined)
+            ? event.detail.value : event.target.value;
+        this.asegurados = this.asegurados.map((a, i) => {
+            if (i !== idx) { return a; }
+            const upd = { ...a, [field]: value };
+            if (field === 'fechaNacimiento') { upd.edad = this.calcularEdad(value); }
+            return upd;
+        });
+    }
+    async handleQuitarAsegurado(event) {
+        const idx = parseInt(event.currentTarget.dataset.index, 10);
+        if (isNaN(idx)) { return; }
+        const a = this.asegurados[idx];
+        if (a && a.ocrId) {
+            try { await eliminarAsegurado({ ocrId: a.ocrId }); }
+            catch (e) { /* si falla el borrado remoto, igual lo quitamos de la lista */ }
+        }
+        this.asegurados = this.asegurados.filter((_, i) => i !== idx);
+    }
+    // Descarga una plantilla CSV con las columnas esperadas.
+    descargarPlantillaAsegurados() {
+        const header = 'Nombre,ApellidoPaterno,ApellidoMaterno,Parentesco,FechaNacimiento,Edad,RFC,Email,Telefono';
+        const ej1 = 'Juan,Perez,Lopez,Asegurado titular,1985-03-14,,PELJ850314AB1,juan.perez@correo.com,5512345678';
+        const ej2 = 'Maria,Perez,Sosa,Conyuge,1988-07-02,,,maria.perez@correo.com,5512345679';
+        const csv = [header, ej1, ej2].join('\n') + '\n';
+        try {
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'plantilla_asegurados.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            this.showToast('Descarga', 'No se pudo generar la plantilla en este navegador.', 'warning');
+        }
+    }
+    // Carga masiva del censo (CSV).
+    handleCensoFile(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) { return; }
+        const nombre = (file.name || '').toLowerCase();
+        if (!nombre.endsWith('.csv')) {
+            this.showToast('Formato',
+                'Por ahora el censo se sube en CSV. En Excel: Archivo → Guardar como → CSV (delimitado por comas).',
+                'warning');
+            event.target.value = null;
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const filas = this.parseCensoCsv(reader.result);
+                if (!filas.length) {
+                    this.showToast('Censo', 'No se encontraron asegurados en el archivo.', 'warning');
+                    return;
+                }
+                const base = this.asegurados.length;
+                const nuevos = filas.map((f, i) => this.decorarAsegurado(f, base + i));
+                this.asegurados = [...this.asegurados, ...nuevos];
+                this.showToast('Censo cargado',
+                    `Se agregaron ${nuevos.length} asegurado(s). Revísalos y guarda la oportunidad.`, 'success');
+            } catch (e) {
+                this.showToast('Error', 'No se pudo leer el censo: ' + (e.message || e), 'error');
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+        event.target.value = null;
+    }
+    // Parser CSV tolerante (comillas, delimitador , o ;) -> filas normalizadas.
+    parseCensoCsv(text) {
+        if (!text) { return []; }
+        const clean = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = clean.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length < 2) { return []; }
+        const delim = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+        const parseLine = (line) => {
+            const out = [];
+            let cur = '';
+            let inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+                    else { inQ = !inQ; }
+                } else if (ch === delim && !inQ) {
+                    out.push(cur); cur = '';
+                } else { cur += ch; }
+            }
+            out.push(cur);
+            return out.map(v => v.trim());
+        };
+        const norm = (s) => (s || '').toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+        const headers = parseLine(lines[0]).map(norm);
+        const idx = (claves) => {
+            for (const c of claves) {
+                const i = headers.indexOf(c);
+                if (i >= 0) { return i; }
+            }
+            return -1;
+        };
+        const iNombre  = idx(['nombre', 'nombres']);
+        const iPat     = idx(['apellidopaterno', 'paterno']);
+        const iMat     = idx(['apellidomaterno', 'materno']);
+        const iComp    = idx(['nombrecompleto', 'nombreapellidos']);
+        const iParent  = idx(['parentesco', 'relacion']);
+        const iFecha   = idx(['fechanacimiento', 'fechadenacimiento', 'fechanac', 'fecha']);
+        const iEdad    = idx(['edad']);
+        const iRfc     = idx(['rfc']);
+        const iEmail   = idx(['email', 'correo', 'correoelectronico']);
+        const iTel     = idx(['telefono', 'tel', 'celular']);
+        const get = (arr, i) => (i >= 0 && i < arr.length) ? arr[i] : '';
+        const filas = [];
+        for (let r = 1; r < lines.length; r++) {
+            const cols = parseLine(lines[r]);
+            const partes = [get(cols, iNombre), get(cols, iPat), get(cols, iMat)].filter(Boolean);
+            const nombre = get(cols, iComp) || partes.join(' ').trim();
+            if (!nombre) { continue; }
+            filas.push({
+                nombre,
+                parentesco: this.normalizarParentesco(get(cols, iParent)),
+                fechaNacimiento: this.normalizarFecha(get(cols, iFecha)),
+                edad: get(cols, iEdad),
+                rfc: get(cols, iRfc),
+                email: get(cols, iEmail),
+                telefono: get(cols, iTel)
+            });
+        }
+        return filas;
+    }
+    normalizarParentesco(v) {
+        const s = (v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (!s) { return 'Asegurado titular'; }
+        if (s.includes('contrat')) { return 'Contratante'; }
+        if (s.includes('titular')) { return 'Asegurado titular'; }
+        if (s.includes('conyug') || s.includes('esposo') || s.includes('esposa')) { return 'Conyuge'; }
+        if (s.includes('hij')) { return 'Hijo'; }
+        if (s.includes('padre') || s.includes('madre')) { return 'Padre o Madre'; }
+        if (s.includes('emplead')) { return 'Empleado'; }
+        return 'Otro';
+    }
+    // Deja la fecha en formato yyyy-mm-dd para el input date.
+    normalizarFecha(v) {
+        if (!v) { return ''; }
+        const s = v.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s; }
+        const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+        if (m) {
+            let y = parseInt(m[3], 10);
+            if (y < 100) { y += 1900; }
+            const mo = String(parseInt(m[2], 10)).padStart(2, '0');
+            const d = String(parseInt(m[1], 10)).padStart(2, '0');
+            return `${y}-${mo}-${d}`;
+        }
+        return '';
+    }
+
     handleEditRelatedQuote(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) return;
@@ -2556,6 +2886,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             if (savedId) {
                 this.opportunity = { ...this.opportunity, Id: savedId };
+                // Colectiva: guarda/actualiza los asegurados del grupo.
+                if (this.isColectiva && this.asegurados.length) {
+                    try {
+                        await guardarAsegurados({
+                            opportunityId: savedId,
+                            aseguradosJson: JSON.stringify(this.aseguradosPayload)
+                        });
+                        await this.cargarAsegurados(savedId);
+                    } catch (e) {
+                        const m = (e && e.body && e.body.message) || (e && e.message) || '';
+                        this.showToast('Asegurados',
+                            'La oportunidad se guardó, pero hubo un problema con algunos asegurados: ' + m, 'warning');
+                    }
+                }
             }
             this.showToast('Éxito',
                 this.isEditMode ? 'Oportunidad actualizada correctamente' : 'Oportunidad creada correctamente',
@@ -2590,6 +2934,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             StageName: 'Gestion Comercial',
             Canal__c: 'Agente',                               // ← default
             Mercado__c: 'Corporativo',                        // ← default
+            Tipo_Contratacion__c: 'Individual',               // ← Individual / Colectiva
             Ramo__c: '', Description: '', AccountId: null, AccountName: '',
             Agente__c: null, AgenteName: '',                  // ← nuevo lookup de Agente
             Vehiculo__c: null, VehiculoName: '',
@@ -2628,6 +2973,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     getDefaultRC()          { return { tipoRC: '', profesion: '', actividad: '', giro: '' }; }
     getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '' }; }
     getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '' }; }
+    getDefaultTransporte()  { return { bienesCubiertos: '', medioTransporte: '', origen: '', destino: '', limiteEmbarque: '' }; }
     handleBackToList() {
         this.viewMode = VIEW_MODES.LIST;
         this.resetWizard();
@@ -3041,6 +3387,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.rc = this.getDefaultRC();
         this.dental = this.getDefaultDental();
         this.vision = this.getDefaultVision();
+        this.transporte = this.getDefaultTransporte();
+        this.asegurados = [];
         this.uploadedQuotes = [];
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;

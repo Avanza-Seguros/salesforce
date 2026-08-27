@@ -955,9 +955,6 @@
     <picklistValues>
         <picklist>Ramo__c</picklist>
         <values>
-<<<<<<< HEAD
-            <fullName>Automoviles</fullName>
-=======
             <fullName>Accidentes Personales</fullName>
             <default>false</default>
         </values>
@@ -975,7 +972,6 @@
         </values>
         <values>
             <fullName>Construcción</fullName>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <default>false</default>
         </values>
         <values>
@@ -987,13 +983,10 @@
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Embarcaciones</fullName>
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Empresarial</fullName>
             <default>false</default>
         </values>
@@ -1003,8 +996,6 @@
         </values>
         <values>
             <fullName>GMM</fullName>
-<<<<<<< HEAD
-=======
             <default>false</default>
         </values>
         <values>
@@ -1017,7 +1008,6 @@
         </values>
         <values>
             <fullName>Profesionistas</fullName>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <default>false</default>
         </values>
         <values>
@@ -1025,13 +1015,10 @@
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Viajes</fullName>
             <default>false</default>
         </values>

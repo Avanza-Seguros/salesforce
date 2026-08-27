@@ -26,8 +26,6 @@
     <picklistValues>
         <picklist>Ramos__c</picklist>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Accidentes Personales</fullName>
             <default>false</default>
         </values>
@@ -40,18 +38,14 @@
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Automoviles</fullName>
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Danos</fullName>
             <default>false</default>
         </values>
@@ -60,13 +54,10 @@
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Embarcaciones</fullName>
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Empresarial</fullName>
             <default>false</default>
         </values>
@@ -79,8 +70,6 @@
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Hogar</fullName>
             <default>false</default>
         </values>
@@ -93,18 +82,14 @@
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>RC</fullName>
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Viajes</fullName>
             <default>false</default>
         </values>
@@ -130,8 +115,6 @@
         <values>
             <fullName>In Review</fullName>
             <default>true</default>
-<<<<<<< HEAD
-=======
         </values>
     </picklistValues>
     <picklistValues>
@@ -155,7 +138,6 @@
         <values>
             <fullName>convenido</fullName>
             <default>false</default>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
         </values>
     </picklistValues>
 </RecordType>

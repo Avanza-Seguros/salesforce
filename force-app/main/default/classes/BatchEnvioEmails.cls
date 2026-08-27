@@ -89,6 +89,15 @@ public class BatchEnvioEmails implements Database.Batchable<sObject>, Database.S
 			return;
 		}
 
+		// ⛔ EVITA EL CORREO DOBLE:
+		// Este batch ya envía el correo de cada item (enviarEmailsBulk). Más abajo
+		// marca los items como "Concluido", y ese cambio dispara EnvioTrigger
+		// (after update), que por su "Caso 1: cambió a Concluido" volvería a enviar
+		// el mismo correo. Se apaga el envío desde trigger SOLO en esta transacción
+		// del batch (los flags son estáticos por transacción, así que los envíos
+		// normales fuera del batch no se ven afectados).
+		EmailContextControl.allowTriggerEmails = false;
+
 		totalItemsProcessed += scope.size();
 
 		// Mostrar información de los items

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cert_Fecha_Alta__c</fullName>
+    <label>Fecha de alta (Poliza Contacto)</label>
+    <description>Fecha de alta tomada del certificado relacionado (Relacion de certificado).</description>
+    <formula>Relacion_de_certificado__r.Fecha_de_alta__c</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <externalId>false</externalId>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

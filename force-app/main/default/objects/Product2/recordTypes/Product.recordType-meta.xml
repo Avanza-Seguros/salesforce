@@ -35,13 +35,10 @@
             <default>false</default>
         </values>
         <values>
-<<<<<<< HEAD
-=======
             <fullName>Embarcaciones</fullName>
             <default>false</default>
         </values>
         <values>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <fullName>Empresarial</fullName>
             <default>false</default>
         </values>

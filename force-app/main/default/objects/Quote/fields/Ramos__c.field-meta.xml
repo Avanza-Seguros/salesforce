@@ -8,9 +8,6 @@
     <valueSet>
         <restricted>true</restricted>
         <valueSetDefinition>
-<<<<<<< HEAD
-            <sorted>false</sorted>
-=======
             <sorted>true</sorted>
             <value>
                 <fullName>Accidentes Personales</fullName>
@@ -27,21 +24,17 @@
                 <default>false</default>
                 <label>Asistencia</label>
             </value>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
             <value>
                 <fullName>Automoviles</fullName>
                 <default>false</default>
                 <label>Automóviles</label>
             </value>
             <value>
-<<<<<<< HEAD
-=======
                 <fullName>Construcción</fullName>
                 <default>false</default>
                 <label>Construcción</label>
             </value>
             <value>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
                 <fullName>Danos</fullName>
                 <default>false</default>
                 <label>Daños</label>
@@ -52,14 +45,11 @@
                 <label>Dental</label>
             </value>
             <value>
-<<<<<<< HEAD
-=======
                 <fullName>Embarcaciones</fullName>
                 <default>false</default>
                 <label>Embarcaciones</label>
             </value>
             <value>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
                 <fullName>Empresarial</fullName>
                 <default>false</default>
                 <label>Empresarial</label>
@@ -75,8 +65,6 @@
                 <label>Gastos Médicos Mayores</label>
             </value>
             <value>
-<<<<<<< HEAD
-=======
                 <fullName>Hogar</fullName>
                 <default>false</default>
                 <label>Hogar</label>
@@ -92,20 +80,16 @@
                 <label>Profesionistas</label>
             </value>
             <value>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
                 <fullName>RC</fullName>
                 <default>false</default>
                 <label>Responsabilidad Civil</label>
             </value>
             <value>
-<<<<<<< HEAD
-=======
                 <fullName>Transporte</fullName>
                 <default>false</default>
                 <label>Transporte</label>
             </value>
             <value>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
                 <fullName>Viajes</fullName>
                 <default>false</default>
                 <label>Viajes</label>

@@ -130,8 +130,6 @@
         <actionName>View</actionName>
         <type>Default</type>
     </actionOverrides>
-<<<<<<< HEAD
-=======
     <actionOverrides>
         <actionName>View</actionName>
         <formFactor>Large</formFactor>
@@ -142,7 +140,6 @@
         <formFactor>Small</formFactor>
         <type>Default</type>
     </actionOverrides>
->>>>>>> 4601b03d01836e7b65ee5fa433dec6ce365c408f
     <compactLayoutAssignment>New_Awesome_Companct_Layout</compactLayoutAssignment>
     <enableEnhancedLookup>true</enableEnhancedLookup>
     <enableFeeds>true</enableFeeds>

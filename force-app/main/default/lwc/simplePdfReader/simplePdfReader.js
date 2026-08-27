@@ -8779,37 +8779,18 @@ buscarPolizaTFile(lines) {
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        
-        // Buscar línea que contiene ambos campos
-        if (line.includes('POLIZA:') && line.includes('CERTIFICADO:')) {
-            console.log('📋 Línea con POLIZA y CERTIFICADO:', line);
-            
-            // Extraer solo la parte de POLIZA (entre "POLIZA:" y "CERTIFICADO:")
-            const polizaMatch = line.match(/POLIZA:\s*([^C]+?)(?=\s+CERTIFICADO:)/i);
-            if (polizaMatch) {
-                const polizaCompleta = polizaMatch[1].trim();
-                console.log('✅ Póliza T_ encontrada:', polizaCompleta);
-                return polizaCompleta;
-            }
-            
-            // Método alternativo: dividir por "CERTIFICADO:"
-            const partes = line.split('CERTIFICADO:');
-            if (partes.length > 0) {
-                const partePoliza = partes[0].replace('POLIZA:', '').trim();
-                if (partePoliza) {
-                    console.log('✅ Póliza T_ encontrada (split):', partePoliza);
-                    return partePoliza;
-                }
-            }
-        }
-        
-        // Si solo tiene POLIZA: (sin CERTIFICADO: en la misma línea)
-        if (line.includes('POLIZA:') && !line.includes('CERTIFICADO:')) {
-            console.log('📋 Línea solo con POLIZA:', line);
-            const polizaCompleta = line.replace('POLIZA:', '').trim();
-            if (polizaCompleta) {
-                console.log('✅ Póliza T_ encontrada (solo poliza):', polizaCompleta);
-                return polizaCompleta;
+
+        // La línea trae: "POLIZA: M0274887  RAMO: 02001  CERTIFICADO: <cert>".
+        // La póliza MetLife es una sola clave ("M" + dígitos). Se toma solo ese
+        // token y se detiene antes de RAMO/CERTIFICADO, aunque el PDF junte los
+        // campos sin espacios (por eso antes salía "M0274887RAMO:02001").
+        if (line.includes('POLIZA:')) {
+            console.log('📋 Línea con POLIZA:', line);
+            const m = line.match(/POLIZA:\s*([A-Z]?\d+)/i);
+            if (m) {
+                const poliza = m[1].toUpperCase();
+                console.log('✅ Póliza T_ encontrada:', poliza);
+                return poliza;
             }
         }
     }
@@ -8833,29 +8814,14 @@ buscarCertificadoTFile(lines, file) {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         
-        // Buscar línea que comienza con "CERTIFICADO:"
-        if (line.startsWith('CERTIFICADO:')) {
-            console.log('📋 Encontrada línea CERTIFICADO:', line);
-            
-            // Extraer número de certificado después de "CERTIFICADO:"
-            const partes = line.split(/\s+/);
-            for (let j = 0; j < partes.length; j++) {
-                if (partes[j] === 'CERTIFICADO:' && j + 1 < partes.length) {
-                    const certificado = partes[j + 1];
-                    if (certificado && /^\d+$/.test(certificado)) {
-                        console.log('✅ Certificado T_ encontrado:', certificado);
-                        return certificado;
-                    }
-                }
-            }
-        }
-        
-        // Buscar línea que contiene "CERTIFICADO:" en cualquier posición
+        // El certificado MetLife es ALFANUMÉRICO: puede traer letras al inicio o
+        // en medio (ej. "O000000230199", "000000O200021"), no solo dígitos. Por eso
+        // antes no lo detectaba (buscaba \d+). Se toma el token completo tras la clave.
         if (line.includes('CERTIFICADO:')) {
-            const certMatch = line.match(/CERTIFICADO:\s*(\d+)/i);
+            const certMatch = line.match(/CERTIFICADO:\s*([A-Za-z0-9]+)/i);
             if (certMatch) {
                 console.log('✅ Certificado T_ encontrado (match):', certMatch[1]);
-                return certMatch[1];
+                return certMatch[1].toUpperCase();
             }
         }
     }
@@ -8878,11 +8844,12 @@ buscarCertificadoTFile(lines, file) {
         }
     }
     
-    // Buscar en el nombre del archivo
-    const certFromFileName = file.match(/T_(\d+)_/);
+    // Buscar en el nombre del archivo (ej. "T_O000000230199_ORTEGA...").
+    // El certificado puede incluir letras, así que se acepta alfanumérico.
+    const certFromFileName = file.match(/T_([A-Za-z0-9]+)_/);
     if (certFromFileName) {
         console.log('✅ Certificado T_ desde nombre archivo:', certFromFileName[1]);
-        return certFromFileName[1];
+        return certFromFileName[1].toUpperCase();
     }
     
     console.log('❌ No se pudo encontrar certificado en T_');
