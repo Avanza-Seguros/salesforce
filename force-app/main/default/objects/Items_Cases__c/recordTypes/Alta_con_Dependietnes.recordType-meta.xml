@@ -56,10 +56,6 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>En proceso</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Nuevo</fullName>
             <default>true</default>
         </values>

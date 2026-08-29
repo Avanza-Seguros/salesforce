@@ -21,9 +21,9 @@
                 <label>Solicitado</label>
             </value>
             <value>
-                <fullName>En proceso</fullName>
+                <fullName>En Proceso</fullName>
                 <default>false</default>
-                <label>En proceso</label>
+                <label>En Proceso</label>
             </value>
             <value>
                 <fullName>Rechazado</fullName>

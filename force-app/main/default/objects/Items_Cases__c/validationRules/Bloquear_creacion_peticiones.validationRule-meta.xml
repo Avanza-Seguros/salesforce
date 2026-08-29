@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bloquear_creacion_peticiones</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+  ISNEW(),
+  $Profile.Name = &quot;Standard Partner Community&quot;,
+  OR(
+    ISPICKVAL(Caso__r.Status,&quot;En proceso&quot;),
+    ISPICKVAL(Caso__r.Status,&quot;Concluido&quot;),
+    ISPICKVAL(Caso__r.Status,&quot;Solicitado&quot;)
+  )
+)</errorConditionFormula>
+    <errorMessage>No se pueden crear nuevas Peticiones cuando el Movimiento se encuentra Solicitado, En proceso o Concluido. Si requiere agregar una Petición, contacte al responsable del Movimiento.</errorMessage>
+</ValidationRule>

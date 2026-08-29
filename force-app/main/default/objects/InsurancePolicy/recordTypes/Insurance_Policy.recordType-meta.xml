@@ -353,6 +353,10 @@
             <default>true</default>
         </values>
         <values>
+            <fullName>Renovado</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Vigente</fullName>
             <default>false</default>
         </values>

@@ -229,8 +229,8 @@ public with sharing class AseguradosController {
                 p.PrimaryParticipantContactId = ocr.ContactId;
                 if (ocr.Contact != null) { p.ParticipantName = ocr.Contact.Name; }
                 if (String.isNotBlank(rolAsegurado)) { p.Role = rolAsegurado; }
-                Boolean esContratante = ocr.Parentesco__c == 'Contratante' || ocr.IsPrimary == true;
-                p.IsPolicyholder = esContratante;
+                // Nota: InsurancePolicyParticipant.IsPolicyholder es de solo lectura
+                // (lo calcula la plataforma), por eso no se asigna aqui.
                 String rel = mapRelacion(relF, ocr.Parentesco__c);
                 if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
                 try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}

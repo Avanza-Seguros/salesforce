@@ -5,8 +5,9 @@
       "default": true
     }
   ],
-  "name": "salesforce_dx_tmp",
+  "name": "Avanza",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "66.0"
+  "sourceApiVersion": "66.0",
+  "defaultLwcLanguage": "javascript"
 }

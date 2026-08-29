@@ -3,8 +3,9 @@
     <fullName>Concluir_Peticion</fullName>
     <active>true</active>
     <errorConditionFormula>AND(
-ISPICKVAL(Estatus__c, &quot;Concluido&quot;),
-Contacto__r.Email &lt;&gt; &quot;correos@avanzaseguro.com&quot;
+    ISPICKVAL(Estatus__c, &quot;Concluido&quot;),
+    Contacto__r.Email &lt;&gt; &quot;correos@avanzaseguro.com&quot;,
+    $User.Username = &quot;adminAvanza@volestra.com&quot;
 )</errorConditionFormula>
     <errorMessage>No cuenta con los permisos necesarios para Concluir la petición. Favor de contactar a Avanza.</errorMessage>
 </ValidationRule>

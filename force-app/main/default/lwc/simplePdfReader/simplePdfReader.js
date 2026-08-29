@@ -2301,7 +2301,7 @@ export default class SimplePdfReader extends LightningElement {
         }
         
         // 🟢 DETECTAR AFIRME (NUEVO)
-        if (contentUpper.includes('SEGUROS AFIRME') || contentUpper.includes('AFIRME') ||
+        if (contentUpper.includes('SEGUROS AFIRME') || contentUpper.includes('AFIRM') ||
             contentUpper.includes('AFIRME GRUPO FINANCIERO') || fileNameLower.includes('afirme')) {
             console.log('✅ Tipo: AFIRME (Certificado Individual)');
             return {
@@ -6516,6 +6516,8 @@ esNombreValidoParaTarjeta(nombre) {
             
             const matchCompleto = limpio.match(/^(\d{3})-(\d{10})-(\d{2})$/);
             if (matchCompleto) {
+                // La póliza AFIRME se guarda SIN el último segmento (-NN):
+                // 001-0000660158-01  ->  001-0000660158
                 return `${matchCompleto[1]}-${matchCompleto[2]}`;
             }
             
@@ -6687,9 +6689,33 @@ esNombreValidoParaTarjeta(nombre) {
             }
         }
         
+        // ✅ CERTIFICADO en formato AFIRME "certificado individual":
+        // la etiqueta "Certificado" viene sola y el número (p. ej. 121) aparece en
+        // una línea posterior (después de "Linea de Negocio"). Se busca el primer
+        // número suelto tras la etiqueta, ignorando años (19xx/20xx).
+        if (!datos.certificate) {
+            for (let i = 0; i < lines.length; i++) {
+                if (/^\s*certificado\s*$/i.test(lines[i])) {
+                    for (let j = i + 1; j <= i + 6 && j < lines.length; j++) {
+                        const t = (lines[j] || '').trim();
+                        if (/^\d{1,6}$/.test(t)) {
+                            const n = parseInt(t, 10);
+                            const esAnio = t.length === 4 && n >= 1900 && n <= 2100;
+                            if (!esAnio) {
+                                datos.certificate = n.toString();
+                                console.log(`✅ Certificado (línea posterior a etiqueta): ${datos.certificate}`);
+                                break;
+                            }
+                        }
+                    }
+                    if (datos.certificate) { break; }
+                }
+            }
+        }
+
         // --- FALLBACKS ---
         if (!datos.certificate) {
-            const fileMatch = fileName.match(/^(\d+)_/);
+            const fileMatch = fileName.match(/^(\d+)[._]/);
             if (fileMatch) {
                 datos.certificate = fileMatch[1];
                 console.log(`✅ Certificado desde nombre archivo: ${datos.certificate}`);

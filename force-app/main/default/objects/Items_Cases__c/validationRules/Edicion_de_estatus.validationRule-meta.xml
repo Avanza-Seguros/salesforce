@@ -9,7 +9,7 @@ $User.Username != &quot;esmeralda.lopez@avanzaseguro.com&quot;,
 
 $User.Username != &quot;tramites@avanzaseguro.com&quot;, 
 
-$User.Username != &quot;uriel.tejeiro@volestra.com&quot;,
+$User.Username != &quot;adminavanza@volestra.com&quot;,
 
 $User.Username != &quot;cotizaciones@avanzaseguro.com&quot;, $User.Username != &quot;gmm@avanzaseguro.com&quot;)</errorConditionFormula>
     <errorDisplayField>Estatus__c</errorDisplayField>
