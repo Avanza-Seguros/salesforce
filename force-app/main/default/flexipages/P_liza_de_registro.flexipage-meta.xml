@@ -10,34 +10,19 @@
                             <value>Edit</value>
                         </valueListItems>
                         <valueListItems>
-                            <value>Delete</value>
-                        </valueListItems>
-                        <valueListItems>
-                            <value>ChangeRecordType</value>
+                            <value>InsurancePolicy.Enviar_Correo</value>
                         </valueListItems>
                         <valueListItems>
                             <value>Clone</value>
                         </valueListItems>
                         <valueListItems>
-                            <value>IssueInsurancePolicy</value>
+                            <value>PrintableView</value>
                         </valueListItems>
                         <valueListItems>
-                            <value>IssueEndorsedInsurancePolicy</value>
-                        </valueListItems>
-                        <valueListItems>
-                            <value>RepurposeInsurancePolicy</value>
-                        </valueListItems>
-                        <valueListItems>
-                            <value>EndorseInsurancePolicy</value>
-                        </valueListItems>
-                        <valueListItems>
-                            <value>RenewInsurancePolicy</value>
+                            <value>ReinstateInsurancePolicy</value>
                         </valueListItems>
                         <valueListItems>
                             <value>CancelInsurancePolicy</value>
-                        </valueListItems>
-                        <valueListItems>
-                            <value>InsurancePolicy.Enviar_Correo</value>
                         </valueListItems>
                     </valueList>
                 </componentInstanceProperties>
@@ -63,13 +48,28 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>numVisibleActions</name>
-                    <value>4</value>
+                    <value>5</value>
                 </componentInstanceProperties>
                 <componentName>force:highlightsPanel</componentName>
                 <identifier>force_highlightsPanel</identifier>
             </componentInstance>
         </itemInstances>
-        <mode>Replace</mode>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>hideUpdateButton</name>
+                    <value>true</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>variant</name>
+                    <value>linear</value>
+                </componentInstanceProperties>
+                <componentName
+				>runtime_sales_pathassistant:pathAssistant</componentName>
+                <identifier
+				>runtime_sales_pathassistant_pathAssistant</identifier>
+            </componentInstance>
+        </itemInstances>
         <name>header</name>
         <type>Region</type>
     </flexiPageRegions>
@@ -174,7 +174,7 @@
                 <identifier>RecordCancellationReasonField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</name>
+        <name>Facet-1ae74028-8e5c-40c8-acfa-f4496ad6e73c</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -278,7 +278,7 @@
                 <identifier>RecordPolicyTermField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</name>
+        <name>Facet-5a752741-3cb5-4181-8a73-96358a48a40d</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -286,7 +286,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</value>
+                    <value>Facet-1ae74028-8e5c-40c8-acfa-f4496ad6e73c</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column</identifier>
@@ -296,13 +296,13 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</value>
+                    <value>Facet-5a752741-3cb5-4181-8a73-96358a48a40d</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column2</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-a5a6040d-f369-42a0-8533-ce646bbb6318</name>
+        <name>Facet-88558557-21c2-458a-943f-f9d7af94492a</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -326,7 +326,7 @@
                 <identifier>RecordPremiumFrequencyField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</name>
+        <name>Facet-2f0c58a8-94cb-4752-b2ed-97f63cfc7cd1</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -350,7 +350,7 @@
                 <identifier>RecordTermPremiumAmountField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</name>
+        <name>Facet-583bcc8c-2ca0-4d7d-8de9-ccc7805dd0b5</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -358,7 +358,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</value>
+                    <value>Facet-2f0c58a8-94cb-4752-b2ed-97f63cfc7cd1</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column3</identifier>
@@ -368,13 +368,13 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</value>
+                    <value>Facet-583bcc8c-2ca0-4d7d-8de9-ccc7805dd0b5</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column4</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-6c6c6cf0-4ecb-40c6-a620-359b0d57def6</name>
+        <name>Facet-f1179775-5a81-4794-945f-4ca6cc151efc</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -408,7 +408,7 @@
                 <identifier>RecordProducerIdField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
+        <name>Facet-496ce2a4-2490-4e89-8ac1-3c0beaae0908</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -432,7 +432,7 @@
                 <identifier>RecordPlannedRenewalDateField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</name>
+        <name>Facet-c86c7f15-720b-4bf4-a723-709e79582b2c</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -440,7 +440,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</value>
+                    <value>Facet-496ce2a4-2490-4e89-8ac1-3c0beaae0908</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column5</identifier>
@@ -450,13 +450,13 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</value>
+                    <value>Facet-c86c7f15-720b-4bf4-a723-709e79582b2c</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column6</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-05d9faa8-e0ba-41a3-b625-90b209179fab</name>
+        <name>Facet-c8edfeb4-e805-465a-b45a-e2f7f85d2c7c</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -540,7 +540,7 @@
                 <identifier>RecordReferencia_Pago_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
+        <name>Facet-8b6bc191-1a92-4df3-9e96-2207d4254d13</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -624,7 +624,7 @@
                 <identifier>RecordCLABE_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</name>
+        <name>Facet-1330139a-4c51-40a3-84a0-0946cf2a7469</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -632,7 +632,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</value>
+                    <value>Facet-8b6bc191-1a92-4df3-9e96-2207d4254d13</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column7</identifier>
@@ -642,13 +642,13 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</value>
+                    <value>Facet-1330139a-4c51-40a3-84a0-0946cf2a7469</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column8</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-e8873a77-2cdb-408c-b77b-92773c2e8e0e</name>
+        <name>Facet-c1669ffb-f84f-4448-9cae-b0f90abae042</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -792,7 +792,17 @@
                 <identifier>RecordCancellationReasonTypeField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-58da4c91-639a-49a3-9512-cf27b3795a77</name>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.ChangeSubtype</fieldItem>
+                <identifier>RecordChangeSubtypeField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-ba0f1f60-79d0-4fcd-8bac-2bd95a80cf43</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -926,17 +936,7 @@
                 <identifier>RecordChangeTypeField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.ChangeSubtype</fieldItem>
-                <identifier>RecordChangeSubtypeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-0d774d60-a31c-46f8-b92e-501b8e999eef</name>
+        <name>Facet-d28055f5-a25f-4932-9002-7fbcd0595de0</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -944,7 +944,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-58da4c91-639a-49a3-9512-cf27b3795a77</value>
+                    <value>Facet-ba0f1f60-79d0-4fcd-8bac-2bd95a80cf43</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column9</identifier>
@@ -954,13 +954,13 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-0d774d60-a31c-46f8-b92e-501b8e999eef</value>
+                    <value>Facet-d28055f5-a25f-4932-9002-7fbcd0595de0</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column10</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-141c4da2-5e01-4e9f-8b97-80370fd19952</name>
+        <name>Facet-0eb06872-717b-426f-9caa-b0498a6560ea</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -968,11 +968,11 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-a5a6040d-f369-42a0-8533-ce646bbb6318</value>
+                    <value>Facet-88558557-21c2-458a-943f-f9d7af94492a</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
@@ -986,15 +986,15 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-6c6c6cf0-4ecb-40c6-a620-359b0d57def6</value>
+                    <value>Facet-f1179775-5a81-4794-945f-4ca6cc151efc</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
-                    <value>Informacion de prima</value>
+                    <value>Detalle de Prima</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSection2</identifier>
@@ -1004,11 +1004,11 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-05d9faa8-e0ba-41a3-b625-90b209179fab</value>
+                    <value>Facet-c8edfeb4-e805-465a-b45a-e2f7f85d2c7c</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
@@ -1022,11 +1022,11 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-e8873a77-2cdb-408c-b77b-92773c2e8e0e</value>
+                    <value>Facet-c1669ffb-f84f-4448-9cae-b0f90abae042</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
@@ -1040,11 +1040,11 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-141c4da2-5e01-4e9f-8b97-80370fd19952</value>
+                    <value>Facet-0eb06872-717b-426f-9caa-b0498a6560ea</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
@@ -1054,7 +1054,7 @@
                 <identifier>flexipage_fieldSection5</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-debe8104-da72-4083-93b1-8e853aaf5aba</name>
+        <name>Facet-9e0ea70e-941c-47f0-8c44-4fa4f12ce2e2</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -1064,7 +1064,7 @@
                 <identifier>c_policyInstallments</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-d3dbe25d-9f3f-45ed-9fb3-87dcc031b459</name>
+        <name>Facet-cdef4479-08d8-439a-80fd-e1aafd52a346</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -1076,11 +1076,11 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-debe8104-da72-4083-93b1-8e853aaf5aba</value>
+                    <value>Facet-9e0ea70e-941c-47f0-8c44-4fa4f12ce2e2</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>title</name>
-                    <value>Informacion Poliza</value>
+                    <value>Poliza</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab</identifier>
@@ -1090,17 +1090,17 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-d3dbe25d-9f3f-45ed-9fb3-87dcc031b459</value>
+                    <value>Facet-cdef4479-08d8-439a-80fd-e1aafd52a346</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>title</name>
-                    <value>Pagos</value>
+                    <value>Plan de pago</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab2</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-bf50c959-3e2b-48a1-9e25-0bc38ffe8533</name>
+        <name>Facet-3730f1c0-0bd1-4f01-ab10-9d2b8c5cde5d</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -1112,13 +1112,12 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>tabs</name>
-                    <value>Facet-bf50c959-3e2b-48a1-9e25-0bc38ffe8533</value>
+                    <value>Facet-3730f1c0-0bd1-4f01-ab10-9d2b8c5cde5d</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:tabset</componentName>
                 <identifier>flexipage_tabset</identifier>
             </componentInstance>
         </itemInstances>
-        <mode>Replace</mode>
         <name>main</name>
         <type>Region</type>
     </flexiPageRegions>
@@ -1141,15 +1140,17 @@
                 <identifier>force_relatedListContainer</identifier>
             </componentInstance>
         </itemInstances>
-        <mode>Replace</mode>
         <name>sidebar</name>
         <type>Region</type>
     </flexiPageRegions>
-    <masterLabel>Insurance Policy Record Page</masterLabel>
-    <parentFlexiPage>flexipage__default_rec_L</parentFlexiPage>
+    <masterLabel>Póliza de registro</masterLabel>
     <sobjectType>InsurancePolicy</sobjectType>
     <template>
         <name>flexipage:recordHomeTemplateDesktop</name>
+        <properties>
+            <name>enablePageActionConfig</name>
+            <value>false</value>
+        </properties>
     </template>
     <type>RecordPage</type>
 </FlexiPage>

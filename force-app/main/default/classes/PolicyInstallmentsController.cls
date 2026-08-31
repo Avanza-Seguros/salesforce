@@ -40,6 +40,7 @@ public with sharing class PolicyInstallmentsController {
 				matchedOn__c,
 				matchedReceipt__c,
 				matchedReceipt__r.Name,
+				matchedReceipt__r.receiptDate__c,
 				paymentPlan__c,
 				paymentPlan__r.Name,
 				paymentPlan__r.planStatus__c

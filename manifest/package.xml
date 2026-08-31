@@ -256,6 +256,7 @@
         <members>PaymentReconciliation__c.Pendientes_Operativos</members>
         <members>PaymentReconciliation__c.Probable_Requiere_Decision</members>
         <members>PaymentReconciliation__c.Sin_Match</members>
+        <members>InsurancePolicy.All_InsurancePolicies</members>
         <name>ListView</name>
     </types>
     <types>
@@ -294,6 +295,7 @@
         <members>Payment_Reconciliation</members>
         <members>Policy_Payment_Receipt</members>
         <members>Insurance_Policy_Record_Page</members>
+        <members>P_liza_de_registro</members>
         <name>FlexiPage</name>
     </types>
     <version>66.0</version>
