@@ -295,7 +295,6 @@
         <members>Payment_Reconciliation</members>
         <members>Policy_Payment_Receipt</members>
         <members>Insurance_Policy_Record_Page</members>
-        <members>P_liza_de_registro</members>
         <name>FlexiPage</name>
     </types>
     <version>66.0</version>
