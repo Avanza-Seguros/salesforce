@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>occurredAt__c</fullName>
+    <description
+	>Fecha y hora en que ocurrió el evento. Existe además de la fecha de creación porque el servicio acumula los registros en memoria y los escribe al cerrar la transacción: en un proceso largo, la fecha de creación es la del volcado y no la del evento.</description>
+    <label>Fecha y hora del evento</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

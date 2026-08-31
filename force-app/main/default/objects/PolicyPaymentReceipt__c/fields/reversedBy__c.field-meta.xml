@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reversedBy__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description
+	>Usuario que ejecuto la reversa. Junto con la fecha, el motivo y las notas conforma la evidencia de por que un cobro dejo de contar; el recibo nunca se elimina.</description>
+    <label>Reversado por</label>
+    <referenceTo>User</referenceTo>
+    <relationshipName>ReversedPolicyPaymentReceipts</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

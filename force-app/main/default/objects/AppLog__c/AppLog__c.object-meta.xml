@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <allowInChatterGroups>false</allowInChatterGroups>
+    <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description
+	>Registro de aplicación de alcance organizacional. Guarda los fallos y las decisiones no evidentes de los procesos automatizados, para soporte e investigación. No es un registro de auditoría contable ni una bitácora del flujo completo: el camino exitoso se refleja en los campos de estado de cada objeto de negocio.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableLicensing>false</enableLicensing>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <externalSharingModel>Private</externalSharingModel>
+    <label>Registro de aplicación</label>
+    <nameField>
+        <displayFormat>APL-{0000000}</displayFormat>
+        <label>Número de registro</label>
+        <trackHistory>false</trackHistory>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Registros de aplicación</pluralLabel>
+    <searchLayouts />
+    <sharingModel>Private</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

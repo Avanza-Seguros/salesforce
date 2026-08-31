@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ReversalIsTerminal</fullName>
+    <active>true</active>
+    <description
+	>La reversa es terminal: un recibo reversado no puede volver a otro estado. Sin esta regla se podria devolverlo a Reconocido y el cobro contaria dos veces. Es regla y no logica del componente para que aplique a cargas de datos y a la API.</description>
+    <errorConditionFormula>AND(
+  ISCHANGED( receiptStatus__c ),
+  ISPICKVAL( PRIORVALUE( receiptStatus__c ), &quot;Reversado&quot; )
+)</errorConditionFormula>
+    <errorDisplayField>receiptStatus__c</errorDisplayField>
+    <errorMessage
+	>Un recibo reversado no puede cambiar de estado. La reversa es definitiva: si el pago vuelve a ser válido, debe registrarse como un cobro nuevo.</errorMessage>
+</ValidationRule>

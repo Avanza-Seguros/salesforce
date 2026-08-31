@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reversalNotes__c</fullName>
+    <description
+	>Justificacion del analista al reversar el recibo. Obligatoria en la accion de reversa: el motivo del picklist dice la categoria, estas notas dicen el caso concreto.</description>
+    <label>Notas de reversa</label>
+    <length>32768</length>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

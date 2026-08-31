@@ -47,6 +47,11 @@ public with sharing class PolicyPaymentReceiptQueueable implements Queueable {
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(CobranzaLog.STAGE_RECIBO, reconciliationIds)
+		);
+
 		List<PaymentReconciliation__c> reconciliations = [
 			SELECT
 				Id,
@@ -90,10 +95,18 @@ public with sharing class PolicyPaymentReceiptQueueable implements Queueable {
 				toInsert.add(receipt);
 				processedReconciliations.add(recon);
 			} catch (Exception e) {
+				CobranzaLog.error(
+						CobranzaLog.STAGE_RECIBO,
+						CobranzaLog.EVENT_RECEIPT_BUILD_FAILED,
+						e
+					)
+					.onReconciliation(recon.Id)
+					.onInbound(recon.inboundPayment__c);
 			}
 		}
 
 		if (toInsert.isEmpty()) {
+			AppLogger.flush();
 			return;
 		}
 
@@ -113,11 +126,30 @@ public with sharing class PolicyPaymentReceiptQueueable implements Queueable {
 
 		update toUpdate;
 
+		Set<Id> stampedInboundIds = new Set<Id>();
+		for (PaymentReconciliation__c recon : processedReconciliations) {
+			if (recon.inboundPayment__c != null) {
+				stampedInboundIds.add(recon.inboundPayment__c);
+			}
+		}
+		CobranzaLog.markStage(stampedInboundIds, CobranzaLog.STAGE_RECIBO);
+
 		if (!receiptIds.isEmpty()) {
 			try {
 				System.enqueueJob(new PaymentInstallmentMatchQueueable(receiptIds));
 			} catch (System.AsyncException e) {
+				// Es la rotura de cadena de mayor impacto del pipeline: el recibo ya quedo
+				// creado, pero la cuota nunca se actualiza y el plan nunca se completa. Sin
+				// esta traza el caso es invisible, porque ningun registro queda en error.
+				CobranzaLog.chainBreak(
+					CobranzaLog.STAGE_RECIBO,
+					e,
+					'PaymentInstallmentMatchQueueable',
+					receiptIds
+				);
 			}
 		}
+
+		AppLogger.flush();
 	}
 }

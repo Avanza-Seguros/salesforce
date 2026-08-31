@@ -17,6 +17,12 @@ const COLUMNS = [
 		initialWidth: 110
 	},
 	{
+		label: "Fecha de pago",
+		fieldName: "paymentDate",
+		type: "date-local",
+		initialWidth: 130
+	},
+	{
 		label: "Esperado",
 		fieldName: "expectedAmount__c",
 		type: "currency",
@@ -62,6 +68,7 @@ export default class PolicyInstallments extends LightningElement {
 		if (data) {
 			this.rows = data.map((row) => ({
 				...row,
+				paymentDate: row.matchedReceipt__r?.receiptDate__c ?? null,
 				installmentUrl: `/${row.Id}`,
 				sequenceLabel: row.sequenceNumber__c
 					? `#${row.sequenceNumber__c}`

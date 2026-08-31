@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>recordObject__c</fullName>
+    <description
+	>Nombre del objeto al que pertenece el registro afectado. Se deriva del propio identificador; se persiste para poder filtrar y agrupar sin resolverlo en cada consulta.</description>
+    <label>Objeto afectado</label>
+    <length>80</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

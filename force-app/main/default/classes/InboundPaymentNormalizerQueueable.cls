@@ -44,10 +44,20 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 	 *               registro queda con inboundStatus__c = Rechazado y rejectionReason__c
 	 *               = 'Error de normalizacion', sin afectar al resto del lote.
 	 *               Encadena a InboundPolicyCandidateQueueable con los IDs normalizados.
+	 *               Deja traza en el registro de aplicacion (H200) de los fallos por registro
+	 *               y de la rotura de cadena, y sella la etapa alcanzada en cada pago.
 	 * @param context: Contexto de ejecucion del Queueable proporcionado por la plataforma.
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(
+				CobranzaLog.STAGE_NORMALIZACION,
+				inboundPaymentIds
+			)
+		);
+
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
@@ -90,7 +100,14 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 				rec.inboundStatus__c = STATUS_REJECTED;
 				rec.rejectionReason__c = REASON_NORMALIZATION_ERROR;
 				rec.parsedAt__c = normalizedAt;
+				CobranzaLog.error(
+						CobranzaLog.STAGE_NORMALIZACION,
+						CobranzaLog.EVENT_NORMALIZATION_FAILED,
+						e
+					)
+					.onInbound(p.Id);
 			}
+			rec.pipelineStage__c = CobranzaLog.STAGE_NORMALIZACION;
 			toUpdate.add(rec);
 		}
 
@@ -106,8 +123,16 @@ public with sharing class InboundPaymentNormalizerQueueable implements Queueable
 			try {
 				System.enqueueJob(new InboundPolicyCandidateQueueable(normalizedIds));
 			} catch (System.AsyncException e) {
+				CobranzaLog.chainBreak(
+					CobranzaLog.STAGE_NORMALIZACION,
+					e,
+					'InboundPolicyCandidateQueueable',
+					normalizedIds
+				);
 			}
 		}
+
+		AppLogger.flush();
 	}
 
 	/**

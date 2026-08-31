@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pagos_Detenidos</fullName>
+    <columns>OBJECT_ID</columns>
+    <columns>externalPaymentId__c</columns>
+    <columns>pipelineStage__c</columns>
+    <columns>inboundStatus__c</columns>
+    <columns>sourcePolicyNumber__c</columns>
+    <columns>sourceAmount__c</columns>
+    <columns>sourcePaymentDate__c</columns>
+    <columns>sourceInsuranceCarrier__c</columns>
+    <columns>candidatePolicy__c</columns>
+    <columns>receivedAt__c</columns>
+    <columns>LAST_UPDATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>inboundStatus__c</field>
+        <operation>notEqual</operation>
+        <value>Conciliado,Rechazado,Pendiente de Pago,Archivado</value>
+    </filters>
+    <label>Pagos detenidos</label>
+    <language>es</language>
+</ListView>
