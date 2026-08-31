@@ -36,9 +36,6 @@
                         <valueListItems>
                             <value>CancelInsurancePolicy</value>
                         </valueListItems>
-                        <valueListItems>
-                            <value>InsurancePolicy.Enviar_Correo</value>
-                        </valueListItems>
                     </valueList>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
@@ -59,7 +56,7 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>hideSlackAction</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>numVisibleActions</name>
@@ -288,18 +285,16 @@
                     <name>body</name>
                     <value>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
                     <value>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column2</identifier>
+                <componentInstanceProperties>
+                    <name>showActionBar</name>
+                    <value>true</value>
+                </componentInstanceProperties>
+                <componentName>force:relatedListContainer</componentName>
+                <identifier>force_relatedListContainer</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-a5a6040d-f369-42a0-8533-ce646bbb6318</name>
@@ -331,14 +326,10 @@
     </flexiPageRegions>
     <flexiPageRegions>
         <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PremiumAmount</fieldItem>
-                <identifier>RecordPremiumAmountField</identifier>
-            </fieldInstance>
+            <componentInstance>
+                <componentName>c:policyInstallments</componentName>
+                <identifier>c_policyInstallments</identifier>
+            </componentInstance>
         </itemInstances>
         <itemInstances>
             <fieldInstance>
@@ -360,18 +351,16 @@
                     <name>body</name>
                     <value>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column3</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
                     <value>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column4</identifier>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Standard.Tab.detail</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>detailTab</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-6c6c6cf0-4ecb-40c6-a620-359b0d57def6</name>
@@ -442,8 +431,12 @@
                     <name>body</name>
                     <value>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column5</identifier>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Standard.Tab.relatedLists</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>relatedListsTab</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>
@@ -452,8 +445,8 @@
                     <name>body</name>
                     <value>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column6</identifier>
+                <componentName>flexipage:tab</componentName>
+                <identifier>installmentsTab</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-05d9faa8-e0ba-41a3-b625-90b209179fab</name>
@@ -654,18 +647,12 @@
                     <name>body</name>
                     <value>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column7</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
                     <value>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column8</identifier>
+                <componentName>flexipage:tabset</componentName>
+                <identifier>flexipage_tabset</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-e8873a77-2cdb-408c-b77b-92773c2e8e0e</name>
@@ -991,19 +978,13 @@
                     <value>Facet-a5a6040d-f369-42a0-8533-ce646bbb6318</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
-                    <name>horizontalAlignment</name>
-                    <value>true</value>
+                    <name>maxRecordsToDisplay</name>
+                    <value>5</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
-                    <name>label</name>
-                    <value>@@@SFDCPolicyDetailsSFDC@@@</value>
+                    <name>parentFieldApiName</name>
+                    <value>InsurancePolicy.Id</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:fieldSection</componentName>
-                <identifier>flexipage_fieldSection</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
                     <value>Facet-6c6c6cf0-4ecb-40c6-a620-359b0d57def6</value>
@@ -1016,26 +997,20 @@
                     <name>label</name>
                     <value>Informacion de prima</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:fieldSection</componentName>
-                <identifier>flexipage_fieldSection2</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
                     <value>Facet-05d9faa8-e0ba-41a3-b625-90b209179fab</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
-                    <name>horizontalAlignment</name>
+                    <name>showActionBar</name>
                     <value>true</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
                     <value>Informacion de renovacion</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:fieldSection</componentName>
-                <identifier>flexipage_fieldSection3</identifier>
+                <componentName>lst:dynamicRelatedList</componentName>
+                <identifier>lst_dynamicRelatedList</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>
@@ -1045,15 +1020,15 @@
                     <value>Facet-e8873a77-2cdb-408c-b77b-92773c2e8e0e</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
-                    <name>horizontalAlignment</name>
+                    <name>showActionBar</name>
                     <value>true</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
                     <value>Cobranza</value>
                 </componentInstanceProperties>
-                <componentName>flexipage:fieldSection</componentName>
-                <identifier>flexipage_fieldSection4</identifier>
+                <componentName>lst:dynamicRelatedList</componentName>
+                <identifier>lst_dynamicRelatedList2</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>
@@ -1146,19 +1121,70 @@
         <itemInstances>
             <componentInstance>
                 <componentInstanceProperties>
-                    <name>relatedListComponentOverride</name>
-                    <value>ADVGRID</value>
+                    <name>actionNames</name>
+                    <valueList>
+                        <valueListItems>
+                            <value>MassChangeOwner</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>New</value>
+                        </valueListItems>
+                    </valueList>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
-                    <name>rowsToDisplay</name>
+                    <name>maxRecordsToDisplay</name>
                     <value>5</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
-                    <name>showActionBar</name>
-                    <value>true</value>
+                    <name>parentFieldApiName</name>
+                    <value>InsurancePolicy.Id</value>
                 </componentInstanceProperties>
-                <componentName>force:relatedListContainer</componentName>
-                <identifier>force_relatedListContainer</identifier>
+                <componentInstanceProperties>
+                    <name>relatedListApiName</name>
+                    <value>PaymentReceipts__r</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListDisplayType</name>
+                    <value>CARD</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListFieldAliases</name>
+                    <valueList>
+                        <valueListItems>
+                            <value>NAME</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>receiptStatus__c</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>paymentPlan__c</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>paymentMethod__c</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>receiptAmount__c</value>
+                        </valueListItems>
+                    </valueList>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListLabel</name>
+                    <value>Recibos de pago de póliza</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>showActionBar</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>sortFieldAlias</name>
+                    <value>__DEFAULT__</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>sortFieldOrder</name>
+                    <value>Default</value>
+                </componentInstanceProperties>
+                <componentName>lst:dynamicRelatedList</componentName>
+                <identifier>lst_dynamicRelatedList3</identifier>
             </componentInstance>
         </itemInstances>
         <mode>Replace</mode>
