@@ -2173,7 +2173,7 @@ export default class SimplePdfReader extends LightningElement {
         }
 
         // 🔵 DETECTAR AXA SEGUROS (Tarjetas y Certificados)
-        if (contentUpper.includes('AXA SEGUROS') || contentUpper.includes('AXA.MX') || fileNameLower.includes('_tarjaxa') || contentUpper.includes('AXA')) {
+        if (contentUpper.includes('AXA SEGUROS') || contentUpper.includes('AXA.MX') || fileNameLower.includes('_tarjaxa') || /\bAXA\b/.test(contentUpper)) {
             
             // Determinar formato
             let formato = 'INDETERMINADO';
