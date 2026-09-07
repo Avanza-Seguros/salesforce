@@ -59,6 +59,7 @@ public with sharing class OpportunityController {
 			wrapper.opportunity = [
                 SELECT Id, Name, StageName, Type, Canal__c, Mercado__c,
                     Ramo__c, CloseDate, Amount, Prima_Total__c, Prima_Neta__c,
+                    Tipo_Contratacion__c,
                     AccountId, Account.Name, Description, Descripcion__c,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
                     Contacto__c, Contacto__r.Name,
@@ -179,11 +180,23 @@ public with sharing class OpportunityController {
 	@AuraEnabled(cacheable=false)
 	public static void aceptarCotizacion(String quoteId) {
 		try {
-			Quote q = [SELECT Id, Status FROM Quote WHERE Id = :quoteId LIMIT 1];
+			Quote q = [SELECT Id, Status, OpportunityId FROM Quote WHERE Id = :quoteId LIMIT 1];
+			// 1) Marca la cotización como aceptada.
 			q.Status = 'Accepted';
 			update q;
+			// 2) Dispara la sincronización con la oportunidad (equivale al botón "Start Sync"):
+			//    al fijar SyncedQuoteId, esta cotización queda como la sincronizada y sus
+			//    partidas se copian a la oportunidad. IsSyncing es de solo lectura (por eso
+			//    asignarlo no sincronizaba); la vía correcta es Opportunity.SyncedQuoteId.
+			//    Requiere que compartan Pricebook (las cotizaciones de la app heredan el de
+			//    la oportunidad, así que coinciden).
+			if (q.OpportunityId != null) {
+				update new Opportunity(Id = q.OpportunityId, SyncedQuoteId = q.Id);
+			}
+		} catch (DmlException e) {
+			throw new AuraHandledException('No se pudo aceptar/sincronizar la cotización: ' + detalleError(e));
 		} catch (Exception e) {
-			throw new AuraHandledException('Error al aceptar la cotizacion: ' + e.getMessage());
+			throw new AuraHandledException('No se pudo aceptar/sincronizar la cotización: ' + detalleError(e));
 		}
 	}
 
@@ -198,7 +211,7 @@ public with sharing class OpportunityController {
 	@AuraEnabled(cacheable=false)
 	public static void cambiarEtapaAPoliza(String opportunityId) {
 		try {
-			Opportunity o = new Opportunity(Id = (Id) opportunityId, StageName = 'Póliza');
+			Opportunity o = new Opportunity(Id = (Id) opportunityId, StageName = 'Póliza'); 
 			update o;
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al cambiar la etapa a Póliza: ' + e.getMessage());
@@ -342,6 +355,8 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String typeLabel;
 		@AuraEnabled public String detailLine;
 		@AuraEnabled public String clienteNombre;
+		@AuraEnabled public String clienteApellidoPaterno;
+		@AuraEnabled public String clienteApellidoMaterno;
 		@AuraEnabled public String clienteRFC;
 		@AuraEnabled public String clienteEmail;
 		@AuraEnabled public String clienteTelefono;
@@ -360,33 +375,86 @@ public with sharing class OpportunityController {
 	public static List<AccountResult> searchAccounts(String searchTerm) {
 		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
-		for (Account a : [
-			SELECT Id, Name, IsPersonAccount, Phone,
-				   BillingStreet, BillingPostalCode,
-				   PersonEmail, PersonMobilePhone,
-				   PersonMailingStreet, PersonMailingPostalCode
-			FROM Account
-			WHERE Name LIKE :busqTerm
-			ORDER BY Name LIMIT 20
-		]) {
-			AccountResult r = new AccountResult();
-			r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
-			r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
-			r.clienteNombre = a.Name;
-			if (a.IsPersonAccount) {
-				r.clienteEmail = a.PersonEmail;
-				r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
-				r.clienteCP = a.PersonMailingPostalCode;
-				r.clienteDireccion = a.PersonMailingStreet;
-			} else {
-				r.clienteTelefono = a.Phone;
-				r.clienteCP = a.BillingPostalCode;
-				r.clienteDireccion = a.BillingStreet;
-			}
-			r.detailLine = r.typeLabel + (String.isNotBlank(r.clienteRFC) ? '  ·  RFC ' + r.clienteRFC : '');
-			out.add(r);
+		Boolean tieneMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
+			' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
+		for (Account a : Database.query(soql)) {
+			out.add(toAccountResult(a, tieneMiddle));
 		}
 		return out;
+	}
+
+	/**
+	 * @description Recupera una cuenta por su Id con el MISMO mapeo que searchAccounts.
+	 *              Se usa al cargar una oportunidad para llenar los datos del cliente
+	 *              (nombre separado, RFC, correo, telefono, CP, direccion).
+	 * @param accountId Id de la cuenta.
+	 * @return AccountResult con los datos, o null si no existe.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static AccountResult getAccountById(Id accountId) {
+		if (accountId == null) { return null; }
+		Boolean tieneMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
+			' FROM Account WHERE Id = :accountId LIMIT 1';
+		for (Account a : Database.query(soql)) {
+			return toAccountResult(a, tieneMiddle);
+		}
+		return null;
+	}
+
+	// Campos de Account que necesita el formulario. MiddleName (segundo nombre) solo
+	// existe si el org lo tiene habilitado, por eso se agrega de forma dinamica.
+	private static String camposCuenta(Boolean tieneMiddle) {
+		return 'Id, Name, IsPersonAccount, Phone, FirstName, LastName, ' +
+			'BillingStreet, BillingPostalCode, PersonEmail, PersonMobilePhone, ' +
+			'PersonMailingStreet, PersonMailingPostalCode, RFC__pc, Correo_electronico__c' +
+			(tieneMiddle ? ', MiddleName' : '');
+	}
+
+	// Convierte una Account en AccountResult para el formulario.
+	private static AccountResult toAccountResult(Account a, Boolean tieneMiddle) {
+		AccountResult r = new AccountResult();
+		r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
+		r.typeLabel = a.IsPersonAccount ? 'Persona' : 'Empresa';
+		if (a.IsPersonAccount) {
+			// Se invierte el mapeo usado al crear la cuenta persona:
+			//   FirstName = Nombre(s), MiddleName = Apellido Paterno, LastName = Apellido Materno.
+			String mid = tieneMiddle ? (String) a.get('MiddleName') : null;
+			r.clienteNombre = a.FirstName;
+			if (String.isNotBlank(mid)) {
+				r.clienteApellidoPaterno = mid;
+				r.clienteApellidoMaterno = a.LastName;
+			} else {
+				// Sin segundo nombre: LastName puede traer ambos apellidos juntos.
+				// Se separa por convencion MX: primer token = Paterno, resto = Materno.
+				String ln = (a.LastName == null) ? '' : a.LastName.trim();
+				if (ln.contains(' ')) {
+					Integer sp = ln.indexOf(' ');
+					r.clienteApellidoPaterno = ln.substring(0, sp);
+					r.clienteApellidoMaterno = ln.substring(sp + 1).trim();
+				} else {
+					r.clienteApellidoPaterno = ln;
+					r.clienteApellidoMaterno = null;
+				}
+			}
+			// Correo: se prioriza PersonEmail; si no, el campo universal Correo_electronico__c.
+			r.clienteEmail = String.isNotBlank(a.PersonEmail) ? a.PersonEmail : a.Correo_electronico__c;
+			r.clienteTelefono = a.PersonMobilePhone != null ? a.PersonMobilePhone : a.Phone;
+			r.clienteCP = a.PersonMailingPostalCode;
+			r.clienteDireccion = a.PersonMailingStreet;
+			// RFC de la persona: campo espejo en la Cuenta (Account.RFC__pc).
+			r.clienteRFC = (String) a.get('RFC__pc');
+		} else {
+			// Empresa: el nombre completo es la razon social; el correo va en Correo_electronico__c.
+			r.clienteNombre = a.Name;
+			r.clienteEmail = a.Correo_electronico__c;
+			r.clienteTelefono = a.Phone;
+			r.clienteCP = a.BillingPostalCode;
+			r.clienteDireccion = a.BillingStreet;
+		}
+		r.detailLine = r.typeLabel + (String.isNotBlank(r.clienteRFC) ? '  ·  RFC ' + r.clienteRFC : '');
+		return r;
 	}
 
 	/**
@@ -399,12 +467,20 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Id saveOpportunity(String opportunityJson, Boolean isNewAccount) {
+		try {
 		Map<String, Object> d =
 			(Map<String, Object>) JSON.deserializeUntyped(opportunityJson);
 
 		Id accountId = d.get('AccountId') != null
 			? (Id) String.valueOf(d.get('AccountId'))
 			: null;
+
+		// Banderas para el ticket "Crear contacto dentro de Analisis de Oportunidad":
+		// distinguimos si se creo una cuenta nueva (no reutilizada) y si es Person
+		// Account (ya trae PersonContact) o de negocio (debemos crear el Contacto).
+		Boolean createdNewAccount = false;
+		Boolean createdPersonAccount = false;
+		Id nuevoContactoId = null; // Contacto de negocio creado en este proceso (si aplica)
 
 		// ------------------------------------------------------------
 		// 1) CUENTA NUEVA
@@ -417,6 +493,7 @@ public with sharing class OpportunityController {
 				Id paRtId = getPersonAccountRecordTypeId();
 				if (paRtId != null) {
 					acc.RecordTypeId = paRtId;
+					createdPersonAccount = true;
 				}
 				acc.FirstName = getStr(d, 'clienteNombre');
 				String paterno = getStr(d, 'clienteApellidoPaterno');
@@ -456,10 +533,63 @@ public with sharing class OpportunityController {
 				acc.Phone             = getStr(d, 'clienteTelefono');
 				acc.BillingStreet     = getStr(d, 'clienteDireccion');
 				acc.BillingPostalCode = getStr(d, 'clienteCP');
+				// Annual Revenue es obligatorio para cuentas empresariales (validation rule).
+				// Tomamos el valor del formulario; si no llega, 0 para no romper el alta.
+				Decimal ingresoAnual = toDecimalSafe(d.get('AnnualRevenue'));
+				acc.AnnualRevenue = (ingresoAnual != null) ? ingresoAnual : 0;
 			}
 
-			insert acc;
-			accountId = acc.Id;
+			// Evita duplicados: si ya existe una cuenta que coincide (por email de la
+			// persona o por nombre exacto), se reutiliza en vez de crear otra.
+			String nombreBuscar = (tipoCliente == 'Persona') ? nombrePersona(acc) : acc.Name;
+			Id cuentaExistente = buscarCuentaExistente(d, tipoCliente, nombreBuscar);
+			if (cuentaExistente != null) {
+				accountId = cuentaExistente;
+				// Se reutilizo una cuenta existente: no es alta nueva, no forzamos contacto.
+				createdPersonAccount = false;
+			} else {
+				insert acc;
+				accountId = acc.Id;
+				createdNewAccount = true;
+			}
+		}
+
+		// ------------------------------------------------------------
+		// 1.b) Sincroniza los datos del cliente capturados en el formulario con la
+		//      Cuenta, sea NUEVA o EXISTENTE (seleccionada o reutilizada). Así, si una
+		//      cuenta ya existía sin correo y se le agrega uno, ahora sí se guarda.
+		//      Solo se escriben los campos con valor (no se borra lo ya capturado).
+		// ------------------------------------------------------------
+		if (accountId != null) {
+			// El tipo (persona/empresa) se determina por la CUENTA real, no por el
+			// formulario, para no escribir campos de persona en una cuenta de negocio.
+			Boolean esPersona = false;
+			for (Account ac : [SELECT IsPersonAccount FROM Account WHERE Id = :accountId LIMIT 1]) {
+				esPersona = ac.IsPersonAccount;
+			}
+			Account accUpd = new Account(Id = accountId);
+			Boolean hayCambio = false;
+			String fEmail = getStr(d, 'clienteEmail');
+			String fTel   = getStr(d, 'clienteTelefono');
+			String fCP    = getStr(d, 'clienteCP');
+			String fDir   = getStr(d, 'clienteDireccion');
+			String fRfc   = getStr(d, 'clienteRFC');
+			// Correo: campo universal para ambos tipos; en persona tambien PersonEmail.
+			if (String.isNotBlank(fEmail)) {
+				accUpd.Correo_electronico__c = fEmail;
+				if (esPersona) { accUpd.PersonEmail = fEmail; }
+				hayCambio = true;
+			}
+			if (String.isNotBlank(fTel)) { accUpd.Phone = fTel; hayCambio = true; }
+			if (esPersona) {
+				if (String.isNotBlank(fCP))  { accUpd.PersonMailingPostalCode = fCP; hayCambio = true; }
+				if (String.isNotBlank(fDir)) { accUpd.PersonMailingStreet = fDir; hayCambio = true; }
+				if (String.isNotBlank(fRfc)) { accUpd.put('RFC__pc', fRfc); hayCambio = true; }
+			} else {
+				if (String.isNotBlank(fCP))  { accUpd.BillingPostalCode = fCP; hayCambio = true; }
+				if (String.isNotBlank(fDir)) { accUpd.BillingStreet = fDir; hayCambio = true; }
+			}
+			if (hayCambio) { update accUpd; }
 		}
 
 		// ------------------------------------------------------------
@@ -477,6 +607,10 @@ public with sharing class OpportunityController {
 		opp.Type = getStr(d, 'Type');   // ← tomar el Tipo del formulario (antes no se guardaba)
 		if (String.isBlank(opp.StageName)) { opp.StageName = 'Gestion Comercial'; }
 		if (String.isBlank(opp.Type))      { opp.Type = 'New_Business'; }
+
+		// Individual / Colectiva (marca de oportunidad con varios asegurados).
+		String tipoContr = getStr(d, 'Tipo_Contratacion__c');
+		if (String.isNotBlank(tipoContr)) { opp.Tipo_Contratacion__c = tipoContr; }
 
 		// Agente (lookup a Agente_Relacionado__c)
 		String agenteId = getStr(d, 'Agente_Relacionado__c');
@@ -524,8 +658,18 @@ public with sharing class OpportunityController {
 			}
 		}
 
+		// ------------------------------------------------------------
+		// 3) CONTACTO — Ticket "Crear contacto dentro de Analisis de Oportunidad"
+		//    Al crear la cuenta también se crea/liga el Contacto con los datos del
+		//    cliente. Person Account (o Individual): se liga su PersonContact (o se crea
+		//    uno de respaldo). Cuenta de negocio nueva: se crea un Contact con los datos.
+		// ------------------------------------------------------------
 		String mercadoSel = String.isNotBlank(getStr(d, 'Mercado__c')) ? getStr(d, 'Mercado__c') : opp.Mercado__c;
-		if (mercadoSel == 'Individual' && accountId != null) {
+		String contactoId = getStr(d, 'Contacto__c');
+		Boolean isNewContacto = d.get('isNewContacto') == true;
+		if (String.isNotBlank(contactoId)) {
+			opp.Contacto__c = (Id) contactoId;
+		} else if (createdPersonAccount || (mercadoSel == 'Individual' && accountId != null)) {
 			Id personContact = getPersonContactId(accountId);
 			// Respaldo: si la cuenta no tiene contacto de persona (p. ej. no es
 			// Cuenta Persona), creamos/ligamos uno con el nombre del cliente para
@@ -534,14 +678,12 @@ public with sharing class OpportunityController {
 				personContact = crearContactoIndividual(d, accountId);
 			}
 			opp.Contacto__c = personContact;
-		} else {
-			String contactoId = getStr(d, 'Contacto__c');
-			Boolean isNewContacto = d.get('isNewContacto') == true;
-			if (String.isNotBlank(contactoId)) {
-				opp.Contacto__c = (Id) contactoId;
-			} else if (isNewContacto && accountId != null) {
-				opp.Contacto__c = crearContacto(d, accountId);
-			}
+		} else if (accountId != null && (createdNewAccount || isNewContacto)) {
+			// Cuenta de negocio recién creada (o alta manual de contacto): se crea el
+			// Contacto con los datos del cliente y se liga a la oportunidad.
+			nuevoContactoId = crearContactoIndividual(d, accountId);
+			if (nuevoContactoId == null) { nuevoContactoId = crearContacto(d, accountId); }
+			opp.Contacto__c = nuevoContactoId;
 		}
 
 		String compHtml = getStr(d, 'Descripcion__c');
@@ -559,12 +701,54 @@ public with sharing class OpportunityController {
 
 		upsert opp;
 
+		// Ticket "Crear contacto": liga el Contacto recién creado como rol primario de
+		// la oportunidad para los ramos que NO generan roles en persistRamoStandardData
+		// (p. ej. Automoviles), para que el contacto fluya a las cotizaciones.
+		if (nuevoContactoId != null) {
+			String ru = ramoOpp == null ? '' : ramoOpp.toUpperCase();
+			Boolean fscGeneraRoles = ru.contains('VIDA') || ru.contains('GMM') || ru.contains('GASTOS')
+				|| ru.contains('DENTAL') || ru.contains('VISION') || ru.contains('VISIÓN');
+			if (!fscGeneraRoles) {
+				try {
+					insert new OpportunityContactRole(
+						OpportunityId = opp.Id,
+						ContactId = nuevoContactoId,
+						IsPrimary = true,
+						Role = pickRole(new List<String>{ 'Decision Maker', 'Business User', 'Economic Buyer', 'Other' })
+					);
+				} catch (Exception e) {
+					System.debug('CONTACTO::: OCR nuevo contacto -> ' + e.getMessage());
+				}
+			}
+		}
+
 		// Persistencia con objetos ESTANDAR de FSC (Autos usa Automovil__c, ya resuelto arriba).
 		if (ramoOpp != null && !ramoOpp.toUpperCase().contains('AUTO')) {
 			persistRamoStandardData(opp.Id, accountId, ramoOpp, detalleRamo);
 		}
 
 		return opp.Id;
+		} catch (AuraHandledException ahe) {
+			throw ahe;
+		} catch (DmlException e) {
+			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
+		}
+	}
+
+	// Arma un mensaje de error legible para el usuario a partir de errores de DML.
+	private static String detalleError(Exception e) {
+		if (e instanceof DmlException) {
+			DmlException de = (DmlException) e;
+			List<String> partes = new List<String>();
+			for (Integer i = 0; i < de.getNumDml(); i++) {
+				String m = de.getDmlMessage(i);
+				if (String.isNotBlank(m)) { partes.add(m); }
+			}
+			if (!partes.isEmpty()) { return String.join(partes, ' | '); }
+		}
+		return e.getMessage();
 	}
 
 	/**
@@ -578,6 +762,33 @@ public with sharing class OpportunityController {
 	private static String getStr(Map<String, Object> m, String key) {
 		Object v = m.get(key);
 		return v == null ? null : String.valueOf(v);
+	}
+
+	// Nombre completo de una Cuenta Persona a partir de sus componentes.
+	private static String nombrePersona(Account acc) {
+		List<String> partes = new List<String>();
+		if (String.isNotBlank(acc.FirstName)) { partes.add(acc.FirstName); }
+		String mid;
+		try { mid = (String) acc.get('MiddleName'); } catch (Exception e) { mid = null; }
+		if (String.isNotBlank(mid)) { partes.add(mid); }
+		if (String.isNotBlank(acc.LastName)) { partes.add(acc.LastName); }
+		return String.join(partes, ' ').trim();
+	}
+
+	// Busca una cuenta existente para evitar duplicados: primero por email (si es persona),
+	// luego por nombre exacto (la comparación de texto en SOQL no distingue mayúsculas).
+	private static Id buscarCuentaExistente(Map<String, Object> d, String tipoCliente, String nombreCuenta) {
+		String email = getStr(d, 'clienteEmail');
+		if (tipoCliente == 'Persona' && String.isNotBlank(email)) {
+			for (Account a : [SELECT Id FROM Account WHERE PersonEmail = :email AND IsPersonAccount = true LIMIT 1]) {
+				return a.Id;
+			}
+		}
+		if (String.isBlank(nombreCuenta)) { return null; }
+		for (Account a : [SELECT Id FROM Account WHERE Name = :nombreCuenta ORDER BY CreatedDate ASC LIMIT 1]) {
+			return a.Id;
+		}
+		return null;
 	}
 
 	/**
@@ -981,5 +1192,44 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String Email;
 		@AuraEnabled public String Phone;
 		@AuraEnabled public Id AccountId;
+	}
+	/**
+	 * @description: Devuelve los archivos (ContentDocument) ligados a una oportunidad,
+	 *               con lo necesario para mostrarlos y abrirlos/descargarlos desde el LWC.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<ArchivoOpp> getArchivosDeOportunidad(Id opportunityId) {
+		List<ArchivoOpp> out = new List<ArchivoOpp>();
+		if (opportunityId == null) { return out; }
+		try {
+			Set<Id> docIds = new Set<Id>();
+			for (ContentDocumentLink l : [SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId = :opportunityId]) {
+				docIds.add(l.ContentDocumentId);
+			}
+			if (docIds.isEmpty()) { return out; }
+			for (ContentVersion v : [
+				SELECT ContentDocumentId, Title, FileExtension, ContentSize, CreatedDate
+				FROM ContentVersion
+				WHERE ContentDocumentId IN :docIds AND IsLatest = true
+				ORDER BY CreatedDate DESC
+			]) {
+				ArchivoOpp a = new ArchivoOpp();
+				a.contentDocumentId = v.ContentDocumentId;
+				a.title = v.Title;
+				a.extension = v.FileExtension;
+				a.size = (Integer) v.ContentSize;
+				out.add(a);
+			}
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudieron cargar los archivos: ' + e.getMessage());
+		}
+		return out;
+	}
+
+	public class ArchivoOpp {
+		@AuraEnabled public Id contentDocumentId;
+		@AuraEnabled public String title;
+		@AuraEnabled public String extension;
+		@AuraEnabled public Integer size;
 	}
 }

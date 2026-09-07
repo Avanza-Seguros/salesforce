@@ -15,6 +15,10 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Quincenal</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Semestral</fullName>
             <default>false</default>
         </values>
@@ -26,23 +30,7 @@
     <picklistValues>
         <picklist>Ramos__c</picklist>
         <values>
-            <fullName>Accidentes Personales</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Ahorro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Asistencia</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Automoviles</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
@@ -51,10 +39,6 @@
         </values>
         <values>
             <fullName>Dental</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Embarcaciones</fullName>
             <default>false</default>
         </values>
         <values>
@@ -70,23 +54,7 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Hogar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Personas</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Profesionistas</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>RC</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>
@@ -109,12 +77,32 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Approved</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Denied</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>In Review</fullName>
+            <fullName>Draft</fullName>
             <default>true</default>
+        </values>
+        <values>
+            <fullName>In Review</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Needs Review</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Presented</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rejected</fullName>
+            <default>false</default>
         </values>
     </picklistValues>
     <picklistValues>
