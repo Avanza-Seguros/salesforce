@@ -10,7 +10,7 @@
         <picklist>Agente__c</picklist>
         <values>
             <fullName>Abraham Gonzalez</fullName>
-            <default>true</default>
+            <default>false</default>
         </values>
         <values>
             <fullName>Adriana Franco</fullName>
@@ -367,7 +367,7 @@
         <picklist>Canal__c</picklist>
         <values>
             <fullName>Agente</fullName>
-            <default>true</default>
+            <default>false</default>
         </values>
         <values>
             <fullName>Digital</fullName>
@@ -964,23 +964,7 @@
     <picklistValues>
         <picklist>Ramo__c</picklist>
         <values>
-            <fullName>Accidentes Personales</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Ahorro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Asistencia</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Automoviles</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
@@ -989,10 +973,6 @@
         </values>
         <values>
             <fullName>Dental</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Embarcaciones</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1008,23 +988,7 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Hogar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Personas</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Profesionistas</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>RC</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1169,6 +1133,17 @@
         <values>
             <fullName>Zacatecas</fullName>
             <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Tipo_Contratacion__c</picklist>
+        <values>
+            <fullName>Colectiva</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Individual</fullName>
+            <default>true</default>
         </values>
     </picklistValues>
     <picklistValues>
