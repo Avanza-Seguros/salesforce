@@ -405,6 +405,117 @@ private class InboundInstallmentCandidateQueueableTest {
 		Assert.isNull(inbound.candidateInstallment__c);
 	}
 
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: un numero de cuota no numerico enviado por la aseguradora deja
+	 *               una advertencia, porque el matching pierde su senal de mayor peso y el
+	 *               pago tiende a caer en revision manual. Se emite una sola vez por pago,
+	 *               no una por cada cuota candidata evaluada.
+	 */
+	@IsTest
+	static void warnsOnceWhenInstallmentNumberIsNotNumeric() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = new InsurancePolicy(
+			Name = 'POL-IC-NAN',
+			PolicyName = 'Test Policy',
+			NameInsuredId = accountId,
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
+		);
+		insert policy;
+		PaymentPlan__c plan = createActivePlan(policy.Id);
+		createInstallment(plan.Id, 1, Date.today(), 500, 'Pendiente');
+		createInstallment(plan.Id, 2, Date.today().addMonths(1), 500, 'Pendiente');
+
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-IC-NAN',
+			policy.Id,
+			'CUOTA-A',
+			Date.today(),
+			500
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundInstallmentCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		List<AppLog__c> logs = [
+			SELECT severity__c, eventCode__c, message__c, inboundPayment__c
+			FROM AppLog__c
+			WHERE eventCode__c = :CobranzaLog.EVENT_INSTALLMENT_NUMBER_NOT_NUMERIC
+		];
+		Assert.areEqual(
+			1,
+			logs.size(),
+			'Debe advertirse una sola vez por pago, aunque haya varias cuotas candidatas'
+		);
+		Assert.areEqual(
+			'Advertencia',
+			logs[0].severity__c,
+			'Es calidad de dato de origen, no un fallo del motor'
+		);
+		Assert.areEqual(
+			inbound.Id,
+			logs[0].inboundPayment__c,
+			'Debe quedar visible desde el pago afectado'
+		);
+		Assert.isTrue(
+			logs[0].message__c.contains('CUOTA-A'),
+			'El mensaje debe incluir el valor recibido para poder reclamarlo'
+		);
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: H200: un numero de cuota numerico no genera ninguna advertencia.
+	 */
+	@IsTest
+	static void doesNotWarnWhenInstallmentNumberIsNumeric() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = new InsurancePolicy(
+			Name = 'POL-IC-NUM',
+			PolicyName = 'Test Policy',
+			NameInsuredId = accountId,
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
+		);
+		insert policy;
+		PaymentPlan__c plan = createActivePlan(policy.Id);
+		createInstallment(plan.Id, 1, Date.today(), 500, 'Pendiente');
+
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-IC-NUM',
+			policy.Id,
+			'1',
+			Date.today(),
+			500
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundInstallmentCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			0,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_INSTALLMENT_NUMBER_NOT_NUMERIC
+			],
+			'Un numero de cuota valido no debe generar ruido en el registro'
+		);
+	}
+
 	private static InboundInsurancePayment__c createNormalizedInbound(
 		String externalId,
 		Id candidatePolicyId,

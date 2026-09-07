@@ -9,6 +9,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>PolicyPaymentReceiptReversalService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PolicyInstallmentsController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -223,6 +227,26 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>PolicyPaymentReceipt__c.receiptStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PolicyPaymentReceipt__c.reversalReason__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PolicyPaymentReceipt__c.reversalNotes__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PolicyPaymentReceipt__c.reversedBy__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PolicyPaymentReceipt__c.reversedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

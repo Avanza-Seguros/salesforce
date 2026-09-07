@@ -79,6 +79,11 @@ public with sharing class InboundConfidenceScoreQueueable implements Queueable {
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(CobranzaLog.STAGE_SCORE, inboundPaymentIds)
+		);
+
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
@@ -110,7 +115,14 @@ public with sharing class InboundConfidenceScoreQueueable implements Queueable {
 				rec.candidateCount__c = 0;
 				rec.manualReviewRequired__c = true;
 				rec.inboundStatus__c = STATUS_MANUAL_REVIEW;
+				CobranzaLog.error(
+						CobranzaLog.STAGE_SCORE,
+						CobranzaLog.EVENT_SCORE_FAILED,
+						e
+					)
+					.onInbound(p.Id);
 			}
+			rec.pipelineStage__c = CobranzaLog.STAGE_SCORE;
 			toUpdate.add(rec);
 		}
 
@@ -123,7 +135,15 @@ public with sharing class InboundConfidenceScoreQueueable implements Queueable {
 		try {
 			System.enqueueJob(new PaymentReconciliationQueueable(allIds));
 		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_SCORE,
+				e,
+				'PaymentReconciliationQueueable',
+				allIds
+			);
 		}
+
+		AppLogger.flush();
 	}
 
 	/**

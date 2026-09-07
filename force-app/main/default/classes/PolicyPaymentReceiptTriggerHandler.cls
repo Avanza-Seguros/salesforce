@@ -15,6 +15,12 @@ public with sharing class PolicyPaymentReceiptTriggerHandler {
 	private static final String STAGE_CLOSED_WON = 'Closed Won';
 	private static final String STAGE_CLOSED_LOST = 'Closed Lost';
 
+	// Fuerza el fallo de la actualizacion de la oportunidad para poder probar el registro
+	// del error tecnico (H200). Mismo patron que forceFailureForTest en los eslabones del
+	// pipeline: es la unica forma de provocar ese fallo de plataforma desde una prueba.
+	@TestVisible
+	private static Boolean forceOpportunityFailureForTest = false;
+
 	/**
 	 * @creation date: 15/06/2026
 	 * @author: Javier Torres - Volestra
@@ -64,7 +70,7 @@ public with sharing class PolicyPaymentReceiptTriggerHandler {
 		List<PolicyPaymentReceipt__c> receipts,
 		Map<Id, PolicyPaymentReceipt__c> oldMap
 	) {
-		Set<Id> policyIds = new Set<Id>();
+		Map<Id, Id> receiptByPolicy = new Map<Id, Id>();
 
 		for (PolicyPaymentReceipt__c receipt : receipts) {
 			if (!isNewlyRecognized(receipt, oldMap)) {
@@ -75,14 +81,15 @@ public with sharing class PolicyPaymentReceiptTriggerHandler {
 				continue;
 			}
 
-			policyIds.add(receipt.insurancePolicy__c);
+			receiptByPolicy.put(receipt.insurancePolicy__c, receipt.Id);
 		}
 
-		if (policyIds.isEmpty()) {
+		if (receiptByPolicy.isEmpty()) {
 			return;
 		}
 
-		closeOpportunitiesForPolicies(policyIds);
+		closeOpportunitiesForPolicies(receiptByPolicy);
+		AppLogger.flush();
 	}
 
 	/**
@@ -120,23 +127,42 @@ public with sharing class PolicyPaymentReceiptTriggerHandler {
 	 *               Closed Won las oportunidades en estado elegible. Excluye
 	 *               oportunidades ya en Closed Won (idempotencia) y Closed Lost
 	 *               (no reabrir negocios perdidos). La actualizacion es best-effort.
-	 * @param policyIds: IDs de polizas con recibo recien reconocido.
+	 *               Deja traza (H200) de los casos en que la oportunidad NO se cierra: la
+	 *               poliza sin oportunidad de origen y la oportunidad en Closed Lost son
+	 *               decisiones de negocio invisibles en los datos, y el fallo tecnico de la
+	 *               actualizacion se descartaba en silencio por ser best-effort. El cierre
+	 *               exitoso no se registra: ya es visible en la propia oportunidad.
+	 * @param receiptByPolicy: Mapa de poliza al recibo recien reconocido que la origina.
 	 * @return:
 	 * @exception:
 	 * @throws:
 	 */
-	private static void closeOpportunitiesForPolicies(Set<Id> policyIds) {
-		Set<Id> opportunityIds = new Set<Id>();
+	private static void closeOpportunitiesForPolicies(
+		Map<Id, Id> receiptByPolicy
+	) {
+		Map<Id, Id> receiptByOpportunity = new Map<Id, Id>();
 
 		for (InsurancePolicy policy : [
-			SELECT SourceOpportunityId
+			SELECT Id, SourceOpportunityId
 			FROM InsurancePolicy
-			WHERE Id IN :policyIds AND SourceOpportunityId != NULL
+			WHERE Id IN :receiptByPolicy.keySet()
 		]) {
-			opportunityIds.add(policy.SourceOpportunityId);
+			if (policy.SourceOpportunityId == null) {
+				CobranzaLog.warn(
+						CobranzaLog.STAGE_OPORTUNIDAD,
+						CobranzaLog.EVENT_OPPORTUNITY_MISSING,
+						'La póliza no tiene oportunidad de origen: no hay oportunidad comercial que cerrar.'
+					)
+					.onRecord(receiptByPolicy.get(policy.Id));
+				continue;
+			}
+			receiptByOpportunity.put(
+				policy.SourceOpportunityId,
+				receiptByPolicy.get(policy.Id)
+			);
 		}
 
-		if (opportunityIds.isEmpty()) {
+		if (receiptByOpportunity.isEmpty()) {
 			return;
 		}
 
@@ -145,16 +171,70 @@ public with sharing class PolicyPaymentReceiptTriggerHandler {
 		for (Opportunity opp : [
 			SELECT Id, StageName
 			FROM Opportunity
-			WHERE
-				Id IN :opportunityIds
-				AND StageName != :STAGE_CLOSED_WON
-				AND StageName != :STAGE_CLOSED_LOST
+			WHERE Id IN :receiptByOpportunity.keySet()
 		]) {
-			toUpdate.add(new Opportunity(Id = opp.Id, StageName = STAGE_CLOSED_WON));
+			if (STAGE_CLOSED_LOST.equals(opp.StageName)) {
+				CobranzaLog.warn(
+						CobranzaLog.STAGE_OPORTUNIDAD,
+						CobranzaLog.EVENT_OPPORTUNITY_LOST,
+						'La oportunidad está en Closed Lost: un cobro reconocido no reabre un negocio perdido.'
+					)
+					.onRecord(receiptByOpportunity.get(opp.Id));
+				continue;
+			}
+			// Ya en Closed Won: no se registra. Es el resultado esperado de la idempotencia
+			// y registrarlo generaria ruido en cada recibo posterior de la misma poliza.
+			if (STAGE_CLOSED_WON.equals(opp.StageName)) {
+				continue;
+			}
+			Opportunity toClose = new Opportunity(
+				Id = opp.Id,
+				StageName = STAGE_CLOSED_WON
+			);
+			if (forceOpportunityFailureForTest) {
+				// Vaciar un campo obligatorio produce un fallo de plataforma devuelto como
+				// resultado (no como excepcion), que es exactamente el caso que el registro
+				// tiene que capturar.
+				toClose.CloseDate = null;
+			}
+			toUpdate.add(toClose);
 		}
 
-		if (!toUpdate.isEmpty()) {
-			Database.update(toUpdate, false);
+		if (toUpdate.isEmpty()) {
+			return;
 		}
+
+		List<Database.SaveResult> results = Database.update(toUpdate, false);
+		for (Integer i = 0; i < results.size(); i++) {
+			if (results[i].isSuccess()) {
+				continue;
+			}
+			CobranzaLog.error(
+					CobranzaLog.STAGE_OPORTUNIDAD,
+					CobranzaLog.EVENT_OPPORTUNITY_UPDATE_FAILED,
+					'No se pudo cerrar la oportunidad: ' +
+					describeErrors(results[i].getErrors())
+				)
+				.onRecord(receiptByOpportunity.get(toUpdate[i].Id))
+				.appendDetails('Oportunidad: ' + toUpdate[i].Id);
+		}
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Resume los errores devueltos por la plataforma al actualizar la
+	 *               oportunidad, para que el mensaje del registro sea accionable.
+	 * @param errors: Errores del resultado de la actualizacion.
+	 * @return: Texto con los mensajes concatenados.
+	 * @exception:
+	 * @throws:
+	 */
+	private static String describeErrors(List<Database.Error> errors) {
+		List<String> messages = new List<String>();
+		for (Database.Error err : errors) {
+			messages.add(err.getStatusCode() + ' - ' + err.getMessage());
+		}
+		return String.join(messages, ' | ');
 	}
 }

@@ -69,6 +69,14 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 	 * @return
 	 */
 	public void execute(QueueableContext context) {
+		AppLogger.setJobContext(context == null ? null : context.getJobId());
+		System.attachFinalizer(
+			CobranzaLog.finalizerFor(
+				CobranzaLog.STAGE_CONCILIACION,
+				inboundPaymentIds
+			)
+		);
+
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
@@ -158,6 +166,12 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 					}
 				}
 			} catch (Exception e) {
+				CobranzaLog.error(
+						CobranzaLog.STAGE_CONCILIACION,
+						CobranzaLog.EVENT_RECONCILIATION_BUILD_FAILED,
+						e
+					)
+					.onInbound(p.Id);
 			}
 		}
 
@@ -167,6 +181,8 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 		if (!toUpdate.isEmpty()) {
 			update toUpdate;
 		}
+
+		CobranzaLog.markStage(inboundPaymentIds, CobranzaLog.STAGE_CONCILIACION);
 
 		for (PaymentReconciliation__c rec : reconciledNewRecs) {
 			reconciledReconciliationIds.add(rec.Id);
@@ -178,8 +194,16 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 					new PolicyPaymentReceiptQueueable(reconciledReconciliationIds)
 				);
 			} catch (System.AsyncException e) {
+				CobranzaLog.chainBreak(
+					CobranzaLog.STAGE_CONCILIACION,
+					e,
+					'PolicyPaymentReceiptQueueable',
+					reconciledReconciliationIds
+				);
 			}
 		}
+
+		AppLogger.flush();
 	}
 
 	/**

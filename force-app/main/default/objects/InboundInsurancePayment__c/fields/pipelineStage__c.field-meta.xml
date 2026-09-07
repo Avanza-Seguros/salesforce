@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>pipelineStage__c</fullName>
+    <description
+	>Ultima etapa del pipeline que el pago completo. Responde "hasta donde llego" cuando un proceso se interrumpe, sin tener que abrir el registro de aplicacion: junto con el estado del inbound permite listar los pagos detenidos. Lo escribe cada eslabon al terminar su paso, aprovechando la actualizacion que ya realiza sobre el registro. Los valores son espejo de las constantes STAGE_* de la clase CobranzaLog.</description>
+    <label>Etapa alcanzada</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Recepcion</fullName>
+                <default>false</default>
+                <label>Recepción</label>
+            </value>
+            <value>
+                <fullName>Normalizacion</fullName>
+                <default>false</default>
+                <label>Normalización</label>
+            </value>
+            <value>
+                <fullName>Poliza candidata</fullName>
+                <default>false</default>
+                <label>Póliza candidata</label>
+            </value>
+            <value>
+                <fullName>Cuota candidata</fullName>
+                <default>false</default>
+                <label>Cuota candidata</label>
+            </value>
+            <value>
+                <fullName>Reglas de conciliacion</fullName>
+                <default>false</default>
+                <label>Reglas de conciliación</label>
+            </value>
+            <value>
+                <fullName>Score de confianza</fullName>
+                <default>false</default>
+                <label>Score de confianza</label>
+            </value>
+            <value>
+                <fullName>Conciliacion</fullName>
+                <default>false</default>
+                <label>Conciliación</label>
+            </value>
+            <value>
+                <fullName>Recibo generado</fullName>
+                <default>false</default>
+                <label>Recibo generado</label>
+            </value>
+            <value>
+                <fullName>Cuota actualizada</fullName>
+                <default>false</default>
+                <label>Cuota actualizada</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

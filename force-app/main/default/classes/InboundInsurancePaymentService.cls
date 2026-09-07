@@ -14,6 +14,7 @@ public with sharing class InboundInsurancePaymentService {
 	private static final String STATUS_PARSED = 'Parseado';
 	private static final String STATUS_REJECTED = 'Rechazado';
 	private static final String STATUS_PENDING_PAYMENT = 'Pendiente de Pago';
+	private static final String INBOUND_STATUS_RECONCILED = 'Conciliado';
 	private static final String REJECTION_REASON_MALFORMED_PAYLOAD = 'Payload malformado';
 	private static final String REJECTION_REASON_INCOMPLETE_PAYLOAD = 'Payload incompleto';
 	private static final String REJECTION_REASON_INVALID_AMOUNT = 'Importe invalido';
@@ -185,6 +186,7 @@ public with sharing class InboundInsurancePaymentService {
 			);
 			if (existing != null) {
 				ctx.existingStatus = existing.inboundStatus__c;
+				logResentWithChanges(existing, ctx.data);
 				InboundInsurancePayment__c rec = new InboundInsurancePayment__c(
 					Id = existing.Id
 				);
@@ -227,6 +229,7 @@ public with sharing class InboundInsurancePaymentService {
 		}
 
 		enqueueNormalization(toInsert, toUpdate);
+		AppLogger.flush();
 
 		List<ItemResult> results = new List<ItemResult>();
 		for (RowContext ctx : contexts) {
@@ -557,6 +560,11 @@ public with sharing class InboundInsurancePaymentService {
 	) {
 		inboundPayment.externalPaymentId__c = data.externalPaymentId;
 		inboundPayment.inboundStatus__c = inboundStatus;
+		// Primera etapa del pipeline: el pago quedo recibido y persistido. Los eslabones
+		// siguientes la van avanzando; junto con el estado permite listar los detenidos.
+		// En un reenvio se reinicia a proposito: el pago vuelve a Parseado y recorre el
+		// pipeline de nuevo, asi que la etapa alcanzada tiene que volver al principio.
+		inboundPayment.pipelineStage__c = CobranzaLog.STAGE_RECEPCION;
 		inboundPayment.parsedAt__c = System.now();
 		inboundPayment.receivedAt__c = System.now();
 		inboundPayment.rawBankReference__c = data.rawBankReference;
@@ -594,6 +602,58 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.sourcePolicyStartDate__c = data.sourcePolicyStartDate;
 		inboundPayment.sourcePolicyRenewalDate__c = data.sourcePolicyRenewalDate;
 		inboundPayment.sourcePolicyIssueDate__c = data.sourcePolicyIssueDate;
+	}
+
+	/**
+	 * @creation date: 30/07/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Deja traza cuando la integracion reenvia un pago que ya estaba
+	 *               conciliado y ademas trae un importe o una fecha de pago distintos a los
+	 *               que se conciliaron. Solo se registra ese caso: la integracion reenvia el
+	 *               historico de forma rutinaria, y registrar cada reenvio sin cambios
+	 *               inundaria el registro sin aportar nada. Un pago ya conciliado que vuelve
+	 *               con otros datos, en cambio, es la senal de que lo conciliado dejo de
+	 *               coincidir con lo que informa la aseguradora.
+	 * @param existing: Registro inbound ya existente, con sus valores actuales.
+	 * @param incoming: Datos parseados del reenvio.
+	 * @return
+	 */
+	private static void logResentWithChanges(
+		InboundInsurancePayment__c existing,
+		ParsedInboundData incoming
+	) {
+		if (existing.inboundStatus__c != INBOUND_STATUS_RECONCILED) {
+			return;
+		}
+
+		List<String> changes = new List<String>();
+		if (existing.sourceAmount__c != incoming.sourceAmount) {
+			changes.add(
+				'importe ' + existing.sourceAmount__c + ' -> ' + incoming.sourceAmount
+			);
+		}
+		if (existing.sourcePaymentDate__c != incoming.sourcePaymentDate) {
+			changes.add(
+				'fecha de pago ' +
+					existing.sourcePaymentDate__c +
+					' -> ' +
+					incoming.sourcePaymentDate
+			);
+		}
+		if (changes.isEmpty()) {
+			return;
+		}
+
+		CobranzaLog.info(
+				CobranzaLog.STAGE_RECEPCION,
+				CobranzaLog.EVENT_INBOUND_RESENT_CHANGED,
+				'Pago ya conciliado (' +
+					existing.externalPaymentId__c +
+					') reenviado con datos distintos: ' +
+					String.join(changes, '; ') +
+					'.'
+			)
+			.onInbound(existing.Id);
 	}
 
 	/**
@@ -649,7 +709,12 @@ public with sharing class InboundInsurancePaymentService {
 			return result;
 		}
 		for (InboundInsurancePayment__c rec : [
-			SELECT Id, externalPaymentId__c, inboundStatus__c
+			SELECT
+				Id,
+				externalPaymentId__c,
+				inboundStatus__c,
+				sourceAmount__c,
+				sourcePaymentDate__c
 			FROM InboundInsurancePayment__c
 			WHERE externalPaymentId__c IN :externalIds
 		]) {

@@ -30,6 +30,7 @@ public with sharing class PaymentReconciliationManualService {
 	private static final String INBOUND_STATUS_NORMALIZED = 'Normalizado';
 	private static final String INBOUND_REJECTION_REASON_BUSINESS = 'Rechazado por negocio';
 	private static final String PLAN_STATUS_ACTIVE = 'Activo';
+	private static final String RECEIPT_STATUS_REVERSED = 'Reversado';
 
 	private static final Set<String> CLOSED_STATUSES = new Set<String>{
 		STATUS_RECONCILED,
@@ -316,12 +317,23 @@ public with sharing class PaymentReconciliationManualService {
 			reconciliationId
 		);
 
-		if (
-			STATUS_RECONCILED.equals(recon.reconciliationStatus__c) ||
-			recon.resultingReceipt__c != null
-		) {
+		// H201: un recibo REVERSADO ya no sostiene la conciliacion, asi que deja de bloquear
+		// el reproceso. Es exactamente la puerta que anticipaba el mensaje de error original
+		// ("requiere reversa"): antes de la 201 no existia forma de atravesarla y el caso
+		// quedaba muerto, ni conciliado de verdad ni reprocesable.
+		Boolean hasActiveReceipt =
+			recon.resultingReceipt__c != null &&
+			!RECEIPT_STATUS_REVERSED.equals(
+				recon.resultingReceipt__r.receiptStatus__c
+			);
+		if (hasActiveReceipt) {
 			throw new ManualResolutionException(
-				'La conciliación ya está reconocida (con recibo) y no puede reprocesarse; requiere reversa.'
+				'La conciliación tiene un recibo vigente y no puede reprocesarse; primero hay que reversar el recibo.'
+			);
+		}
+		if (STATUS_RECONCILED.equals(recon.reconciliationStatus__c)) {
+			throw new ManualResolutionException(
+				'La conciliación está reconocida y no puede reprocesarse.'
 			);
 		}
 		if (!REPROCESSABLE_STATUSES.contains(recon.reconciliationStatus__c)) {
@@ -381,6 +393,7 @@ public with sharing class PaymentReconciliationManualService {
 				reconciliationStatus__c,
 				rejectedReason__c,
 				resultingReceipt__c,
+				resultingReceipt__r.receiptStatus__c,
 				inboundPayment__c,
 				manualResolvedBy__c,
 				reprocessLog__c

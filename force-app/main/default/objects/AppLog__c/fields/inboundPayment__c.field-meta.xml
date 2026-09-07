@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>inboundPayment__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description
+	>Pago inbound afectado por el evento. Existe como lookup, y no solo como identificador genérico, para que los registros aparezcan como lista relacionada dentro del propio pago: navegar desde el registro de negocio es el uso diario de soporte.</description>
+    <label>Pago inbound</label>
+    <referenceTo>InboundInsurancePayment__c</referenceTo>
+    <relationshipLabel>Registros de aplicación</relationshipLabel>
+    <relationshipName>AppLogs</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>
