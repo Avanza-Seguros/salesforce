@@ -197,8 +197,7 @@ private class PdfOpportunityCreatorControllerTest {
         insert acc;
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Dup', StageName = activeStage(),
-            CloseDate = Date.today().addDays(15), AccountId = acc.Id,
-            Agente_Relacionado__c = agenteId()
+            CloseDate = Date.today().addDays(15), AccountId = acc.Id
         );
         insert opp;
 
