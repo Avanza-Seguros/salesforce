@@ -90,6 +90,15 @@
         <members>InboundInsurancePayment__c.reprocessCount__c</members>
         <members>InboundInsurancePayment__c.lastReprocessedAt__c</members>
         <members>InboundInsurancePayment__c.lastReprocessedBy__c</members>
+        <members>InboundInsurancePayment__c.carrierReceiptStatus__c</members>
+        <members>InboundInsurancePayment__c.policyMatchReason__c</members>
+        <members>InboundInsurancePayment__c.scheduledChargeMismatch__c</members>
+        <members>PaymentPlanInstallment__c.agingStatus__c</members>
+        <members>PaymentPlanInstallment__c.insuredName__c</members>
+        <members>PaymentPlanInstallment__c.reopenedFromCancelledOn__c</members>
+        <members>InboundInsurancePayment__c.resendCount__c</members>
+        <members>InboundInsurancePayment__c.lastResendAt__c</members>
+        <members>InboundInsurancePayment__c.resendChangeLog__c</members>
         <members>InboundInsurancePayment__c.inboundStatus__c</members>
         <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
         <members>InboundInsurancePayment__c.parsedAt__c</members>
@@ -196,6 +205,13 @@
         <members>Opportunity.collectionReversedReceipt__c</members>
         <members>InsurancePolicy.collectionPaymentStatus__c</members>
         <members>InsurancePolicy.collectionNextDueDate__c</members>
+        <members>CustomerProperty.Motor__c</members>
+        <members>CustomerProperty.Uso__c</members>
+        <members>CustomerProperty.Servicio__c</members>
+        <members>CustomerProperty.Carroceria__c</members>
+        <members>CustomerProperty.TipoVehiculo__c</members>
+        <members>CustomerProperty.Color__c</members>
+        <members>CustomerProperty.TarifaAseguradora__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -209,12 +225,17 @@
 		>PaymentReconciliation__c-Payment Reconciliation Layout</members>
         <members>PolicyPaymentReceipt__c-Policy Payment Receipt Layout</members>
         <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <members>CustomerProperty-Formato de Propiedad de cliente</members>
+        <members
+		>InsurancePolicyAsset-Formato de Activo de póliza de seguro</members>
+        <members>Account-Business Account Layout</members>
         <name>Layout</name>
     </types>
     <types>
         <members>App_Log_Read</members>
         <members>MuleSoft_InboundPayments</members>
         <members>Cobranza_Revision_Manual</members>
+        <members>Vehiculos_FSC</members>
         <name>PermissionSet</name>
     </types>
     <types>
@@ -298,4 +319,12 @@
         <name>FlexiPage</name>
     </types>
     <version>66.0</version>
+    <types>
+        <members>Cobranza</members>
+        <name>ReportFolder</name>
+    </types>
+    <types>
+        <members>Cobranza/Cartera_Vencida</members>
+        <name>Report</name>
+    </types>
 </Package>

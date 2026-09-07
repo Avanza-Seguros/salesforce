@@ -15,13 +15,31 @@
  */
 public with sharing class InboundInstallmentCandidateQueueable implements Queueable {
 	private static final String STATUS_NORMALIZED = 'Normalizado';
-	private static final Set<String> ACTIVE_PLAN_STATUSES = new Set<String>{
-		'Activo'
+
+	// KAN-425. Un recibo sin fecha de pago es un COBRO PROGRAMADO: la aseguradora lo emitio y
+	// todavia no lo cobro. Recorre la identificacion igual que un pago -para saber a que cuota
+	// va y poder contrastar importe y fecha contra lo que emitio- pero se detiene aqui: no
+	// avanza a las reglas, asi que no concilia ni genera cobro.
+	private static final String STATUS_SCHEDULED = 'Pendiente de Pago';
+	private static final Set<String> IDENTIFIABLE_STATUSES = new Set<String>{
+		STATUS_NORMALIZED,
+		STATUS_SCHEDULED
 	};
+	// KAN-423. El estado del plan deja de decidir si sus cuotas se miran. Un plan cancelado o
+	// suspendido puede seguir recibiendo cobros, porque quien decide eso es la aseguradora.
+	// El unico que se excluye es el reemplazado: sus cuotas se volvieron a crear en el plan
+	// que lo sustituyo (cambio de frecuencia) y contarlas seria cobrar dos veces.
+	private static final String PLAN_STATUS_REPLACED = 'Reemplazado';
 	private static final Set<String> CONCILIABLE_INSTALLMENT_STATUSES = new Set<String>{
 		'Pendiente',
 		'Vencido'
 	};
+
+	// KAN-427. Una cuota cancelada puede volver a cobrarse, pero SOLO si la aseguradora da el
+	// recibo por pagado: quien reabre la deuda es ella, no el motor. Se suma a las conciliables
+	// unicamente en ese caso.
+	private static final String INSTALLMENT_STATUS_CANCELLED = 'Cancelado';
+	private static final String CARRIER_STATUS_PAID = 'Pagado';
 	private static final Integer DATE_TOLERANCE_DAYS = 7;
 	private static final Decimal AMOUNT_TOLERANCE_PCT = 0.05;
 	private static final Integer SCORE_SEQUENCE_EXACT = 6;
@@ -35,6 +53,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	private static final String REASON_LOW_SCORE = 'SCORE_BAJO';
 	private static final String REASON_TIE = 'EMPATE';
 	private static final String REASON_NO_INSTALLMENTS = 'SIN_CUOTAS';
+	private static final String REASON_MULTIPLE_PLANS = 'PLANES_MULTIPLES';
 
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
@@ -91,12 +110,17 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
+				inboundStatus__c,
+				carrierReceiptStatus__c,
 				candidatePolicy__c,
 				sourceInstallmentNumber__c,
 				sourceDueDate__c,
-				sourceAmount__c
+				sourceAmount__c,
+				sourceReceiptNumber__c
 			FROM InboundInsurancePayment__c
-			WHERE Id IN :inboundPaymentIds AND inboundStatus__c = :STATUS_NORMALIZED
+			WHERE
+				Id IN :inboundPaymentIds
+				AND inboundStatus__c IN :IDENTIFIABLE_STATUSES
 		];
 
 		if (payments.isEmpty()) {
@@ -113,6 +137,12 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		Map<Id, List<PaymentPlanInstallment__c>> installmentsByPolicy = loadConciliableInstallmentsByPolicy(
 			policyIds
 		);
+		// Las canceladas se cargan aparte: solo entran en juego para los pagos que la
+		// aseguradora da por cobrados, asi que mezclarlas con las abiertas obligaria a
+		// filtrarlas dentro del scoring, que corre una vez por cuota.
+		Map<Id, List<PaymentPlanInstallment__c>> cancelledByPolicy = loadCancelledInstallmentsByPolicy(
+			policyIds
+		);
 
 		List<InboundInsurancePayment__c> toUpdate = new List<InboundInsurancePayment__c>();
 
@@ -127,7 +157,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 				}
 				InstallmentMatchResult result = bestInstallmentMatch(
 					p,
-					installmentsByPolicy
+					eligibleInstallmentsFor(p, installmentsByPolicy, cancelledByPolicy)
 				);
 				rec.candidateInstallment__c = result.installmentId;
 				rec.installmentMatchReason__c = result.matchReason;
@@ -141,15 +171,31 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 					)
 					.onInbound(p.Id);
 			}
-			rec.pipelineStage__c = CobranzaLog.STAGE_CUOTA_CANDIDATA;
+			// La etapa del pipeline solo avanza para los pagos. Un cobro programado no esta
+			// recorriendo el proceso sino aparcado a proposito, y sellarle una etapa lo haria
+			// parecer en vuelo justo en el campo que sirve para encontrar pagos trabados.
+			if (STATUS_NORMALIZED.equals(p.inboundStatus__c)) {
+				rec.pipelineStage__c = CobranzaLog.STAGE_CUOTA_CANDIDATA;
+			}
 			toUpdate.add(rec);
 		}
 
 		update toUpdate;
 
+		warnOnDuplicateScheduledCharges(payments, toUpdate);
+
+		// Los cobros programados terminan su recorrido aqui: ya sabemos a que cuota apuntan,
+		// que es todo lo que se puede afirmar mientras la aseguradora no los de por cobrados.
+		// Avanzar a las reglas los conciliaria, que es justo lo que no debe pasar.
 		Set<Id> allIds = new Set<Id>();
-		for (InboundInsurancePayment__c rec : toUpdate) {
-			allIds.add(rec.Id);
+		for (InboundInsurancePayment__c p : payments) {
+			if (STATUS_NORMALIZED.equals(p.inboundStatus__c)) {
+				allIds.add(p.Id);
+			}
+		}
+		if (allIds.isEmpty()) {
+			AppLogger.flush();
+			return;
 		}
 		try {
 			System.enqueueJob(new InboundReconciliationRulesQueueable(allIds));
@@ -177,6 +223,84 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @param payment: Pago inbound a evaluar.
 	 * @return
 	 */
+	/**
+	 * @creation date: 01/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Avisa cuando dos cobros programados distintos apuntan a la misma cuota
+	 *               (KAN-425). No es un fallo del motor y no bloquea nada: la cuota sigue libre
+	 *               y cualquiera de los dos puede terminar cobrandose. Es una señal sobre los
+	 *               datos -normalmente que la aseguradora emitio dos recibos para la misma
+	 *               obligacion, o que nuestro plan tiene una cuota de menos- y sin registrarla
+	 *               nadie se enteraria hasta el dia del cobro.
+	 * @param payments: Pagos evaluados en este lote.
+	 * @param updates: Registros ya actualizados con su cuota candidata.
+	 * @return
+	 */
+	private static void warnOnDuplicateScheduledCharges(
+		List<InboundInsurancePayment__c> payments,
+		List<InboundInsurancePayment__c> updates
+	) {
+		Map<Id, String> statusById = new Map<Id, String>();
+		for (InboundInsurancePayment__c p : payments) {
+			statusById.put(p.Id, p.inboundStatus__c);
+		}
+
+		Set<Id> installmentIds = new Set<Id>();
+		for (InboundInsurancePayment__c rec : updates) {
+			if (
+				rec.candidateInstallment__c != null &&
+				STATUS_SCHEDULED.equals(statusById.get(rec.Id))
+			) {
+				installmentIds.add(rec.candidateInstallment__c);
+			}
+		}
+		if (installmentIds.isEmpty()) {
+			return;
+		}
+
+		Map<Id, List<Id>> scheduledByInstallment = new Map<Id, List<Id>>();
+		for (InboundInsurancePayment__c other : [
+			SELECT Id, candidateInstallment__c
+			FROM InboundInsurancePayment__c
+			WHERE
+				candidateInstallment__c IN :installmentIds
+				AND inboundStatus__c = :STATUS_SCHEDULED
+		]) {
+			if (!scheduledByInstallment.containsKey(other.candidateInstallment__c)) {
+				scheduledByInstallment.put(
+					other.candidateInstallment__c,
+					new List<Id>()
+				);
+			}
+			scheduledByInstallment.get(other.candidateInstallment__c).add(other.Id);
+		}
+
+		for (InboundInsurancePayment__c rec : updates) {
+			if (
+				rec.candidateInstallment__c == null ||
+				!STATUS_SCHEDULED.equals(statusById.get(rec.Id))
+			) {
+				continue;
+			}
+			List<Id> competing = scheduledByInstallment.get(
+				rec.candidateInstallment__c
+			);
+			if (competing == null || competing.size() < 2) {
+				continue;
+			}
+			CobranzaLog.warn(
+					CobranzaLog.STAGE_CUOTA_CANDIDATA,
+					CobranzaLog.EVENT_DUPLICATE_SCHEDULED_CHARGE,
+					'La aseguradora tiene ' +
+						competing.size() +
+						' recibos emitidos apuntando a la misma cuota. No bloquea nada, pero ' +
+						'suele significar que emitio dos recibos para la misma obligacion o ' +
+						'que a nuestro plan le falta una cuota.'
+				)
+				.onInbound(rec.Id);
+		}
+	}
+
 	private static void warnIfInstallmentNumberNotNumeric(
 		InboundInsurancePayment__c payment
 	) {
@@ -207,6 +331,93 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @param policyIds: Conjunto de IDs de InsurancePolicy candidatas resueltas.
 	 * @return Mapa de policyId a lista de PaymentPlanInstallment__c conciliables de esa poliza.
 	 */
+	/**
+	 * @creation date: 01/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Cuotas que este pago concreto puede tomar (KAN-427). A las abiertas se suman
+	 *               las CANCELADAS, pero solo si la aseguradora da el recibo por cobrado: quien
+	 *               decide reabrir una deuda cancelada es ella, no el motor.
+	 * @param payment: Pago evaluado, con el estatus que reporta la aseguradora.
+	 * @param openByPolicy: Cuotas abiertas por poliza.
+	 * @param cancelledByPolicy: Cuotas canceladas reabribles por poliza.
+	 * @return Lista de cuotas candidatas para este pago.
+	 */
+	private static List<PaymentPlanInstallment__c> eligibleInstallmentsFor(
+		InboundInsurancePayment__c payment,
+		Map<Id, List<PaymentPlanInstallment__c>> openByPolicy,
+		Map<Id, List<PaymentPlanInstallment__c>> cancelledByPolicy
+	) {
+		List<PaymentPlanInstallment__c> eligible = new List<PaymentPlanInstallment__c>();
+		List<PaymentPlanInstallment__c> open = openByPolicy.get(
+			payment.candidatePolicy__c
+		);
+		if (open != null) {
+			eligible.addAll(open);
+		}
+		if (!CARRIER_STATUS_PAID.equals(payment.carrierReceiptStatus__c)) {
+			return eligible;
+		}
+		List<PaymentPlanInstallment__c> cancelled = cancelledByPolicy.get(
+			payment.candidatePolicy__c
+		);
+		if (cancelled != null) {
+			eligible.addAll(cancelled);
+		}
+		return eligible;
+	}
+
+	/**
+	 * @creation date: 01/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Carga las cuotas CANCELADAS que podrian volver a cobrarse (KAN-427).
+	 *               Excluye dos cosas a proposito:
+	 *               - Las de planes REEMPLAZADOS. Una cuota queda cancelada por dos motivos muy
+	 *                 distintos: porque la aseguradora la cancelo, o porque el cliente cambio la
+	 *                 frecuencia de pago y su plan fue sustituido. En el segundo caso la deuda no
+	 *                 desaparecio: se volvio a crear en el plan nuevo, asi que cobrarla aqui seria
+	 *                 cobrarla dos veces. Ese filtro ya existe aguas arriba, pero la regla se
+	 *                 repite aqui porque si alguien lo relaja, el doble cobro aparece sin aviso.
+	 *               - Las CONDONADAS. Perdonar una deuda es una decision nuestra, y ningun mensaje
+	 *                 de la aseguradora la revierte.
+	 * @param policyIds: Polizas candidatas resueltas.
+	 * @return Mapa de poliza a sus cuotas canceladas reabribles.
+	 */
+	private static Map<Id, List<PaymentPlanInstallment__c>> loadCancelledInstallmentsByPolicy(
+		Set<Id> policyIds
+	) {
+		Map<Id, List<PaymentPlanInstallment__c>> result = new Map<Id, List<PaymentPlanInstallment__c>>();
+		if (policyIds.isEmpty()) {
+			return result;
+		}
+		for (PaymentPlanInstallment__c inst : [
+			SELECT
+				Id,
+				sequenceNumber__c,
+				dueDate__c,
+				expectedAmount__c,
+				installmentStatus__c,
+				periodStartDate__c,
+				periodEndDate__c,
+				paymentPlan__c,
+				paymentPlan__r.insurancePolicy__c
+			FROM PaymentPlanInstallment__c
+			WHERE
+				paymentPlan__r.insurancePolicy__c IN :policyIds
+				AND installmentStatus__c = :INSTALLMENT_STATUS_CANCELLED
+				AND paymentPlan__r.planStatus__c != :PLAN_STATUS_REPLACED
+		]) {
+			Id policyId = inst.paymentPlan__r.insurancePolicy__c;
+			if (policyId == null) {
+				continue;
+			}
+			if (!result.containsKey(policyId)) {
+				result.put(policyId, new List<PaymentPlanInstallment__c>());
+			}
+			result.get(policyId).add(inst);
+		}
+		return result;
+	}
+
 	private static Map<Id, List<PaymentPlanInstallment__c>> loadConciliableInstallmentsByPolicy(
 		Set<Id> policyIds
 	) {
@@ -220,7 +431,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			FROM PaymentPlan__c
 			WHERE
 				insurancePolicy__c IN :policyIds
-				AND planStatus__c IN :ACTIVE_PLAN_STATUSES
+				AND planStatus__c != :PLAN_STATUS_REPLACED
 		]) {
 			policyByPlan.put(plan.Id, plan.insurancePolicy__c);
 		}
@@ -268,16 +479,35 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 */
 	private static InstallmentMatchResult bestInstallmentMatch(
 		InboundInsurancePayment__c payment,
-		Map<Id, List<PaymentPlanInstallment__c>> installmentsByPolicy
+		List<PaymentPlanInstallment__c> installments
 	) {
 		if (payment.candidatePolicy__c == null) {
 			return new InstallmentMatchResult(null, null);
 		}
-		List<PaymentPlanInstallment__c> installments = installmentsByPolicy.get(
-			payment.candidatePolicy__c
-		);
 		if (installments == null || installments.isEmpty()) {
 			return new InstallmentMatchResult(null, REASON_NO_INSTALLMENTS);
+		}
+
+		// Al dejar de exigir plan Activo, una poliza puede presentar cuotas abiertas de mas de
+		// un plan a la vez. Puntuarlas juntas mezclaria dos calendarios distintos y podria
+		// aplicar el cobro al plan equivocado, asi que no se elige: lo resuelve una persona.
+		Set<Id> openPlans = new Set<Id>();
+		for (PaymentPlanInstallment__c inst : installments) {
+			if (inst.paymentPlan__c != null) {
+				openPlans.add(inst.paymentPlan__c);
+			}
+		}
+		if (openPlans.size() > 1) {
+			CobranzaLog.warn(
+					CobranzaLog.STAGE_CUOTA_CANDIDATA,
+					CobranzaLog.EVENT_MULTIPLE_OPEN_PLANS,
+					'La poliza tiene ' +
+						openPlans.size() +
+						' planes de pago con cuotas abiertas. No se elige cuota: aplicar el ' +
+						'cobro al plan equivocado es peor que dejarlo para revision manual.'
+				)
+				.onInbound(payment.Id);
+			return new InstallmentMatchResult(null, REASON_MULTIPLE_PLANS);
 		}
 
 		Integer topScore = 0;

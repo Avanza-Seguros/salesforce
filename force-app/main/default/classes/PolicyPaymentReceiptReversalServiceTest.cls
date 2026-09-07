@@ -720,11 +720,14 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	}
 
 	/**
-	 * @description: H202: una cuota cuyo vencimiento ya paso vuelve a Vencido, no a Pendiente.
-	 *               El estado se calcula por fecha y no se recupera el anterior.
+	 * @description: KAN-426: una cuota reabierta vuelve SIEMPRE a Pendiente, aunque su
+	 *               vencimiento ya haya pasado. Antes se calculaba Vencido comparando con la
+	 *               fecha de hoy, y eso era el motor afirmando algo que la aseguradora no habia
+	 *               dicho. Que la cuota este vencida se ve en su antiguedad, que es una lectura
+	 *               nuestra y vive en su propio campo.
 	 */
 	@IsTest
-	static void reopensInstallmentAsOverdueWhenDuePassed() {
+	static void reopensInstallmentAsPendingEvenWhenDuePassed() {
 		PolicyPaymentReceipt__c receipt = buildChainWithInstallment(
 			'31',
 			Date.today().addDays(-40),
@@ -735,16 +738,26 @@ private class PolicyPaymentReceiptReversalServiceTest {
 		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
 		Test.stopTest();
 
+		PaymentPlanInstallment__c inst = [
+			SELECT installmentStatus__c, agingStatus__c, daysOverdue__c
+			FROM PaymentPlanInstallment__c
+			WHERE matchedReceipt__c = NULL AND dueDate__c < TODAY
+			LIMIT 1
+		];
 		Assert.areEqual(
-			'Vencido',
-			[
-				SELECT installmentStatus__c
-				FROM PaymentPlanInstallment__c
-				WHERE matchedReceipt__c = NULL AND dueDate__c < TODAY
-				LIMIT 1
-			]
-			.installmentStatus__c,
-			'Una cuota cuyo vencimiento ya pasó vuelve a Vencido'
+			'Pendiente',
+			inst.installmentStatus__c,
+			'El estado refleja lo que dice la aseguradora; el motor no lo deduce.'
+		);
+		Assert.areEqual(
+			'Vencida',
+			inst.agingStatus__c,
+			'Que este vencida se afirma aparte, como lectura propia.'
+		);
+		Assert.areEqual(
+			40,
+			inst.daysOverdue__c,
+			'Y con los dias exactos, sin que haya corrido ningun proceso.'
 		);
 	}
 

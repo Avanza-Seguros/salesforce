@@ -1,24 +1,26 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ListView xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Pagos_Detenidos</fullName>
+    <fullName>Cobros_Programados_Con_Diferencia</fullName>
     <columns>OBJECT_ID</columns>
     <columns>externalPaymentId__c</columns>
-    <columns>pipelineStage__c</columns>
-    <columns>inboundStatus__c</columns>
     <columns>sourcePolicyNumber__c</columns>
+    <columns>sourceReceiptNumber__c</columns>
+    <columns>scheduledChargeMismatch__c</columns>
     <columns>sourceAmount__c</columns>
-    <columns>sourcePaymentDate__c</columns>
+    <columns>sourceDueDate__c</columns>
+    <columns>candidateInstallment__c</columns>
     <columns>sourceInsuranceCarrier__c</columns>
-    <columns>candidatePolicy__c</columns>
-    <columns>receivedAt__c</columns>
-    <columns>LAST_UPDATE</columns>
     <filterScope>Everything</filterScope>
     <filters>
         <field>inboundStatus__c</field>
-        <operation>notEqual</operation>
-        <value
-		>Conciliado,Rechazado,Pendiente de Pago,Archivado,No Conciliable</value>
+        <operation>equals</operation>
+        <value>Pendiente de Pago</value>
     </filters>
-    <label>Pagos detenidos</label>
+    <filters>
+        <field>scheduledChargeMismatch__c</field>
+        <operation>notEqual</operation>
+        <value />
+    </filters>
+    <label>Cobros programados con diferencia</label>
     <language>es</language>
 </ListView>

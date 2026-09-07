@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>carrierReceiptStatus__c</fullName>
+    <description
+	>Situacion del recibo segun la aseguradora, interpretada por el motor a partir del estatus normalizado que envia la integracion. Responde "que dice la aseguradora de este recibo", a diferencia de inboundStatus__c que responde "en que punto va nuestro procesamiento". Lo escribe unicamente Apex; la integracion nunca escribe aqui. Desconocido significa que llego un valor que no corresponde a ninguno de los cuatro acordados.</description>
+    <label>Estatus del recibo en la aseguradora</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Pagado</fullName>
+                <default>false</default>
+                <label>Pagado</label>
+            </value>
+            <value>
+                <fullName>Pendiente</fullName>
+                <default>false</default>
+                <label>Pendiente</label>
+            </value>
+            <value>
+                <fullName>Vencido</fullName>
+                <default>false</default>
+                <label>Vencido</label>
+            </value>
+            <value>
+                <fullName>Cancelado</fullName>
+                <default>false</default>
+                <label>Cancelado</label>
+            </value>
+            <value>
+                <fullName>Desconocido</fullName>
+                <default>false</default>
+                <label>Desconocido</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

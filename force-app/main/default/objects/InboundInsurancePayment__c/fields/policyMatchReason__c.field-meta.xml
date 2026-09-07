@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>installmentMatchReason__c</fullName>
+    <fullName>policyMatchReason__c</fullName>
     <description
-	>Motivo por el que candidateInstallment__c quedo nulo o fue asignado. Escrito por InboundInstallmentCandidateQueueable para que el motor de reglas pueda distinguir entre empate, score bajo, sin cuotas y ganador unico.</description>
-    <label>Motivo de match de cuota</label>
+	>Motivo por el que candidatePolicy__c quedo nulo o fue asignado. Escrito por InboundPolicyCandidateQueueable. Sin el, los tres desenlaces posibles (el numero no existe, hay varias vigencias y la fecha no resuelve, o se resolvio por vigencia) caen todos en Sin Match y el analista no puede saber cual le toco.</description>
+    <label>Motivo de match de poliza</label>
     <required>false</required>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
@@ -18,24 +18,24 @@
                 <label>UNICO_GANADOR</label>
             </value>
             <value>
-                <fullName>SCORE_BAJO</fullName>
+                <fullName>RESUELTO_POR_VIGENCIA</fullName>
                 <default>false</default>
-                <label>SCORE_BAJO</label>
+                <label>RESUELTO_POR_VIGENCIA</label>
             </value>
             <value>
-                <fullName>EMPATE</fullName>
+                <fullName>VIGENCIA_AMBIGUA</fullName>
                 <default>false</default>
-                <label>EMPATE</label>
+                <label>VIGENCIA_AMBIGUA</label>
             </value>
             <value>
-                <fullName>SIN_CUOTAS</fullName>
+                <fullName>SIN_POLIZA</fullName>
                 <default>false</default>
-                <label>SIN_CUOTAS</label>
+                <label>SIN_POLIZA</label>
             </value>
             <value>
-                <fullName>PLANES_MULTIPLES</fullName>
+                <fullName>SIN_NUMERO</fullName>
                 <default>false</default>
-                <label>PLANES_MULTIPLES</label>
+                <label>SIN_NUMERO</label>
             </value>
         </valueSetDefinition>
     </valueSet>

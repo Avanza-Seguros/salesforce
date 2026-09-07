@@ -190,6 +190,36 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InboundInsurancePayment__c.resendCount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.lastResendAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.resendChangeLog__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InboundInsurancePayment__c.scheduledChargeMismatch__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.policyMatchReason__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.carrierReceiptStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>InboundInsurancePayment__c.sourcePaymentStatus__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -306,6 +336,21 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>PaymentPlanInstallment__c.outstandingAmount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PaymentPlanInstallment__c.reopenedFromCancelledOn__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.insuredName__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.agingStatus__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

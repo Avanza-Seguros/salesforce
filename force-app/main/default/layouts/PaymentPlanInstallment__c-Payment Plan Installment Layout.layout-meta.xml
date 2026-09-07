@@ -61,6 +61,10 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>agingStatus__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>daysOverdue__c</field>
             </layoutItems>
         </layoutColumns>
@@ -81,6 +85,10 @@
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>matchedOn__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>reopenedFromCancelledOn__c</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
@@ -138,7 +146,11 @@
     <relatedLists>
         <fields>NAME</fields>
         <fields>externalPaymentId__c</fields>
+        <fields>sourceReceiptNumber__c</fields>
+        <fields>carrierReceiptStatus__c</fields>
         <fields>sourceAmount__c</fields>
+        <fields>sourceDueDate__c</fields>
+        <fields>scheduledChargeMismatch__c</fields>
         <fields>sourcePaymentDate__c</fields>
         <fields>inboundStatus__c</fields>
         <relatedList

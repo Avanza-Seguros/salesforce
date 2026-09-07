@@ -33,6 +33,11 @@
                 <label>Reversa administrativa</label>
             </value>
             <value>
+                <fullName>Correccion de la aseguradora</fullName>
+                <default>false</default>
+                <label>Corrección de la aseguradora</label>
+            </value>
+            <value>
                 <fullName>Pago no correspondia</fullName>
                 <default>false</default>
                 <label>Pago no correspondía</label>

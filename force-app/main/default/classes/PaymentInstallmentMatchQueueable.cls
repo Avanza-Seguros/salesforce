@@ -27,6 +27,17 @@ public with sharing class PaymentInstallmentMatchQueueable implements Queueable 
 		STATUS_OVERDUE
 	};
 
+	// KAN-427. Una cuota cancelada tambien recibe el comprobante cuando el cobro llego a este
+	// punto: si el pago supero la identificacion, es porque la aseguradora ya lo dio por cobrado.
+	// Hay que tocar ESTE filtro ademas del de identificacion; cambiar solo uno deja el pago
+	// apuntando a la cuota pero sin cobrarla, y eso no lo delata ningun error.
+	private static final String STATUS_CANCELLED = 'Cancelado';
+	private static final Set<String> REOPENABLE_STATUSES = new Set<String>{
+		STATUS_PENDING,
+		STATUS_OVERDUE,
+		STATUS_CANCELLED
+	};
+
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
 
@@ -123,6 +134,21 @@ public with sharing class PaymentInstallmentMatchQueueable implements Queueable 
 					upd.matchedOn__c = now;
 				}
 
+				if (STATUS_CANCELLED.equals(inst.installmentStatus__c)) {
+					// Sin esta marca la cuota quedaria indistinguible de una que nunca estuvo
+					// cancelada, y nadie podria explicar por que se cobro algo que figuraba
+					// anulado.
+					upd.reopenedFromCancelledOn__c = now;
+					CobranzaLog.info(
+							CobranzaLog.STAGE_CUOTA,
+							CobranzaLog.EVENT_INSTALLMENT_REOPENED,
+							'La cuota estaba cancelada y vuelve a cobrarse porque la aseguradora ' +
+							'dio por cobrado su recibo.'
+						)
+						.onRecord(inst.Id)
+						.onInbound(receipt.sourceInboundPayment__c);
+				}
+
 				updatesById.put(inst.Id, upd);
 				claimedInstallments.add(inst.Id);
 			} catch (Exception e) {
@@ -170,7 +196,7 @@ public with sharing class PaymentInstallmentMatchQueueable implements Queueable 
 		PaymentPlanInstallment__c inst,
 		Set<Id> claimedInstallments
 	) {
-		return ELIGIBLE_STATUSES.contains(inst.installmentStatus__c) &&
+		return REOPENABLE_STATUSES.contains(inst.installmentStatus__c) &&
 			inst.matchedReceipt__c == null &&
 			!claimedInstallments.contains(inst.Id);
 	}

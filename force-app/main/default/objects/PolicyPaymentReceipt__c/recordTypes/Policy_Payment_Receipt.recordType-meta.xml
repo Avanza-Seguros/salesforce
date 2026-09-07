@@ -57,4 +57,31 @@
             <default>false</default>
         </values>
     </picklistValues>
+    <picklistValues>
+        <picklist>reversalReason__c</picklist>
+        <values>
+            <fullName>Devolucion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Error de conciliacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago no correspondia</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazo bancario</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reversa administrativa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Correccion de la aseguradora</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
 </RecordType>

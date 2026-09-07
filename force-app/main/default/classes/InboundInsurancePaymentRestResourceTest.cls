@@ -181,7 +181,11 @@ private class InboundInsurancePaymentRestResourceTest {
 	}
 
 	@IsTest
-	static void usesCancellationDateAsPaymentFallback() {
+	static void doesNotTreatCancellationDateAsPayment() {
+		// KAN-422. Hasta esta historia, un recibo sin fecha de pago pero con fecha de
+		// cancelacion se procesaba COMO SI estuviera cobrado: el motor copiaba la fecha de
+		// cancelacion a la fecha de pago, generaba el recibo, conciliaba la cuota y cerraba
+		// la oportunidad. Este es el mismo mensaje de entonces; el resultado ya no.
 		Test.startTest();
 		invokeEndpoint(
 			'[' +
@@ -198,21 +202,598 @@ private class InboundInsurancePaymentRestResourceTest {
 		Assert.areEqual(202, RestContext.response.statusCode);
 
 		InboundInsurancePayment__c inboundPayment = [
-			SELECT sourcePaymentDate__c, sourceCancellationDate__c, inboundStatus__c
+			SELECT
+				sourcePaymentDate__c,
+				sourceCancellationDate__c,
+				inboundStatus__c,
+				carrierReceiptStatus__c
 			FROM InboundInsurancePayment__c
 			WHERE externalPaymentId__c = 'EXT-3001'
 			LIMIT 1
 		];
 
-		Assert.areEqual('Normalizado', inboundPayment.inboundStatus__c);
 		Assert.areEqual(
 			Date.newInstance(2026, 4, 20),
-			inboundPayment.sourceCancellationDate__c
+			inboundPayment.sourceCancellationDate__c,
+			'La fecha de cancelacion se conserva como lo que es.'
+		);
+		Assert.isNull(
+			inboundPayment.sourcePaymentDate__c,
+			'La fecha de cancelacion no puede convertirse en fecha de pago.'
 		);
 		Assert.areEqual(
-			Date.newInstance(2026, 4, 20),
-			inboundPayment.sourcePaymentDate__c
+			'Pendiente',
+			inboundPayment.carrierReceiptStatus__c,
+			'Sin estatus informado y sin fecha de pago, el recibo no esta cobrado.'
 		);
+		Assert.areEqual(
+			'Pendiente de Pago',
+			inboundPayment.inboundStatus__c,
+			'No entra al pipeline: sin cobro no hay nada que conciliar.'
+		);
+		Assert.isTrue(
+			[
+				SELECT COUNT()
+				FROM PolicyPaymentReceipt__c
+				WHERE sourceInboundPayment__c = :inboundPayment.Id
+			] == 0,
+			'Un recibo cancelado no puede generar un cobro.'
+		);
+	}
+
+	@IsTest
+	static void keepsCancelledReceiptOutOfThePipeline() {
+		// Mismo caso pero con el estatus informado por la aseguradora, que es como llegara
+		// cuando la integracion envie el vocabulario acordado.
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"externalPaymentId__c":"EXT-3002",' +
+				'"sourcePolicyNumber__c":"POL-CANCEL-002",' +
+				'"sourceAmount__c":450.00,' +
+				'"sourcePaymentStatus__c":"Cancelado",' +
+				'"sourcePaymentStatusRaw__c":"CANCELADA POR FALTA DE PAGO",' +
+				'"sourceCancellationDate__c":"20/04/2026"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(202, RestContext.response.statusCode);
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c, carrierReceiptStatus__c, manualReviewRequired__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3002'
+			LIMIT 1
+		];
+
+		Assert.areEqual('Cancelado', inboundPayment.carrierReceiptStatus__c);
+		Assert.areEqual(
+			'No Conciliable',
+			inboundPayment.inboundStatus__c,
+			'La aseguradora no lo da por cobrado: no se concilia y no es un pago detenido.'
+		);
+		Assert.isFalse(
+			inboundPayment.manualReviewRequired__c,
+			'No hay nada que decidir: no es un caso para el analista.'
+		);
+	}
+
+	@IsTest
+	static void sendsPaidWithoutPaymentDateToManualReview() {
+		// Dato contradictorio: afirma el cobro y no dice cuando. No deberia presentarse
+		// nunca; si se presenta, lo mira una persona en vez de resolverse solo.
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"externalPaymentId__c":"EXT-3003",' +
+				'"sourcePolicyNumber__c":"POL-CANCEL-003",' +
+				'"sourceAmount__c":450.00,' +
+				'"sourcePaymentStatus__c":"Pagado"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c, carrierReceiptStatus__c, manualReviewRequired__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3003'
+			LIMIT 1
+		];
+
+		Assert.areEqual('Pagado', inboundPayment.carrierReceiptStatus__c);
+		Assert.areEqual('Revision Manual', inboundPayment.inboundStatus__c);
+		Assert.isTrue(
+			inboundPayment.manualReviewRequired__c,
+			'La bandeja del analista filtra por esta marca, no por el estado.'
+		);
+	}
+
+	@IsTest
+	static void reopensNotReconcilableWhenCarrierLaterReportsItPaid() {
+		// Salida del estado No Conciliable: la aseguradora reporto el recibo como vencido y
+		// despues lo dio por cobrado. Sin esta transicion, un recibo que se cobra tarde
+		// quedaria fuera del pipeline para siempre.
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"externalPaymentId__c":"EXT-3005",' +
+				'"sourcePolicyNumber__c":"POL-CANCEL-005",' +
+				'"sourceAmount__c":450.00,' +
+				'"sourcePaymentStatus__c":"Vencido"' +
+				'}' +
+				']'
+		);
+
+		InboundInsurancePayment__c beforePayment = [
+			SELECT inboundStatus__c, carrierReceiptStatus__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3005'
+			LIMIT 1
+		];
+		Assert.areEqual('Vencido', beforePayment.carrierReceiptStatus__c);
+		Assert.areEqual('No Conciliable', beforePayment.inboundStatus__c);
+
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"externalPaymentId__c":"EXT-3005",' +
+				'"sourcePolicyNumber__c":"POL-CANCEL-005",' +
+				'"sourceAmount__c":450.00,' +
+				'"sourcePaymentStatus__c":"Pagado",' +
+				'"sourcePaymentDate__c":"20/04/2026"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c afterPayment = [
+			SELECT inboundStatus__c, carrierReceiptStatus__c, sourcePaymentDate__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3005'
+			LIMIT 1
+		];
+		Assert.areEqual('Pagado', afterPayment.carrierReceiptStatus__c);
+		Assert.areEqual(
+			Date.newInstance(2026, 4, 20),
+			afterPayment.sourcePaymentDate__c
+		);
+		Assert.areNotEqual(
+			'No Conciliable',
+			afterPayment.inboundStatus__c,
+			'Un recibo que la aseguradora pasa a pagado tiene que volver al pipeline.'
+		);
+	}
+
+	@IsTest
+	static void sendsUnknownCarrierStatusToManualReview() {
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"externalPaymentId__c":"EXT-3004",' +
+				'"sourcePolicyNumber__c":"POL-CANCEL-004",' +
+				'"sourceAmount__c":450.00,' +
+				'"sourcePaymentStatus__c":"LIQUIDADO PARCIAL",' +
+				'"sourcePaymentDate__c":"20/04/2026"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c inboundPayment = [
+			SELECT inboundStatus__c, carrierReceiptStatus__c, manualReviewRequired__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3004'
+			LIMIT 1
+		];
+
+		Assert.areEqual(
+			'Desconocido',
+			inboundPayment.carrierReceiptStatus__c,
+			'Un valor fuera del vocabulario acordado no se adivina.'
+		);
+		Assert.areEqual('Revision Manual', inboundPayment.inboundStatus__c);
+		Assert.isTrue(inboundPayment.manualReviewRequired__c);
+	}
+
+	// ================================================================ KAN-424
+	// Un reenvio solo se reprocesa si algo cambio.
+
+	private static String resendBody(String amount, String extra) {
+		return '[' +
+			'{' +
+			'"externalPaymentId__c":"EXT-424-01",' +
+			'"sourcePolicyNumber__c":"POL-424-01",' +
+			'"sourceAmount__c":' +
+			amount +
+			',' +
+			'"sourceDueDate__c":"15/09/2026",' +
+			'"sourcePaymentDate__c":"15/09/2026",' +
+			'"sourcePaymentStatus__c":"Pagado"' +
+			extra +
+			'}' +
+			']';
+	}
+
+	/**
+	 * Deja el pago EXT-424-01 como si ya se hubiera conciliado: con su conciliacion, su
+	 * comprobante vigente y el estado Conciliado. Se arma a mano porque el pipeline es
+	 * asincrono y en una prueba solo avanza un eslabon.
+	 *
+	 * Marcar el pago como Conciliado tiene un efecto util aparte: el normalizador que quedo
+	 * encolado por la primera recepcion busca pagos en Parseado, no lo encuentra y no hace
+	 * nada. Asi el estado que se observa al final es el que dejo el reenvio, y no el que
+	 * dejo el pipeline corriendo por su cuenta.
+	 */
+	private static PolicyPaymentReceipt__c buildReconciledChain(
+		String policyNumber
+	) {
+		InboundInsurancePayment__c inbound = [
+			SELECT Id
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+
+		InsurancePolicy policy = new InsurancePolicy(
+			Name = policyNumber,
+			PolicyName = 'Test Policy',
+			NameInsuredId = CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			Status = 'Vigente',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
+		);
+		insert policy;
+
+		PaymentReconciliation__c recon = new PaymentReconciliation__c(
+			inboundPayment__c = inbound.Id,
+			insurancePolicy__c = policy.Id,
+			reconciliationStatus__c = 'Conciliado'
+		);
+		insert recon;
+
+		PolicyPaymentReceipt__c receipt = new PolicyPaymentReceipt__c(
+			insurancePolicy__c = policy.Id,
+			sourceInboundPayment__c = inbound.Id,
+			paymentReconciliation__c = recon.Id,
+			receiptDate__c = Date.today(),
+			receiptAmount__c = 1000,
+			receiptStatus__c = 'Reconocido',
+			receiptNumber__c = 'REC-424-01'
+		);
+		insert receipt;
+
+		update new PaymentReconciliation__c(
+			Id = recon.Id,
+			resultingReceipt__c = receipt.Id
+		);
+		update new InboundInsurancePayment__c(
+			Id = inbound.Id,
+			inboundStatus__c = 'Conciliado'
+		);
+		return receipt;
+	}
+
+	@IsTest
+	static void identicalResendChangesNothing() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		buildReconciledChain('POL-424-01');
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1000.00', ''));
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = [
+			SELECT inboundStatus__c, resendCount__c, resendChangeLog__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+		Assert.areEqual(
+			'Conciliado',
+			after.inboundStatus__c,
+			'Un pago conciliado que se reenvia identico sigue conciliado. Este es el caso ' +
+			'que la historia existe para proteger.'
+		);
+		Assert.areEqual(
+			1,
+			after.resendCount__c,
+			'El reenvio se cuenta aunque no cambie nada.'
+		);
+		Assert.isTrue(
+			String.isBlank(after.resendChangeLog__c),
+			'Sin cambios no se ensucia la bitacora.'
+		);
+	}
+
+	@IsTest
+	static void informationalChangeIsStoredWithoutReprocessing() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		buildReconciledChain('POL-424-01');
+
+		Test.startTest();
+		invokeEndpoint(
+			resendBody('1000.00', ',"sourceCustomerName__c":"CLIENTE CORREGIDO"')
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = [
+			SELECT inboundStatus__c, sourceCustomerName__c, resendChangeLog__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+		Assert.areEqual(
+			'CLIENTE CORREGIDO',
+			after.sourceCustomerName__c,
+			'El dato nuevo se guarda igual.'
+		);
+		Assert.areEqual(
+			'Conciliado',
+			after.inboundStatus__c,
+			'El nombre del cliente no afecta al cobro: no se reprocesa.'
+		);
+		Assert.isTrue(String.isBlank(after.resendChangeLog__c));
+	}
+
+	@IsTest
+	static void amountChangeIsRecordedAndReprocessed() {
+		invokeEndpoint(resendBody('1000.00', ''));
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1200.00', ''));
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = [
+			SELECT
+				sourceAmount__c,
+				resendCount__c,
+				resendChangeLog__c,
+				lastResendAt__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+		Assert.areEqual(1200.00, after.sourceAmount__c);
+		Assert.areEqual(1, after.resendCount__c);
+		Assert.isNotNull(after.lastResendAt__c);
+		Assert.isTrue(
+			after.resendChangeLog__c.contains('importe'),
+			'La bitacora tiene que decir que cambio el importe.'
+		);
+		Assert.isTrue(
+			after.resendChangeLog__c.contains('1000') &&
+			after.resendChangeLog__c.contains('1200'),
+			'Con el valor anterior y el nuevo: ' + after.resendChangeLog__c
+		);
+	}
+
+	@IsTest
+	static void changeLogKeepsPreviousEntries() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		invokeEndpoint(resendBody('1200.00', ''));
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1300.00', ''));
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = [
+			SELECT resendChangeLog__c, resendCount__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+		Assert.areEqual(2, after.resendCount__c);
+		Assert.isTrue(
+			after.resendChangeLog__c.contains('1000') &&
+			after.resendChangeLog__c.contains('1300'),
+			'La bitacora se agrega al final, no se sobrescribe: ' +
+			after.resendChangeLog__c
+		);
+	}
+
+	@IsTest
+	static void carrierStatusChangeIsMaterial() {
+		invokeEndpoint(resendBody('1000.00', ''));
+
+		Test.startTest();
+		// El mismo recibo, ahora cancelado por la aseguradora.
+		invokeEndpoint(
+			'[' +
+				'{' +
+				'"externalPaymentId__c":"EXT-424-01",' +
+				'"sourcePolicyNumber__c":"POL-424-01",' +
+				'"sourceAmount__c":1000.00,' +
+				'"sourceDueDate__c":"15/09/2026",' +
+				'"sourcePaymentStatus__c":"Cancelado"' +
+				'}' +
+				']'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = [
+			SELECT carrierReceiptStatus__c, inboundStatus__c, resendChangeLog__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+		Assert.areEqual('Cancelado', after.carrierReceiptStatus__c);
+		Assert.areEqual(
+			'No Conciliable',
+			after.inboundStatus__c,
+			'Que la aseguradora deje de darlo por cobrado es un cambio material.'
+		);
+		Assert.isTrue(
+			after.resendChangeLog__c.contains('estatus del recibo'),
+			'Tiene que quedar constancia del cambio de estatus.'
+		);
+	}
+
+	@IsTest
+	static void annulsLiveReceiptWhenResendChangesTheAmount() {
+		// El corazon de la historia: un cobro ya registrado no puede sobrevivir a una
+		// correccion de la aseguradora. Se arma la cadena a mano porque el pipeline es
+		// asincrono y en una prueba solo avanza un eslabon.
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-424-01');
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1200.00', ''));
+		Test.stopTest();
+
+		receipt = [
+			SELECT receiptStatus__c, reversalReason__c, reversedAt__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id = :receipt.Id
+		];
+		Assert.areEqual(
+			'Reversado',
+			receipt.receiptStatus__c,
+			'El cobro anterior deja de ser valido en cuanto la aseguradora corrige el importe.'
+		);
+		Assert.areEqual(
+			'Correccion de la aseguradora',
+			receipt.reversalReason__c,
+			'El motivo distingue esta anulacion de una decidida por un analista.'
+		);
+		Assert.isNotNull(
+			receipt.reversedAt__c,
+			'La anulacion se sella aunque no la haya hecho una persona.'
+		);
+	}
+
+	@IsTest
+	static void doesNotAnnulWhenNothingMaterialChanged() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-424-02');
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1000.00', ''));
+		Test.stopTest();
+
+		receipt = [
+			SELECT receiptStatus__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id = :receipt.Id
+		];
+		Assert.areEqual(
+			'Reconocido',
+			receipt.receiptStatus__c,
+			'Este es el caso que mas importa: una sincronizacion rutinaria no puede tumbar ' +
+			'un cobro que estaba bien.'
+		);
+	}
+
+	@IsTest
+	static void mixedResendBatchTreatsEachPaymentOnItsOwn() {
+		// Una sincronizacion real no llega ordenada: en el mismo lote vienen recibos que no
+		// cambiaron, otros con un dato informativo distinto y otros con el importe corregido.
+		// Cada uno tiene que recibir el tratamiento que le toca, sin contagiarse.
+		List<String> primero = new List<String>();
+		for (Integer i = 0; i < 30; i++) {
+			primero.add(
+				'{' +
+					'"externalPaymentId__c":"EXT-424-B' +
+					i +
+					'",' +
+					'"sourcePolicyNumber__c":"POL-424-B",' +
+					'"sourceAmount__c":1000.00,' +
+					'"sourceDueDate__c":"15/09/2026",' +
+					'"sourcePaymentDate__c":"15/09/2026",' +
+					'"sourcePaymentStatus__c":"Pagado"' +
+					'}'
+			);
+		}
+		invokeEndpoint('[' + String.join(primero, ',') + ']');
+
+		// Se marcan como conciliados para que el reenvio se evalue sobre un estado estable y
+		// no sobre el pipeline corriendo por su cuenta.
+		List<InboundInsurancePayment__c> creados = [
+			SELECT Id
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c LIKE 'EXT-424-B%'
+		];
+		for (InboundInsurancePayment__c rec : creados) {
+			rec.inboundStatus__c = 'Conciliado';
+		}
+		update creados;
+
+		List<String> reenvio = new List<String>();
+		for (Integer i = 0; i < 30; i++) {
+			// Un tercio identico, un tercio con cambio informativo, un tercio con el importe
+			// corregido.
+			String amount = Math.mod(i, 3) == 2 ? '1200.00' : '1000.00';
+			String extra = Math.mod(i, 3) == 1
+				? ',"sourceCustomerName__c":"CLIENTE ' + i + '"'
+				: '';
+			reenvio.add(
+				'{' +
+					'"externalPaymentId__c":"EXT-424-B' +
+					i +
+					'",' +
+					'"sourcePolicyNumber__c":"POL-424-B",' +
+					'"sourceAmount__c":' +
+					amount +
+					',' +
+					'"sourceDueDate__c":"15/09/2026",' +
+					'"sourcePaymentDate__c":"15/09/2026",' +
+					'"sourcePaymentStatus__c":"Pagado"' +
+					extra +
+					'}'
+			);
+		}
+
+		Test.startTest();
+		invokeEndpoint('[' + String.join(reenvio, ',') + ']');
+		Test.stopTest();
+
+		Integer sinTocar = 0;
+		Integer reprocesados = 0;
+		for (InboundInsurancePayment__c rec : [
+			SELECT
+				externalPaymentId__c,
+				inboundStatus__c,
+				resendCount__c,
+				resendChangeLog__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c LIKE 'EXT-424-B%'
+		]) {
+			Assert.areEqual(
+				1,
+				rec.resendCount__c,
+				'Todos se reenviaron una vez, cambiaran o no.'
+			);
+			if (String.isBlank(rec.resendChangeLog__c)) {
+				sinTocar++;
+				Assert.areEqual(
+					'Conciliado',
+					rec.inboundStatus__c,
+					'Sin cambio material el pago conserva su estado: ' +
+					rec.externalPaymentId__c
+				);
+			} else {
+				reprocesados++;
+				Assert.isTrue(
+					rec.resendChangeLog__c.contains('importe'),
+					'Solo el cambio de importe justifica reprocesar: ' +
+					rec.resendChangeLog__c
+				);
+			}
+		}
+
+		Assert.areEqual(
+			20,
+			sinTocar,
+			'Los identicos y los de cambio informativo no se reprocesan.'
+		);
+		Assert.areEqual(10, reprocesados, 'Solo los del importe corregido.');
 	}
 
 	@IsTest

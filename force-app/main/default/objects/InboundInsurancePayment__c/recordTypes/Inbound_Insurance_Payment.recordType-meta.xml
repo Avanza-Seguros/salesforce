@@ -4,6 +4,29 @@
     <active>true</active>
     <label>Inbound Insurance Payment</label>
     <picklistValues>
+        <picklist>carrierReceiptStatus__c</picklist>
+        <values>
+            <fullName>Pagado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vencido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Desconocido</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>installmentMatchReason__c</picklist>
         <values>
             <fullName>EMPATE</fullName>
@@ -19,6 +42,10 @@
         </values>
         <values>
             <fullName>UNICO_GANADOR</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PLANES_MULTIPLES</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -58,6 +85,33 @@
         </values>
         <values>
             <fullName>Sin Match</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No Conciliable</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>policyMatchReason__c</picklist>
+        <values>
+            <fullName>UNICO_GANADOR</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>RESUELTO_POR_VIGENCIA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VIGENCIA_AMBIGUA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SIN_POLIZA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SIN_NUMERO</fullName>
             <default>false</default>
         </values>
     </picklistValues>

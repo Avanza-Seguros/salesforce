@@ -47,6 +47,12 @@ const COLUMNS = [
 		initialWidth: 120
 	},
 	{
+		label: "Antigüedad",
+		fieldName: "agingStatus__c",
+		type: "text",
+		initialWidth: 120
+	},
+	{
 		label: "Días mora",
 		fieldName: "daysOverdue__c",
 		type: "number",
