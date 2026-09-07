@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>message__c</fullName>
+    <description
+	>Mensaje legible del evento. En los errores es el mensaje de la excepción; el servicio lo trunca si excede la longitud del campo, de modo que un mensaje largo nunca impide guardar el registro.</description>
+    <label>Mensaje</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>TextArea</type>
+</CustomField>

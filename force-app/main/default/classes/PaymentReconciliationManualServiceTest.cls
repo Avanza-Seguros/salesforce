@@ -476,7 +476,9 @@ private class PaymentReconciliationManualServiceTest {
 		insert receipt;
 		sc.recon.resultingReceipt__c = receipt.Id;
 		update sc.recon;
-		assertReprocessBlocked(sc.recon.Id, 'reconocida');
+		// H201: el mensaje ahora distingue el caso. Un recibo VIGENTE bloquea el reproceso e
+		// indica que primero hay que reversarlo; un recibo ya reversado deja de bloquearlo.
+		assertReprocessBlocked(sc.recon.Id, 'recibo vigente');
 	}
 
 	@IsTest

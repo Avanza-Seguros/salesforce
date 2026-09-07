@@ -1,0 +1,42 @@
+<template>
+	<div class="slds-p-around_medium">
+		<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+			Reversar deja el recibo como evidencia histórica pero deja de contarlo
+			como cobro válido: la cuota vuelve a estar abierta y el caso regresa a la
+			bandeja de revisión. La reversa es definitiva y no se puede deshacer.
+		</p>
+
+		<lightning-combobox
+			name="reason"
+			label="Motivo de reversa"
+			placeholder="Seleccione el motivo"
+			value={reversalReason}
+			options={reasonOptions}
+			onchange={handleReasonChange}
+			required
+		></lightning-combobox>
+
+		<lightning-textarea
+			class="slds-m-top_small"
+			name="notes"
+			label="Notas de reversa"
+			value={notes}
+			onchange={handleNotesChange}
+			required
+		></lightning-textarea>
+
+		<div class="slds-m-top_medium slds-grid slds-grid_align-end">
+			<lightning-button
+				label="Cancelar"
+				onclick={close}
+				class="slds-m-right_x-small"
+			></lightning-button>
+			<lightning-button
+				variant="destructive"
+				label="Reversar recibo"
+				onclick={handleReverse}
+				disabled={disableReverse}
+			></lightning-button>
+		</div>
+	</div>
+</template>

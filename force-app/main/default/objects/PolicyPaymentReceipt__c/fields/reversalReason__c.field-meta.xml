@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reversalReason__c</fullName>
+    <description
+	>Motivo por el que el pago dejo de ser valido. Restringido a proposito: es eje de reporte para saber por que se caen los cobros (un rechazo bancario recurrente no se atiende igual que un error de conciliacion).</description>
+    <label>Motivo de reversa</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Rechazo bancario</fullName>
+                <default>false</default>
+                <label>Rechazo bancario</label>
+            </value>
+            <value>
+                <fullName>Devolucion</fullName>
+                <default>false</default>
+                <label>Devolución</label>
+            </value>
+            <value>
+                <fullName>Error de conciliacion</fullName>
+                <default>false</default>
+                <label>Error de conciliación</label>
+            </value>
+            <value>
+                <fullName>Reversa administrativa</fullName>
+                <default>false</default>
+                <label>Reversa administrativa</label>
+            </value>
+            <value>
+                <fullName>Pago no correspondia</fullName>
+                <default>false</default>
+                <label>Pago no correspondía</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
