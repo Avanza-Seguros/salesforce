@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>scheduledChargeMismatch__c</fullName>
     <description
-	>En que difiere lo que emitio la aseguradora de lo que dice nuestra cuota: importe, fecha de vencimiento, ambos o nada. Es el valor de KAN-425: la discrepancia se ve al emitirse el recibo y no el dia del cobro, cuando ya solo queda corregirla a mano. Formula, se recalcula sola.</description>
+	>En que difiere lo que emitio la aseguradora de lo que dice nuestra cuota: importe, fecha de vencimiento, ambos o nada. La discrepancia se ve al emitirse el recibo y no el dia del cobro, cuando ya solo queda corregirla a mano. Formula, se recalcula sola.</description>
     <label>Diferencia con la cuota</label>
     <formula>IF(
   ISBLANK( candidateInstallment__c ),

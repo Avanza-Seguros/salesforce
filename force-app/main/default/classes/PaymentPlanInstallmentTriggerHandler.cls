@@ -151,7 +151,7 @@ public with sharing class PaymentPlanInstallmentTriggerHandler {
 			update toUpdate;
 		}
 
-		// Historia 189: refleja el resumen de cobranza en la poliza de cada plan afectado.
+		// Refleja el resumen de cobranza en la poliza de cada plan afectado.
 		Set<Id> policyIds = new Set<Id>();
 		for (PaymentPlan__c plan : plansById.values()) {
 			if (plan.insurancePolicy__c != null) {

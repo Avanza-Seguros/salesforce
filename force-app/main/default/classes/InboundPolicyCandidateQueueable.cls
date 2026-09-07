@@ -17,7 +17,7 @@
 public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	private static final String STATUS_NORMALIZED = 'Normalizado';
 
-	// KAN-423. Identificar la poliza es una cuestion de llave, no de vigencia: si el numero
+	// Identificar la poliza es una cuestion de llave, no de vigencia: si el numero
 	// existe, es esa poliza, este como este. El estado dejo de filtrar aqui. Lo que si hace
 	// falta es desempatar entre las varias vigencias que comparten numero, y eso se resuelve
 	// por periodo contra la fecha del recibo.
@@ -150,7 +150,7 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	/**
 	 * @creation date: 31/08/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Consulta InsurancePolicy por numero, SIN filtrar por estado (KAN-423).
+	 * @description: Consulta InsurancePolicy por numero, SIN filtrar por estado.
 	 *               Que la poliza este vencida o cancelada no cambia cual es: la aseguradora
 	 *               puede cobrar sobre ella, y filtrarla producia un "Sin Match" que ademas
 	 *               desinformaba, porque la poliza si existia. Trae el periodo de vigencia
@@ -198,7 +198,7 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	/**
 	 * @creation date: 31/08/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Resuelve la poliza del pago (KAN-423). Con una sola coincidencia, esa es.
+	 * @description: Resuelve la poliza del pago. Con una sola coincidencia, esa es.
 	 *               Con varias -el caso de las renovaciones, donde cada vigencia es una poliza
 	 *               propia con el mismo numero- gana aquella cuyo periodo contiene la fecha del
 	 *               recibo. Si ninguna la contiene, o la contienen varias, no se elige por

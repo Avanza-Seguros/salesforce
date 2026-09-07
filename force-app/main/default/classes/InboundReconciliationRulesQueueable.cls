@@ -20,7 +20,7 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 	private static final String REASON_NO_INSTALLMENTS = 'SIN_CUOTAS';
 	private static final String REASON_MULTIPLE_PLANS = 'PLANES_MULTIPLES';
 
-	// KAN-423. Sin poliza hay dos desenlaces muy distintos que antes caian los dos en Sin
+	// Sin poliza hay dos desenlaces muy distintos que antes caian los dos en Sin
 	// Match: que el numero no exista, y que exista en varias vigencias sin que la fecha
 	// resuelva cual. El segundo necesita una persona, no un descarte.
 	private static final String POLICY_REASON_AMBIGUOUS_TERM = 'VIGENCIA_AMBIGUA';

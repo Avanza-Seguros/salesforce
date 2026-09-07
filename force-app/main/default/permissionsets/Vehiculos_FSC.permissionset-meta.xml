@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
-	>KAN-429. Acceso al modelo de vehiculo de FSC: CustomerProperty (el vehiculo) e InsurancePolicyAsset (ese vehiculo en una vigencia). Incluye la FLS de los campos estandar, no solo la de los nuevos: sin ella no se ve ni el numero de serie.</description>
+	>Acceso al modelo de vehiculo de FSC: CustomerProperty (el vehiculo) e InsurancePolicyAsset (ese vehiculo en una vigencia). Incluye la FLS de los campos estandar, no solo la de los nuevos: sin ella no se ve ni el numero de serie.</description>
     <fieldPermissions>
         <editable>true</editable>
         <field>CustomerProperty.Carroceria__c</field>

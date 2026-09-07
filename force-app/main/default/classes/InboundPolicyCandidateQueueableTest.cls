@@ -120,7 +120,7 @@ private class InboundPolicyCandidateQueueableTest {
 
 	@IsTest
 	static void findsCancelledPolicy() {
-		// KAN-423. Antes se ignoraba por estar cancelada y el pago moria en Sin Match, aunque
+		// Antes se ignoraba por estar cancelada y el pago moria en Sin Match, aunque
 		// la poliza existiera. La aseguradora puede cobrar sobre una poliza cancelada.
 		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
 		InsurancePolicy cancelled = new InsurancePolicy(

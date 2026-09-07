@@ -104,7 +104,7 @@ private class PaymentInstallmentMatchQueueableTest {
 
 	@IsTest
 	static void cancelledInstallmentIsReopenedWhenTheReceiptArrives() {
-		// KAN-427. Antes no se tocaba una cuota cancelada y el cobro quedaba fuera del sistema.
+		// Antes no se tocaba una cuota cancelada y el cobro quedaba fuera del sistema.
 		// Que el pago haya llegado hasta aqui significa que la aseguradora lo dio por cobrado:
 		// la identificacion solo considera canceladas en ese caso.
 		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();

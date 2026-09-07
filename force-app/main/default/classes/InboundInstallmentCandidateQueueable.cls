@@ -16,7 +16,7 @@
 public with sharing class InboundInstallmentCandidateQueueable implements Queueable {
 	private static final String STATUS_NORMALIZED = 'Normalizado';
 
-	// KAN-425. Un recibo sin fecha de pago es un COBRO PROGRAMADO: la aseguradora lo emitio y
+	// Un recibo sin fecha de pago es un COBRO PROGRAMADO: la aseguradora lo emitio y
 	// todavia no lo cobro. Recorre la identificacion igual que un pago -para saber a que cuota
 	// va y poder contrastar importe y fecha contra lo que emitio- pero se detiene aqui: no
 	// avanza a las reglas, asi que no concilia ni genera cobro.
@@ -25,7 +25,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		STATUS_NORMALIZED,
 		STATUS_SCHEDULED
 	};
-	// KAN-423. El estado del plan deja de decidir si sus cuotas se miran. Un plan cancelado o
+	// El estado del plan deja de decidir si sus cuotas se miran. Un plan cancelado o
 	// suspendido puede seguir recibiendo cobros, porque quien decide eso es la aseguradora.
 	// El unico que se excluye es el reemplazado: sus cuotas se volvieron a crear en el plan
 	// que lo sustituyo (cambio de frecuencia) y contarlas seria cobrar dos veces.
@@ -35,7 +35,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		'Vencido'
 	};
 
-	// KAN-427. Una cuota cancelada puede volver a cobrarse, pero SOLO si la aseguradora da el
+	// Una cuota cancelada puede volver a cobrarse, pero SOLO si la aseguradora da el
 	// recibo por pagado: quien reabre la deuda es ella, no el motor. Se suma a las conciliables
 	// unicamente en ese caso.
 	private static final String INSTALLMENT_STATUS_CANCELLED = 'Cancelado';
@@ -226,8 +226,8 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	/**
 	 * @creation date: 01/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Avisa cuando dos cobros programados distintos apuntan a la misma cuota
-	 *               (KAN-425). No es un fallo del motor y no bloquea nada: la cuota sigue libre
+	 * @description: Avisa cuando dos cobros programados distintos apuntan a la misma cuota.
+	 *               No es un fallo del motor y no bloquea nada: la cuota sigue libre
 	 *               y cualquiera de los dos puede terminar cobrandose. Es una señal sobre los
 	 *               datos -normalmente que la aseguradora emitio dos recibos para la misma
 	 *               obligacion, o que nuestro plan tiene una cuota de menos- y sin registrarla
@@ -334,7 +334,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	/**
 	 * @creation date: 01/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Cuotas que este pago concreto puede tomar (KAN-427). A las abiertas se suman
+	 * @description: Cuotas que este pago concreto puede tomar. A las abiertas se suman
 	 *               las CANCELADAS, pero solo si la aseguradora da el recibo por cobrado: quien
 	 *               decide reabrir una deuda cancelada es ella, no el motor.
 	 * @param payment: Pago evaluado, con el estatus que reporta la aseguradora.
@@ -369,7 +369,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	/**
 	 * @creation date: 01/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Carga las cuotas CANCELADAS que podrian volver a cobrarse (KAN-427).
+	 * @description: Carga las cuotas CANCELADAS que podrian volver a cobrarse.
 	 *               Excluye dos cosas a proposito:
 	 *               - Las de planes REEMPLAZADOS. Una cuota queda cancelada por dos motivos muy
 	 *                 distintos: porque la aseguradora la cancelo, o porque el cliente cambio la

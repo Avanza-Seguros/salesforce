@@ -27,7 +27,7 @@ public with sharing class PaymentInstallmentMatchQueueable implements Queueable 
 		STATUS_OVERDUE
 	};
 
-	// KAN-427. Una cuota cancelada tambien recibe el comprobante cuando el cobro llego a este
+	// Una cuota cancelada tambien recibe el comprobante cuando el cobro llego a este
 	// punto: si el pago supero la identificacion, es porque la aseguradora ya lo dio por cobrado.
 	// Hay que tocar ESTE filtro ademas del de identificacion; cambiar solo uno deja el pago
 	// apuntando a la cuota pero sin cobrarla, y eso no lo delata ningun error.

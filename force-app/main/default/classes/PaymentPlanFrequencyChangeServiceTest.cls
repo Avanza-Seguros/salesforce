@@ -199,7 +199,7 @@ private class PaymentPlanFrequencyChangeServiceTest {
 			update policy;
 		} catch (DmlException e) {
 			threwException = true;
-			// Con la historia 188, un plan totalmente conciliado pasa a Completado,
+			// Un plan totalmente conciliado pasa a Completado,
 			// por lo que el servicio ya no lo halla como activo y bloquea el cambio
 			// por no existir un plan activo para reemplazar (el plan no tiene saldo
 			// pendiente). El cambio igual queda bloqueado, que es lo que se valida.
@@ -223,7 +223,7 @@ private class PaymentPlanFrequencyChangeServiceTest {
 				WHERE insurancePolicy__c = :policy.Id
 			]
 			.planStatus__c,
-			'El plan totalmente conciliado quedo Completado por la historia 188'
+			'El plan totalmente conciliado quedo Completado'
 		);
 	}
 

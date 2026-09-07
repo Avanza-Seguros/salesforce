@@ -26,7 +26,7 @@ public with sharing class InboundInsurancePaymentService {
 	private static final String CODE_INVALID_JSON = 'INVALID_JSON';
 	private static final String SOURCE_SYSTEM = 'MuleSoft';
 
-	// KAN-422. Situacion del recibo segun la aseguradora. El motor obedece este dato en vez
+	// Situacion del recibo segun la aseguradora. El motor obedece este dato en vez
 	// de deducir que hay un cobro por la sola presencia de una fecha.
 	private static final String CARRIER_PAID = 'Pagado';
 	private static final String CARRIER_PENDING = 'Pendiente';
@@ -37,7 +37,7 @@ public with sharing class InboundInsurancePaymentService {
 	private static final String STATUS_MANUAL_REVIEW = 'Revision Manual';
 	private static final String STATUS_NOT_RECONCILABLE = 'No Conciliable';
 
-	// KAN-424. La integracion sincroniza recibos, no novedades: un mismo recibo puede
+	// La integracion sincroniza recibos, no novedades: un mismo recibo puede
 	// llegar muchas veces. Solo se reprocesa si cambio algo que afecta al cobro.
 	private static final String RECEIPT_STATUS_RECOGNIZED = 'Reconocido';
 	private static final String RECEIPT_STATUS_REVERSED = 'Reversado';
@@ -500,9 +500,9 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Valida los campos requeridos del payload parseado. Retorna el
 	 *               motivo de rechazo si alguna regla falla, o null si el payload
 	 *               es valido. Las validaciones son en orden: campos obligatorios
-	 *               e importe. La fecha de pago dejo de ser requerida (historia HA):
-	 *               un recibo sin fecha de pago se acepta y almacena; su ruteo lo
-	 *               define la historia HB.
+	 *               e importe. La fecha de pago NO es requerida: un recibo sin
+	 *               fecha de pago se acepta y se almacena, y se rutea aparte como
+	 *               'Pendiente de Pago'.
 	 * @param externalPaymentId: Identificador de deduplicacion del pago (carrier_folio).
 	 * @param sourcePolicyNumber: Numero de poliza informado.
 	 * @param sourceAmount: Importe del pago parseado.
@@ -532,7 +532,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @creation date: 30/08/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Deja constancia de lo que el motor decide NO hacer por el estatus que
-	 *               reporta la aseguradora (KAN-422). Sin esto, un recibo que no avanza es
+	 *               reporta la aseguradora. Sin esto, un recibo que no avanza es
 	 *               indistinguible de uno que se quedo trabado: el registro dice cual es y
 	 *               por que. Se ejecuta despues del DML porque los registros nuevos no
 	 *               tienen Id hasta entonces.
@@ -543,7 +543,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @creation date: 31/08/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Compara el reenvio contra lo que ya teniamos y devuelve la lista de cambios
-	 *               que afectan al cobro (KAN-424). Solo estos justifican deshacer y rehacer;
+	 *               que afectan al cobro. Solo estos justifican deshacer y rehacer;
 	 *               un nombre de cliente corregido o una comision distinta se guardan sin tocar
 	 *               nada mas.
 	 *               NO se compara el mensaje completo ni su huella, aunque seria mas corto: los
@@ -679,8 +679,8 @@ public with sharing class InboundInsurancePaymentService {
 	/**
 	 * @creation date: 31/08/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Anula el cobro vigente de los pagos que llegaron con un cambio material
-	 *               (KAN-424). No borra nada: cambia el estado del recibo, y esa transicion
+	 * @description: Anula el cobro vigente de los pagos que llegaron con un cambio material.
+	 *               No borra nada: cambia el estado del recibo, y esa transicion
 	 *               dispara la cascada ya construida, que reabre la cuota, recalcula el plan y
 	 *               la poliza, devuelve la conciliacion a la bandeja y señala la oportunidad.
 	 *               Reusarla es lo que garantiza que una correccion de la aseguradora y una
@@ -823,7 +823,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @creation date: 30/08/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Traduce el estatus normalizado que envia la integracion a uno de los
-	 *               cinco valores que el motor entiende (KAN-422). El vocabulario es
+	 *               cinco valores que el motor entiende. El vocabulario es
 	 *               estricto a proposito: normalizar los nombres propios de cada
 	 *               aseguradora es trabajo de la integracion, y cualquier valor fuera del
 	 *               acuerdo cae en Desconocido para que se corrija alli en vez de
@@ -851,7 +851,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @creation date: 30/08/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Decide en que estado de NUESTRO procesamiento queda el pago, a partir
-	 *               de lo que la aseguradora dice del recibo (KAN-422). Solo un recibo que
+	 *               de lo que la aseguradora dice del recibo. Solo un recibo que
 	 *               ella da por pagado entra al pipeline. Los demas se reflejan sin
 	 *               conciliar: Pendiente queda esperando el cobro y Vencido o Cancelado
 	 *               quedan No Conciliable, del que salen solos si mas adelante la
@@ -952,7 +952,7 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.inboundStatus__c = inboundStatus;
 		// La bandeja de revision manual es una vista de lista que filtra por esta marca, no
 		// por el estado. Un pago que la recepcion manda a revisar sin pasar por el pipeline
-		// (KAN-422) no la tendria poblada y quedaria invisible para el analista.
+		// no la tendria poblada y quedaria invisible para el analista.
 		inboundPayment.manualReviewRequired__c = STATUS_MANUAL_REVIEW.equals(
 			inboundStatus
 		);
@@ -1059,7 +1059,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Encola un InboundPaymentNormalizerQueueable con los IDs de los
 	 *               registros (insertados o actualizados) que quedaron en estado
 	 *               Parseado. Los rechazados y los 'Pendiente de Pago' (recibos sin
-	 *               fecha de pago, historia HB) no se encolan: quedan fuera del
+	 *               fecha de pago) no se encolan: quedan fuera del
 	 *               pipeline hasta transicionar a Parseado. Solo ejecuta el enqueue
 	 *               si hay al menos un ID elegible.
 	 * @param inserted: Registros recien insertados por el DML de este lote.
@@ -1121,7 +1121,7 @@ public with sharing class InboundInsurancePaymentService {
 	/**
 	 * @creation date: 01/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Manda los cobros programados a identificar su cuota (KAN-425). Un recibo que
+	 * @description: Manda los cobros programados a identificar su cuota. Un recibo que
 	 *               la aseguradora emitio y aun no cobro no entra al pipeline -no hay cobro que
 	 *               conciliar- pero si vale la pena saber a que cuota corresponde: permite ver
 	 *               que cobros vienen y, sobre todo, contrastar el importe y la fecha que emitio
@@ -1168,7 +1168,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Consulta los registros InboundInsurancePayment__c que ya existen
 	 *               para los externalPaymentId__c recibidos, con su estado actual.
 	 *               Permite detectar duplicados, rutear el registro a UPDATE en lugar
-	 *               de INSERT y decidir la transicion de estado (historia HB: un
+	 *               de INSERT y decidir la transicion de estado (un
 	 *               'Pendiente de Pago' que llega con fecha pasa a Parseado; un
 	 *               Rechazado no transiciona a 'Pendiente de Pago').
 	 * @param externalIds: Conjunto de externalPaymentId__c a buscar.
@@ -1270,7 +1270,7 @@ public with sharing class InboundInsurancePaymentService {
 		data.sourceAmount = getDecimal(payload, 'sourceAmount__c');
 		data.sourceDueDate = getDate(payload, 'sourceDueDate__c');
 		data.sourcePaymentDate = getDate(payload, 'sourcePaymentDate__c');
-		// La fecha de cancelacion NO se usa como fecha de pago (KAN-422). Ese atajo venia del
+		// La fecha de cancelacion NO se usa como fecha de pago. Ese atajo venia del
 		// modelo anterior, donde solia ser la unica fecha disponible, y convertia todo recibo
 		// cancelado en un cobro: generaba recibo, conciliaba la cuota y cerraba la oportunidad.
 		data.sourceCancellationDate = getDate(payload, 'sourceCancellationDate__c');
@@ -1332,7 +1332,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Calcula el identificador de deduplicacion del pago inbound.
 	 *               La clave unica entre aseguradoras es {sourceCarrierCode__c}_{sourceReceiptNumber__c},
 	 *               de modo que dos aseguradoras con el mismo folio no colisionan.
-	 *               Fallback documentado (historia HA): si el codigo de aseguradora
+	 *               Fallback documentado: si el codigo de aseguradora
 	 *               o el folio llegan nulos, se respeta el externalPaymentId__c crudo
 	 *               que aun pudiera enviar MuleSoft durante la transicion.
 	 * @param data: Datos parseados de la fila con carrier, folio e id crudo.

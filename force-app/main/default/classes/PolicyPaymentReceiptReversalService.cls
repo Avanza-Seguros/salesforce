@@ -9,17 +9,17 @@
  *                 La cascada se dispara por la TRANSICION de estado (Reconocido -> Reversado),
  *                 no por la accion de usuario. Esa es la decision de diseno central: cualquier
  *                 via que produzca esa transicion -la accion del analista, una carga de datos,
- *                 la API o el reproceso a la baja de una historia futura- genera exactamente
+ *                 la API o un futuro reproceso a la baja- genera exactamente
  *                 los mismos efectos, sin duplicar logica. La accion de usuario solo captura
  *                 motivo y notas y cambia el estado.
  *                 El vinculo de la conciliacion al recibo reversado se CONSERVA: borrarlo
- *                 perderia la evidencia que esta historia existe para preservar. Lo que indica
+ *                 perderia la evidencia que la reversa existe para preservar. Lo que indica
  *                 que el caso volvio a estar abierto es el estado de la conciliacion.
  *                 Reabre ademas la cuota que el recibo cubria (H202), con lo que la obligacion
  *                 vuelve a existir. El plan y la poliza NO requieren codigo aqui: actualizar la
  *                 cuota dispara el manejador de cuotas, que recalcula el plan e invoca el
  *                 resumen de cobranza de la poliza.
- *                 La senalizacion comercial es la historia 203. Las tres se despliegan juntas:
+ *                 La senalizacion comercial va aparte, pero se despliega junto con esto:
  *                 un recibo reversado cuya cuota siguiera conciliada dejaria el sistema peor
  *                 que antes, porque la contradiccion pasaria a ser explicita.
  */
@@ -136,7 +136,7 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	}
 
 	// El catalogo de motivos lo resuelve el componente con la API de interfaz de Salesforce
-	// (getPicklistValues), igual que las acciones manuales de las historias 193 a 195. No se
+	// (getPicklistValues), igual que las acciones de resolucion manual. No se
 	// expone un metodo Apex para eso: seria duplicar el catalogo y quedaria desincronizado.
 
 	/**
@@ -426,7 +426,7 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			// Una cuota cancelada o condonada se desvincula del recibo, pero conserva su
 			// estado: la reversa deshace un cobro, no revierte la decision de anular la deuda.
 			if (!PROTECTED_INSTALLMENT_STATUSES.contains(inst.installmentStatus__c)) {
-				// KAN-426. Vuelve SIEMPRE a Pendiente. Antes se calculaba Vencido comparando
+				// Vuelve SIEMPRE a Pendiente. Antes se calculaba Vencido comparando
 				// con la fecha de hoy, y eso era el motor afirmando algo que la aseguradora no
 				// habia dicho. Que la cuota este vencida se ve en su antiguedad, que es una
 				// lectura nuestra y va en su propio campo.

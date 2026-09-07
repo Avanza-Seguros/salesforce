@@ -3,7 +3,7 @@
     <fullName>reprocessCount__c</fullName>
     <defaultValue>0</defaultValue>
     <description
-	>Número de veces que este inbound fue reprocesado manualmente (H195). Contador de auditoría; no hay tope de reintentos.</description>
+	>Número de veces que este inbound fue reprocesado manualmente. Contador de auditoría; no hay tope de reintentos.</description>
     <label>Reprocesos</label>
     <precision>4</precision>
     <required>false</required>

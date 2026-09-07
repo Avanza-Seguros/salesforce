@@ -3,7 +3,7 @@
     <fullName>lastReprocessedBy__c</fullName>
     <deleteConstraint>SetNull</deleteConstraint>
     <description
-	>Usuario que ejecutó el último reproceso manual de este inbound (H195).</description>
+	>Usuario que ejecutó el último reproceso manual de este inbound.</description>
     <label>Reprocesado por</label>
     <referenceTo>User</referenceTo>
     <relationshipName>InboundPaymentsReprocessed</relationshipName>

@@ -182,7 +182,7 @@ private class InboundInsurancePaymentRestResourceTest {
 
 	@IsTest
 	static void doesNotTreatCancellationDateAsPayment() {
-		// KAN-422. Hasta esta historia, un recibo sin fecha de pago pero con fecha de
+		// Antes, un recibo sin fecha de pago pero con fecha de
 		// cancelacion se procesaba COMO SI estuviera cobrado: el motor copiaba la fecha de
 		// cancelacion a la fecha de pago, generaba el recibo, conciliaba la cuota y cerraba
 		// la oportunidad. Este es el mismo mensaje de entonces; el resultado ya no.
@@ -402,7 +402,7 @@ private class InboundInsurancePaymentRestResourceTest {
 		Assert.isTrue(inboundPayment.manualReviewRequired__c);
 	}
 
-	// ================================================================ KAN-424
+	// ================================================================
 	// Un reenvio solo se reprocesa si algo cambio.
 
 	private static String resendBody(String amount, String extra) {
@@ -500,7 +500,7 @@ private class InboundInsurancePaymentRestResourceTest {
 			'Conciliado',
 			after.inboundStatus__c,
 			'Un pago conciliado que se reenvia identico sigue conciliado. Este es el caso ' +
-			'que la historia existe para proteger.'
+			'que el guardail existe para proteger.'
 		);
 		Assert.areEqual(
 			1,
@@ -638,7 +638,7 @@ private class InboundInsurancePaymentRestResourceTest {
 
 	@IsTest
 	static void annulsLiveReceiptWhenResendChangesTheAmount() {
-		// El corazon de la historia: un cobro ya registrado no puede sobrevivir a una
+		// El corazon del caso: un cobro ya registrado no puede sobrevivir a una
 		// correccion de la aseguradora. Se arma la cadena a mano porque el pipeline es
 		// asincrono y en una prueba solo avanza un eslabon.
 		invokeEndpoint(resendBody('1000.00', ''));

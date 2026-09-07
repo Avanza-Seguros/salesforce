@@ -167,7 +167,7 @@ private class OpportunityPolizaStageGuardTest {
 	}
 
 	/**
-	 * @description: CA-5: Cuando existe un recibo Reconocido, el trigger de Historia 190
+	 * @description: CA-5: Cuando existe un recibo Reconocido, el trigger de cierre
 	 *               cierra la Opportunity y el flow Before-Save lo permite.
 	 *               Prueba la coexistencia de ambos mecanismos.
 	 */
@@ -184,7 +184,7 @@ private class OpportunityPolizaStageGuardTest {
 		Assert.areEqual(
 			STAGE_CLOSED_WON,
 			[SELECT StageName FROM Opportunity WHERE Id = :opp.Id].StageName,
-			'El trigger de H190 debe cerrar la Opportunity y el flow Before-Save debe permitirlo'
+			'El trigger debe cerrar la Opportunity y el flow Before-Save debe permitirlo'
 		);
 	}
 

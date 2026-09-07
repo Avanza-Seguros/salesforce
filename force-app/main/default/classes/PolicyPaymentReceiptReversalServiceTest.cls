@@ -6,7 +6,7 @@
  *   @description: Pruebas de la reversa de un recibo reconocido (H201): validaciones de la
  *                 accion, sellado de autoria, terminalidad, retorno de la conciliacion y del
  *                 pago inbound al circuito de revision, tolerancia a recibos sin conciliacion,
- *                 comportamiento en lote y habilitacion del reproceso de la historia 195.
+ *                 comportamiento en lote y habilitacion del reproceso manual.
  */
 @IsTest
 private class PolicyPaymentReceiptReversalServiceTest {
@@ -494,7 +494,7 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	}
 
 	/**
-	 * @description: Tras la reversa, el caso vuelve a ser reprocesable. Antes de esta historia
+	 * @description: Tras la reversa, el caso vuelve a ser reprocesable. Antes de la reversa
 	 *               el reproceso lo rechazaba indicando que "requiere reversa", y esa reversa
 	 *               no existia: el caso quedaba muerto.
 	 */
@@ -720,7 +720,7 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	}
 
 	/**
-	 * @description: KAN-426: una cuota reabierta vuelve SIEMPRE a Pendiente, aunque su
+	 * @description: Una cuota reabierta vuelve SIEMPRE a Pendiente, aunque su
 	 *               vencimiento ya haya pasado. Antes se calculaba Vencido comparando con la
 	 *               fecha de hoy, y eso era el motor afirmando algo que la aseguradora no habia
 	 *               dicho. Que la cuota este vencida se ve en su antiguedad, que es una lectura

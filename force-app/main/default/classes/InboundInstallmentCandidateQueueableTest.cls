@@ -381,7 +381,7 @@ private class InboundInstallmentCandidateQueueableTest {
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];
-		// KAN-423. Antes se descartaban las cuotas de un plan cancelado y el cobro quedaba
+		// Antes se descartaban las cuotas de un plan cancelado y el cobro quedaba
 		// fuera del sistema. Quien decide si se cobra sobre ese plan es la aseguradora.
 		Assert.isNotNull(
 			inbound.candidateInstallment__c,
@@ -446,7 +446,7 @@ private class InboundInstallmentCandidateQueueableTest {
 		Assert.areEqual('PLANES_MULTIPLES', inbound.installmentMatchReason__c);
 	}
 
-	// ================================================================ KAN-425
+	// ================================================================
 	// El cobro programado se vincula a su cuota desde que la aseguradora lo emite.
 
 	/**
@@ -539,7 +539,7 @@ private class InboundInstallmentCandidateQueueableTest {
 
 	@IsTest
 	static void scheduledChargeDoesNothingElse() {
-		// El criterio central de la historia: se vincula y NADA MAS. Si esto se rompe, el
+		// El criterio central: se vincula y NADA MAS. Si esto se rompe, el
 		// sistema estaria dando por cobrado algo que la aseguradora aun no ha cobrado.
 		Date dueDate = Date.today().addDays(30);
 		InsurancePolicy policy = createPolicyWithSingleInstallment(
@@ -642,7 +642,7 @@ private class InboundInstallmentCandidateQueueableTest {
 
 	@IsTest
 	static void scheduledChargeExposesTheAmountMismatch() {
-		// El valor real de la historia: la aseguradora emitio 450 y nuestra cuota dice 400.
+		// El valor real de esto: la aseguradora emitio 450 y nuestra cuota dice 400.
 		// Hoy eso se descubre el dia del cobro; aqui se ve al emitirse el recibo.
 		Date dueDate = Date.today().addDays(30);
 		InsurancePolicy policy = createPolicyWithSingleInstallment(
@@ -679,7 +679,7 @@ private class InboundInstallmentCandidateQueueableTest {
 		);
 	}
 
-	// ================================================================ KAN-427
+	// ================================================================
 	// Una cuota cancelada puede volver a cobrarse.
 
 	/**
