@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Color__c</fullName>
+    <description
+	>Color del vehiculo segun el portal. Solo lo traen 18 de los 332 vehiculos de Qualitas, pero se guarda porque el dato ya viene en la extraccion y volver a obtenerlo cuesta mas que el campo.</description>
+    <externalId>false</externalId>
+    <label>Color</label>
+    <length>30</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

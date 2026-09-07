@@ -32,6 +32,11 @@
                 <default>false</default>
                 <label>SIN_CUOTAS</label>
             </value>
+            <value>
+                <fullName>PLANES_MULTIPLES</fullName>
+                <default>false</default>
+                <label>PLANES_MULTIPLES</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

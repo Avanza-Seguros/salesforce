@@ -4,12 +4,12 @@
  *   @creation date: 18/07/2026
  *   @author: Javier Torres - Volestra
  *   @description: Servicio de resolucion manual de conciliaciones en revision.
- *                 - H193 (approve): valida poliza y cuota final abiertas, sella la decision
+ *                 - Aprobar: valida poliza y cuota final abiertas, sella la decision
  *                   manual, deja la conciliacion en Conciliado, cascada el inbound y reutiliza
  *                   PolicyPaymentReceiptQueueable (idempotente por resultingReceipt__c).
- *                 - H194 (reject): captura motivo y notas, deja Rechazado, cascada el inbound
+ *                 - Rechazar: captura motivo y notas, deja Rechazado, cascada el inbound
  *                   a Rechazado y no genera recibo.
- *                 - H195 (reprocess): libera el candado manual (manualResolvedBy__c), resetea
+ *                 - Reprocesar: libera el candado manual (manualResolvedBy__c), resetea
  *                   el inbound a Normalizado y re-encola el pipeline desde la identificacion de
  *                   poliza candidata, dejando traza (reprocessCount__c / lastReprocessedAt__c /
  *                   lastReprocessedBy__c en el inbound, y reprocessLog__c append-only en la
@@ -41,7 +41,7 @@ public with sharing class PaymentReconciliationManualService {
 		'Pendiente',
 		'Vencido'
 	};
-	// Estados desde los que un caso puede reprocesarse (H195). El unico no elegible
+	// Estados desde los que un caso puede reprocesarse. El unico no elegible
 	// es Conciliado con recibo Reconocido (requiere reversa, fuera de alcance).
 	private static final Set<String> REPROCESSABLE_STATUSES = new Set<String>{
 		'Requiere revision',
@@ -181,7 +181,7 @@ public with sharing class PaymentReconciliationManualService {
 	/**
 	 * @creation date: 18/07/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Punto de entrada AuraEnabled para la UI de rechazo manual (H194).
+	 * @description: Punto de entrada AuraEnabled para la UI de rechazo manual.
 	 *               Delega en rejectReconciliation y traduce las excepciones de negocio
 	 *               a AuraHandledException.
 	 * @param reconciliationId: Id de la PaymentReconciliation__c en revision.
@@ -205,7 +205,7 @@ public with sharing class PaymentReconciliationManualService {
 	/**
 	 * @creation date: 18/07/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Aplica el rechazo manual sobre la conciliacion (H194): valida
+	 * @description: Aplica el rechazo manual sobre la conciliacion: valida
 	 *               elegibilidad (caso no cerrado, sin recibo) y captura minima (motivo
 	 *               y notas), deja la conciliacion en Rechazado con el motivo, sella la
 	 *               decision manual y cascada el inbound a Rechazado. No genera recibo.
@@ -271,7 +271,7 @@ public with sharing class PaymentReconciliationManualService {
 	/**
 	 * @creation date: 18/07/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Punto de entrada AuraEnabled para la UI de reproceso (H195). Delega
+	 * @description: Punto de entrada AuraEnabled para la UI de reproceso. Delega
 	 *               en reprocessReconciliation y traduce las excepciones de negocio a
 	 *               AuraHandledException.
 	 * @param reconciliationId: Id de la conciliacion a reprocesar.
@@ -290,7 +290,7 @@ public with sharing class PaymentReconciliationManualService {
 	/**
 	 * @creation date: 18/07/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Reintenta la conciliacion sobre el inbound existente (H195): valida
+	 * @description: Reintenta la conciliacion sobre el inbound existente: valida
 	 *               elegibilidad (no reconocido, sin recibo, estado reprocesable), guarda
 	 *               el estado previo en la bitacora append-only reprocessLog__c, libera el
 	 *               candado manual y saca el caso del estado terminal (para que el pipeline

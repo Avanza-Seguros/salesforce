@@ -18,6 +18,12 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 	private static final String REASON_LOW_SCORE = 'SCORE_BAJO';
 	private static final String REASON_TIE = 'EMPATE';
 	private static final String REASON_NO_INSTALLMENTS = 'SIN_CUOTAS';
+	private static final String REASON_MULTIPLE_PLANS = 'PLANES_MULTIPLES';
+
+	// Sin poliza hay dos desenlaces muy distintos que antes caian los dos en Sin
+	// Match: que el numero no exista, y que exista en varias vigencias sin que la fecha
+	// resuelva cual. El segundo necesita una persona, no un descarte.
+	private static final String POLICY_REASON_AMBIGUOUS_TERM = 'VIGENCIA_AMBIGUA';
 
 	private static final String METHOD_EXACT_POLICY_AND_SEQUENCE = 'EXACT_POLICY_AND_SEQUENCE';
 	private static final String METHOD_POLICY_DATE_AMOUNT = 'POLICY_DATE_AMOUNT';
@@ -76,6 +82,7 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 				candidatePolicy__c,
 				candidateInstallment__c,
 				installmentMatchReason__c,
+				policyMatchReason__c,
 				sourceInstallmentNumber__c,
 				sourceDueDate__c,
 				sourceAmount__c
@@ -169,12 +176,22 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 		rec.reconciledAt__c = now;
 
 		if (payment.candidatePolicy__c == null) {
+			// El numero corresponde a varias vigencias y la fecha no basta para elegir. Hay
+			// poliza; lo que falta es decidir cual, y eso no es un Sin Match.
+			if (POLICY_REASON_AMBIGUOUS_TERM.equals(payment.policyMatchReason__c)) {
+				rec.reconciliationMethod__c = METHOD_AMBIGUOUS;
+				rec.reconciliationResult__c = RESULT_MANUAL_REVIEW;
+				return;
+			}
 			rec.reconciliationMethod__c = METHOD_NO_MATCH;
 			rec.reconciliationResult__c = RESULT_NO_MATCH;
 			return;
 		}
 
-		if (REASON_TIE.equals(payment.installmentMatchReason__c)) {
+		if (
+			REASON_TIE.equals(payment.installmentMatchReason__c) ||
+			REASON_MULTIPLE_PLANS.equals(payment.installmentMatchReason__c)
+		) {
 			rec.reconciliationMethod__c = METHOD_AMBIGUOUS;
 			rec.reconciliationResult__c = RESULT_MANUAL_REVIEW;
 			return;

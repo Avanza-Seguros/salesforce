@@ -56,6 +56,11 @@
                 <default>false</default>
                 <label>Sin Match</label>
             </value>
+            <value>
+                <fullName>No Conciliable</fullName>
+                <default>false</default>
+                <label>No Conciliable</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

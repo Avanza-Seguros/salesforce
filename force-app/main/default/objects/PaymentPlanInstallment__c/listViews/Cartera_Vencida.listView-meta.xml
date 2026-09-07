@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cartera_Vencida</fullName>
+    <columns>NAME</columns>
+    <columns>paymentPlan__c</columns>
+    <columns>insuredName__c</columns>
+    <columns>sequenceNumber__c</columns>
+    <columns>dueDate__c</columns>
+    <columns>daysOverdue__c</columns>
+    <columns>agingStatus__c</columns>
+    <columns>expectedAmount__c</columns>
+    <columns>outstandingAmount__c</columns>
+    <columns>installmentStatus__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>agingStatus__c</field>
+        <operation>equals</operation>
+        <value>Vencida</value>
+    </filters>
+    <label>Cartera vencida</label>
+    <language>es</language>
+</ListView>

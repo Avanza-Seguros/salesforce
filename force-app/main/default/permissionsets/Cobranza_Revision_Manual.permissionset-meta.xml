@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
-	>Otorga al analista de cobranzas la resolución manual de conciliaciones en revisión: aprobar (H193), rechazar (H194) y reprocesar (H195), con las acciones asociadas sobre conciliación, cuota, recibo e inbound.</description>
+	>Otorga al analista de cobranzas la resolución manual de conciliaciones en revisión: aprobar, rechazar y reprocesar, con las acciones asociadas sobre conciliación, cuota, recibo e inbound.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Cobranza - Revisión Manual</label>
     <classAccesses>

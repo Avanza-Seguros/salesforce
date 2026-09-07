@@ -140,9 +140,9 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 					: null;
 
 				PaymentReconciliation__c existing = existingByInbound.get(p.Id);
-				// Guardail anti-reentrada (H193/H194): una conciliacion resuelta
+				// Guardail anti-reentrada: una conciliacion resuelta
 				// manualmente (manualResolvedBy__c poblado) no la sobrescribe el
-				// pipeline reentrante. Solo un reproceso explicito (H195) la libera
+				// pipeline reentrante. Solo un reproceso explicito la libera
 				// limpiando manualResolvedBy__c antes de re-correr el motor.
 				if (existing != null && existing.manualResolvedBy__c != null) {
 					continue;

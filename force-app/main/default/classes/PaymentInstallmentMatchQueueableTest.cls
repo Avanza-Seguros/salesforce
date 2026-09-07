@@ -103,7 +103,10 @@ private class PaymentInstallmentMatchQueueableTest {
 	}
 
 	@IsTest
-	static void ineligibleCancelledNotTouched() {
+	static void cancelledInstallmentIsReopenedWhenTheReceiptArrives() {
+		// Antes no se tocaba una cuota cancelada y el cobro quedaba fuera del sistema.
+		// Que el pago haya llegado hasta aqui significa que la aseguradora lo dio por cobrado:
+		// la identificacion solo considera canceladas en ese caso.
 		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
 		InsurancePolicy policy = createPolicy('POL-IM-004', accountId);
 		PaymentPlanInstallment__c inst = createInstallment(
@@ -120,8 +123,41 @@ private class PaymentInstallmentMatchQueueableTest {
 		Test.stopTest();
 
 		PaymentPlanInstallment__c updated = queryInstallment(inst.Id);
-		Assert.isNull(updated.matchedReceipt__c, 'No se toca una cuota cancelada');
-		Assert.areEqual('Cancelado', updated.installmentStatus__c);
+		Assert.areEqual(
+			receipt.Id,
+			updated.matchedReceipt__c,
+			'Un cobro real sobre una cuota cancelada tiene que registrarse.'
+		);
+		Assert.areEqual('Conciliado', updated.installmentStatus__c);
+		Assert.isNotNull(
+			updated.reopenedFromCancelledOn__c,
+			'Y tiene que quedar constancia de que estuvo cancelada: si no, seria ' +
+			'indistinguible de una cuota normal y nadie podria explicar el cobro.'
+		);
+	}
+
+	@IsTest
+	static void forgivenInstallmentIsNeverTouched() {
+		// Condonar es una decision nuestra, no de la aseguradora. Ningun cobro la revierte.
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = createPolicy('POL-IM-005', accountId);
+		PaymentPlanInstallment__c inst = createInstallment(
+			policy.Id,
+			400,
+			'Condonado'
+		);
+		PolicyPaymentReceipt__c receipt = createReceipt(policy.Id, inst.Id, 400);
+
+		Test.startTest();
+		System.enqueueJob(
+			new PaymentInstallmentMatchQueueable(new Set<Id>{ receipt.Id })
+		);
+		Test.stopTest();
+
+		PaymentPlanInstallment__c updated = queryInstallment(inst.Id);
+		Assert.isNull(updated.matchedReceipt__c, 'Una cuota condonada no se toca.');
+		Assert.areEqual('Condonado', updated.installmentStatus__c);
+		Assert.isNull(updated.reopenedFromCancelledOn__c);
 	}
 
 	@IsTest
@@ -353,7 +389,8 @@ private class PaymentInstallmentMatchQueueableTest {
 				matchedOn__c,
 				matchedAmount__c,
 				outstandingAmount__c,
-				expectedAmount__c
+				expectedAmount__c,
+				reopenedFromCancelledOn__c
 			FROM PaymentPlanInstallment__c
 			WHERE Id = :installmentId
 		];

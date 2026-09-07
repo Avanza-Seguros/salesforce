@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cobros_Programados_Sin_Cuota</fullName>
+    <columns>OBJECT_ID</columns>
+    <columns>externalPaymentId__c</columns>
+    <columns>sourcePolicyNumber__c</columns>
+    <columns>sourceReceiptNumber__c</columns>
+    <columns>sourceAmount__c</columns>
+    <columns>sourceDueDate__c</columns>
+    <columns>sourceInsuranceCarrier__c</columns>
+    <columns>candidatePolicy__c</columns>
+    <columns>installmentMatchReason__c</columns>
+    <columns>receivedAt__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>inboundStatus__c</field>
+        <operation>equals</operation>
+        <value>Pendiente de Pago</value>
+    </filters>
+    <filters>
+        <field>candidateInstallment__c</field>
+        <operation>equals</operation>
+        <value />
+    </filters>
+    <label>Cobros programados sin cuota</label>
+    <language>es</language>
+</ListView>

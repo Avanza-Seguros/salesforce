@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>resendCount__c</fullName>
+    <description
+	>Cuantas veces la aseguradora ha vuelto a enviar este mismo recibo, cuente o no con cambios. La integracion sincroniza recibos, no novedades, asi que un recibo puede llegar muchas veces; este contador hace visible ese trafico que de otro modo es invisible.</description>
+    <label>Reenvios recibidos</label>
+    <precision>9</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

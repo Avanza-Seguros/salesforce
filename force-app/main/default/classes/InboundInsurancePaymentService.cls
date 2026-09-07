@@ -25,7 +25,34 @@ public with sharing class InboundInsurancePaymentService {
 	private static final String CODE_EMPTY_BODY = 'EMPTY_BODY';
 	private static final String CODE_INVALID_JSON = 'INVALID_JSON';
 	private static final String SOURCE_SYSTEM = 'MuleSoft';
-	private static final Boolean USE_CANCELLATION_DATE_AS_PAYMENT_FALLBACK = true;
+
+	// Situacion del recibo segun la aseguradora. El motor obedece este dato en vez
+	// de deducir que hay un cobro por la sola presencia de una fecha.
+	private static final String CARRIER_PAID = 'Pagado';
+	private static final String CARRIER_PENDING = 'Pendiente';
+	private static final String CARRIER_OVERDUE = 'Vencido';
+	private static final String CARRIER_CANCELLED = 'Cancelado';
+	private static final String CARRIER_UNKNOWN = 'Desconocido';
+
+	private static final String STATUS_MANUAL_REVIEW = 'Revision Manual';
+	private static final String STATUS_NOT_RECONCILABLE = 'No Conciliable';
+
+	// La integracion sincroniza recibos, no novedades: un mismo recibo puede
+	// llegar muchas veces. Solo se reprocesa si cambio algo que afecta al cobro.
+	private static final String RECEIPT_STATUS_RECOGNIZED = 'Reconocido';
+	private static final String RECEIPT_STATUS_REVERSED = 'Reversado';
+	private static final String REVERSAL_REASON_CARRIER_CORRECTION = 'Correccion de la aseguradora';
+
+	// Vocabulario acordado con la integracion. Deliberadamente estricto: normalizar los
+	// nombres de cada aseguradora es responsabilidad de la integracion, no de Salesforce.
+	// Cualquier otro valor cae en Desconocido, queda para revision manual y se registra,
+	// que es como nos enteramos de que hay que corregirlo aguas arriba.
+	private static final Map<String, String> CARRIER_STATUS_BY_SOURCE = new Map<String, String>{
+		'PAGADO' => CARRIER_PAID,
+		'PENDIENTE' => CARRIER_PENDING,
+		'VENCIDO' => CARRIER_OVERDUE,
+		'CANCELADO' => CARRIER_CANCELLED
+	};
 
 	private static final String OUTCOME_SKIPPED = 'SKIPPED';
 	private static final String OUTCOME_REJECTED = 'REJECTED';
@@ -171,7 +198,11 @@ public with sharing class InboundInsurancePaymentService {
 					ctx.data,
 					ctx.itemJson,
 					ctx.payloadHash,
-					resolveInboundStatus(hasPaymentDate, first.existingStatus),
+					resolveInboundStatus(
+						ctx.data.carrierReceiptStatus,
+						hasPaymentDate,
+						first.existingStatus
+					),
 					null,
 					candidatePolicyId
 				);
@@ -186,19 +217,33 @@ public with sharing class InboundInsurancePaymentService {
 			);
 			if (existing != null) {
 				ctx.existingStatus = existing.inboundStatus__c;
+				ctx.changes = describeMaterialChanges(existing, ctx.data);
+				ctx.materialChange = !ctx.changes.isEmpty();
 				logResentWithChanges(existing, ctx.data);
+
 				InboundInsurancePayment__c rec = new InboundInsurancePayment__c(
 					Id = existing.Id
 				);
+				// Sin cambio material el pago conserva su estado: no se reprocesa nada. Con
+				// cambio material se recalcula, que es lo que lo devuelve al circuito.
+				String resolvedStatus = ctx.materialChange
+					? resolveInboundStatus(
+							ctx.data.carrierReceiptStatus,
+							hasPaymentDate,
+							existing.inboundStatus__c
+					  )
+					: existing.inboundStatus__c;
+
 				populateInboundData(
 					rec,
 					ctx.data,
 					ctx.itemJson,
 					ctx.payloadHash,
-					resolveInboundStatus(hasPaymentDate, existing.inboundStatus__c),
+					resolvedStatus,
 					null,
 					candidatePolicyId
 				);
+				stampResend(rec, existing, ctx);
 				ctx.record = rec;
 				toUpdate.add(rec);
 				ctx.outcome = OUTCOME_UPDATED;
@@ -211,7 +256,11 @@ public with sharing class InboundInsurancePaymentService {
 				ctx.data,
 				ctx.itemJson,
 				ctx.payloadHash,
-				resolveInboundStatus(hasPaymentDate, null),
+				resolveInboundStatus(
+					ctx.data.carrierReceiptStatus,
+					hasPaymentDate,
+					null
+				),
 				null,
 				candidatePolicyId
 			);
@@ -221,6 +270,11 @@ public with sharing class InboundInsurancePaymentService {
 			received++;
 		}
 
+		// ORDEN DELIBERADO. La anulacion va ANTES de escribir los pagos: su cascada deja el
+		// pago en revision manual, asi que si corriera despues pisaria el estado que lo
+		// devuelve al circuito y el pago se quedaria quieto para siempre, sin fallar nada.
+		annulReceiptsOfChangedPayments(contexts);
+
 		if (!toInsert.isEmpty()) {
 			insert toInsert;
 		}
@@ -228,7 +282,9 @@ public with sharing class InboundInsurancePaymentService {
 			update toUpdate;
 		}
 
+		logCarrierStatusOutcomes(contexts);
 		enqueueNormalization(toInsert, toUpdate);
+		enqueueScheduledChargeMatching(toInsert, toUpdate);
 		AppLogger.flush();
 
 		List<ItemResult> results = new List<ItemResult>();
@@ -444,9 +500,9 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Valida los campos requeridos del payload parseado. Retorna el
 	 *               motivo de rechazo si alguna regla falla, o null si el payload
 	 *               es valido. Las validaciones son en orden: campos obligatorios
-	 *               e importe. La fecha de pago dejo de ser requerida (historia HA):
-	 *               un recibo sin fecha de pago se acepta y almacena; su ruteo lo
-	 *               define la historia HB.
+	 *               e importe. La fecha de pago NO es requerida: un recibo sin
+	 *               fecha de pago se acepta y se almacena, y se rutea aparte como
+	 *               'Pendiente de Pago'.
 	 * @param externalPaymentId: Identificador de deduplicacion del pago (carrier_folio).
 	 * @param sourcePolicyNumber: Numero de poliza informado.
 	 * @param sourceAmount: Importe del pago parseado.
@@ -473,29 +529,363 @@ public with sharing class InboundInsurancePaymentService {
 	}
 
 	/**
-	 * @creation date: 05/07/2026
+	 * @creation date: 30/08/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Resuelve el estado de un pago inbound valido segun si trae fecha
-	 *               de pago (historia HB). Un recibo con fecha de pago se marca
-	 *               Parseado y entra al pipeline; uno sin fecha se marca
-	 *               'Pendiente de Pago' y queda fuera del pipeline hasta que el mismo
-	 *               recibo regrese con fecha. Un registro ya Rechazado no transiciona
-	 *               a 'Pendiente de Pago' aunque llegue un reenvio sin fecha.
+	 * @description: Deja constancia de lo que el motor decide NO hacer por el estatus que
+	 *               reporta la aseguradora. Sin esto, un recibo que no avanza es
+	 *               indistinguible de uno que se quedo trabado: el registro dice cual es y
+	 *               por que. Se ejecuta despues del DML porque los registros nuevos no
+	 *               tienen Id hasta entonces.
+	 * @param contexts: Filas ya procesadas y persistidas del lote.
+	 * @return
+	 */
+	/**
+	 * @creation date: 31/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Compara el reenvio contra lo que ya teniamos y devuelve la lista de cambios
+	 *               que afectan al cobro. Solo estos justifican deshacer y rehacer;
+	 *               un nombre de cliente corregido o una comision distinta se guardan sin tocar
+	 *               nada mas.
+	 *               NO se compara el mensaje completo ni su huella, aunque seria mas corto: los
+	 *               pagos de la carga inicial no conservan el mensaje original de la integracion,
+	 *               de modo que esa comparacion los marcaria a todos como cambiados y anularia
+	 *               un cobro valido por cada pago reenviado.
+	 * @param existing: Registro tal como estaba antes del reenvio.
+	 * @param incoming: Datos que trae el reenvio.
+	 * @return Descripcion de cada cambio material; vacia si no cambio nada relevante.
+	 */
+	private static List<String> describeMaterialChanges(
+		InboundInsurancePayment__c existing,
+		ParsedInboundData incoming
+	) {
+		List<String> changes = new List<String>();
+		addChange(
+			changes,
+			'importe',
+			existing.sourceAmount__c,
+			incoming.sourceAmount
+		);
+		addChange(
+			changes,
+			'fecha de pago',
+			existing.sourcePaymentDate__c,
+			incoming.sourcePaymentDate
+		);
+		addChange(
+			changes,
+			'numero de poliza',
+			existing.sourcePolicyNumber__c,
+			incoming.sourcePolicyNumber
+		);
+		addChange(
+			changes,
+			'numero de cuota',
+			existing.sourceInstallmentNumber__c,
+			incoming.sourceInstallmentNumber
+		);
+		addChange(
+			changes,
+			'fecha de vencimiento',
+			existing.sourceDueDate__c,
+			incoming.sourceDueDate
+		);
+		addChange(
+			changes,
+			'moneda',
+			existing.sourceCurrency__c,
+			incoming.sourceCurrency
+		);
+		addChange(
+			changes,
+			'estatus del recibo',
+			existing.carrierReceiptStatus__c,
+			incoming.carrierReceiptStatus
+		);
+		return changes;
+	}
+
+	/**
+	 * @creation date: 31/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Agrega una linea a la bitacora si el valor cambio. Compara con equals sobre
+	 *               el texto para que dos nulos, o un nulo y un valor, se traten igual sin
+	 *               romper.
+	 * @param changes: Lista acumuladora.
+	 * @param label: Nombre legible del campo.
+	 * @param before: Valor anterior.
+	 * @param After: Valor nuevo.
+	 * @return
+	 */
+	private static void addChange(
+		List<String> changes,
+		String label,
+		Object before,
+		Object After
+	) {
+		String a = before == null ? '' : String.valueOf(before);
+		String b = After == null ? '' : String.valueOf(After);
+		if (a.equals(b)) {
+			return;
+		}
+		changes.add(
+			label +
+				': ' +
+				(a == '' ? '(vacio)' : a) +
+				' -> ' +
+				(b == '' ? '(vacio)' : b)
+		);
+	}
+
+	/**
+	 * @creation date: 31/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Sella el rastro del reenvio: cuantos van, cuando fue el ultimo y, si hubo
+	 *               cambios materiales, que cambio exactamente. La bitacora se agrega al final y
+	 *               nunca se sobrescribe, porque el pago se reescribe entero en cada recepcion y
+	 *               sin ella no quedaria rastro de lo anterior.
+	 * @param rec: Registro que se va a actualizar.
+	 * @param existing: Valores previos.
+	 * @param ctx: Contexto de la fila, con los cambios detectados.
+	 * @return
+	 */
+	private static void stampResend(
+		InboundInsurancePayment__c rec,
+		InboundInsurancePayment__c existing,
+		RowContext ctx
+	) {
+		Decimal previous = existing.resendCount__c == null
+			? 0
+			: existing.resendCount__c;
+		rec.resendCount__c = previous + 1;
+		rec.lastResendAt__c = System.now();
+
+		if (!ctx.materialChange) {
+			// Un reenvio identico no ensucia la bitacora: la integracion repite recibos de
+			// forma rutinaria y anotarlos todos la volveria ilegible.
+			rec.resendChangeLog__c = existing.resendChangeLog__c;
+			return;
+		}
+
+		String entry =
+			'[' +
+			System.now().format('yyyy-MM-dd HH:mm:ss') +
+			'] ' +
+			String.join(ctx.changes, '; ');
+		rec.resendChangeLog__c = String.isBlank(existing.resendChangeLog__c)
+			? entry
+			: existing.resendChangeLog__c + '\n' + entry;
+	}
+
+	/**
+	 * @creation date: 31/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Anula el cobro vigente de los pagos que llegaron con un cambio material.
+	 *               No borra nada: cambia el estado del recibo, y esa transicion
+	 *               dispara la cascada ya construida, que reabre la cuota, recalcula el plan y
+	 *               la poliza, devuelve la conciliacion a la bandeja y señala la oportunidad.
+	 *               Reusarla es lo que garantiza que una correccion de la aseguradora y una
+	 *               anulacion hecha a mano dejen el sistema exactamente igual.
+	 * @param contexts: Filas del lote ya clasificadas.
+	 * @return
+	 */
+	private static void annulReceiptsOfChangedPayments(
+		List<RowContext> contexts
+	) {
+		Set<Id> changedInboundIds = new Set<Id>();
+		for (RowContext ctx : contexts) {
+			if (ctx.materialChange && ctx.record != null && ctx.record.Id != null) {
+				changedInboundIds.add(ctx.record.Id);
+			}
+		}
+		if (changedInboundIds.isEmpty()) {
+			return;
+		}
+
+		List<PolicyPaymentReceipt__c> toReverse = new List<PolicyPaymentReceipt__c>();
+		for (PolicyPaymentReceipt__c receipt : [
+			SELECT Id, sourceInboundPayment__c
+			FROM PolicyPaymentReceipt__c
+			WHERE
+				sourceInboundPayment__c IN :changedInboundIds
+				AND receiptStatus__c = :RECEIPT_STATUS_RECOGNIZED
+		]) {
+			toReverse.add(
+				new PolicyPaymentReceipt__c(
+					Id = receipt.Id,
+					receiptStatus__c = RECEIPT_STATUS_REVERSED,
+					reversalReason__c = REVERSAL_REASON_CARRIER_CORRECTION,
+					reversalNotes__c = 'La aseguradora reenvio el recibo con datos distintos a los que se conciliaron.'
+				)
+			);
+		}
+		if (toReverse.isEmpty()) {
+			return;
+		}
+
+		List<Database.SaveResult> results = Database.update(toReverse, false);
+		for (Integer i = 0; i < results.size(); i++) {
+			if (results[i].isSuccess()) {
+				continue;
+			}
+			CobranzaLog.error(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_RESEND_REVERSAL_FAILED,
+					'No se pudo anular el cobro anterior de un pago que llego corregido. El ' +
+						'pago no debe reprocesarse mientras su cobro siga vigente. Motivo: ' +
+						describeErrors(results[i].getErrors())
+				)
+				.onRecord(toReverse[i].Id);
+		}
+	}
+
+	/**
+	 * @creation date: 31/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Resume los errores que devuelve la plataforma. Un registro que dice "no se
+	 *               pudo" sin decir por que obliga a reproducir el caso para investigarlo, que
+	 *               es justo lo que el registro deberia evitar.
+	 * @param errors: Errores del resultado de la actualizacion.
+	 * @return Texto con los mensajes concatenados.
+	 */
+	private static String describeErrors(List<Database.Error> errors) {
+		List<String> messages = new List<String>();
+		for (Database.Error err : errors) {
+			messages.add(err.getStatusCode() + ' - ' + err.getMessage());
+		}
+		return String.join(messages, ' | ');
+	}
+
+	private static void logCarrierStatusOutcomes(List<RowContext> contexts) {
+		for (RowContext ctx : contexts) {
+			if (
+				ctx.skip ||
+				ctx.validationReason != null ||
+				ctx.record == null ||
+				ctx.record.Id == null
+			) {
+				continue;
+			}
+
+			String carrierStatus = ctx.data.carrierReceiptStatus;
+
+			if (CARRIER_UNKNOWN.equals(carrierStatus)) {
+				CobranzaLog.warn(
+						CobranzaLog.STAGE_RECEPCION,
+						CobranzaLog.EVENT_CARRIER_STATUS_UNKNOWN,
+						'La aseguradora ' +
+							ctx.data.sourceInsuranceCarrier +
+							' informo el estatus "' +
+							ctx.data.sourcePaymentStatus +
+							'", que no corresponde a ninguno de los cuatro acordados. El pago queda ' +
+							'para revision manual; hay que corregir la equivalencia en la integracion.'
+					)
+					.onInbound(ctx.record.Id);
+				continue;
+			}
+
+			if (String.isBlank(ctx.data.sourcePaymentStatus)) {
+				CobranzaLog.info(
+						CobranzaLog.STAGE_RECEPCION,
+						CobranzaLog.EVENT_CARRIER_STATUS_MISSING,
+						'El recibo llego sin estatus de la aseguradora. Se dedujo ' +
+							carrierStatus +
+							' por la presencia o ausencia de fecha de pago.'
+					)
+					.onInbound(ctx.record.Id);
+			}
+
+			if (CARRIER_PAID.equals(carrierStatus)) {
+				if (ctx.data.sourcePaymentDate == null) {
+					CobranzaLog.warn(
+							CobranzaLog.STAGE_RECEPCION,
+							CobranzaLog.EVENT_PAID_WITHOUT_PAYMENT_DATE,
+							'La aseguradora reporta el recibo como pagado pero no informa la fecha ' +
+								'del pago. Es un dato contradictorio: el pago no se concilia y queda para ' +
+								'revision manual.'
+						)
+						.onInbound(ctx.record.Id);
+				}
+				continue;
+			}
+
+			CobranzaLog.info(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_CARRIER_STATUS_NOT_PAID,
+					'El recibo no se concilia porque la aseguradora lo reporta como ' +
+						carrierStatus +
+						'. Volvera a evaluarse si mas adelante lo reporta pagado.'
+				)
+				.onInbound(ctx.record.Id);
+		}
+	}
+
+	/**
+	 * @creation date: 30/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Traduce el estatus normalizado que envia la integracion a uno de los
+	 *               cinco valores que el motor entiende. El vocabulario es
+	 *               estricto a proposito: normalizar los nombres propios de cada
+	 *               aseguradora es trabajo de la integracion, y cualquier valor fuera del
+	 *               acuerdo cae en Desconocido para que se corrija alli en vez de
+	 *               absorberse en silencio. Si el estatus no viene informado se deduce por
+	 *               la fecha de pago, para no romper a las aseguradoras que todavia no lo
+	 *               envian ni alterar la cartera ya cargada.
+	 * @param data: Datos parseados de la fila del payload.
+	 * @return Uno de: Pagado, Pendiente, Vencido, Cancelado o Desconocido.
+	 */
+	private static String resolveCarrierReceiptStatus(ParsedInboundData data) {
+		if (String.isBlank(data.sourcePaymentStatus)) {
+			// La integracion no informo estatus para este recibo. Se deduce por la fecha de
+			// pago, que es lo que el motor hacia siempre, para no romper a las aseguradoras
+			// que todavia no lo envian ni alterar la cartera ya cargada. La deduccion queda
+			// registrada. Notar que aqui ya NO interviene la fecha de cancelacion, asi que un
+			// recibo cancelado sin fecha de pago cae en Pendiente y no se concilia.
+			return data.sourcePaymentDate != null ? CARRIER_PAID : CARRIER_PENDING;
+		}
+		String normalized = data.sourcePaymentStatus.trim().toUpperCase();
+		String mapped = CARRIER_STATUS_BY_SOURCE.get(normalized);
+		return mapped == null ? CARRIER_UNKNOWN : mapped;
+	}
+
+	/**
+	 * @creation date: 30/08/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Decide en que estado de NUESTRO procesamiento queda el pago, a partir
+	 *               de lo que la aseguradora dice del recibo. Solo un recibo que
+	 *               ella da por pagado entra al pipeline. Los demas se reflejan sin
+	 *               conciliar: Pendiente queda esperando el cobro y Vencido o Cancelado
+	 *               quedan No Conciliable, del que salen solos si mas adelante la
+	 *               aseguradora los reporta pagados.
+	 * @param carrierReceiptStatus: Situacion del recibo segun la aseguradora.
 	 * @param hasPaymentDate: Indica si el pago trae fecha de pago efectiva.
 	 * @param existingStatus: Estado actual del registro existente, o null si es nuevo.
-	 * @return Estado a asignar: Parseado, Pendiente de Pago o Rechazado.
+	 * @return Estado a asignar a inboundStatus__c.
 	 */
 	private static String resolveInboundStatus(
+		String carrierReceiptStatus,
 		Boolean hasPaymentDate,
 		String existingStatus
 	) {
-		if (hasPaymentDate) {
-			return STATUS_PARSED;
+		if (CARRIER_PAID.equals(carrierReceiptStatus)) {
+			// Un recibo que se declara pagado y no dice cuando es un dato contradictorio: no
+			// deberia presentarse nunca y, si se presenta, lo mira una persona.
+			return hasPaymentDate ? STATUS_PARSED : STATUS_MANUAL_REVIEW;
 		}
-		if (existingStatus == STATUS_REJECTED) {
+		if (CARRIER_UNKNOWN.equals(carrierReceiptStatus)) {
+			return STATUS_MANUAL_REVIEW;
+		}
+		if (STATUS_REJECTED.equals(existingStatus)) {
+			// Un rechazado no pasa a esperar cobro por un reenvio; solo lo saca de ahi un
+			// recibo que la aseguradora de por pagado, resuelto en la rama de arriba.
 			return STATUS_REJECTED;
 		}
-		return STATUS_PENDING_PAYMENT;
+		if (CARRIER_PENDING.equals(carrierReceiptStatus)) {
+			// Cobro programado: la aseguradora emitio el recibo y todavia no lo cobro.
+			return STATUS_PENDING_PAYMENT;
+		}
+		// Vencido o Cancelado: la aseguradora no lo da por cobrado, asi que no entra al
+		// pipeline. Si mas adelante lo reporta pagado, el reenvio lo devuelve a Parseado.
+		return STATUS_NOT_RECONCILABLE;
 	}
 
 	/**
@@ -560,6 +950,12 @@ public with sharing class InboundInsurancePaymentService {
 	) {
 		inboundPayment.externalPaymentId__c = data.externalPaymentId;
 		inboundPayment.inboundStatus__c = inboundStatus;
+		// La bandeja de revision manual es una vista de lista que filtra por esta marca, no
+		// por el estado. Un pago que la recepcion manda a revisar sin pasar por el pipeline
+		// no la tendria poblada y quedaria invisible para el analista.
+		inboundPayment.manualReviewRequired__c = STATUS_MANUAL_REVIEW.equals(
+			inboundStatus
+		);
 		// Primera etapa del pipeline: el pago quedo recibido y persistido. Los eslabones
 		// siguientes la van avanzando; junto con el estado permite listar los detenidos.
 		// En un reenvio se reinicia a proposito: el pago vuelve a Parseado y recorre el
@@ -582,6 +978,7 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.sourceCollectionChannel__c = data.sourceCollectionChannel;
 		inboundPayment.sourcePaymentStatusRaw__c = data.sourcePaymentStatusRaw;
 		inboundPayment.sourcePaymentStatus__c = data.sourcePaymentStatus;
+		inboundPayment.carrierReceiptStatus__c = data.carrierReceiptStatus;
 		inboundPayment.sourceCurrency__c = data.sourceCurrency;
 		inboundPayment.sourceInsuranceCarrier__c = data.sourceInsuranceCarrier;
 		inboundPayment.sourcePolicyBranch__c = data.sourcePolicyBranch;
@@ -662,7 +1059,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Encola un InboundPaymentNormalizerQueueable con los IDs de los
 	 *               registros (insertados o actualizados) que quedaron en estado
 	 *               Parseado. Los rechazados y los 'Pendiente de Pago' (recibos sin
-	 *               fecha de pago, historia HB) no se encolan: quedan fuera del
+	 *               fecha de pago) no se encolan: quedan fuera del
 	 *               pipeline hasta transicionar a Parseado. Solo ejecuta el enqueue
 	 *               si hay al menos un ID elegible.
 	 * @param inserted: Registros recien insertados por el DML de este lote.
@@ -673,19 +1070,95 @@ public with sharing class InboundInsurancePaymentService {
 		List<InboundInsurancePayment__c> inserted,
 		List<InboundInsurancePayment__c> updated
 	) {
-		Set<Id> toNormalize = new Set<Id>();
+		Set<Id> candidates = new Set<Id>();
 		for (InboundInsurancePayment__c rec : inserted) {
 			if (rec.inboundStatus__c == STATUS_PARSED) {
-				toNormalize.add(rec.Id);
+				candidates.add(rec.Id);
 			}
 		}
 		for (InboundInsurancePayment__c rec : updated) {
 			if (rec.inboundStatus__c == STATUS_PARSED) {
-				toNormalize.add(rec.Id);
+				candidates.add(rec.Id);
 			}
 		}
+		if (candidates.isEmpty()) {
+			return;
+		}
+
+		// Se relee de la base en vez de confiar en lo que creemos haber escrito. Entre el
+		// guardado y este punto corren triggers -entre ellos la cascada de anulacion- que
+		// pueden haber dejado el pago en otro estado. Encolar a ciegas uno que ya no esta
+		// Parseado no falla: el eslabon lo ignora y el pago se queda quieto sin que nadie se
+		// entere. Comprobarlo aqui convierte ese silencio en una advertencia.
+		Set<Id> toNormalize = new Set<Id>();
+		for (InboundInsurancePayment__c rec : [
+			SELECT Id, inboundStatus__c
+			FROM InboundInsurancePayment__c
+			WHERE Id IN :candidates AND inboundStatus__c = :STATUS_PARSED
+		]) {
+			toNormalize.add(rec.Id);
+		}
+
+		for (Id candidateId : candidates) {
+			if (toNormalize.contains(candidateId)) {
+				continue;
+			}
+			CobranzaLog.error(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_RESEND_NOT_REQUEUED,
+					'El pago iba a reprocesarse pero quedo en otro estado antes de encolarlo, ' +
+						'asi que no entrara al circuito. Suele significar que algo escribio el ' +
+						'estado despues de la recepcion.'
+				)
+				.onInbound(candidateId);
+		}
+
 		if (!toNormalize.isEmpty()) {
 			System.enqueueJob(new InboundPaymentNormalizerQueueable(toNormalize));
+		}
+	}
+
+	/**
+	 * @creation date: 01/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Manda los cobros programados a identificar su cuota. Un recibo que
+	 *               la aseguradora emitio y aun no cobro no entra al pipeline -no hay cobro que
+	 *               conciliar- pero si vale la pena saber a que cuota corresponde: permite ver
+	 *               que cobros vienen y, sobre todo, contrastar el importe y la fecha que emitio
+	 *               la aseguradora contra los de nuestro plan, semanas antes del cobro.
+	 *               La poliza ya se resolvio en esta misma recepcion, asi que solo falta la
+	 *               cuota: se encola directamente ese eslabon, que sabe detenerse ahi.
+	 * @param inserted: Registros nuevos del lote.
+	 * @param updated: Registros existentes actualizados.
+	 * @return
+	 */
+	private static void enqueueScheduledChargeMatching(
+		List<InboundInsurancePayment__c> inserted,
+		List<InboundInsurancePayment__c> updated
+	) {
+		Set<Id> candidates = new Set<Id>();
+		for (InboundInsurancePayment__c rec : inserted) {
+			if (rec.inboundStatus__c == STATUS_PENDING_PAYMENT) {
+				candidates.add(rec.Id);
+			}
+		}
+		for (InboundInsurancePayment__c rec : updated) {
+			if (rec.inboundStatus__c == STATUS_PENDING_PAYMENT) {
+				candidates.add(rec.Id);
+			}
+		}
+		if (candidates.isEmpty()) {
+			return;
+		}
+		try {
+			System.enqueueJob(new InboundInstallmentCandidateQueueable(candidates));
+		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_RECEPCION,
+				e,
+				'InboundInstallmentCandidateQueueable',
+				candidates
+			);
 		}
 	}
 
@@ -695,7 +1168,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Consulta los registros InboundInsurancePayment__c que ya existen
 	 *               para los externalPaymentId__c recibidos, con su estado actual.
 	 *               Permite detectar duplicados, rutear el registro a UPDATE en lugar
-	 *               de INSERT y decidir la transicion de estado (historia HB: un
+	 *               de INSERT y decidir la transicion de estado (un
 	 *               'Pendiente de Pago' que llega con fecha pasa a Parseado; un
 	 *               Rechazado no transiciona a 'Pendiente de Pago').
 	 * @param externalIds: Conjunto de externalPaymentId__c a buscar.
@@ -713,8 +1186,15 @@ public with sharing class InboundInsurancePaymentService {
 				Id,
 				externalPaymentId__c,
 				inboundStatus__c,
+				carrierReceiptStatus__c,
+				resendCount__c,
+				resendChangeLog__c,
 				sourceAmount__c,
-				sourcePaymentDate__c
+				sourcePaymentDate__c,
+				sourcePolicyNumber__c,
+				sourceInstallmentNumber__c,
+				sourceDueDate__c,
+				sourceCurrency__c
 			FROM InboundInsurancePayment__c
 			WHERE externalPaymentId__c IN :externalIds
 		]) {
@@ -790,13 +1270,10 @@ public with sharing class InboundInsurancePaymentService {
 		data.sourceAmount = getDecimal(payload, 'sourceAmount__c');
 		data.sourceDueDate = getDate(payload, 'sourceDueDate__c');
 		data.sourcePaymentDate = getDate(payload, 'sourcePaymentDate__c');
+		// La fecha de cancelacion NO se usa como fecha de pago. Ese atajo venia del
+		// modelo anterior, donde solia ser la unica fecha disponible, y convertia todo recibo
+		// cancelado en un cobro: generaba recibo, conciliaba la cuota y cerraba la oportunidad.
 		data.sourceCancellationDate = getDate(payload, 'sourceCancellationDate__c');
-		if (
-			data.sourcePaymentDate == null &&
-			USE_CANCELLATION_DATE_AS_PAYMENT_FALLBACK
-		) {
-			data.sourcePaymentDate = data.sourceCancellationDate;
-		}
 		data.sourceReceiptNumber = getString(payload, 'sourceReceiptNumber__c');
 		data.sourceCarrierCode = getString(payload, 'sourceCarrierCode__c');
 		data.externalPaymentId = resolveExternalPaymentId(data);
@@ -845,6 +1322,7 @@ public with sharing class InboundInsurancePaymentService {
 			'sourcePolicyRenewalDate__c'
 		);
 		data.sourcePolicyIssueDate = getDate(payload, 'sourcePolicyIssueDate__c');
+		data.carrierReceiptStatus = resolveCarrierReceiptStatus(data);
 		return data;
 	}
 
@@ -854,7 +1332,7 @@ public with sharing class InboundInsurancePaymentService {
 	 * @description: Calcula el identificador de deduplicacion del pago inbound.
 	 *               La clave unica entre aseguradoras es {sourceCarrierCode__c}_{sourceReceiptNumber__c},
 	 *               de modo que dos aseguradoras con el mismo folio no colisionan.
-	 *               Fallback documentado (historia HA): si el codigo de aseguradora
+	 *               Fallback documentado: si el codigo de aseguradora
 	 *               o el folio llegan nulos, se respeta el externalPaymentId__c crudo
 	 *               que aun pudiera enviar MuleSoft durante la transicion.
 	 * @param data: Datos parseados de la fila con carrier, folio e id crudo.
@@ -1059,6 +1537,7 @@ public with sharing class InboundInsurancePaymentService {
 	}
 
 	private class ParsedInboundData {
+		String carrierReceiptStatus;
 		String externalPaymentId;
 		String externalPaymentIdRaw;
 		String sourcePolicyNumber;
@@ -1093,6 +1572,8 @@ public with sharing class InboundInsurancePaymentService {
 
 	private class RowContext {
 		Boolean skip = false;
+		Boolean materialChange = false;
+		List<String> changes = new List<String>();
 		String skipMessage;
 		ParsedInboundData data;
 		String itemJson;

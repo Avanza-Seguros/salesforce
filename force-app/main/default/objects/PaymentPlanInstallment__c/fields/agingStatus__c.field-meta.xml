@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>agingStatus__c</fullName>
+    <description
+	>Lectura propia de Avanza sobre la cuota, derivada de nuestros datos y del calendario. NO sustituye a installmentStatus__c, que refleja lo que informa la aseguradora y que el sistema no cambia por su cuenta. La distincion es deliberada: decir &quot;esta cuota paso su fecha y no tenemos pago aplicado&quot; no asume nada de nadie, mientras que marcarla Vencido seria afirmar algo que la aseguradora no dijo. Es formula: se recalcula al consultarla, sin depender de ningun proceso nocturno.</description>
+    <formula>IF(
+  ISPICKVAL( installmentStatus__c, &quot;Conciliado&quot; ),
+  &quot;Pagada&quot;,
+  IF(
+    OR(
+      ISPICKVAL( installmentStatus__c, &quot;Cancelado&quot; ),
+      ISPICKVAL( installmentStatus__c, &quot;Condonado&quot; )
+    ),
+    &quot;Sin exigibilidad&quot;,
+    IF(
+      ISBLANK( dueDate__c ),
+      &quot;Sin fecha&quot;,
+      IF( dueDate__c &lt; TODAY(), &quot;Vencida&quot;, &quot;Al corriente&quot; )
+    )
+  )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Antigüedad</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

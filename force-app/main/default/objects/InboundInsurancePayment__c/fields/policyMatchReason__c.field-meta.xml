@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>policyMatchReason__c</fullName>
+    <description
+	>Motivo por el que candidatePolicy__c quedo nulo o fue asignado. Escrito por InboundPolicyCandidateQueueable. Sin el, los tres desenlaces posibles (el numero no existe, hay varias vigencias y la fecha no resuelve, o se resolvio por vigencia) caen todos en Sin Match y el analista no puede saber cual le toco.</description>
+    <label>Motivo de match de poliza</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>UNICO_GANADOR</fullName>
+                <default>false</default>
+                <label>UNICO_GANADOR</label>
+            </value>
+            <value>
+                <fullName>RESUELTO_POR_VIGENCIA</fullName>
+                <default>false</default>
+                <label>RESUELTO_POR_VIGENCIA</label>
+            </value>
+            <value>
+                <fullName>VIGENCIA_AMBIGUA</fullName>
+                <default>false</default>
+                <label>VIGENCIA_AMBIGUA</label>
+            </value>
+            <value>
+                <fullName>SIN_POLIZA</fullName>
+                <default>false</default>
+                <label>SIN_POLIZA</label>
+            </value>
+            <value>
+                <fullName>SIN_NUMERO</fullName>
+                <default>false</default>
+                <label>SIN_NUMERO</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

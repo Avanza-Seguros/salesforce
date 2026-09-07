@@ -119,14 +119,17 @@ private class InboundPolicyCandidateQueueableTest {
 	}
 
 	@IsTest
-	static void ignoresCancelledPolicies() {
+	static void findsCancelledPolicy() {
+		// Antes se ignoraba por estar cancelada y el pago moria en Sin Match, aunque
+		// la poliza existiera. La aseguradora puede cobrar sobre una poliza cancelada.
 		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
-		insert new InsurancePolicy(
+		InsurancePolicy cancelled = new InsurancePolicy(
 			Name = 'POL-CANCELADA-001',
 			PolicyName = 'Cancelled',
 			NameInsuredId = accountId,
 			Status = 'Cancelado'
 		);
+		insert cancelled;
 
 		InboundInsurancePayment__c inbound = createNormalizedInbound(
 			'EXT-PC-004',
@@ -142,36 +145,32 @@ private class InboundPolicyCandidateQueueableTest {
 		Test.stopTest();
 
 		inbound = [
-			SELECT candidatePolicy__c
+			SELECT candidatePolicy__c, policyMatchReason__c
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];
-		Assert.isNull(inbound.candidatePolicy__c);
+		Assert.areEqual(
+			cancelled.Id,
+			inbound.candidatePolicy__c,
+			'Una poliza cancelada sigue siendo esa poliza.'
+		);
+		Assert.areEqual('UNICO_GANADOR', inbound.policyMatchReason__c);
 	}
 
 	@IsTest
-	static void assignsActiveWhenCancelledAndActiveCoexist() {
+	static void findsExpiredPolicy() {
 		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
-		InsurancePolicy activePolicy = new InsurancePolicy(
-			Name = 'POL-MIXTA-001',
-			PolicyName = 'Active',
+		InsurancePolicy expired = new InsurancePolicy(
+			Name = 'POL-VENCIDA-001',
+			PolicyName = 'Expired',
 			NameInsuredId = accountId,
-			Status = 'Vigente',
-			PremiumAmount = 1000,
-			PremiumFrequency = 'Mensual',
-			PaymentDueDate = Date.today()
+			Status = 'Vencido'
 		);
-		insert activePolicy;
-		insert new InsurancePolicy(
-			Name = 'POL-MIXTA-001',
-			PolicyName = 'Cancelled',
-			NameInsuredId = accountId,
-			Status = 'Cancelado'
-		);
+		insert expired;
 
 		InboundInsurancePayment__c inbound = createNormalizedInbound(
-			'EXT-PC-005',
-			'POL-MIXTA-001',
+			'EXT-PC-010',
+			'POL-VENCIDA-001',
 			null,
 			null
 		);
@@ -187,7 +186,145 @@ private class InboundPolicyCandidateQueueableTest {
 			FROM InboundInsurancePayment__c
 			WHERE Id = :inbound.Id
 		];
-		Assert.areEqual(activePolicy.Id, inbound.candidatePolicy__c);
+		Assert.areEqual(
+			expired.Id,
+			inbound.candidatePolicy__c,
+			'Un pago tardio sobre una poliza vencida es un cobro real.'
+		);
+	}
+
+	@IsTest
+	static void picksTheTermThatContainsTheReceiptDate() {
+		// Renovaciones: cada vigencia es una poliza propia con el mismo numero. Gana la que
+		// contiene la fecha del recibo, no la que tenga mejor estado.
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy firstTerm = new InsurancePolicy(
+			Name = 'POL-RENOV-001',
+			PolicyName = 'Vigencia 2025',
+			NameInsuredId = accountId,
+			Status = 'Vencido',
+			EffectiveDate = Datetime.newInstance(2025, 1, 1, 0, 0, 0),
+			ExpirationDate = Datetime.newInstance(2025, 12, 31, 0, 0, 0)
+		);
+		InsurancePolicy secondTerm = new InsurancePolicy(
+			Name = 'POL-RENOV-001',
+			PolicyName = 'Vigencia 2026',
+			NameInsuredId = accountId,
+			Status = 'Vigente',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today(),
+			EffectiveDate = Datetime.newInstance(2026, 1, 1, 0, 0, 0),
+			ExpirationDate = Datetime.newInstance(2026, 12, 31, 0, 0, 0)
+		);
+		insert new List<InsurancePolicy>{ firstTerm, secondTerm };
+
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-PC-011',
+			'POL-RENOV-001',
+			null,
+			Date.newInstance(2025, 6, 15)
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundPolicyCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = [
+			SELECT candidatePolicy__c, policyMatchReason__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inbound.Id
+		];
+		Assert.areEqual(
+			firstTerm.Id,
+			inbound.candidatePolicy__c,
+			'El recibo vence en 2025: pertenece a la primera vigencia aunque este vencida.'
+		);
+		Assert.areEqual('RESUELTO_POR_VIGENCIA', inbound.policyMatchReason__c);
+	}
+
+	@IsTest
+	static void leavesNullWhenDateFallsOutsideEveryTerm() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		insert new List<InsurancePolicy>{
+			new InsurancePolicy(
+				Name = 'POL-RENOV-002',
+				PolicyName = 'Vigencia 2025',
+				NameInsuredId = accountId,
+				Status = 'Vencido',
+				EffectiveDate = Datetime.newInstance(2025, 1, 1, 0, 0, 0),
+				ExpirationDate = Datetime.newInstance(2025, 12, 31, 0, 0, 0)
+			),
+			new InsurancePolicy(
+				Name = 'POL-RENOV-002',
+				PolicyName = 'Vigencia 2026',
+				NameInsuredId = accountId,
+				Status = 'Vigente',
+				PremiumAmount = 1000,
+				PremiumFrequency = 'Mensual',
+				PaymentDueDate = Date.today(),
+				EffectiveDate = Datetime.newInstance(2026, 1, 1, 0, 0, 0),
+				ExpirationDate = Datetime.newInstance(2026, 12, 31, 0, 0, 0)
+			)
+		};
+
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-PC-012',
+			'POL-RENOV-002',
+			null,
+			Date.newInstance(2030, 6, 15)
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundPolicyCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = [
+			SELECT candidatePolicy__c, policyMatchReason__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inbound.Id
+		];
+		Assert.isNull(
+			inbound.candidatePolicy__c,
+			'No se elige por descarte: atribuir el cobro al ano equivocado es peor.'
+		);
+		Assert.areEqual(
+			'VIGENCIA_AMBIGUA',
+			inbound.policyMatchReason__c,
+			'Tiene que distinguirse de un Sin Match: la poliza si existe.'
+		);
+	}
+
+	@IsTest
+	static void marksMissingPolicyAsNoPolicy() {
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-PC-013',
+			'POL-NO-EXISTE-999',
+			null,
+			null
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundPolicyCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = [
+			SELECT candidatePolicy__c, policyMatchReason__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inbound.Id
+		];
+		Assert.isNull(inbound.candidatePolicy__c);
+		Assert.areEqual(
+			'SIN_POLIZA',
+			inbound.policyMatchReason__c,
+			'Sin Match recupera su significado: el numero no existe.'
+		);
 	}
 
 	@IsTest

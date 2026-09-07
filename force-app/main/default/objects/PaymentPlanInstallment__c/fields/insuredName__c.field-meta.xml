@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>insuredName__c</fullName>
+    <description
+	>Nombre del asegurado, traido desde la poliza a traves del plan de pago. Existe porque el cliente vive tres niveles por encima de la cuota (cuota - plan - poliza - cuenta) y ni las vistas de lista ni el tipo de informe estandar pueden alcanzarlo desde aqui. Al ser formula no se mantiene ni ocupa espacio, y deja el dato disponible en cualquier vista o informe sobre cuotas.</description>
+    <formula>paymentPlan__r.insurancePolicy__r.NameInsured.Name</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Cliente</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TarifaAseguradora__c</fullName>
+    <description
+	>Clave de tarifa que aplico la aseguradora al emitir la poliza (Qualitas usa codigos de 4 cifras como 2305 o 2607). Lo traen los 332 vehiculos. Sirve para explicar por que una prima salio como salio cuando hay que discutirla con la aseguradora.</description>
+    <externalId>false</externalId>
+    <label>Codigo de tarifa de la aseguradora</label>
+    <length>10</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -7,7 +7,7 @@
  *                 sin pagos -> Sin pago; con cuota abierta a futuro -> Al dia/Sin pago y
  *                 proxima fecha; con cuota abierta vencida -> Vencido; plan completado ->
  *                 Completado sin proxima fecha; lote de polizas; y el enganche end-to-end
- *                 desde el trigger de cuotas (historia 188).
+ *                 desde el trigger de cuotas.
  */
 @IsTest
 private class PolicyCollectionSummaryServiceTest {

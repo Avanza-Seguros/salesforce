@@ -9,17 +9,17 @@
  *                 La cascada se dispara por la TRANSICION de estado (Reconocido -> Reversado),
  *                 no por la accion de usuario. Esa es la decision de diseno central: cualquier
  *                 via que produzca esa transicion -la accion del analista, una carga de datos,
- *                 la API o el reproceso a la baja de una historia futura- genera exactamente
+ *                 la API o un futuro reproceso a la baja- genera exactamente
  *                 los mismos efectos, sin duplicar logica. La accion de usuario solo captura
  *                 motivo y notas y cambia el estado.
  *                 El vinculo de la conciliacion al recibo reversado se CONSERVA: borrarlo
- *                 perderia la evidencia que esta historia existe para preservar. Lo que indica
+ *                 perderia la evidencia que la reversa existe para preservar. Lo que indica
  *                 que el caso volvio a estar abierto es el estado de la conciliacion.
  *                 Reabre ademas la cuota que el recibo cubria (H202), con lo que la obligacion
  *                 vuelve a existir. El plan y la poliza NO requieren codigo aqui: actualizar la
  *                 cuota dispara el manejador de cuotas, que recalcula el plan e invoca el
  *                 resumen de cobranza de la poliza.
- *                 La senalizacion comercial es la historia 203. Las tres se despliegan juntas:
+ *                 La senalizacion comercial va aparte, pero se despliega junto con esto:
  *                 un recibo reversado cuya cuota siguiera conciliada dejaria el sistema peor
  *                 que antes, porque la contradiccion pasaria a ser explicita.
  */
@@ -30,7 +30,6 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	private static final String INBOUND_STATUS_MANUAL_REVIEW = 'Revision Manual';
 
 	private static final String INSTALLMENT_STATUS_PENDING = 'Pendiente';
-	private static final String INSTALLMENT_STATUS_OVERDUE = 'Vencido';
 
 	// Estados de cuota que una reversa NO revive: se anularon por una decision de negocio
 	// deliberada y resucitarlos crearia una obligacion que nadie decidio volver a exigir.
@@ -137,7 +136,7 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	}
 
 	// El catalogo de motivos lo resuelve el componente con la API de interfaz de Salesforce
-	// (getPicklistValues), igual que las acciones manuales de las historias 193 a 195. No se
+	// (getPicklistValues), igual que las acciones de resolucion manual. No se
 	// expone un metodo Apex para eso: seria duplicar el catalogo y quedaria desincronizado.
 
 	/**
@@ -416,7 +415,6 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			return;
 		}
 
-		Date today = Date.today();
 		List<PaymentPlanInstallment__c> toUpdate = new List<PaymentPlanInstallment__c>();
 
 		for (PaymentPlanInstallment__c inst : installments) {
@@ -428,9 +426,11 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			// Una cuota cancelada o condonada se desvincula del recibo, pero conserva su
 			// estado: la reversa deshace un cobro, no revierte la decision de anular la deuda.
 			if (!PROTECTED_INSTALLMENT_STATUSES.contains(inst.installmentStatus__c)) {
-				reopened.installmentStatus__c = isOverdue(inst.dueDate__c, today)
-					? INSTALLMENT_STATUS_OVERDUE
-					: INSTALLMENT_STATUS_PENDING;
+				// Vuelve SIEMPRE a Pendiente. Antes se calculaba Vencido comparando
+				// con la fecha de hoy, y eso era el motor afirmando algo que la aseguradora no
+				// habia dicho. Que la cuota este vencida se ve en su antiguedad, que es una
+				// lectura nuestra y va en su propio campo.
+				reopened.installmentStatus__c = INSTALLMENT_STATUS_PENDING;
 			}
 			toUpdate.add(reopened);
 		}
@@ -440,20 +440,6 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			CobranzaLog.EVENT_REVERSAL_INSTALLMENT_FAILED,
 			'No se pudo reabrir la cuota tras reversar su recibo'
 		);
-	}
-
-	/**
-	 * @creation date: 30/07/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Indica si la cuota reabierta ya esta vencida. Una cuota sin fecha de
-	 *               vencimiento se trata como no vencida: sin fecha no hay incumplimiento que
-	 *               afirmar.
-	 * @param dueDate: Fecha de vencimiento de la cuota.
-	 * @param today: Fecha de referencia.
-	 * @return true si la cuota debe volver a Vencido.
-	 */
-	private static Boolean isOverdue(Date dueDate, Date today) {
-		return dueDate != null && dueDate < today;
 	}
 
 	/**

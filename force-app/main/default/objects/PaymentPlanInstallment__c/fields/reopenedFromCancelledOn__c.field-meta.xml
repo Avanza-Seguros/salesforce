@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reopenedFromCancelledOn__c</fullName>
+    <description
+	>Momento en que esta cuota, que figuraba cancelada, volvio a cobrarse porque la aseguradora dio por cobrado un recibo suyo. Sin esta marca la cuota quedaria indistinguible de una que nunca estuvo cancelada, y nadie podria explicar por que se cobro algo que figuraba anulado. Lo escribe el motor al aplicar el comprobante.</description>
+    <label>Reabierta desde cancelada</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

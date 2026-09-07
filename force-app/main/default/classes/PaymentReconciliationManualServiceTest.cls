@@ -3,7 +3,7 @@
  *   @version: 1.0
  *   @creation date: 18/07/2026
  *   @author: Javier Torres - Volestra
- *   @description: Valida la aprobacion manual de conciliaciones (H193): sellado de la
+ *   @description: Valida la aprobacion manual de conciliaciones: sellado de la
  *                 decision manual y trazabilidad, creacion del recibo reutilizando el
  *                 motor, cascada al inbound, las validaciones de bloqueo, la consulta de
  *                 cuotas abiertas y el guardail anti-reentrada que protege la decision
@@ -244,7 +244,7 @@ private class PaymentReconciliationManualServiceTest {
 		Assert.isTrue(appended.length() > fromBlank.length());
 	}
 
-	// ---------- H194: rechazo manual ----------
+	// ---------- Rechazo manual ----------
 
 	@IsTest
 	static void rejectSealsDecisionAndCascadesInbound() {
@@ -371,7 +371,7 @@ private class PaymentReconciliationManualServiceTest {
 		);
 	}
 
-	// ---------- H195: reproceso ----------
+	// ---------- Reproceso ----------
 
 	@IsTest
 	static void reprocessResetsInboundAndClearsLock() {

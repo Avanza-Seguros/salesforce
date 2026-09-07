@@ -81,6 +81,25 @@ public with sharing class CobranzaLog {
 	// mayor peso (+6 puntos por secuencia exacta) y el pago tiene mas chance de caer a
 	// revision manual. Es calidad de dato de origen, no un fallo del motor.
 	public static final String EVENT_INSTALLMENT_NUMBER_NOT_NUMERIC = 'INSTALLMENT_NUMBER_NOT_NUMERIC';
+	// Estatus del recibo en la aseguradora. El motor deja de deducir si un mensaje
+	// es un cobro por la sola presencia de una fecha y pasa a obedecer lo que reporta la
+	// aseguradora; estos eventos hacen visible cada caso en que esa lectura no es directa.
+	public static final String EVENT_CARRIER_STATUS_UNKNOWN = 'CARRIER_STATUS_UNKNOWN';
+	public static final String EVENT_CARRIER_STATUS_MISSING = 'CARRIER_STATUS_MISSING';
+	public static final String EVENT_CARRIER_STATUS_NOT_PAID = 'CARRIER_STATUS_NOT_PAID';
+	public static final String EVENT_PAID_WITHOUT_PAYMENT_DATE = 'PAID_WITHOUT_PAYMENT_DATE';
+	// Identificacion de la poliza por vigencia. Cuando un numero corresponde a
+	// varias vigencias, cual se eligio y con que fecha no queda registrado en ningun campo.
+	public static final String EVENT_POLICY_TERM_RESOLVED = 'POLICY_TERM_RESOLVED';
+	public static final String EVENT_POLICY_TERM_AMBIGUOUS = 'POLICY_TERM_AMBIGUOUS';
+	public static final String EVENT_MULTIPLE_OPEN_PLANS = 'MULTIPLE_OPEN_PLANS';
+	// Reenvio con cambios.
+	public static final String EVENT_RESEND_REVERSAL_FAILED = 'RESEND_REVERSAL_FAILED';
+	public static final String EVENT_RESEND_NOT_REQUEUED = 'RESEND_NOT_REQUEUED';
+	// Cobro programado.
+	public static final String EVENT_DUPLICATE_SCHEDULED_CHARGE = 'DUPLICATE_SCHEDULED_CHARGE';
+	// Reapertura de una cuota cancelada.
+	public static final String EVENT_INSTALLMENT_REOPENED = 'INSTALLMENT_REOPENED_FROM_CANCELLED';
 
 	/**
 	 * @creation date: 29/07/2026

@@ -37,6 +37,7 @@ public with sharing class PolicyInstallmentsController {
 				outstandingAmount__c,
 				installmentStatus__c,
 				daysOverdue__c,
+				agingStatus__c,
 				matchedOn__c,
 				matchedReceipt__c,
 				matchedReceipt__r.Name,

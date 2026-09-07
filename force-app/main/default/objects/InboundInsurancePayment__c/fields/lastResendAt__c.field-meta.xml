@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>lastResendAt__c</fullName>
+    <description
+	>Momento en que la aseguradora reenvio este recibo por ultima vez. Distinto de receivedAt__c, que se reescribe en cada recepcion: este solo se toca cuando el recibo ya existia.</description>
+    <label>Ultimo reenvio</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>
