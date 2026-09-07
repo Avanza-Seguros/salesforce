@@ -24,11 +24,43 @@ public with sharing class OpportunityComparisonPdfController {
   public String htmlBody { get; private set; }
 
   public OpportunityComparisonPdfController() {
-    String key = ApexPages.currentPage() == null
-      ? null
-      : ApexPages.currentPage().getParameters().get('k');
-    htmlBody = (key != null && htmlByKey.containsKey(key))
-      ? htmlByKey.get(key)
-      : '';
+    PageReference pg = ApexPages.currentPage();
+    String raw = '';
+    if (pg != null) {
+      // Preferido: leer el comparativo desde la Oportunidad (dato ya guardado/committed).
+      // Es confiable porque las variables estáticas NO sobreviven a getContentAsPDF.
+      String oppId = pg.getParameters().get('oppId');
+      if (String.isNotBlank(oppId)) {
+        try {
+          for (Opportunity o : [SELECT Descripcion__c FROM Opportunity WHERE Id = :oppId LIMIT 1]) {
+            raw = o.Descripcion__c;
+          }
+        } catch (Exception e) {
+          raw = '';
+        }
+      } else {
+        // Compatibilidad: mecanismo previo por variable estática.
+        String key = pg.getParameters().get('k');
+        if (String.isNotBlank(key) && htmlByKey.containsKey(key)) {
+          raw = htmlByKey.get(key);
+        }
+      }
+    }
+    htmlBody = normalize(raw);
+  }
+
+  // Deja el HTML listo para renderizar como PDF:
+  // - Si ya es un documento completo (<html ...>), se usa tal cual.
+  // - Si es un fragmento (p. ej. <div>...</div>), se envuelve en <html><body>.
+  // Esto evita el HTML anidado (documento dentro de <html><body>) que producía PDFs en blanco.
+  private String normalize(String html) {
+    if (String.isBlank(html)) {
+      return '';
+    }
+    String lower = html.toLowerCase();
+    if (lower.contains('<html')) {
+      return html;
+    }
+    return '<html><body>' + html + '</body></html>';
   }
 }

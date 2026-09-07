@@ -101,7 +101,7 @@ public with sharing class QuoteCreatorController {
 		try {
 			delete [SELECT Id FROM Quote WHERE Id = :quoteId];
 		} catch (Exception e) {
-			throw new AuraHandledException('No se pudo eliminar la cotización: ' + detalleError(e));
+			throw new AuraHandledException('Error deleting quote: ' + e.getMessage());
 		}
 	}
 
@@ -208,48 +208,39 @@ public with sharing class QuoteCreatorController {
 	 */
 	@AuraEnabled(cacheable=true)
 	public static List<CoverageTemplateWrapper> getCoveragesByProduct(Id productId) {
-		List<CoverageTemplateWrapper> result = new List<CoverageTemplateWrapper>();
-		if (productId == null) return result;
+		if (productId == null) { return new List<CoverageTemplateWrapper>(); }
+		// Se lee SIN COMPARTIR: los registros de CoverageType pueden no ser visibles
+		// para el usuario por reglas de colaboración; sin esto, CoverageType.Name llega
+		// vacío y se mostraría el código (PC-...) en lugar del nombre de la cobertura.
+		return new CoberturasCatalogo().porProducto(productId);
+	}
 
-		// 1) Fuente principal: objeto custom Product_Coverage__c
-		try {
-			for (ProductCoverage pc : [
-				SELECT Id, Name, ProductId, Product.Name, CoverageType.CoverageCode, CoverageType.Name
-				FROM ProductCoverage
-				WHERE ProductId = :productId
-				ORDER BY Name
-			]) {
-				CoverageTemplateWrapper w = new CoverageTemplateWrapper();
-				w.Id          = pc.Id;
-				w.coverageName = String.isNotBlank(pc.CoverageType.Name) ? pc.CoverageType.Name : pc.Name;
-				w.coverageCode = pc.CoverageType.CoverageCode;
-				result.add(w);
-			}
-		} catch (Exception e) {
-			// El objeto custom puede no existir — pasamos al fallback.
-			System.debug(':::QuoteCreator::: Product_Coverage__c no disponible: ' + e.getMessage());
-		}
-
-		// 2) Fallback: ProductCoverage estándar (Salesforce Industries)
-		if (result.isEmpty()) {
+	private without sharing class CoberturasCatalogo {
+		List<CoverageTemplateWrapper> porProducto(Id productId) {
+			List<CoverageTemplateWrapper> result = new List<CoverageTemplateWrapper>();
 			try {
 				Integer i = 0;
 				for (ProductCoverage pc : [
-					SELECT Id, Name, ProductId, CoverageTypeId, CoverageType.Name
+					SELECT Id, Name, CoverageType.Name, CoverageType.CoverageCode
 					FROM ProductCoverage
 					WHERE ProductId = :productId
+					ORDER BY Name
 				]) {
+					i++;
 					CoverageTemplateWrapper w = new CoverageTemplateWrapper();
-					w.Id          = pc.Id;
-					w.coverageName = pc.CoverageType != null ? pc.CoverageType.Name : pc.Name;
-					w.orderNum     = ++i;
+					w.Id           = pc.Id;
+					w.coverageName = (pc.CoverageType != null && String.isNotBlank(pc.CoverageType.Name))
+						? pc.CoverageType.Name
+						: pc.Name;
+					w.coverageCode = pc.CoverageType != null ? pc.CoverageType.CoverageCode : null;
+					w.orderNum     = i;
 					result.add(w);
 				}
 			} catch (Exception e) {
-				System.debug(':::QuoteCreator::: ProductCoverage no disponible: ' + e.getMessage());
+				System.debug(':::QuoteCreator::: coberturas catálogo: ' + e.getMessage());
 			}
+			return result;
 		}
-		return result;
 	}
 
 	/**
@@ -291,10 +282,8 @@ public with sharing class QuoteCreatorController {
 			this.AccountName = o.Account != null ? o.Account.Name : '';
 		}
 	}
-	/**
-	 * @description: Devuelve un texto de error legible. Para errores de guardado (DML)
-	 *               arma el detalle de las validaciones/campos que fallaron.
-	 */
+
+	// Arma un mensaje de error legible para el usuario a partir de errores de DML.
 	private static String detalleError(Exception e) {
 		if (e instanceof DmlException) {
 			DmlException de = (DmlException) e;
