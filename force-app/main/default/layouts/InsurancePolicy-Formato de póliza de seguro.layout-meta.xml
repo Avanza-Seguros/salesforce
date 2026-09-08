@@ -3,6 +3,7 @@
     <excludeButtons>CancelInsurancePolicy</excludeButtons>
     <excludeButtons>ChangeOwnerOne</excludeButtons>
     <excludeButtons>ChangeRecordType</excludeButtons>
+    <excludeButtons>Clone</excludeButtons>
     <excludeButtons>Delete</excludeButtons>
     <excludeButtons>Edit</excludeButtons>
     <excludeButtons>EndorseInsurancePolicy</excludeButtons>
@@ -16,11 +17,11 @@
     <excludeButtons>Share</excludeButtons>
     <excludeButtons>SmartFillEnrich</excludeButtons>
     <excludeButtons>Submit</excludeButtons>
-        <layoutSections>
-        <customLabel>true</customLabel>
+    <layoutSections>
+        <customLabel>false</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>Información de la póliza</label>
+        <label>PolicyDetails</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Required</behavior>
@@ -32,33 +33,31 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>PolicyCode</field>
+                <field>Aseguradora__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>PolicyType</field>
+                <field>EffectiveDate</field>
             </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>PlanType</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>PlanTier</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Status</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>IsActive</field>
+                <behavior>Edit</behavior>
+                <field>PolicyDescription</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Aseguradora__c</field>
+                <field>PriorPolicyId</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>SourceQuoteId</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>CancellationEffectiveDate</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -74,15 +73,6 @@
                 <behavior>Readonly</behavior>
                 <field>IsActive</field>
             </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsTopToBottom</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Identificación y referencias</label>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>PolicyType</field>
@@ -95,8 +85,6 @@
                 <behavior>Edit</behavior>
                 <field>ExpirationDate</field>
             </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>UniversalPolicyNumber</field>
@@ -140,8 +128,6 @@
                 <behavior>Required</behavior>
                 <field>PremiumAmount</field>
             </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>TermPremiumAmount</field>
@@ -163,15 +149,6 @@
                 <behavior>Edit</behavior>
                 <field>RenewalDate</field>
             </layoutItems>
-        </layoutColumns>
-        <style>TwoColumnsTopToBottom</style>
-    </layoutSections>
-    <layoutSections>
-        <customLabel>true</customLabel>
-        <detailHeading>true</detailHeading>
-        <editHeading>true</editHeading>
-        <label>Vigencia</label>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>ProducerId</field>
@@ -186,10 +163,6 @@
                 <behavior>Edit</behavior>
                 <field>PlannedRenewalDate</field>
             </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>EffectiveToDate</field>
-            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsLeftToRight</style>
     </layoutSections>
@@ -199,10 +172,6 @@
         <editHeading>true</editHeading>
         <label>Cobranza</label>
         <layoutColumns>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>collectionPaymentStatus__c</field>
-            </layoutItems>
             <layoutItems>
                 <behavior>Required</behavior>
                 <field>PaymentDueDate</field>
@@ -224,12 +193,6 @@
                 <field>Discount</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>TotalStandardAmount</field>
-            </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
-            <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Recargos__c</field>
             </layoutItems>
@@ -243,10 +206,6 @@
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>collectionNextDueDate__c</field>
-            </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Moneda__c</field>
@@ -275,14 +234,24 @@
                 <behavior>Edit</behavior>
                 <field>IVA__c</field>
             </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>CLABE__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>collectionPaymentStatus__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>collectionNextDueDate__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>TotalStandardAmount</field>
+            </layoutItems>
         </layoutColumns>
-        <style>TwoColumnsTopToBottom</style>
+        <style>TwoColumnsLeftToRight</style>
     </layoutSections>
     <layoutSections>
         <customLabel>true</customLabel>
@@ -407,15 +376,9 @@
                 <behavior>Edit</behavior>
                 <field>ChangeType</field>
             </layoutItems>
-        </layoutColumns>
-        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>IsLoanEligibile</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>HasAnyAutoCoverage</field>
+                <field>AuditTerm</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -423,10 +386,14 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>AuditTerm</field>
+                <field>HasAnyAutoCoverage</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>IsLoanEligibile</field>
             </layoutItems>
         </layoutColumns>
-        <style>TwoColumnsTopToBottom</style>
+        <style>TwoColumnsLeftToRight</style>
     </layoutSections>
     <layoutSections>
         <customLabel>false</customLabel>
@@ -524,11 +491,10 @@
     <relatedLists>
         <excludeButtons>MassChangeOwner</excludeButtons>
         <fields>NAME</fields>
-        <fields>OBJECT_ID</fields>
-        <fields>inboundPayment__c</fields>
-        <fields>paymentPlan__c</fields>
-        <fields>paymentPlanInstallment__c</fields>
         <fields>reconciliationStatus__c</fields>
+        <fields>matchMethod__c</fields>
+        <fields>confidenceScore__c</fields>
+        <fields>paymentPlanInstallment__c</fields>
         <relatedList>PaymentReconciliation__c.insurancePolicy__c</relatedList>
     </relatedLists>
     <relatedLists>
@@ -556,11 +522,12 @@
     <relatedLists>
         <excludeButtons>MassChangeOwner</excludeButtons>
         <fields>NAME</fields>
-        <fields>paymentPlanInstallment__c</fields>
-        <fields>receiptStatus__c</fields>
+        <fields>receiptNumber__c</fields>
+        <fields>receiptDate__c</fields>
         <fields>receiptAmount__c</fields>
+        <fields>receiptStatus__c</fields>
         <fields>paymentMethod__c</fields>
-        <fields>paymentPlan__c</fields>
+        <fields>paymentPlanInstallment__c</fields>
         <relatedList>PolicyPaymentReceipt__c.insurancePolicy__c</relatedList>
     </relatedLists>
     <relatedLists>
@@ -572,10 +539,20 @@
     </relatedLists>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>planStatus__c</fields>
+        <fields>planType__c</fields>
+        <fields>premiumFrequency__c</fields>
+        <fields>expectedTotalAmount__c</fields>
+        <fields>installmentCount__c</fields>
+        <fields>firstDueDate__c</fields>
         <relatedList>PaymentPlan__c.insurancePolicy__c</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>externalPaymentId__c</fields>
+        <fields>sourceAmount__c</fields>
+        <fields>sourcePaymentDate__c</fields>
+        <fields>inboundStatus__c</fields>
         <relatedList>InboundInsurancePayment__c.candidatePolicy__c</relatedList>
     </relatedLists>
     <relatedLists>
@@ -662,6 +639,8 @@
         <fields>PrimaryParticipantAccount</fields>
         <fields>Role</fields>
         <fields>RelationshipToInsured</fields>
+        <fields>IsActiveParticipant</fields>
+        <fields>BeneficiarySharePercentage</fields>
         <relatedList>InsurancePolicyParticipants</relatedList>
     </relatedLists>
     <relatedLists>
@@ -714,39 +693,6 @@
         <fields>EffectiveDate</fields>
         <fields>ExpirationDate</fields>
         <relatedList>ChildInsurancePolicies</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>planStatus__c</fields>
-        <fields>planType__c</fields>
-        <fields>premiumFrequency__c</fields>
-        <fields>expectedTotalAmount__c</fields>
-        <fields>installmentCount__c</fields>
-        <fields>firstDueDate__c</fields>
-        <relatedList>PaymentPlan__c.insurancePolicy__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>receiptNumber__c</fields>
-        <fields>receiptDate__c</fields>
-        <fields>receiptAmount__c</fields>
-        <fields>receiptStatus__c</fields>
-        <relatedList>PolicyPaymentReceipt__c.insurancePolicy__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>reconciliationStatus__c</fields>
-        <fields>matchMethod__c</fields>
-        <fields>confidenceScore__c</fields>
-        <relatedList>PaymentReconciliation__c.insurancePolicy__c</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>NAME</fields>
-        <fields>externalPaymentId__c</fields>
-        <fields>sourceAmount__c</fields>
-        <fields>sourcePaymentDate__c</fields>
-        <fields>inboundStatus__c</fields>
-        <relatedList>InboundInsurancePayment__c.candidatePolicy__c</relatedList>
     </relatedLists>
     <showEmailCheckbox>false</showEmailCheckbox>
     <showRunAssignmentRulesCheckbox>false</showRunAssignmentRulesCheckbox>
