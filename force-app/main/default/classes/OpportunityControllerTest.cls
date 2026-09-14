@@ -202,13 +202,13 @@ private class OpportunityControllerTest {
     static void testSearchVehiculosWithData() {
         try {
             Account acc = [SELECT Id FROM Account LIMIT 1];
-            Automovil__c v = new Automovil__c();
-            v.put('Serie__c', 'VINTEST123456');
-            try { v.put('Marca__c', 'CHEVROLET'); } catch (Exception ig) {}
-            try { v.put('Cuenta__c', acc.Id); } catch (Exception ig) {}
+            CustomerProperty v = new CustomerProperty();
+            v.PrimaryOwnerId = acc.Id;
+            v.Vin = 'VINTEST123456';
+            try { v.put('Make', 'CHEVROLET'); } catch (Exception ig) {}
             insert v;
             Test.startTest();
-            List<Automovil__c> res = OpportunityController.searchVehiculos('VINTEST');
+            List<CustomerProperty> res = OpportunityController.searchVehiculos('VINTEST');
             Test.stopTest();
             System.assert(!res.isEmpty(), 'Debe encontrar el vehículo');
         } catch (Exception e) {

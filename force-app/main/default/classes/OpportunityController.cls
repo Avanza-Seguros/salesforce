@@ -62,21 +62,20 @@ public with sharing class OpportunityController {
                     Tipo_Contratacion__c,
                     AccountId, Account.Name, Description, Descripcion__c,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
-                    Contacto__c, Contacto__r.Name,
-                    Automovil__c
+                    Contacto__c, Contacto__r.Name
                 FROM Opportunity
                 WHERE Id = :opportunityId
                 LIMIT 1
             ];
 
-            // El auto vive ligado a la Cuenta; la oportunidad guarda solo la
-            // REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
-            // referencia para llenar el formulario al editar.
-            if (wrapper.opportunity.Automovil__c != null) {
-                List<Automovil__c> autos = [
-                    SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
-                    FROM Automovil__c
-                    WHERE Id = :wrapper.opportunity.Automovil__c
+            // El vehículo es un CustomerProperty ligado al dueño (la Cuenta), no a la
+            // oportunidad. Para editar, recuperamos el bien más reciente de esa cuenta.
+            if (wrapper.opportunity.AccountId != null) {
+                List<CustomerProperty> autos = [
+                    SELECT Id, Name, Make, ModelName, Vin, RegistrationNumber, Motor__c, MakeYear, Description
+                    FROM CustomerProperty
+                    WHERE PrimaryOwnerId = :wrapper.opportunity.AccountId
+                    ORDER BY LastModifiedDate DESC
                     LIMIT 1
                 ];
                 if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
@@ -150,7 +149,7 @@ public with sharing class OpportunityController {
 		@AuraEnabled public List<Quote> quotes;
 		@AuraEnabled public Map<Id, Integer> coverageCounts;
 		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
-		@AuraEnabled public Automovil__c automovil;   // vehículo ligado a la cuenta
+		@AuraEnabled public CustomerProperty automovil;   // vehículo (CustomerProperty) ligado a la cuenta
 	}
 
 	/**
@@ -652,10 +651,9 @@ public with sharing class OpportunityController {
 		// al auto específico de este trato; los datos del auto no se duplican aquí.
 		String ramoOpp = getStr(d, 'Ramo__c');
 		if (ramoOpp != null && ramoOpp.toUpperCase().contains('AUTO')) {
-			Id vehId = resolveVehiculo(d, accountId);
-			if (vehId != null) {
-				opp.Automovil__c = vehId;
-			}
+			// El vehículo se guarda como CustomerProperty del dueño (la Cuenta);
+			// ya NO se liga a la oportunidad (llega a la póliza vía InsurancePolicyAsset).
+			guardarBienCliente(d, accountId);
 		}
 
 		// ------------------------------------------------------------
@@ -799,57 +797,55 @@ public with sharing class OpportunityController {
 	 * @param accountId: Id de la cuenta a la que se ligaria el vehiculo nuevo
 	 * @return Id del Automovil__c resuelto o null si no aplica
 	 */
-	private static Id resolveVehiculo(Map<String, Object> d, Id accountId) {
-		// 1) ¿Ya se seleccionó un vehículo en el lookup?
-		String vehiculoId = getStr(d, 'Automovil__c');
-		if (String.isNotBlank(vehiculoId)) {
-			return (Id) vehiculoId;
+	private static Id guardarBienCliente(Map<String, Object> d, Id accountId) {
+		// 1) ¿Ya se seleccionó un bien (CustomerProperty) en el buscador?
+		String bienId = getStr(d, 'Automovil__c');
+		if (String.isNotBlank(bienId)) {
+			return (Id) bienId;
 		}
-		// 2) Datos capturados/extraídos del auto.
+		// 2) Datos capturados/extraídos del vehículo.
 		Object vObj = d.get('vehiculo');
 		if (!(vObj instanceof Map<String, Object>)) {
 			return null;
 		}
 		Map<String, Object> v = (Map<String, Object>) vObj;
-		String serie = getStr(v, 'Serie__c');
-
-		// 3) Buscar por Serie/VIN.
-		if (String.isNotBlank(serie)) {
-			List<Automovil__c> ex = [
-				SELECT Id FROM Automovil__c WHERE Serie__c = :serie LIMIT 1
-			];
-			if (!ex.isEmpty()) {
-				return ex[0].Id;
-			}
-		}
-
-		// 4) Crear nuevo (si hay algún dato).
-		// Serie__c es obligatoria en Vehiculo__c: sin serie no se puede crear.
+		String serie = getStr(v, 'Serie__c');   // VIN
+		// VIN obligatorio: sin serie no se crea el bien.
 		if (String.isBlank(serie)) {
 			return null;
 		}
+		// El dueño (PrimaryOwnerId) es obligatorio (relación maestro-detalle a la Cuenta).
+		if (accountId == null) {
+			return null;
+		}
+
+		// 3) Reutiliza el bien existente del mismo dueño por VIN.
+		List<CustomerProperty> ex = [
+			SELECT Id FROM CustomerProperty
+			WHERE Vin = :serie AND PrimaryOwnerId = :accountId
+			LIMIT 1
+		];
+		if (!ex.isEmpty()) {
+			return ex[0].Id;
+		}
+
+		// 4) Crear el CustomerProperty ligado al dueño (la Cuenta).
 		String marca = getStr(v, 'Marca__c');
 		String modelo = getStr(v, 'Modelo__c');
-		Automovil__c nv = new Automovil__c();
-		nv.Marca__c = marca;
-		nv.Modelo__c = modelo;
-		nv.Serie__c = serie;
-		nv.Placa__c = getStr(v, 'Placa__c');
-		nv.Motor__c = getStr(v, 'Motor__c');
-		nv.Descripcion_Completa__c = getStr(v, 'descripcion_completa__c');
-		if (accountId != null) {
-			nv.Cuenta__c = accountId;
-		}
-		// Año (solo si creaste el campo Anio__c en Automovil__c)
-		setIfExistsVeh(nv, 'Anio__c', getStr(v, 'Anio__c'));
-		// Name (si no es autonumérico, le ponemos algo legible)
-		Schema.DescribeFieldResult nameDesc = Automovil__c.Name.getDescribe();
-		if (!nameDesc.isAutoNumber()) {
-			String nm = ((marca == null ? '' : marca) + ' ' +
-						 (modelo == null ? '' : modelo) + ' ' +
-						 (serie == null ? '' : serie)).trim();
-			nv.Name = String.isBlank(nm) ? 'Vehículo' : nm.left(80);
-		}
+		CustomerProperty nv = new CustomerProperty();
+		nv.PrimaryOwnerId     = accountId;
+		nv.Make               = marca;
+		nv.ModelName          = modelo;
+		nv.Vin                = serie;
+		nv.RegistrationNumber = getStr(v, 'Placa__c');
+		nv.Motor__c           = getStr(v, 'Motor__c');
+		nv.Description         = getStr(v, 'descripcion_completa__c');
+		// Año -> MakeYear (put dinámico para tolerar el tipo del campo).
+		Decimal anio = toDecimalSafe(getStr(v, 'Anio__c'));
+		if (anio != null) { try { nv.put('MakeYear', anio.intValue()); } catch (Exception ignore) {} }
+		// Nombre legible del bien.
+		String nm = ((marca == null ? '' : marca) + ' ' +
+					 (modelo == null ? '' : modelo) + ' ' + serie).trim();
 		insert nv;
 		return nv.Id;
 	}
@@ -893,19 +889,19 @@ public with sharing class OpportunityController {
 	 * @return Lista de Automovil__c coincidentes (maximo 10)
 	 */
 	@AuraEnabled(cacheable=false)
-	public static List<Automovil__c> searchVehiculos(String searchTerm) {
+	public static List<CustomerProperty> searchVehiculos(String searchTerm) {
 		if (String.isBlank(searchTerm) || searchTerm.length() < 2) {
-			return new List<Automovil__c>();
+			return new List<CustomerProperty>();
 		}
 		String filtro = '%' + searchTerm + '%';
 		return [
-			SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c,
-				   Descripcion_Completa__c, Cuenta__c, Cuenta__r.Name
-			FROM Automovil__c
-			WHERE Serie__c LIKE :filtro
-			   OR Placa__c LIKE :filtro
-			   OR Marca__c LIKE :filtro
-			   OR Modelo__c LIKE :filtro
+			SELECT Id, Name, Make, ModelName, Vin, RegistrationNumber, Motor__c,
+				   MakeYear, Description, PrimaryOwnerId, PrimaryOwner.Name
+			FROM CustomerProperty
+			WHERE Vin LIKE :filtro
+			   OR RegistrationNumber LIKE :filtro
+			   OR Make LIKE :filtro
+			   OR ModelName LIKE :filtro
 			   OR Name LIKE :filtro
 			ORDER BY LastModifiedDate DESC
 			LIMIT 10

@@ -2,6 +2,150 @@
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>55.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <assignments>
+        <name>Init_Asegurado</name>
+        <label>Init Asegurado</label>
+        <locationX>5620</locationX>
+        <locationY>431</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Id</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Asegurado__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Get_Asegurado</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_AM</name>
+        <label>Update_AM</label>
+        <locationX>5620</locationX>
+        <locationY>539</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Apellido_materno__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Apellido_materno__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Apellido_Paterno</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_AP</name>
+        <label>Update_AP</label>
+        <locationX>5620</locationX>
+        <locationY>839</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Apellido_paterno__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Apellido_paterno__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Nombre_if</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_Nombre</name>
+        <label>Update_Nombre</label>
+        <locationX>5620</locationX>
+        <locationY>1139</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Nombre_unido__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Nombre__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Parentesco_if</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_Parentesco</name>
+        <label>Update_Parentesco</label>
+        <locationX>5620</locationX>
+        <locationY>1439</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Parentesco_GMM__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Parentesco__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Update_PC_Parentesco</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_Sexo</name>
+        <label>Update_Sexo</label>
+        <locationX>5620</locationX>
+        <locationY>1847</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Sexo__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Sexo__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Nacimiento_if</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_Nacimiento</name>
+        <label>Update_Nacimiento</label>
+        <locationX>5620</locationX>
+        <locationY>2147</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Birthdate</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Fecha_de_nacimiento__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Telefono_if</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_Telefono</name>
+        <label>Update_Telefono</label>
+        <locationX>5620</locationX>
+        <locationY>2447</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.MobilePhone</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Telefono__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Mail_if</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Update_Correo</name>
+        <label>Update_Correo</label>
+        <locationX>5620</locationX>
+        <locationY>2747</locationY>
+        <assignmentItems>
+            <assignToReference>varAsegurado.Email</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Correo_electronico__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Actualizar_Asegurado</targetReference>
+        </connector>
+    </assignments>
     <decisions>
         <name>Apellido_Materno</name>
         <label>Apellido Materno</label>
@@ -19,6 +163,13 @@
                 <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Apellido_materno__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Apellido_materno__c</elementReference>
                 </rightValue>
             </conditions>
             <connector>
@@ -44,6 +195,13 @@
                 <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Apellido_paterno__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Apellido_paterno__c</elementReference>
                 </rightValue>
             </conditions>
             <connector>
@@ -377,7 +535,7 @@
         <locationX>5924</locationX>
         <locationY>2639</locationY>
         <defaultConnector>
-            <targetReference>Poliza_Contacto_Certificado</targetReference>
+            <targetReference>Actualizar_Asegurado</targetReference>
         </defaultConnector>
         <defaultConnectorLabel>Resultado predeterminado</defaultConnectorLabel>
         <rules>
@@ -388,6 +546,13 @@
                 <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Correo_electronico__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Email</elementReference>
                 </rightValue>
             </conditions>
             <connector>
@@ -415,6 +580,13 @@
                     <booleanValue>false</booleanValue>
                 </rightValue>
             </conditions>
+            <conditions>
+                <leftValueReference>$Record.Fecha_de_nacimiento__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Birthdate</elementReference>
+                </rightValue>
+            </conditions>
             <connector>
                 <targetReference>Update_Nacimiento</targetReference>
             </connector>
@@ -440,6 +612,13 @@
                     <booleanValue>false</booleanValue>
                 </rightValue>
             </conditions>
+            <conditions>
+                <leftValueReference>$Record.Nombre__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Nombre_unido__c</elementReference>
+                </rightValue>
+            </conditions>
             <connector>
                 <targetReference>Update_Nombre</targetReference>
             </connector>
@@ -460,9 +639,16 @@
             <conditionLogic>and</conditionLogic>
             <conditions>
                 <leftValueReference>$Record.Parentesco__c</leftValueReference>
-                <operator>IsChanged</operator>
+                <operator>IsNull</operator>
                 <rightValue>
-                    <booleanValue>true</booleanValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Parentesco__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Parentesco_GMM__c</elementReference>
                 </rightValue>
             </conditions>
             <connector>
@@ -510,9 +696,16 @@
             <conditionLogic>and</conditionLogic>
             <conditions>
                 <leftValueReference>$Record.Sexo__c</leftValueReference>
-                <operator>IsChanged</operator>
+                <operator>IsNull</operator>
                 <rightValue>
-                    <booleanValue>true</booleanValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Sexo__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.Sexo__c</elementReference>
                 </rightValue>
             </conditions>
             <connector>
@@ -538,6 +731,13 @@
                 <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Telefono__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>Get_Asegurado.MobilePhone</elementReference>
                 </rightValue>
             </conditions>
             <connector>
@@ -569,13 +769,6 @@
                     <stringValue>Alta</stringValue>
                 </rightValue>
             </conditions>
-            <conditions>
-                <leftValueReference>$Record.RecordTypeId</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>0128a000000il5YAAQ</stringValue>
-                </rightValue>
-            </conditions>
             <connector>
                 <targetReference>Existente</targetReference>
             </connector>
@@ -599,7 +792,7 @@
                 </rightValue>
             </conditions>
             <connector>
-                <targetReference>Apellido_Materno</targetReference>
+                <targetReference>Init_Asegurado</targetReference>
             </connector>
             <label>Cambio</label>
         </rules>
@@ -624,18 +817,6 @@
                 <targetReference>Inactivar</targetReference>
             </connector>
             <label>Baja</label>
-        </rules>
-        <rules>
-            <name>Cambio_beneficiario</name>
-            <conditionLogic>and</conditionLogic>
-            <conditions>
-                <leftValueReference>$Record.RecordTypeId</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>0128a000000lfKl</stringValue>
-                </rightValue>
-            </conditions>
-            <label>Cambio beneficiario</label>
         </rules>
     </decisions>
     <decisions>
@@ -728,7 +909,7 @@
         <locationX>1370</locationX>
         <locationY>647</locationY>
         <defaultConnector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </defaultConnector>
         <defaultConnectorLabel>Resultado predeterminado</defaultConnectorLabel>
         <rules>
@@ -984,106 +1165,6 @@
             <label>GMM VIDA</label>
         </rules>
         <rules>
-            <name>GMM_DENTEGRA</name>
-            <conditionLogic>(1 AND 3 AND 5 AND 6) AND (2 AND 4 AND 5 AND 6)</conditionLogic>
-            <conditions>
-                <leftValueReference>Existente.Poliza_Dentegra__c</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>false</booleanValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>Existente.Poliza_GMM__c</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>false</booleanValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>$Record.Poliza__r.Tipo__c</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>Dentegra</stringValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>$Record.Poliza__r.Tipo__c</leftValueReference>
-                <operator>NotEqualTo</operator>
-                <rightValue>
-                    <stringValue>Dentegra</stringValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>$Record.Poliza__r.Ramo__c</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>Gastos medicos</stringValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>Existente.Poliza_Vida__c</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>true</booleanValue>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Adicional_0_0</targetReference>
-            </connector>
-            <label>GMM DENTEGRA</label>
-        </rules>
-        <rules>
-            <name>VIDA_DENTEGRA</name>
-            <conditionLogic>(1 AND 4 AND 5 AND 6) AND (2 AND 3 AND 6)</conditionLogic>
-            <conditions>
-                <leftValueReference>Existente.Poliza_Dentegra__c</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>false</booleanValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>Existente.Poliza_Vida__c</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>false</booleanValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>$Record.Poliza__r.Ramo__c</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>Vida</stringValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>$Record.Poliza__r.Ramo__c</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>Gastos medicos</stringValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>$Record.Poliza__r.Tipo__c</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <stringValue>Dentegra</stringValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>Existente.Poliza_GMM__c</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <booleanValue>true</booleanValue>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Adicional_0_0_0</targetReference>
-            </connector>
-            <label>VIDA DENTEGRA</label>
-        </rules>
-        <rules>
             <name>Todas</name>
             <conditionLogic>and</conditionLogic>
             <conditions>
@@ -1223,6 +1304,56 @@
             <label>dependiente5</label>
         </rules>
     </decisions>
+    <decisions>
+        <name>Asegurado_Vacio_Existente</name>
+        <label>Asegurado ya asignado</label>
+        <locationX>1370</locationX>
+        <locationY>963</locationY>
+        <defaultConnector>
+            <targetReference>IdUsuario</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Ya tiene asegurado</defaultConnectorLabel>
+        <rules>
+            <name>Sin_asegurado_existente</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.Asegurado__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>actualizar_peticion</targetReference>
+            </connector>
+            <label>Sin asegurado</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <name>Asegurado_Vacio_Empleado</name>
+        <label>Asegurado ya asignado</label>
+        <locationX>3394</locationX>
+        <locationY>2739</locationY>
+        <defaultConnector>
+            <targetReference>Beneficiario_1</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Ya tiene asegurado</defaultConnectorLabel>
+        <rules>
+            <name>Sin_asegurado_empleado</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.Asegurado__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Asignar_empleado</targetReference>
+            </connector>
+            <label>Sin asegurado</label>
+        </rules>
+    </decisions>
     <environments>Default</environments>
     <formulas>
         <name>Apellidodependeiente3</name>
@@ -1257,7 +1388,7 @@
     <formulas>
         <name>Hoy</name>
         <dataType>Date</dataType>
-        <expression>NOW()</expression>
+        <expression>TODAY()</expression>
     </formulas>
     <interviewLabel>Procesamiento de polizas {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Procesamiento de polizas</label>
@@ -1288,6 +1419,9 @@
         <connector>
             <targetReference>Beneficiario_1_0</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Activo__c</field>
             <value>
@@ -1339,7 +1473,7 @@
         <inputAssignments>
             <field>RecordTypeId</field>
             <value>
-                <stringValue>0128a000000lfKl</stringValue>
+                <elementReference>Get_RT_Beneficiario.Id</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -1359,6 +1493,9 @@
         <connector>
             <targetReference>Beneficiario_3</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Activo__c</field>
             <value>
@@ -1410,7 +1547,7 @@
         <inputAssignments>
             <field>RecordTypeId</field>
             <value>
-                <stringValue>0128a000000lfKl</stringValue>
+                <elementReference>Get_RT_Beneficiario.Id</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -1427,6 +1564,9 @@
         <label>Beneficiario 3</label>
         <locationX>3262</locationX>
         <locationY>3563</locationY>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Activo__c</field>
             <value>
@@ -1478,7 +1618,7 @@
         <inputAssignments>
             <field>RecordTypeId</field>
             <value>
-                <stringValue>0128a000000lfKl</stringValue>
+                <elementReference>Get_RT_Beneficiario.Id</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -1498,6 +1638,9 @@
         <connector>
             <targetReference>asegurado_peticion</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>AccountId</field>
             <value>
@@ -1635,6 +1778,9 @@
         <connector>
             <targetReference>IdUsuario</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>AccountId</field>
             <value>
@@ -1772,6 +1918,9 @@
         <connector>
             <targetReference>IdUsuario</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>AccountId</field>
             <value>
@@ -1909,6 +2058,9 @@
         <connector>
             <targetReference>IdUsuario</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>AccountId</field>
             <value>
@@ -2046,6 +2198,9 @@
         <connector>
             <targetReference>X4</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Certificado_GMM__c</field>
             <value>
@@ -2087,6 +2242,9 @@
         <connector>
             <targetReference>X2</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>AccountId</field>
             <value>
@@ -2134,6 +2292,9 @@
         <connector>
             <targetReference>X3</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Certificado_GMM__c</field>
             <value>
@@ -2175,6 +2336,9 @@
         <connector>
             <targetReference>X5</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Certificado_GMM__c</field>
             <value>
@@ -2216,6 +2380,9 @@
         <connector>
             <targetReference>IdUsuario</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Certificado_GMM__c</field>
             <value>
@@ -2258,6 +2425,9 @@
         <connector>
             <targetReference>Existe</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2273,14 +2443,72 @@
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
     <recordLookups>
+        <name>Get_Asegurado</name>
+        <label>Get Asegurado</label>
+        <locationX>5620</locationX>
+        <locationY>485</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Apellido_Materno</targetReference>
+        </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.Asegurado__c</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Contact</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordLookups>
+        <name>Get_RT_Beneficiario</name>
+        <label>Get RT Beneficiario</label>
+        <locationX>5028</locationX>
+        <locationY>134</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Tipo_de_peticion</targetReference>
+        </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>SobjectType</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Beneficiario__c</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>DeveloperName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Beneficiario_Colectivo</stringValue>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>RecordType</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordLookups>
         <name>IdUsuario</name>
         <label>IdUsuario</label>
         <locationX>3394</locationX>
         <locationY>2639</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
-            <targetReference>Asignar_empleado</targetReference>
+            <targetReference>Asegurado_Vacio_Empleado</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Birthdate</field>
@@ -2324,6 +2552,46 @@
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
     <recordUpdates>
+        <name>Registrar_Error</name>
+        <label>Registrar Error</label>
+        <locationX>7040</locationX>
+        <locationY>431</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.Id</elementReference>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>Comentarios__c</field>
+            <value>
+                <elementReference>$Flow.FaultMessage</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Estatus__c</field>
+            <value>
+                <stringValue>Pendiente</stringValue>
+            </value>
+        </inputAssignments>
+        <object>Items_Cases__c</object>
+    </recordUpdates>
+    <recordUpdates>
+        <name>Actualizar_Asegurado</name>
+        <label>Actualizar Asegurado</label>
+        <locationX>5620</locationX>
+        <locationY>3047</locationY>
+        <connector>
+            <targetReference>Poliza_Contacto_Certificado</targetReference>
+        </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
+        <inputReference>varAsegurado</inputReference>
+    </recordUpdates>
+    <recordUpdates>
         <name>actualizar_peticion</name>
         <label>actualizar peticion</label>
         <locationX>1370</locationX>
@@ -2331,14 +2599,9 @@
         <connector>
             <targetReference>IdUsuario</targetReference>
         </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Asegurado__c</field>
-            <operator>EqualTo</operator>
-            <value>
-                <booleanValue>true</booleanValue>
-            </value>
-        </filters>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Asegurado__c</field>
             <value>
@@ -2353,8 +2616,11 @@
         <locationX>1370</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2413,8 +2679,11 @@
         <locationX>1634</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2473,8 +2742,11 @@
         <locationX>1898</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2533,8 +2805,11 @@
         <locationX>2162</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2593,8 +2868,11 @@
         <locationX>2426</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2653,8 +2931,11 @@
         <locationX>1106</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2713,8 +2994,11 @@
         <locationX>842</locationX>
         <locationY>755</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputReference>$Record</inputReference>
     </recordUpdates>
     <recordUpdates>
@@ -2725,6 +3009,9 @@
         <connector>
             <targetReference>Dentegra_nueva</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2792,6 +3079,9 @@
         <connector>
             <targetReference>Vida_nueva</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2859,6 +3149,9 @@
         <connector>
             <targetReference>GMM</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -2933,6 +3226,9 @@
         <connector>
             <targetReference>X1</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Asegurado__c</field>
             <value>
@@ -2949,14 +3245,9 @@
         <connector>
             <targetReference>Beneficiario_1</targetReference>
         </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Asegurado__c</field>
-            <operator>EqualTo</operator>
-            <value>
-                <stringValue></stringValue>
-            </value>
-        </filters>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <inputAssignments>
             <field>Asegurado__c</field>
             <value>
@@ -2973,6 +3264,9 @@
         <connector>
             <targetReference>Inactivar_contacto_adicional</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Titular__c</field>
@@ -3000,6 +3294,9 @@
         <label>Baja por certificado</label>
         <locationX>6386</locationX>
         <locationY>971</locationY>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>1 AND (2 OR 3 OR 4 OR 5) AND (6 OR 7 OR 8 OR 9)</filterLogic>
         <filters>
             <field>AccountId</field>
@@ -3102,8 +3399,11 @@
         <locationX>578</locationX>
         <locationY>863</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -3169,8 +3469,11 @@
         <locationX>50</locationX>
         <locationY>863</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -3238,6 +3541,9 @@
         <connector>
             <targetReference>Inactivar_contacto_vida</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3275,6 +3581,9 @@
         <connector>
             <targetReference>Baja_por_certificado</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3312,6 +3621,9 @@
         <connector>
             <targetReference>Baja_de_beneficiarios</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3349,6 +3661,9 @@
         <connector>
             <targetReference>Inactivar_contacto_Dentegra</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3379,54 +3694,6 @@
         <object>Contact</object>
     </recordUpdates>
     <recordUpdates>
-        <name>Update_AM</name>
-        <label>Update_AM</label>
-        <locationX>5792</locationX>
-        <locationY>539</locationY>
-        <connector>
-            <targetReference>Apellido_Paterno</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Apellido_materno__c</field>
-            <value>
-                <elementReference>$Record.Apellido_materno__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_AP</name>
-        <label>Update_AP</label>
-        <locationX>5792</locationX>
-        <locationY>839</locationY>
-        <connector>
-            <targetReference>Nombre_if</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Apellido_paterno__c</field>
-            <value>
-                <elementReference>$Record.Apellido_paterno__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
         <name>Update_Beneficiario_AM</name>
         <label>Update_Beneficiario_AM</label>
         <locationX>5594</locationX>
@@ -3434,6 +3701,9 @@
         <connector>
             <targetReference>BeneficiarioAP</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3458,6 +3728,9 @@
         <connector>
             <targetReference>BeneficiarioNombre</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3482,6 +3755,9 @@
         <connector>
             <targetReference>BeneficiarioParentesco</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3506,6 +3782,9 @@
         <connector>
             <targetReference>BeneficiarioParentesco_0</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3527,6 +3806,9 @@
         <label>Update_Beneficiario_Parentesco</label>
         <locationX>5594</locationX>
         <locationY>4655</locationY>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3544,102 +3826,6 @@
         <object>Beneficiario__c</object>
     </recordUpdates>
     <recordUpdates>
-        <name>Update_Correo</name>
-        <label>Update_Correo</label>
-        <locationX>5792</locationX>
-        <locationY>2747</locationY>
-        <connector>
-            <targetReference>Poliza_Contacto_Certificado</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Email</field>
-            <value>
-                <elementReference>$Record.Correo_electronico__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_Nacimiento</name>
-        <label>Update_Nacimiento</label>
-        <locationX>5792</locationX>
-        <locationY>2147</locationY>
-        <connector>
-            <targetReference>Telefono_if</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Birthdate</field>
-            <value>
-                <elementReference>$Record.Fecha_de_nacimiento__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_Nombre</name>
-        <label>Update_Nombre</label>
-        <locationX>5792</locationX>
-        <locationY>1139</locationY>
-        <connector>
-            <targetReference>Parentesco_if</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Nombre_unido__c</field>
-            <value>
-                <elementReference>$Record.Nombre__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_Parentesco</name>
-        <label>Update_Parentesco</label>
-        <locationX>5792</locationX>
-        <locationY>1439</locationY>
-        <connector>
-            <targetReference>Update_PC_Parentesco</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Parentesco_GMM__c</field>
-            <value>
-                <elementReference>$Record.Parentesco__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
         <name>Update_PC_Certificado</name>
         <label>Update_PC_Certificado</label>
         <locationX>5792</locationX>
@@ -3647,6 +3833,9 @@
         <connector>
             <targetReference>Beneficiario_Update</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3678,6 +3867,9 @@
         <connector>
             <targetReference>Sexo_if</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -3702,61 +3894,16 @@
         <object>Poliza_Contacto__c</object>
     </recordUpdates>
     <recordUpdates>
-        <name>Update_Sexo</name>
-        <label>Update_Sexo</label>
-        <locationX>5792</locationX>
-        <locationY>1847</locationY>
-        <connector>
-            <targetReference>Nacimiento_if</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Sexo__c</field>
-            <value>
-                <elementReference>$Record.Sexo__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_Telefono</name>
-        <label>Update_Telefono</label>
-        <locationX>5792</locationX>
-        <locationY>2447</locationY>
-        <connector>
-            <targetReference>Mail_if</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.Asegurado__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>MobilePhone</field>
-            <value>
-                <elementReference>$Record.Telefono__c</elementReference>
-            </value>
-        </inputAssignments>
-        <object>Contact</object>
-    </recordUpdates>
-    <recordUpdates>
         <name>Vida_nueva</name>
         <label>Vida</label>
         <locationX>314</locationX>
         <locationY>863</locationY>
         <connector>
-            <targetReference>actualizar_peticion</targetReference>
+            <targetReference>Asegurado_Vacio_Existente</targetReference>
         </connector>
+        <faultConnector>
+            <targetReference>Registrar_Error</targetReference>
+        </faultConnector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Name</field>
@@ -3820,7 +3967,7 @@
         <locationX>5028</locationX>
         <locationY>0</locationY>
         <connector>
-            <targetReference>Tipo_de_peticion</targetReference>
+            <targetReference>Get_RT_Beneficiario</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -3842,4 +3989,12 @@
         <triggerType>RecordAfterSave</triggerType>
     </start>
     <status>Active</status>
+    <variables>
+        <name>varAsegurado</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Contact</objectType>
+    </variables>
 </Flow>

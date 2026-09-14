@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Customer_Property</fullName>
+    <active>true</active>
+    <label>Customer Property</label>
+    <picklistValues>
+        <picklist>CeilingType</picklist>
+        <values>
+            <fullName>Artesonado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cala</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cobertizo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Convencional</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Placa</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Suspendido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Viga</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>ConstructionClass</picklist>
+        <values>
+            <fullName>Básico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Constructores de calidad media%2Festándar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diseñador</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Económico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Económico%2FEstándar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Estándar%2FPersonalizado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lujo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mínimo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personalizado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personalizado%2FLujoso</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Superior</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>DwellingType</picklist>
+        <values>
+            <fullName>Casa adosada exclusiva</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Casa familiar independiente de planta cuadrada exclusiva</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Dúplex</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Finca independiente familiar exclusiva</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Múltiples unidades de bajo incremento</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Múltiples unidades de elevado incremento</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>FinancingType</picklist>
+        <values>
+            <fullName>Arrendamiento de explotación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Arrendamiento financiero</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Arrendamiento renovado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Financiación de compra comercial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hipoteca mobiliaria</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Préstamo estándar</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>FloorType</picklist>
+        <values>
+            <fullName>Baldosa cerámica</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baldosa de tarima flotante</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baldosa porcelánica</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Bambú</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cork</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Madera contrachapada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Madera noble</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Moqueta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Piedra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vinilo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>FoundationType</picklist>
+        <values>
+            <fullName>Bloque</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Entresuelo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pilar y viga</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sótano</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>FuelType</picklist>
+        <values>
+            <fullName>Biodiesel</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Diésel</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Eléctrico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Etanol</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gasolina</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Híbrido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Otros</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>GarageType</picklist>
+        <values>
+            <fullName>Archivo adjunto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cochera</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Integrado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sótano</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>PrimaryUse</picklist>
+        <values>
+            <fullName>Compañía</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trabajo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>RegistrationType</picklist>
+        <values>
+            <fullName>Antiguo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Combinación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Comercial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Prorrateado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SUB</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>RoofType</picklist>
+        <values>
+            <fullName>Acero recubierto de piedra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pizarra</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pizarra de goma</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Placas solares</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sistema de cubierta de varias capas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tejado ecológico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tejado metálico</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tejas asfálticas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tejas de arcilla y hormigón</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>TransmissionType</picklist>
+        <values>
+            <fullName>Automático de cuatro marchas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Manual de cinco marchas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Manual de cuatro marchas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Manual de seis marchas</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

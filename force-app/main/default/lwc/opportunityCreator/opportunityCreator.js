@@ -337,15 +337,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const id = event.currentTarget.dataset.id;
         const v = (this.vehiculoResults || []).find(x => x.Id === id);
         if (!v) return;
-        this.opportunity = { ...this.opportunity, Vehiculo__c: v.Id, VehiculoName: (v.Marca__c || '') + ' ' + (v.Modelo__c || '') };
+        this.opportunity = { ...this.opportunity, Vehiculo__c: v.Id, VehiculoName: (v.Make || '') + ' ' + (v.ModelName || '') };
         this.automovil = {
             ...this.automovil,
-            Marca__c: v.Marca__c || '',
-            Modelo__c: v.Modelo__c || '',
-            Serie__c: v.Serie__c || '',
-            Placa__c: v.Placa__c || '',
+            Marca__c: v.Make || '',
+            Modelo__c: v.ModelName || '',
+            Serie__c: v.Vin || '',
+            Placa__c: v.RegistrationNumber || '',
             Motor__c: v.Motor__c || '',
-            descripcion_completa__c: v.Descripcion_Completa__c || ''
+            Anio__c: v.MakeYear || '',
+            descripcion_completa__c: v.Description || ''
         };
         this.showVehiculoDropdown = false;
         this.vehiculoResults = [];
@@ -1025,7 +1026,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AgenteName:  detail.Agente_Relacionado__r?.Name || detail.Agente__r?.Name || detail.AgenteName || '',
             Vehiculo__c:  detail.automovil?.Id || null,
             VehiculoName: detail.automovil
-                            ? `${detail.automovil.Marca__c || ''} ${detail.automovil.Modelo__c || ''}`.trim()
+                            ? `${detail.automovil.Make || ''} ${detail.automovil.ModelName || ''}`.trim()
                             : (detail.VehiculoName || ''),
             Contacto__c:  detail.Contacto__c || null,
             ContactoName: detail.Contacto__r?.Name || detail.ContactoName || '',
@@ -1074,13 +1075,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const a = detail.automovil || detail;
             this.automovil = {
                 ...this.getDefaultAutomovil(),
-                Marca__c:                a.Marca__c                || '',
-                Modelo__c:               a.Modelo__c               || '',
-                Anio__c:                 a.Anio__c                 || '',
-                Placa__c:                a.Placa__c                || '',
-                Serie__c:                a.Serie__c                || '',
-                Motor__c:                a.Motor__c                || '',
-                descripcion_completa__c: a.Descripcion_Completa__c || a.descripcion_completa__c || ''
+                Marca__c:                a.Make               || a.Marca__c  || '',
+                Modelo__c:               a.ModelName          || a.Modelo__c || '',
+                Anio__c:                 a.MakeYear           || a.Anio__c   || '',
+                Placa__c:                a.RegistrationNumber || a.Placa__c  || '',
+                Serie__c:                a.Vin                || a.Serie__c  || '',
+                Motor__c:                a.Motor__c           || '',
+                descripcion_completa__c: a.Description || a.Descripcion_Completa__c || a.descripcion_completa__c || ''
             };
         }
         if (this.isRamoGMM || detail.gmm) {

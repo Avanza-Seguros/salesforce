@@ -838,8 +838,8 @@
                                                     <template for:each={vehiculoResults} for:item="v">
                                                         <li key={v.Id} class="lookup-result-item"
                                                             onclick={selectVehiculo} data-id={v.Id}>
-                                                            <div class="result-name">{v.Marca__c} {v.Modelo__c}</div>
-                                                            <div class="result-details">Serie: {v.Serie__c} · Placa: {v.Placa__c}</div>
+                                                            <div class="result-name">{v.Make} {v.ModelName}</div>
+                                                            <div class="result-details">Serie: {v.Vin} · Placa: {v.RegistrationNumber}</div>
                                                         </li>
                                                     </template>
                                                 </template>
