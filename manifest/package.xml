@@ -85,6 +85,7 @@
         <members>InboundInsurancePayment__c.candidatePolicy__c</members>
         <members>InboundInsurancePayment__c.confidenceBand__c</members>
         <members>InboundInsurancePayment__c.confidenceScore__c</members>
+        <members>InboundInsurancePayment__c.contentFingerprint__c</members>
         <members>InboundInsurancePayment__c.manualReviewRequired__c</members>
         <members>InboundInsurancePayment__c.externalPaymentId__c</members>
         <members>InboundInsurancePayment__c.reprocessCount__c</members>
@@ -255,6 +256,7 @@
     </types>
     <types>
         <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <members>InsurancePolicy.Insurance_Policy</members>
         <members>PaymentPlan__c.Payment_Plan</members>
         <members>PaymentPlanInstallment__c.Payment_Plan_Installment</members>
         <members>PaymentReconciliation__c.Payment_Reconciliation</members>

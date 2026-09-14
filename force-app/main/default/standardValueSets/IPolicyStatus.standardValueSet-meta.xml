@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <sorted>false</sorted>
     <standardValue>
@@ -51,6 +51,11 @@
         <fullName>Vigente</fullName>
         <default>false</default>
         <label>Vigente</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Vencido</fullName>
+        <default>false</default>
+        <label>Vencido</label>
     </standardValue>
     <standardValue>
         <fullName>Cambio vigente pendiente</fullName>

@@ -170,6 +170,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InboundInsurancePayment__c.contentFingerprint__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>InboundInsurancePayment__c.sourcePayloadHash__c</field>
         <readable>true</readable>
     </fieldPermissions>

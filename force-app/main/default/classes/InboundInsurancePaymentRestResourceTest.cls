@@ -883,9 +883,12 @@ private class InboundInsurancePaymentRestResourceTest {
 			'Se esperaban a lo sumo 5 SOQL para todo el lote, se usaron ' +
 			queriesUsed
 		);
+		// Alta de los pagos, registro de la aplicacion y el punto de restauracion que el
+		// endpoint fija para poder deshacer la peticion completa ante un fallo no previsto
+		// (la plataforma lo cuenta como DML). Los tres son uno por peticion, no por pago.
 		Assert.isTrue(
-			dmlUsed <= 2,
-			'Se esperaban a lo sumo 2 DML para todo el lote, se usaron ' + dmlUsed
+			dmlUsed <= 3,
+			'Se esperaban a lo sumo 3 DML para todo el lote, se usaron ' + dmlUsed
 		);
 	}
 
@@ -1518,6 +1521,468 @@ private class InboundInsurancePaymentRestResourceTest {
 			]
 			.pipelineStage__c,
 			'Tras ejecutarse el primer eslabon la etapa debe haber avanzado'
+		);
+	}
+
+	// ================================================================
+	// Un reenvio sin cambios reales no toca lo conciliado, y un pago defectuoso no afecta
+	// al resto del envio.
+
+	private static InboundInsurancePayment__c resentPayment() {
+		return [
+			SELECT
+				Id,
+				inboundStatus__c,
+				pipelineStage__c,
+				sourceAmount__c,
+				sourceCurrency__c,
+				sourceInstallmentNumber__c,
+				carrierReceiptStatus__c,
+				resendCount__c,
+				lastResendAt__c,
+				resendChangeLog__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-424-01'
+			LIMIT 1
+		];
+	}
+
+	private static String receiptStatus(Id receiptId) {
+		return [
+			SELECT receiptStatus__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id = :receiptId
+		]
+		.receiptStatus__c;
+	}
+
+	private static String paidRow(String folio, String extra) {
+		return '{' +
+			'"sourcePolicyNumber__c":"POL-431",' +
+			'"sourceAmount__c":500.00,' +
+			'"sourcePaymentDate__c":"10/09/2026",' +
+			'"sourcePaymentStatus__c":"Pagado",' +
+			'"sourceCarrierCode__c":"GNP",' +
+			'"sourceReceiptNumber__c":"' +
+			folio +
+			'"' +
+			extra +
+			'}';
+	}
+
+	private static Map<String, Object> resultFor(String externalPaymentId) {
+		for (Object item : (List<Object>) getResponseBody().get('results')) {
+			Map<String, Object> result = (Map<String, Object>) item;
+			if (externalPaymentId.equals(result.get('externalPaymentId'))) {
+				return result;
+			}
+		}
+		return null;
+	}
+
+	@IsTest
+	static void identicalResendKeepsStageAndCreatesNothing() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-01');
+		update new InboundInsurancePayment__c(
+			Id = resentPayment().Id,
+			pipelineStage__c = CobranzaLog.STAGE_CUOTA
+		);
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1000.00', ''));
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+		Assert.areEqual(
+			CobranzaLog.STAGE_CUOTA,
+			after.pipelineStage__c,
+			'Un reenvio sin cambios no reinicia la etapa: el pago no vuelve a recorrer el circuito.'
+		);
+		Assert.areEqual(
+			1,
+			after.resendCount__c,
+			'Solo registra que llego otra vez.'
+		);
+		Assert.isNotNull(after.lastResendAt__c);
+		Assert.areEqual('Reconocido', receiptStatus(receipt.Id));
+		Assert.areEqual(
+			1,
+			[SELECT COUNT() FROM PolicyPaymentReceipt__c],
+			'No se crea ningun recibo nuevo.'
+		);
+		Assert.areEqual(
+			1,
+			[SELECT COUNT() FROM PaymentReconciliation__c],
+			'No se crea ninguna conciliacion nueva.'
+		);
+	}
+
+	@IsTest
+	static void trailingZeroInAmountIsNotACorrection() {
+		invokeEndpoint(resendBody('2979.40', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-02');
+
+		Test.startTest();
+		invokeEndpoint(resendBody('2979.4', ''));
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual(
+			'Reconocido',
+			receiptStatus(receipt.Id),
+			'2979.40 y 2979.4 son el mismo importe: el cobro no se anula.'
+		);
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+		Assert.isTrue(String.isBlank(after.resendChangeLog__c));
+	}
+
+	@IsTest
+	static void installmentNumberWrittenDifferentlyIsNotACorrection() {
+		invokeEndpoint(resendBody('1000.00', ',"sourceInstallmentNumber__c":"1"'));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-03');
+
+		Test.startTest();
+		invokeEndpoint(
+			resendBody('1000.00', ',"sourceInstallmentNumber__c":"01/02"')
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual(
+			'01/02',
+			after.sourceInstallmentNumber__c,
+			'El dato se actualiza tal como llega.'
+		);
+		Assert.areEqual('Reconocido', receiptStatus(receipt.Id));
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+		Assert.isTrue(String.isBlank(after.resendChangeLog__c));
+	}
+
+	@IsTest
+	static void completingAnEmptyCurrencyOrStatusIsNotACorrection() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-04');
+		// Asi quedaron los pagos de la carga inicial: sin moneda y sin estatus de la
+		// aseguradora.
+		update new InboundInsurancePayment__c(
+			Id = resentPayment().Id,
+			carrierReceiptStatus__c = null,
+			sourcePaymentStatus__c = null,
+			sourceCurrency__c = null
+		);
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1000.00', ',"sourceCurrency__c":"MXN"'));
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual('MXN', after.sourceCurrency__c, 'Se completa la moneda.');
+		Assert.areEqual(
+			'Pagado',
+			after.carrierReceiptStatus__c,
+			'Se completa el estatus.'
+		);
+		Assert.areEqual(
+			'Reconocido',
+			receiptStatus(receipt.Id),
+			'Un pago con fecha de pago y sin estatus ya se daba por pagado: no hay cambio.'
+		);
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+		Assert.isTrue(String.isBlank(after.resendChangeLog__c));
+	}
+
+	@IsTest
+	static void realCorrectionAnnulsReceiptAndPaymentReentersTheCircuit() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-05');
+
+		Test.startTest();
+		invokeEndpoint(
+			resendBody('1000.00', '')
+				.replace(
+					'"sourceDueDate__c":"15/09/2026"',
+					'"sourceDueDate__c":"20/09/2026"'
+				)
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual('Reversado', receiptStatus(receipt.Id));
+		Assert.isTrue(
+			after.resendChangeLog__c.contains('fecha de vencimiento'),
+			'La bitacora dice que cambio: ' + after.resendChangeLog__c
+		);
+		Assert.areEqual(
+			'Normalizado',
+			after.inboundStatus__c,
+			'La reversa no puede dejar en revision manual un pago que se esta reprocesando: ' +
+			'tiene que seguir por el circuito.'
+		);
+		Assert.areEqual(
+			0,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_RESEND_NOT_REQUEUED
+			]
+		);
+	}
+
+	@IsTest
+	static void rejectedPaymentResentUpdatesTheSameRecord() {
+		String body =
+			'[{"sourcePolicyNumber__c":"POL-431-06","sourceAmount__c":0,' +
+			'"sourceCarrierCode__c":"GNP","sourceReceiptNumber__c":"431-6"}]';
+		invokeEndpoint(body);
+
+		Test.startTest();
+		invokeEndpoint(
+			body.replace('"sourceAmount__c":0', '"sourceAmount__c":-10')
+		);
+		Test.stopTest();
+
+		Assert.areNotEqual(500, RestContext.response.statusCode);
+		InboundInsurancePayment__c rejected = [
+			SELECT
+				inboundStatus__c,
+				rejectionReason__c,
+				sourceAmount__c,
+				resendCount__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'GNP_431-6'
+		];
+		Assert.areEqual('Rechazado', rejected.inboundStatus__c);
+		Assert.areEqual('Importe invalido', rejected.rejectionReason__c);
+		Assert.areEqual(
+			-10,
+			rejected.sourceAmount__c,
+			'Se actualiza el mismo registro.'
+		);
+		Assert.areEqual(1, rejected.resendCount__c, 'Y se cuenta el reenvio.');
+	}
+
+	@IsTest
+	static void rejectedWithoutFolioIsRecognizedAcrossSyncs() {
+		String body =
+			'[{"sourcePolicyNumber__c":"POL-431-07","sourceAmount__c":450.00,' +
+			'"sourceCarrierCode__c":"QUALITAS","sourceInsuranceCarrier__c":"QUALITAS",' +
+			'"sourcePaymentStatus__c":"Cancelado","sourceCancellationDate__c":"31/10/2025",' +
+			'"sourceSynchronizedAt__c":"10/09/2026 14:24:00"}]';
+		invokeEndpoint(body);
+
+		Test.startTest();
+		invokeEndpoint(body.replace('10/09/2026 14:24:00', '11/09/2026 08:00:00'));
+		invokeEndpoint(body.replace('450.00', '451.00'));
+		Test.stopTest();
+
+		Assert.areEqual(
+			2,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE sourcePolicyNumber__c = 'POL-431-07'
+			],
+			'El mismo contenido en otra sincronizacion es el mismo recibo; otro importe es otro.'
+		);
+		Assert.areEqual(
+			1,
+			[
+				SELECT resendCount__c
+				FROM InboundInsurancePayment__c
+				WHERE sourcePolicyNumber__c = 'POL-431-07' AND sourceAmount__c = 450.00
+			]
+			.resendCount__c
+		);
+	}
+
+	@IsTest
+	static void repeatedRejectedRowsInOneBatchAreStoredOnce() {
+		String withFolio =
+			'{"sourcePolicyNumber__c":"POL-431-12","sourceAmount__c":0,' +
+			'"sourceCarrierCode__c":"GNP","sourceReceiptNumber__c":"431-12"}';
+		String withoutFolio =
+			'{"sourcePolicyNumber__c":"POL-431-12","sourceAmount__c":90.00,' +
+			'"sourceCarrierCode__c":"GNP","sourcePaymentStatus__c":"Cancelado"}';
+
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				withFolio +
+				',' +
+				withFolio +
+				',' +
+				withoutFolio +
+				',' +
+				withoutFolio +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areNotEqual(500, RestContext.response.statusCode);
+		Assert.areEqual(
+			2,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE sourcePolicyNumber__c = 'POL-431-12'
+			]
+		);
+		Assert.areEqual(4, toInteger(getResponseBody().get('rejectedCount')));
+	}
+
+	@IsTest
+	static void oneBadPaymentDoesNotAffectTheRestOfTheBatch() {
+		// Un dato que no cabe en su campo hace fallar el guardado de ese pago, y solo de ese.
+		String tooLong = ',"sourceCustomerName__c":"' + 'X'.repeat(300) + '"';
+
+		Test.startTest();
+		invokeEndpoint(
+			'[' +
+				paidRow('431-8A', '') +
+				',' +
+				paidRow('431-8B', tooLong) +
+				',' +
+				paidRow('431-8C', '') +
+				']'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(202, RestContext.response.statusCode);
+		Map<String, Object> body = getResponseBody();
+		Assert.areEqual(2, toInteger(body.get('receivedCount')));
+		Assert.areEqual(1, toInteger(body.get('rejectedCount')));
+
+		Map<String, Object> bad = resultFor('GNP_431-8B');
+		Assert.areEqual(false, bad.get('success'));
+		Assert.areEqual('WRITE_FAILED', bad.get('code'));
+		Assert.isTrue(
+			String.valueOf(bad.get('message')).contains('STRING_TOO_LONG'),
+			'La respuesta dice por que fallo: ' + bad.get('message')
+		);
+
+		Assert.areEqual(
+			2,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE externalPaymentId__c IN ('GNP_431-8A', 'GNP_431-8C')
+			]
+		);
+		List<AppLog__c> logs = [
+			SELECT message__c, stackTrace__c
+			FROM AppLog__c
+			WHERE eventCode__c = :CobranzaLog.EVENT_INBOUND_WRITE_FAILED
+		];
+		Assert.areEqual(1, logs.size(), 'El fallo queda registrado para soporte.');
+		Assert.isTrue(logs[0].message__c.contains('GNP_431-8B'));
+		Assert.isTrue(
+			logs[0].stackTrace__c.contains('431-8B'),
+			'Con el JSON recibido, para poder reenviarlo.'
+		);
+	}
+
+	@IsTest
+	static void failedSaveDoesNotAnnulTheReceipt() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-09');
+
+		Test.startTest();
+		invokeEndpoint(
+			resendBody(
+				'1200.00',
+				',"sourceCustomerName__c":"' + 'X'.repeat(300) + '"'
+			)
+		);
+		Test.stopTest();
+
+		Assert.areNotEqual(500, RestContext.response.statusCode);
+		Assert.areEqual(
+			'Reconocido',
+			receiptStatus(receipt.Id),
+			'Si la correccion no se pudo guardar, el cobro anterior sigue vigente.'
+		);
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual(1000.00, after.sourceAmount__c);
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+	}
+
+	@IsTest
+	static void invalidResendOfAValidPaymentIsNotApplied() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-10');
+
+		Test.startTest();
+		invokeEndpoint(resendBody('0', ''));
+		Test.stopTest();
+
+		Assert.areNotEqual(500, RestContext.response.statusCode);
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual(
+			1000.00,
+			after.sourceAmount__c,
+			'Los datos buenos no se pisan.'
+		);
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+		Assert.areEqual('Reconocido', receiptStatus(receipt.Id));
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_INVALID_RESEND_IGNORED
+			]
+		);
+	}
+
+	@IsTest
+	static void unexpectedFailureUndoesTheWholeRequestAndIsLogged() {
+		invokeEndpoint(resendBody('1000.00', ''));
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-11');
+		InboundInsurancePaymentService.forceFailureAfterWritesForTest = true;
+
+		Test.startTest();
+		invokeEndpoint(resendBody('1200.00', ''));
+		Test.stopTest();
+
+		InboundInsurancePaymentService.forceFailureAfterWritesForTest = false;
+
+		Assert.areEqual(500, RestContext.response.statusCode);
+		Assert.areEqual(
+			'Reconocido',
+			receiptStatus(receipt.Id),
+			'La anulacion que alcanzo a hacerse se deshace con el resto de la peticion.'
+		);
+		InboundInsurancePayment__c after = resentPayment();
+		Assert.areEqual(1000.00, after.sourceAmount__c);
+		Assert.areEqual('Conciliado', after.inboundStatus__c);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_ENDPOINT_FAILED
+			],
+			'Y el fallo queda registrado aunque todo lo demas se deshaga.'
+		);
+	}
+
+	@IsTest
+	static void repeatedMalformedBodyDoesNotFail() {
+		Test.startTest();
+		invokeEndpoint('[{"externalPaymentId__c":"EXT-4312"');
+		invokeEndpoint('[{"externalPaymentId__c":"EXT-4312"');
+		Test.stopTest();
+
+		Assert.areEqual(400, RestContext.response.statusCode);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM InboundInsurancePayment__c
+				WHERE rejectionReason__c = 'Payload malformado'
+			]
 		);
 	}
 

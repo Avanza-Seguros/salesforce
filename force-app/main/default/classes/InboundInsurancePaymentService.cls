@@ -58,6 +58,19 @@ public with sharing class InboundInsurancePaymentService {
 	private static final String OUTCOME_REJECTED = 'REJECTED';
 	private static final String OUTCOME_RECEIVED = 'RECEIVED';
 	private static final String OUTCOME_UPDATED = 'UPDATED';
+	private static final String OUTCOME_FAILED = 'FAILED';
+	private static final String CODE_WRITE_FAILED = 'WRITE_FAILED';
+
+	// Los rechazados sin folio se agrupan en el lote por la huella de su contenido. El
+	// prefijo impide que una huella coincida por azar con un folio.
+	private static final String FINGERPRINT_KEY_PREFIX = 'huella:';
+
+	// Provoca un fallo despues de escribir, para probar que la peticion se deshace completa.
+	@TestVisible
+	private static Boolean forceFailureAfterWritesForTest = false;
+
+	private class InboundProcessingException extends Exception {
+	}
 
 	/**
 	 * @creation date: 24/04/2026
@@ -134,6 +147,7 @@ public with sharing class InboundInsurancePaymentService {
 		List<RowContext> contexts = parseAllRows(rows);
 
 		Set<String> externalIds = new Set<String>();
+		Set<String> fingerprints = new Set<String>();
 		Set<String> policyNumbers = new Set<String>();
 		for (RowContext ctx : contexts) {
 			if (ctx.skip) {
@@ -141,6 +155,8 @@ public with sharing class InboundInsurancePaymentService {
 			}
 			if (String.isNotBlank(ctx.data.externalPaymentId)) {
 				externalIds.add(ctx.data.externalPaymentId);
+			} else {
+				fingerprints.add(ctx.data.contentFingerprint);
 			}
 			if (String.isNotBlank(ctx.data.sourcePolicyNumber)) {
 				policyNumbers.add(ctx.data.sourcePolicyNumber);
@@ -150,21 +166,21 @@ public with sharing class InboundInsurancePaymentService {
 		Map<String, InboundInsurancePayment__c> existingByExternalId = findExistingInbounds(
 			externalIds
 		);
+		Map<String, InboundInsurancePayment__c> rejectedByFingerprint = findRejectedWithoutId(
+			fingerprints
+		);
 		Map<String, Id> candidatePolicyByNumber = findCandidatePolicies(
 			policyNumbers
 		);
 
-		List<InboundInsurancePayment__c> toInsert = new List<InboundInsurancePayment__c>();
-		List<InboundInsurancePayment__c> toUpdate = new List<InboundInsurancePayment__c>();
-		Map<String, RowContext> firstByExternalId = new Map<String, RowContext>();
-
-		Integer received = 0;
-		Integer updated = 0;
-		Integer rejected = 0;
+		// Cada lista guarda la fila DUENA del registro que se escribe, para poder devolverle
+		// el resultado de su escritura. Las filas repetidas del mismo lote comparten dueno.
+		List<RowContext> toInsert = new List<RowContext>();
+		List<RowContext> toUpdate = new List<RowContext>();
+		Map<String, RowContext> firstByKey = new Map<String, RowContext>();
 
 		for (RowContext ctx : contexts) {
 			if (ctx.skip) {
-				rejected++;
 				ctx.outcome = OUTCOME_SKIPPED;
 				continue;
 			}
@@ -174,81 +190,57 @@ public with sharing class InboundInsurancePaymentService {
 			);
 
 			if (ctx.validationReason != null) {
-				ctx.record = buildInboundRecord(
-					ctx.data,
-					ctx.itemJson,
-					ctx.payloadHash,
-					STATUS_REJECTED,
-					ctx.validationReason,
-					candidatePolicyId
+				classifyRejected(
+					ctx,
+					candidatePolicyId,
+					existingByExternalId,
+					rejectedByFingerprint,
+					firstByKey,
+					toInsert,
+					toUpdate
 				);
-				toInsert.add(ctx.record);
-				ctx.outcome = OUTCOME_REJECTED;
-				rejected++;
 				continue;
 			}
 
-			Boolean hasPaymentDate = ctx.data.sourcePaymentDate != null;
-
-			if (firstByExternalId.containsKey(ctx.data.externalPaymentId)) {
-				RowContext first = firstByExternalId.get(ctx.data.externalPaymentId);
-				ctx.existingStatus = first.existingStatus;
-				populateInboundData(
-					first.record,
-					ctx.data,
-					ctx.itemJson,
-					ctx.payloadHash,
-					resolveInboundStatus(
-						ctx.data.carrierReceiptStatus,
-						hasPaymentDate,
-						first.existingStatus
-					),
-					null,
-					candidatePolicyId
-				);
+			RowContext first = firstByKey.get(ctx.data.externalPaymentId);
+			if (first != null && first.record != null) {
+				// El mismo recibo vino dos veces en el lote: manda la ultima fila, sobre el
+				// mismo registro y con la misma decision que tomaria si llegara sola.
+				ctx.owner = first;
 				ctx.record = first.record;
 				ctx.outcome = OUTCOME_UPDATED;
-				updated++;
+				if (first.existing != null) {
+					applyToExisting(first, ctx.data, ctx, candidatePolicyId);
+				} else {
+					populateInboundData(
+						first.record,
+						ctx.data,
+						ctx.itemJson,
+						ctx.payloadHash,
+						resolveInboundStatus(
+							ctx.data.carrierReceiptStatus,
+							ctx.data.sourcePaymentDate != null,
+							null
+						),
+						null,
+						candidatePolicyId,
+						true
+					);
+				}
 				continue;
 			}
 
 			InboundInsurancePayment__c existing = existingByExternalId.get(
 				ctx.data.externalPaymentId
 			);
+			ctx.owner = ctx;
+			firstByKey.put(ctx.data.externalPaymentId, ctx);
 			if (existing != null) {
-				ctx.existingStatus = existing.inboundStatus__c;
-				ctx.changes = describeMaterialChanges(existing, ctx.data);
-				ctx.materialChange = !ctx.changes.isEmpty();
-				logResentWithChanges(existing, ctx.data);
-
-				InboundInsurancePayment__c rec = new InboundInsurancePayment__c(
-					Id = existing.Id
-				);
-				// Sin cambio material el pago conserva su estado: no se reprocesa nada. Con
-				// cambio material se recalcula, que es lo que lo devuelve al circuito.
-				String resolvedStatus = ctx.materialChange
-					? resolveInboundStatus(
-							ctx.data.carrierReceiptStatus,
-							hasPaymentDate,
-							existing.inboundStatus__c
-					  )
-					: existing.inboundStatus__c;
-
-				populateInboundData(
-					rec,
-					ctx.data,
-					ctx.itemJson,
-					ctx.payloadHash,
-					resolvedStatus,
-					null,
-					candidatePolicyId
-				);
-				stampResend(rec, existing, ctx);
-				ctx.record = rec;
-				toUpdate.add(rec);
+				ctx.existing = existing;
+				ctx.record = new InboundInsurancePayment__c(Id = existing.Id);
+				applyToExisting(ctx, ctx.data, ctx, candidatePolicyId);
+				toUpdate.add(ctx);
 				ctx.outcome = OUTCOME_UPDATED;
-				firstByExternalId.put(ctx.data.externalPaymentId, ctx);
-				updated++;
 				continue;
 			}
 
@@ -258,41 +250,279 @@ public with sharing class InboundInsurancePaymentService {
 				ctx.payloadHash,
 				resolveInboundStatus(
 					ctx.data.carrierReceiptStatus,
-					hasPaymentDate,
+					ctx.data.sourcePaymentDate != null,
 					null
 				),
 				null,
 				candidatePolicyId
 			);
-			toInsert.add(ctx.record);
+			toInsert.add(ctx);
 			ctx.outcome = OUTCOME_RECEIVED;
-			firstByExternalId.put(ctx.data.externalPaymentId, ctx);
-			received++;
 		}
 
-		// ORDEN DELIBERADO. La anulacion va ANTES de escribir los pagos: su cascada deja el
-		// pago en revision manual, asi que si corriera despues pisaria el estado que lo
-		// devuelve al circuito y el pago se quedaria quieto para siempre, sin fallar nada.
-		annulReceiptsOfChangedPayments(contexts);
+		logResentWithChanges(contexts);
 
-		if (!toInsert.isEmpty()) {
-			insert toInsert;
+		// ORDEN DELIBERADO. Primero se guardan los pagos y despues se anulan los recibos, y
+		// solo los de pagos que se guardaron: si un pago no se pudo guardar, su recibo sigue
+		// vigente y no queda nada a medias. Cada pago se guarda por separado, de modo que uno
+		// defectuoso se informa en su resultado sin tumbar al resto del envio.
+		writeRecords(toInsert, true);
+		writeRecords(toUpdate, false);
+		propagateWriteOutcomes(contexts);
+
+		Set<Id> stillLive = annulReceiptsOfChangedPayments(contexts);
+
+		if (Test.isRunningTest() && forceFailureAfterWritesForTest) {
+			throw new InboundProcessingException('Forced failure after writes');
 		}
-		if (!toUpdate.isEmpty()) {
-			update toUpdate;
+
+		// Por Id y desde cualquier fila aceptada, no solo desde la duena: si en el lote llega
+		// primero un rechazado y despues su version valida, el registro lo escribio la fila
+		// rechazada pero lleva los datos de la valida y tiene que seguir su curso.
+		Map<Id, InboundInsurancePayment__c> written = new Map<Id, InboundInsurancePayment__c>();
+		for (RowContext ctx : contexts) {
+			if (
+				(ctx.outcome == OUTCOME_RECEIVED ||
+				ctx.outcome == OUTCOME_UPDATED) &&
+				ctx.record != null &&
+				ctx.record.Id != null &&
+				!stillLive.contains(ctx.record.Id)
+			) {
+				written.put(ctx.record.Id, ctx.record);
+			}
 		}
 
 		logCarrierStatusOutcomes(contexts);
-		enqueueNormalization(toInsert, toUpdate);
-		enqueueScheduledChargeMatching(toInsert, toUpdate);
+		enqueueNormalization(written.values());
+		enqueueScheduledChargeMatching(written.values());
 		AppLogger.flush();
 
+		Integer received = 0;
+		Integer updated = 0;
+		Integer rejected = 0;
 		List<ItemResult> results = new List<ItemResult>();
 		for (RowContext ctx : contexts) {
+			if (ctx.outcome == OUTCOME_RECEIVED) {
+				received++;
+			} else if (ctx.outcome == OUTCOME_UPDATED) {
+				updated++;
+			} else {
+				rejected++;
+			}
 			results.add(toItemResult(ctx));
 		}
 
 		return buildBatchResult(rows.size(), received, updated, rejected, results);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Decide que hacer con una fila que no supera la validacion. Un rechazado
+	 *               que vuelve a llegar actualiza su propio registro en vez de crear otro: el
+	 *               folio es unico y el segundo alta fallaria. Si no trae folio se reconoce
+	 *               por la huella de su contenido. Si lo que ya teniamos es un pago VALIDO, el
+	 *               reenvio invalido no se aplica: pisaria datos buenos con datos que no se
+	 *               pueden procesar.
+	 * @param ctx: Fila rechazada.
+	 * @param candidatePolicyId: Poliza candidata resuelta para la fila.
+	 * @param existingByExternalId: Pagos existentes por folio.
+	 * @param rejectedByFingerprint: Rechazados sin folio existentes por huella.
+	 * @param firstByKey: Primera fila del lote por folio o huella.
+	 * @param toInsert: Filas duenas de un registro nuevo.
+	 * @param toUpdate: Filas duenas de un registro existente.
+	 * @return
+	 */
+	private static void classifyRejected(
+		RowContext ctx,
+		Id candidatePolicyId,
+		Map<String, InboundInsurancePayment__c> existingByExternalId,
+		Map<String, InboundInsurancePayment__c> rejectedByFingerprint,
+		Map<String, RowContext> firstByKey,
+		List<RowContext> toInsert,
+		List<RowContext> toUpdate
+	) {
+		ctx.outcome = OUTCOME_REJECTED;
+		Boolean hasId = String.isNotBlank(ctx.data.externalPaymentId);
+		String key = hasId
+			? ctx.data.externalPaymentId
+			: FINGERPRINT_KEY_PREFIX + ctx.data.contentFingerprint;
+
+		RowContext first = firstByKey.get(key);
+		if (first != null) {
+			// El lote ya trae un registro para este recibo: no se escribe dos veces.
+			ctx.record = first.record;
+			return;
+		}
+
+		InboundInsurancePayment__c existing = hasId
+			? existingByExternalId.get(key)
+			: rejectedByFingerprint.get(ctx.data.contentFingerprint);
+
+		if (
+			existing != null && !STATUS_REJECTED.equals(existing.inboundStatus__c)
+		) {
+			ctx.record = new InboundInsurancePayment__c(Id = existing.Id);
+			CobranzaLog.warn(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_INVALID_RESEND_IGNORED,
+					'Llego un reenvio de este pago que no supera la validacion (' +
+						ctx.validationReason +
+						'). No se aplico: el pago conserva los datos que ya tenia.'
+				)
+				.onInbound(existing.Id)
+				.appendDetails('JSON recibido: ' + ctx.itemJson);
+			return;
+		}
+
+		ctx.owner = ctx;
+		firstByKey.put(key, ctx);
+		if (existing == null) {
+			ctx.record = buildInboundRecord(
+				ctx.data,
+				ctx.itemJson,
+				ctx.payloadHash,
+				STATUS_REJECTED,
+				ctx.validationReason,
+				candidatePolicyId
+			);
+			toInsert.add(ctx);
+			return;
+		}
+
+		ctx.existing = existing;
+		ctx.record = new InboundInsurancePayment__c(Id = existing.Id);
+		populateInboundData(
+			ctx.record,
+			ctx.data,
+			ctx.itemJson,
+			ctx.payloadHash,
+			STATUS_REJECTED,
+			ctx.validationReason,
+			candidatePolicyId,
+			true
+		);
+		stampResend(ctx.record, existing, ctx);
+		toUpdate.add(ctx);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Aplica un reenvio sobre el pago que ya teniamos. Solo un cambio material
+	 *               devuelve el pago al circuito; sin el, el pago conserva su estado y su
+	 *               etapa, y el reenvio solo completa datos y se cuenta. Un rechazado se
+	 *               vuelve a evaluar siempre: nunca entro al circuito, asi que no hay nada que
+	 *               deshacer y los datos nuevos pueden ser justo los que le faltaban.
+	 * @param owner: Fila duena del registro existente.
+	 * @param data: Datos del reenvio.
+	 * @param ctx: Fila que trae el reenvio (la duena u otra repetida del lote).
+	 * @param candidatePolicyId: Poliza candidata resuelta para la fila.
+	 * @return
+	 */
+	private static void applyToExisting(
+		RowContext owner,
+		ParsedInboundData data,
+		RowContext ctx,
+		Id candidatePolicyId
+	) {
+		InboundInsurancePayment__c existing = owner.existing;
+		owner.changes = describeMaterialChanges(existing, data);
+		owner.materialChange = !owner.changes.isEmpty();
+		Boolean reevaluate =
+			owner.materialChange || STATUS_REJECTED.equals(existing.inboundStatus__c);
+
+		String resolvedStatus = existing.inboundStatus__c;
+		if (reevaluate) {
+			resolvedStatus = resolveInboundStatus(
+				data.carrierReceiptStatus,
+				data.sourcePaymentDate != null,
+				existing.inboundStatus__c
+			);
+		} else {
+			// Un reenvio que omite una fecha no borra la que ya teniamos: omitirla no es
+			// corregirla, y el pago seguiria vivo con un dato menos.
+			if (data.sourcePaymentDate == null) {
+				data.sourcePaymentDate = existing.sourcePaymentDate__c;
+			}
+			if (data.sourceDueDate == null) {
+				data.sourceDueDate = existing.sourceDueDate__c;
+			}
+		}
+
+		populateInboundData(
+			owner.record,
+			data,
+			ctx.itemJson,
+			ctx.payloadHash,
+			resolvedStatus,
+			null,
+			candidatePolicyId,
+			reevaluate
+		);
+		stampResend(owner.record, existing, owner);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Guarda los registros sin que el fallo de uno arrastre a los demas, y deja
+	 *               en la fila duena el motivo de cada fallo. Cada fallo queda en el registro
+	 *               de la aplicacion con el JSON recibido, que es lo que hace falta para
+	 *               reenviarlo una vez corregida la causa.
+	 * @param owners: Filas duenas de los registros a guardar.
+	 * @param isInsert: true para altas, false para actualizaciones.
+	 * @return
+	 */
+	private static void writeRecords(List<RowContext> owners, Boolean isInsert) {
+		if (owners.isEmpty()) {
+			return;
+		}
+		List<InboundInsurancePayment__c> records = new List<InboundInsurancePayment__c>();
+		for (RowContext owner : owners) {
+			records.add(owner.record);
+		}
+		List<Database.SaveResult> results = isInsert
+			? Database.insert(records, false)
+			: Database.update(records, false);
+
+		for (Integer i = 0; i < results.size(); i++) {
+			if (results[i].isSuccess()) {
+				continue;
+			}
+			RowContext owner = owners[i];
+			owner.writeError = describeErrors(results[i].getErrors());
+			CobranzaLog.error(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_INBOUND_WRITE_FAILED,
+					'No se pudo guardar el pago ' +
+						(String.isBlank(owner.data.externalPaymentId)
+							? '(sin folio)'
+							: owner.data.externalPaymentId) +
+						'. El resto del envio se proceso normalmente. Motivo: ' +
+						owner.writeError
+				)
+				.onInbound(isInsert ? null : owner.record.Id)
+				.appendDetails('JSON recibido: ' + owner.itemJson);
+		}
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Traslada el fallo de escritura de cada registro a todas las filas que lo
+	 *               comparten, para que la respuesta informe el error en cada una.
+	 * @param contexts: Filas del lote ya escritas.
+	 * @return
+	 */
+	private static void propagateWriteOutcomes(List<RowContext> contexts) {
+		for (RowContext ctx : contexts) {
+			if (ctx.owner == null || ctx.owner.writeError == null) {
+				continue;
+			}
+			ctx.writeError = ctx.owner.writeError;
+			ctx.outcome = OUTCOME_FAILED;
+		}
 	}
 
 	/**
@@ -318,6 +548,7 @@ public with sharing class InboundInsurancePaymentService {
 
 			Map<String, Object> rowPayload = (Map<String, Object>) rawRow;
 			ctx.data = parseInboundData(rowPayload);
+			ctx.data.contentFingerprint = calculateContentFingerprint(ctx.data);
 			ctx.itemJson = JSON.serialize(rowPayload);
 			ctx.payloadHash = calculatePayloadHash(ctx.itemJson);
 			Boolean hasAmountField = rowPayload.containsKey('sourceAmount__c');
@@ -345,13 +576,23 @@ public with sharing class InboundInsurancePaymentService {
 		if (ctx.outcome == OUTCOME_SKIPPED) {
 			return new ItemResult(false, CODE_REJECTED, ctx.skipMessage, null, null);
 		}
+		Id recordId = ctx.record == null ? null : ctx.record.Id;
+		if (ctx.outcome == OUTCOME_FAILED) {
+			return new ItemResult(
+				false,
+				CODE_WRITE_FAILED,
+				'No se pudo guardar el pago: ' + ctx.writeError,
+				ctx.data.externalPaymentId,
+				recordId
+			);
+		}
 		if (ctx.outcome == OUTCOME_REJECTED) {
 			return new ItemResult(
 				false,
 				CODE_REJECTED,
 				getValidationMessage(ctx.validationReason),
 				ctx.data.externalPaymentId,
-				ctx.record.Id
+				recordId
 			);
 		}
 		if (ctx.outcome == OUTCOME_UPDATED) {
@@ -386,10 +627,22 @@ public with sharing class InboundInsurancePaymentService {
 		String requestBody,
 		String rejectionReason
 	) {
+		String payloadHash = calculatePayloadHash(requestBody);
+		// El mismo cuerpo malformado puede volver a llegar. Se reconoce por su huella en vez
+		// de intentar otra alta, que chocaria con la huella unica y tumbaria la respuesta.
+		List<InboundInsurancePayment__c> previous = [
+			SELECT Id, externalPaymentId__c
+			FROM InboundInsurancePayment__c
+			WHERE sourcePayloadHash__c = :payloadHash
+			LIMIT 1
+		];
+		if (!previous.isEmpty()) {
+			return previous[0];
+		}
 		InboundInsurancePayment__c rec = buildInboundRecord(
 			new ParsedInboundData(),
 			requestBody,
-			calculatePayloadHash(requestBody),
+			payloadHash,
 			STATUS_REJECTED,
 			rejectionReason,
 			null
@@ -550,6 +803,14 @@ public with sharing class InboundInsurancePaymentService {
 	 *               pagos de la carga inicial no conservan el mensaje original de la integracion,
 	 *               de modo que esa comparacion los marcaria a todos como cambiados y anularia
 	 *               un cobro valido por cada pago reenviado.
+	 *               Una correccion es un dato informado que pasa a OTRO valor informado:
+	 *               - El importe se compara como numero: 2979.40 y 2979.4 son el mismo.
+	 *               - Un dato vacio que pasa a tener valor, o uno que el reenvio omite, no es
+	 *                 una correccion: la integracion completa o recorta campos segun el origen.
+	 *               - El numero de cuota y la moneda no se comparan: cambian de formato entre
+	 *                 origenes (1 frente a 01/02) sin que cambie el cobro.
+	 *               - El estatus se compara por su valor efectivo: un pago sin estatus con fecha
+	 *                 de pago ya se daba por pagado, asi que recibir Pagado no cambia nada.
 	 * @param existing: Registro tal como estaba antes del reenvio.
 	 * @param incoming: Datos que trae el reenvio.
 	 * @return Descripcion de cada cambio material; vacia si no cambio nada relevante.
@@ -559,81 +820,136 @@ public with sharing class InboundInsurancePaymentService {
 		ParsedInboundData incoming
 	) {
 		List<String> changes = new List<String>();
-		addChange(
-			changes,
-			'importe',
-			existing.sourceAmount__c,
-			incoming.sourceAmount
-		);
-		addChange(
+		if (!sameAmount(existing.sourceAmount__c, incoming.sourceAmount)) {
+			changes.add(
+				describeChange(
+					'importe',
+					existing.sourceAmount__c,
+					incoming.sourceAmount
+				)
+			);
+		}
+		addChangeIfBothInformed(
 			changes,
 			'fecha de pago',
 			existing.sourcePaymentDate__c,
 			incoming.sourcePaymentDate
 		);
-		addChange(
+		addChangeIfBothInformed(
 			changes,
 			'numero de poliza',
-			existing.sourcePolicyNumber__c,
-			incoming.sourcePolicyNumber
+			normalizeText(existing.sourcePolicyNumber__c),
+			normalizeText(incoming.sourcePolicyNumber)
 		);
-		addChange(
-			changes,
-			'numero de cuota',
-			existing.sourceInstallmentNumber__c,
-			incoming.sourceInstallmentNumber
-		);
-		addChange(
+		addChangeIfBothInformed(
 			changes,
 			'fecha de vencimiento',
 			existing.sourceDueDate__c,
 			incoming.sourceDueDate
 		);
-		addChange(
-			changes,
-			'moneda',
-			existing.sourceCurrency__c,
-			incoming.sourceCurrency
-		);
-		addChange(
-			changes,
-			'estatus del recibo',
-			existing.carrierReceiptStatus__c,
-			incoming.carrierReceiptStatus
-		);
+		String statusBefore = effectiveCarrierStatus(existing);
+		if (!statusBefore.equals(incoming.carrierReceiptStatus)) {
+			changes.add(
+				describeChange(
+					'estatus del recibo',
+					statusBefore,
+					incoming.carrierReceiptStatus
+				)
+			);
+		}
 		return changes;
 	}
 
 	/**
-	 * @creation date: 31/08/2026
+	 * @creation date: 14/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Agrega una linea a la bitacora si el valor cambio. Compara con equals sobre
-	 *               el texto para que dos nulos, o un nulo y un valor, se traten igual sin
-	 *               romper.
+	 * @description: Compara dos importes como numeros, sin que importe cuantos decimales traiga
+	 *               cada uno.
+	 * @param before: Importe guardado.
+	 * @param after: Importe recibido.
+	 * @return true si son el mismo importe.
+	 */
+	private static Boolean sameAmount(Decimal before, Decimal after) {
+		if (before == null || after == null) {
+			return before == null && after == null;
+		}
+		return !(before < after) && !(before > after);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Agrega una linea a la bitacora solo si los dos valores estan informados y
+	 *               son distintos. Completar un dato vacio, u omitirlo, no es corregirlo.
 	 * @param changes: Lista acumuladora.
 	 * @param label: Nombre legible del campo.
 	 * @param before: Valor anterior.
-	 * @param After: Valor nuevo.
+	 * @param after: Valor nuevo.
 	 * @return
 	 */
-	private static void addChange(
+	private static void addChangeIfBothInformed(
 		List<String> changes,
 		String label,
 		Object before,
-		Object After
+		Object after
 	) {
-		String a = before == null ? '' : String.valueOf(before);
-		String b = After == null ? '' : String.valueOf(After);
-		if (a.equals(b)) {
+		if (before == null || after == null || before.equals(after)) {
 			return;
 		}
-		changes.add(
-			label +
-				': ' +
-				(a == '' ? '(vacio)' : a) +
-				' -> ' +
-				(b == '' ? '(vacio)' : b)
-		);
+		changes.add(describeChange(label, before, after));
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Texto de una linea de la bitacora de reenvios.
+	 * @param label: Nombre legible del campo.
+	 * @param before: Valor anterior.
+	 * @param after: Valor nuevo.
+	 * @return Linea con el valor anterior y el nuevo.
+	 */
+	private static String describeChange(
+		String label,
+		Object before,
+		Object after
+	) {
+		return label +
+			': ' +
+			(before == null ? '(vacio)' : String.valueOf(before)) +
+			' -> ' +
+			(after == null ? '(vacio)' : String.valueOf(after));
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Estatus del recibo tal como el motor lo entendia para el pago guardado. Los
+	 *               pagos anteriores al estatus de la aseguradora no lo tienen informado, y el
+	 *               motor lo deducia de la fecha de pago; se deduce igual aqui para no tomar
+	 *               por cambio lo que solo es completar el dato.
+	 * @param existing: Pago guardado.
+	 * @return Estatus efectivo del pago guardado.
+	 */
+	private static String effectiveCarrierStatus(
+		InboundInsurancePayment__c existing
+	) {
+		if (String.isNotBlank(existing.carrierReceiptStatus__c)) {
+			return existing.carrierReceiptStatus__c;
+		}
+		return existing.sourcePaymentDate__c != null
+			? CARRIER_PAID
+			: CARRIER_PENDING;
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Normaliza un texto para compararlo: sin espacios extremos y en mayusculas.
+	 * @param value: Texto a normalizar.
+	 * @return Texto normalizado, o null si esta vacio.
+	 */
+	private static String normalizeText(String value) {
+		return String.isBlank(value) ? null : value.trim().toUpperCase();
 	}
 
 	/**
@@ -685,23 +1001,38 @@ public with sharing class InboundInsurancePaymentService {
 	 *               la poliza, devuelve la conciliacion a la bandeja y señala la oportunidad.
 	 *               Reusarla es lo que garantiza que una correccion de la aseguradora y una
 	 *               anulacion hecha a mano dejen el sistema exactamente igual.
-	 * @param contexts: Filas del lote ya clasificadas.
-	 * @return
+	 *               Solo se anulan los recibos de pagos que se guardaron: si el guardado fallo,
+	 *               el cobro anterior sigue siendo el valido. Mientras dura la anulacion, la
+	 *               cascada sabe que esos pagos se estan reprocesando y no los manda a revision
+	 *               manual, que es lo que antes obligaba a anular antes de guardar.
+	 *               Si un recibo no se puede anular, su pago no se reprocesa: queda en revision
+	 *               manual, porque reprocesarlo con el cobro anterior vigente podria cobrar dos
+	 *               veces la misma cuota.
+	 * @param contexts: Filas del lote ya escritas.
+	 * @return Pagos cuyo cobro anterior sigue vigente y que por eso no deben reprocesarse.
 	 */
-	private static void annulReceiptsOfChangedPayments(
+	private static Set<Id> annulReceiptsOfChangedPayments(
 		List<RowContext> contexts
 	) {
+		Set<Id> stillLive = new Set<Id>();
 		Set<Id> changedInboundIds = new Set<Id>();
 		for (RowContext ctx : contexts) {
-			if (ctx.materialChange && ctx.record != null && ctx.record.Id != null) {
+			if (
+				ctx.owner == ctx &&
+				ctx.materialChange &&
+				ctx.writeError == null &&
+				ctx.record != null &&
+				ctx.record.Id != null
+			) {
 				changedInboundIds.add(ctx.record.Id);
 			}
 		}
 		if (changedInboundIds.isEmpty()) {
-			return;
+			return stillLive;
 		}
 
 		List<PolicyPaymentReceipt__c> toReverse = new List<PolicyPaymentReceipt__c>();
+		List<Id> inboundOfReceipt = new List<Id>();
 		for (PolicyPaymentReceipt__c receipt : [
 			SELECT Id, sourceInboundPayment__c
 			FROM PolicyPaymentReceipt__c
@@ -717,25 +1048,52 @@ public with sharing class InboundInsurancePaymentService {
 					reversalNotes__c = 'La aseguradora reenvio el recibo con datos distintos a los que se conciliaron.'
 				)
 			);
+			inboundOfReceipt.add(receipt.sourceInboundPayment__c);
 		}
 		if (toReverse.isEmpty()) {
-			return;
+			return stillLive;
 		}
 
-		List<Database.SaveResult> results = Database.update(toReverse, false);
+		List<Database.SaveResult> results;
+		PolicyPaymentReceiptReversalService.markInboundsInReprocess(
+			changedInboundIds
+		);
+		try {
+			results = Database.update(toReverse, false);
+		} finally {
+			PolicyPaymentReceiptReversalService.clearInboundsInReprocess();
+		}
+
+		Map<Id, InboundInsurancePayment__c> toHold = new Map<Id, InboundInsurancePayment__c>();
 		for (Integer i = 0; i < results.size(); i++) {
 			if (results[i].isSuccess()) {
 				continue;
 			}
+			Id inboundId = inboundOfReceipt[i];
+			stillLive.add(inboundId);
+			toHold.put(
+				inboundId,
+				new InboundInsurancePayment__c(
+					Id = inboundId,
+					inboundStatus__c = STATUS_MANUAL_REVIEW,
+					manualReviewRequired__c = true
+				)
+			);
 			CobranzaLog.error(
 					CobranzaLog.STAGE_RECEPCION,
 					CobranzaLog.EVENT_RESEND_REVERSAL_FAILED,
 					'No se pudo anular el cobro anterior de un pago que llego corregido. El ' +
-						'pago no debe reprocesarse mientras su cobro siga vigente. Motivo: ' +
+						'pago queda en revision manual y no se reprocesa mientras ese cobro siga ' +
+						'vigente. Motivo: ' +
 						describeErrors(results[i].getErrors())
 				)
-				.onRecord(toReverse[i].Id);
+				.onRecord(toReverse[i].Id)
+				.onInbound(inboundId);
 		}
+		if (!toHold.isEmpty()) {
+			Database.update(toHold.values(), false);
+		}
+		return stillLive;
 	}
 
 	/**
@@ -918,7 +1276,8 @@ public with sharing class InboundInsurancePaymentService {
 			payloadHash,
 			inboundStatus,
 			rejectionReason,
-			candidatePolicyId
+			candidatePolicyId,
+			true
 		);
 		return inboundPayment;
 	}
@@ -937,6 +1296,8 @@ public with sharing class InboundInsurancePaymentService {
 	 * @param inboundStatus: Estado a asignar al registro.
 	 * @param rejectionReason: Motivo de rechazo del picklist, o null si no aplica.
 	 * @param candidatePolicyId: ID de la poliza candidata resuelta, o null.
+	 * @param restartsPipeline: true si el pago empieza, o vuelve a empezar, el circuito. Un
+	 *               reenvio sin cambios va en false: el pago conserva la etapa alcanzada.
 	 * @return
 	 */
 	private static void populateInboundData(
@@ -946,7 +1307,8 @@ public with sharing class InboundInsurancePaymentService {
 		String payloadHash,
 		String inboundStatus,
 		String rejectionReason,
-		Id candidatePolicyId
+		Id candidatePolicyId,
+		Boolean restartsPipeline
 	) {
 		inboundPayment.externalPaymentId__c = data.externalPaymentId;
 		inboundPayment.inboundStatus__c = inboundStatus;
@@ -956,12 +1318,15 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.manualReviewRequired__c = STATUS_MANUAL_REVIEW.equals(
 			inboundStatus
 		);
-		// Primera etapa del pipeline: el pago quedo recibido y persistido. Los eslabones
-		// siguientes la van avanzando; junto con el estado permite listar los detenidos.
-		// En un reenvio se reinicia a proposito: el pago vuelve a Parseado y recorre el
-		// pipeline de nuevo, asi que la etapa alcanzada tiene que volver al principio.
-		inboundPayment.pipelineStage__c = CobranzaLog.STAGE_RECEPCION;
-		inboundPayment.parsedAt__c = System.now();
+		if (restartsPipeline) {
+			// Primera etapa del pipeline: el pago quedo recibido y persistido. Los eslabones
+			// siguientes la van avanzando; junto con el estado permite listar los detenidos.
+			// Un reenvio que devuelve el pago al circuito la reinicia, porque el pago va a
+			// recorrerlo de nuevo; uno sin cambios no, porque el pago no se mueve.
+			inboundPayment.pipelineStage__c = CobranzaLog.STAGE_RECEPCION;
+			inboundPayment.parsedAt__c = System.now();
+		}
+		inboundPayment.contentFingerprint__c = data.contentFingerprint;
 		inboundPayment.receivedAt__c = System.now();
 		inboundPayment.rawBankReference__c = data.rawBankReference;
 		inboundPayment.rejectionReason__c = rejectionReason;
@@ -1005,52 +1370,36 @@ public with sharing class InboundInsurancePaymentService {
 	 * @creation date: 30/07/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Deja traza cuando la integracion reenvia un pago que ya estaba
-	 *               conciliado y ademas trae un importe o una fecha de pago distintos a los
-	 *               que se conciliaron. Solo se registra ese caso: la integracion reenvia el
-	 *               historico de forma rutinaria, y registrar cada reenvio sin cambios
-	 *               inundaria el registro sin aportar nada. Un pago ya conciliado que vuelve
-	 *               con otros datos, en cambio, es la senal de que lo conciliado dejo de
+	 *               conciliado y ademas trae una correccion real: los mismos cambios que
+	 *               justifican anular su cobro. Solo se registra ese caso: la integracion
+	 *               reenvia el historico de forma rutinaria, y registrar cada reenvio sin
+	 *               cambios inundaria el registro sin aportar nada. Un pago ya conciliado que
+	 *               vuelve con otros datos, en cambio, es la senal de que lo conciliado dejo de
 	 *               coincidir con lo que informa la aseguradora.
-	 * @param existing: Registro inbound ya existente, con sus valores actuales.
-	 * @param incoming: Datos parseados del reenvio.
+	 * @param contexts: Filas del lote ya clasificadas.
 	 * @return
 	 */
-	private static void logResentWithChanges(
-		InboundInsurancePayment__c existing,
-		ParsedInboundData incoming
-	) {
-		if (existing.inboundStatus__c != INBOUND_STATUS_RECONCILED) {
-			return;
+	private static void logResentWithChanges(List<RowContext> contexts) {
+		for (RowContext ctx : contexts) {
+			if (
+				ctx.owner != ctx ||
+				ctx.existing == null ||
+				!ctx.materialChange ||
+				ctx.existing.inboundStatus__c != INBOUND_STATUS_RECONCILED
+			) {
+				continue;
+			}
+			CobranzaLog.info(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_INBOUND_RESENT_CHANGED,
+					'Pago ya conciliado (' +
+						ctx.existing.externalPaymentId__c +
+						') reenviado con datos distintos: ' +
+						String.join(ctx.changes, '; ') +
+						'.'
+				)
+				.onInbound(ctx.existing.Id);
 		}
-
-		List<String> changes = new List<String>();
-		if (existing.sourceAmount__c != incoming.sourceAmount) {
-			changes.add(
-				'importe ' + existing.sourceAmount__c + ' -> ' + incoming.sourceAmount
-			);
-		}
-		if (existing.sourcePaymentDate__c != incoming.sourcePaymentDate) {
-			changes.add(
-				'fecha de pago ' +
-					existing.sourcePaymentDate__c +
-					' -> ' +
-					incoming.sourcePaymentDate
-			);
-		}
-		if (changes.isEmpty()) {
-			return;
-		}
-
-		CobranzaLog.info(
-				CobranzaLog.STAGE_RECEPCION,
-				CobranzaLog.EVENT_INBOUND_RESENT_CHANGED,
-				'Pago ya conciliado (' +
-					existing.externalPaymentId__c +
-					') reenviado con datos distintos: ' +
-					String.join(changes, '; ') +
-					'.'
-			)
-			.onInbound(existing.Id);
 	}
 
 	/**
@@ -1062,21 +1411,14 @@ public with sharing class InboundInsurancePaymentService {
 	 *               fecha de pago) no se encolan: quedan fuera del
 	 *               pipeline hasta transicionar a Parseado. Solo ejecuta el enqueue
 	 *               si hay al menos un ID elegible.
-	 * @param inserted: Registros recien insertados por el DML de este lote.
-	 * @param updated: Registros recien actualizados por el DML de este lote.
+	 * @param written: Registros de este lote que se guardaron y pueden seguir su curso.
 	 * @return
 	 */
 	private static void enqueueNormalization(
-		List<InboundInsurancePayment__c> inserted,
-		List<InboundInsurancePayment__c> updated
+		List<InboundInsurancePayment__c> written
 	) {
 		Set<Id> candidates = new Set<Id>();
-		for (InboundInsurancePayment__c rec : inserted) {
-			if (rec.inboundStatus__c == STATUS_PARSED) {
-				candidates.add(rec.Id);
-			}
-		}
-		for (InboundInsurancePayment__c rec : updated) {
+		for (InboundInsurancePayment__c rec : written) {
 			if (rec.inboundStatus__c == STATUS_PARSED) {
 				candidates.add(rec.Id);
 			}
@@ -1128,21 +1470,14 @@ public with sharing class InboundInsurancePaymentService {
 	 *               la aseguradora contra los de nuestro plan, semanas antes del cobro.
 	 *               La poliza ya se resolvio en esta misma recepcion, asi que solo falta la
 	 *               cuota: se encola directamente ese eslabon, que sabe detenerse ahi.
-	 * @param inserted: Registros nuevos del lote.
-	 * @param updated: Registros existentes actualizados.
+	 * @param written: Registros de este lote que se guardaron y pueden seguir su curso.
 	 * @return
 	 */
 	private static void enqueueScheduledChargeMatching(
-		List<InboundInsurancePayment__c> inserted,
-		List<InboundInsurancePayment__c> updated
+		List<InboundInsurancePayment__c> written
 	) {
 		Set<Id> candidates = new Set<Id>();
-		for (InboundInsurancePayment__c rec : inserted) {
-			if (rec.inboundStatus__c == STATUS_PENDING_PAYMENT) {
-				candidates.add(rec.Id);
-			}
-		}
-		for (InboundInsurancePayment__c rec : updated) {
+		for (InboundInsurancePayment__c rec : written) {
 			if (rec.inboundStatus__c == STATUS_PENDING_PAYMENT) {
 				candidates.add(rec.Id);
 			}
@@ -1199,6 +1534,45 @@ public with sharing class InboundInsurancePaymentService {
 			WHERE externalPaymentId__c IN :externalIds
 		]) {
 			result.put(rec.externalPaymentId__c, rec);
+		}
+		return result;
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Busca por la huella de su contenido los rechazados sin folio que ya
+	 *               tenemos. Sin folio no hay otra forma de saber que un recibo ya llego: la
+	 *               huella del mensaje completo no sirve, porque incluye la fecha de
+	 *               sincronizacion y cambia en cada envio.
+	 * @param fingerprints: Huellas de las filas sin folio del lote.
+	 * @return Mapa de huella al rechazado mas antiguo con esa huella.
+	 */
+	private static Map<String, InboundInsurancePayment__c> findRejectedWithoutId(
+		Set<String> fingerprints
+	) {
+		Map<String, InboundInsurancePayment__c> result = new Map<String, InboundInsurancePayment__c>();
+		fingerprints.remove(null);
+		if (fingerprints.isEmpty()) {
+			return result;
+		}
+		for (InboundInsurancePayment__c rec : [
+			SELECT
+				Id,
+				inboundStatus__c,
+				contentFingerprint__c,
+				resendCount__c,
+				resendChangeLog__c
+			FROM InboundInsurancePayment__c
+			WHERE
+				contentFingerprint__c IN :fingerprints
+				AND externalPaymentId__c = NULL
+				AND inboundStatus__c = :STATUS_REJECTED
+			ORDER BY CreatedDate
+		]) {
+			if (!result.containsKey(rec.contentFingerprint__c)) {
+				result.put(rec.contentFingerprint__c, rec);
+			}
 		}
 		return result;
 	}
@@ -1361,6 +1735,43 @@ public with sharing class InboundInsurancePaymentService {
 		return EncodingUtil.convertToHex(
 			Crypto.generateDigest('SHA-256', Blob.valueOf(requestBody))
 		);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Huella del contenido del recibo: aseguradora, poliza, folio, importe,
+	 *               estatus y fechas. Deja fuera la fecha de sincronizacion y los demas datos
+	 *               que la integracion cambia en cada envio, de modo que el mismo recibo da la
+	 *               misma huella en cualquier sincronizacion. El importe va con dos decimales
+	 *               para que 450 y 450.00 den la misma huella.
+	 * @param data: Datos parseados de la fila.
+	 * @return Huella SHA-256 en hexadecimal.
+	 */
+	private static String calculateContentFingerprint(ParsedInboundData data) {
+		List<String> parts = new List<String>{
+			normalizeText(data.sourceCarrierCode),
+			normalizeText(data.sourceInsuranceCarrier),
+			normalizeText(data.sourcePolicyNumber),
+			normalizeText(data.sourceReceiptNumber),
+			data.sourceAmount == null
+				? null
+				: data.sourceAmount.setScale(2).toPlainString(),
+			normalizeText(data.sourcePaymentStatus),
+			normalizeText(data.sourcePaymentStatusRaw),
+			data.sourcePaymentDate == null
+				? null
+				: String.valueOf(data.sourcePaymentDate),
+			data.sourceDueDate == null ? null : String.valueOf(data.sourceDueDate),
+			data.sourceCancellationDate == null
+				? null
+				: String.valueOf(data.sourceCancellationDate)
+		};
+		List<String> normalized = new List<String>();
+		for (String part : parts) {
+			normalized.add(part == null ? '' : part);
+		}
+		return calculatePayloadHash(String.join(normalized, '|'));
 	}
 
 	/**
@@ -1568,6 +1979,7 @@ public with sharing class InboundInsurancePaymentService {
 		Date sourcePolicyStartDate;
 		Date sourcePolicyRenewalDate;
 		Date sourcePolicyIssueDate;
+		String contentFingerprint;
 	}
 
 	private class RowContext {
@@ -1580,7 +1992,12 @@ public with sharing class InboundInsurancePaymentService {
 		String payloadHash;
 		String validationReason;
 		String outcome;
-		String existingStatus;
+		String writeError;
+		// Fila que escribe el registro. Las filas repetidas del mismo lote apuntan a la
+		// primera; las que no escriben nada lo dejan vacio.
+		RowContext owner;
+		// Pago que ya teniamos, tal como estaba antes de este envio.
+		InboundInsurancePayment__c existing;
 		InboundInsurancePayment__c record;
 	}
 
