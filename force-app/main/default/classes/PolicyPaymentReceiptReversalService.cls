@@ -28,6 +28,7 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	private static final String RECEIPT_STATUS_REVERSED = 'Reversado';
 	private static final String RECON_STATUS_REVIEW = 'Requiere revision';
 	private static final String INBOUND_STATUS_MANUAL_REVIEW = 'Revision Manual';
+	private static final String REVERSAL_REASON_REFUND = 'Devolucion';
 
 	private static final String INSTALLMENT_STATUS_PENDING = 'Pendiente';
 	private static final String INSTALLMENT_STATUS_RECONCILED = 'Conciliado';
@@ -238,7 +239,22 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			return;
 		}
 
-		reopenReconciliations(reversedReceiptIds);
+		// Una devolucion de la aseguradora no es un error de conciliacion: el pago que concilio la
+		// cuota fue real y estaba bien conciliado. Por eso ni la conciliacion ni ese pago vuelven
+		// a revision; si volvieran, reprocesarlos conciliaria otra vez una cuota cuyo dinero ya
+		// se devolvio. La cuota si se reabre, igual que en cualquier otra reversa.
+		Set<Id> backToReview = new Set<Id>();
+		for (PolicyPaymentReceipt__c receipt : newReceipts) {
+			if (
+				reversedReceiptIds.contains(receipt.Id) &&
+				!REVERSAL_REASON_REFUND.equals(receipt.reversalReason__c)
+			) {
+				backToReview.add(receipt.Id);
+			}
+		}
+		if (!backToReview.isEmpty()) {
+			reopenReconciliations(backToReview);
+		}
 		reopenInstallments(reversedReceiptIds);
 		signalOpportunities(reversedReceiptIds);
 		AppLogger.flush();

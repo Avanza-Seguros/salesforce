@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>refundOutcome__c</fullName>
+    <description
+	>Qué se hizo con un importe negativo de la aseguradora. Pendiente de aplicar: la aseguradora todavía no lo da por aplicado. Sin efecto: se registró sin tocar nada. Anulación contable: canceló cuotas no pagadas. Devolución de cuota: anuló el recibo de una cuota pagada. Devolución sin cuota: devolución de la póliza sin cuota asociada. Requiere revisión: no coincide exactamente con nada y lo decide el analista. Lo escribe únicamente Apex.</description>
+    <label>Resultado de la devolución</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Pendiente de aplicar</fullName>
+                <default>false</default>
+                <label>Pendiente de aplicar</label>
+            </value>
+            <value>
+                <fullName>Sin efecto</fullName>
+                <default>false</default>
+                <label>Sin efecto</label>
+            </value>
+            <value>
+                <fullName>Anulacion contable</fullName>
+                <default>false</default>
+                <label>Anulación contable</label>
+            </value>
+            <value>
+                <fullName>Devolucion de cuota</fullName>
+                <default>false</default>
+                <label>Devolución de cuota</label>
+            </value>
+            <value>
+                <fullName>Devolucion sin cuota</fullName>
+                <default>false</default>
+                <label>Devolución sin cuota</label>
+            </value>
+            <value>
+                <fullName>Requiere revision</fullName>
+                <default>false</default>
+                <label>Requiere revisión</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

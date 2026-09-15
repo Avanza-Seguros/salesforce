@@ -1,24 +1,27 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ListView xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Pagos_Detenidos</fullName>
+    <fullName>Devoluciones_por_revisar</fullName>
     <columns>OBJECT_ID</columns>
     <columns>externalPaymentId__c</columns>
-    <columns>pipelineStage__c</columns>
-    <columns>inboundStatus__c</columns>
     <columns>sourcePolicyNumber__c</columns>
     <columns>sourceAmount__c</columns>
+    <columns>sourceDueDate__c</columns>
     <columns>sourcePaymentDate__c</columns>
-    <columns>sourceInsuranceCarrier__c</columns>
+    <columns>carrierReceiptStatus__c</columns>
+    <columns>refundReviewReason__c</columns>
     <columns>candidatePolicy__c</columns>
     <columns>receivedAt__c</columns>
-    <columns>LAST_UPDATE</columns>
     <filterScope>Everything</filterScope>
     <filters>
-        <field>inboundStatus__c</field>
-        <operation>notEqual</operation>
-        <value
-		>Conciliado,Rechazado,Pendiente de Pago,Archivado,No Conciliable,Devolucion</value>
+        <field>manualReviewRequired__c</field>
+        <operation>equals</operation>
+        <value>1</value>
     </filters>
-    <label>Pagos detenidos</label>
+    <filters>
+        <field>sourceAmount__c</field>
+        <operation>lessThan</operation>
+        <value>0</value>
+    </filters>
+    <label>Devoluciones por revisar</label>
     <language>es</language>
 </ListView>

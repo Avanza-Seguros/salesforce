@@ -145,7 +145,7 @@ private class InboundInsurancePaymentRestResourceTest {
 				'{' +
 				'"externalPaymentId__c":"EXT-2003",' +
 				'"sourcePolicyNumber__c":"POL-INVALID-001",' +
-				'"sourceAmount__c":0,' +
+				'"sourceAmount__c":"abc",' +
 				'"sourcePaymentDate__c":"24/04/2026"' +
 				'}' +
 				']'
@@ -1310,7 +1310,7 @@ private class InboundInsurancePaymentRestResourceTest {
 			'[' +
 				'{' +
 				'"sourcePolicyNumber__c":"POL-HB-05",' +
-				'"sourceAmount__c":0,' +
+				'"sourceAmount__c":"abc",' +
 				'"sourceCarrierCode__c":"GNP",' +
 				'"sourceReceiptNumber__c":"HB-5"' +
 				'}' +
@@ -1733,13 +1733,16 @@ private class InboundInsurancePaymentRestResourceTest {
 	@IsTest
 	static void rejectedPaymentResentUpdatesTheSameRecord() {
 		String body =
-			'[{"sourcePolicyNumber__c":"POL-431-06","sourceAmount__c":0,' +
+			'[{"sourcePolicyNumber__c":"POL-431-06","sourceAmount__c":"abc",' +
 			'"sourceCarrierCode__c":"GNP","sourceReceiptNumber__c":"431-6"}]';
 		invokeEndpoint(body);
 
 		Test.startTest();
 		invokeEndpoint(
-			body.replace('"sourceAmount__c":0', '"sourceAmount__c":-10')
+			body.replace(
+				'"sourceAmount__c":"abc"',
+				'"sourceAmount__c":"abc","sourceCustomerName__c":"CLIENTE 2"'
+			)
 		);
 		Test.stopTest();
 
@@ -1748,7 +1751,7 @@ private class InboundInsurancePaymentRestResourceTest {
 			SELECT
 				inboundStatus__c,
 				rejectionReason__c,
-				sourceAmount__c,
+				sourceCustomerName__c,
 				resendCount__c
 			FROM InboundInsurancePayment__c
 			WHERE externalPaymentId__c = 'GNP_431-6'
@@ -1756,8 +1759,8 @@ private class InboundInsurancePaymentRestResourceTest {
 		Assert.areEqual('Rechazado', rejected.inboundStatus__c);
 		Assert.areEqual('Importe invalido', rejected.rejectionReason__c);
 		Assert.areEqual(
-			-10,
-			rejected.sourceAmount__c,
+			'CLIENTE 2',
+			rejected.sourceCustomerName__c,
 			'Se actualiza el mismo registro.'
 		);
 		Assert.areEqual(1, rejected.resendCount__c, 'Y se cuenta el reenvio.');
@@ -1800,7 +1803,7 @@ private class InboundInsurancePaymentRestResourceTest {
 	@IsTest
 	static void repeatedRejectedRowsInOneBatchAreStoredOnce() {
 		String withFolio =
-			'{"sourcePolicyNumber__c":"POL-431-12","sourceAmount__c":0,' +
+			'{"sourcePolicyNumber__c":"POL-431-12","sourceAmount__c":"abc",' +
 			'"sourceCarrierCode__c":"GNP","sourceReceiptNumber__c":"431-12"}';
 		String withoutFolio =
 			'{"sourcePolicyNumber__c":"POL-431-12","sourceAmount__c":90.00,' +
@@ -1914,7 +1917,7 @@ private class InboundInsurancePaymentRestResourceTest {
 		PolicyPaymentReceipt__c receipt = buildReconciledChain('POL-431-10');
 
 		Test.startTest();
-		invokeEndpoint(resendBody('0', ''));
+		invokeEndpoint(resendBody('"abc"', ''));
 		Test.stopTest();
 
 		Assert.areNotEqual(500, RestContext.response.statusCode);

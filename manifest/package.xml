@@ -15,6 +15,9 @@
         <members>InboundConfidenceScoreQueueable</members>
         <members>InboundConfidenceScoreQueueableTest</members>
         <members>InboundInstallmentCandidateQueueable</members>
+        <members>InboundRefundQueueable</members>
+        <members>InboundRefundService</members>
+        <members>InboundRefundServiceTest</members>
         <members>InboundInstallmentCandidateQueueableTest</members>
         <members>InboundPolicyCandidateQueueable</members>
         <members>InboundPolicyCandidateQueueableTest</members>
@@ -86,6 +89,14 @@
         <members>InboundInsurancePayment__c.confidenceBand__c</members>
         <members>InboundInsurancePayment__c.confidenceScore__c</members>
         <members>InboundInsurancePayment__c.contentFingerprint__c</members>
+        <members>InboundInsurancePayment__c.refundOutcome__c</members>
+        <members>InboundInsurancePayment__c.refundResolutionNotes__c</members>
+        <members>InboundInsurancePayment__c.refundResolvedAt__c</members>
+        <members>InboundInsurancePayment__c.refundResolvedBy__c</members>
+        <members>InboundInsurancePayment__c.refundReviewReason__c</members>
+        <members>InsurancePolicy.totalRefundedAmount__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByRefund__c</members>
+        <members>PolicyPaymentReceipt__c.refundInboundPayment__c</members>
         <members>InboundInsurancePayment__c.manualReviewRequired__c</members>
         <members>InboundInsurancePayment__c.externalPaymentId__c</members>
         <members>InboundInsurancePayment__c.reprocessCount__c</members>
@@ -244,10 +255,12 @@
         <members>reconciliationManualReject</members>
         <members>reconciliationManualReprocess</members>
         <members>policyInstallments</members>
+        <members>inboundRefundResolve</members>
         <members>policyPaymentReceiptReverse</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
+        <members>InboundInsurancePayment__c.Resolver_devolucion</members>
         <members>PaymentReconciliation__c.Aprobar_manualmente</members>
         <members>PaymentReconciliation__c.Rechazar_manualmente</members>
         <members>PaymentReconciliation__c.Reprocesar</members>
@@ -271,6 +284,8 @@
     <types>
         <members>AppLog__c.Errores_Por_Dominio</members>
         <members>AppLog__c.Errores_Ultimos_7_Dias</members>
+        <members>InboundInsurancePayment__c.Devoluciones</members>
+        <members>InboundInsurancePayment__c.Devoluciones_por_revisar</members>
         <members>InboundInsurancePayment__c.En_Revision_Manual</members>
         <members>InboundInsurancePayment__c.Pagos_Detenidos</members>
         <members>Opportunity.Oportunidades_Con_Cobro_Reversado</members>

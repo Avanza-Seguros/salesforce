@@ -36,6 +36,7 @@ public with sharing class InboundInsurancePaymentService {
 
 	private static final String STATUS_MANUAL_REVIEW = 'Revision Manual';
 	private static final String STATUS_NOT_RECONCILABLE = 'No Conciliable';
+	private static final String STATUS_REFUND = 'Devolucion';
 
 	// La integracion sincroniza recibos, no novedades: un mismo recibo puede
 	// llegar muchas veces. Solo se reprocesa si cambio algo que afecta al cobro.
@@ -217,11 +218,7 @@ public with sharing class InboundInsurancePaymentService {
 						ctx.data,
 						ctx.itemJson,
 						ctx.payloadHash,
-						resolveInboundStatus(
-							ctx.data.carrierReceiptStatus,
-							ctx.data.sourcePaymentDate != null,
-							null
-						),
+						resolveStatusFor(ctx.data, null),
 						null,
 						candidatePolicyId,
 						true
@@ -248,11 +245,7 @@ public with sharing class InboundInsurancePaymentService {
 				ctx.data,
 				ctx.itemJson,
 				ctx.payloadHash,
-				resolveInboundStatus(
-					ctx.data.carrierReceiptStatus,
-					ctx.data.sourcePaymentDate != null,
-					null
-				),
+				resolveStatusFor(ctx.data, null),
 				null,
 				candidatePolicyId
 			);
@@ -295,6 +288,7 @@ public with sharing class InboundInsurancePaymentService {
 		logCarrierStatusOutcomes(contexts);
 		enqueueNormalization(written.values());
 		enqueueScheduledChargeMatching(written.values());
+		enqueueRefunds(written.values());
 		AppLogger.flush();
 
 		Integer received = 0;
@@ -313,6 +307,42 @@ public with sharing class InboundInsurancePaymentService {
 		}
 
 		return buildBatchResult(rows.size(), received, updated, rejected, results);
+	}
+
+	/**
+	 * @creation date: 15/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Manda a su proceso las devoluciones que hay que evaluar: las nuevas y las que
+	 *               un reenvio con cambios devolvio al principio (su resultado se vacio en este
+	 *               mismo envio). Las que ya tienen resultado no se encolan: una devolucion no se
+	 *               aplica dos veces.
+	 * @param written: Registros de este lote que se guardaron.
+	 * @return
+	 */
+	private static void enqueueRefunds(List<InboundInsurancePayment__c> written) {
+		Set<Id> candidates = new Set<Id>();
+		for (InboundInsurancePayment__c rec : written) {
+			if (
+				STATUS_REFUND.equals(rec.inboundStatus__c) &&
+				rec.isSet('refundOutcome__c') &&
+				rec.refundOutcome__c == null
+			) {
+				candidates.add(rec.Id);
+			}
+		}
+		if (candidates.isEmpty()) {
+			return;
+		}
+		try {
+			System.enqueueJob(new InboundRefundQueueable(candidates));
+		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_RECEPCION,
+				e,
+				'InboundRefundQueueable',
+				candidates
+			);
+		}
 	}
 
 	/**
@@ -434,11 +464,18 @@ public with sharing class InboundInsurancePaymentService {
 
 		String resolvedStatus = existing.inboundStatus__c;
 		if (reevaluate) {
-			resolvedStatus = resolveInboundStatus(
-				data.carrierReceiptStatus,
-				data.sourcePaymentDate != null,
-				existing.inboundStatus__c
-			);
+			resolvedStatus = resolveStatusFor(data, existing.inboundStatus__c);
+			String refundHold = refundHoldReason(existing, data);
+			if (refundHold != null) {
+				resolvedStatus = STATUS_MANUAL_REVIEW;
+				owner.record.refundReviewReason__c = refundHold;
+				CobranzaLog.warn(
+						CobranzaLog.STAGE_RECEPCION,
+						CobranzaLog.EVENT_REFUND_RESENT_AFTER_APPLIED,
+						refundHold
+					)
+					.onInbound(existing.Id);
+			}
 		} else {
 			// Un reenvio que omite una fecha no borra la que ya teniamos: omitirla no es
 			// corregirla, y el pago seguiria vivo con un dato menos.
@@ -774,7 +811,9 @@ public with sharing class InboundInsurancePaymentService {
 			return REJECTION_REASON_INCOMPLETE_PAYLOAD;
 		}
 
-		if (!hasAmountField || sourceAmount == null || sourceAmount <= 0) {
+		// Un importe negativo es una devolucion o una anulacion, y uno en cero acompaña a una
+		// anulacion: los dos se aceptan. Solo es invalido el importe que falta o no es numero.
+		if (!hasAmountField || sourceAmount == null) {
 			return REJECTION_REASON_INVALID_AMOUNT;
 		}
 
@@ -1119,8 +1158,11 @@ public with sharing class InboundInsurancePaymentService {
 				ctx.skip ||
 				ctx.validationReason != null ||
 				ctx.record == null ||
-				ctx.record.Id == null
+				ctx.record.Id == null ||
+				ctx.data.sourceAmount == null ||
+				ctx.data.sourceAmount <= 0
 			) {
+				// Las devoluciones y los importes cero no siguen la regla del estatus: tienen la suya.
 				continue;
 			}
 
@@ -1247,6 +1289,67 @@ public with sharing class InboundInsurancePaymentService {
 	}
 
 	/**
+	 * @creation date: 15/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Estado que corresponde a una fila segun su importe y lo que informa la
+	 *               aseguradora. El signo manda: un negativo es siempre una devolucion o una
+	 *               anulacion y va a su propio proceso, aunque la aseguradora lo reporte como
+	 *               pagado; un importe cero acompaña a una anulacion y no tiene efecto. Solo
+	 *               los importes positivos siguen la regla del estatus de la aseguradora.
+	 * @param data: Datos parseados de la fila.
+	 * @param existingStatus: Estado actual del registro existente, o null si es nuevo.
+	 * @return Estado a asignar a inboundStatus__c.
+	 */
+	private static String resolveStatusFor(
+		ParsedInboundData data,
+		String existingStatus
+	) {
+		if (data.sourceAmount != null && data.sourceAmount < 0) {
+			return STATUS_REFUND;
+		}
+		if (data.sourceAmount != null && data.sourceAmount == 0) {
+			return STATUS_NOT_RECONCILABLE;
+		}
+		return resolveInboundStatus(
+			data.carrierReceiptStatus,
+			data.sourcePaymentDate != null,
+			existingStatus
+		);
+	}
+
+	/**
+	 * @creation date: 15/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Casos en que un reenvio con cambios NO debe devolver la fila a su proceso
+	 *               sino a una persona: una devolucion que ya se aplico (reaplicarla sola
+	 *               podria anular otra cuota o sumar dos veces al total devuelto) y un folio que
+	 *               era un cobro y ahora llega como devolucion.
+	 * @param existing: Pago guardado.
+	 * @param data: Datos del reenvio.
+	 * @return Motivo para el analista, o null si el reenvio sigue su curso normal.
+	 */
+	private static String refundHoldReason(
+		InboundInsurancePayment__c existing,
+		ParsedInboundData data
+	) {
+		Boolean incomingRefund = data.sourceAmount != null && data.sourceAmount < 0;
+		if (
+			incomingRefund &&
+			existing.sourceAmount__c != null &&
+			existing.sourceAmount__c > 0 &&
+			!STATUS_REJECTED.equals(existing.inboundStatus__c)
+		) {
+			return 'Este folio era un cobro y llegó como devolución: lo revisa una persona.';
+		}
+		if (
+			InboundRefundService.APPLIED_OUTCOMES.contains(existing.refundOutcome__c)
+		) {
+			return 'Esta devolución ya se había aplicado y volvió a llegar con otros datos: no se vuelve a aplicar sola.';
+		}
+		return null;
+	}
+
+	/**
 	 * @creation date: 24/04/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Crea una nueva instancia de InboundInsurancePayment__c y la
@@ -1327,6 +1430,12 @@ public with sharing class InboundInsurancePaymentService {
 			inboundPayment.parsedAt__c = System.now();
 		}
 		inboundPayment.contentFingerprint__c = data.contentFingerprint;
+		if (restartsPipeline && STATUS_REFUND.equals(inboundStatus)) {
+			// Una devolucion nueva, o devuelta al principio por un reenvio con cambios, vuelve a su
+			// proceso sin resultado. Una ya aplicada nunca llega aqui: va a revision.
+			inboundPayment.refundOutcome__c = null;
+			inboundPayment.refundReviewReason__c = null;
+		}
 		inboundPayment.receivedAt__c = System.now();
 		inboundPayment.rawBankReference__c = data.rawBankReference;
 		inboundPayment.rejectionReason__c = rejectionReason;
@@ -1529,7 +1638,8 @@ public with sharing class InboundInsurancePaymentService {
 				sourcePolicyNumber__c,
 				sourceInstallmentNumber__c,
 				sourceDueDate__c,
-				sourceCurrency__c
+				sourceCurrency__c,
+				refundOutcome__c
 			FROM InboundInsurancePayment__c
 			WHERE externalPaymentId__c IN :externalIds
 		]) {
@@ -1941,7 +2051,7 @@ public with sharing class InboundInsurancePaymentService {
 		}
 
 		if (validationReason == REJECTION_REASON_INVALID_AMOUNT) {
-			return 'El campo sourceAmount debe ser mayor que cero.';
+			return 'El campo sourceAmount es obligatorio y debe ser un número.';
 		}
 
 		return 'La solicitud es invalida.';

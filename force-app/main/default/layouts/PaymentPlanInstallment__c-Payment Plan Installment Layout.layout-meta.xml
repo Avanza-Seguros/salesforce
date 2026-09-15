@@ -90,6 +90,10 @@
                 <behavior>Readonly</behavior>
                 <field>reopenedFromCancelledOn__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>cancelledByRefund__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

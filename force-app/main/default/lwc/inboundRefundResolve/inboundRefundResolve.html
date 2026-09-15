@@ -1,0 +1,66 @@
+<template>
+	<div class="slds-p-around_medium">
+		<template lwc:if={loading}>
+			<lightning-spinner alternative-text="Procesando"></lightning-spinner>
+		</template>
+
+		<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+			Esta devolución no coincidió exactamente con nada y quedó para su
+			revisión. «Devolución de una cuota» anula el recibo de la cuota elegida;
+			«Devolución sin cuota» la registra como devolución de la póliza y suma al
+			total devuelto; «Sin efecto» no cambia nada.
+		</p>
+
+		<lightning-radio-group
+			name="resolution"
+			label="¿Qué es esta devolución?"
+			options={resolutionOptions}
+			value={resolution}
+			onchange={handleResolutionChange}
+			required
+		></lightning-radio-group>
+
+		<template lwc:if={isInstallment}>
+			<template lwc:if={hasInstallments}>
+				<lightning-combobox
+					class="slds-m-top_small"
+					name="installment"
+					label="Cuota devuelta"
+					placeholder="Seleccione la cuota"
+					value={installmentId}
+					options={installmentOptions}
+					onchange={handleInstallmentChange}
+					required
+				></lightning-combobox>
+			</template>
+			<template lwc:else>
+				<p class="slds-m-top_small slds-text-color_error">
+					La póliza no tiene cuotas pagadas con un recibo que se pueda anular.
+				</p>
+			</template>
+		</template>
+
+		<lightning-textarea
+			class="slds-m-top_small"
+			name="notes"
+			label="Notas"
+			value={notes}
+			onchange={handleNotesChange}
+			required
+		></lightning-textarea>
+
+		<div class="slds-m-top_medium slds-grid slds-grid_align-end">
+			<lightning-button
+				label="Cancelar"
+				onclick={close}
+				class="slds-m-right_x-small"
+			></lightning-button>
+			<lightning-button
+				variant="brand"
+				label="Resolver devolución"
+				onclick={handleResolve}
+				disabled={disableResolve}
+			></lightning-button>
+		</div>
+	</div>
+</template>

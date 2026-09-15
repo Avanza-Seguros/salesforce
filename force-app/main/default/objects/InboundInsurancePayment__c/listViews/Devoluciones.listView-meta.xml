@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Devoluciones</fullName>
+    <columns>OBJECT_ID</columns>
+    <columns>externalPaymentId__c</columns>
+    <columns>sourcePolicyNumber__c</columns>
+    <columns>sourceAmount__c</columns>
+    <columns>sourceDueDate__c</columns>
+    <columns>carrierReceiptStatus__c</columns>
+    <columns>refundOutcome__c</columns>
+    <columns>candidatePolicy__c</columns>
+    <columns>refundResolvedBy__c</columns>
+    <columns>receivedAt__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>sourceAmount__c</field>
+        <operation>lessThan</operation>
+        <value>0</value>
+    </filters>
+    <label>Devoluciones</label>
+    <language>es</language>
+</ListView>

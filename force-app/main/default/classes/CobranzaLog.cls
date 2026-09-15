@@ -31,6 +31,20 @@ public with sharing class CobranzaLog {
 	// Etapa de operacion, NO del pipeline: la reversa no es un paso del motor sino una accion
 	// posterior sobre un cobro ya procesado. Por eso no figura en el picklist pipelineStage__c.
 	public static final String STAGE_REVERSA = 'Reversa';
+	// Devoluciones y anulaciones de la aseguradora (importes negativos). No recorren el
+	// circuito de conciliacion: tienen su propio proceso.
+	public static final String STAGE_DEVOLUCION = 'Devolucion';
+	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
+	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
+	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide
+	// el analista.
+	public static final String EVENT_REFUND_TO_REVIEW = 'REFUND_TO_REVIEW';
+	// No se pudo aplicar la devolucion; se deshizo lo que alcanzo a hacer y queda en revision.
+	public static final String EVENT_REFUND_FAILED = 'REFUND_FAILED';
+	// Una devolucion ya aplicada volvio a llegar con otros datos. No se reaplica sola.
+	public static final String EVENT_REFUND_RESENT_AFTER_APPLIED = 'REFUND_RESENT_AFTER_APPLIED';
+	// El analista resolvio a mano una devolucion.
+	public static final String EVENT_REFUND_RESOLVED = 'REFUND_RESOLVED_MANUALLY';
 
 	// --- Codigos de evento: fallos al procesar un pago individual ---
 	// Fallo al normalizar los datos del pago. El pago queda Rechazado.
