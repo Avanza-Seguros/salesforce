@@ -31,6 +31,20 @@ public with sharing class CobranzaLog {
 	// Etapa de operacion, NO del pipeline: la reversa no es un paso del motor sino una accion
 	// posterior sobre un cobro ya procesado. Por eso no figura en el picklist pipelineStage__c.
 	public static final String STAGE_REVERSA = 'Reversa';
+	// Devoluciones y anulaciones de la aseguradora (importes negativos). No recorren el
+	// circuito de conciliacion: tienen su propio proceso.
+	public static final String STAGE_DEVOLUCION = 'Devolucion';
+	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
+	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
+	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide
+	// el analista.
+	public static final String EVENT_REFUND_TO_REVIEW = 'REFUND_TO_REVIEW';
+	// No se pudo aplicar la devolucion; se deshizo lo que alcanzo a hacer y queda en revision.
+	public static final String EVENT_REFUND_FAILED = 'REFUND_FAILED';
+	// Una devolucion ya aplicada volvio a llegar con otros datos. No se reaplica sola.
+	public static final String EVENT_REFUND_RESENT_AFTER_APPLIED = 'REFUND_RESENT_AFTER_APPLIED';
+	// El analista resolvio a mano una devolucion.
+	public static final String EVENT_REFUND_RESOLVED = 'REFUND_RESOLVED_MANUALLY';
 
 	// --- Codigos de evento: fallos al procesar un pago individual ---
 	// Fallo al normalizar los datos del pago. El pago queda Rechazado.
@@ -65,6 +79,9 @@ public with sharing class CobranzaLog {
 	// Fallo al reabrir la cuota tras reversar su recibo. Es el mas grave de la cascada: la
 	// cuota queda figurando como pagada sobre un cobro que ya no existe.
 	public static final String EVENT_REVERSAL_INSTALLMENT_FAILED = 'REVERSAL_INSTALLMENT_FAILED';
+	// La cuota se reabrio localizandola por el recibo o la conciliacion, porque no tenia
+	// registrado el recibo que la concilio. Es un dato incoherente que conviene revisar.
+	public static final String EVENT_REVERSAL_INSTALLMENT_UNLINKED = 'REVERSAL_INSTALLMENT_UNLINKED';
 	// La poliza quedo sin cobros validos pero no tiene oportunidad de origen que señalar.
 	public static final String EVENT_REVERSAL_OPPORTUNITY_MISSING = 'REVERSAL_OPPORTUNITY_MISSING';
 	// Fallo al señalar o al retirar la señal en la oportunidad comercial.
@@ -96,6 +113,14 @@ public with sharing class CobranzaLog {
 	// Reenvio con cambios.
 	public static final String EVENT_RESEND_REVERSAL_FAILED = 'RESEND_REVERSAL_FAILED';
 	public static final String EVENT_RESEND_NOT_REQUEUED = 'RESEND_NOT_REQUEUED';
+	// Un pago del envio no pudo guardarse. El resto del envio sigue su curso; este queda
+	// fuera y hay que volver a enviarlo una vez corregida la causa.
+	public static final String EVENT_INBOUND_WRITE_FAILED = 'INBOUND_WRITE_FAILED';
+	// Llego un reenvio invalido de un pago que ya teniamos bien: no se aplica, para no
+	// pisar un pago valido con datos que no se pueden procesar.
+	public static final String EVENT_INVALID_RESEND_IGNORED = 'INVALID_RESEND_IGNORED';
+	// Fallo no previsto al procesar un envio completo: se deshizo todo lo que habia escrito.
+	public static final String EVENT_ENDPOINT_FAILED = 'ENDPOINT_FAILED';
 	// Cobro programado.
 	public static final String EVENT_DUPLICATE_SCHEDULED_CHARGE = 'DUPLICATE_SCHEDULED_CHARGE';
 	// Reapertura de una cuota cancelada.

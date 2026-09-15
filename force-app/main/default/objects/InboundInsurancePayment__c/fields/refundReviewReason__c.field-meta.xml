@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>refundReviewReason__c</fullName>
+    <description
+	>Por qué una devolución quedó para el analista: sin coincidencia exacta, ambigua, cobro duplicado, póliza en un estado que no permite decidir, o póliza no encontrada. Lo escribe únicamente Apex.</description>
+    <label>Motivo de revisión de la devolución</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

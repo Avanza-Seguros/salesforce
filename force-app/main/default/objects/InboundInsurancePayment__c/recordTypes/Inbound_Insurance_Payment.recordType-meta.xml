@@ -91,6 +91,37 @@
             <fullName>No Conciliable</fullName>
             <default>false</default>
         </values>
+        <values>
+            <fullName>Devolucion</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>refundOutcome__c</picklist>
+        <values>
+            <fullName>Anulacion contable</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Devolucion de cuota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Devolucion sin cuota</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente de aplicar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Requiere revision</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sin efecto</fullName>
+            <default>false</default>
+        </values>
     </picklistValues>
     <picklistValues>
         <picklist>policyMatchReason__c</picklist>

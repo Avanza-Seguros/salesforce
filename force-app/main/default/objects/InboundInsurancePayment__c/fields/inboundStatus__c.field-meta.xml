@@ -61,6 +61,11 @@
                 <default>false</default>
                 <label>No Conciliable</label>
             </value>
+            <value>
+                <fullName>Devolucion</fullName>
+                <default>false</default>
+                <label>Devolución</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

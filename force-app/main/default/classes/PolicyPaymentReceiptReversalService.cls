@@ -28,8 +28,10 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	private static final String RECEIPT_STATUS_REVERSED = 'Reversado';
 	private static final String RECON_STATUS_REVIEW = 'Requiere revision';
 	private static final String INBOUND_STATUS_MANUAL_REVIEW = 'Revision Manual';
+	private static final String REVERSAL_REASON_REFUND = 'Devolucion';
 
 	private static final String INSTALLMENT_STATUS_PENDING = 'Pendiente';
+	private static final String INSTALLMENT_STATUS_RECONCILED = 'Conciliado';
 
 	// Estados de cuota que una reversa NO revive: se anularon por una decision de negocio
 	// deliberada y resucitarlos crearia una obligacion que nadie decidio volver a exigir.
@@ -41,7 +43,39 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
 
+	// Pagos que la recepcion acaba de devolver al circuito porque la aseguradora corrigio el
+	// recibo. Su estado ya lo decidio la recepcion (vuelven a procesarse) y la cascada no debe
+	// pisarlo con revision manual: el pago se quedaria quieto para siempre sin que nada
+	// fallara. Vive solo mientras dura la anulacion que dispara la recepcion.
+	private static Set<Id> inboundsInReprocess = new Set<Id>();
+
 	private class ReversalException extends Exception {
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Indica que los pagos dados se estan reprocesando, para que la reversa de
+	 *               sus recibos no les cambie el estado. Hay que llamar a
+	 *               clearInboundsInReprocess en cuanto termine la anulacion.
+	 * @param inboundIds: Pagos que la recepcion ya devolvio al circuito.
+	 * @return
+	 */
+	public static void markInboundsInReprocess(Set<Id> inboundIds) {
+		inboundsInReprocess = inboundIds == null
+			? new Set<Id>()
+			: new Set<Id>(inboundIds);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Vuelve al comportamiento normal: toda reversa devuelve el pago a
+	 *               revision manual.
+	 * @return
+	 */
+	public static void clearInboundsInReprocess() {
+		inboundsInReprocess = new Set<Id>();
 	}
 
 	public class ReversalValidationException extends Exception {
@@ -205,7 +239,22 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			return;
 		}
 
-		reopenReconciliations(reversedReceiptIds);
+		// Una devolucion de la aseguradora no es un error de conciliacion: el pago que concilio la
+		// cuota fue real y estaba bien conciliado. Por eso ni la conciliacion ni ese pago vuelven
+		// a revision; si volvieran, reprocesarlos conciliaria otra vez una cuota cuyo dinero ya
+		// se devolvio. La cuota si se reabre, igual que en cualquier otra reversa.
+		Set<Id> backToReview = new Set<Id>();
+		for (PolicyPaymentReceipt__c receipt : newReceipts) {
+			if (
+				reversedReceiptIds.contains(receipt.Id) &&
+				!REVERSAL_REASON_REFUND.equals(receipt.reversalReason__c)
+			) {
+				backToReview.add(receipt.Id);
+			}
+		}
+		if (!backToReview.isEmpty()) {
+			reopenReconciliations(backToReview);
+		}
 		reopenInstallments(reversedReceiptIds);
 		signalOpportunities(reversedReceiptIds);
 		AppLogger.flush();
@@ -404,11 +453,17 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	 * @return
 	 */
 	private static void reopenInstallments(Set<Id> reversedReceiptIds) {
-		List<PaymentPlanInstallment__c> installments = [
-			SELECT Id, installmentStatus__c, dueDate__c, matchedReceipt__c
-			FROM PaymentPlanInstallment__c
-			WHERE matchedReceipt__c IN :reversedReceiptIds
-		];
+		Map<Id, PaymentPlanInstallment__c> installmentsById = new Map<Id, PaymentPlanInstallment__c>(
+			[
+				SELECT Id, installmentStatus__c, dueDate__c, matchedReceipt__c
+				FROM PaymentPlanInstallment__c
+				WHERE matchedReceipt__c IN :reversedReceiptIds
+			]
+		);
+		installmentsById.putAll(
+			findUnlinkedInstallments(reversedReceiptIds, installmentsById.keySet())
+		);
+		List<PaymentPlanInstallment__c> installments = installmentsById.values();
 
 		if (installments.isEmpty()) {
 			// Recibo sin cuota vinculada: caso valido. La reversa se completa igual.
@@ -443,6 +498,89 @@ public with sharing class PolicyPaymentReceiptReversalService {
 	}
 
 	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Localiza las cuotas que el recibo concilio pero que no tienen registrado
+	 *               ese recibo. Pasa cuando una carga crea la cuota ya conciliada antes que su
+	 *               recibo y nunca vuelve a enlazarlos: sin esta busqueda, la reversa dejaria la
+	 *               cuota Conciliado sin ningun recibo valido.
+	 *               Se buscan por el propio recibo y por su conciliacion, y solo se toman las
+	 *               que siguen Conciliado, sin recibo enlazado y sin otro recibo reconocido que
+	 *               las sostenga: una cuota cubierta por otro cobro no se reabre.
+	 * @param reversedReceiptIds: Recibos que acaban de reversarse.
+	 * @param alreadyFound: Cuotas ya localizadas por el enlace directo.
+	 * @return Cuotas a reabrir, por Id.
+	 */
+	private static Map<Id, PaymentPlanInstallment__c> findUnlinkedInstallments(
+		Set<Id> reversedReceiptIds,
+		Set<Id> alreadyFound
+	) {
+		Map<Id, PaymentPlanInstallment__c> result = new Map<Id, PaymentPlanInstallment__c>();
+		Map<Id, Id> receiptByInstallment = new Map<Id, Id>();
+		for (PolicyPaymentReceipt__c receipt : [
+			SELECT
+				Id,
+				paymentPlanInstallment__c,
+				paymentReconciliation__r.paymentPlanInstallment__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id IN :reversedReceiptIds
+		]) {
+			Id viaReconciliation = receipt.paymentReconciliation__r == null
+				? null
+				: receipt.paymentReconciliation__r.paymentPlanInstallment__c;
+			for (
+				Id installmentId : new List<Id>{
+					receipt.paymentPlanInstallment__c,
+					viaReconciliation
+				}
+			) {
+				if (installmentId != null && !alreadyFound.contains(installmentId)) {
+					receiptByInstallment.put(installmentId, receipt.Id);
+				}
+			}
+		}
+		if (receiptByInstallment.isEmpty()) {
+			return result;
+		}
+
+		Set<Id> heldByAnotherReceipt = new Set<Id>();
+		for (PolicyPaymentReceipt__c other : [
+			SELECT paymentPlanInstallment__c
+			FROM PolicyPaymentReceipt__c
+			WHERE
+				paymentPlanInstallment__c IN :receiptByInstallment.keySet()
+				AND receiptStatus__c = :RECEIPT_STATUS_RECOGNIZED
+				AND Id NOT IN :reversedReceiptIds
+		]) {
+			heldByAnotherReceipt.add(other.paymentPlanInstallment__c);
+		}
+
+		for (PaymentPlanInstallment__c inst : [
+			SELECT Id, installmentStatus__c, dueDate__c, matchedReceipt__c
+			FROM PaymentPlanInstallment__c
+			WHERE
+				Id IN :receiptByInstallment.keySet()
+				AND matchedReceipt__c = NULL
+				AND installmentStatus__c = :INSTALLMENT_STATUS_RECONCILED
+		]) {
+			if (heldByAnotherReceipt.contains(inst.Id)) {
+				continue;
+			}
+			result.put(inst.Id, inst);
+			CobranzaLog.warn(
+					CobranzaLog.STAGE_REVERSA,
+					CobranzaLog.EVENT_REVERSAL_INSTALLMENT_UNLINKED,
+					'La cuota estaba Conciliado sin tener registrado el recibo que la concilió. ' +
+						'Se reabrió igualmente al reversar ese recibo; conviene revisar por qué le ' +
+						'faltaba el enlace.'
+				)
+				.onRecord(receiptByInstallment.get(inst.Id))
+				.appendDetails('Cuota: ' + inst.Id);
+		}
+		return result;
+	}
+
+	/**
 	 * @creation date: 30/07/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Devuelve a la bandeja las conciliaciones cuyo recibo fue reversado y sus
@@ -468,7 +606,9 @@ public with sharing class PolicyPaymentReceiptReversalService {
 		}
 
 		List<PaymentReconciliation__c> reconsToUpdate = new List<PaymentReconciliation__c>();
-		List<InboundInsurancePayment__c> inboundsToUpdate = new List<InboundInsurancePayment__c>();
+		// Por Id: dos conciliaciones del mismo pago no pueden dar dos filas del mismo pago en
+		// una sola actualizacion.
+		Map<Id, InboundInsurancePayment__c> inboundsToUpdate = new Map<Id, InboundInsurancePayment__c>();
 
 		for (PaymentReconciliation__c recon : reconciliations) {
 			reconsToUpdate.add(
@@ -489,11 +629,9 @@ public with sharing class PolicyPaymentReceiptReversalService {
 				)
 			);
 			if (recon.inboundPayment__c != null) {
-				inboundsToUpdate.add(
-					new InboundInsurancePayment__c(
-						Id = recon.inboundPayment__c,
-						inboundStatus__c = INBOUND_STATUS_MANUAL_REVIEW
-					)
+				inboundsToUpdate.put(
+					recon.inboundPayment__c,
+					reopenedInbound(recon.inboundPayment__c)
 				);
 			}
 		}
@@ -504,10 +642,40 @@ public with sharing class PolicyPaymentReceiptReversalService {
 			'No se pudo devolver la conciliación a la bandeja de revisión'
 		);
 		updateOrLog(
-			inboundsToUpdate,
+			inboundsToUpdate.values(),
 			CobranzaLog.EVENT_REVERSAL_INBOUND_FAILED,
 			'No se pudo devolver el pago inbound al circuito de revisión'
 		);
+	}
+
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Arma la actualizacion del pago cuyo recibo se reverso. Borra el metodo, el
+	 *               resultado, la puntuacion y la fecha de la conciliacion anulada: dejarlos
+	 *               haria que el pago siguiera diciendo "Match Exacto" sobre un cobro que ya no
+	 *               existe. La conciliacion conserva los suyos como evidencia.
+	 *               El pago vuelve a revision manual, salvo que la recepcion lo este
+	 *               reprocesando: en ese caso su estado ya esta decidido y no se toca.
+	 * @param inboundId: Pago a devolver al circuito.
+	 * @return Registro listo para actualizar.
+	 */
+	private static InboundInsurancePayment__c reopenedInbound(Id inboundId) {
+		InboundInsurancePayment__c inbound = new InboundInsurancePayment__c(
+			Id = inboundId,
+			reconciliationMethod__c = null,
+			reconciliationResult__c = null,
+			confidenceScore__c = null,
+			confidenceBand__c = null,
+			reconciledAt__c = null
+		);
+		if (!inboundsInReprocess.contains(inboundId)) {
+			inbound.inboundStatus__c = INBOUND_STATUS_MANUAL_REVIEW;
+			// La bandeja del analista filtra por esta marca, no por el estado: sin ella el
+			// pago quedaria en revision manual pero invisible.
+			inbound.manualReviewRequired__c = true;
+		}
+		return inbound;
 	}
 
 	/**

@@ -660,6 +660,202 @@ private class PolicyPaymentReceiptReversalServiceTest {
 		return receipt;
 	}
 
+	private static Id inboundOf(PolicyPaymentReceipt__c receipt) {
+		return [
+			SELECT sourceInboundPayment__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id = :receipt.Id
+		]
+		.sourceInboundPayment__c;
+	}
+
+	private static Id installmentOf(PolicyPaymentReceipt__c receipt) {
+		return [
+			SELECT paymentPlanInstallment__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id = :receipt.Id
+		]
+		.paymentPlanInstallment__c;
+	}
+
+	/**
+	 * @description: El pago deja de mostrar el metodo, el resultado y la puntuacion de la
+	 *               conciliacion anulada, y queda visible en la bandeja del analista.
+	 */
+	@IsTest
+	static void reversalClearsStaleReconciliationDataFromThePayment() {
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('40');
+		update new InboundInsurancePayment__c(
+			Id = inboundOf(receipt),
+			reconciliationMethod__c = 'POLICY_DATE_AMOUNT',
+			reconciliationResult__c = 'Match Exacto',
+			confidenceScore__c = 85,
+			confidenceBand__c = 'Alta',
+			reconciledAt__c = System.now()
+		);
+
+		Test.startTest();
+		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+		Test.stopTest();
+
+		InboundInsurancePayment__c inbound = [
+			SELECT
+				inboundStatus__c,
+				manualReviewRequired__c,
+				reconciliationMethod__c,
+				reconciliationResult__c,
+				confidenceScore__c,
+				confidenceBand__c,
+				reconciledAt__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inboundOf(receipt)
+		];
+		Assert.areEqual(INBOUND_MANUAL_REVIEW, inbound.inboundStatus__c);
+		Assert.isTrue(
+			inbound.manualReviewRequired__c,
+			'La bandeja filtra por esta marca'
+		);
+		Assert.isNull(inbound.reconciliationMethod__c);
+		Assert.isNull(
+			inbound.reconciliationResult__c,
+			'Ya no dice Match Exacto sobre un cobro anulado'
+		);
+		Assert.isNull(inbound.confidenceScore__c);
+		Assert.isNull(inbound.confidenceBand__c);
+		Assert.isNull(inbound.reconciledAt__c);
+	}
+
+	/**
+	 * @description: La reversa reabre la cuota aunque esta no tenga registrado el recibo que
+	 *               la concilio, localizandola por el propio recibo, y deja constancia.
+	 */
+	@IsTest
+	static void reopensInstallmentEvenWithoutTheDirectLink() {
+		PolicyPaymentReceipt__c receipt = buildChainWithInstallment(
+			'41',
+			Date.today().addDays(10),
+			'Conciliado'
+		);
+		Id installmentId = installmentOf(receipt);
+		update new PaymentPlanInstallment__c(
+			Id = installmentId,
+			matchedReceipt__c = null
+		);
+		Assert.areEqual(
+			'Conciliado',
+			[
+				SELECT installmentStatus__c
+				FROM PaymentPlanInstallment__c
+				WHERE Id = :installmentId
+			]
+			.installmentStatus__c,
+			'Precondicion: la cuota queda Conciliado sin recibo enlazado'
+		);
+
+		Test.startTest();
+		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Pendiente',
+			[
+				SELECT installmentStatus__c
+				FROM PaymentPlanInstallment__c
+				WHERE Id = :installmentId
+			]
+			.installmentStatus__c,
+			'La cuota vuelve a deberse aunque le faltara el enlace'
+		);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_REVERSAL_INSTALLMENT_UNLINKED
+			],
+			'El dato incoherente queda registrado'
+		);
+	}
+
+	/**
+	 * @description: Sin enlace directo, una cuota sostenida por otro recibo reconocido no se
+	 *               reabre: sigue cubierta por un cobro valido.
+	 */
+	@IsTest
+	static void doesNotReopenUnlinkedInstallmentHeldByAnotherReceipt() {
+		PolicyPaymentReceipt__c receipt = buildChainWithInstallment(
+			'42',
+			Date.today().addDays(10),
+			'Conciliado'
+		);
+		Id installmentId = installmentOf(receipt);
+		PolicyPaymentReceipt__c full = [
+			SELECT insurancePolicy__c, paymentReconciliation__c
+			FROM PolicyPaymentReceipt__c
+			WHERE Id = :receipt.Id
+		];
+		insert new PolicyPaymentReceipt__c(
+			insurancePolicy__c = full.insurancePolicy__c,
+			paymentReconciliation__c = full.paymentReconciliation__c,
+			paymentPlanInstallment__c = installmentId,
+			receiptDate__c = Date.today(),
+			receiptAmount__c = 500,
+			receiptStatus__c = RECEIPT_RECOGNIZED,
+			receiptNumber__c = 'REC-42-B'
+		);
+		update new PaymentPlanInstallment__c(
+			Id = installmentId,
+			matchedReceipt__c = null
+		);
+
+		Test.startTest();
+		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Conciliado',
+			[
+				SELECT installmentStatus__c
+				FROM PaymentPlanInstallment__c
+				WHERE Id = :installmentId
+			]
+			.installmentStatus__c
+		);
+	}
+
+	/**
+	 * @description: Un pago que la recepcion esta reprocesando conserva el estado que ella le
+	 *               dio: si la reversa lo mandara a revision manual, el pago se quedaria
+	 *               quieto sin que nada fallara.
+	 */
+	@IsTest
+	static void keepsTheStatusOfAPaymentBeingReprocessed() {
+		PolicyPaymentReceipt__c receipt = buildReconciledChain('43');
+		Id inboundId = inboundOf(receipt);
+		update new InboundInsurancePayment__c(
+			Id = inboundId,
+			inboundStatus__c = 'Parseado'
+		);
+
+		Test.startTest();
+		PolicyPaymentReceiptReversalService.markInboundsInReprocess(
+			new Set<Id>{ inboundId }
+		);
+		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+		PolicyPaymentReceiptReversalService.clearInboundsInReprocess();
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Parseado',
+			[
+				SELECT inboundStatus__c
+				FROM InboundInsurancePayment__c
+				WHERE Id = :inboundId
+			]
+			.inboundStatus__c
+		);
+	}
+
 	/**
 	 * @description: H202: una cuota cuyo vencimiento aun no paso vuelve a Pendiente, se
 	 *               desvincula del recibo y pierde la fecha de conciliacion.

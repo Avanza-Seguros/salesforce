@@ -33,14 +33,56 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	private class PolicyMatchException extends Exception {
 	}
 
-	private class PolicyMatchResult {
-		Id policyId;
-		String reason;
+	public class PolicyMatchResult {
+		public Id policyId;
+		public String reason;
 
 		PolicyMatchResult(Id policyId, String reason) {
 			this.policyId = policyId;
 			this.reason = reason;
 		}
+	}
+
+	/**
+	 * @creation date: 15/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Resuelve la poliza de cada pago con la misma regla del circuito: por numero
+	 *               y, si varias vigencias comparten numero, por la que contiene la fecha del
+	 *               recibo. Existe para que los procesos que no recorren el circuito -las
+	 *               devoluciones- identifiquen la poliza exactamente igual que un cobro.
+	 *               El numero se normaliza aqui porque esos pagos no pasan por el normalizador.
+	 * @param payments: Pagos con numero de poliza y fechas.
+	 * @return Resultado por Id de pago.
+	 */
+	public static Map<Id, PolicyMatchResult> resolveAll(
+		List<InboundInsurancePayment__c> payments
+	) {
+		Map<Id, PolicyMatchResult> result = new Map<Id, PolicyMatchResult>();
+		Set<String> policyNumbers = new Set<String>();
+		List<InboundInsurancePayment__c> normalized = new List<InboundInsurancePayment__c>();
+		for (InboundInsurancePayment__c p : payments) {
+			String num = String.isBlank(p.sourcePolicyNumber__c)
+				? null
+				: p.sourcePolicyNumber__c.trim().toUpperCase();
+			if (num != null) {
+				policyNumbers.add(num);
+			}
+			normalized.add(
+				new InboundInsurancePayment__c(
+					Id = p.Id,
+					sourcePolicyNumber__c = num,
+					sourceDueDate__c = p.sourceDueDate__c,
+					sourcePaymentDate__c = p.sourcePaymentDate__c
+				)
+			);
+		}
+		Map<String, List<InsurancePolicy>> policiesByNumber = findPolicies(
+			policyNumbers
+		);
+		for (InboundInsurancePayment__c p : normalized) {
+			result.put(p.Id, resolvePolicy(p, policiesByNumber));
+		}
+		return result;
 	}
 
 	private Set<Id> inboundPaymentIds;

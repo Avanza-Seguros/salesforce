@@ -248,6 +248,10 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>totalRefundedAmount__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>TotalStandardAmount</field>
             </layoutItems>
         </layoutColumns>
