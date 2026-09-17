@@ -6,10 +6,6 @@
     <picklistValues>
         <picklist>carrierReceiptStatus__c</picklist>
         <values>
-            <fullName>Pagado</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Pendiente</fullName>
             <default>false</default>
         </values>
@@ -23,6 +19,10 @@
         </values>
         <values>
             <fullName>Desconocido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pagado</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -95,6 +95,10 @@
             <fullName>Devolucion</fullName>
             <default>false</default>
         </values>
+        <values>
+            <fullName>Estado de poliza</fullName>
+            <default>false</default>
+        </values>
     </picklistValues>
     <picklistValues>
         <picklist>refundOutcome__c</picklist>
@@ -126,10 +130,6 @@
     <picklistValues>
         <picklist>policyMatchReason__c</picklist>
         <values>
-            <fullName>UNICO_GANADOR</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>RESUELTO_POR_VIGENCIA</fullName>
             <default>false</default>
         </values>
@@ -143,6 +143,10 @@
         </values>
         <values>
             <fullName>SIN_NUMERO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>UNICO_GANADOR</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -225,6 +229,60 @@
         <values>
             <fullName>MuleSoft</fullName>
             <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>confidenceBand__c</picklist>
+        <values>
+            <fullName>Alta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baja</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Media</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>pipelineStage__c</picklist>
+        <values>
+            <fullName>Conciliacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cuota actualizada</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cuota candidata</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Normalizacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Poliza candidata</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Recepcion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Recibo generado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reglas de conciliacion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Score de confianza</fullName>
+            <default>false</default>
         </values>
     </picklistValues>
 </RecordType>

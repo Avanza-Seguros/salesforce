@@ -17,7 +17,12 @@
         <field>inboundStatus__c</field>
         <operation>notEqual</operation>
         <value
-		>Conciliado,Rechazado,Pendiente de Pago,Archivado,No Conciliable,Devolucion</value>
+		>Conciliado,Rechazado,Pendiente de Pago,Archivado,No Conciliable,Devolucion,Estado de poliza</value>
+    </filters>
+    <filters>
+        <field>policyStatusNotice__c</field>
+        <operation>equals</operation>
+        <value>0</value>
     </filters>
     <label>Pagos detenidos</label>
     <language>es</language>

@@ -66,6 +66,11 @@
                 <default>false</default>
                 <label>Devolución</label>
             </value>
+            <value>
+                <fullName>Estado de poliza</fullName>
+                <default>false</default>
+                <label>Estado de póliza</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

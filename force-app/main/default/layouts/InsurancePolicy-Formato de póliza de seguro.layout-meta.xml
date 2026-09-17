@@ -252,6 +252,22 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>carrierPolicyStatus__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>carrierPolicyStatusRaw__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>carrierStatusSyncedAt__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>carrierStatusNotice__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>TotalStandardAmount</field>
             </layoutItems>
         </layoutColumns>

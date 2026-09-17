@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>carrierStatusNotice__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description
+	>Comunicación de la aseguradora que dejó el estado guardado. Desde ella se ven la fecha y el motivo de la cancelación.</description>
+    <label>Comunicación de la aseguradora</label>
+    <referenceTo>InboundInsurancePayment__c</referenceTo>
+    <relationshipLabel>Pólizas con este estado comunicado</relationshipLabel>
+    <relationshipName>PoliciesWithCarrierStatus</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

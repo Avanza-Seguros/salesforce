@@ -129,6 +129,12 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_INSTALLMENT_REOPENED = 'INSTALLMENT_REOPENED_FROM_CANCELLED';
 	// No se pudo guardar el nuevo estado de una poliza; las demas del lote si se guardaron.
 	public static final String EVENT_POLICY_STATUS_UPDATE_FAILED = 'POLICY_STATUS_UPDATE_FAILED';
+	// Comunicacion de estado de poliza cuya poliza no se identifico: queda para revision manual.
+	public static final String EVENT_POLICY_STATUS_NOTICE_TO_REVIEW = 'POLICY_STATUS_NOTICE_TO_REVIEW';
+	// Estado de poliza comunicado por la aseguradora que no tiene equivalencia configurada.
+	public static final String EVENT_CARRIER_POLICY_STATUS_UNMAPPED = 'CARRIER_POLICY_STATUS_UNMAPPED';
+	// No se pudo guardar el estado comunicado en la poliza o el resultado en la comunicacion.
+	public static final String EVENT_CARRIER_POLICY_STATUS_FAILED = 'CARRIER_POLICY_STATUS_FAILED';
 
 	/**
 	 * @creation date: 29/07/2026

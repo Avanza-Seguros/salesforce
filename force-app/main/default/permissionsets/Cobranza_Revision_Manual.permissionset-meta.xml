@@ -5,6 +5,10 @@
     <hasActivationRequired>false</hasActivationRequired>
     <label>Cobranza - Revisión Manual</label>
     <classAccesses>
+        <apexClass>PolicyCarrierStatusService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PaymentReconciliationManualService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -128,6 +132,31 @@
         <viewAllFields>false</viewAllFields>
         <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierPolicyStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierPolicyStatusRaw__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierStatusSyncedAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierStatusNotice__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InboundInsurancePayment__c.policyStatusNotice__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
         <field>PaymentReconciliation__c.manualResolvedBy__c</field>
