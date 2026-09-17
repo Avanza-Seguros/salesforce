@@ -19,7 +19,7 @@ texto adicional y sin ```. Estructura:
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;:[ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -96,7 +96,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -187,7 +187,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -278,7 +278,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -623,7 +623,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -969,7 +969,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -1000,6 +1000,10 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
   - `ganadoras`: Elige a la de mejor prima (etiqueta &quot;Mejor prima&quot;) y a la de mejor cobertura/equilibrio (etiqueta &quot;Mejor equilibrio&quot;). En `a_cambio` describe QUÉ pierde el cliente al elegirla (ej. tope menor).
   - `guia_frecuencia`: Clasifica 3 riesgos típicos del ramo. En el campo `gana`, escribe el **nombre de la aseguradora** que mejor lo cubre según el texto.
 6. **Glosario**: Define al menos 3 términos técnicos relevantes del ramo detectado (ej. para GMM: Deducible, Coaseguro, Tope; para Auto: RC, Daños Materiales, Robo Total).
+7. **Forma y condiciones de pago (SIEMPRE)**: Por CADA aseguradora extrae la forma de pago (Contado, Financiado, Tarjeta, Domiciliado), la frecuencia (Anual, Semestral, Trimestral, Mensual), el número de pagos, el primer pago y el pago subsecuente. Si el pago financiado tiene un total distinto al de contado, registra ambos (`prima_anual` = de contado; `prima_total` = total financiado; `prima_neta` = prima sin impuestos si aparece).
+8. **Vigencia (SIEMPRE)**: Extrae `vigencia_inicio` y `vigencia_fin` (formato AAAA-MM-DD) de cada cotización. Si solo aparece la fecha de inicio y el plazo (ej. 1 año), calcula la fecha fin.
+9. **Datos del cliente y generales**: Los datos del cliente y de la cotización (nombre, RFC, vigencia, forma de pago, número de cotización, etc.) a veces NO están junto a las coberturas: búscalos también en secciones como &quot;Datos generales de la cotización&quot;, &quot;Datos de la póliza&quot;, &quot;Condiciones de pago&quot;, encabezados y pies de página. Revisa TODO el texto de cada archivo antes de dejar un campo vacío.
+10. **Minuciosidad (comparativo de alto nivel)**: Sé lo más específico y detallado posible. Captura cada concepto que aparezca (primas, IVA/impuestos, derecho de póliza, recargo por pago fraccionado, descuentos, deducibles y coaseguros por cobertura, sumas aseguradas, topes y condiciones). El objetivo es un comparativo minucioso que no omita ninguna diferencia relevante entre aseguradoras.
 
 ---
 
@@ -1093,7 +1097,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
 Usa solo estilos en línea (style=&quot;...&quot;) en cada elemento. No incluyas &lt;style&gt;, &lt;script&gt;, &lt;link&gt;, imágenes ni recursos externos.
 Estructura, en este orden:
 Encabezado: barra con fondo degradado azul (#0052CC → #00A3BF), en blanco, con el título &quot;Comparativo de Seguro de {ramo}&quot;, debajo el nombre del cliente y las vigencias, y una etiqueta &quot;N aseguradoras comparadas · Cotizado por Avanza Seguro&quot;.
-Tabla comparativa (concepto × aseguradora): primera columna con el nombre del concepto; una columna por aseguradora. Encabezado de cada aseguradora con su nombre y, si aplica, un badge (&quot;★ Mejor prima&quot; en verde, &quot;★ Mejor equilibrio&quot; en naranja). La columna ganadora va resaltada con fondo #FFF3E6 y borde izquierdo/derecho naranja (#C55A11). Filas: Precio Anual (en negritas), Suma Asegurada, Deducible, Coaseguro, Tope de coaseguro, y las coberturas relevantes con &quot;Sí&quot;/&quot;No incluida&quot;.
+Tabla comparativa (concepto × aseguradora): primera columna con el nombre del concepto; una columna por aseguradora. Encabezado de cada aseguradora con su nombre y, si aplica, un badge (&quot;★ Mejor prima&quot; en verde, &quot;★ Mejor equilibrio&quot; en naranja). La columna ganadora va resaltada con fondo #FFF3E6 y borde izquierdo/derecho naranja (#C55A11). Filas OBLIGATORIAS en este orden (incluye TODAS las que tengan dato, no omitas ninguna): Prima neta, Precio Anual / Prima total (en negritas), Forma de pago, Frecuencia de pago, Número de pagos, Primer pago, Pago subsecuente, Vigencia (inicio – fin), Suma Asegurada, Deducible, Coaseguro, Tope de coaseguro, y luego cada cobertura relevante con &quot;Sí&quot;/&quot;No incluida&quot;. La forma de pago y la vigencia deben aparecer para CADA aseguradora.
 Recomendaciones: 1 o 2 tarjetas (con borde izquierdo de color y fondo claro) explicando &quot;por qué&quot; y &quot;a cambio&quot; de cada opción ganadora.
 Guía de frecuencia: lista breve riesgo → quién gana → detalle.
 Glosario: lista de términos (Prima, Deducible, Coaseguro, Suma Asegurada, Vigencia) en palabras sencillas.
@@ -1112,7 +1116,7 @@ Toma el mismo diseño y la misma paleta del EJEMPLO de referencia de abajo, camb
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -1143,6 +1147,10 @@ Toma el mismo diseño y la misma paleta del EJEMPLO de referencia de abajo, camb
   - `ganadoras`: Elige a la de mejor prima (etiqueta &quot;Mejor prima&quot;) y a la de mejor cobertura/equilibrio (etiqueta &quot;Mejor equilibrio&quot;). En `a_cambio` describe QUÉ pierde el cliente al elegirla (ej. tope menor).
   - `guia_frecuencia`: Clasifica 3 riesgos típicos del ramo. En el campo `gana`, escribe el **nombre de la aseguradora** que mejor lo cubre según el texto.
 6. **Glosario**: Define al menos 3 términos técnicos relevantes del ramo detectado (ej. para GMM: Deducible, Coaseguro, Tope; para Auto: RC, Daños Materiales, Robo Total).
+7. **Forma y condiciones de pago (SIEMPRE)**: Por CADA aseguradora extrae la forma de pago (Contado, Financiado, Tarjeta, Domiciliado), la frecuencia (Anual, Semestral, Trimestral, Mensual), el número de pagos, el primer pago y el pago subsecuente. Si el pago financiado tiene un total distinto al de contado, registra ambos (`prima_anual` = de contado; `prima_total` = total financiado; `prima_neta` = prima sin impuestos si aparece).
+8. **Vigencia (SIEMPRE)**: Extrae `vigencia_inicio` y `vigencia_fin` (formato AAAA-MM-DD) de cada cotización. Si solo aparece la fecha de inicio y el plazo (ej. 1 año), calcula la fecha fin.
+9. **Datos del cliente y generales**: Los datos del cliente y de la cotización (nombre, RFC, vigencia, forma de pago, número de cotización, etc.) a veces NO están junto a las coberturas: búscalos también en secciones como &quot;Datos generales de la cotización&quot;, &quot;Datos de la póliza&quot;, &quot;Condiciones de pago&quot;, encabezados y pies de página. Revisa TODO el texto de cada archivo antes de dejar un campo vacío.
+10. **Minuciosidad (comparativo de alto nivel)**: Sé lo más específico y detallado posible. Captura cada concepto que aparezca (primas, IVA/impuestos, derecho de póliza, recargo por pago fraccionado, descuentos, deducibles y coaseguros por cobertura, sumas aseguradas, topes y condiciones). El objetivo es un comparativo minucioso que no omita ninguna diferencia relevante entre aseguradoras.
 
 ---
 
@@ -1242,7 +1250,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
  &quot;aseguradoras&quot;: [
   {
    &quot;nombre&quot;:&quot;&quot;, &quot;plan&quot;:&quot;&quot;, &quot;no_cotizacion&quot;:&quot;&quot;, &quot;archivo_origen&quot;:&quot;&quot;,
-   &quot;prima_anual&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
+   &quot;prima_neta&quot;:0, &quot;prima_anual&quot;:0, &quot;prima_total&quot;:0, &quot;moneda&quot;:&quot;MXN&quot;, &quot;forma_pago&quot;:&quot;(Contado|Financiado|Tarjeta|Domiciliado)&quot;, &quot;frecuencia_pago&quot;:&quot;(Anual|Semestral|Trimestral|Mensual)&quot;, &quot;numero_pagos&quot;:0, &quot;primer_pago&quot;:0, &quot;pago_subsecuente&quot;:0, &quot;vigencia_inicio&quot;:&quot;AAAA-MM-DD&quot;, &quot;vigencia_fin&quot;:&quot;AAAA-MM-DD&quot;,
    &quot;notas&quot;:&quot;&quot;,
    &quot;coberturas&quot;: [ { &quot;nombre&quot;:&quot;&quot;, &quot;suma_asegurada&quot;:0, &quot;deducible&quot;:&quot;&quot;, &quot;coaseguro&quot;:&quot;&quot; } ]
   }
@@ -1273,6 +1281,10 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
   - `ganadoras`: Elige a la de mejor prima (etiqueta &quot;Mejor prima&quot;) y a la de mejor cobertura/equilibrio (etiqueta &quot;Mejor equilibrio&quot;). En `a_cambio` describe QUÉ pierde el cliente al elegirla (ej. tope menor).
   - `guia_frecuencia`: Clasifica 3 riesgos típicos del ramo. En el campo `gana`, escribe el **nombre de la aseguradora** que mejor lo cubre según el texto.
 6. **Glosario**: Define al menos 3 términos técnicos relevantes del ramo detectado (ej. para GMM: Deducible, Coaseguro, Tope; para Auto: RC, Daños Materiales, Robo Total).
+7. **Forma y condiciones de pago (SIEMPRE)**: Por CADA aseguradora extrae la forma de pago (Contado, Financiado, Tarjeta, Domiciliado), la frecuencia (Anual, Semestral, Trimestral, Mensual), el número de pagos, el primer pago y el pago subsecuente. Si el pago financiado tiene un total distinto al de contado, registra ambos (`prima_anual` = de contado; `prima_total` = total financiado; `prima_neta` = prima sin impuestos si aparece).
+8. **Vigencia (SIEMPRE)**: Extrae `vigencia_inicio` y `vigencia_fin` (formato AAAA-MM-DD) de cada cotización. Si solo aparece la fecha de inicio y el plazo (ej. 1 año), calcula la fecha fin.
+9. **Datos del cliente y generales**: Los datos del cliente y de la cotización (nombre, RFC, vigencia, forma de pago, número de cotización, etc.) a veces NO están junto a las coberturas: búscalos también en secciones como &quot;Datos generales de la cotización&quot;, &quot;Datos de la póliza&quot;, &quot;Condiciones de pago&quot;, encabezados y pies de página. Revisa TODO el texto de cada archivo antes de dejar un campo vacío.
+10. **Minuciosidad (comparativo de alto nivel)**: Sé lo más específico y detallado posible. Captura cada concepto que aparezca (primas, IVA/impuestos, derecho de póliza, recargo por pago fraccionado, descuentos, deducibles y coaseguros por cobertura, sumas aseguradas, topes y condiciones). El objetivo es un comparativo minucioso que no omita ninguna diferencia relevante entre aseguradoras.
 
 ---
 
@@ -1302,7 +1314,7 @@ Debes generar un HTML **completo, autocontenido** (con `&lt;!DOCTYPE html&gt;`, 
 Usa solo estilos en línea (style=&quot;...&quot;) en cada elemento. No incluyas &lt;style&gt;, &lt;script&gt;, &lt;link&gt;, imágenes ni recursos externos.
 Estructura, en este orden:
 Encabezado: barra con fondo degradado azul (#0052CC → #00A3BF), en blanco, con el título &quot;Comparativo de Seguro de {ramo}&quot;, debajo el nombre del cliente y las vigencias, y una etiqueta &quot;N aseguradoras comparadas · Cotizado por Avanza Seguro&quot;.
-Tabla comparativa (concepto × aseguradora): primera columna con el nombre del concepto; una columna por aseguradora. Encabezado de cada aseguradora con su nombre y, si aplica, un badge (&quot;★ Mejor prima&quot; en verde, &quot;★ Mejor equilibrio&quot; en naranja). La columna ganadora va resaltada con fondo #FFF3E6 y borde izquierdo/derecho naranja (#C55A11). Filas: Precio Anual (en negritas), Suma Asegurada, Deducible, Coaseguro, Tope de coaseguro, y las coberturas relevantes con &quot;Sí&quot;/&quot;No incluida&quot;.
+Tabla comparativa (concepto × aseguradora): primera columna con el nombre del concepto; una columna por aseguradora. Encabezado de cada aseguradora con su nombre y, si aplica, un badge (&quot;★ Mejor prima&quot; en verde, &quot;★ Mejor equilibrio&quot; en naranja). La columna ganadora va resaltada con fondo #FFF3E6 y borde izquierdo/derecho naranja (#C55A11). Filas OBLIGATORIAS en este orden (incluye TODAS las que tengan dato, no omitas ninguna): Prima neta, Precio Anual / Prima total (en negritas), Forma de pago, Frecuencia de pago, Número de pagos, Primer pago, Pago subsecuente, Vigencia (inicio – fin), Suma Asegurada, Deducible, Coaseguro, Tope de coaseguro, y luego cada cobertura relevante con &quot;Sí&quot;/&quot;No incluida&quot;. La forma de pago y la vigencia deben aparecer para CADA aseguradora.
 Recomendaciones: 1 o 2 tarjetas (con borde izquierdo de color y fondo claro) explicando &quot;por qué&quot; y &quot;a cambio&quot; de cada opción ganadora.
 Guía de frecuencia: lista breve riesgo → quién gana → detalle.
 Glosario: lista de términos (Prima, Deducible, Coaseguro, Suma Asegurada, Vigencia) en palabras sencillas.

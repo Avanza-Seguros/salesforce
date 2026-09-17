@@ -1164,9 +1164,18 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('primaTotal', asDecimal(m.get('prima_anual')));
 		q.put('moneda', coalesceStr(stringOf(m.get('moneda')), 'MXN'));
 		q.put('vigencia', stringOf(m.get('vigencia_fin')));
+		q.put('vigenciaInicio', stringOf(m.get('vigencia_inicio')));
 		q.put('noCotizacion', stringOf(m.get('no_cotizacion')));
 		q.put('archivoOrigen', stringOf(m.get('archivo_origen')));
 		q.put('notas', stringOf(m.get('notas')));
+		// Forma de pago y cobranza (nuevos datos del comparador).
+		q.put('formaPago', stringOf(m.get('forma_pago')));
+		q.put('frecuenciaPago', stringOf(m.get('frecuencia_pago')));
+		q.put('primaNeta', asDecimal(m.get('prima_neta')));
+		q.put('primaTotalFin', asDecimal(m.get('prima_total')));
+		q.put('numeroPagos', asDecimal(m.get('numero_pagos')));
+		q.put('primerPago', asDecimal(m.get('primer_pago')));
+		q.put('pagoSubsecuente', asDecimal(m.get('pago_subsecuente')));
 		q.put('tablaCompletaCoberturas', buildCoberturas(m));
 		return q;
 	}
@@ -1416,6 +1425,18 @@ public with sharing class PdfOpportunityCreatorController {
 	private static final String QF_FRECUENCIA  = 'Frecuencia_de_prima__c';
 	private static final String QF_RATINGDATE  = 'RatingDate';
 
+	// Normaliza la frecuencia de pago al catálogo del picklist Frecuencia_de_prima__c
+	// (Mensual, Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
+	private static String normalizarFrecuencia(String valor) {
+		String v = (valor == null) ? '' : valor.toLowerCase();
+		if (v.contains('quincen')) { return 'Quincenal'; }
+		if (v.contains('mensual')) { return 'Mensual'; }
+		if (v.contains('trimestr')) { return 'Trimestral'; }
+		if (v.contains('semestr')) { return 'Semestral'; }
+		// Anual, contado, único o no especificada.
+		return 'Anual';
+	}
+
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -1509,12 +1530,33 @@ public with sharing class PdfOpportunityCreatorController {
 
 			Date vig = parseDate(stringOf(m.get('vigencia')));
 			if (vig != null) { q.ExpirationDate = vig; }
+			Date vigIni = parseDate(stringOf(m.get('vigenciaInicio')));
+			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
 			q.put(QF_RAMO, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo);
 			q.put(QF_RATINGDATE, Date.today());
-			q.put(QF_FRECUENCIA, 'Mensual');
-			q.Prima_Total__c = prima;
+			// Frecuencia real (antes fija en 'Mensual'); se normaliza al catálogo del picklist.
+			String frecRaw = coalesceStr(stringOf(m.get('frecuenciaPago')), stringOf(m.get('frecuencia')));
+			q.put(QF_FRECUENCIA, normalizarFrecuencia(frecRaw));
+			// Número de cotización.
+			String noCot = stringOf(m.get('noCotizacion'));
+			if (String.isNotBlank(noCot)) { q.put('NumeroCotizacion__c', noCot.left(60)); }
+			// Forma de pago y desglose de cobranza (nuevos datos del comparador).
+			String formaPago = stringOf(m.get('formaPago'));
+			if (String.isNotBlank(formaPago)) { q.put('Forma_de_pago__c', formaPago.left(40)); }
+			Decimal primaNeta      = asDecimal(m.get('primaNeta'));
+			Decimal primaTotalFin  = asDecimal(m.get('primaTotalFin'));
+			Decimal numeroPagos    = asDecimal(m.get('numeroPagos'));
+			Decimal primerPago     = asDecimal(m.get('primerPago'));
+			Decimal pagoSubsec     = asDecimal(m.get('pagoSubsecuente'));
+			if (primaNeta != null)     { q.put('Prima_Neta__c', primaNeta); }
+			if (numeroPagos != null)   { q.put('Numero_Pagos__c', numeroPagos); }
+			if (primerPago != null)    { q.put('Primer_Pago__c', primerPago); }
+			if (pagoSubsec != null)    { q.put('Pago_Subsecuente__c', pagoSubsec); }
+			// Prima anual (de contado) y prima total (financiada si difiere).
+			if (prima != null) { q.put('PrimaAnual__c', prima); }
+			q.Prima_Total__c = (primaTotalFin != null && primaTotalFin > 0) ? primaTotalFin : prima;
 			toInsert.add(q);
 		}
 

@@ -281,8 +281,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const payload = seleccionadas.map(q => ({
                 id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
                 primaTotal: q.primaTotal, vigencia: q.vigencia,
+                vigenciaInicio: q.vigenciaInicio,
                 noCotizacion: q.noCotizacion, productId: q.productId,
-                aseguradoraId: q.aseguradoraId, frecuencia: q.frecuencia
+                aseguradoraId: q.aseguradoraId, frecuencia: q.frecuencia,
+                // Forma de pago y cobranza (nuevos datos del comparador).
+                formaPago: q.formaPago, frecuenciaPago: q.frecuenciaPago,
+                primaNeta: q.primaNeta, primaTotalFin: q.primaTotalFin,
+                numeroPagos: q.numeroPagos, primerPago: q.primerPago,
+                pagoSubsecuente: q.pagoSubsecuente
             }));
             const res = await crearCotizacionesDesdePdf({
                 opportunityId: this.opportunity.Id,
