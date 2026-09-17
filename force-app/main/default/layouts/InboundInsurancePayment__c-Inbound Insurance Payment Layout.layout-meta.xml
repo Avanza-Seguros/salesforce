@@ -225,6 +225,10 @@
                 <field>manualReviewRequired__c</field>
             </layoutItems>
             <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>manualReviewReason__c</field>
+            </layoutItems>
+            <layoutItems>
                 <behavior>Edit</behavior>
                 <field>reconciledAt__c</field>
             </layoutItems>

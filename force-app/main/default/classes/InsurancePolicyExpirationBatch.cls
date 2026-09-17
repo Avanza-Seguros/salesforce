@@ -21,8 +21,22 @@ public with sharing class InsurancePolicyExpirationBatch implements Database.Bat
 	 * @return Id del trabajo programado.
 	 */
 	public static Id scheduleDaily() {
+		return scheduleAs(JOB_NAME);
+	}
+
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Programa el proceso con un nombre concreto. En una organizacion no puede
+	 *               haber dos trabajos con el mismo nombre, asi que una prueba usa el suyo y no
+	 *               choca con el que ya esta programado.
+	 * @param jobName: Nombre del trabajo programado.
+	 * @return Id del trabajo programado.
+	 */
+	@TestVisible
+	private static Id scheduleAs(String jobName) {
 		return System.schedule(
-			JOB_NAME,
+			jobName,
 			DAILY_CRON,
 			new InsurancePolicyExpirationBatch()
 		);

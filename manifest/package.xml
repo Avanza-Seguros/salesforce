@@ -55,6 +55,7 @@
         <members>PolicyCarrierStatusService</members>
         <members>PolicyCarrierStatusServiceTest</members>
         <members>PolicyStatusNoticeQueueable</members>
+        <members>PolicyStatusFromCarrierTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -242,6 +243,8 @@
         <members>CarrierPolicyStatusMapping__mdt.CarrierCode__c</members>
         <members>CarrierPolicyStatusMapping__mdt.NormalizedStatus__c</members>
         <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
+        <members>InboundInsurancePayment__c.manualReviewReason__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -300,6 +303,7 @@
     <types>
         <members>Bloquear_Closed_Won_Sin_Pago_Reconocido</members>
         <members>Cerrada_Ganada_Automatico</members>
+        <members>Update_Status_Insurance_Policy</members>
         <name>Flow</name>
     </types>
     <types>

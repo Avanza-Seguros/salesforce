@@ -48,6 +48,16 @@
 	>Otorga al usuario de integracion de MuleSoft acceso al endpoint REST de pagos inbound y permisos completos sobre InboundInsurancePayment__c y lectura sobre InsurancePolicy.</description>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InboundInsurancePayment__c.manualReviewReason__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>InsurancePolicy.carrierPolicyStatus__c</field>
         <readable>true</readable>
     </fieldPermissions>

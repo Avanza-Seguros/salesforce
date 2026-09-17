@@ -60,7 +60,9 @@ private class PolicyCarrierStatusServiceTest {
 			policy.carrierStatusSyncedAt__c
 		);
 		Assert.areEqual(stored.Id, policy.carrierStatusNotice__c);
-		Assert.areEqual('Vigente', policy.Status, 'El estado operativo no cambia');
+		// Guardar lo que dijo la aseguradora y mover el estado operativo son dos pasos: el
+		// segundo lo hace el servicio de estado, que obedece la cancelacion comunicada.
+		Assert.areEqual('Cancelado', policy.Status);
 	}
 
 	/**

@@ -263,7 +263,9 @@ public with sharing class PolicyCarrierStatusService {
 				)
 			);
 		}
-		savePolicies(toUpdate.values());
+		Set<Id> saved = savePolicies(toUpdate.values());
+		// El estado operativo lo calcula un unico servicio a partir de lo que quedo guardado.
+		PolicyStatusService.applyCommunicatedStatus(saved);
 	}
 
 	/**
@@ -368,9 +370,10 @@ public with sharing class PolicyCarrierStatusService {
 		}
 	}
 
-	private static void savePolicies(List<InsurancePolicy> policies) {
+	private static Set<Id> savePolicies(List<InsurancePolicy> policies) {
+		Set<Id> saved = new Set<Id>();
 		if (policies.isEmpty()) {
-			return;
+			return saved;
 		}
 		if (Test.isRunningTest()) {
 			for (InsurancePolicy policy : policies) {
@@ -381,17 +384,20 @@ public with sharing class PolicyCarrierStatusService {
 		}
 		List<Database.SaveResult> results = Database.update(policies, false);
 		for (Integer i = 0; i < results.size(); i++) {
-			if (!results[i].isSuccess()) {
-				CobranzaLog.error(
-						CobranzaLog.STAGE_ESTADO_POLIZA,
-						CobranzaLog.EVENT_CARRIER_POLICY_STATUS_FAILED,
-						'No se pudo guardar en la póliza el estado comunicado por la aseguradora. ' +
-							'Las demás pólizas se actualizaron. Motivo: ' +
-							describeErrors(results[i].getErrors())
-					)
-					.onRecord(policies[i].Id);
+			if (results[i].isSuccess()) {
+				saved.add(policies[i].Id);
+				continue;
 			}
+			CobranzaLog.error(
+					CobranzaLog.STAGE_ESTADO_POLIZA,
+					CobranzaLog.EVENT_CARRIER_POLICY_STATUS_FAILED,
+					'No se pudo guardar en la póliza el estado comunicado por la aseguradora. ' +
+						'Las demás pólizas se actualizaron. Motivo: ' +
+						describeErrors(results[i].getErrors())
+				)
+				.onRecord(policies[i].Id);
 		}
+		return saved;
 	}
 
 	private static String describeErrors(List<Database.Error> errors) {

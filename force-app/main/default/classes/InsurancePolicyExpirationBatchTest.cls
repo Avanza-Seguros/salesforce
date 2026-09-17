@@ -135,8 +135,12 @@ private class InsurancePolicyExpirationBatchTest {
 	 */
 	@IsTest
 	static void schedulesDailyJob() {
+		// Con su propio nombre: el trabajo real ya puede estar programado en la organizacion y
+		// dos trabajos no pueden compartir nombre.
+		String jobName = InsurancePolicyExpirationBatch.JOB_NAME + ' (prueba)';
+
 		Test.startTest();
-		Id jobId = InsurancePolicyExpirationBatch.scheduleDaily();
+		Id jobId = InsurancePolicyExpirationBatch.scheduleAs(jobName);
 		Test.stopTest();
 
 		CronTrigger job = [
@@ -148,10 +152,7 @@ private class InsurancePolicyExpirationBatchTest {
 			InsurancePolicyExpirationBatch.DAILY_CRON,
 			job.CronExpression
 		);
-		Assert.areEqual(
-			InsurancePolicyExpirationBatch.JOB_NAME,
-			job.CronJobDetail.Name
-		);
+		Assert.areEqual(jobName, job.CronJobDetail.Name);
 	}
 
 	/**

@@ -135,6 +135,8 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_CARRIER_POLICY_STATUS_UNMAPPED = 'CARRIER_POLICY_STATUS_UNMAPPED';
 	// No se pudo guardar el estado comunicado en la poliza o el resultado en la comunicacion.
 	public static final String EVENT_CARRIER_POLICY_STATUS_FAILED = 'CARRIER_POLICY_STATUS_FAILED';
+	// Llego un cobro de una poliza que la aseguradora da por cancelada: lo revisa una persona.
+	public static final String EVENT_PAYMENT_ON_CANCELLED_POLICY = 'PAYMENT_ON_CANCELLED_POLICY';
 
 	/**
 	 * @creation date: 29/07/2026

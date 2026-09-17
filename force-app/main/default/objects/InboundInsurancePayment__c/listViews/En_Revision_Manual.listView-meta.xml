@@ -14,6 +14,7 @@
     <columns>candidateCount__c</columns>
     <columns>candidatePolicy__c</columns>
     <columns>manualReviewRequired__c</columns>
+    <columns>manualReviewReason__c</columns>
     <columns>receivedAt__c</columns>
     <filterScope>Everything</filterScope>
     <filters>
