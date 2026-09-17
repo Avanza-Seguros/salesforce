@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>sourceOpportunityCloseDate__c</fullName>
+    <description
+	>Fecha de cierre de la oportunidad que originó la póliza.</description>
+    <formula>SourceOpportunity.CloseDate</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Cierre de la oportunidad de origen</label>
+    <type>Date</type>
+</CustomField>

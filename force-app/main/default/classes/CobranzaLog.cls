@@ -34,6 +34,8 @@ public with sharing class CobranzaLog {
 	// Devoluciones y anulaciones de la aseguradora (importes negativos). No recorren el
 	// circuito de conciliacion: tienen su propio proceso.
 	public static final String STAGE_DEVOLUCION = 'Devolucion';
+	// Cambios del estado operativo de la poliza (primer pago y fin de vigencia).
+	public static final String STAGE_ESTADO_POLIZA = 'Estado de poliza';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide
@@ -125,6 +127,8 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_DUPLICATE_SCHEDULED_CHARGE = 'DUPLICATE_SCHEDULED_CHARGE';
 	// Reapertura de una cuota cancelada.
 	public static final String EVENT_INSTALLMENT_REOPENED = 'INSTALLMENT_REOPENED_FROM_CANCELLED';
+	// No se pudo guardar el nuevo estado de una poliza; las demas del lote si se guardaron.
+	public static final String EVENT_POLICY_STATUS_UPDATE_FAILED = 'POLICY_STATUS_UPDATE_FAILED';
 
 	/**
 	 * @creation date: 29/07/2026

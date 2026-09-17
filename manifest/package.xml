@@ -48,6 +48,10 @@
         <members>OpportunityPolizaStageGuardTest</members>
         <members>PolicyPaymentReceiptTriggerHandler</members>
         <members>PolicyPaymentReceiptTriggerHandlerTest</members>
+        <members>InsurancePolicyExpirationBatch</members>
+        <members>InsurancePolicyExpirationBatchTest</members>
+        <members>PolicyStatusService</members>
+        <members>PolicyStatusServiceTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -224,6 +228,8 @@
         <members>CustomerProperty.TipoVehiculo__c</members>
         <members>CustomerProperty.Color__c</members>
         <members>CustomerProperty.TarifaAseguradora__c</members>
+        <members>InsurancePolicy.sourceOpportunityCloseDate__c</members>
+        <members>InsurancePolicy.sourceOpportunityStage__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -295,6 +301,7 @@
         <members>PaymentReconciliation__c.Probable_Requiere_Decision</members>
         <members>PaymentReconciliation__c.Sin_Match</members>
         <members>InsurancePolicy.All_InsurancePolicies</members>
+        <members>InsurancePolicy.Polizas_Inicial_Oportunidad_Perdida</members>
         <name>ListView</name>
     </types>
     <types>
