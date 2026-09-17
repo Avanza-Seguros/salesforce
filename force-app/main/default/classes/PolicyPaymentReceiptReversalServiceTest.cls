@@ -1114,7 +1114,10 @@ private class PolicyPaymentReceiptReversalServiceTest {
 			AccountId = accountId,
 			StageName = stage,
 			CloseDate = Date.today().addDays(30),
-			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId()
+			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
+			// Ramo__c es obligatorio. Se informa aqui porque su valor por defecto no esta en
+			// todos los orgs: sin esto la prueba pasa en avanzaDEV y falla en avanzaUAT.
+			Ramo__c = 'Automoviles'
 		);
 		insert opp;
 
