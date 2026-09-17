@@ -101,25 +101,14 @@ public with sharing class OpportunityController {
 			//   • el conteo total para la tabla y el KPI
 			//   • el comparativo imprimible (matriz cobertura × compañía)
 			// Las coberturas de cada cotización se toman del PRODUCTO de la Quote,
-			// a través de ProductCoverageAssignment__c (Coverage_Type__r.Name = nombre real).
+			// desde ProductCoverage (estandar), misma fuente que el editor de cotizacion.
 			Set<Id> productIds = new Set<Id>();
 			for (Quote q : wrapper.quotes) { if (q.Product__c != null) productIds.add(q.Product__c); }
 
-			Map<Id, List<String>> coveragesByProduct = new Map<Id, List<String>>();
-			if (!productIds.isEmpty()) {
-				for (ProductCoverageAssignment__c pca : [
-					SELECT Product__c, Coverage_Type__r.Name
-					FROM ProductCoverageAssignment__c
-					WHERE Product__c IN :productIds
-					ORDER BY Coverage_Type__r.Name
-				]) {
-					if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) { continue; }
-					if (!coveragesByProduct.containsKey(pca.Product__c)) {
-						coveragesByProduct.put(pca.Product__c, new List<String>());
-					}
-					coveragesByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
-				}
-			}
+			// Las coberturas del producto se leen del objeto ProductCoverage (estandar),
+			// la MISMA fuente que usa el editor de cotizacion al seleccionar un producto,
+			// para que el numero de coberturas de la lista coincida con el del editor.
+			Map<Id, List<String>> coveragesByProduct = new CoberturasCatalogoBulk().porProductos(productIds);
 
 			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
 			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
@@ -150,6 +139,36 @@ public with sharing class OpportunityController {
 		@AuraEnabled public Map<Id, Integer> coverageCounts;
 		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
 		@AuraEnabled public CustomerProperty automovil;   // vehículo (CustomerProperty) ligado a la cuenta
+	}
+
+	/**
+	 * @description Lee las coberturas plantilla de los productos desde ProductCoverage
+	 *              (objeto estandar), la misma fuente que el editor de cotizacion, de modo
+	 *              que el conteo de coberturas coincida en ambas vistas. Sin compartir:
+	 *              CoverageType.Name puede no ser visible por reglas de colaboracion.
+	 */
+	private without sharing class CoberturasCatalogoBulk {
+		Map<Id, List<String>> porProductos(Set<Id> productIds) {
+			Map<Id, List<String>> out = new Map<Id, List<String>>();
+			if (productIds == null || productIds.isEmpty()) { return out; }
+			try {
+				for (ProductCoverage pc : [
+					SELECT ProductId, Name, CoverageType.Name
+					FROM ProductCoverage
+					WHERE ProductId IN :productIds
+					ORDER BY Name
+				]) {
+					String nombre = (pc.CoverageType != null && String.isNotBlank(pc.CoverageType.Name))
+						? pc.CoverageType.Name : pc.Name;
+					if (String.isBlank(nombre)) { continue; }
+					if (!out.containsKey(pc.ProductId)) { out.put(pc.ProductId, new List<String>()); }
+					out.get(pc.ProductId).add(nombre);
+				}
+			} catch (Exception e) {
+				System.debug('OpportunityController::: coberturas catalogo bulk: ' + e.getMessage());
+			}
+			return out;
+		}
 	}
 
 	/**
@@ -494,7 +513,7 @@ public with sharing class OpportunityController {
 					acc.RecordTypeId = paRtId;
 					createdPersonAccount = true;
 				}
-				acc.FirstName = getStr(d, 'clienteNombre');
+				acc.FirstName = capLen(getStr(d, 'clienteNombre'), 40);
 				String paterno = getStr(d, 'clienteApellidoPaterno');
 				String materno = getStr(d, 'clienteApellidoMaterno');
 				if (String.isBlank(paterno) && String.isBlank(materno)) {
@@ -511,7 +530,7 @@ public with sharing class OpportunityController {
 				}
 				String last;
 				if (String.isNotBlank(materno)) {
-					try { acc.put('MiddleName', paterno); } catch (Exception ignore) {}
+					try { acc.put('MiddleName', capLen(paterno, 40)); } catch (Exception ignore) {}
 					last = materno;
 				} else if (String.isNotBlank(paterno)) {
 					last = paterno;
@@ -519,7 +538,7 @@ public with sharing class OpportunityController {
 					last = String.isNotBlank(acc.FirstName) ? acc.FirstName : getStr(d, 'AccountName');
 					acc.FirstName = null;
 				}
-				acc.LastName = String.isNotBlank(last) ? last : getStr(d, 'AccountName');
+				acc.LastName = capLen(String.isNotBlank(last) ? last : getStr(d, 'AccountName'), 80);
 				acc.PersonEmail             = getStr(d, 'clienteEmail');
 				acc.Phone                   = getStr(d, 'clienteTelefono');
 				acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');
@@ -619,21 +638,12 @@ public with sharing class OpportunityController {
 		opp.Ramo__c     = getStr(d, 'Ramo__c');
 		opp.Description = getStr(d, 'Description');
 
-		// Prima Total (campo custom) — sustituye al Amount estándar
-		Object primaRaw = d.get('Prima_Total__c');
-		if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
-			try {
-				opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
-			} catch (Exception ex) {
-				// Si llega un valor no numérico, lo ignoramos en vez de tronar
-			}
-		}
-
 		// Prima Neta (campo custom)
 			Object primaNetaRaw = d.get('Prima_Neta__c');
 			if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
 				try {
 					opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
+					opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
 				} catch (Exception ex) {
 					// valor no numérico: se ignora
 				}
@@ -864,6 +874,13 @@ public with sharing class OpportunityController {
 		try { so.put(field, value); } catch (Exception ignore) {}
 	}
 
+	// Recorta un texto a la longitud máxima (evita STRING_TOO_LONG).
+	// FirstName/MiddleName estándar son de 40; LastName de 80.
+	private static String capLen(String s, Integer max) {
+		if (s == null) { return null; }
+		return s.length() > max ? s.substring(0, max) : s;
+	}
+
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -950,14 +967,14 @@ public with sharing class OpportunityController {
 		c.Email = getStr(d, 'clienteEmail');
 		c.Phone = getStr(d, 'clienteTelefono');
 		if (partes.size() > 1) {
-			c.LastName = partes[partes.size() - 1];
+			c.LastName = capLen(partes[partes.size() - 1], 80);
 			String first = '';
 			for (Integer i = 0; i < partes.size() - 1; i++) {
 				first += (first == '' ? '' : ' ') + partes[i];
 			}
-			c.FirstName = first;
+			c.FirstName = capLen(first, 40);
 		} else {
-			c.LastName = nombre.trim();
+			c.LastName = capLen(nombre.trim(), 80);
 		}
 		insert c;
 		return c.Id;
@@ -997,13 +1014,13 @@ public with sharing class OpportunityController {
 		if (String.isBlank(lastName)) { return null; }
 
 		Contact c = new Contact(AccountId = accountId);
-		if (String.isNotBlank(nombre)) { c.FirstName = nombre; }
+		if (String.isNotBlank(nombre)) { c.FirstName = capLen(nombre, 40); }
 		// Si hay paterno y materno, el paterno va como segundo nombre (MiddleName)
 		// y el materno como apellido, igual que en la Cuenta Persona.
 		if (String.isNotBlank(paterno) && String.isNotBlank(materno)) {
-			try { c.put('MiddleName', paterno); } catch (Exception ignore) {}
+			try { c.put('MiddleName', capLen(paterno, 40)); } catch (Exception ignore) {}
 		}
-		c.LastName = lastName;
+		c.LastName = capLen(lastName, 80);
 		c.Email = getStr(d, 'clienteEmail');
 		c.Phone = getStr(d, 'clienteTelefono');
 		try {
@@ -1131,11 +1148,11 @@ public with sharing class OpportunityController {
 		List<String> partes = limpio.split('\\s+');
 		Contact c = new Contact(AccountId = accountId);
 		if (partes.size() > 1) {
-			c.LastName = partes[partes.size() - 1];
+			c.LastName = capLen(partes[partes.size() - 1], 80);
 			List<String> first = new List<String>();
 			for (Integer i = 0; i < partes.size() - 1; i++) { first.add(partes[i]); }
-			c.FirstName = String.join(first, ' ');
-		} else { c.LastName = limpio; }
+			c.FirstName = capLen(String.join(first, ' '), 40);
+		} else { c.LastName = capLen(limpio, 80); }
 		try { insert c; return c.Id; } catch (Exception e) { return null; }
 	}
 	

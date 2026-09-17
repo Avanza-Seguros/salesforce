@@ -191,6 +191,125 @@
                         <p class="ro-empty">{errorMsg}</p>
                     </template>
                 </div>
+
+                <!-- Participantes -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="standard:contact" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Participantes</h2>
+                            <p class="section-subtitle">Asegurados y participantes de la póliza</p>
+                        </div>
+                    </div>
+                    <template if:true={hasParticipantes}>
+                        <div class="ro-card-grid">
+                            <template for:each={participantes} for:item="p">
+                                <div key={p.id} class="ro-quote-card">
+                                    <div class="ro-quote-head">
+                                        <span class="ro-quote-num">{p.nombre}</span>
+                                        <span class="ro-status">{p.rol}</span>
+                                    </div>
+                                    <div class="ro-item"><span class="ro-label">Relación</span><span class="ro-value">{p.relacion}</span></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasParticipantes}>
+                        <p class="ro-empty">Sin participantes.</p>
+                    </template>
+                </div>
+
+                <!-- Coberturas -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="standard:shield" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Coberturas</h2>
+                            <p class="section-subtitle">Coberturas incluidas en la póliza</p>
+                        </div>
+                    </div>
+                    <template if:true={hasCoberturas}>
+                        <div class="ro-card-grid">
+                            <template for:each={coberturas} for:item="c">
+                                <div key={c.id} class="ro-quote-card">
+                                    <div class="ro-quote-head">
+                                        <span class="ro-quote-num">{c.nombre}</span>
+                                    </div>
+                                    <div class="ro-item"><span class="ro-label">Suma asegurada</span><span class="ro-value">{c.suma}</span></div>
+                                    <div class="ro-item"><span class="ro-label">Deducible</span><span class="ro-value">{c.deducible}</span></div>
+                                    <div class="ro-item"><span class="ro-label">Prima</span><span class="ro-value">{c.prima}</span></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasCoberturas}>
+                        <p class="ro-empty">Sin coberturas.</p>
+                    </template>
+                </div>
+
+                <!-- Bien asegurado -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Bien asegurado</h2>
+                            <p class="section-subtitle">Bienes vinculados a la póliza</p>
+                        </div>
+                    </div>
+                    <template if:true={hasBienes}>
+                        <div class="ro-card-grid">
+                            <template for:each={bienes} for:item="b">
+                                <div key={b.id} class="ro-quote-card">
+                                    <div class="ro-quote-head">
+                                        <span class="ro-quote-num">{b.nombre}</span>
+                                        <span class="ro-status">{b.activo}</span>
+                                    </div>
+                                    <div class="ro-item"><span class="ro-label">Prima</span><span class="ro-value">{b.prima}</span></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasBienes}>
+                        <p class="ro-empty">Sin bienes asegurados.</p>
+                    </template>
+                </div>
+
+                <!-- Transacciones -->
+                <div class="unified-section">
+                    <div class="section-header-compact">
+                        <div class="section-icon">
+                            <lightning-icon icon-name="standard:payment_gateway" size="small"></lightning-icon>
+                        </div>
+                        <div class="section-title-group">
+                            <h2 class="section-title">Transacciones</h2>
+                            <p class="section-subtitle">Movimientos de prima de la póliza</p>
+                        </div>
+                    </div>
+                    <template if:true={hasTransacciones}>
+                        <div class="ro-card-grid">
+                            <template for:each={transacciones} for:item="t">
+                                <div key={t.id} class="ro-quote-card">
+                                    <div class="ro-quote-head">
+                                        <span class="ro-quote-num">{t.nombre}</span>
+                                        <span class="ro-status">{t.estatus}</span>
+                                    </div>
+                                    <div class="ro-item"><span class="ro-label">Tipo</span><span class="ro-value">{t.tipo}</span></div>
+                                    <div class="ro-item"><span class="ro-label">Monto</span><span class="ro-value">{t.monto}</span></div>
+                                    <div class="ro-item"><span class="ro-label">Fecha</span><span class="ro-value">{t.fecha}</span></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasTransacciones}>
+                        <p class="ro-empty">Sin transacciones.</p>
+                    </template>
+                </div>
             </template>
 
             <!-- ============================================= -->

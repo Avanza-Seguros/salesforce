@@ -14,9 +14,10 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
-import crearVinculoBien from '@salesforce/apex/PolicyController.crearVinculoBien';
+import completarPoliza from '@salesforce/apex/PolicyController.completarPoliza';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
+import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 
 export default class PolicyCreator extends NavigationMixin(LightningElement) {
@@ -31,6 +32,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track oppCard = null;
     @track quoteCards = [];
     @track policyDates = {};
+    @track coberturas = [];
+    @track participantes = [];
+    @track bienes = [];
+    @track transacciones = [];
 
     _pdfJsLoaded = false;
     // PDF seleccionado que se adjuntará a la póliza (queda pendiente si la póliza aún no existe).
@@ -118,6 +123,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             });
             if (id) {
                 this.policyId = id;
+                if (this.readOnly) { this.loadRegistrosPoliza(); }
             } else {
                 this.errorMsg = 'No se encontró la póliza de esta oportunidad. '
                     + 'Verifica que el flujo la haya creado al pasar a etapa Póliza.';
@@ -225,18 +231,67 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // Adjunta el PDF que se haya seleccionado antes de que existiera la póliza.
             await this.guardarPdfEnPoliza();
         }
-        // Crea el vínculo póliza-bien (Asset + InsurancePolicyAsset). Reúsa el
-        // Asset de la oportunidad si existe; si no, lo crea.
+        // Completa los registros hijos de la póliza (modelo FSC), de forma idempotente:
+        //   bien (InsurancePolicyAsset), asegurados (InsurancePolicyParticipant),
+        //   coberturas (InsurancePolicyCoverage) y transacción de prima (InsurancePolicyTransaction).
         try {
             if (savedId) {
-                await crearVinculoBien({ policyId: savedId });
+                const resumen = await completarPoliza({
+                    policyId: savedId,
+                    opportunityId: this.opportunityId
+                });
+                this.mostrarResumenPoliza(resumen);
+            } else {
+                this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
             }
-            this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message)
-                || 'La póliza se guardó, pero no se pudo vincular el bien.';
+                || 'La póliza se guardó, pero no se pudieron completar sus registros.';
             // No bloquea: la póliza ya quedó guardada.
             this.showToast('Aviso', msg, 'warning');
+        }
+        // Lleva a la vista completa de la póliza en modo lectura (resumen + coberturas,
+        // participantes, bien y transacción).
+        this.navegarAPoliza();
+    }
+
+    // Redirige al mismo LWC de Crear Póliza en modo SOLO LECTURA (igual que el botón
+    // "Información"), donde se ve el resumen completo con coberturas, participantes, etc.
+    navegarAPoliza() {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__navItemPage',
+            attributes: { apiName: 'Crear_Poliza' },
+            state: {
+                c__opportunityId: this.opportunityId || '',
+                c__quoteId: this.quoteId || '',
+                c__readonly: '1'
+            }
+        });
+    }
+
+    // Arma un mensaje de resultado a partir del resumen del orquestador.
+    mostrarResumenPoliza(resumen) {
+        const r = resumen || {};
+        const partes = [];
+        if (r.coberturas) { partes.push(`${r.coberturas} cobertura(s)`); }
+        if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
+        if (r.bien) { partes.push('bien asegurado'); }
+        if (r.transaccion) { partes.push('transacción de prima'); }
+
+        const errores = Object.keys(r)
+            .filter((k) => k.endsWith('Error'))
+            .map((k) => r[k])
+            .filter(Boolean);
+
+        if (errores.length) {
+            const detalle = partes.length ? ` Se crearon: ${partes.join(', ')}.` : '';
+            this.showToast('Póliza guardada con avisos',
+                `Algunos registros no se crearon: ${errores.join(' | ')}.${detalle}`, 'warning');
+        } else if (partes.length) {
+            this.showToast('Póliza completa',
+                `Póliza guardada. Se generaron: ${partes.join(', ')}.`, 'success');
+        } else {
+            this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
         }
     }
     handleError(event) {
@@ -549,6 +604,50 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             console.warn('PolicyCreator::: no se pudo cargar el resumen', e);
         }
     }
+
+    // Carga los registros hijos de la póliza (coberturas, participantes, bien, transacción).
+    async loadRegistrosPoliza() {
+        if (!this.policyId) { return; }
+        try {
+            const r = await getRegistrosPoliza({ policyId: this.policyId });
+            const reg = r || {};
+            this.coberturas = (reg.coberturas || []).map((c) => ({
+                id: c.id,
+                nombre: c.nombre || '—',
+                suma: this.fmtCurrency(c.suma),
+                deducible: c.deducible != null ? this.fmtCurrency(c.deducible) : '—',
+                prima: this.fmtCurrency(c.prima)
+            }));
+            this.participantes = (reg.participantes || []).map((p) => ({
+                id: p.id,
+                nombre: p.nombre || '—',
+                rol: p.rol || '—',
+                relacion: p.relacion || '—'
+            }));
+            this.bienes = (reg.bienes || []).map((b) => ({
+                id: b.id,
+                nombre: b.nombre || '—',
+                activo: b.activo ? 'Activo' : 'Inactivo',
+                prima: this.fmtCurrency(b.prima)
+            }));
+            this.transacciones = (reg.transacciones || []).map((t) => ({
+                id: t.id,
+                nombre: t.nombre || '—',
+                tipo: t.tipo || '—',
+                estatus: t.estatus || '—',
+                monto: this.fmtCurrency(t.monto),
+                fecha: this.fmtDate(t.fecha)
+            }));
+        } catch (e) {
+            // Silencioso: si falla, la vista igual muestra el resto de la póliza.
+            console.warn('PolicyCreator::: no se pudieron cargar los registros de la póliza', e);
+        }
+    }
+
+    get hasCoberturas() { return this.coberturas && this.coberturas.length > 0; }
+    get hasParticipantes() { return this.participantes && this.participantes.length > 0; }
+    get hasBienes() { return this.bienes && this.bienes.length > 0; }
+    get hasTransacciones() { return this.transacciones && this.transacciones.length > 0; }
 
     get hasQuoteCards() {
         return this.quoteCards && this.quoteCards.length > 0;

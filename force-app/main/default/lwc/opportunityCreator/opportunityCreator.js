@@ -70,7 +70,7 @@ const STAGES_DATA = [
 ];
 const STAGE_DEFAULT_COLOR = '#6B7280';
 // Cantidad de oportunidades a mostrar por página
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -241,6 +241,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 ...q,
                 aseguradoraId: q.aseguradoraId,
                 aseguradoras: q.aseguradoras || [],
+                ramoLabel: q.ramoLabel || this.getRamoLabel(q.ramo),
                 productId: q.productoSugeridoId,
                 frecuencia: q.frecuencia || 'Mensual',
                 sinProductos: !(q.productos && q.productos.length),
@@ -1168,6 +1169,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 productName = qli[0].Product2?.Name || '';
             }
         }
+        // Plan: viene embebido en el nombre de la cotización con el formato
+        // "Compañía - Plan" (así se crea al generarla). Se toma lo que va después de " - ".
+        let plan = '';
+        if (typeof q.Name === 'string') {
+            const idx = q.Name.indexOf(' - ');
+            if (idx >= 0) { plan = q.Name.substring(idx + 3).trim(); }
+        }
         return {
             Id: q.Id,
             QuoteNumber: q.QuoteNumber || q.Numero__c || '—',
@@ -1191,6 +1199,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 ? coverageNamesByQuote[q.Id]
                 : [],
             productName,
+            plan: plan || '—',
             esAceptada: /accept|acept/i.test(status),
             puedeAceptar: !/accept|acept/i.test(status)
         };
@@ -2917,7 +2926,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
         } catch (error) {
             // eslint-disable-next-line no-console
-            console.error(':::OpportunityCreator::: Error al guardar', error);
+            console.error(':::OpportunityCreator::: Error al guardar', JSON.stringify(error));
             const msg = error?.body?.message || error?.message || 'Error al guardar la oportunidad';
             this.showToast('Error', msg, 'error');
         } finally {

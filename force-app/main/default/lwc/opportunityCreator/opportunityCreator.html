@@ -1154,6 +1154,7 @@
                                             <th scope="col">Nombre</th>
                                             <th scope="col">Compañía</th>
                                             <th scope="col">Producto</th>
+                                            <th scope="col">Plan</th>
                                             <th scope="col">Coberturas</th>
                                             <th scope="col">Estado</th>
                                             <th scope="col">Prima</th>
@@ -1168,6 +1169,7 @@
                                                 <td>{q.Name}</td>
                                                 <td>{q.companiaLabel}</td>
                                                 <td>{q.productName}</td>
+                                                <td>{q.plan}</td>
                                                 <td>{q.coverageLabel}</td>
                                                 <td>
                                                     <lightning-badge label={q.statusLabel} class={q.statusBadgeClass}></lightning-badge>
@@ -1273,8 +1275,12 @@
                                             <div class="eq-field-full">
                                                 <lightning-combobox label="Aseguradora" value={q.aseguradoraId}
                                                     options={q.aseguradoras} placeholder="Selecciona la aseguradora"
-                                                    data-index={idx} onchange={handleQuoteAseguradoraChange}>
+                                                    data-index={idx} disabled>
                                                 </lightning-combobox>
+                                            </div>
+                                            <div class="eq-field-full">
+                                                <lightning-input label="Ramo" value={q.ramoLabel} readonly>
+                                                </lightning-input>
                                             </div>
                                             <div class="eq-field-full">
                                                 <lightning-combobox label="Producto" value={q.productId}

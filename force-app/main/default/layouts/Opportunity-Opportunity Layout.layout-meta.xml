@@ -2,7 +2,6 @@
 <Layout xmlns="http://soap.sforce.com/2006/04/metadata">
     <excludeButtons>AddToActionableList</excludeButtons>
     <excludeButtons>AssignRecordLabel</excludeButtons>
-    <excludeButtons>AutomatedDealTrackingReviewModal</excludeButtons>
     <excludeButtons>BookTestDrive</excludeButtons>
     <excludeButtons>ChangeRecordType</excludeButtons>
     <excludeButtons>CreateProposal</excludeButtons>
