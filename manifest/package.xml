@@ -241,7 +241,8 @@
         <members>InsurancePolicy.carrierStatusSyncedAt__c</members>
         <members>InsurancePolicy.carrierStatusNotice__c</members>
         <members>CarrierPolicyStatusMapping__mdt.CarrierCode__c</members>
-        <members>CarrierPolicyStatusMapping__mdt.NormalizedStatus__c</members>
+        <members
+		>CarrierPolicyStatusMapping__mdt.NormalizedPolicyStatus__c</members>
         <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
         <members>InboundInsurancePayment__c.manualReviewReason__c</members>
         <members>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</members>
