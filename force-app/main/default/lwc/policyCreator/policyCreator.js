@@ -215,6 +215,17 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 if (esFechaHora) { fields[f] = v + 'T12:00:00.000Z'; }
             }
         });
+        // Nunca enviar campos automáticos/calculados o de solo lectura: la plataforma
+        // los rechaza y hace fallar todo el guardado con un error genérico.
+        const NO_ESCRIBIBLES = [
+            'PolicyTerm',                 // calculado (Expiration - Effective)
+            'SaleDate',                   // automático (cambio de etapa)
+            'CancellationEffectiveDate',  // automático (módulo de pagos)
+            'CancellationDate', 'CurrentDueAmount', 'PastDueAmount', 'PaidToDate',
+            'TotalSumInsured', 'IsRenewedPolicy'
+        ];
+        NO_ESCRIBIBLES.forEach((f) => { delete fields[f]; });
+
         const form = this.template.querySelector('lightning-record-edit-form');
         if (form) { form.submit(fields); }
     }
@@ -295,8 +306,25 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
     }
     handleError(event) {
-        const msg = (event && event.detail && event.detail.message) || 'No se pudo guardar la póliza.';
-        this.showToast('Error', msg, 'error');
+        const d = (event && event.detail) || {};
+        let msg = d.message || 'No se pudo guardar la póliza.';
+        // Desenvuelve el error para decir QUÉ campo lo rompe (antes salía genérico).
+        const detalles = [];
+        const out = d.output || {};
+        if (Array.isArray(out.errors)) {
+            out.errors.forEach((e) => { if (e && e.message) { detalles.push(e.message); } });
+        }
+        if (out.fieldErrors) {
+            Object.keys(out.fieldErrors).forEach((campo) => {
+                (out.fieldErrors[campo] || []).forEach((fe) => {
+                    detalles.push(`${campo}: ${fe.message || fe.statusCode || ''}`.trim());
+                });
+            });
+        }
+        if (detalles.length) { msg = detalles.join(' | '); }
+        // Loguea el detalle completo para diagnóstico.
+        console.error('PolicyCreator::: error al guardar la póliza ->', JSON.stringify(d));
+        this.showToast('No se pudo guardar la póliza', msg, 'error');
     }
 
     // Abre el selector de archivo para analizar un PDF de póliza.

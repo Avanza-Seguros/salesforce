@@ -136,6 +136,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track isNewContacto = false;
     _contactoSearchTimer = null;
     @track editableQuotes = [];
+    // Comparativo imprimible: desactivado hasta arreglar el mapeo de coberturas por
+    // concepto (Frente 2). Hoy compara por texto y marca falsos "No incluida".
+    comparativoImprimible = false;
     // Modo "agregar cotizaciones por PDF" a una oportunidad EXISTENTE (no crea oportunidad).
     @track addQuotesMode = false;
     // Verdadero mientras el componente de PDF está analizando (para mostrar spinner).

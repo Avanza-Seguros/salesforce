@@ -1540,11 +1540,16 @@
                                     <p class="section-subtitle">Datos extraídos de los PDFs. Aún NO se han guardado.</p>
                                 </div>
                                 <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
-                                <button class="action-btn primary section-action-btn print-comparativo-btn"
-                                        onclick={handlePrintComparativo} title="Imprimir o guardar como PDF">
-                                    <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
-                                    Imprimir / PDF
-                                </button>
+                                <!-- Botón de imprimir DESACTIVADO temporalmente: el comparativo compara
+                                     coberturas por texto y marca falsos "No incluida". Se reactiva al
+                                     terminar el catálogo de coberturas por concepto (Frente 2). -->
+                                <template if:true={comparativoImprimible}>
+                                    <button class="action-btn primary section-action-btn print-comparativo-btn"
+                                            onclick={handlePrintComparativo} title="Imprimir o guardar como PDF">
+                                        <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
+                                        Imprimir / PDF
+                                    </button>
+                                </template>
                             </div>
 
                             <!-- Comparativo generado por la IA (tal cual lo regresa el Prompt Builder) -->
