@@ -728,6 +728,217 @@ public with sharing class PolicyController {
 		return e.getMessage();
 	}
 
+	// ============================================================
+	// GUARDA DESDE EL PDF ANALIZADO: crea/actualiza todos los objetos hijos de la
+	// póliza con los datos extraídos del PDF (vehículo, bien, participantes,
+	// coberturas con suma/deducible y transacción de prima).
+	// ============================================================
+	@AuraEnabled
+	public static Map<String, Object> guardarDatosPolizaDesdePdf(Id policyId, Id opportunityId, String datosJson) {
+		Map<String, Object> resumen = new Map<String, Object>();
+		if (policyId == null) {
+			throw new AuraHandledException('No se recibió la póliza para guardar sus datos.');
+		}
+		Map<String, Object> d = String.isBlank(datosJson)
+			? new Map<String, Object>()
+			: (Map<String, Object>) JSON.deserializeUntyped(datosJson);
+
+		InsurancePolicy pol = [
+			SELECT Id, NameInsuredId, SourceOpportunityId
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		Id oppId = opportunityId != null ? opportunityId : pol.SourceOpportunityId;
+		Id accountId = resolverCuentaDePoliza(pol);
+
+		// 1) Vehículo (CustomerProperty) con los datos reales del PDF.
+		try { guardarVehiculoDesdePdf(accountId, d); resumen.put('vehiculo', 1); }
+		catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
+
+		// 2) Bien de póliza (liga el CustomerProperty a la póliza).
+		try { crearVinculoBien(policyId); resumen.put('bien', 1); }
+		catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
+
+		// 3) Participante = la PERSONA asegurada del PDF (ej. Rosa Margarita), como Contacto
+		//    bajo la cuenta principal (ej. CASTEMON). Si el PDF no trae persona, se cae al
+		//    participante de la cuenta.
+		try {
+			Integer n = crearParticipanteDesdePdf(policyId, accountId, d);
+			if (n == 0) { n = crearParticipantesPoliza(policyId, oppId); }
+			resumen.put('asegurados', n);
+		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
+
+		// 4) Coberturas desde el PDF (con su suma asegurada y deducible).
+		try { resumen.put('coberturas', crearCoberturasDesdePdf(policyId, d)); }
+		catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
+
+		// 5) Transacción de prima inicial.
+		try { Id tx = crearTransaccionInicial(policyId); resumen.put('transaccion', tx != null ? 1 : 0); }
+		catch (Exception e) { resumen.put('transaccionError', msgLimpio(e)); }
+
+		// 6) Fecha de renovación (para avisos).
+		try { resumen.put('renovacion', llenarFechaRenovacion(policyId) ? 1 : 0); }
+		catch (Exception e) { resumen.put('renovacionError', msgLimpio(e)); }
+
+		return resumen;
+	}
+
+	// Crea el participante ASEGURADO (persona) del PDF como Contacto bajo la cuenta principal.
+	// La persona viene en "contratante" (el "asegurado" formal puede ser la empresa/cuenta).
+	private static Integer crearParticipanteDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
+		if (accountId == null) { return 0; }
+		Map<String, Object> per = (d.get('contratante') instanceof Map<String, Object>)
+			? (Map<String, Object>) d.get('contratante') : null;
+		String nombre = (per != null) ? strOf(per.get('nombre')) : null;
+		if (String.isBlank(nombre)) { return 0; }
+		// Si el "contratante" es en realidad la empresa (misma razón social del asegurado/cuenta),
+		// no se crea un contacto: se deja el participante de la cuenta.
+		String empresa = strOf(d.get('aseguradoNombre'));
+		if (String.isNotBlank(empresa) && nombre.equalsIgnoreCase(empresa)) { return 0; }
+
+		String rfc = strOf(per.get('rfc'));
+		String email = strOf(per.get('email'));
+		String tel = strOf(per.get('telefono'));
+
+		// Busca el contacto por nombre bajo la cuenta; si no existe, lo crea.
+		Id contactId = null;
+		for (Contact c : [
+			SELECT Id FROM Contact WHERE AccountId = :accountId AND Name = :nombre LIMIT 1
+		]) { contactId = c.Id; }
+		if (contactId == null) {
+			Contact c = new Contact(AccountId = accountId);
+			List<String> t = nombre.trim().split('\\s+');
+			if (t.size() >= 3) {
+				c.LastName = (t[t.size() - 2] + ' ' + t[t.size() - 1]).left(80);
+				List<String> fn = new List<String>();
+				for (Integer i = 0; i < t.size() - 2; i++) { fn.add(t[i]); }
+				c.FirstName = String.join(fn, ' ').left(40);
+			} else if (t.size() == 2) {
+				c.FirstName = t[0].left(40); c.LastName = t[1].left(80);
+			} else {
+				c.LastName = nombre.left(80);
+			}
+			if (String.isNotBlank(email)) { c.Email = email; }
+			if (String.isNotBlank(tel))   { c.Phone = tel; }
+			if (String.isNotBlank(rfc))   { try { c.put('RFC__c', rfc.toUpperCase()); } catch (Exception ignore) {} }
+			insert c;
+			contactId = c.Id;
+		}
+
+		// Evita duplicar el participante para ese contacto.
+		for (InsurancePolicyParticipant p : [
+			SELECT Id FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :policyId AND PrimaryParticipantContactId = :contactId LIMIT 1
+		]) { return 0; }
+
+		InsurancePolicyParticipant part = new InsurancePolicyParticipant();
+		part.InsurancePolicyId = policyId;
+		part.PrimaryParticipantContactId = contactId;
+		part.ParticipantName = nombre.left(255);
+		String rol = pickPicklist(InsurancePolicyParticipant.Role.getDescribe(),
+			new List<String>{ 'Insured', 'Covered Party', 'Named Insured', 'Asegurado', 'Insured Party', 'Covered' });
+		if (String.isNotBlank(rol)) { part.Role = rol; }
+		try { part.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+		insert part;
+		return 1;
+	}
+
+	// Crea/actualiza el CustomerProperty (vehículo) del asegurado con los datos del PDF.
+	private static void guardarVehiculoDesdePdf(Id accountId, Map<String, Object> d) {
+		if (accountId == null) { return; }
+		Object bienO = d.get('bienAsegurado');
+		if (!(bienO instanceof Map<String, Object>)) { return; }
+		Map<String, Object> bien = (Map<String, Object>) bienO;
+		Map<String, String> a = new Map<String, String>();
+		if (bien.get('atributos') instanceof List<Object>) {
+			for (Object o : (List<Object>) bien.get('atributos')) {
+				if (o instanceof Map<String, Object>) {
+					Map<String, Object> mm = (Map<String, Object>) o;
+					a.put(normKey(strOf(mm.get('campo'))), strOf(mm.get('valor')));
+				}
+			}
+		}
+		String vin = a.get('numero de serie');
+		CustomerProperty cp = null;
+		if (String.isNotBlank(vin)) {
+			for (CustomerProperty c : [
+				SELECT Id FROM CustomerProperty
+				WHERE PrimaryOwnerId = :accountId AND Vin = :vin LIMIT 1
+			]) { cp = c; }
+		}
+		if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
+		if (String.isNotBlank(a.get('marca')))           { cp.Make = a.get('marca'); }
+		if (String.isNotBlank(a.get('modelo')))          { cp.ModelName = a.get('modelo'); }
+		if (String.isNotBlank(vin))                      { cp.Vin = vin; }
+		if (String.isNotBlank(a.get('numero de motor'))) { cp.Motor__c = a.get('numero de motor'); }
+		String descBien = strOf(bien.get('descripcion'));
+		if (String.isNotBlank(descBien))                 { cp.Description = descBien.length() > 255 ? descBien.substring(0, 255) : descBien; }
+		Decimal anio = parseMonto(a.get('ano'));
+		if (anio != null) { try { cp.put('MakeYear', anio.intValue()); } catch (Exception ignore) {} }
+		if (String.isNotBlank(a.get('uso')))             { try { cp.put('Uso__c', a.get('uso').left(40)); } catch (Exception ignore) {} }
+		if (String.isNotBlank(a.get('tipo de unidad')))  { try { cp.put('TipoVehiculo__c', a.get('tipo de unidad').left(40)); } catch (Exception ignore) {} }
+		upsert cp;
+	}
+
+	// Crea las coberturas de la póliza (InsurancePolicyCoverage) desde el arreglo del PDF,
+	// con su suma asegurada (LimitAmount) y el deducible (texto, en la descripción).
+	private static Integer crearCoberturasDesdePdf(Id policyId, Map<String, Object> d) {
+		Object covsO = d.get('coberturas');
+		if (!(covsO instanceof List<Object>)) { return 0; }
+		Set<String> ya = new Set<String>();
+		for (InsurancePolicyCoverage c : [
+			SELECT CoverageName FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+		]) { if (String.isNotBlank(c.CoverageName)) { ya.add(c.CoverageName.toLowerCase()); } }
+
+		InsurancePolicy pol = [SELECT Id, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+		Id assetId = null;
+		for (InsurancePolicyAsset x : [SELECT Id FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 1]) { assetId = x.Id; }
+
+		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		for (Object o : (List<Object>) covsO) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) o;
+			String nombre = strOf(m.get('nombre'));
+			if (String.isBlank(nombre) || ya.contains(nombre.toLowerCase())) { continue; }
+			InsurancePolicyCoverage c = new InsurancePolicyCoverage();
+			c.InsurancePolicyId = policyId;
+			c.CoverageName = nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
+			Decimal suma = parseMonto(strOf(m.get('sumaAsegurada')));
+			if (suma != null) { c.LimitAmount = suma; }
+			String ded = strOf(m.get('deducible'));
+			if (String.isNotBlank(ded)) {
+				// El deducible viene como texto ("$119,519  5 %"); se guarda en la descripción.
+				c.Description = ('Deducible: ' + ded).left(255);
+			}
+			if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
+			if (assetId != null)       { c.InsurancePolicyAssetId = assetId; }
+			if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
+			ya.add(nombre.toLowerCase());
+			nuevas.add(c);
+		}
+		if (!nuevas.isEmpty()) { insert nuevas; }
+		return nuevas.size();
+	}
+
+	// Normaliza una llave de atributo (minúsculas, sin acentos): "Número de Serie" -> "numero de serie".
+	private static String normKey(String s) {
+		if (s == null) { return ''; }
+		String r = s.toLowerCase();
+		r = r.replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n').replace('ü', 'u');
+		return r.trim();
+	}
+
+	private static String strOf(Object o) { return o == null ? null : String.valueOf(o).trim(); }
+
+	// Extrae el primer número de un texto ("$3,000,000", "150000 USD", "5000 USD / 25000 USD" -> 5000).
+	private static Decimal parseMonto(String v) {
+		if (String.isBlank(v)) { return null; }
+		Matcher mt = Pattern.compile('[0-9][0-9,]*(\\.[0-9]+)?').matcher(v);
+		if (mt.find()) {
+			try { return Decimal.valueOf(mt.group().replace(',', '')); } catch (Exception e) {}
+		}
+		return null;
+	}
+
 	private static String detalleDml(DmlException e) {
 		List<String> partes = new List<String>();
 		for (Integer i = 0; i < e.getNumDml(); i++) {

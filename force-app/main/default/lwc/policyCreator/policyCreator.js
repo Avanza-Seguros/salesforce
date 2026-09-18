@@ -15,6 +15,7 @@ import PDFJS from '@salesforce/resourceUrl/pdfjs';
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import completarPoliza from '@salesforce/apex/PolicyController.completarPoliza';
+import guardarDatosPolizaDesdePdf from '@salesforce/apex/PolicyController.guardarDatosPolizaDesdePdf';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
@@ -40,6 +41,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     _pdfJsLoaded = false;
     // PDF seleccionado que se adjuntará a la póliza (queda pendiente si la póliza aún no existe).
     _pdfPendiente = null;
+    // Datos del PDF de póliza analizados por la IA (para crear los objetos hijos al guardar).
+    _datosPoliza = null;
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
 
     // Campos de fecha que se manejan como "solo fecha".
@@ -247,10 +250,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         //   coberturas (InsurancePolicyCoverage) y transacción de prima (InsurancePolicyTransaction).
         try {
             if (savedId) {
-                const resumen = await completarPoliza({
-                    policyId: savedId,
-                    opportunityId: this.opportunityId
-                });
+                // Si se analizó un PDF, se crean/actualizan los hijos con los datos del PDF
+                // (vehículo, coberturas con suma/deducible, participantes, transacción).
+                // Si no, se completa con el catálogo del producto.
+                const resumen = this._datosPoliza
+                    ? await guardarDatosPolizaDesdePdf({
+                        policyId: savedId,
+                        opportunityId: this.opportunityId,
+                        datosJson: JSON.stringify(this._datosPoliza)
+                      })
+                    : await completarPoliza({
+                        policyId: savedId,
+                        opportunityId: this.opportunityId
+                      });
                 this.mostrarResumenPoliza(resumen);
             } else {
                 this.showToast('Póliza', 'Póliza guardada correctamente.', 'success');
@@ -286,8 +298,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const partes = [];
         if (r.coberturas) { partes.push(`${r.coberturas} cobertura(s)`); }
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
+        if (r.vehiculo) { partes.push('vehículo'); }
         if (r.bien) { partes.push('bien asegurado'); }
         if (r.transaccion) { partes.push('transacción de prima'); }
+        if (r.renovacion) { partes.push('fecha de renovación'); }
 
         const errores = Object.keys(r)
             .filter((k) => k.endsWith('Error'))
@@ -368,6 +382,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 this.showToast('Aviso', 'La IA respondió en un formato no válido. Intenta de nuevo.', 'warning');
                 return;
             }
+            // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
+            this._datosPoliza = datos;
             this.fillForm(datos);
             this.showToast('Listo', 'Datos de la póliza cargados. Revisa y guarda.', 'success');
         } catch (e) {
@@ -438,6 +454,23 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const bien = d.bienAsegurado || {};
         const cob = d.cobranza || {};
         let descripcion = d.descripcion || '';
+
+        // Para AUTOS, la Policy Description es SOLO Marca, Modelo y Versión.
+        const normTxt = (s) => (s || '').toString().toLowerCase();
+        const attrBien = (nombre) => {
+            const f = (bien.atributos || []).find((a) => a && normTxt(a.campo).includes(nombre));
+            return f ? String(f.valor || '').trim() : '';
+        };
+        const esAuto = /auto|veh[ií]culo/i.test(d.ramo || '') || /veh[ií]culo/i.test(bien.tipo || '');
+        let descripcionAuto = '';
+        if (esAuto) {
+            const marca = attrBien('marca');
+            const modelo = attrBien('modelo') || attrBien('submarca');
+            const version = attrBien('version') || d.plan || '';
+            const partes = [marca, modelo];
+            if (version && !normTxt(modelo).includes(normTxt(version))) { partes.push(version); }
+            descripcionAuto = partes.filter(Boolean).join(' ').trim();
+        }
         // El plan/paquete no se guarda en PlanType (picklist); se conserva en la descripción.
         if (d.plan) { descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Plan/Paquete: ' + d.plan; }
 
@@ -557,7 +590,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             IVA__c: cob.iva,
             Referencia_Pago__c: cob.referenciaPago,
             CLABE__c: cob.clabe,
-            PolicyDescription: descripcion
+            PolicyDescription: (esAuto && descripcionAuto) ? descripcionAuto : descripcion
         };
 
         const fields = this.template.querySelectorAll('lightning-input-field');
