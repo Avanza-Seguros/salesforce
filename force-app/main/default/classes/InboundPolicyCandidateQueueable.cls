@@ -16,6 +16,9 @@
  */
 public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	private static final String STATUS_NORMALIZED = 'Normalizado';
+	private static final String STATUS_MANUAL_REVIEW = 'Revision Manual';
+	private static final String POLICY_CANCELLED = 'Cancelado';
+	private static final String REVIEW_REASON_CANCELLED_POLICY = 'La póliza está cancelada según la aseguradora: un cobro sobre ella lo revisa una persona.';
 
 	// Identificar la poliza es una cuestion de llave, no de vigencia: si el numero
 	// existe, es esa poliza, este como este. El estado dejo de filtrar aqui. Lo que si hace
@@ -141,6 +144,14 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 			policyNumbers
 		);
 
+		Map<Id, String> statusByPolicy = new Map<Id, String>();
+		for (List<InsurancePolicy> matches : policiesByNumber.values()) {
+			for (InsurancePolicy policy : matches) {
+				statusByPolicy.put(policy.Id, policy.Status);
+			}
+		}
+		Set<Id> heldOnCancelledPolicy = new Set<Id>();
+
 		List<InboundInsurancePayment__c> toUpdate = new List<InboundInsurancePayment__c>();
 
 		for (InboundInsurancePayment__c p : payments) {
@@ -155,6 +166,24 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 				rec.candidatePolicy__c = result.policyId;
 				rec.policyMatchReason__c = result.reason;
 				logTermResolution(p, result, policiesByNumber);
+				if (
+					result.policyId != null &&
+					POLICY_CANCELLED.equals(statusByPolicy.get(result.policyId))
+				) {
+					// La aseguradora dio la poliza por cancelada: un cobro sobre ella no se concilia
+					// solo, porque puede ser un pago tardio o el aviso de una rehabilitacion. Lo
+					// decide una persona, y el pago no sigue al eslabon siguiente.
+					rec.inboundStatus__c = STATUS_MANUAL_REVIEW;
+					rec.manualReviewRequired__c = true;
+					rec.manualReviewReason__c = REVIEW_REASON_CANCELLED_POLICY;
+					heldOnCancelledPolicy.add(p.Id);
+					CobranzaLog.info(
+							CobranzaLog.STAGE_POLIZA_CANDIDATA,
+							CobranzaLog.EVENT_PAYMENT_ON_CANCELLED_POLICY,
+							REVIEW_REASON_CANCELLED_POLICY
+						)
+						.onInbound(p.Id);
+				}
 			} catch (Exception e) {
 				rec.candidatePolicy__c = null;
 				rec.policyMatchReason__c = null;
@@ -173,7 +202,14 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 
 		Set<Id> allIds = new Set<Id>();
 		for (InboundInsurancePayment__c rec : toUpdate) {
+			if (heldOnCancelledPolicy.contains(rec.Id)) {
+				continue;
+			}
 			allIds.add(rec.Id);
+		}
+		if (allIds.isEmpty()) {
+			AppLogger.flush();
+			return;
 		}
 		try {
 			System.enqueueJob(new InboundInstallmentCandidateQueueable(allIds));

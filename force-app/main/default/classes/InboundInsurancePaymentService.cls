@@ -37,6 +37,7 @@ public with sharing class InboundInsurancePaymentService {
 	private static final String STATUS_MANUAL_REVIEW = 'Revision Manual';
 	private static final String STATUS_NOT_RECONCILABLE = 'No Conciliable';
 	private static final String STATUS_REFUND = 'Devolucion';
+	private static final String STATUS_POLICY_NOTICE = 'Estado de poliza';
 
 	// La integracion sincroniza recibos, no novedades: un mismo recibo puede
 	// llegar muchas veces. Solo se reprocesa si cambio algo que afecta al cobro.
@@ -69,6 +70,11 @@ public with sharing class InboundInsurancePaymentService {
 	// Provoca un fallo despues de escribir, para probar que la peticion se deshace completa.
 	@TestVisible
 	private static Boolean forceFailureAfterWritesForTest = false;
+
+	// Trata las comunicaciones de estado de poliza como antes de reconocerlas (rechazadas por no
+	// traer folio), para probar que un rechazado de entonces se recupera al reenviarse.
+	@TestVisible
+	private static Boolean policyStatusNoticesDisabledForTest = false;
 
 	private class InboundProcessingException extends Exception {
 	}
@@ -190,6 +196,17 @@ public with sharing class InboundInsurancePaymentService {
 				ctx.data.sourcePolicyNumber
 			);
 
+			if (ctx.data.isPolicyStatusNotice) {
+				classifyPolicyStatusNotice(
+					ctx,
+					rejectedByFingerprint,
+					firstByKey,
+					toInsert,
+					toUpdate
+				);
+				continue;
+			}
+
 			if (ctx.validationReason != null) {
 				classifyRejected(
 					ctx,
@@ -289,6 +306,7 @@ public with sharing class InboundInsurancePaymentService {
 		enqueueNormalization(written.values());
 		enqueueScheduledChargeMatching(written.values());
 		enqueueRefunds(written.values());
+		enqueuePolicyStatusCommunications(written.values());
 		AppLogger.flush();
 
 		Integer received = 0;
@@ -307,6 +325,113 @@ public with sharing class InboundInsurancePaymentService {
 		}
 
 		return buildBatchResult(rows.size(), received, updated, rejected, results);
+	}
+
+	/**
+	 * @creation date: 16/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Guarda una comunicacion de estado de poliza. No es un pago: no se valida su
+	 *               importe ni entra al circuito. Se reconoce por la huella de su contenido, que no
+	 *               incluye la fecha de sincronizacion, asi que la misma comunicacion reenviada
+	 *               actualiza su registro en vez de crear otro, incluso si antes se rechazo por no
+	 *               traer folio. Cada reenvio la vuelve a evaluar: si estaba en revision porque
+	 *               faltaba la poliza, se aplica en cuanto la poliza exista.
+	 * @param ctx: Fila con la comunicacion.
+	 * @param existingByFingerprint: Registros sin folio ya guardados, por huella.
+	 * @param firstByKey: Primera fila del lote por folio o huella.
+	 * @param toInsert: Filas duenas de un registro nuevo.
+	 * @param toUpdate: Filas duenas de un registro existente.
+	 * @return
+	 */
+	private static void classifyPolicyStatusNotice(
+		RowContext ctx,
+		Map<String, InboundInsurancePayment__c> existingByFingerprint,
+		Map<String, RowContext> firstByKey,
+		List<RowContext> toInsert,
+		List<RowContext> toUpdate
+	) {
+		String key = FINGERPRINT_KEY_PREFIX + ctx.data.contentFingerprint;
+		RowContext first = firstByKey.get(key);
+		if (first != null) {
+			// La misma comunicacion dos veces en el lote: se escribe una sola vez.
+			ctx.owner = first;
+			ctx.record = first.record;
+			ctx.outcome = OUTCOME_UPDATED;
+			return;
+		}
+		ctx.owner = ctx;
+		firstByKey.put(key, ctx);
+
+		InboundInsurancePayment__c existing = existingByFingerprint.get(
+			ctx.data.contentFingerprint
+		);
+		if (existing == null) {
+			ctx.record = buildInboundRecord(
+				ctx.data,
+				ctx.itemJson,
+				ctx.payloadHash,
+				STATUS_POLICY_NOTICE,
+				null,
+				null
+			);
+			ctx.record.policyStatusNotice__c = true;
+			ctx.outcome = OUTCOME_RECEIVED;
+			toInsert.add(ctx);
+			return;
+		}
+
+		ctx.existing = existing;
+		ctx.record = new InboundInsurancePayment__c(Id = existing.Id);
+		populateInboundData(
+			ctx.record,
+			ctx.data,
+			ctx.itemJson,
+			ctx.payloadHash,
+			STATUS_POLICY_NOTICE,
+			null,
+			null,
+			true
+		);
+		ctx.record.policyStatusNotice__c = true;
+		stampResend(ctx.record, existing, ctx);
+		ctx.outcome = OUTCOME_UPDATED;
+		toUpdate.add(ctx);
+	}
+
+	/**
+	 * @creation date: 16/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Manda a guardar en la poliza el estado que comunica la aseguradora: las
+	 *               comunicaciones de estado y tambien los recibos que, ademas de ser un pago,
+	 *               informan el estado de su poliza. Un rechazado no se manda: no se pudo leer.
+	 * @param written: Registros de este lote que se guardaron.
+	 * @return
+	 */
+	private static void enqueuePolicyStatusCommunications(
+		List<InboundInsurancePayment__c> written
+	) {
+		Set<Id> candidates = new Set<Id>();
+		for (InboundInsurancePayment__c rec : written) {
+			if (
+				String.isNotBlank(rec.sourcePolicyStatusRaw__c) &&
+				!STATUS_REJECTED.equals(rec.inboundStatus__c)
+			) {
+				candidates.add(rec.Id);
+			}
+		}
+		if (candidates.isEmpty()) {
+			return;
+		}
+		try {
+			System.enqueueJob(new PolicyStatusNoticeQueueable(candidates));
+		} catch (System.AsyncException e) {
+			CobranzaLog.chainBreak(
+				CobranzaLog.STAGE_RECEPCION,
+				e,
+				'PolicyStatusNoticeQueueable',
+				candidates
+			);
+		}
 	}
 
 	/**
@@ -589,12 +714,15 @@ public with sharing class InboundInsurancePaymentService {
 			ctx.itemJson = JSON.serialize(rowPayload);
 			ctx.payloadHash = calculatePayloadHash(ctx.itemJson);
 			Boolean hasAmountField = rowPayload.containsKey('sourceAmount__c');
-			ctx.validationReason = validatePayload(
-				ctx.data.externalPaymentId,
-				ctx.data.sourcePolicyNumber,
-				ctx.data.sourceAmount,
-				hasAmountField
-			);
+			// Una comunicacion de estado de poliza no trae folio y su importe no se evalua.
+			ctx.validationReason = ctx.data.isPolicyStatusNotice
+				? null
+				: validatePayload(
+						ctx.data.externalPaymentId,
+						ctx.data.sourcePolicyNumber,
+						ctx.data.sourceAmount,
+						hasAmountField
+				  );
 			contexts.add(ctx);
 		}
 		return contexts;
@@ -1157,6 +1285,7 @@ public with sharing class InboundInsurancePaymentService {
 			if (
 				ctx.skip ||
 				ctx.validationReason != null ||
+				ctx.data.isPolicyStatusNotice ||
 				ctx.record == null ||
 				ctx.record.Id == null ||
 				ctx.data.sourceAmount == null ||
@@ -1677,7 +1806,8 @@ public with sharing class InboundInsurancePaymentService {
 			WHERE
 				contentFingerprint__c IN :fingerprints
 				AND externalPaymentId__c = NULL
-				AND inboundStatus__c = :STATUS_REJECTED
+				AND (inboundStatus__c = :STATUS_REJECTED
+				OR policyStatusNotice__c = TRUE)
 			ORDER BY CreatedDate
 		]) {
 			if (!result.containsKey(rec.contentFingerprint__c)) {
@@ -1806,6 +1936,14 @@ public with sharing class InboundInsurancePaymentService {
 			'sourcePolicyRenewalDate__c'
 		);
 		data.sourcePolicyIssueDate = getDate(payload, 'sourcePolicyIssueDate__c');
+		// Sin folio y con estado de poliza no es un recibo: es la aseguradora comunicando el estado
+		// de la poliza por el unico canal que tiene la integracion.
+		data.isPolicyStatusNotice =
+			!policyStatusNoticesDisabledForTest &&
+			String.isBlank(data.sourceReceiptNumber) &&
+			String.isBlank(data.externalPaymentId) &&
+			String.isNotBlank(data.sourcePolicyNumber) &&
+			String.isNotBlank(data.sourcePolicyStatusRaw);
 		data.carrierReceiptStatus = resolveCarrierReceiptStatus(data);
 		return data;
 	}
@@ -2090,6 +2228,7 @@ public with sharing class InboundInsurancePaymentService {
 		Date sourcePolicyRenewalDate;
 		Date sourcePolicyIssueDate;
 		String contentFingerprint;
+		Boolean isPolicyStatusNotice = false;
 	}
 
 	private class RowContext {

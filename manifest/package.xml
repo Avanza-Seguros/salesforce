@@ -48,6 +48,14 @@
         <members>OpportunityPolizaStageGuardTest</members>
         <members>PolicyPaymentReceiptTriggerHandler</members>
         <members>PolicyPaymentReceiptTriggerHandlerTest</members>
+        <members>InsurancePolicyExpirationBatch</members>
+        <members>InsurancePolicyExpirationBatchTest</members>
+        <members>PolicyStatusService</members>
+        <members>PolicyStatusServiceTest</members>
+        <members>PolicyCarrierStatusService</members>
+        <members>PolicyCarrierStatusServiceTest</members>
+        <members>PolicyStatusNoticeQueueable</members>
+        <members>PolicyStatusFromCarrierTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -64,6 +72,7 @@
         <members>PaymentPlan__c</members>
         <members>PaymentReconciliation__c</members>
         <members>PolicyPaymentReceipt__c</members>
+        <members>CarrierPolicyStatusMapping__mdt</members>
         <name>CustomObject</name>
     </types>
     <types>
@@ -224,6 +233,19 @@
         <members>CustomerProperty.TipoVehiculo__c</members>
         <members>CustomerProperty.Color__c</members>
         <members>CustomerProperty.TarifaAseguradora__c</members>
+        <members>InsurancePolicy.sourceOpportunityCloseDate__c</members>
+        <members>InsurancePolicy.sourceOpportunityStage__c</members>
+        <members>InboundInsurancePayment__c.policyStatusNotice__c</members>
+        <members>InsurancePolicy.carrierPolicyStatus__c</members>
+        <members>InsurancePolicy.carrierPolicyStatusRaw__c</members>
+        <members>InsurancePolicy.carrierStatusSyncedAt__c</members>
+        <members>InsurancePolicy.carrierStatusNotice__c</members>
+        <members>CarrierPolicyStatusMapping__mdt.CarrierCode__c</members>
+        <members
+		>CarrierPolicyStatusMapping__mdt.NormalizedPolicyStatus__c</members>
+        <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
+        <members>InboundInsurancePayment__c.manualReviewReason__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -257,6 +279,7 @@
         <members>policyInstallments</members>
         <members>inboundRefundResolve</members>
         <members>policyPaymentReceiptReverse</members>
+        <members>inboundPolicyStatusReprocess</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
@@ -265,6 +288,8 @@
         <members>PaymentReconciliation__c.Rechazar_manualmente</members>
         <members>PaymentReconciliation__c.Reprocesar</members>
         <members>PolicyPaymentReceipt__c.Reversar_recibo</members>
+        <members
+		>InboundInsurancePayment__c.Reprocesar_estado_de_poliza</members>
         <name>QuickAction</name>
     </types>
     <types>
@@ -279,6 +304,7 @@
     <types>
         <members>Bloquear_Closed_Won_Sin_Pago_Reconocido</members>
         <members>Cerrada_Ganada_Automatico</members>
+        <members>Update_Status_Insurance_Policy</members>
         <name>Flow</name>
     </types>
     <types>
@@ -295,6 +321,10 @@
         <members>PaymentReconciliation__c.Probable_Requiere_Decision</members>
         <members>PaymentReconciliation__c.Sin_Match</members>
         <members>InsurancePolicy.All_InsurancePolicies</members>
+        <members>InsurancePolicy.Polizas_Inicial_Oportunidad_Perdida</members>
+        <members>InboundInsurancePayment__c.Estados_de_poliza</members>
+        <members
+		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
         <name>ListView</name>
     </types>
     <types>
@@ -309,6 +339,7 @@
         <members>PolicyPaymentReceipt__c.ReversalIsTerminal</members>
         <members
 		>PolicyPaymentReceipt__c.ReversalRequiresReasonAndNotes</members>
+        <members>Opportunity.BloquearCerrada</members>
         <name>ValidationRule</name>
     </types>
     <types>
@@ -335,6 +366,16 @@
         <members>Insurance_Policy_Record_Page</members>
         <name>FlexiPage</name>
     </types>
+    <types>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Cancelada</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigente</members>
+        <name>CustomMetadata</name>
+    </types>
+    <types>
+        <members>Senalar_Oportunidad_Por_Reversa</members>
+        <name>CustomPermission</name>
+    </types>
+
     <version>66.0</version>
     <types>
         <members>Cobranza</members>

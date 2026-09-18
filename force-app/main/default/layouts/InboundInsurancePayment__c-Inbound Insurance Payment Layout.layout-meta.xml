@@ -183,6 +183,10 @@
                 <field>policyMatchReason__c</field>
             </layoutItems>
             <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>policyStatusNotice__c</field>
+            </layoutItems>
+            <layoutItems>
                 <behavior>Edit</behavior>
                 <field>candidateInstallment__c</field>
             </layoutItems>
@@ -219,6 +223,10 @@
             <layoutItems>
                 <behavior>Readonly</behavior>
                 <field>manualReviewRequired__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>manualReviewReason__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -378,14 +386,20 @@
             <sortOrder>0</sortOrder>
         </platformActionListItems>
         <platformActionListItems>
+            <actionName
+			>InboundInsurancePayment__c.Reprocesar_estado_de_poliza</actionName>
+            <actionType>QuickAction</actionType>
+            <sortOrder>1</sortOrder>
+        </platformActionListItems>
+        <platformActionListItems>
             <actionName>Edit</actionName>
             <actionType>StandardButton</actionType>
-            <sortOrder>1</sortOrder>
+            <sortOrder>2</sortOrder>
         </platformActionListItems>
         <platformActionListItems>
             <actionName>Delete</actionName>
             <actionType>StandardButton</actionType>
-            <sortOrder>2</sortOrder>
+            <sortOrder>3</sortOrder>
         </platformActionListItems>
     </platformActionList>
     <relatedLists>

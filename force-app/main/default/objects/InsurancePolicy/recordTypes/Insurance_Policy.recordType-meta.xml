@@ -38,21 +38,11 @@
             <default>false</default>
         </values>
         <values>
-            <fullName
-			>Cancelado por subscriptor o administración del plan</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Cobertura duplicada</fullName>
             <default>false</default>
         </values>
         <values>
             <fullName>Cobertura ubicada en otro lugar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName
-			>Fallo al cumplir con términos y condiciones %28por ejemplo%2C Fallo de auditoría%29</fullName>
             <default>false</default>
         </values>
         <values>
@@ -88,16 +78,26 @@
             <default>false</default>
         </values>
         <values>
-            <fullName
-			>Revocación de aceptación por parte del mercado voluntario</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Solicitud del asegurado</fullName>
             <default>false</default>
         </values>
         <values>
             <fullName>Tergiversación de información en la solicitud</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName
+			>Cancelado por subscriptor o administración del plan</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName
+			>Fallo al cumplir con términos y condiciones %28por ejemplo%2C Fallo de auditoría%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName
+			>Revocación de aceptación por parte del mercado voluntario</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -367,6 +367,21 @@
         </values>
         <values>
             <fullName>Vencido</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>carrierPolicyStatus__c</picklist>
+        <values>
+            <fullName>Cancelado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vencido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vigente</fullName>
             <default>false</default>
         </values>
     </picklistValues>

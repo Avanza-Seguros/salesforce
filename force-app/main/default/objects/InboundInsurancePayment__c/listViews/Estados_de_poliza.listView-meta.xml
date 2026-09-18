@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Estados_de_poliza</fullName>
+    <columns>OBJECT_ID</columns>
+    <columns>sourcePolicyNumber__c</columns>
+    <columns>sourceInsuranceCarrier__c</columns>
+    <columns>sourcePolicyStatusRaw__c</columns>
+    <columns>sourceCancellationDate__c</columns>
+    <columns>sourceCancellationReason__c</columns>
+    <columns>inboundStatus__c</columns>
+    <columns>policyMatchReason__c</columns>
+    <columns>candidatePolicy__c</columns>
+    <columns>sourceSynchronizedAt__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>policyStatusNotice__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Estados de póliza</label>
+    <language>es</language>
+</ListView>

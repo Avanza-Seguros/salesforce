@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Inicial_Oportunidad_Perdida</fullName>
+    <columns>Name</columns>
+    <columns>NameInsured</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>EffectiveDate</columns>
+    <columns>SourceOpportunity</columns>
+    <columns>sourceOpportunityCloseDate__c</columns>
+    <columns>Status</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status</field>
+        <operation>equals</operation>
+        <value>Inicial</value>
+    </filters>
+    <filters>
+        <field>sourceOpportunityStage__c</field>
+        <operation>equals</operation>
+        <value>Closed Lost</value>
+    </filters>
+    <label>Pólizas Inicial con oportunidad perdida</label>
+    <language>es</language>
+</ListView>

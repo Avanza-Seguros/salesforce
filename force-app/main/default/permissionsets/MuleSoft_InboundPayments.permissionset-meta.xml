@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <classAccesses>
+        <apexClass>PolicyStatusNoticeQueueable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>InboundConfidenceScoreQueueable</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -40,8 +44,47 @@
         <apexClass>PolicyPaymentReceiptQueueable</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Senalar_Oportunidad_Por_Reversa</name>
+    </customPermissions>
     <description
 	>Otorga al usuario de integracion de MuleSoft acceso al endpoint REST de pagos inbound y permisos completos sobre InboundInsurancePayment__c y lectura sobre InsurancePolicy.</description>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.manualReviewReason__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InsurancePolicy.carrierPolicyStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InsurancePolicy.carrierPolicyStatusRaw__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InsurancePolicy.carrierStatusSyncedAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InsurancePolicy.carrierStatusNotice__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InboundInsurancePayment__c.policyStatusNotice__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
         <field>InboundInsurancePayment__c.candidateCount__c</field>

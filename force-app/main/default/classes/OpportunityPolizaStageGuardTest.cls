@@ -232,7 +232,10 @@ private class OpportunityPolizaStageGuardTest {
 			AccountId = accountId,
 			StageName = stageName,
 			CloseDate = Date.today().addMonths(1),
-			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId()
+			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
+			// Ramo__c es obligatorio. Se informa aqui porque su valor por defecto no esta en
+			// todos los orgs: sin esto la prueba pasa en avanzaDEV y falla en avanzaUAT.
+			Ramo__c = 'Automoviles'
 		);
 		insert opp;
 		return opp;
@@ -294,12 +297,19 @@ private class OpportunityPolizaStageGuardTest {
 			candidateCount__c = 1
 		);
 		insert recon;
-		return new PolicyPaymentReceipt__c(
+		PolicyPaymentReceipt__c receipt = new PolicyPaymentReceipt__c(
 			insurancePolicy__c = policyId,
 			paymentReconciliation__c = recon.Id,
 			receiptStatus__c = status,
 			receiptDate__c = Date.today(),
 			receiptAmount__c = 1000
 		);
+		if (RECEIPT_STATUS_REVERSED.equals(status)) {
+			// La regla ReversalRequiresReasonAndNotes exige motivo y notas en todo recibo
+			// reversado, sea cual sea la via por la que se reversa.
+			receipt.reversalReason__c = 'Reversa administrativa';
+			receipt.reversalNotes__c = 'Recibo reversado para probar que no habilita el cierre manual.';
+		}
+		return receipt;
 	}
 }

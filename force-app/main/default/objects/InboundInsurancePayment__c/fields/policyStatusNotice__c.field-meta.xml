@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>policyStatusNotice__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+	>Marca las comunicaciones de estado de póliza que manda la aseguradora por el canal de pagos: no traen folio y no son un pago. Se conserva aunque la comunicación pase a revisión manual.</description>
+    <label>Comunicación de estado de póliza</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

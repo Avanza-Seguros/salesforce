@@ -443,7 +443,10 @@ private class PolicyPaymentReceiptTriggerHandlerTest {
 			AccountId = accountId,
 			StageName = stageName,
 			CloseDate = Date.today().addMonths(1),
-			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId()
+			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
+			// Ramo__c es obligatorio. Se informa aqui porque su valor por defecto no esta en
+			// todos los orgs: sin esto la prueba pasa en avanzaDEV y falla en avanzaUAT.
+			Ramo__c = 'Automoviles'
 		);
 		insert opp;
 		return opp;

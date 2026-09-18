@@ -89,6 +89,9 @@ public with sharing class PolicyPaymentReceiptTriggerHandler {
 		}
 
 		closeOpportunitiesForPolicies(receiptByPolicy);
+		// Despues del cierre de la oportunidad: si la poliza la tiene, el flow del cierre ya la
+		// paso a Vigente y el servicio no la vuelve a tocar.
+		PolicyStatusService.activateOnFirstPayment(receiptByPolicy.keySet());
 		AppLogger.flush();
 	}
 

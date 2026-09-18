@@ -34,6 +34,8 @@ public with sharing class CobranzaLog {
 	// Devoluciones y anulaciones de la aseguradora (importes negativos). No recorren el
 	// circuito de conciliacion: tienen su propio proceso.
 	public static final String STAGE_DEVOLUCION = 'Devolucion';
+	// Cambios del estado operativo de la poliza (primer pago y fin de vigencia).
+	public static final String STAGE_ESTADO_POLIZA = 'Estado de poliza';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide
@@ -125,6 +127,16 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_DUPLICATE_SCHEDULED_CHARGE = 'DUPLICATE_SCHEDULED_CHARGE';
 	// Reapertura de una cuota cancelada.
 	public static final String EVENT_INSTALLMENT_REOPENED = 'INSTALLMENT_REOPENED_FROM_CANCELLED';
+	// No se pudo guardar el nuevo estado de una poliza; las demas del lote si se guardaron.
+	public static final String EVENT_POLICY_STATUS_UPDATE_FAILED = 'POLICY_STATUS_UPDATE_FAILED';
+	// Comunicacion de estado de poliza cuya poliza no se identifico: queda para revision manual.
+	public static final String EVENT_POLICY_STATUS_NOTICE_TO_REVIEW = 'POLICY_STATUS_NOTICE_TO_REVIEW';
+	// Estado de poliza comunicado por la aseguradora que no tiene equivalencia configurada.
+	public static final String EVENT_CARRIER_POLICY_STATUS_UNMAPPED = 'CARRIER_POLICY_STATUS_UNMAPPED';
+	// No se pudo guardar el estado comunicado en la poliza o el resultado en la comunicacion.
+	public static final String EVENT_CARRIER_POLICY_STATUS_FAILED = 'CARRIER_POLICY_STATUS_FAILED';
+	// Llego un cobro de una poliza que la aseguradora da por cancelada: lo revisa una persona.
+	public static final String EVENT_PAYMENT_ON_CANCELLED_POLICY = 'PAYMENT_ON_CANCELLED_POLICY';
 
 	/**
 	 * @creation date: 29/07/2026
