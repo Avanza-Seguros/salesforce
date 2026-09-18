@@ -485,7 +485,7 @@
                                                                 <li key={ag.Id} class="lookup-result-item"
                                                                     onclick={selectAgente} data-id={ag.Id}>
                                                                     <div class="result-name">{ag.Name}</div>
-                                                                    <div class="result-details">{ag.Email__c}</div>
+                                                                    <div class="result-details">{ag.detalle}</div>
                                                                 </li>
                                                             </template>
                                                         </template>
@@ -631,22 +631,22 @@
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
-                                        <h3>Email <span class="required-asterisk">*</span></h3>
+                                        <h3>Email</h3>
                                     </div>
                                     <lightning-input type="email" label="" value={opportunity.clienteEmail} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
                                         data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com"
-                                        required message-when-value-missing="El correo es obligatorio" message-when-bad-input="Ingresa un correo válido" message-when-type-mismatch="Ingresa un correo válido">
+                                        message-when-bad-input="Ingresa un correo válido" message-when-type-mismatch="Ingresa un correo válido">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:call" size="x-small"></lightning-icon>
-                                        <h3>Teléfono <span class="required-asterisk">*</span></h3>
+                                        <h3>Teléfono</h3>
                                     </div>
                                     <lightning-input type="tel" label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
                                         data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678 o +525512345678"
-                                        pattern="(\+52)?[0-9]{10}" maxlength="13" required
-                                        message-when-value-missing="El teléfono es obligatorio" message-when-pattern-mismatch="El teléfono debe tener 10 dígitos (opcional +52)">
+                                        pattern="(\+52)?[0-9]{10}" maxlength="13"
+                                        message-when-pattern-mismatch="El teléfono debe tener 10 dígitos (opcional +52)">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">

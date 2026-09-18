@@ -359,7 +359,32 @@ public with sharing class PolicyController {
 			resumen.put('renovacion', llenarFechaRenovacion(policyId) ? 1 : 0);
 		} catch (Exception e) { resumen.put('renovacionError', msgLimpio(e)); }
 
+		// 6) Producer (agente) de la oportunidad -> InsurancePolicy.ProducerId.
+		try {
+			resumen.put('producer', vincularProducer(policyId, oppId) ? 1 : 0);
+		} catch (Exception e) { resumen.put('producerError', msgLimpio(e)); }
+
 		return resumen;
+	}
+
+	/**
+	 * @description Liga el Producer de la oportunidad a la póliza (InsurancePolicy.ProducerId),
+	 *              si la póliza aún no tiene productor.
+	 * @return true si asignó el productor.
+	 */
+	@AuraEnabled
+	public static Boolean vincularProducer(Id policyId, Id opportunityId) {
+		if (policyId == null || opportunityId == null) { return false; }
+		Id prod = null;
+		for (Opportunity o : [SELECT Producer__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1]) {
+			prod = (Id) o.get('Producer__c');
+		}
+		if (prod == null) { return false; }
+		for (InsurancePolicy p : [SELECT Id, ProducerId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1]) {
+			if (p.ProducerId != null) { return false; }
+		}
+		update new InsurancePolicy(Id = policyId, ProducerId = prod);
+		return true;
 	}
 
 	/**
@@ -778,6 +803,10 @@ public with sharing class PolicyController {
 		// 6) Fecha de renovación (para avisos).
 		try { resumen.put('renovacion', llenarFechaRenovacion(policyId) ? 1 : 0); }
 		catch (Exception e) { resumen.put('renovacionError', msgLimpio(e)); }
+
+		// 7) Producer (agente) -> InsurancePolicy.ProducerId.
+		try { resumen.put('producer', vincularProducer(policyId, oppId) ? 1 : 0); }
+		catch (Exception e) { resumen.put('producerError', msgLimpio(e)); }
 
 		return resumen;
 	}

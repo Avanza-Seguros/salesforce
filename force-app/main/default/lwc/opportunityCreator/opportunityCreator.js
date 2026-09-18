@@ -1105,8 +1105,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Description: detail.Description || '',
             AccountId:   detail.AccountId   || null,
             AccountName: detail.Account?.Name || detail.AccountName || '',
-            Agente__c:   detail.Agente_Relacionado__c || detail.Agente__c || null,
-            AgenteName:  detail.Agente_Relacionado__r?.Name || detail.Agente__r?.Name || detail.AgenteName || '',
+            Agente__c:   detail.Producer__c || detail.Agente_Relacionado__c || detail.Agente__c || null,
+            AgenteName:  detail.Producer__r?.Name || detail.Agente_Relacionado__r?.Name || detail.AgenteName || '',
             Vehiculo__c:  detail.automovil?.Id || null,
             VehiculoName: detail.automovil
                             ? `${detail.automovil.Make || ''} ${detail.automovil.ModelName || ''}`.trim()
@@ -2991,18 +2991,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!this.opportunity.Name)     { this.showToast('Error', 'El nombre de la oportunidad es requerido', 'error'); return; }
             if (!this.opportunity.StageName){ this.showToast('Error', 'La etapa es requerida', 'error'); return; }
             if (!this.opportunity.Ramo__c)  { this.showToast('Error', 'El ramo es requerido', 'error'); return; }
-            // Correo obligatorio y válido.
+            // Correo OPCIONAL: solo se valida el formato si viene capturado.
             const emailVal = (this.opportunity.clienteEmail || '').trim();
-            if (!emailVal) { this.showToast('Error', 'El correo es obligatorio', 'error'); return; }
-            const atPos = emailVal.indexOf('@');
-            const dotPos = emailVal.lastIndexOf('.');
-            const emailOk = atPos > 0 && dotPos > atPos + 1 && dotPos < emailVal.length - 1
-                && emailVal.indexOf(' ') === -1 && emailVal.indexOf('@', atPos + 1) === -1;
-            if (!emailOk) { this.showToast('Error', 'Ingresa un correo válido', 'error'); return; }
-            // Teléfono: 10 dígitos, o +52 (lada) + 10 dígitos.
+            if (emailVal) {
+                const atPos = emailVal.indexOf('@');
+                const dotPos = emailVal.lastIndexOf('.');
+                const emailOk = atPos > 0 && dotPos > atPos + 1 && dotPos < emailVal.length - 1
+                    && emailVal.indexOf(' ') === -1 && emailVal.indexOf('@', atPos + 1) === -1;
+                if (!emailOk) { this.showToast('Error', 'Ingresa un correo válido', 'error'); return; }
+            }
+            // Teléfono OPCIONAL: solo se valida si viene capturado.
             const telDigits = (this.opportunity.clienteTelefono || '').replace(/[^0-9]/g, '');
-            const telOk = telDigits.length === 10 || (telDigits.length === 12 && telDigits.startsWith('52'));
-            if (!telOk) { this.showToast('Error', 'El teléfono debe tener 10 dígitos (opcional +52)', 'error'); return; }
+            if (telDigits) {
+                const telOk = telDigits.length === 10 || (telDigits.length === 12 && telDigits.startsWith('52'));
+                if (!telOk) { this.showToast('Error', 'El teléfono debe tener 10 dígitos (opcional +52)', 'error'); return; }
+            }
             // Prima neta mayor a 0.
             const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
             if (!primaVal || primaVal <= 0) { this.showToast('Error', 'La prima neta debe ser mayor a 0', 'error'); return; }
@@ -3033,8 +3036,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const payload = {
                 ...this.opportunity,
                 Automovil__c: this.opportunity.Vehiculo__c || null,
-                // El agente se captura en Agente__c pero el Apex lo guarda en Agente_Relacionado__c.
-                Agente_Relacionado__c: this.opportunity.Agente__c || this.opportunity.Agente_Relacionado__c || null,
+                // El agente es un PRODUCER; el Apex lo guarda en Opportunity.Producer__c
+                // y luego se liga a InsurancePolicy.ProducerId.
+                Producer__c: this.opportunity.Agente__c || null,
                 isNewContacto: this.isNewContacto,
                 Descripcion__c: this.comparativoHtml || null,
                 detalleRamo: this.getActiveRamoDetail(),

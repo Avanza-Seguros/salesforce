@@ -121,8 +121,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.policyId = null;
         try {
             const id = await getPolicyIdByQuote({
-                quoteId: this.quoteId,
-                opportunityId: this.opportunityId
+                quoteId: this.idOrNull(this.quoteId),
+                opportunityId: this.idOrNull(this.opportunityId)
             });
             if (id) {
                 this.policyId = id;
@@ -256,12 +256,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 const resumen = this._datosPoliza
                     ? await guardarDatosPolizaDesdePdf({
                         policyId: savedId,
-                        opportunityId: this.opportunityId,
+                        opportunityId: this.idOrNull(this.opportunityId),
                         datosJson: JSON.stringify(this._datosPoliza)
                       })
                     : await completarPoliza({
                         policyId: savedId,
-                        opportunityId: this.opportunityId
+                        opportunityId: this.idOrNull(this.opportunityId)
                       });
                 this.mostrarResumenPoliza(resumen);
             } else {
@@ -471,6 +471,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             if (version && !normTxt(modelo).includes(normTxt(version))) { partes.push(version); }
             descripcionAuto = partes.filter(Boolean).join(' ').trim();
         }
+        // Para los DEMÁS ramos: descripción BREVE (el bien asegurado), sin listar coberturas,
+        // montos ni cobranza (esos ya se guardan como registros/campos aparte).
+        let descripcionCorta = (bien.descripcion || d.descripcion || '').toString().trim();
+        if (d.plan && !normTxt(descripcionCorta).includes(normTxt(d.plan))) {
+            descripcionCorta = descripcionCorta ? `${descripcionCorta} (Plan: ${d.plan})` : `Plan: ${d.plan}`;
+        }
+        if (descripcionCorta.length > 255) { descripcionCorta = descripcionCorta.substring(0, 255); }
         // El plan/paquete no se guarda en PlanType (picklist); se conserva en la descripción.
         if (d.plan) { descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Plan/Paquete: ' + d.plan; }
 
@@ -590,7 +597,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             IVA__c: cob.iva,
             Referencia_Pago__c: cob.referenciaPago,
             CLABE__c: cob.clabe,
-            PolicyDescription: (esAuto && descripcionAuto) ? descripcionAuto : descripcion
+            PolicyDescription: esAuto ? (descripcionAuto || descripcionCorta) : descripcionCorta
         };
 
         const fields = this.template.querySelectorAll('lightning-input-field');
@@ -803,6 +810,15 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     handleReintentar() {
         this.loadPolicy();
+    }
+
+    // Devuelve el valor solo si parece un Id de Salesforce (15/18 chars); si no, null.
+    // Evita el error "Value provided is invalid for action parameter of type 'Id'" al
+    // pasar cadenas vacías o ids de vista previa a métodos Apex.
+    idOrNull(v) {
+        if (!v) { return null; }
+        const s = String(v).trim();
+        return /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(s) ? s : null;
     }
 
     showToast(title, message, variant) {

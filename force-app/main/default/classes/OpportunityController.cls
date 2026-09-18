@@ -62,6 +62,7 @@ public with sharing class OpportunityController {
                     Tipo_Contratacion__c,
                     AccountId, Account.Name, Description, Descripcion__c,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
+                    Producer__c, Producer__r.Name,
                     Contacto__c, Contacto__r.Name
                 FROM Opportunity
                 WHERE Id = :opportunityId
@@ -243,24 +244,39 @@ public with sharing class OpportunityController {
 	 * @param searchTerm: Texto de busqueda (minimo 3 caracteres)
 	 * @return Lista de Agente__c coincidentes (maximo 10)
 	 */
+	// Wrapper de Producer para el buscador de agente/productor del LWC.
+	public class ProducerResult {
+		@AuraEnabled public Id Id;
+		@AuraEnabled public String Name;
+		@AuraEnabled public String detalle;
+	}
+
 	@AuraEnabled(cacheable=false)
-	public static List<Agente__c> searchAgentsProspectors(String searchTerm) {
+	public static List<ProducerResult> searchAgentsProspectors(String searchTerm) {
 		try {
-			if (String.isBlank(searchTerm) || searchTerm.length() < 3) {
-				return new List<Agente__c>();
-			}
-			String searchQuery = '%' + searchTerm + '%';
-			return [
-				SELECT Id, Name, Email__c, Telefono__c, Contacto__r.Name, Horno_mes__c
-				FROM Agente__c
-				WHERE (Name LIKE :searchQuery
-					   OR Email__c LIKE :searchQuery
-					   OR Contacto__r.Name LIKE :searchQuery)
+			List<ProducerResult> out = new List<ProducerResult>();
+			if (String.isBlank(searchTerm) || searchTerm.length() < 3) { return out; }
+			String q = '%' + searchTerm + '%';
+			// El agente ahora es un PRODUCER (objeto estándar de FSC), que luego se liga
+			// a la póliza en InsurancePolicy.ProducerId.
+			for (Producer p : [
+				SELECT Id, Name, Account.Name, Contact.Name, Type
+				FROM Producer
+				WHERE Name LIKE :q OR Account.Name LIKE :q OR Contact.Name LIKE :q
 				ORDER BY Name
 				LIMIT 10
-			];
+			]) {
+				ProducerResult r = new ProducerResult();
+				r.Id = p.Id;
+				r.Name = p.Name;
+				r.detalle = (p.Account != null && p.Account.Name != null) ? p.Account.Name
+					: ((p.Contact != null && p.Contact.Name != null) ? p.Contact.Name
+					: (p.Type != null ? p.Type : ''));
+				out.add(r);
+			}
+			return out;
 		} catch (Exception e) {
-			throw new AuraHandledException('Error en búsqueda de agentes: ' + e.getMessage());
+			throw new AuraHandledException('Error en búsqueda de productores: ' + e.getMessage());
 		}
 	}
 
@@ -645,9 +661,10 @@ public with sharing class OpportunityController {
 		if (String.isNotBlank(tipoContr)) { opp.Tipo_Contratacion__c = tipoContr; }
 
 		// Agente (lookup a Agente_Relacionado__c)
-		String agenteId = getStr(d, 'Agente_Relacionado__c');
-		if (String.isNotBlank(agenteId)) {
-			opp.Agente_Relacionado__c = (Id) agenteId;
+		String producerId = getStr(d, 'Producer__c');
+		if (String.isBlank(producerId)) { producerId = getStr(d, 'Agente_Relacionado__c'); }
+		if (String.isNotBlank(producerId)) {
+			try { opp.Producer__c = (Id) producerId; } catch (Exception ignore) {}
 		}
 		opp.Ramo__c     = getStr(d, 'Ramo__c');
 		opp.Description = getStr(d, 'Description');
