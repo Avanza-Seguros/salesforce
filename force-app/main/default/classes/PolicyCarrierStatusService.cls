@@ -295,13 +295,13 @@ public with sharing class PolicyCarrierStatusService {
 		) {
 			if (
 				String.isBlank(mapping.RawStatus__c) ||
-				!NORMALIZED_VALUES.contains(mapping.NormalizedStatus__c)
+				!NORMALIZED_VALUES.contains(mapping.NormalizedPolicyStatus__c)
 			) {
 				continue;
 			}
 			result.put(
 				mappingKey(mapping.CarrierCode__c, mapping.RawStatus__c),
-				mapping.NormalizedStatus__c
+				mapping.NormalizedPolicyStatus__c
 			);
 		}
 		return result;

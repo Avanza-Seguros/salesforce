@@ -11,7 +11,7 @@
         <value xsi:type="xsd:string">QUALITAS</value>
     </values>
     <values>
-        <field>NormalizedStatus__c</field>
+        <field>NormalizedPolicyStatus__c</field>
         <value xsi:type="xsd:string">Cancelado</value>
     </values>
     <values>
