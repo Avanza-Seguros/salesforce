@@ -353,7 +353,41 @@ public with sharing class PolicyController {
 			resumen.put('transaccion', txId != null ? 1 : 0);
 		} catch (Exception e) { resumen.put('transaccionError', msgLimpio(e)); }
 
+		// 5) Fecha de renovación (para los avisos de renovación): se llena con el fin
+		//    de vigencia si está vacía.
+		try {
+			resumen.put('renovacion', llenarFechaRenovacion(policyId) ? 1 : 0);
+		} catch (Exception e) { resumen.put('renovacionError', msgLimpio(e)); }
+
 		return resumen;
+	}
+
+	/**
+	 * @description Llena la fecha de renovación de la póliza (RenewalDate / PlannedRenewalDate)
+	 *              con el fin de vigencia (ExpirationDate) si están vacías. Habilita los avisos
+	 *              de renovación (60/30 días) que se disparan por una automatización aparte.
+	 * @return true si actualizó alguna fecha.
+	 */
+	@AuraEnabled
+	public static Boolean llenarFechaRenovacion(Id policyId) {
+		if (policyId == null) { return false; }
+		InsurancePolicy p = [
+			SELECT Id, ExpirationDate, RenewalDate, PlannedRenewalDate
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		Object exp = p.get('ExpirationDate');
+		if (exp == null) { return false; }
+		// ExpirationDate puede ser Date o Datetime según el org: se resuelven ambos tipos.
+		Date d; Datetime dt;
+		if (exp instanceof Datetime) { dt = (Datetime) exp; d = dt.date(); }
+		else { d = (Date) exp; dt = Datetime.newInstance(d, Time.newInstance(12, 0, 0, 0)); }
+
+		Boolean cambio = false;
+		InsurancePolicy upd = new InsurancePolicy(Id = policyId);
+		if (p.PlannedRenewalDate == null) { asignaFechaFlexible(upd, 'PlannedRenewalDate', d, dt); cambio = true; }
+		if (p.RenewalDate == null)        { asignaFechaFlexible(upd, 'RenewalDate', d, dt); cambio = true; }
+		if (cambio) { update upd; }
+		return cambio;
 	}
 
 	/**

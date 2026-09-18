@@ -862,15 +862,15 @@
                                         <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
                                     </div>
-                                    <div class="form-card"><h3>Motor <span class="required-asterisk">*</span></h3>
+                                    <div class="form-card"><h3>Motor <span class="opt-hint">(se captura en emisión)</span></h3>
                                         <lightning-input label="" value={automovil.Motor__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Motor__c" variant="label-hidden" placeholder="Ej: 2.0L"></lightning-input>
+                                            data-field="automovil.Motor__c" variant="label-hidden" placeholder="Opcional en cotización"></lightning-input>
                                     </div>
                                 </div>
                                 <div class="form-column">
-                                    <div class="form-card"><h3>Serie (VIN) <span class="required-asterisk">*</span></h3>
+                                    <div class="form-card"><h3>Serie (VIN) <span class="opt-hint">(se captura en emisión)</span></h3>
                                         <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie" required></lightning-input>
+                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Opcional en cotización"></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Placa</h3>
                                         <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}

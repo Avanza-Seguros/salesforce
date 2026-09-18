@@ -505,6 +505,20 @@ public with sharing class OpportunityController {
 		// ------------------------------------------------------------
 		if (isNewAccount == true && accountId == null) {
 			String tipoCliente = getStr(d, 'tipoCliente');
+			// Detección de PERSONA MORAL: si el nombre trae razón social (SA de CV,
+			// S. de R.L., A.C., etc.) se crea como EMPRESA aunque el formulario diga
+			// "Persona", para no partir la razón social ni ensuciar el catálogo.
+			List<String> partesNombre = new List<String>();
+			for (String k : new List<String>{ 'clienteNombre', 'clienteApellidoPaterno', 'clienteApellidoMaterno', 'clienteApellidos' }) {
+				String v = getStr(d, k);
+				if (String.isNotBlank(v)) { partesNombre.add(v); }
+			}
+			String nombreParaTipo = String.isNotBlank(getStr(d, 'AccountName'))
+				? getStr(d, 'AccountName') : String.join(partesNombre, ' ').trim();
+			if (tipoCliente != 'Empresa' && pareceEmpresa(nombreParaTipo)) {
+				tipoCliente = 'Empresa';
+				if (String.isBlank(getStr(d, 'AccountName'))) { d.put('AccountName', nombreParaTipo); }
+			}
 			Account acc = new Account();
 
 			if (tipoCliente == 'Persona') {
@@ -785,7 +799,36 @@ public with sharing class OpportunityController {
 
 	// Busca una cuenta existente para evitar duplicados: primero por email (si es persona),
 	// luego por nombre exacto (la comparación de texto en SOQL no distingue mayúsculas).
+	// Detecta si un nombre corresponde a una PERSONA MORAL por su razón social.
+	private static Boolean pareceEmpresa(String nombre) {
+		if (String.isBlank(nombre)) { return false; }
+		String n = ' ' + nombre.toUpperCase().replace('.', '').replace(',', ' ') + ' ';
+		while (n.contains('  ')) { n = n.replace('  ', ' '); }
+		for (String suf : new List<String>{
+			' SA DE CV ', ' S A DE C V ', ' SA ', ' SAPI ', ' SAPI DE CV ',
+			' S DE RL ', ' S DE RL DE CV ', ' SC ', ' AC ', ' SAB ', ' SAB DE CV ',
+			' S EN C ', ' SOFOM ', ' SPR DE RL ', ' SRL ' }) {
+			if (n.contains(suf)) { return true; }
+		}
+		for (String kw : new List<String>{ 'SOCIEDAD ANONIMA', 'ASOCIACION CIVIL', 'SA DE CV', 'S DE RL' }) {
+			if (n.contains(kw)) { return true; }
+		}
+		return false;
+	}
+
 	private static Id buscarCuentaExistente(Map<String, Object> d, String tipoCliente, String nombreCuenta) {
+		// 1) Dedup por RFC PRIMERO (más confiable que el nombre exacto).
+		String rfc = getStr(d, 'clienteRFC');
+		if (String.isBlank(rfc)) { rfc = getStr(d, 'rfc'); }
+		if (String.isNotBlank(rfc)) {
+			for (Account a : [SELECT Id FROM Account WHERE RFC__pc = :rfc LIMIT 1]) { return a.Id; }
+			if (Schema.SObjectType.Account.fields.getMap().containsKey('rfc__c')) {
+				try {
+					List<Account> emp = Database.query('SELECT Id FROM Account WHERE RFC__c = :rfc LIMIT 1');
+					if (!emp.isEmpty()) { return emp[0].Id; }
+				} catch (Exception ignore) {}
+			}
+		}
 		String email = getStr(d, 'clienteEmail');
 		if (tipoCliente == 'Persona' && String.isNotBlank(email)) {
 			for (Account a : [SELECT Id FROM Account WHERE PersonEmail = :email AND IsPersonAccount = true LIMIT 1]) {

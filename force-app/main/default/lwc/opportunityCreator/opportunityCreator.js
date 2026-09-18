@@ -72,6 +72,28 @@ const STAGE_DEFAULT_COLOR = '#6B7280';
 // Cantidad de oportunidades a mostrar por página
 const PAGE_SIZE = 20;
 
+// ============================================================
+// Catálogo de CONCEPTOS de cobertura + diccionario de sinónimos.
+// La comparación se hace por CONCEPTO, no por el texto exacto de cada
+// aseguradora, para no marcar falsos "No incluida" (ej. "Daños materiales",
+// "DAÑOS MATERIALES PERDIDA TOTAL" y "Daños Materiales" son el mismo concepto).
+// El orden importa: gana el primer concepto cuyo patrón aparezca en el nombre.
+// ============================================================
+const CONCEPTOS_AUTO = [
+    { concepto: 'Daños Materiales',                  patrones: ['danos materiales', 'dano material', 'perdida total', 'perdida parcial'] },
+    { concepto: 'Robo Total',                        patrones: ['robo total', 'robo del vehiculo', 'robo'] },
+    { concepto: 'RC Extranjero (USA/Canadá)',        patrones: ['extranjero', 'estados unidos', 'usa/', '/usa', 'canada', 'frontera', 'norteamerica'] },
+    { concepto: 'Responsabilidad Civil',             patrones: ['responsabilidad civil', 'rc danos', 'rc bienes', 'rc personas', 'rc familiar', 'danos a terceros'] },
+    { concepto: 'Muerte / Accidentes del Conductor', patrones: ['muerte del conductor', 'accidentes al conductor', 'accidentes automovilisticos al conductor', 'muerte accidental', 'gastos funerarios', 'conductor'] },
+    { concepto: 'Gastos Médicos Ocupantes',          patrones: ['gastos medicos ocupantes', 'gastos medicos a ocupantes', 'gastos medicos de ocupantes', 'gastos medicos', 'ocupantes'] },
+    { concepto: 'Asistencia Jurídica',               patrones: ['asistencia juridica', 'asistencia legal', 'gastos legales', 'defensa juridica', 'juridica'] },
+    { concepto: 'Asistencia Vial',                   patrones: ['asistencia vial', 'asistencia en viajes y vial', 'asistencia en viaje', 'asistencia en el camino', 'vial', 'grua'] },
+    { concepto: 'Asistencia Médica',                 patrones: ['asistencia medica', 'asistencia telefonica medica'] },
+    { concepto: 'Cristales',                         patrones: ['cristales', 'rotura de cristales'] },
+    { concepto: 'Equipo Especial / Adaptaciones',    patrones: ['equipo especial', 'adaptaciones', 'accesorios', 'equipo adicional'] },
+    { concepto: 'Extensión de RC',                   patrones: ['extension de responsabilidad', 'exceso de responsabilidad', 'rc en exceso'] }
+];
+
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
     // === Wires y picklists ===
@@ -136,9 +158,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track isNewContacto = false;
     _contactoSearchTimer = null;
     @track editableQuotes = [];
-    // Comparativo imprimible: desactivado hasta arreglar el mapeo de coberturas por
-    // concepto (Frente 2). Hoy compara por texto y marca falsos "No incluida".
-    comparativoImprimible = false;
+    // Comparativo imprimible: reactivado tras migrar la comparación a CONCEPTOS
+    // (catálogo + sinónimos). Ya no marca falsos "No incluida" ni infla el conteo.
+    comparativoImprimible = true;
     // Modo "agregar cotizaciones por PDF" a una oportunidad EXISTENTE (no crea oportunidad).
     @track addQuotesMode = false;
     // Verdadero mientras el componente de PDF está analizando (para mostrar spinner).
@@ -246,10 +268,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 aseguradoras: q.aseguradoras || [],
                 ramoLabel: q.ramoLabel || this.getRamoLabel(q.ramo),
                 productId: q.productoSugeridoId,
-                frecuencia: q.frecuencia || 'Mensual',
+                // La frecuencia sale de lo que trae la cotización (frecuenciaPago), normalizada.
+                frecuencia: this.normalizarFrecuenciaUI(q.frecuenciaPago || q.frecuencia),
                 sinProductos: !(q.productos && q.productos.length),
                 seleccionada: true
             }));
+            // Fecha de cierre sugerida = vencimiento de la cotización MÁS CORTA (si no hay una puesta).
+            if (!this.opportunity.CloseDate) {
+                const vigs = this.editableQuotes.map(q => q.vigencia).filter(Boolean).sort();
+                if (vigs.length) { this.opportunity = { ...this.opportunity, CloseDate: vigs[0] }; }
+            }
         } catch (e) {
             this.editableQuotes = [];
         }
@@ -298,8 +326,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 quotesJson: JSON.stringify(payload)
             });
             const n = (res && res.creadas) || 0;
+            const errs = (res && res.errores) || [];
             const eraAgregar = this.addQuotesMode;
-            this.showToast('Cotizaciones', `Se agregaron ${n} cotización(es) a la oportunidad.`, 'success');
+            if (errs.length) {
+                this.showToast('Cotizaciones con avisos',
+                    `Se agregaron ${n}. No se pudieron crear: ${errs.join(' | ')}`, 'warning');
+            } else {
+                this.showToast('Cotizaciones', `Se agregaron ${n} cotización(es) a la oportunidad.`, 'success');
+            }
             this.uploadedQuotes = [];
             this.editableQuotes = [];
             this.addQuotesMode = false;
@@ -592,20 +626,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         const coberturasMap = new Map();
         const companias = [];
+        // Solo en auto se normaliza por concepto (los demás ramos conservan su nombre).
+        const esAuto = this.uploadedQuotes.some(q => q.isAutomovil || /auto/i.test(q.ramo || ''));
         this.uploadedQuotes.forEach(quote => {
             const compania = quote.compania || 'Desconocida';
             if (!companias.includes(compania)) companias.push(compania);
             if (Array.isArray(quote.tablaCompletaCoberturas)) {
                 quote.tablaCompletaCoberturas.forEach(cobertura => {
                     const nombre = cobertura.cobertura || cobertura.nombre || 'Cobertura';
-                    if (!coberturasMap.has(nombre)) {
-                        coberturasMap.set(nombre, { nombre, valores: {} });
+                    const concepto = esAuto ? this.conceptoDe(nombre) : nombre;
+                    if (!coberturasMap.has(concepto)) {
+                        coberturasMap.set(concepto, { nombre: concepto, valores: {} });
                     }
-                    coberturasMap.get(nombre).valores[compania] = {
+                    const c = coberturasMap.get(concepto);
+                    c.valores[compania] = this.combinarValor(c.valores[compania], {
                         suma: cobertura.sumaAsegurada || cobertura.suma || '',
                         deducible: cobertura.deducible || '',
                         coaseguro: cobertura.coaseguro || ''
-                    };
+                    });
                 });
             }
             if (quote.isAutomovil)        this.agregarCoberturaAuto(coberturasMap, compania, quote);
@@ -668,7 +706,42 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     agregarOActualizarCobertura(map, nombre, compania, valores) {
         if (!map.has(nombre)) map.set(nombre, { nombre, valores: {} });
         const c = map.get(nombre);
-        c.valores[compania] = { ...c.valores[compania], ...valores };
+        c.valores[compania] = this.combinarValor(c.valores[compania], valores);
+    }
+
+    // Devuelve el CONCEPTO canónico de una cobertura de auto a partir de su nombre
+    // (traduce sinónimos por aseguradora). Si no reconoce el nombre, lo conserva.
+    conceptoDe(nombre) {
+        if (!nombre) { return 'Cobertura'; }
+        const n = nombre.toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        for (const item of CONCEPTOS_AUTO) {
+            if (item.patrones.some(p => n.includes(p))) { return item.concepto; }
+        }
+        return nombre.toString().trim();
+    }
+
+    // Fusiona dos valores del mismo concepto/compañía: conserva la suma mayor y
+    // el primer deducible/coaseguro no vacío (ej. Daños Materiales Pérdida Total + Parcial).
+    combinarValor(prev, nuevo) {
+        prev = prev || {}; nuevo = nuevo || {};
+        const sumaPrev = this.parseMonto(prev.suma);
+        const sumaNueva = this.parseMonto(nuevo.suma);
+        let suma = prev.suma || '';
+        if (nuevo.suma) {
+            if (!prev.suma) { suma = nuevo.suma; }
+            else if (sumaNueva != null && (sumaPrev == null || sumaNueva > sumaPrev)) { suma = nuevo.suma; }
+        }
+        return {
+            suma,
+            deducible: prev.deducible || nuevo.deducible || '',
+            coaseguro: prev.coaseguro || nuevo.coaseguro || ''
+        };
+    }
+
+    parseMonto(v) {
+        if (v == null || v === '') { return null; }
+        const num = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+        return isNaN(num) ? null : num;
     }
 
     // ============================================================
@@ -1651,9 +1724,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         const minPrice = Math.min(...quotes.map(q => q.totalAmount));
         const maxPrice = Math.max(...quotes.map(q => q.totalAmount));
-        const maxCov   = Math.max(...quotes.map(q => (q.coverageCount || 0)));
+
+        // Coberturas comparadas por CONCEPTO (no por texto): distintas aseguradoras
+        // usan nombres distintos para lo mismo. Esto evita falsos "No incluida" y que
+        // el conteo (y el "ganador por coberturas") dependa de cómo desglosa cada póliza.
+        const esAutoCmp = /auto/i.test(this.opportunity.Ramo__c || '')
+                       || quotes.some(q => /auto/i.test(q.ramo || ''));
+        const aConcepto = (n) => (esAutoCmp ? this.conceptoDe(n) : (n || '').trim());
+        const universo = [];
+        const universoSet = new Set();
+        const conceptosPorQuote = {};
+        quotes.forEach(q => {
+            const set = new Set();
+            (q.coverageNames || []).forEach(name => {
+                const c = aConcepto(name);
+                if (!c) { return; }
+                const key = c.toLowerCase();
+                set.add(key);
+                if (!universoSet.has(key)) { universoSet.add(key); universo.push(c); }
+            });
+            conceptosPorQuote[q.Id] = set;
+        });
+        const covCount = (q) => (conceptosPorQuote[q.Id] ? conceptosPorQuote[q.Id].size : 0);
+        const maxCov   = Math.max(...quotes.map(q => covCount(q)));
         const bestPriceQuote = quotes.find(q => q.totalAmount === minPrice);
-        const bestCovQuote   = quotes.find(q => (q.coverageCount || 0) === maxCov);
+        const bestCovQuote   = quotes.find(q => covCount(q) === maxCov);
 
         // Columnas (encabezado de la tabla)
         const columns = quotes.map(q => {
@@ -1676,36 +1771,30 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                         : (q.totalAmount === maxPrice && quotes.length > 1 ? 'el más caro' : ''),
                 hasPriceSub: q.totalAmount === minPrice
                           || (q.totalAmount === maxPrice && quotes.length > 1),
-                coverageCount: q.coverageCount || 0
+                coverageCount: covCount(q)
             };
         });
 
-        // Universo de coberturas en orden de aparición
-        const allCoverages = [];
-        const covSet = new Set();
-        quotes.forEach(q => {
-            (q.coverageNames || []).forEach(name => {
-                const clean = (name || '').trim();
-                if (clean && !covSet.has(clean.toLowerCase())) {
-                    covSet.add(clean.toLowerCase());
-                    allCoverages.push(clean);
-                }
-            });
-        });
-
-        // Matriz cobertura × compañía
-        const rows = allCoverages.map((covName, idx) => {
+        // Matriz CONCEPTO × compañía (universo ya normalizado por concepto)
+        const rows = universo.map((covName, idx) => {
             const cells = quotes.map(q => {
-                const includes = (q.coverageNames || []).some(n =>
-                    (n || '').trim().toLowerCase() === covName.toLowerCase()
-                );
+                const includes = conceptosPorQuote[q.Id].has(covName.toLowerCase());
+                const det = q.coverageDetalle ? q.coverageDetalle[covName.toLowerCase()] : null;
                 const isHl = q.Id === bestPriceQuote.Id || q.Id === bestCovQuote.Id;
                 let cls = 'doc-cell';
                 if (isHl) cls += ' doc-cell-hl';
                 if (!includes) cls += ' doc-cell-no';
+                // Muestra la suma asegurada (y deducible) cuando existe; si no, Sí / No incluida.
+                let text;
+                if (det && det.suma) {
+                    text = this.formatCurrencyOrText(det.suma);
+                    if (det.deducible) { text += ` · Ded. ${det.deducible}`; }
+                } else {
+                    text = includes ? 'Sí' : 'No incluida';
+                }
                 return {
                     key: `${idx}-${q.Id}`,
-                    text: includes ? 'Sí' : 'No incluida',
+                    text,
                     cellClass: cls
                 };
             });
@@ -1713,29 +1802,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         });
 
         // Cards de mejores opciones
+        const bestPriceCov = covCount(bestPriceQuote);
+        const bestCovCov   = covCount(bestCovQuote);
         const isSameWinner = bestPriceQuote.Id === bestCovQuote.Id;
         const cards = isSameWinner
             ? [{
                 key: 'unique',
                 title: `★ Opción única recomendada — ${bestPriceQuote.companiaLabel} · ${bestPriceQuote.totalFormatted}`,
-                text:  `Esta opción combina el mejor precio y el mayor número de coberturas (${bestCovQuote.coverageCount}). Es la más equilibrada del comparativo.`
+                text:  `Esta opción combina el mejor precio y el mayor número de coberturas (${bestCovCov}). Es la más equilibrada del comparativo.`
               }]
             : [{
                 key: 'price',
                 title: `★ Opción 1 — ${bestPriceQuote.companiaLabel} · ${bestPriceQuote.totalFormatted} (mejor precio)`,
-                text:  `La más económica del comparativo, con ${bestPriceQuote.coverageCount} coberturas incluidas. Ideal si el presupuesto manda.`
+                text:  `La más económica del comparativo, con ${bestPriceCov} coberturas incluidas. Ideal si el presupuesto manda.`
               }, {
                 key: 'coverage',
                 title: `★ Opción 2 — ${bestCovQuote.companiaLabel} · ${bestCovQuote.totalFormatted} (más coberturas)`,
-                text:  `El paquete más completo, con ${bestCovQuote.coverageCount} coberturas. Mejor protección por un poco más de prima.`
+                text:  `El paquete más completo, con ${bestCovCov} coberturas. Mejor protección por un poco más de prima.`
               }];
 
         // Recomendación
         const savings = maxPrice - minPrice;
         const savingsPct = maxPrice > 0 ? Math.round((savings / maxPrice) * 100) : 0;
         const recomendacion = isSameWinner
-            ? `${bestPriceQuote.companiaLabel} es la opción más completa: ofrece el mejor precio (${bestPriceQuote.totalFormatted}) y el mayor número de coberturas (${bestCovQuote.coverageCount}).`
-            : `${bestCovQuote.companiaLabel} trae el paquete más completo (${bestCovQuote.coverageCount} coberturas). ${bestPriceQuote.companiaLabel} es la más económica (${bestPriceQuote.totalFormatted}) con un ahorro de ${this.formatCurrency(savings)} (${savingsPct}%). Tú decides qué pesa más: precio o protección.`;
+            ? `${bestPriceQuote.companiaLabel} es la opción más completa: ofrece el mejor precio (${bestPriceQuote.totalFormatted}) y el mayor número de coberturas (${bestCovCov}).`
+            : `${bestCovQuote.companiaLabel} trae el paquete más completo (${bestCovCov} coberturas). ${bestPriceQuote.companiaLabel} es la más económica (${bestPriceQuote.totalFormatted}) con un ahorro de ${this.formatCurrency(savings)} (${savingsPct}%). Tú decides qué pesa más: precio o protección.`;
 
         // Metadata del documento
         const today = new Date();
@@ -1795,7 +1886,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         d.rows.forEach((row) => {
             h += `<tr><th style="${th}">${esc(row.name)}</th>`;
             row.cells.forEach((cell) => {
-                const style = cell.text === 'Sí' ? td : (td + 'color:#a94442;');
+                const style = cell.text === 'No incluida' ? (td + 'color:#a94442;') : td;
                 h += `<td style="${style}">${esc(cell.text)}</td>`;
             });
             h += '</tr>';
@@ -2365,6 +2456,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!event) return;
             const quote = event.detail || {};
             if (!quote.id) return;
+            // El AGENTE se toma del nombre del archivo (2° segmento separado por " - ").
+            this.asignarAgenteDesdeArchivo(quote.nombreArchivo);
             const ramo = quote.ramo || 'DESCONOCIDO';
             const ramoNormalizado = this.normalizarRamoParaCSS(ramo);
             const flags = {
@@ -2622,6 +2715,55 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         for (const [key, value] of Object.entries(mapping)) if (u.includes(key)) return value;
         return ramo;
     }
+    // Normaliza la frecuencia de pago al catálogo del picklist (Contado, Mensual,
+    // Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
+    // Toma el AGENTE del nombre del archivo (2° segmento separado por " - ") y lo busca
+    // en el catálogo de agentes para asignarlo a la oportunidad. Si no lo encuentra, se
+    // deja para captura manual. Solo actúa si aún no hay agente asignado.
+    async asignarAgenteDesdeArchivo(fileName) {
+        if (!fileName || this.opportunity.Agente__c) { return; }
+        const base = fileName.replace(/\.[^.]+$/, '');
+        const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
+        const agente = segs.length >= 2 ? segs[1] : '';
+        if (!agente || agente.length < 3) { return; }
+        try {
+            const res = await searchAgentsProspectors({ searchTerm: agente });
+            if (res && res.length) {
+                this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+            }
+        } catch (e) {
+            // Sin coincidencia: el agente se captura a mano.
+        }
+    }
+
+    // Empareja la marca extraída (ej. "NISSAN", "NISSAN ROGUE") con el valor exacto del
+    // picklist de Marca (ej. "Nissan"), ignorando mayúsculas/acentos, para que sí se seleccione.
+    matchMarca(nombre) {
+        if (!nombre) return '';
+        const norm = s => s.toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        const target = norm(nombre);
+        const opts = this.marcaPicklistValues || [];
+        let m = opts.find(o => norm(o.value) === target || norm(o.label) === target);
+        if (m) return m.value;
+        // Empieza por (ej. "NISSAN ROGUE ADVANCE" → "Nissan")
+        m = opts.find(o => target.startsWith(norm(o.value) + ' ') || target.startsWith(norm(o.label) + ' '));
+        if (m) return m.value;
+        // Contiene la marca como palabra
+        m = opts.find(o => target.split(' ').includes(norm(o.value)) || target.split(' ').includes(norm(o.label)));
+        if (m) return m.value;
+        return nombre;
+    }
+
+    normalizarFrecuenciaUI(valor) {
+        const v = (valor || '').toString().toLowerCase();
+        if (!v) return 'Anual';
+        if (v.includes('contado') || v.includes('una sola') || v.includes('unic')) return 'Contado';
+        if (v.includes('quincen')) return 'Quincenal';
+        if (v.includes('mensual')) return 'Mensual';
+        if (v.includes('trimestr')) return 'Trimestral';
+        if (v.includes('semestr')) return 'Semestral';
+        return 'Anual';
+    }
     getRamoLabel(ramo) {
         if (!ramo) return 'Desconocido';
         const labels = {
@@ -2693,10 +2835,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     updateOpportunityFromExtractedData(extractedData) {
         if (!extractedData || Array.isArray(extractedData)) return;
         try {
-            if (!this.opportunity.Name && extractedData.compania) {
+            if (!this.opportunity.Name) {
+                // No se bautiza con la aseguradora: hay varias opciones vivas. El nombre
+                // usa Ramo + Cliente; la aseguradora se fija al aceptar la cotización ganadora.
                 const ramoLabel = extractedData.ramoLabel || extractedData.ramo || 'Seguro';
                 const clienteNombre = extractedData.clienteNombre || 'Cliente';
-                this.opportunity.Name = `${ramoLabel} - ${extractedData.compania} - ${clienteNombre}`.substring(0, 80);
+                this.opportunity.Name = `${ramoLabel} - ${clienteNombre}`.substring(0, 80);
             }
             if (!this.opportunity.Ramo__c) {
                 const mapped = this.mapRamoToOption(extractedData.ramo);
@@ -2720,7 +2864,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (extractedData.marca || extractedData.modelo) {
                 this.automovil = {
                     ...this.automovil,
-                    Marca__c:  extractedData.marca  || this.automovil.Marca__c,
+                    Marca__c:  this.matchMarca(extractedData.marca) || this.automovil.Marca__c,
                     Modelo__c: extractedData.modelo || this.automovil.Modelo__c,
                     Placa__c:  extractedData.placa  || this.automovil.Placa__c,
                     Serie__c:  extractedData.serie  || this.automovil.Serie__c,
@@ -2862,11 +3006,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             // Prima neta mayor a 0.
             const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
             if (!primaVal || primaVal <= 0) { this.showToast('Error', 'La prima neta debe ser mayor a 0', 'error'); return; }
-            // Serie (VIN) obligatoria cuando el ramo es Automóviles.
-            if (this.isRamoAutomovil && !(this.automovil && this.automovil.Serie__c && String(this.automovil.Serie__c).trim())) {
-                this.showToast('Error', 'El número de serie (VIN) del vehículo es obligatorio.', 'error');
-                return;
-            }
+            // El VIN (Serie) y el Motor NO se exigen en la cotización: muchas veces aún
+            // no existen. Se capturan/validan en la emisión de la póliza.
             if (!this.opportunity.AccountId && !this.isNewAccount) {
                 this.showToast('Error', 'Selecciona una cuenta o elige "Crear cuenta nueva".', 'error');
                 return;
@@ -3331,6 +3472,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const covs = (q.tablaCompletaCoberturas || [])
             .map(c => (c.cobertura || c.nombre || '').trim())
             .filter(Boolean);
+        // Detalle por concepto (suma/deducible) para mostrarlo en cada celda del comparativo.
+        const esAuto = q.isAutomovil || /auto/i.test(q.ramo || '');
+        const coverageDetalle = {};
+        (q.tablaCompletaCoberturas || []).forEach(c => {
+            const nombre = (c.cobertura || c.nombre || '').trim();
+            if (!nombre) { return; }
+            const concepto = esAuto ? this.conceptoDe(nombre) : nombre;
+            const val = { suma: c.sumaAsegurada || c.suma || '', deducible: c.deducible || '' };
+            coverageDetalle[concepto.toLowerCase()] = this.combinarValor(coverageDetalle[concepto.toLowerCase()], val);
+        });
         return {
             Id: q.id || ('pq' + i),
             companiaLabel: q.compania || '—',
@@ -3339,6 +3490,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageCount: covs.length,
             coverageLabel: covs.length === 1 ? '1 cobertura' : `${covs.length} coberturas`,
             coverageNames: covs,
+            coverageDetalle,
             expirationDateRaw: q.vigencia || null,
             expirationFormatted: q.vigencia ? this.formatDate(q.vigencia) : '',
             statusLabel: 'Vista previa',

@@ -10,6 +10,11 @@
         <valueSetDefinition>
             <sorted>false</sorted>
             <value>
+                <fullName>Contado</fullName>
+                <default>false</default>
+                <label>Contado</label>
+            </value>
+            <value>
                 <fullName>Mensual</fullName>
                 <default>false</default>
                 <label>Mensual</label>

@@ -1429,11 +1429,12 @@ public with sharing class PdfOpportunityCreatorController {
 	// (Mensual, Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
 	private static String normalizarFrecuencia(String valor) {
 		String v = (valor == null) ? '' : valor.toLowerCase();
+		if (v.contains('contado') || v.contains('una sola') || v.contains('unica') || v.contains('unico')) { return 'Contado'; }
 		if (v.contains('quincen')) { return 'Quincenal'; }
 		if (v.contains('mensual')) { return 'Mensual'; }
 		if (v.contains('trimestr')) { return 'Trimestral'; }
 		if (v.contains('semestr')) { return 'Semestral'; }
-		// Anual, contado, único o no especificada.
+		// Anual o no especificada.
 		return 'Anual';
 	}
 
@@ -1573,11 +1574,29 @@ public with sharing class PdfOpportunityCreatorController {
 			System.debug('COT-PROD::: ' + JSON.serialize(d));
 		}
 
+		// Inserción tolerante: una cotización con problema (p. ej. Chubb sin producto/cobertura)
+		// no debe tumbar a las demás. Se recogen los errores por aseguradora.
+		List<String> erroresQuote = new List<String>();
 		try {
-			if (!toInsert.isEmpty()) { insert toInsert; }
+			if (!toInsert.isEmpty()) {
+				Database.SaveResult[] srs = Database.insert(toInsert, false);
+				for (Integer i = 0; i < srs.size(); i++) {
+					if (!srs[i].isSuccess()) {
+						String comp = (String) detalle[i].get('compania');
+						String m = srs[i].getErrors().isEmpty() ? 'error' : srs[i].getErrors()[0].getMessage();
+						erroresQuote.add((String.isNotBlank(comp) ? comp + ': ' : '') + m);
+					}
+				}
+			}
 		} catch (Exception e) {
 			System.debug('COT::: ' + e.getMessage() + ' | ' + e.getStackTraceString());
 			throw new AuraHandledException('No se pudieron crear las cotizaciones: ' + e.getMessage());
+		}
+		Integer creadasN = 0;
+		for (Quote qq : toInsert) { if (qq.Id != null) { creadasN++; } }
+		// Si NINGUNA se creó, sí avisamos con el detalle real del error.
+		if (creadasN == 0 && !erroresQuote.isEmpty()) {
+			throw new AuraHandledException('No se pudieron crear las cotizaciones: ' + String.join(erroresQuote, ' | '));
 		}
 
 		// Hereda las coberturas del PRODUCTO a cada cotización (igual que el alta manual),
@@ -1588,7 +1607,7 @@ public with sharing class PdfOpportunityCreatorController {
 				Id qId = toInsert[i].Id;
 				Id pId = (Id) detalle[i].get('productId');
 				Id aId = (Id) detalle[i].get('aseguradoraId');
-				if (pId == null) { continue; }
+				if (qId == null || pId == null) { continue; }
 				Integer orden = 0;
 				for (QuoteCreatorController.CoverageTemplateWrapper w : QuoteCreatorController.getCoveragesByProduct(pId)) {
 					orden++;
@@ -1608,7 +1627,7 @@ public with sharing class PdfOpportunityCreatorController {
 			System.debug('COT-COB::: ' + e.getMessage());
 		}
 
-		return new Map<String,Object>{ 'creadas' => toInsert.size(), 'detalle' => detalle };
+		return new Map<String,Object>{ 'creadas' => creadasN, 'detalle' => detalle, 'errores' => erroresQuote };
 	}
 
 	/**
