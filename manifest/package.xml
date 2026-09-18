@@ -339,6 +339,7 @@
         <members>PolicyPaymentReceipt__c.ReversalIsTerminal</members>
         <members
 		>PolicyPaymentReceipt__c.ReversalRequiresReasonAndNotes</members>
+        <members>Opportunity.BloquearCerrada</members>
         <name>ValidationRule</name>
     </types>
     <types>
@@ -370,6 +371,11 @@
         <members>CarrierPolicyStatusMapping.QUALITAS_Vigente</members>
         <name>CustomMetadata</name>
     </types>
+    <types>
+        <members>Senalar_Oportunidad_Por_Reversa</members>
+        <name>CustomPermission</name>
+    </types>
+
     <version>66.0</version>
     <types>
         <members>Cobranza</members>

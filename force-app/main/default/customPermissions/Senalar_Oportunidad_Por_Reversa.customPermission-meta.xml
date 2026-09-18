@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+	>Permite al circuito de cobranza señalar en una oportunidad ya cerrada que su póliza se quedó sin cobros válidos, y quitar esa señal cuando recupera uno. Exime solo de la regla BloquearCerrada.</description>
+    <isLicensed>false</isLicensed>
+    <label>Señalar oportunidad por reversa</label>
+</CustomPermission>

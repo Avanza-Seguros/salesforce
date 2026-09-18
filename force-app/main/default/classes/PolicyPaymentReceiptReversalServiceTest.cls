@@ -1104,6 +1104,36 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	 * @param stage: Etapa inicial de la oportunidad.
 	 * @return El recibo reconocido de esa poliza.
 	 */
+	/**
+	 * @description: Da al usuario que corre la prueba el permiso con el que el circuito de
+	 *               cobranza puede señalar una oportunidad cerrada, como lo tiene el usuario
+	 *               real a traves de su permission set. Sin el, la regla BloquearCerrada rechaza
+	 *               la señal: el cobro reconocido ya cerro la oportunidad.
+	 */
+	private static void grantSignalPermission() {
+		User me = new User(Id = UserInfo.getUserId());
+		System.runAs(me) {
+			Id permissionSetId = [
+				SELECT Id
+				FROM PermissionSet
+				WHERE Name = 'Cobranza_Revision_Manual'
+			]
+			.Id;
+			Boolean alreadyAssigned =
+				[
+					SELECT COUNT()
+					FROM PermissionSetAssignment
+					WHERE AssigneeId = :me.Id AND PermissionSetId = :permissionSetId
+				] > 0;
+			if (!alreadyAssigned) {
+				insert new PermissionSetAssignment(
+					AssigneeId = me.Id,
+					PermissionSetId = permissionSetId
+				);
+			}
+		}
+	}
+
 	private static PolicyPaymentReceipt__c buildChainWithOpportunity(
 		String suffix,
 		String stage
@@ -1170,63 +1200,70 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	 */
 	@IsTest
 	static void signalsOpportunityWhenPolicyLosesAllValidReceipts() {
-		PolicyPaymentReceipt__c receipt = buildChainWithOpportunity('40', 'Póliza');
-		Id oppId = [
-			SELECT SourceOpportunityId
-			FROM InsurancePolicy
-			WHERE
-				Id = :[
-					SELECT insurancePolicy__c
-					FROM PolicyPaymentReceipt__c
-					WHERE Id = :receipt.Id
-				]
-				.insurancePolicy__c
-		]
-		.SourceOpportunityId;
-		String stageBefore = [
-			SELECT StageName
-			FROM Opportunity
-			WHERE Id = :oppId
-		]
-		.StageName;
+		grantSignalPermission();
+		// El usuario real de cobranza o de MuleSoft tiene el permiso; runAs lo aplica.
+		System.runAs(new User(Id = UserInfo.getUserId())) {
+			PolicyPaymentReceipt__c receipt = buildChainWithOpportunity(
+				'40',
+				'Póliza'
+			);
+			Id oppId = [
+				SELECT SourceOpportunityId
+				FROM InsurancePolicy
+				WHERE
+					Id = :[
+						SELECT insurancePolicy__c
+						FROM PolicyPaymentReceipt__c
+						WHERE Id = :receipt.Id
+					]
+					.insurancePolicy__c
+			]
+			.SourceOpportunityId;
+			String stageBefore = [
+				SELECT StageName
+				FROM Opportunity
+				WHERE Id = :oppId
+			]
+			.StageName;
 
-		Test.startTest();
-		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
-		Test.stopTest();
+			Test.startTest();
+			PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+			Test.stopTest();
 
-		Opportunity opp = [
-			SELECT
-				StageName,
-				collectionReversedFlag__c,
-				collectionReversedOn__c,
-				collectionReversalReason__c,
-				collectionReversedReceipt__c
-			FROM Opportunity
-			WHERE Id = :oppId
-		];
-		Assert.isTrue(
-			opp.collectionReversedFlag__c,
-			'La oportunidad debe quedar señalada'
-		);
-		Assert.isNotNull(
-			opp.collectionReversedOn__c,
-			'Debe registrar cuándo quedó sin cobros válidos'
-		);
-		Assert.areEqual(
-			REASON,
-			opp.collectionReversalReason__c,
-			'Debe copiar el motivo para que se lea sin navegar al recibo'
-		);
-		Assert.areEqual(
-			receipt.Id,
-			opp.collectionReversedReceipt__c,
-			'Debe apuntar al recibo que originó la señal'
-		);
-		Assert.areEqual(
-			stageBefore,
-			opp.StageName,
-			'La etapa NO debe modificarse: pertenece al proceso comercial'
-		);
+			Opportunity opp = [
+				SELECT
+					StageName,
+					collectionReversedFlag__c,
+					collectionReversedOn__c,
+					collectionReversalReason__c,
+					collectionReversedReceipt__c
+				FROM Opportunity
+				WHERE Id = :oppId
+			];
+			Assert.isTrue(
+				opp.collectionReversedFlag__c,
+				'La oportunidad debe quedar señalada'
+			);
+			Assert.isNotNull(
+				opp.collectionReversedOn__c,
+				'Debe registrar cuándo quedó sin cobros válidos'
+			);
+			Assert.areEqual(
+				REASON,
+				opp.collectionReversalReason__c,
+				'Debe copiar el motivo para que se lea sin navegar al recibo'
+			);
+			Assert.areEqual(
+				receipt.Id,
+				opp.collectionReversedReceipt__c,
+				'Debe apuntar al recibo que originó la señal'
+			);
+			Assert.areEqual(
+				stageBefore,
+				opp.StageName,
+				'La etapa NO debe modificarse: pertenece al proceso comercial'
+			);
+		}
 	}
 
 	/**
@@ -1235,48 +1272,55 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	 */
 	@IsTest
 	static void doesNotSignalWhenPolicyKeepsAnotherValidReceipt() {
-		PolicyPaymentReceipt__c receipt = buildChainWithOpportunity('41', 'Póliza');
-		Id policyId = [
-			SELECT insurancePolicy__c
-			FROM PolicyPaymentReceipt__c
-			WHERE Id = :receipt.Id
-		]
-		.insurancePolicy__c;
-		Id reconId = [
-			SELECT paymentReconciliation__c
-			FROM PolicyPaymentReceipt__c
-			WHERE Id = :receipt.Id
-		]
-		.paymentReconciliation__c;
-
-		insert new PolicyPaymentReceipt__c(
-			insurancePolicy__c = policyId,
-			paymentReconciliation__c = reconId,
-			receiptDate__c = Date.today(),
-			receiptAmount__c = 500,
-			receiptStatus__c = RECEIPT_RECOGNIZED,
-			receiptNumber__c = 'REC-41-B'
-		);
-
-		Test.startTest();
-		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
-		Test.stopTest();
-
-		Assert.isFalse(
-			[
-				SELECT collectionReversedFlag__c
-				FROM Opportunity
-				WHERE
-					Id = :[
-						SELECT SourceOpportunityId
-						FROM InsurancePolicy
-						WHERE Id = :policyId
-					]
-					.SourceOpportunityId
+		grantSignalPermission();
+		// El usuario real de cobranza o de MuleSoft tiene el permiso; runAs lo aplica.
+		System.runAs(new User(Id = UserInfo.getUserId())) {
+			PolicyPaymentReceipt__c receipt = buildChainWithOpportunity(
+				'41',
+				'Póliza'
+			);
+			Id policyId = [
+				SELECT insurancePolicy__c
+				FROM PolicyPaymentReceipt__c
+				WHERE Id = :receipt.Id
 			]
-			.collectionReversedFlag__c,
-			'La oportunidad no debe señalarse: la póliza conserva un cobro válido'
-		);
+			.insurancePolicy__c;
+			Id reconId = [
+				SELECT paymentReconciliation__c
+				FROM PolicyPaymentReceipt__c
+				WHERE Id = :receipt.Id
+			]
+			.paymentReconciliation__c;
+
+			insert new PolicyPaymentReceipt__c(
+				insurancePolicy__c = policyId,
+				paymentReconciliation__c = reconId,
+				receiptDate__c = Date.today(),
+				receiptAmount__c = 500,
+				receiptStatus__c = RECEIPT_RECOGNIZED,
+				receiptNumber__c = 'REC-41-B'
+			);
+
+			Test.startTest();
+			PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+			Test.stopTest();
+
+			Assert.isFalse(
+				[
+					SELECT collectionReversedFlag__c
+					FROM Opportunity
+					WHERE
+						Id = :[
+							SELECT SourceOpportunityId
+							FROM InsurancePolicy
+							WHERE Id = :policyId
+						]
+						.SourceOpportunityId
+				]
+				.collectionReversedFlag__c,
+				'La oportunidad no debe señalarse: la póliza conserva un cobro válido'
+			);
+		}
 	}
 
 	/**
@@ -1285,67 +1329,77 @@ private class PolicyPaymentReceiptReversalServiceTest {
 	 */
 	@IsTest
 	static void clearsSignalWhenPolicyRecoversAValidReceipt() {
-		PolicyPaymentReceipt__c receipt = buildChainWithOpportunity('42', 'Póliza');
-		Id policyId = [
-			SELECT insurancePolicy__c
-			FROM PolicyPaymentReceipt__c
-			WHERE Id = :receipt.Id
-		]
-		.insurancePolicy__c;
-		Id reconId = [
-			SELECT paymentReconciliation__c
-			FROM PolicyPaymentReceipt__c
-			WHERE Id = :receipt.Id
-		]
-		.paymentReconciliation__c;
-		Id oppId = [
-			SELECT SourceOpportunityId
-			FROM InsurancePolicy
-			WHERE Id = :policyId
-		]
-		.SourceOpportunityId;
+		grantSignalPermission();
+		// El usuario real de cobranza o de MuleSoft tiene el permiso; runAs lo aplica.
+		System.runAs(new User(Id = UserInfo.getUserId())) {
+			PolicyPaymentReceipt__c receipt = buildChainWithOpportunity(
+				'42',
+				'Póliza'
+			);
+			Id policyId = [
+				SELECT insurancePolicy__c
+				FROM PolicyPaymentReceipt__c
+				WHERE Id = :receipt.Id
+			]
+			.insurancePolicy__c;
+			Id reconId = [
+				SELECT paymentReconciliation__c
+				FROM PolicyPaymentReceipt__c
+				WHERE Id = :receipt.Id
+			]
+			.paymentReconciliation__c;
+			Id oppId = [
+				SELECT SourceOpportunityId
+				FROM InsurancePolicy
+				WHERE Id = :policyId
+			]
+			.SourceOpportunityId;
 
-		PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
-		Assert.isTrue(
-			[
-				SELECT collectionReversedFlag__c
+			PolicyPaymentReceiptReversalService.reverse(receipt.Id, REASON, NOTES);
+			Assert.isTrue(
+				[
+					SELECT collectionReversedFlag__c
+					FROM Opportunity
+					WHERE Id = :oppId
+				]
+				.collectionReversedFlag__c,
+				'Preparación: la oportunidad debe quedar señalada antes de recuperar el cobro'
+			);
+
+			Test.startTest();
+			insert new PolicyPaymentReceipt__c(
+				insurancePolicy__c = policyId,
+				paymentReconciliation__c = reconId,
+				receiptDate__c = Date.today(),
+				receiptAmount__c = 500,
+				receiptStatus__c = RECEIPT_RECOGNIZED,
+				receiptNumber__c = 'REC-42-NUEVO'
+			);
+			Test.stopTest();
+
+			Opportunity opp = [
+				SELECT
+					collectionReversedFlag__c,
+					collectionReversedOn__c,
+					collectionReversalReason__c,
+					collectionReversedReceipt__c
 				FROM Opportunity
 				WHERE Id = :oppId
-			]
-			.collectionReversedFlag__c,
-			'Preparación: la oportunidad debe quedar señalada antes de recuperar el cobro'
-		);
-
-		Test.startTest();
-		insert new PolicyPaymentReceipt__c(
-			insurancePolicy__c = policyId,
-			paymentReconciliation__c = reconId,
-			receiptDate__c = Date.today(),
-			receiptAmount__c = 500,
-			receiptStatus__c = RECEIPT_RECOGNIZED,
-			receiptNumber__c = 'REC-42-NUEVO'
-		);
-		Test.stopTest();
-
-		Opportunity opp = [
-			SELECT
-				collectionReversedFlag__c,
-				collectionReversedOn__c,
-				collectionReversalReason__c,
-				collectionReversedReceipt__c
-			FROM Opportunity
-			WHERE Id = :oppId
-		];
-		Assert.isFalse(
-			opp.collectionReversedFlag__c,
-			'La señal debe retirarse al recuperarse el cobro'
-		);
-		Assert.isNull(opp.collectionReversedOn__c, 'Debe limpiarse la fecha');
-		Assert.isNull(opp.collectionReversalReason__c, 'Debe limpiarse el motivo');
-		Assert.isNull(
-			opp.collectionReversedReceipt__c,
-			'Debe limpiarse el recibo señalado'
-		);
+			];
+			Assert.isFalse(
+				opp.collectionReversedFlag__c,
+				'La señal debe retirarse al recuperarse el cobro'
+			);
+			Assert.isNull(opp.collectionReversedOn__c, 'Debe limpiarse la fecha');
+			Assert.isNull(
+				opp.collectionReversalReason__c,
+				'Debe limpiarse el motivo'
+			);
+			Assert.isNull(
+				opp.collectionReversedReceipt__c,
+				'Debe limpiarse el recibo señalado'
+			);
+		}
 	}
 
 	/**
