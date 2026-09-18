@@ -846,8 +846,12 @@ public with sharing class PolicyController {
 			} else {
 				c.LastName = nombre.left(80);
 			}
-			if (String.isNotBlank(email)) { c.Email = email; }
-			if (String.isNotBlank(tel))   { c.Phone = tel; }
+			// Correo y teléfono solo si tienen formato válido (evita reglas de validación).
+			if (String.isNotBlank(email) && email.contains('@') && email.contains('.')) { c.Email = email; }
+			if (String.isNotBlank(tel)) {
+				String dig = tel.replaceAll('[^0-9]', '');
+				if (dig.length() == 10 || (dig.length() == 12 && dig.startsWith('52'))) { c.Phone = tel; }
+			}
 			if (String.isNotBlank(rfc))   { try { c.put('RFC__c', rfc.toUpperCase()); } catch (Exception ignore) {} }
 			insert c;
 			contactId = c.Id;

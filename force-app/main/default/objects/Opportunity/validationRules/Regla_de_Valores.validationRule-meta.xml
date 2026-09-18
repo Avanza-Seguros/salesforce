@@ -9,7 +9,6 @@
         ISPICKVAL(Aseguradora__c, &quot;&quot;),
         ISPICKVAL(Plan_Producto__c,&quot;&quot;),
         ISPICKVAL(Forma_de_pago__c,&quot;&quot;),
-        ISBLANK( Agente_Relacionado__c),
         ISPICKVAL(Prospectador__c,&quot;&quot;),
         ISPICKVAL(Ramo__c,&quot;&quot;)
     )

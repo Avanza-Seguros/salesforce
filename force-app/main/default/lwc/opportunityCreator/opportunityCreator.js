@@ -2721,7 +2721,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // en el catálogo de agentes para asignarlo a la oportunidad. Si no lo encuentra, se
     // deja para captura manual. Solo actúa si aún no hay agente asignado.
     async asignarAgenteDesdeArchivo(fileName) {
-        if (!fileName || this.opportunity.Agente__c) { return; }
+        if (!fileName) { return; }
+        // El del archivo tiene prioridad sobre el default (Abraham), pero NO sobre una
+        // selección manual del usuario.
+        if (this.opportunity.Agente__c && !this._agenteEsDefault) { return; }
         const base = fileName.replace(/\.[^.]+$/, '');
         const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
         const agente = segs.length >= 2 ? segs[1] : '';
@@ -2730,9 +2733,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const res = await searchAgentsProspectors({ searchTerm: agente });
             if (res && res.length) {
                 this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                this._agenteEsDefault = false;
             }
         } catch (e) {
-            // Sin coincidencia: el agente se captura a mano.
+            // Sin coincidencia: se conserva el que hubiera (default o vacío).
         }
     }
 
@@ -3295,7 +3299,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.opportunity = { ...this.opportunity, AccountName: nombreCuenta };
             this.resolveAccountByName(nombreCuenta);
         }
-        this.setDefaultAgente();
+        this.setDefaultAgente(d);
         this.loadEditableQuotes();
 
         this.showToast(
@@ -3307,11 +3311,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         );
     }
 
-    // Pone Abraham Gonzalez Gonzalez como agente por default (si no hay uno ya).
-    async setDefaultAgente() {
+    // El AGENTE (Producer) se toma del NOMBRE DEL ARCHIVO de las cotizaciones
+    // (2° segmento separado por " - ", ej. "ARTURO VINIEGRA") y se busca en Producer.
+    // Ya NO se pone un agente por default; si no hay coincidencia, se captura a mano.
+    async setDefaultAgente(d) {
         if (this.opportunity.Agente__c) return;
+        const quotes = (d && d.quotes) || this.uploadedQuotes || [];
+        const archivo = quotes.map(q => q && (q.archivoOrigen || q.nombreArchivo)).find(Boolean) || '';
+        const base = String(archivo).replace(/\.[^.]+$/, '');
+        const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
+        const agente = segs.length >= 2 ? segs[1] : '';
+        if (!agente || agente.length < 3) return;
         try {
-            const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez Gonzalez' });
+            const res = await searchAgentsProspectors({ searchTerm: agente });
             if (res && res.length > 0) {
                 this.opportunity = {
                     ...this.opportunity,
@@ -3320,7 +3332,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 };
             }
         } catch (e) {
-            // sin agente por default; el usuario puede elegirlo
+            // Sin coincidencia en Producer: el usuario elige el agente a mano.
         }
     }
 
@@ -3534,6 +3546,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const ag = (this.agenteResults || []).find(a => a.Id === id);
         if (!ag) return;
         this.opportunity = { ...this.opportunity, Agente__c: ag.Id, AgenteName: ag.Name };
+        this._agenteEsDefault = false; // selección manual: ya no es el default
         this.showAgenteDropdown = false;
         this.agenteResults = [];
     }
