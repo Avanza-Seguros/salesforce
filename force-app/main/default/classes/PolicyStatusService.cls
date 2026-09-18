@@ -95,6 +95,9 @@ public with sharing class PolicyStatusService {
 		Date today = todayInMexico();
 		List<InsurancePolicy> toUpdate = new List<InsurancePolicy>();
 		Map<Id, Date> cancelledFrom = new Map<Id, Date>();
+		// Ya estaban canceladas (por ejemplo, las de una carga): la poliza no cambia, pero sus
+		// cuotas posteriores a la cancelacion siguen dejando de deberse.
+		Map<Id, Date> alreadyCancelledFrom = new Map<Id, Date>();
 		Map<Id, Id> noticeByPolicy = new Map<Id, Id>();
 		Set<Id> rehabilitated = new Set<Id>();
 
@@ -115,10 +118,12 @@ public with sharing class PolicyStatusService {
 			String communicated = policy.carrierPolicyStatus__c;
 
 			if (STATUS_CANCELLED.equals(communicated)) {
+				Date since = cancellationDateOf(policy, today);
 				if (STATUS_CANCELLED.equals(policy.Status)) {
+					alreadyCancelledFrom.put(policy.Id, since);
+					noticeByPolicy.put(policy.Id, policy.carrierStatusNotice__c);
 					continue;
 				}
-				Date since = cancellationDateOf(policy, today);
 				InsurancePolicy upd = new InsurancePolicy(
 					Id = policy.Id,
 					Status = STATUS_CANCELLED,
@@ -173,7 +178,7 @@ public with sharing class PolicyStatusService {
 		}
 
 		Set<Id> saved = save(toUpdate);
-		Map<Id, Date> toCancel = new Map<Id, Date>();
+		Map<Id, Date> toCancel = new Map<Id, Date>(alreadyCancelledFrom);
 		for (Id policyId : cancelledFrom.keySet()) {
 			if (saved.contains(policyId)) {
 				toCancel.put(policyId, cancelledFrom.get(policyId));

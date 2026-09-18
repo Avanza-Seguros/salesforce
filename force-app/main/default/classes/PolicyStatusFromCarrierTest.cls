@@ -91,6 +91,49 @@ private class PolicyStatusFromCarrierTest {
 	}
 
 	/**
+	 * @description: Una poliza que ya estaba cancelada (como las que llegan en una carga) no
+	 *               cambia, pero la comunicacion igual deja de exigir sus cuotas posteriores a la
+	 *               cancelacion y cancela el plan.
+	 */
+	@IsTest
+	static void cancellationOfAnAlreadyCancelledPolicyStillCancelsLaterInstallments() {
+		Escenario e = nuevoEscenario('Cancelado');
+
+		Test.startTest();
+		comunicar(
+			e,
+			'Cancelado',
+			'Cancelada',
+			CANCELLED_ON,
+			DateTime.newInstanceGmt(2026, 9, 16, 16, 0, 0)
+		);
+		Test.stopTest();
+
+		Map<Integer, PaymentPlanInstallment__c> cuotas = cuotasPorSecuencia(
+			e.policyId
+		);
+		Assert.areEqual(
+			'Pendiente',
+			cuotas.get(1).installmentStatus__c,
+			'La anterior a la cancelacion se queda'
+		);
+		Assert.areEqual(
+			'Cancelado',
+			cuotas.get(2).installmentStatus__c,
+			'La posterior deja de deberse aunque la poliza ya estuviera cancelada'
+		);
+		Assert.areEqual(e.noticeId, cuotas.get(2).cancelledByCarrierNotice__c);
+		Assert.areEqual('Cancelado', cuotas.get(3).installmentStatus__c);
+		Assert.areEqual('Conciliado', cuotas.get(4).installmentStatus__c);
+		Assert.areEqual(
+			'Cancelado',
+			[SELECT planStatus__c FROM PaymentPlan__c WHERE Id = :e.planId]
+			.planStatus__c
+		);
+		Assert.areEqual('Cancelado', poliza(e.policyId).Status);
+	}
+
+	/**
 	 * @description: La rehabilitacion devuelve la poliza a vigente, limpia su cancelacion, vuelve a
 	 *               deber solo las cuotas que esa cancelacion habia cancelado y reactiva el plan.
 	 */
