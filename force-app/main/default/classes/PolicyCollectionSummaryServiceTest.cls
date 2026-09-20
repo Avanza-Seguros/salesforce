@@ -199,6 +199,62 @@ private class PolicyCollectionSummaryServiceTest {
 	}
 
 	/**
+	 * @description: Una poliza que la aseguradora cancelo conserva su historia: el plan queda
+	 *               cancelado, pero lo que se pago antes se sigue viendo.
+	 */
+	@IsTest
+	static void aCancelledPlanStillShowsWhatWasPaid() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = createPolicy('POL-CS-008', accountId);
+		PaymentPlan__c plan = prepPlan(policy.Id, 'Activo');
+		Date paid = Date.today().addDays(-30);
+		addInstallment(plan.Id, 1, paid, 'Conciliado');
+		// La aseguradora cancelo la poliza: lo que faltaba dejo de deberse y el plan se cancelo.
+		addInstallment(plan.Id, 2, Date.today().addDays(30), 'Cancelado');
+		update new PaymentPlan__c(Id = plan.Id, planStatus__c = 'Cancelado');
+
+		Test.startTest();
+		PolicyCollectionSummaryService.recalculate(new Set<Id>{ policy.Id });
+		Test.stopTest();
+
+		InsurancePolicy updated = queryPolicy(policy.Id);
+		Assert.areEqual(
+			'Al dia',
+			updated.collectionPaymentStatus__c,
+			'Pago lo que se le exigio: no esta en mora'
+		);
+		Assert.areEqual(paid, updated.PaidToDate, 'Lo pagado sigue viendose');
+		Assert.isNull(
+			updated.collectionNextDueDate__c,
+			'No queda ninguna cuota que cobrar'
+		);
+	}
+
+	/**
+	 * @description: Si a una poliza cancelada le quedo una cuota sin pagar anterior a la
+	 *               cancelacion, esa deuda sigue a la vista.
+	 */
+	@IsTest
+	static void aCancelledPlanWithUnpaidDebtStaysOverdue() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = createPolicy('POL-CS-009', accountId);
+		PaymentPlan__c plan = prepPlan(policy.Id, 'Activo');
+		addInstallment(plan.Id, 1, Date.today().addDays(-60), 'Conciliado');
+		addInstallment(plan.Id, 2, Date.today().addDays(-30), 'Vencido');
+		addInstallment(plan.Id, 3, Date.today().addDays(30), 'Cancelado');
+		update new PaymentPlan__c(Id = plan.Id, planStatus__c = 'Cancelado');
+
+		Test.startTest();
+		PolicyCollectionSummaryService.recalculate(new Set<Id>{ policy.Id });
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Vencido',
+			queryPolicy(policy.Id).collectionPaymentStatus__c
+		);
+	}
+
+	/**
 	 * @description: Una poliza que no se puede guardar (por ejemplo, una antigua a la que le faltan
 	 *               los datos de prima que hoy exige la regla de validacion) no impide que las demas
 	 *               queden al dia, y su fallo queda registrado.

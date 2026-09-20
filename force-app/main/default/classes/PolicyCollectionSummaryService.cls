@@ -18,7 +18,6 @@ public with sharing class PolicyCollectionSummaryService {
 	private static final String PLAN_STATUS_ACTIVE = 'Activo';
 	private static final String PLAN_STATUS_COMPLETED = 'Completado';
 	private static final String PLAN_STATUS_REPLACED = 'Reemplazado';
-	private static final String PLAN_STATUS_CANCELLED = 'Cancelado';
 
 	private static final String INSTALLMENT_STATUS_RECONCILED = 'Conciliado';
 	private static final Set<String> OPEN_INSTALLMENT_STATUSES = new Set<String>{
@@ -41,9 +40,10 @@ public with sharing class PolicyCollectionSummaryService {
 	 * @creation date: 12/06/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Recalcula y actualiza el resumen de cobranza de las polizas indicadas
-	 *               a partir del plan vigente (no Reemplazado/Cancelado) y sus cuotas.
-	 *               Si una poliza no tiene plan vigente, deja el resumen en "Sin pago"
-	 *               con fechas vacias. Solo emite un DML sobre las polizas afectadas.
+	 *               a partir de su plan (cualquiera menos un Reemplazado) y sus cuotas.
+	 *               Si una poliza no tiene plan, deja el resumen en "Sin pago" con fechas
+	 *               vacias. Guarda poliza por poliza, asi que una que falle no detiene a las
+	 *               demas y su fallo queda registrado.
 	 * @param policyIds: IDs de InsurancePolicy a recalcular.
 	 * @return
 	 */
@@ -136,8 +136,12 @@ public with sharing class PolicyCollectionSummaryService {
 	/**
 	 * @creation date: 12/06/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Selecciona el plan vigente por poliza: ignora los Reemplazado y
-	 *               Cancelado, prefiere el Activo y, en su defecto, el mas reciente.
+	 * @description: Selecciona el plan del que sale el resumen. Solo descarta los REEMPLAZADOS:
+	 *               sus cuotas se volvieron a crear en el plan que los sustituyo y contarlas seria
+	 *               contarlas dos veces. Un plan CANCELADO si cuenta: la aseguradora canceló la
+	 *               poliza y por eso dejo de deberse lo que faltaba, pero lo que se pago antes
+	 *               sigue siendo cierto y tiene que verse. Prefiere el Activo y, en su defecto, el
+	 *               mas reciente.
 	 * @param policyIds: IDs de InsurancePolicy.
 	 * @return Mapa de policyId al PaymentPlan__c vigente.
 	 */
@@ -151,7 +155,6 @@ public with sharing class PolicyCollectionSummaryService {
 			WHERE
 				insurancePolicy__c IN :policyIds
 				AND planStatus__c != :PLAN_STATUS_REPLACED
-				AND planStatus__c != :PLAN_STATUS_CANCELLED
 			ORDER BY CreatedDate DESC
 		]) {
 			Id policyId = plan.insurancePolicy__c;
