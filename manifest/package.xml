@@ -56,6 +56,8 @@
         <members>PolicyCarrierStatusServiceTest</members>
         <members>PolicyStatusNoticeQueueable</members>
         <members>PolicyStatusFromCarrierTest</members>
+        <members>PaymentPlanInstallmentOverdueBatch</members>
+        <members>PaymentPlanInstallmentOverdueBatchTest</members>
         <name>ApexClass</name>
     </types>
     <types>
