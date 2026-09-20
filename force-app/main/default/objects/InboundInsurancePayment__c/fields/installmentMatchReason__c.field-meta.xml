@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>installmentMatchReason__c</fullName>
     <description
-	>Motivo por el que candidateInstallment__c quedo nulo o fue asignado. Escrito por InboundInstallmentCandidateQueueable para que el motor de reglas pueda distinguir entre empate, score bajo, sin cuotas y ganador unico.</description>
+	>Motivo por el que candidateInstallment__c quedo nulo o fue asignado. Escrito por InboundInstallmentCandidateQueueable para que el motor de reglas pueda distinguir entre empate, score bajo, sin cuotas, ganador unico y recibo exacto (el pago trae el recibo de la cuota).</description>
     <label>Motivo de match de cuota</label>
     <required>false</required>
     <trackHistory>false</trackHistory>
@@ -36,6 +36,11 @@
                 <fullName>PLANES_MULTIPLES</fullName>
                 <default>false</default>
                 <label>PLANES_MULTIPLES</label>
+            </value>
+            <value>
+                <fullName>RECIBO_EXACTO</fullName>
+                <default>false</default>
+                <label>RECIBO_EXACTO</label>
             </value>
         </valueSetDefinition>
     </valueSet>

@@ -186,6 +186,48 @@ private class InboundRefundServiceTest {
 		return inbound;
 	}
 
+	private static InboundInsurancePayment__c refundOfReceipt(
+		InsurancePolicy p,
+		Decimal amount,
+		Date dueDate,
+		String carrierStatus,
+		String receiptNumber
+	) {
+		sequence++;
+		InboundInsurancePayment__c inbound = new InboundInsurancePayment__c(
+			externalPaymentId__c = 'EXT-442-R' + sequence,
+			sourceReceiptNumber__c = receiptNumber,
+			inboundStatus__c = 'Devolucion',
+			sourceAmount__c = amount,
+			sourceDueDate__c = dueDate,
+			sourcePolicyNumber__c = p.Name,
+			carrierReceiptStatus__c = carrierStatus,
+			sourceSystem__c = 'MuleSoft',
+			receivedAt__c = System.now()
+		);
+		insert inbound;
+		return inbound;
+	}
+
+	/**
+	 * Pone a cada cuota, en orden, el recibo de la aseguradora indicado.
+	 */
+	private static void setReceipts(
+		List<PaymentPlanInstallment__c> insts,
+		List<String> receipts
+	) {
+		List<PaymentPlanInstallment__c> updates = new List<PaymentPlanInstallment__c>();
+		for (Integer i = 0; i < receipts.size(); i++) {
+			updates.add(
+				new PaymentPlanInstallment__c(
+					Id = insts[i].Id,
+					carrierReceiptNumber__c = receipts[i]
+				)
+			);
+		}
+		update updates;
+	}
+
 	private static InboundInsurancePayment__c reload(Id refundId) {
 		return [
 			SELECT
@@ -434,6 +476,114 @@ private class InboundRefundServiceTest {
 			'Pendiente de aplicar',
 			reload(overdue.Id).refundOutcome__c
 		);
+		Assert.areEqual('Reconocido', receipt(paid.Id).receiptStatus__c);
+	}
+
+	// ================================================================
+	// Negativos que nombran los recibos de sus cuotas
+
+	/**
+	 * Dos negativos pendientes de asentar que se solapan en fecha: por importe no se sabria que
+	 * cuotas anula cada uno. Cada uno trae el recibo con el que empieza lo que anula, y eso lo
+	 * decide: el primero, su recibo y el siguiente consecutivo; el segundo, el suyo.
+	 */
+	@IsTest
+	static void pendingNegativesCancelExactlyTheReceiptsTheyName() {
+		InsurancePolicy p = policy('POL-442-01', 'Inicial');
+		List<PaymentPlanInstallment__c> insts = installments(
+			p,
+			new List<Date>{ DUE_1, DUE_2, DUE_2 }
+		);
+		setReceipts(
+			insts,
+			new List<String>{ '0000000201', '0000000202', '0000000301' }
+		);
+		InboundInsurancePayment__c serie = refundOfReceipt(
+			p,
+			-200,
+			DUE_1,
+			'Pendiente',
+			'0000000201'
+		);
+		InboundInsurancePayment__c single = refundOfReceipt(
+			p,
+			-100,
+			DUE_2,
+			'Pendiente',
+			'0000000301'
+		);
+
+		Test.startTest();
+		InboundRefundService.process(new Set<Id>{ serie.Id, single.Id });
+		Test.stopTest();
+
+		Assert.areEqual('Anulacion contable', reload(serie.Id).refundOutcome__c);
+		Assert.areEqual('Anulacion contable', reload(single.Id).refundOutcome__c);
+		Assert.areEqual(serie.Id, installment(insts[0].Id).cancelledByRefund__c);
+		Assert.areEqual(serie.Id, installment(insts[1].Id).cancelledByRefund__c);
+		Assert.areEqual(single.Id, installment(insts[2].Id).cancelledByRefund__c);
+		for (PaymentPlanInstallment__c inst : insts) {
+			Assert.areEqual('Cancelado', installment(inst.Id).installmentStatus__c);
+		}
+	}
+
+	/**
+	 * Si lo que nombra no suma el importe, no se anula nada: queda pendiente de asentar, como
+	 * cualquier negativo pendiente.
+	 */
+	@IsTest
+	static void aNamedNegativeThatDoesNotAddUpStaysPending() {
+		InsurancePolicy p = policy('POL-442-02', 'Inicial');
+		List<PaymentPlanInstallment__c> insts = installments(
+			p,
+			new List<Date>{ DUE_1, DUE_2 }
+		);
+		setReceipts(insts, new List<String>{ '0000000401', '0000000402' });
+		InboundInsurancePayment__c r = refundOfReceipt(
+			p,
+			-150,
+			DUE_1,
+			'Pendiente',
+			'0000000401'
+		);
+
+		Test.startTest();
+		process(r.Id);
+		Test.stopTest();
+
+		Assert.areEqual('Pendiente de aplicar', reload(r.Id).refundOutcome__c);
+		Assert.areEqual('Pendiente', installment(insts[0].Id).installmentStatus__c);
+		Assert.areEqual('Pendiente', installment(insts[1].Id).installmentStatus__c);
+	}
+
+	/**
+	 * Un negativo cancelado que nombra un recibo ya cobrado no tiene efecto: no se busca otra
+	 * cuota por importe.
+	 */
+	@IsTest
+	static void aCancelledNegativeNamingAPaidReceiptHasNoEffect() {
+		InsurancePolicy p = policy('POL-442-03', 'Inicial');
+		List<PaymentPlanInstallment__c> insts = installments(
+			p,
+			new List<Date>{ DUE_1, DUE_2 }
+		);
+		setReceipts(insts, new List<String>{ '0000000501', '0000000502' });
+		PolicyPaymentReceipt__c paid = reconcile(p, insts[0]);
+		// Por importe coincidiria con la cuota abierta; por recibo, con la pagada.
+		InboundInsurancePayment__c r = refundOfReceipt(
+			p,
+			-100,
+			DUE_2,
+			'Cancelado',
+			'0000000501'
+		);
+
+		Test.startTest();
+		process(r.Id);
+		Test.stopTest();
+
+		Assert.areEqual('Sin efecto', reload(r.Id).refundOutcome__c);
+		Assert.areEqual('Pendiente', installment(insts[1].Id).installmentStatus__c);
 		Assert.areEqual('Reconocido', receipt(paid.Id).receiptStatus__c);
 	}
 

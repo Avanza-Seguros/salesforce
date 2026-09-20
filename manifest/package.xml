@@ -246,6 +246,10 @@
         <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
         <members>InboundInsurancePayment__c.manualReviewReason__c</members>
         <members>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</members>
+        <members>PaymentPlanInstallment__c.carrierEndorsementNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierInstallmentNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
+        <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
         <name>CustomField</name>
     </types>
     <types>

@@ -6,7 +6,8 @@
  *   @description: Tercer eslabon del pipeline de normalizacion de pagos inbound.
  *                 Identifica la cuota candidata (candidateInstallment__c) para
  *                 pagos en estado Normalizado que ya tienen candidatePolicy__c resuelto.
- *                 Aplica un algoritmo de scoring multi-senal sobre cuotas conciliables
+ *                 Si el pago trae el recibo de una cuota elegible, es esa cuota, sin puntuar.
+ *                 Si no, aplica un algoritmo de scoring multi-senal sobre cuotas conciliables
  *                 (Pendiente, Vencido) de planes activos (Activo): secuencia exacta
  *                 (+6), fecha exacta (+3), monto exacto (+2), fecha proxima 7 dias (+1),
  *                 monto proximo 5% (+1). Asigna la cuota solo si tiene el puntaje mas
@@ -54,6 +55,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	private static final String REASON_TIE = 'EMPATE';
 	private static final String REASON_NO_INSTALLMENTS = 'SIN_CUOTAS';
 	private static final String REASON_MULTIPLE_PLANS = 'PLANES_MULTIPLES';
+	private static final String REASON_EXACT_RECEIPT = 'RECIBO_EXACTO';
 
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
@@ -307,9 +309,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		if (String.isBlank(payment.sourceInstallmentNumber__c)) {
 			return;
 		}
-		try {
-			Decimal.valueOf(payment.sourceInstallmentNumber__c.trim());
-		} catch (Exception e) {
+		if (installmentNumberIn(payment.sourceInstallmentNumber__c) == null) {
 			CobranzaLog.warn(
 					CobranzaLog.STAGE_CUOTA_CANDIDATA,
 					CobranzaLog.EVENT_INSTALLMENT_NUMBER_NOT_NUMERIC,
@@ -393,6 +393,8 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			SELECT
 				Id,
 				sequenceNumber__c,
+				carrierInstallmentNumber__c,
+				carrierReceiptNumber__c,
 				dueDate__c,
 				expectedAmount__c,
 				installmentStatus__c,
@@ -442,6 +444,8 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			SELECT
 				Id,
 				sequenceNumber__c,
+				carrierInstallmentNumber__c,
+				carrierReceiptNumber__c,
 				dueDate__c,
 				expectedAmount__c,
 				installmentStatus__c,
@@ -486,6 +490,15 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		}
 		if (installments == null || installments.isEmpty()) {
 			return new InstallmentMatchResult(null, REASON_NO_INSTALLMENTS);
+		}
+
+		// El recibo identifica la cuota: no hay nada que puntuar ni calendarios que mezclar.
+		PaymentPlanInstallment__c byReceipt = installmentWithReceipt(
+			payment,
+			installments
+		);
+		if (byReceipt != null) {
+			return new InstallmentMatchResult(byReceipt.Id, REASON_EXACT_RECEIPT);
 		}
 
 		// Al dejar de exigir plan Activo, una poliza puede presentar cuotas abiertas de mas de
@@ -535,6 +548,82 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	}
 
 	/**
+	 * @creation date: 18/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Numero de cuota de la aseguradora que trae el pago: "NN" o "NN/TT" (cuota
+	 *               NN de TT). Cualquier otra cosa no es un numero de cuota.
+	 * @param raw: Numero de cuota tal como llega.
+	 * @return El numero, o null.
+	 */
+	private static Decimal installmentNumberIn(String raw) {
+		if (String.isBlank(raw)) {
+			return null;
+		}
+		String value = raw.trim();
+		if (
+			value.countMatches('/') == 1 &&
+			value.substringAfter('/').trim().isNumeric()
+		) {
+			value = value.substringBefore('/').trim();
+		}
+		return value.isNumeric() ? Decimal.valueOf(value) : null;
+	}
+
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Numero simple, como se leia antes de guardar el numero de cuota de la
+	 *               aseguradora: lo que no se puede leer como numero no cuenta.
+	 * @param raw: Numero de cuota tal como llega.
+	 * @return El numero, o null.
+	 */
+	private static Decimal plainNumberIn(String raw) {
+		if (String.isBlank(raw)) {
+			return null;
+		}
+		try {
+			return Decimal.valueOf(raw.trim());
+		} catch (Exception e) {
+			// No numerico: condicion de dato esperada. El aviso se emite una sola vez por pago
+			// en warnIfInstallmentNumberNotNumeric.
+			return null;
+		}
+	}
+
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Cuota elegible cuyo recibo es el que trae el pago. Si ninguna lo tiene, o
+	 *               lo tiene mas de una (no deberia pasar), devuelve null y se puntua.
+	 * @param payment: Pago evaluado.
+	 * @param installments: Cuotas elegibles para el pago.
+	 * @return La cuota del recibo, o null.
+	 */
+	private static PaymentPlanInstallment__c installmentWithReceipt(
+		InboundInsurancePayment__c payment,
+		List<PaymentPlanInstallment__c> installments
+	) {
+		if (String.isBlank(payment.sourceReceiptNumber__c)) {
+			return null;
+		}
+		String receipt = payment.sourceReceiptNumber__c.trim();
+		PaymentPlanInstallment__c found = null;
+		for (PaymentPlanInstallment__c inst : installments) {
+			if (
+				inst.carrierReceiptNumber__c == null ||
+				!receipt.equals(inst.carrierReceiptNumber__c.trim())
+			) {
+				continue;
+			}
+			if (found != null) {
+				return null;
+			}
+			found = inst;
+		}
+		return found;
+	}
+
+	/**
 	 * @creation date: 07/05/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Calcula el puntaje de matching entre un pago inbound y una cuota.
@@ -551,23 +640,17 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	) {
 		Integer score = 0;
 
-		if (
-			payment.sourceInstallmentNumber__c != null &&
-			inst.sequenceNumber__c != null
-		) {
-			try {
-				if (
-					Decimal.valueOf(payment.sourceInstallmentNumber__c.trim()) ==
-					inst.sequenceNumber__c
-				) {
-					score += SCORE_SEQUENCE_EXACT;
-				}
-			} catch (Exception e) {
-				// Numero de cuota no numerico: condicion de dato esperada, no un fallo. Se
-				// omiten los puntos de secuencia. La traza se emite una unica vez por pago
-				// en warnIfInstallmentNumberNotNumeric; registrarla aca la repetiria por
-				// cada cuota candidata evaluada.
-			}
+		// La cuota que viene de la aseguradora guarda su numero de cuota, y se compara con el que
+		// trae el pago ("NN" o "NN/TT", en que NN es ese mismo numero). La que no lo tiene usa
+		// su orden dentro del plan, y solo contra un numero simple, como siempre.
+		Decimal paymentNumber = inst.carrierInstallmentNumber__c != null
+			? installmentNumberIn(payment.sourceInstallmentNumber__c)
+			: plainNumberIn(payment.sourceInstallmentNumber__c);
+		Decimal installmentNumber = inst.carrierInstallmentNumber__c != null
+			? inst.carrierInstallmentNumber__c
+			: inst.sequenceNumber__c;
+		if (paymentNumber != null && paymentNumber == installmentNumber) {
+			score += SCORE_SEQUENCE_EXACT;
 		}
 
 		if (payment.sourceDueDate__c != null && inst.dueDate__c != null) {

@@ -23,6 +23,13 @@ public with sharing class InboundRefundService {
 	private static final String CARRIER_PENDING = 'Pendiente';
 	private static final String CARRIER_OVERDUE = 'Vencido';
 	private static final String CARRIER_CANCELLED = 'Cancelado';
+	// Estatus con los que un negativo que nombra recibos de cuotas se decide por esos recibos.
+	// Uno pagado es dinero que vuelve y sigue las reglas de siempre.
+	private static final Set<String> RECEIPT_NAMING_STATUSES = new Set<String>{
+		CARRIER_PENDING,
+		CARRIER_OVERDUE,
+		CARRIER_CANCELLED
+	};
 
 	public static final String OUTCOME_PENDING = 'Pendiente de aplicar';
 	public static final String OUTCOME_NO_EFFECT = 'Sin efecto';
@@ -215,6 +222,34 @@ public with sharing class InboundRefundService {
 	) {
 		Decision d = new Decision(refund);
 		String carrierStatus = refund.carrierReceiptStatus__c;
+
+		// Un negativo sin cobrar que nombra el recibo de una cuota de la poliza se decide por sus
+		// recibos, no por importe: no hay dinero que devolver de recibos que nunca se cobraron,
+		// asi que solo puede dejarlos de exigir, aunque la aseguradora aun no lo haya asentado.
+		if (
+			RECEIPT_NAMING_STATUSES.contains(carrierStatus) &&
+			match != null &&
+			match.policyId != null
+		) {
+			List<PaymentPlanInstallment__c> named = installmentsNamedBy(
+				refund,
+				installmentsByPolicy.get(match.policyId),
+				claimedInstallments
+			);
+			if (named != null) {
+				d.policyId = match.policyId;
+				if (!named.isEmpty()) {
+					d.outcome = OUTCOME_CANCELLATION;
+					d.toCancel = named;
+					claim(named, claimedInstallments);
+					return d;
+				}
+				if (CARRIER_CANCELLED.equals(carrierStatus)) {
+					d.outcome = OUTCOME_NO_EFFECT;
+					return d;
+				}
+			}
+		}
 
 		if (
 			CARRIER_PENDING.equals(carrierStatus) ||
@@ -635,6 +670,7 @@ public with sharing class InboundRefundService {
 				dueDate__c,
 				expectedAmount__c,
 				sequenceNumber__c,
+				carrierReceiptNumber__c,
 				matchedReceipt__c,
 				matchedReceipt__r.receiptAmount__c,
 				matchedReceipt__r.receiptStatus__c,
@@ -968,6 +1004,69 @@ public with sharing class InboundRefundService {
 			)
 			.onInbound(refund.Id);
 		AppLogger.flush();
+	}
+
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Cuotas que anula un negativo que nombra el recibo de una cuota de la poliza.
+	 *               El negativo trae el recibo con el que empieza la serie que anula; los demas
+	 *               son los siguientes numeros consecutivos (asi numera la aseguradora una serie),
+	 *               hasta sumar su importe. Todas tienen que estar abiertas y sin reclamar.
+	 * @param refund: Devolucion evaluada.
+	 * @param installments: Cuotas de su poliza.
+	 * @param claimedInstallments: Cuotas ya tomadas por otra devolucion del envio.
+	 * @return null si el negativo no nombra el recibo de ninguna cuota; una lista vacia si lo
+	 *         nombra pero no anula cuotas abiertas que sumen su importe; si no, las cuotas.
+	 */
+	private static List<PaymentPlanInstallment__c> installmentsNamedBy(
+		InboundInsurancePayment__c refund,
+		List<PaymentPlanInstallment__c> installments,
+		Set<Id> claimedInstallments
+	) {
+		if (String.isBlank(refund.sourceReceiptNumber__c) || installments == null) {
+			return null;
+		}
+		String receipt = refund.sourceReceiptNumber__c.trim();
+		Map<String, PaymentPlanInstallment__c> byReceipt = new Map<String, PaymentPlanInstallment__c>();
+		for (PaymentPlanInstallment__c inst : installments) {
+			if (inst.carrierReceiptNumber__c != null) {
+				byReceipt.put(inst.carrierReceiptNumber__c.trim(), inst);
+			}
+		}
+		if (!byReceipt.containsKey(receipt)) {
+			return null;
+		}
+
+		Long first = receipt.isNumeric() ? Long.valueOf(receipt) : null;
+		Decimal amount = refund.sourceAmount__c.abs();
+		Decimal total = 0;
+		List<PaymentPlanInstallment__c> named = new List<PaymentPlanInstallment__c>();
+		for (Integer i = 0; i < installments.size(); i++) {
+			if (i > 0 && first == null) {
+				break;
+			}
+			String current = i == 0
+				? receipt
+				: String.valueOf(first + i).leftPad(receipt.length(), '0');
+			PaymentPlanInstallment__c inst = byReceipt.get(current);
+			if (
+				inst == null ||
+				!OPEN_INSTALLMENT_STATUSES.contains(inst.installmentStatus__c) ||
+				claimedInstallments.contains(inst.Id)
+			) {
+				break;
+			}
+			named.add(inst);
+			total += inst.expectedAmount__c == null ? 0 : inst.expectedAmount__c;
+			if (sameAmount(total, amount)) {
+				return named;
+			}
+			if (total > amount) {
+				break;
+			}
+		}
+		return new List<PaymentPlanInstallment__c>();
 	}
 
 	private static void claim(

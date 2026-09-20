@@ -48,6 +48,10 @@
             <fullName>PLANES_MULTIPLES</fullName>
             <default>false</default>
         </values>
+        <values>
+            <fullName>RECIBO_EXACTO</fullName>
+            <default>false</default>
+        </values>
     </picklistValues>
     <picklistValues>
         <picklist>inboundStatus__c</picklist>
