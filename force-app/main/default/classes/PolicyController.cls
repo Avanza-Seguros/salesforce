@@ -775,6 +775,10 @@ public with sharing class PolicyController {
 		Id oppId = opportunityId != null ? opportunityId : pol.SourceOpportunityId;
 		Id accountId = resolverCuentaDePoliza(pol);
 
+		// 0) Completa los campos vacíos de la Cuenta (RFC, dirección, teléfono) con el PDF.
+		try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
+		catch (Exception e) { resumen.put('cuentaError', msgLimpio(e)); }
+
 		// 1) Vehículo (CustomerProperty) con los datos reales del PDF.
 		try { guardarVehiculoDesdePdf(accountId, d); resumen.put('vehiculo', 1); }
 		catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
@@ -817,16 +821,33 @@ public with sharing class PolicyController {
 		if (accountId == null) { return 0; }
 		Map<String, Object> per = (d.get('contratante') instanceof Map<String, Object>)
 			? (Map<String, Object>) d.get('contratante') : null;
-		String nombre = (per != null) ? strOf(per.get('nombre')) : null;
-		if (String.isBlank(nombre)) { return 0; }
-		// Si el "contratante" es en realidad la empresa (misma razón social del asegurado/cuenta),
-		// no se crea un contacto: se deja el participante de la cuenta.
+		Map<String, Object> aseg = (d.get('asegurado') instanceof Map<String, Object>)
+			? (Map<String, Object>) d.get('asegurado') : null;
 		String empresa = strOf(d.get('aseguradoNombre'));
-		if (String.isNotBlank(empresa) && nombre.equalsIgnoreCase(empresa)) { return 0; }
 
-		String rfc = strOf(per.get('rfc'));
-		String email = strOf(per.get('email'));
-		String tel = strOf(per.get('telefono'));
+		// GENÉRICO: la persona asegurada puede venir en distintos campos según la póliza.
+		// Se toma el PRIMER candidato que sea una PERSONA real (distinta de la razón
+		// social de la cuenta): conductor habitual → contratante → asegurado.
+		// Si ninguno es persona (póliza a nombre de la propia cuenta), no se crea contacto
+		// y se deja el participante de la cuenta.
+		List<String> candidatos = new List<String>{
+			strOf(d.get('conductorHabitual')),
+			(per != null) ? strOf(per.get('nombre')) : null,
+			(aseg != null) ? strOf(aseg.get('nombre')) : null
+		};
+		String nombre = null;
+		for (String cand : candidatos) {
+			if (String.isNotBlank(cand) && (String.isBlank(empresa) || !cand.equalsIgnoreCase(empresa))) {
+				nombre = cand; break;
+			}
+		}
+		if (String.isBlank(nombre)) { return 0; }
+
+		// RFC/correo/teléfono: solo si pertenecen a ESTA persona (el contratante ES la persona).
+		Boolean datosDeLaPersona = (per != null && nombre.equalsIgnoreCase(strOf(per.get('nombre'))));
+		String rfc = datosDeLaPersona ? strOf(per.get('rfc')) : null;
+		String email = datosDeLaPersona ? strOf(per.get('email')) : null;
+		String tel = datosDeLaPersona ? strOf(per.get('telefono')) : null;
 
 		// Busca el contacto por nombre bajo la cuenta; si no existe, lo crea.
 		Id contactId = null;
@@ -875,6 +896,66 @@ public with sharing class PolicyController {
 		return 1;
 	}
 
+	// Completa los campos VACÍOS de la Cuenta (RFC, dirección, teléfono) con los datos
+	// correctos del PDF de la póliza. No pisa lo ya capturado.
+	private static void completarCuentaDesdePdf(Id accountId, Map<String, Object> d) {
+		if (accountId == null) { return; }
+		Object cObj = d.get('contratante');
+		if (!(cObj instanceof Map<String, Object>)) { return; }
+		Map<String, Object> c = (Map<String, Object>) cObj;
+		String rfc = strOf(c.get('rfc'));
+		if (String.isBlank(rfc)) { rfc = strOf(d.get('rfc')); }
+		String tel = strOf(c.get('telefono'));
+		Map<String, Object> dir = (c.get('direccion') instanceof Map<String, Object>)
+			? (Map<String, Object>) c.get('direccion') : new Map<String, Object>();
+		String calle = strOf(dir.get('calle'));
+		String colonia = strOf(dir.get('colonia'));
+		String cp = strOf(dir.get('cp'));
+		String municipio = strOf(dir.get('municipio'));
+		String estado = strOf(dir.get('estado'));
+		String calleFull = String.isNotBlank(colonia)
+			? ((String.isNotBlank(calle) ? calle + ', ' : '') + colonia) : calle;
+
+		Account acc = [
+			SELECT Id, IsPersonAccount, Phone,
+				   BillingStreet, BillingCity, BillingState, BillingPostalCode,
+				   PersonMailingStreet, PersonMailingCity, PersonMailingState, PersonMailingPostalCode,
+				   PersonEmail, RFC__pc
+			FROM Account WHERE Id = :accountId LIMIT 1
+		];
+		Account upd = new Account(Id = accountId);
+		Boolean cambio = false;
+
+		// Teléfono: solo si está vacío y tiene formato válido.
+		if (String.isBlank(acc.Phone) && String.isNotBlank(tel)) {
+			String dig = tel.replaceAll('[^0-9]', '');
+			if (dig.length() == 10 || (dig.length() == 12 && dig.startsWith('52'))) { upd.Phone = tel; cambio = true; }
+		}
+
+		if (acc.IsPersonAccount) {
+			if (String.isBlank(acc.PersonMailingStreet) && String.isNotBlank(calleFull)) { upd.PersonMailingStreet = calleFull.left(255); cambio = true; }
+			if (String.isBlank(acc.PersonMailingPostalCode) && String.isNotBlank(cp)) { upd.PersonMailingPostalCode = cp; cambio = true; }
+			if (String.isBlank(acc.PersonMailingCity) && String.isNotBlank(municipio)) { upd.PersonMailingCity = municipio; cambio = true; }
+			if (String.isBlank(acc.PersonMailingState) && String.isNotBlank(estado)) { upd.PersonMailingState = estado; cambio = true; }
+			if (String.isNotBlank(rfc) && String.isBlank((String) acc.get('RFC__pc'))) {
+				try { upd.put('RFC__pc', rfc.toUpperCase()); cambio = true; } catch (Exception ignore) {}
+			}
+		} else {
+			if (String.isBlank(acc.BillingStreet) && String.isNotBlank(calleFull)) { upd.BillingStreet = calleFull.left(255); cambio = true; }
+			if (String.isBlank(acc.BillingPostalCode) && String.isNotBlank(cp)) { upd.BillingPostalCode = cp; cambio = true; }
+			if (String.isBlank(acc.BillingCity) && String.isNotBlank(municipio)) { upd.BillingCity = municipio; cambio = true; }
+			if (String.isBlank(acc.BillingState) && String.isNotBlank(estado)) { upd.BillingState = estado; cambio = true; }
+			if (String.isNotBlank(rfc) && Schema.SObjectType.Account.fields.getMap().containsKey('rfc__c')) {
+				try {
+					List<Account> cur = Database.query('SELECT RFC__c FROM Account WHERE Id = :accountId LIMIT 1');
+					if (!cur.isEmpty() && String.isBlank((String) cur[0].get('RFC__c'))) { upd.put('RFC__c', rfc.toUpperCase()); cambio = true; }
+				} catch (Exception ignore) {}
+			}
+		}
+
+		if (cambio) { try { update upd; } catch (Exception ignore) {} }
+	}
+
 	// Crea/actualiza el CustomerProperty (vehículo) del asegurado con los datos del PDF.
 	private static void guardarVehiculoDesdePdf(Id accountId, Map<String, Object> d) {
 		if (accountId == null) { return; }
@@ -891,11 +972,24 @@ public with sharing class PolicyController {
 			}
 		}
 		String vin = a.get('numero de serie');
+		String marca = a.get('marca');
+		String modelo = a.get('modelo');
+		Decimal anioD = parseMonto(a.get('ano'));
+		Integer anio = (anioD != null) ? anioD.intValue() : null;
+		// Mismo auto = no duplicar: busca por VIN y, si no, por Marca+Modelo+Año
+		// (el identificador puede diferir entre la cotización y la póliza).
 		CustomerProperty cp = null;
 		if (String.isNotBlank(vin)) {
 			for (CustomerProperty c : [
 				SELECT Id FROM CustomerProperty
 				WHERE PrimaryOwnerId = :accountId AND Vin = :vin LIMIT 1
+			]) { cp = c; }
+		}
+		if (cp == null && String.isNotBlank(marca) && String.isNotBlank(modelo) && anio != null) {
+			for (CustomerProperty c : [
+				SELECT Id FROM CustomerProperty
+				WHERE PrimaryOwnerId = :accountId AND Make = :marca AND ModelName = :modelo AND MakeYear = :anio
+				LIMIT 1
 			]) { cp = c; }
 		}
 		if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
@@ -905,8 +999,7 @@ public with sharing class PolicyController {
 		if (String.isNotBlank(a.get('numero de motor'))) { cp.Motor__c = a.get('numero de motor'); }
 		String descBien = strOf(bien.get('descripcion'));
 		if (String.isNotBlank(descBien))                 { cp.Description = descBien.length() > 255 ? descBien.substring(0, 255) : descBien; }
-		Decimal anio = parseMonto(a.get('ano'));
-		if (anio != null) { try { cp.put('MakeYear', anio.intValue()); } catch (Exception ignore) {} }
+		if (anio != null) { try { cp.put('MakeYear', anio); } catch (Exception ignore) {} }
 		if (String.isNotBlank(a.get('uso')))             { try { cp.put('Uso__c', a.get('uso').left(40)); } catch (Exception ignore) {} }
 		if (String.isNotBlank(a.get('tipo de unidad')))  { try { cp.put('TipoVehiculo__c', a.get('tipo de unidad').left(40)); } catch (Exception ignore) {} }
 		upsert cp;

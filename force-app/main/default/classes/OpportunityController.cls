@@ -867,6 +867,26 @@ public with sharing class OpportunityController {
 	 * @param accountId: Id de la cuenta a la que se ligaria el vehiculo nuevo
 	 * @return Id del Automovil__c resuelto o null si no aplica
 	 */
+	// Busca un CustomerProperty del mismo dueño que sea el MISMO auto:
+	// por VIN, luego por Placa, luego por Marca+Modelo+Año.
+	private static Id buscarBienCliente(Id accountId, String vin, String placa, String marca, String modelo, Integer anio) {
+		if (accountId == null) { return null; }
+		if (String.isNotBlank(vin)) {
+			for (CustomerProperty c : [SELECT Id FROM CustomerProperty WHERE PrimaryOwnerId = :accountId AND Vin = :vin LIMIT 1]) { return c.Id; }
+		}
+		if (String.isNotBlank(placa)) {
+			for (CustomerProperty c : [SELECT Id FROM CustomerProperty WHERE PrimaryOwnerId = :accountId AND RegistrationNumber = :placa LIMIT 1]) { return c.Id; }
+		}
+		if (String.isNotBlank(marca) && String.isNotBlank(modelo) && anio != null) {
+			for (CustomerProperty c : [
+				SELECT Id FROM CustomerProperty
+				WHERE PrimaryOwnerId = :accountId AND Make = :marca AND ModelName = :modelo AND MakeYear = :anio
+				LIMIT 1
+			]) { return c.Id; }
+		}
+		return null;
+	}
+
 	private static Id guardarBienCliente(Map<String, Object> d, Id accountId) {
 		// 1) ¿Ya se seleccionó un bien (CustomerProperty) en el buscador?
 		String bienId = getStr(d, 'Automovil__c');
@@ -889,25 +909,27 @@ public with sharing class OpportunityController {
 			return null;
 		}
 
-		// 3) Reutiliza el bien existente del mismo dueño por VIN.
-		List<CustomerProperty> ex = [
-			SELECT Id FROM CustomerProperty
-			WHERE Vin = :serie AND PrimaryOwnerId = :accountId
-			LIMIT 1
-		];
-		if (!ex.isEmpty()) {
-			return ex[0].Id;
-		}
-
-		// 4) Crear el CustomerProperty ligado al dueño (la Cuenta).
+		// 3) Reutiliza el bien existente del MISMO dueño (mismo auto = no duplicar):
+		//    a) por VIN, b) por Placa, c) por Marca+Modelo+Año (por si el identificador
+		//    difiere, ej. la clave vehicular de la cotización vs el VIN real de la póliza).
 		String marca = getStr(v, 'Marca__c');
 		String modelo = getStr(v, 'Modelo__c');
+		String placa = getStr(v, 'Placa__c');
+		String serieNorm = serie.trim().toUpperCase();
+		String placaNorm = String.isNotBlank(placa) ? placa.trim().toUpperCase() : null;
+		Decimal anioDec = toDecimalSafe(getStr(v, 'Anio__c'));
+		Integer anioInt = (anioDec != null) ? anioDec.intValue() : null;
+
+		Id bienExistente = buscarBienCliente(accountId, serieNorm, placaNorm, marca, modelo, anioInt);
+		if (bienExistente != null) { return bienExistente; }
+
+		// 4) Crear el CustomerProperty ligado al dueño (la Cuenta).
 		CustomerProperty nv = new CustomerProperty();
 		nv.PrimaryOwnerId     = accountId;
 		nv.Make               = marca;
 		nv.ModelName          = modelo;
-		nv.Vin                = serie;
-		nv.RegistrationNumber = getStr(v, 'Placa__c');
+		nv.Vin                = serieNorm;
+		nv.RegistrationNumber = placaNorm;
 		nv.Motor__c           = getStr(v, 'Motor__c');
 		nv.Description         = getStr(v, 'descripcion_completa__c');
 		// Año -> MakeYear (put dinámico para tolerar el tipo del campo).

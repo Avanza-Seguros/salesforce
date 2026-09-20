@@ -854,9 +854,30 @@
                             <div class="form-grid two-columns">
                                 <div class="form-column">
                                     <div class="form-card"><h3>Marca <span class="required-asterisk">*</span></h3>
-                                        <lightning-combobox label="" value={automovil.Marca__c} options={marcaPicklistValues}
-                                            placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Marca__c" variant="label-hidden" dropdown-alignment="auto"></lightning-combobox>
+                                        <div class="lookup-container">
+                                            <lightning-input label="" value={marcaQueryDisplay}
+                                                placeholder="Escribe la marca (ej. Nissan)..."
+                                                onfocus={handleMarcaFocus} onkeyup={handleMarcaInput} onblur={handleMarcaBlur}
+                                                variant="label-hidden" disabled={isVehiculoReadOnly}
+                                                data-field="MarcaSearch"></lightning-input>
+                                            <template if:true={showMarcaDropdown}>
+                                                <div class="lookup-dropdown">
+                                                    <ul class="lookup-results">
+                                                        <template if:true={hasMarcaResultados}>
+                                                            <template for:each={marcaResultados} for:item="m">
+                                                                <li key={m.value} class="lookup-result-item"
+                                                                    onmousedown={selectMarca} data-value={m.value}>
+                                                                    <div class="result-name">{m.label}</div>
+                                                                </li>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasMarcaResultados}>
+                                                            <li class="no-results">Sin coincidencias</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
                                     </div>
                                     <div class="form-card"><h3>Modelo <span class="required-asterisk">*</span></h3>
                                         <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}

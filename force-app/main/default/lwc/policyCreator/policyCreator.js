@@ -16,6 +16,7 @@ import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import completarPoliza from '@salesforce/apex/PolicyController.completarPoliza';
 import guardarDatosPolizaDesdePdf from '@salesforce/apex/PolicyController.guardarDatosPolizaDesdePdf';
+import vincularProducer from '@salesforce/apex/PolicyController.vincularProducer';
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
@@ -125,6 +126,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 opportunityId: this.idOrNull(this.opportunityId)
             });
             if (id) {
+                // Liga el Producer (agente) de la oportunidad a la póliza ANTES de mostrar
+                // el formulario, para que el campo Agente (ProducerId) aparezca poblado.
+                try { await vincularProducer({ policyId: id, opportunityId: this.idOrNull(this.opportunityId) }); } catch (e) { /* no bloquea */ }
                 this.policyId = id;
                 if (this.readOnly) { this.loadRegistrosPoliza(); }
             } else {
@@ -298,6 +302,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const partes = [];
         if (r.coberturas) { partes.push(`${r.coberturas} cobertura(s)`); }
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
+        if (r.cuenta) { partes.push('datos del cliente'); }
         if (r.vehiculo) { partes.push('vehículo'); }
         if (r.bien) { partes.push('bien asegurado'); }
         if (r.transaccion) { partes.push('transacción de prima'); }
@@ -654,8 +659,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                     : (o.Prima_Neta__c != null ? o.Prima_Neta__c
                     : (o.Prima_Total__c != null ? o.Prima_Total__c : o.Amount))),
                 cierre: this.fmtDate(o.CloseDate),
-                agente: o.Agente_Relacionado__r && o.Agente_Relacionado__r.Name
-                    ? o.Agente_Relacionado__r.Name : '—'
+                agente: (o.Producer__r && o.Producer__r.Name) ? o.Producer__r.Name
+                    : ((o.Agente_Relacionado__r && o.Agente_Relacionado__r.Name) ? o.Agente_Relacionado__r.Name : '—')
             };
             const counts = (detail && detail.coverageCounts) || {};
             this.quoteCards = ((detail && detail.quotes) || []).map((q) => ({

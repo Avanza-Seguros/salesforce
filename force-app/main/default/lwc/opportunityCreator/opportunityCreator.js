@@ -104,6 +104,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track mercadoPicklistValues = [];
     @track ramoPicklistValues = [];
     @track marcaPicklistValues = [];
+    // Buscador de Marca (escribible en vez de lista larga).
+    @track marcaResultados = [];
+    @track showMarcaDropdown = false;
+    _marcaTyped = null;
     automovilObjectInfo = { data: null, error: null };
     @track frecuenciaPicklistValues = [];
     quoteObjectInfo = { data: null, error: null };
@@ -909,20 +913,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.accountResults = [];
     }
     selectNewAccount() {
+        // Crear cuenta nueva: NO borra la Información del Cliente ya capturada
+        // (razón social, RFC, dirección, correo, teléfono, CP). Solo desliga la cuenta
+        // existente para que se cree una nueva con esos datos al guardar.
         const typedName = this.opportunity.AccountName || '';
         this.opportunity = {
             ...this.opportunity,
             AccountId: null,
-            AccountName: typedName,
-            clienteNombre: '',
-            clienteApellidoPaterno: '',
-            clienteApellidoMaterno: '',
-            clienteApellidos: '',
-            clienteRFC: '',
-            clienteEmail: '',
-            clienteTelefono: '',
-            clienteCP: '',
-            clienteDireccion: ''
+            AccountName: typedName
         };
         this.isNewAccount = true;
         this.showAccountDropdown = false;
@@ -2740,6 +2738,45 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
     }
 
+    // ===== Buscador de Marca (escribible) =====
+    get marcaQueryDisplay() {
+        return this._marcaTyped !== null ? this._marcaTyped
+            : ((this.automovil && this.automovil.Marca__c) || '');
+    }
+    get hasMarcaResultados() {
+        return this.marcaResultados && this.marcaResultados.length > 0;
+    }
+    filtrarMarcas(texto) {
+        const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const t = norm(texto);
+        const opts = this.marcaPicklistValues || [];
+        this.marcaResultados = t
+            ? opts.filter(o => norm(o.label).includes(t) || norm(o.value).includes(t)).slice(0, 50)
+            : opts.slice(0, 50);
+    }
+    handleMarcaFocus() {
+        if (this.isVehiculoReadOnly) { return; }
+        this.filtrarMarcas('');
+        this.showMarcaDropdown = true;
+    }
+    handleMarcaInput(event) {
+        this._marcaTyped = event.target.value;
+        this.filtrarMarcas(this._marcaTyped);
+        this.showMarcaDropdown = true;
+    }
+    selectMarca(event) {
+        const value = event.currentTarget.dataset.value;
+        this._marcaTyped = null;
+        this.showMarcaDropdown = false;
+        this.marcaResultados = [];
+        this.automovil = { ...this.automovil, Marca__c: value };
+    }
+    handleMarcaBlur() {
+        // Cierra el dropdown tras el clic (onmousedown ya seleccionó).
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => { this.showMarcaDropdown = false; }, 200);
+    }
+
     // Empareja la marca extraída (ej. "NISSAN", "NISSAN ROGUE") con el valor exacto del
     // picklist de Marca (ej. "Nissan"), ignorando mayúsculas/acentos, para que sí se seleccione.
     matchMarca(nombre) {
@@ -2992,9 +3029,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.isSaving = true;
         this.isLoading = true;
         try {
-            if (!this.opportunity.Name)     { this.showToast('Error', 'El nombre de la oportunidad es requerido', 'error'); return; }
-            if (!this.opportunity.StageName){ this.showToast('Error', 'La etapa es requerida', 'error'); return; }
-            if (!this.opportunity.Ramo__c)  { this.showToast('Error', 'El ramo es requerido', 'error'); return; }
+            // Se validan TODOS los campos y se muestran los faltantes de una sola vez
+            // (antes salían de uno en uno). El VIN/Motor no se exigen en la cotización.
+            const errores = [];
+            if (!this.opportunity.Name)      { errores.push('Nombre de la oportunidad'); }
+            if (!this.opportunity.StageName) { errores.push('Etapa'); }
+            if (!this.opportunity.Ramo__c)   { errores.push('Ramo'); }
             // Correo OPCIONAL: solo se valida el formato si viene capturado.
             const emailVal = (this.opportunity.clienteEmail || '').trim();
             if (emailVal) {
@@ -3002,39 +3042,40 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const dotPos = emailVal.lastIndexOf('.');
                 const emailOk = atPos > 0 && dotPos > atPos + 1 && dotPos < emailVal.length - 1
                     && emailVal.indexOf(' ') === -1 && emailVal.indexOf('@', atPos + 1) === -1;
-                if (!emailOk) { this.showToast('Error', 'Ingresa un correo válido', 'error'); return; }
+                if (!emailOk) { errores.push('Correo válido'); }
             }
             // Teléfono OPCIONAL: solo se valida si viene capturado.
             const telDigits = (this.opportunity.clienteTelefono || '').replace(/[^0-9]/g, '');
             if (telDigits) {
                 const telOk = telDigits.length === 10 || (telDigits.length === 12 && telDigits.startsWith('52'));
-                if (!telOk) { this.showToast('Error', 'El teléfono debe tener 10 dígitos (opcional +52)', 'error'); return; }
+                if (!telOk) { errores.push('Teléfono a 10 dígitos (opcional +52)'); }
             }
             // Prima neta mayor a 0.
             const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
-            if (!primaVal || primaVal <= 0) { this.showToast('Error', 'La prima neta debe ser mayor a 0', 'error'); return; }
-            // El VIN (Serie) y el Motor NO se exigen en la cotización: muchas veces aún
-            // no existen. Se capturan/validan en la emisión de la póliza.
+            if (!primaVal || primaVal <= 0) { errores.push('Prima neta mayor a 0'); }
+            // Cuenta.
             if (!this.opportunity.AccountId && !this.isNewAccount) {
-                this.showToast('Error', 'Selecciona una cuenta o elige "Crear cuenta nueva".', 'error');
-                return;
+                errores.push('Selecciona una cuenta o elige "Crear cuenta nueva"');
             }
             if (this.isNewAccount) {
                 let newAccName = this.opportunity.AccountName;
                 if (!newAccName) {
-                    if (this.opportunity.tipoCliente === 'Persona') {
-                        newAccName = `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidos || ''}`.trim();
-                    } else {
-                        newAccName = this.opportunity.clienteNombre || '';
-                    }
+                    newAccName = (this.opportunity.tipoCliente === 'Persona')
+                        ? `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidos || ''}`.trim()
+                        : (this.opportunity.clienteNombre || '');
                 }
                 if (!newAccName) {
-                    this.showToast('Error',
-                        'Captura el nombre del cliente en "Información del Cliente" para crear la cuenta nueva.',
-                        'error');
-                    return;
+                    errores.push('Nombre del cliente (para crear la cuenta nueva)');
+                } else {
+                    this.opportunity = { ...this.opportunity, AccountName: newAccName };
                 }
-                this.opportunity = { ...this.opportunity, AccountName: newAccName };
+            }
+            if (errores.length) {
+                const msg = errores.length === 1
+                    ? `Falta: ${errores[0]}.`
+                    : `Faltan estos datos: ${errores.join(' • ')}.`;
+                this.showToast('Revisa los campos', msg, 'error');
+                return;
             }
             // Payload: oportunidad + detalle del ramo + datos del auto (para Vehiculo__c)
             const payload = {
