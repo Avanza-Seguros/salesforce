@@ -184,6 +184,48 @@ private class PaymentPlanInstallmentOverdueBatchTest {
 	}
 
 	/**
+	 * @description: Al dejar la cuota Vencido, el resumen de cobranza de la poliza se entera: es
+	 *               el trigger de la cuota el que lo recalcula, y asi el campo dice la verdad sin
+	 *               que nadie toque nada.
+	 */
+	@IsTest
+	static void theJobLeavesThePolicySummaryOverdue() {
+		Id planId = planWithoutInstallments();
+		Id policyId = [
+			SELECT insurancePolicy__c
+			FROM PaymentPlan__c
+			WHERE Id = :planId
+		]
+		.insurancePolicy__c;
+		installment(
+			planId,
+			1,
+			PolicyStatusService.todayInMexico().addDays(-3),
+			'Pendiente'
+		);
+		// El resumen es una foto: mientras la cuota siguio Pendiente y su fecha no habia pasado,
+		// la poliza figuraba al dia. Asi queda al llegar el dia siguiente al vencimiento.
+		update new InsurancePolicy(
+			Id = policyId,
+			collectionPaymentStatus__c = 'Al dia'
+		);
+
+		Test.startTest();
+		Database.executeBatch(new PaymentPlanInstallmentOverdueBatch());
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Vencido',
+			[
+				SELECT collectionPaymentStatus__c
+				FROM InsurancePolicy
+				WHERE Id = :policyId
+			]
+			.collectionPaymentStatus__c
+		);
+	}
+
+	/**
 	 * Un plan sin cuotas: la poliza genera las suyas al crearse y se borran para que el escenario
 	 * sea exactamente el que se quiere probar.
 	 */

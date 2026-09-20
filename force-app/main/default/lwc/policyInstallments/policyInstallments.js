@@ -75,6 +75,7 @@ export default class PolicyInstallments extends LightningElement {
 
 	columns = COLUMNS;
 	rows = [];
+	expandedRows = [];
 	totals = { expected: 0, matched: 0, outstanding: 0, count: 0 };
 	error;
 	loaded = false;
@@ -97,6 +98,23 @@ export default class PolicyInstallments extends LightningElement {
 			this.rows = [];
 			this.loaded = true;
 		}
+	}
+
+	/** Cuotas que esconden recibos reemplazados: son las unicas que se pueden abrir. */
+	get expandableIds() {
+		return this.rows.filter((row) => row._children).map((row) => row.Id);
+	}
+
+	get hasReplacedReceipts() {
+		return this.expandableIds.length > 0;
+	}
+
+	expandAll() {
+		this.expandedRows = this.expandableIds;
+	}
+
+	collapseAll() {
+		this.expandedRows = [];
 	}
 
 	get hasRows() {

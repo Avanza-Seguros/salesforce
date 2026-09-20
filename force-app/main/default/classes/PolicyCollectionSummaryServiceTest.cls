@@ -48,9 +48,9 @@ private class PolicyCollectionSummaryServiceTest {
 		Assert.isNull(updated.PaidToDate);
 		Assert.areEqual(due1, updated.collectionNextDueDate__c);
 		Assert.areEqual(
-			due1,
+			PolicyStatusService.mexicoMidnight(due1),
 			updated.PaymentDueDate,
-			'PaymentDueDate estandar tambien refleja la proxima cuota'
+			'PaymentDueDate estandar refleja la proxima cuota, a medianoche de Mexico'
 		);
 	}
 
@@ -70,7 +70,10 @@ private class PolicyCollectionSummaryServiceTest {
 		Assert.areEqual('Al dia', updated.collectionPaymentStatus__c);
 		Assert.areEqual(paid, updated.PaidToDate);
 		Assert.areEqual(next, updated.collectionNextDueDate__c);
-		Assert.areEqual(next, updated.PaymentDueDate);
+		Assert.areEqual(
+			PolicyStatusService.mexicoMidnight(next),
+			updated.PaymentDueDate
+		);
 	}
 
 	@IsTest
@@ -132,9 +135,10 @@ private class PolicyCollectionSummaryServiceTest {
 			updated.collectionNextDueDate__c,
 			'Un plan completado no tiene proxima fecha de pago'
 		);
-		Assert.isNotNull(
+		Assert.areEqual(
+			PolicyStatusService.mexicoMidnight(last),
 			updated.PaymentDueDate,
-			'PaymentDueDate estandar no se vacia (regla PremiumFieldsRequired)'
+			'Sin cuotas abiertas, la fecha de pago queda en el ultimo vencimiento'
 		);
 	}
 
@@ -188,7 +192,54 @@ private class PolicyCollectionSummaryServiceTest {
 		Assert.areEqual('Al dia', updated.collectionPaymentStatus__c);
 		Assert.areEqual(paid, updated.PaidToDate);
 		Assert.areEqual(next, updated.collectionNextDueDate__c);
-		Assert.areEqual(next, updated.PaymentDueDate);
+		Assert.areEqual(
+			PolicyStatusService.mexicoMidnight(next),
+			updated.PaymentDueDate
+		);
+	}
+
+	/**
+	 * @description: Una poliza que no se puede guardar (por ejemplo, una antigua a la que le faltan
+	 *               los datos de prima que hoy exige la regla de validacion) no impide que las demas
+	 *               queden al dia, y su fallo queda registrado.
+	 */
+	@IsTest
+	static void aPolicyThatCannotBeSavedDoesNotStopTheOthers() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy failing = createPolicy('POL-CS-007A', accountId);
+		InsurancePolicy healthy = createPolicy('POL-CS-007B', accountId);
+		addInstallment(
+			prepPlan(failing.Id, 'Activo').Id,
+			1,
+			Date.today(),
+			'Conciliado'
+		);
+		Date next = Date.today().addDays(30);
+		addInstallment(prepPlan(healthy.Id, 'Activo').Id, 1, next, 'Pendiente');
+		PolicyCollectionSummaryService.failForTest.add(failing.Id);
+		String failingId = String.valueOf(failing.Id);
+
+		Test.startTest();
+		PolicyCollectionSummaryService.recalculate(
+			new Set<Id>{ failing.Id, healthy.Id }
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			next,
+			queryPolicy(healthy.Id).collectionNextDueDate__c,
+			'La póliza sana queda al día'
+		);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE
+					eventCode__c = :CobranzaLog.EVENT_POLICY_SUMMARY_FAILED
+					AND recordId__c = :failingId
+			]
+		);
 	}
 
 	private static InsurancePolicy createPolicy(String name, Id accountId) {

@@ -40,7 +40,11 @@ private class PolicyStatusFromCarrierTest {
 
 		InsurancePolicy policy = poliza(e.policyId);
 		Assert.areEqual('Cancelado', policy.Status);
-		Assert.areEqual(CANCELLED_ON, policy.CancellationDate.dateGmt());
+		Assert.areEqual(
+			PolicyStatusService.mexicoMidnight(CANCELLED_ON),
+			policy.CancellationDate,
+			'La fecha de cancelacion se guarda al empezar ese dia en Mexico, no la vispera'
+		);
 		Assert.areEqual(CANCELLATION_REASON, policy.CancellationReason);
 	}
 

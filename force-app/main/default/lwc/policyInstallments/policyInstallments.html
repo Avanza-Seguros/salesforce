@@ -12,7 +12,22 @@
 			</template>
 
 			<template if:true={hasRows}>
+				<template if:true={hasReplacedReceipts}>
+					<div class="slds-p-bottom_x-small slds-text-align_right">
+						<lightning-button-group>
+							<lightning-button
+								label="Expandir todo"
+								onclick={expandAll}
+							></lightning-button>
+							<lightning-button
+								label="Contraer todo"
+								onclick={collapseAll}
+							></lightning-button>
+						</lightning-button-group>
+					</div>
+				</template>
 				<lightning-tree-grid
+					expanded-rows={expandedRows}
 					key-field="Id"
 					data={rows}
 					columns={columns}
