@@ -42,7 +42,6 @@ function statusClass(status) {
 function baseRow(record) {
 	return {
 		...record,
-		planName: record.paymentPlan__r ? record.paymentPlan__r.Name : "",
 		paymentDate: record.matchedReceipt__r
 			? record.matchedReceipt__r.receiptDate__c
 			: null,

@@ -353,6 +353,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InsurancePolicy.insuredAssetDescription__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>PolicyPaymentReceipt__c.reversalNotes__c</field>
         <readable>true</readable>
     </fieldPermissions>

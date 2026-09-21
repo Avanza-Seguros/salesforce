@@ -14,6 +14,13 @@ const COLUMNS = [
 		cellAttributes: { class: { fieldName: "statusClass" } }
 	},
 	{
+		label: "Recibo",
+		fieldName: "carrierReceiptNumber__c",
+		type: "text",
+		initialWidth: 130,
+		cellAttributes: { class: { fieldName: "statusClass" } }
+	},
+	{
 		label: "Vence",
 		fieldName: "dueDate__c",
 		type: "date-local",
@@ -59,15 +66,7 @@ const COLUMNS = [
 			alignment: "right",
 			class: { fieldName: "overdueClass" }
 		}
-	},
-	{
-		label: "Recibo",
-		fieldName: "carrierReceiptNumber__c",
-		type: "text",
-		initialWidth: 130,
-		cellAttributes: { class: { fieldName: "statusClass" } }
-	},
-	{ label: "Plan", fieldName: "planName", type: "text", initialWidth: 120 }
+	}
 ];
 
 export default class PolicyInstallments extends LightningElement {

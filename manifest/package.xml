@@ -252,6 +252,7 @@
         <members>PaymentPlanInstallment__c.carrierInstallmentNumber__c</members>
         <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
         <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
+        <members>InsurancePolicy.insuredAssetDescription__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -331,6 +332,7 @@
         <members>InboundInsurancePayment__c.Estados_de_poliza</members>
         <members
 		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
+        <members>InsurancePolicy.Polizas_Inicial_Venta_Ganada</members>
         <name>ListView</name>
     </types>
     <types>
@@ -380,6 +382,11 @@
     <types>
         <members>Senalar_Oportunidad_Por_Reversa</members>
         <name>CustomPermission</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>CompactLayout</name>
     </types>
 
     <version>66.0</version>

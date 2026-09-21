@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Inicial_Venta_Ganada</fullName>
+    <columns>Name</columns>
+    <columns>NameInsured</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>EffectiveDate</columns>
+    <columns>SourceOpportunity</columns>
+    <columns>sourceOpportunityCloseDate__c</columns>
+    <columns>PremiumAmount</columns>
+    <columns>PaymentDueDate</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status</field>
+        <operation>equals</operation>
+        <value>Inicial</value>
+    </filters>
+    <filters>
+        <field>sourceOpportunityStage__c</field>
+        <operation>equals</operation>
+        <value>Closed Won</value>
+    </filters>
+    <label>Pólizas en Inicial con venta ganada</label>
+    <language>es</language>
+</ListView>
