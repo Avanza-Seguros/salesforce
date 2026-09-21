@@ -12,13 +12,71 @@
 			</template>
 
 			<template if:true={hasRows}>
-				<lightning-datatable
+				<template if:true={hasReplacedReceipts}>
+					<div class="slds-p-bottom_x-small slds-text-align_right">
+						<lightning-button-group>
+							<lightning-button
+								label="Expandir todo"
+								onclick={expandAll}
+							></lightning-button>
+							<lightning-button
+								label="Contraer todo"
+								onclick={collapseAll}
+							></lightning-button>
+						</lightning-button-group>
+					</div>
+				</template>
+				<lightning-tree-grid
+					expanded-rows={expandedRows}
 					key-field="Id"
 					data={rows}
 					columns={columns}
 					hide-checkbox-column
 					resize-column-disabled
-				></lightning-datatable>
+				></lightning-tree-grid>
+
+				<div
+					class="slds-grid slds-wrap slds-grid_align-spread slds-p-vertical_x-small slds-p-horizontal_xx-small slds-text-body_small slds-border_top"
+				>
+					<span class="slds-text-color_weak">
+						Prima&nbsp;
+						<lightning-formatted-number
+							value={premiumAmount}
+							format-style="currency"
+							currency-code="MXN"
+						></lightning-formatted-number>
+					</span>
+					<span class="slds-text-color_weak">
+						Cuotas que cuentan&nbsp;
+						<lightning-formatted-number
+							value={expectedTotal}
+							format-style="currency"
+							currency-code="MXN"
+						></lightning-formatted-number>
+					</span>
+					<span class="slds-text-color_success">
+						Pagado&nbsp;
+						<lightning-formatted-number
+							value={matchedTotal}
+							format-style="currency"
+							currency-code="MXN"
+						></lightning-formatted-number>
+					</span>
+					<span>
+						Pendiente&nbsp;
+						<lightning-formatted-number
+							value={outstandingTotal}
+							format-style="currency"
+							currency-code="MXN"
+						></lightning-formatted-number>
+					</span>
+				</div>
+				<p
+					class="slds-text-color_weak slds-text-body_small slds-p-bottom_x-small"
+				>
+					Los recibos que la aseguradora canceló y volvió a emitir se abren
+					desde la flecha de su cuota. No cuentan para los totales.
+				</p>
 			</template>
 		</div>
 	</lightning-card>

@@ -18,7 +18,6 @@ public with sharing class PolicyCollectionSummaryService {
 	private static final String PLAN_STATUS_ACTIVE = 'Activo';
 	private static final String PLAN_STATUS_COMPLETED = 'Completado';
 	private static final String PLAN_STATUS_REPLACED = 'Reemplazado';
-	private static final String PLAN_STATUS_CANCELLED = 'Cancelado';
 
 	private static final String INSTALLMENT_STATUS_RECONCILED = 'Conciliado';
 	private static final Set<String> OPEN_INSTALLMENT_STATUSES = new Set<String>{
@@ -31,13 +30,20 @@ public with sharing class PolicyCollectionSummaryService {
 	private static final String PAYMENT_STATUS_OVERDUE = 'Vencido';
 	private static final String PAYMENT_STATUS_COMPLETED = 'Completado';
 
+	// Fuerza el fallo del guardado de estas polizas para probar que el fallo queda registrado y no
+	// detiene a las demas. Vaciar un campo obligatorio produce un fallo de plataforma devuelto
+	// como resultado, que es exactamente el caso que hay que registrar.
+	@TestVisible
+	private static Set<Id> failForTest = new Set<Id>();
+
 	/**
 	 * @creation date: 12/06/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Recalcula y actualiza el resumen de cobranza de las polizas indicadas
-	 *               a partir del plan vigente (no Reemplazado/Cancelado) y sus cuotas.
-	 *               Si una poliza no tiene plan vigente, deja el resumen en "Sin pago"
-	 *               con fechas vacias. Solo emite un DML sobre las polizas afectadas.
+	 *               a partir de su plan (cualquiera menos un Reemplazado) y sus cuotas.
+	 *               Si una poliza no tiene plan, deja el resumen en "Sin pago" con fechas
+	 *               vacias. Guarda poliza por poliza, asi que una que falle no detiene a las
+	 *               demas y su fallo queda registrado.
 	 * @param policyIds: IDs de InsurancePolicy a recalcular.
 	 * @return
 	 */
@@ -81,25 +87,61 @@ public with sharing class PolicyCollectionSummaryService {
 			pol.PaidToDate = result.paidThroughDate;
 			pol.collectionNextDueDate__c = result.nextDueDate;
 			pol.collectionPaymentStatus__c = result.paymentStatus;
-			// PaymentDueDate (estandar) se mantiene al dia con la proxima cuota, pero
-			// nunca se vacia (regla PremiumFieldsRequired): si no hay proxima, se deja
-			// el ultimo valor.
-			if (result.nextDueDate != null) {
-				pol.PaymentDueDate = result.nextDueDate;
+			// PaymentDueDate (estandar) sigue a la proxima cuota. Cuando ya no hay ninguna
+			// abierta queda en el ULTIMO vencimiento del plan, que es lo que se leia al
+			// terminar de pagar; nunca se vacia, porque la regla PremiumFieldsRequired lo
+			// exige en las polizas operativas.
+			Date dueDate = result.nextDueDate != null
+				? result.nextDueDate
+				: result.lastDueDate;
+			if (dueDate != null) {
+				pol.PaymentDueDate = PolicyStatusService.mexicoMidnight(dueDate);
 			}
 			toUpdate.add(pol);
 		}
 
-		if (!toUpdate.isEmpty()) {
-			update toUpdate;
+		if (toUpdate.isEmpty()) {
+			return;
 		}
+		// Poliza por poliza: una que no se pueda guardar (por ejemplo, una antigua a la que le
+		// faltan los datos de prima que hoy exige la regla de validacion) no puede impedir que las
+		// demas queden al dia, ni tumbar el cobro que disparo el recalculo.
+		if (Test.isRunningTest() && !failForTest.isEmpty()) {
+			for (InsurancePolicy pol : toUpdate) {
+				if (failForTest.contains(pol.Id)) {
+					pol.Name = null;
+				}
+			}
+		}
+		List<Database.SaveResult> results = Database.update(toUpdate, false);
+		for (Integer i = 0; i < results.size(); i++) {
+			if (results[i].isSuccess()) {
+				continue;
+			}
+			List<String> errors = new List<String>();
+			for (Database.Error error : results[i].getErrors()) {
+				errors.add(error.getMessage());
+			}
+			CobranzaLog.error(
+					CobranzaLog.STAGE_CUOTA,
+					CobranzaLog.EVENT_POLICY_SUMMARY_FAILED,
+					'No se pudo actualizar el resumen de cobranza de la póliza. Motivo: ' +
+					String.join(errors, '; ')
+				)
+				.onRecord(toUpdate[i].Id);
+		}
+		AppLogger.flush();
 	}
 
 	/**
 	 * @creation date: 12/06/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Selecciona el plan vigente por poliza: ignora los Reemplazado y
-	 *               Cancelado, prefiere el Activo y, en su defecto, el mas reciente.
+	 * @description: Selecciona el plan del que sale el resumen. Solo descarta los REEMPLAZADOS:
+	 *               sus cuotas se volvieron a crear en el plan que los sustituyo y contarlas seria
+	 *               contarlas dos veces. Un plan CANCELADO si cuenta: la aseguradora canceló la
+	 *               poliza y por eso dejo de deberse lo que faltaba, pero lo que se pago antes
+	 *               sigue siendo cierto y tiene que verse. Prefiere el Activo y, en su defecto, el
+	 *               mas reciente.
 	 * @param policyIds: IDs de InsurancePolicy.
 	 * @return Mapa de policyId al PaymentPlan__c vigente.
 	 */
@@ -113,7 +155,6 @@ public with sharing class PolicyCollectionSummaryService {
 			WHERE
 				insurancePolicy__c IN :policyIds
 				AND planStatus__c != :PLAN_STATUS_REPLACED
-				AND planStatus__c != :PLAN_STATUS_CANCELLED
 			ORDER BY CreatedDate DESC
 		]) {
 			Id policyId = plan.insurancePolicy__c;
@@ -163,7 +204,9 @@ public with sharing class PolicyCollectionSummaryService {
 	 * @description: Calcula el resumen (pagada hasta, proxima fecha y estado) del plan
 	 *               vigente. "Pagada hasta" = vencimiento mas alto entre cuotas
 	 *               Conciliado; "proxima fecha" = vencimiento mas bajo entre cuotas
-	 *               abiertas; estado: Completado si el plan lo esta; Vencido si hay
+	 *               abiertas; "ultimo vencimiento" = el mas alto entre las que se debieron,
+	 *               para dejar ahi la fecha de pago cuando ya no queda ninguna abierta;
+	 *               estado: Completado si el plan lo esta; Vencido si hay
 	 *               cuota abierta con vencimiento pasado; Al dia si hay alguna conciliada
 	 *               y nada vencido; Sin pago si no hay ninguna conciliada.
 	 * @param plan: Plan vigente.
@@ -183,6 +226,17 @@ public with sharing class PolicyCollectionSummaryService {
 		if (installments != null) {
 			for (PaymentPlanInstallment__c inst : installments) {
 				String status = inst.installmentStatus__c;
+				Boolean counted =
+					INSTALLMENT_STATUS_RECONCILED.equals(status) ||
+					OPEN_INSTALLMENT_STATUSES.contains(status);
+				if (
+					counted &&
+					inst.dueDate__c != null &&
+					(result.lastDueDate == null ||
+					inst.dueDate__c > result.lastDueDate)
+				) {
+					result.lastDueDate = inst.dueDate__c;
+				}
 				if (INSTALLMENT_STATUS_RECONCILED.equals(status)) {
 					hasReconciled = true;
 					if (
@@ -222,6 +276,7 @@ public with sharing class PolicyCollectionSummaryService {
 	private class SummaryResult {
 		Date paidThroughDate;
 		Date nextDueDate;
+		Date lastDueDate;
 		String paymentStatus;
 	}
 }

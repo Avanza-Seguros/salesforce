@@ -1026,12 +1026,202 @@ private class InboundInstallmentCandidateQueueableTest {
 		);
 	}
 
+	/**
+	 * @description: Dos cuotas abiertas iguales en fecha, importe y numero de cuota (la
+	 *               aseguradora reexpidio el recibo y el anterior sigue abierto): por puntos es
+	 *               un empate. El recibo que trae el pago decide.
+	 */
+	@IsTest
+	static void theReceiptResolvesInstallmentsThatScoreTheSame() {
+		InsurancePolicy policy = createPolicy('POL-IC-442-1');
+		PaymentPlan__c plan = createActivePlan(policy.Id);
+		Date dueDate = Date.today().addDays(30);
+		PaymentPlanInstallment__c original = withCarrierData(
+			createInstallment(plan.Id, 1, dueDate, 400, 'Pendiente'),
+			1,
+			'0000009001'
+		);
+		PaymentPlanInstallment__c reissued = withCarrierData(
+			createInstallment(plan.Id, 2, dueDate, 400, 'Pendiente'),
+			1,
+			'0000009101'
+		);
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-IC-442-1',
+			policy.Id,
+			'1',
+			dueDate,
+			400,
+			'0000009101'
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundInstallmentCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = [
+			SELECT candidateInstallment__c, installmentMatchReason__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inbound.Id
+		];
+		Assert.areEqual(reissued.Id, inbound.candidateInstallment__c);
+		Assert.areEqual('RECIBO_EXACTO', inbound.installmentMatchReason__c);
+		Assert.areNotEqual(original.Id, inbound.candidateInstallment__c);
+	}
+
+	/**
+	 * @description: El numero de cuota que manda la aseguradora (NN/TT) se compara con el suyo, no con el
+	 *               orden dentro del plan. Antes, una cuota cuyo orden coincidia con ese numero
+	 *               se llevaba 6 puntos y ganaba a la correcta, que solo sumaba fecha e importe.
+	 */
+	@IsTest
+	static void theInstallmentNumberIsComparedWithTheCarrierNumber() {
+		InsurancePolicy policy = createPolicy('POL-IC-442-2');
+		PaymentPlan__c plan = createActivePlan(policy.Id);
+		Date dueDate = Date.today().addDays(30);
+		// Orden 1 en el plan, pero para la aseguradora es la cuota 3 de su serie.
+		withCarrierData(
+			createInstallment(plan.Id, 1, dueDate.addDays(60), 900, 'Pendiente'),
+			3,
+			'0000009201'
+		);
+		// Orden 5 en el plan; para la aseguradora, la cuota 1 de una serie reexpedida.
+		PaymentPlanInstallment__c correct = withCarrierData(
+			createInstallment(plan.Id, 5, dueDate, 400, 'Pendiente'),
+			1,
+			'0000009301'
+		);
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-IC-442-2',
+			policy.Id,
+			// Como lo manda Qualitas: cuota 01 de 04 de su serie.
+			'01/04',
+			dueDate,
+			400
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundInstallmentCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = [
+			SELECT candidateInstallment__c, installmentMatchReason__c
+			FROM InboundInsurancePayment__c
+			WHERE Id = :inbound.Id
+		];
+		Assert.areEqual(correct.Id, inbound.candidateInstallment__c);
+		Assert.areEqual('UNICO_GANADOR', inbound.installmentMatchReason__c);
+		Assert.areEqual(
+			0,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_INSTALLMENT_NUMBER_NOT_NUMERIC
+			],
+			'NN/TT es un numero de cuota: no se avisa'
+		);
+	}
+
+	/**
+	 * @description: No todas las aseguradoras numeran las cuotas igual: Qualitas manda "NN/TT"
+	 *               (cuota NN de TT) y otras mandan solo el numero. Las dos formas valen y
+	 *               significan lo mismo; cualquier otra cosa no se interpreta.
+	 */
+	@IsTest
+	static void aPlainInstallmentNumberAlsoCounts() {
+		InsurancePolicy policy = createPolicy('POL-IC-442-3');
+		PaymentPlan__c plan = createActivePlan(policy.Id);
+		Date dueDate = Date.today().addDays(30);
+		withCarrierData(
+			createInstallment(plan.Id, 1, dueDate.addDays(60), 900, 'Pendiente'),
+			3,
+			'0000009401'
+		);
+		PaymentPlanInstallment__c correct = withCarrierData(
+			createInstallment(plan.Id, 5, dueDate, 400, 'Pendiente'),
+			2,
+			'0000009501'
+		);
+		// Sin el total: solo el numero de la cuota.
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-IC-442-3',
+			policy.Id,
+			'2',
+			dueDate,
+			400
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundInstallmentCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			correct.Id,
+			[
+				SELECT candidateInstallment__c
+				FROM InboundInsurancePayment__c
+				WHERE Id = :inbound.Id
+			]
+			.candidateInstallment__c
+		);
+	}
+
+	private static InsurancePolicy createPolicy(String policyNumber) {
+		InsurancePolicy policy = new InsurancePolicy(
+			Name = policyNumber,
+			PolicyName = 'Test Policy',
+			NameInsuredId = CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			Status = 'Inicial',
+			PremiumAmount = 1000,
+			PremiumFrequency = 'Mensual',
+			PaymentDueDate = Date.today()
+		);
+		insert policy;
+		deleteAutoGeneratedPlans(policy.Id);
+		return policy;
+	}
+
+	private static PaymentPlanInstallment__c withCarrierData(
+		PaymentPlanInstallment__c inst,
+		Integer carrierNumber,
+		String receiptNumber
+	) {
+		inst.carrierInstallmentNumber__c = carrierNumber;
+		inst.carrierReceiptNumber__c = receiptNumber;
+		update inst;
+		return inst;
+	}
+
 	private static InboundInsurancePayment__c createNormalizedInbound(
 		String externalId,
 		Id candidatePolicyId,
 		String installmentNumber,
 		Date dueDate,
 		Decimal amount
+	) {
+		return createNormalizedInbound(
+			externalId,
+			candidatePolicyId,
+			installmentNumber,
+			dueDate,
+			amount,
+			null
+		);
+	}
+
+	private static InboundInsurancePayment__c createNormalizedInbound(
+		String externalId,
+		Id candidatePolicyId,
+		String installmentNumber,
+		Date dueDate,
+		Decimal amount,
+		String receiptNumber
 	) {
 		InboundInsurancePayment__c rec = new InboundInsurancePayment__c(
 			externalPaymentId__c = externalId,
@@ -1044,6 +1234,7 @@ private class InboundInstallmentCandidateQueueableTest {
 			parsedAt__c = System.now(),
 			candidatePolicy__c = candidatePolicyId,
 			sourceInstallmentNumber__c = installmentNumber,
+			sourceReceiptNumber__c = receiptNumber,
 			sourceDueDate__c = dueDate
 		);
 		insert rec;

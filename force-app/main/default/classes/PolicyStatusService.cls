@@ -95,6 +95,9 @@ public with sharing class PolicyStatusService {
 		Date today = todayInMexico();
 		List<InsurancePolicy> toUpdate = new List<InsurancePolicy>();
 		Map<Id, Date> cancelledFrom = new Map<Id, Date>();
+		// Ya estaban canceladas (por ejemplo, las de una carga): la poliza no cambia, pero sus
+		// cuotas posteriores a la cancelacion siguen dejando de deberse.
+		Map<Id, Date> alreadyCancelledFrom = new Map<Id, Date>();
 		Map<Id, Id> noticeByPolicy = new Map<Id, Id>();
 		Set<Id> rehabilitated = new Set<Id>();
 
@@ -115,17 +118,16 @@ public with sharing class PolicyStatusService {
 			String communicated = policy.carrierPolicyStatus__c;
 
 			if (STATUS_CANCELLED.equals(communicated)) {
+				Date since = cancellationDateOf(policy, today);
 				if (STATUS_CANCELLED.equals(policy.Status)) {
+					alreadyCancelledFrom.put(policy.Id, since);
+					noticeByPolicy.put(policy.Id, policy.carrierStatusNotice__c);
 					continue;
 				}
-				Date since = cancellationDateOf(policy, today);
 				InsurancePolicy upd = new InsurancePolicy(
 					Id = policy.Id,
 					Status = STATUS_CANCELLED,
-					CancellationDate = DateTime.newInstanceGmt(
-						since,
-						Time.newInstance(0, 0, 0, 0)
-					)
+					CancellationDate = mexicoMidnight(since)
 				);
 				String reason = policy.carrierStatusNotice__c == null
 					? null
@@ -173,7 +175,7 @@ public with sharing class PolicyStatusService {
 		}
 
 		Set<Id> saved = save(toUpdate);
-		Map<Id, Date> toCancel = new Map<Id, Date>();
+		Map<Id, Date> toCancel = new Map<Id, Date>(alreadyCancelledFrom);
 		for (Id policyId : cancelledFrom.keySet()) {
 			if (saved.contains(policyId)) {
 				toCancel.put(policyId, cancelledFrom.get(policyId));
@@ -387,6 +389,23 @@ public with sharing class PolicyStatusService {
 	 */
 	public static Date todayInMexico() {
 		return Date.valueOf(DateTime.now().format('yyyy-MM-dd', MEXICO_TIME_ZONE));
+	}
+
+	/**
+	 * @creation date: 20/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Convierte una fecha en el instante en que ese dia empieza en Ciudad de Mexico
+	 *               (las 06:00 GMT). Las fechas de la poliza son campos de fecha y hora, y guardar
+	 *               en ellos una fecha a secas las deja a medianoche GMT, que en Mexico se lee como
+	 *               las 18:00 del dia anterior. Es la misma hora con la que las crea el flow
+	 *               comercial, asi que toda la cartera queda igual.
+	 * @param day: Dia que representa la fecha.
+	 * @return El instante en que ese dia empieza en Mexico, o null.
+	 */
+	public static DateTime mexicoMidnight(Date day) {
+		return day == null
+			? null
+			: DateTime.newInstanceGmt(day, Time.newInstance(6, 0, 0, 0));
 	}
 
 	/**

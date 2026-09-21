@@ -148,6 +148,26 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>PaymentPlanInstallment__c.carrierReceiptNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.carrierEndorsementNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.carrierInstallmentNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.replacesInstallment__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InsurancePolicy.carrierPolicyStatus__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -329,6 +349,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>InsurancePolicy.totalRefundedAmount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>InsurancePolicy.insuredAssetDescription__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

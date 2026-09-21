@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>carrierEndorsementNumber__c</fullName>
+    <description
+	>Endoso de la aseguradora al que pertenece el recibo de esta cuota. El de la emisión es 000000; cualquier otro es un movimiento posterior (reexpedición, aumento...).</description>
+    <externalId>false</externalId>
+    <label>Endoso de la aseguradora</label>
+    <length>20</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

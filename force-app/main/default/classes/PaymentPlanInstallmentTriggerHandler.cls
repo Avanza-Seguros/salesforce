@@ -56,9 +56,12 @@ public with sharing class PaymentPlanInstallmentTriggerHandler {
 				continue;
 			}
 			PaymentPlanInstallment__c oldInst = oldMap.get(inst.Id);
+			// El vencimiento tambien cuenta: el resumen de cobranza de la poliza lleva la proxima
+			// cuota y si esta al dia o vencida, y las dos cosas dependen de esa fecha.
 			if (
 				oldInst == null ||
-				oldInst.installmentStatus__c != inst.installmentStatus__c
+				oldInst.installmentStatus__c != inst.installmentStatus__c ||
+				oldInst.dueDate__c != inst.dueDate__c
 			) {
 				planIds.add(inst.paymentPlan__c);
 			}

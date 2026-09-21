@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>insuredAssetDescription__c</fullName>
+    <description
+	>Descripción del bien asegurado tal como la da la aseguradora (en autos, el vehículo). Se guarda en la póliza para poder verla en la cabecera, porque el bien es un registro aparte. En pólizas que no aseguran un bien concreto queda vacía.</description>
+    <externalId>false</externalId>
+    <label>Bien asegurado</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

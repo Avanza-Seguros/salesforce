@@ -239,6 +239,42 @@ private class PaymentPlanInstallmentTriggerHandlerTest {
 		return plan;
 	}
 
+	/**
+	 * @description: Cambiar el vencimiento de una cuota tambien recalcula el resumen de cobranza
+	 *               de la poliza: de esa fecha dependen la proxima cuota y si esta al dia.
+	 */
+	@IsTest
+	static void changingTheDueDateRefreshesThePolicySummary() {
+		Id accountId = CollectionsTestDataFactory.getDefaultInsuredAccountId();
+		InsurancePolicy policy = createPolicy('POL-PS-010', accountId);
+		PaymentPlan__c plan = prepPlan(policy.Id, 'Activo');
+		PaymentPlanInstallment__c inst = addInstallment(
+			plan.Id,
+			1,
+			100,
+			'Pendiente'
+		);
+		Date nuevoVencimiento = Date.today().addDays(90);
+
+		Test.startTest();
+		update new PaymentPlanInstallment__c(
+			Id = inst.Id,
+			dueDate__c = nuevoVencimiento
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			nuevoVencimiento,
+			[
+				SELECT collectionNextDueDate__c
+				FROM InsurancePolicy
+				WHERE Id = :policy.Id
+			]
+			.collectionNextDueDate__c,
+			'La póliza debe apuntar al nuevo vencimiento'
+		);
+	}
+
 	private static PaymentPlanInstallment__c addInstallment(
 		Id planId,
 		Integer seq,

@@ -1,15 +1,25 @@
 import { LightningElement, api, wire } from "lwc";
+import { getRecord, getFieldValue } from "lightning/uiRecordApi";
 import getInstallmentsByPolicy from "@salesforce/apex/PolicyInstallmentsController.getInstallmentsByPolicy";
+import PREMIUM_FIELD from "@salesforce/schema/InsurancePolicy.PremiumAmount";
+import { buildRows } from "./installmentRows";
 
 const COLUMNS = [
 	{
 		label: "Cuota",
 		fieldName: "installmentUrl",
 		type: "url",
-		initialWidth: 110,
-		typeAttributes: { label: { fieldName: "sequenceLabel" }, target: "_self" }
+		initialWidth: 190,
+		typeAttributes: { label: { fieldName: "sequenceLabel" }, target: "_self" },
+		cellAttributes: { class: { fieldName: "statusClass" } }
 	},
-	{ label: "Plan", fieldName: "planName", type: "text", initialWidth: 130 },
+	{
+		label: "Recibo",
+		fieldName: "carrierReceiptNumber__c",
+		type: "text",
+		initialWidth: 130,
+		cellAttributes: { class: { fieldName: "statusClass" } }
+	},
 	{
 		label: "Vence",
 		fieldName: "dueDate__c",
@@ -44,20 +54,18 @@ const COLUMNS = [
 		label: "Estado",
 		fieldName: "installmentStatus__c",
 		type: "text",
-		initialWidth: 120
-	},
-	{
-		label: "Antigüedad",
-		fieldName: "agingStatus__c",
-		type: "text",
-		initialWidth: 120
+		initialWidth: 120,
+		cellAttributes: { class: { fieldName: "statusClass" } }
 	},
 	{
 		label: "Días mora",
-		fieldName: "daysOverdue__c",
+		fieldName: "daysOverdue",
 		type: "number",
 		initialWidth: 100,
-		cellAttributes: { alignment: "right" }
+		cellAttributes: {
+			alignment: "right",
+			class: { fieldName: "overdueClass" }
+		}
 	}
 ];
 
@@ -66,21 +74,20 @@ export default class PolicyInstallments extends LightningElement {
 
 	columns = COLUMNS;
 	rows = [];
+	expandedRows = [];
+	totals = { expected: 0, matched: 0, outstanding: 0, count: 0 };
 	error;
 	loaded = false;
+
+	@wire(getRecord, { recordId: "$recordId", fields: [PREMIUM_FIELD] })
+	policy;
 
 	@wire(getInstallmentsByPolicy, { policyId: "$recordId" })
 	wiredInstallments({ data, error }) {
 		if (data) {
-			this.rows = data.map((row) => ({
-				...row,
-				paymentDate: row.matchedReceipt__r?.receiptDate__c ?? null,
-				installmentUrl: `/${row.Id}`,
-				sequenceLabel: row.sequenceNumber__c
-					? `#${row.sequenceNumber__c}`
-					: row.Name,
-				planName: row.paymentPlan__r ? row.paymentPlan__r.Name : ""
-			}));
+			const built = buildRows(data);
+			this.rows = built.rows;
+			this.totals = built.totals;
 			this.error = undefined;
 			this.loaded = true;
 		} else if (error) {
@@ -90,6 +97,23 @@ export default class PolicyInstallments extends LightningElement {
 			this.rows = [];
 			this.loaded = true;
 		}
+	}
+
+	/** Cuotas que esconden recibos reemplazados: son las unicas que se pueden abrir. */
+	get expandableIds() {
+		return this.rows.filter((row) => row._children).map((row) => row.Id);
+	}
+
+	get hasReplacedReceipts() {
+		return this.expandableIds.length > 0;
+	}
+
+	expandAll() {
+		this.expandedRows = this.expandableIds;
+	}
+
+	collapseAll() {
+		this.expandedRows = [];
 	}
 
 	get hasRows() {
@@ -102,7 +126,24 @@ export default class PolicyInstallments extends LightningElement {
 
 	get cardTitle() {
 		return this.hasRows
-			? `Cuotas del plan de pago (${this.rows.length})`
+			? `Cuotas del plan de pago (${this.totals.count})`
 			: "Cuotas del plan de pago";
+	}
+
+	get premiumAmount() {
+		return getFieldValue(this.policy.data, PREMIUM_FIELD);
+	}
+
+	/** Lo que cuenta para el cobro: sin las canceladas ni las condonadas. */
+	get expectedTotal() {
+		return this.totals.expected;
+	}
+
+	get matchedTotal() {
+		return this.totals.matched;
+	}
+
+	get outstandingTotal() {
+		return this.totals.outstanding;
 	}
 }
