@@ -1126,6 +1126,52 @@ private class InboundInstallmentCandidateQueueableTest {
 		);
 	}
 
+	/**
+	 * @description: No todas las aseguradoras numeran las cuotas igual: Qualitas manda "NN/TT"
+	 *               (cuota NN de TT) y otras mandan solo el numero. Las dos formas valen y
+	 *               significan lo mismo; cualquier otra cosa no se interpreta.
+	 */
+	@IsTest
+	static void aPlainInstallmentNumberAlsoCounts() {
+		InsurancePolicy policy = createPolicy('POL-IC-442-3');
+		PaymentPlan__c plan = createActivePlan(policy.Id);
+		Date dueDate = Date.today().addDays(30);
+		withCarrierData(
+			createInstallment(plan.Id, 1, dueDate.addDays(60), 900, 'Pendiente'),
+			3,
+			'0000009401'
+		);
+		PaymentPlanInstallment__c correct = withCarrierData(
+			createInstallment(plan.Id, 5, dueDate, 400, 'Pendiente'),
+			2,
+			'0000009501'
+		);
+		// Sin el total: solo el numero de la cuota.
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-IC-442-3',
+			policy.Id,
+			'2',
+			dueDate,
+			400
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundInstallmentCandidateQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			correct.Id,
+			[
+				SELECT candidateInstallment__c
+				FROM InboundInsurancePayment__c
+				WHERE Id = :inbound.Id
+			]
+			.candidateInstallment__c
+		);
+	}
+
 	private static InsurancePolicy createPolicy(String policyNumber) {
 		InsurancePolicy policy = new InsurancePolicy(
 			Name = policyNumber,
