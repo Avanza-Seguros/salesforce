@@ -1,8 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version='1.0' encoding='UTF-8' ?>
 <FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
+        <itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>required</value>
@@ -10,19 +9,7 @@
                 <fieldItem>Record.Name</fieldItem>
                 <identifier>RecordNameField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PolicyName</fieldItem>
-                <identifier>RecordPolicyNameField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -30,113 +17,15 @@
                 <fieldItem>Record.Aseguradora__c</fieldItem>
                 <identifier>RecordAseguradora_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.EffectiveDate</fieldItem>
-                <identifier>RecordEffectiveDateField</identifier>
+                <fieldItem>Record.Ramo__c</fieldItem>
+                <identifier>RecordRamo_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Status</fieldItem>
-                <identifier>RecordStatusField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PolicyDescription</fieldItem>
-                <identifier>RecordPolicyDescriptionField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PriorPolicyId</fieldItem>
-                <identifier>RecordPriorPolicyIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.SourceQuoteId</fieldItem>
-                <identifier>RecordSourceQuoteIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.CancellationEffectiveDate</fieldItem>
-                <identifier>RecordCancellationEffectiveDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.CancellationReason</fieldItem>
-                <identifier>RecordCancellationReasonField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.NameInsuredId</fieldItem>
-                <identifier>RecordNameInsuredIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>readonly</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.IsActive</fieldItem>
-                <identifier>RecordIsActiveField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PolicyType</fieldItem>
-                <identifier>RecordPolicyTypeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -144,9 +33,48 @@
                 <fieldItem>Record.ProductId</fieldItem>
                 <identifier>RecordProductIdField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>required</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.NameInsuredId</fieldItem>
+                <identifier>RecordNameInsuredIdField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance><fieldInstanceProperties
+				><name>uiBehavior</name><value
+					>none</value></fieldInstanceProperties><fieldItem
+				>Record.insuredAssetDescription__c</fieldItem><identifier
+				>RecordinsuredAssetDescription_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Status</fieldItem>
+                <identifier>RecordStatusField</identifier>
+            </fieldInstance>
+        </itemInstances><name>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.IsActive</fieldItem>
+                <identifier>RecordIsActiveField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.EffectiveDate</fieldItem>
+                <identifier>RecordEffectiveDateField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -154,29 +82,7 @@
                 <fieldItem>Record.ExpirationDate</fieldItem>
                 <identifier>RecordExpirationDateField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.UniversalPolicyNumber</fieldItem>
-                <identifier>RecordUniversalPolicyNumberField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.OriginalPolicyId</fieldItem>
-                <identifier>RecordOriginalPolicyIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -184,28 +90,27 @@
                 <fieldItem>Record.SourceOpportunityId</fieldItem>
                 <identifier>RecordSourceOpportunityIdField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.ContractGroupPlanId</fieldItem>
-                <identifier>RecordContractGroupPlanIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+                <fieldItem>Record.CancellationDate</fieldItem>
+                <identifier>RecordCancellationDateField</identifier>
+            <visibilityRule><criteria><leftValue
+						>{!Record.Status}</leftValue><operator>EQUAL</operator><rightValue
+						>Cancelado</rightValue></criteria></visibilityRule></fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.PolicyTerm</fieldItem>
-                <identifier>RecordPolicyTermField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</name>
+                <fieldItem>Record.CancellationReason</fieldItem>
+                <identifier>RecordCancellationReasonField</identifier>
+            <visibilityRule><criteria><leftValue
+						>{!Record.Status}</leftValue><operator>EQUAL</operator><rightValue
+						>Cancelado</rightValue></criteria></visibilityRule></fieldInstance>
+        </itemInstances><name>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -233,32 +138,7 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.GrossWrittenPremium</fieldItem>
-                <identifier>RecordGrossWrittenPremiumField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PremiumFrequency</fieldItem>
-                <identifier>RecordPremiumFrequencyField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
+        <itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>required</value>
@@ -266,18 +146,75 @@
                 <fieldItem>Record.PremiumAmount</fieldItem>
                 <identifier>RecordPremiumAmountField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.TermPremiumAmount</fieldItem>
-                <identifier>RecordTermPremiumAmountField</identifier>
+                <fieldItem>Record.StandardPremiumAmount</fieldItem>
+                <identifier>RecordStandardPremiumAmountField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <name>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</name>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Subtotal__c</fieldItem>
+                <identifier>RecordSubtotal_cField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.IVA__c</fieldItem>
+                <identifier>RecordIVA_cField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Derecho_Poliza__c</fieldItem>
+                <identifier>RecordDerecho_Poliza_cField</identifier>
+            </fieldInstance>
+        </itemInstances><name>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Financiamiento__c</fieldItem>
+                <identifier>RecordFinanciamiento_cField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Discount</fieldItem>
+                <identifier>RecordDiscountField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Moneda__c</fieldItem>
+                <identifier>RecordMoneda_cField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>required</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.PremiumFrequency</fieldItem>
+                <identifier>RecordPremiumFrequencyField</identifier>
+            </fieldInstance>
+        </itemInstances><name>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -305,8 +242,7 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
+        <itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -314,52 +250,43 @@
                 <fieldItem>Record.SaleDate</fieldItem>
                 <identifier>RecordSaleDateField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.RenewalDate</fieldItem>
-                <identifier>RecordRenewalDateField</identifier>
+                <fieldItem>Record.PriorPolicyId</fieldItem>
+                <identifier>RecordPriorPolicyIdField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.ProducerId</fieldItem>
-                <identifier>RecordProducerIdField</identifier>
+                <fieldItem>Record.OriginalPolicyId</fieldItem>
+                <identifier>RecordOriginalPolicyIdField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
+        </itemInstances><name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
+        <itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.PreviousRenewalDate</fieldItem>
-                <identifier>RecordPreviousRenewalDateField</identifier>
+                <fieldItem>Record.RenewedFromPolicyId</fieldItem>
+                <identifier>RecordRenewedFromPolicyIdField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.PlannedRenewalDate</fieldItem>
-                <identifier>RecordPlannedRenewalDateField</identifier>
+                <fieldItem>Record.ReferencePolicyNumber</fieldItem>
+                <identifier>RecordReferencePolicyNumberField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <name>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</name>
+        </itemInstances><name>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -387,8 +314,7 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
+        <itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -396,93 +322,7 @@
                 <fieldItem>Record.collectionPaymentStatus__c</fieldItem>
                 <identifier>RecordcollectionPaymentStatus_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PaymentDueDate</fieldItem>
-                <identifier>RecordPaymentDueDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Numero_Pagos__c</fieldItem>
-                <identifier>RecordNumero_Pagos_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Primer_Pago__c</fieldItem>
-                <identifier>RecordPrimer_Pago_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Pagos_Subsecuentes__c</fieldItem>
-                <identifier>RecordPagos_Subsecuentes_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Discount</fieldItem>
-                <identifier>RecordDiscountField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Recargos__c</fieldItem>
-                <identifier>RecordRecargos_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Derecho_Poliza__c</fieldItem>
-                <identifier>RecordDerecho_Poliza_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Referencia_Pago__c</fieldItem>
-                <identifier>RecordReferencia_Pago_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -490,29 +330,39 @@
                 <fieldItem>Record.collectionNextDueDate__c</fieldItem>
                 <identifier>RecordcollectionNextDueDate_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>required</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.PaymentDueDate</fieldItem>
+                <identifier>RecordPaymentDueDateField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Moneda__c</fieldItem>
-                <identifier>RecordMoneda_cField</identifier>
+                <fieldItem>Record.PaidToDate</fieldItem>
+                <identifier>RecordPaidToDateField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Plazo_Pago_Dias__c</fieldItem>
-                <identifier>RecordPlazo_Pago_Dias_cField</identifier>
+                <fieldItem>Record.Numero_Pagos__c</fieldItem>
+                <identifier>RecordNumero_Pagos_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Primer_Pago__c</fieldItem>
+                <identifier>RecordPrimer_Pago_cField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -520,29 +370,57 @@
                 <fieldItem>Record.Pago_Subsecuente__c</fieldItem>
                 <identifier>RecordPago_Subsecuente_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Subtotal__c</fieldItem>
-                <identifier>RecordSubtotal_cField</identifier>
+                <fieldItem>Record.Pagos_Subsecuentes__c</fieldItem>
+                <identifier>RecordPagos_Subsecuentes_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance><fieldInstanceProperties
+				><name>uiBehavior</name><value
+					>none</value></fieldInstanceProperties><fieldItem
+				>Record.totalRefundedAmount__c</fieldItem><identifier
+				>RecordtotalRefundedAmount_cField</identifier></fieldInstance></itemInstances><name
+		>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances><fieldInstance><fieldInstanceProperties><name
+					>uiBehavior</name><value
+					>none</value></fieldInstanceProperties><fieldItem
+				>Record.carrierPolicyStatus__c</fieldItem><identifier
+				>RecordcarrierPolicyStatus_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>none</value></fieldInstanceProperties><fieldItem
+				>Record.carrierPolicyStatusRaw__c</fieldItem><identifier
+				>RecordcarrierPolicyStatusRaw_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>none</value></fieldInstanceProperties><fieldItem
+				>Record.carrierStatusSyncedAt__c</fieldItem><identifier
+				>RecordcarrierStatusSyncedAt_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>none</value></fieldInstanceProperties><fieldItem
+				>Record.carrierStatusNotice__c</fieldItem><identifier
+				>RecordcarrierStatusNotice_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Financiamiento__c</fieldItem>
-                <identifier>RecordFinanciamiento_cField</identifier>
+                <fieldItem>Record.Recargos__c</fieldItem>
+                <identifier>RecordRecargos_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Referencia_Pago__c</fieldItem>
+                <identifier>RecordReferencia_Pago_cField</identifier>
+            </fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -550,19 +428,7 @@
                 <fieldItem>Record.Gastos_Expedicion__c</fieldItem>
                 <identifier>RecordGastos_Expedicion_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.IVA__c</fieldItem>
-                <identifier>RecordIVA_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
+        </itemInstances><itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -570,8 +436,15 @@
                 <fieldItem>Record.CLABE__c</fieldItem>
                 <identifier>RecordCLABE_cField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <name>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</name>
+        </itemInstances><itemInstances><fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Plazo_Pago_Dias__c</fieldItem>
+                <identifier>RecordPlazo_Pago_Dias_cField</identifier>
+            </fieldInstance>
+        </itemInstances><name>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -596,318 +469,6 @@
             </componentInstance>
         </itemInstances>
         <name>Facet-e8873a77-2cdb-408c-b77b-92773c2e8e0e</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PolicyCode</fieldItem>
-                <identifier>RecordPolicyCodeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PlanType</fieldItem>
-                <identifier>RecordPlanTypeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.ReferencePolicyNumber</fieldItem>
-                <identifier>RecordReferencePolicyNumberField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.WritingCarrierAccountId</fieldItem>
-                <identifier>RecordWritingCarrierAccountIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.UnderwritingEntityId</fieldItem>
-                <identifier>RecordUnderwritingEntityIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.OriginalEffectiveFromDate</fieldItem>
-                <identifier>RecordOriginalEffectiveFromDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.EffectiveFromDate</fieldItem>
-                <identifier>RecordEffectiveFromDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.FinalRenewalDate</fieldItem>
-                <identifier>RecordFinalRenewalDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.StandardPremiumAmount</fieldItem>
-                <identifier>RecordStandardPremiumAmountField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PremiumCalculationMethod</fieldItem>
-                <identifier>RecordPremiumCalculationMethodField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PastDueAmount</fieldItem>
-                <identifier>RecordPastDueAmountField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.RenewalChannel</fieldItem>
-                <identifier>RecordRenewalChannelField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.RenewedFromPolicyId</fieldItem>
-                <identifier>RecordRenewedFromPolicyIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.CancellationReasonType</fieldItem>
-                <identifier>RecordCancellationReasonTypeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-58da4c91-639a-49a3-9512-cf27b3795a77</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Ramo__c</fieldItem>
-                <identifier>RecordRamo_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PlanTier</fieldItem>
-                <identifier>RecordPlanTierField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.ParentPolicyId</fieldItem>
-                <identifier>RecordParentPolicyIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.BillingCarrierAccountId</fieldItem>
-                <identifier>RecordBillingCarrierAccountIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.IntermediaryAccountId</fieldItem>
-                <identifier>RecordIntermediaryAccountIdField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.OriginalEffectiveToDate</fieldItem>
-                <identifier>RecordOriginalEffectiveToDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.EffectiveToDate</fieldItem>
-                <identifier>RecordEffectiveToDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PreviousPremium</fieldItem>
-                <identifier>RecordPreviousPremiumField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.CurrentDueAmount</fieldItem>
-                <identifier>RecordCurrentDueAmountField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PaidToDate</fieldItem>
-                <identifier>RecordPaidToDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.IsRenewedPolicy</fieldItem>
-                <identifier>RecordIsRenewedPolicyField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.CancellationDate</fieldItem>
-                <identifier>RecordCancellationDateField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.ChangeType</fieldItem>
-                <identifier>RecordChangeTypeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.ChangeSubtype</fieldItem>
-                <identifier>RecordChangeSubtypeField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-0d774d60-a31c-46f8-b92e-501b8e999eef</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <componentInstance>
-                <componentInstanceProperties>
-                    <name>body</name>
-                    <value>Facet-58da4c91-639a-49a3-9512-cf27b3795a77</value>
-                </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column9</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
-                <componentInstanceProperties>
-                    <name>body</name>
-                    <value>Facet-0d774d60-a31c-46f8-b92e-501b8e999eef</value>
-                </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_column10</identifier>
-            </componentInstance>
-        </itemInstances>
-        <name>Facet-141c4da2-5e01-4e9f-8b97-80370fd19952</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -959,7 +520,7 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
-                    <value>Informacion de renovacion</value>
+                    <value>Vigencias y renovación</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSection3</identifier>
@@ -981,24 +542,6 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSection4</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
-                <componentInstanceProperties>
-                    <name>columns</name>
-                    <value>Facet-141c4da2-5e01-4e9f-8b97-80370fd19952</value>
-                </componentInstanceProperties>
-                <componentInstanceProperties>
-                    <name>horizontalAlignment</name>
-                    <value>true</value>
-                </componentInstanceProperties>
-                <componentInstanceProperties>
-                    <name>label</name>
-                    <value>Otra Información</value>
-                </componentInstanceProperties>
-                <componentName>flexipage:fieldSection</componentName>
-                <identifier>flexipage_fieldSection5</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-debe8104-da72-4083-93b1-8e853aaf5aba</name>

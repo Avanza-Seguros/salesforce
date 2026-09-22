@@ -275,6 +275,7 @@
     <types>
         <members>App_Log_Read</members>
         <members>MuleSoft_InboundPayments</members>
+        <members>Cobranza_Lectura</members>
         <members>Cobranza_Revision_Manual</members>
         <members>Vehiculos_FSC</members>
         <name>PermissionSet</name>
@@ -327,11 +328,15 @@
         <members>PaymentReconciliation__c.Pendientes_Operativos</members>
         <members>PaymentReconciliation__c.Probable_Requiere_Decision</members>
         <members>PaymentReconciliation__c.Sin_Match</members>
-        <members>InsurancePolicy.All_InsurancePolicies</members>
         <members>InsurancePolicy.Polizas_Inicial_Oportunidad_Perdida</members>
         <members>InboundInsurancePayment__c.Estados_de_poliza</members>
         <members
 		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
+        <members>InsurancePolicy.All_InsurancePolicies</members>
+        <members>InsurancePolicy.Polizas_Vigentes</members>
+        <members>InsurancePolicy.Polizas_Iniciales</members>
+        <members>InsurancePolicy.Polizas_Vencidas</members>
+        <members>InsurancePolicy.Polizas_Canceladas</members>
         <members>InsurancePolicy.Polizas_Inicial_Venta_Ganada</members>
         <name>ListView</name>
     </types>
