@@ -69,7 +69,7 @@
             <assignToReference>varQuoteCoverage.Name</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Loop_Coverages.CoverageType.Name</elementReference>
+                <elementReference>frmNombreCoberturaCorto</elementReference>
             </value>
         </assignmentItems>
         <connector>
@@ -77,6 +77,11 @@
         </connector>
     </assignments>
     <environments>Default</environments>
+    <formulas>
+        <name>frmNombreCoberturaCorto</name>
+        <dataType>String</dataType>
+        <expression>LEFT({!Loop_Coverages.CoverageType.Name}, 80)</expression>
+    </formulas>
     <interviewLabel>Coverages QLI Product {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Coverages QLI Product</label>
     <loops>
