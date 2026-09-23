@@ -869,7 +869,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             // conjunto de tokens (mismo nombre aunque falte un apellido o cambie el orden);
             // y si la búsqueda devolvió UN solo resultado, se usa ese.
             const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD')
-                .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+                .replace(/[̀-ͯ]/g, '')          // quita acentos
+                .replace(/[^a-z0-9\s]/g, '')      // quita apostrofos, puntos y demas signos
+                .replace(/\s+/g, ' ').trim();
             const target = norm(clean);
             const tt = target.split(' ').filter(Boolean);
             let exact = res.find(a => norm(a.Name) === target);

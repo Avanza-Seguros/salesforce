@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <DuplicateRule xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <actionOnInsert>Block</actionOnInsert>
-    <actionOnUpdate>Block</actionOnUpdate>
-    <alertText>Estás creando un registro duplicado. Te recomendamos que uses un registro existente en su lugar.</alertText>
+    <actionOnInsert>Allow</actionOnInsert>
+    <actionOnUpdate>Allow</actionOnUpdate>
+    <alertText>Ya existe un contacto con datos similares. Te recomendamos usar uno de los registros existentes en su lugar.</alertText>
     <description>Duplicate Rule for Contacts using the Standard Contact Matching Rule</description>
     <duplicateRuleFilter xsi:nil="true"/>
     <duplicateRuleMatchRules>
@@ -12,6 +12,10 @@
     </duplicateRuleMatchRules>
     <isActive>true</isActive>
     <masterLabel>Standard Contact Duplicate Rule</masterLabel>
-    <securityOption>BypassSharingRules</securityOption>
+    <operationsOnInsert>Alert</operationsOnInsert>
+    <operationsOnInsert>Report</operationsOnInsert>
+    <operationsOnUpdate>Alert</operationsOnUpdate>
+    <operationsOnUpdate>Report</operationsOnUpdate>
+    <securityOption>EnforceSharingRules</securityOption>
     <sortOrder>1</sortOrder>
 </DuplicateRule>

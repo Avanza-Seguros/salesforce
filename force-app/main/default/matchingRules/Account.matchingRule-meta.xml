@@ -3,11 +3,12 @@
     <matchingRules>
         <fullName>Cuentas</fullName>
         <booleanFilter>1 OR 2 OR 3</booleanFilter>
+        <description>Detecta cuentas empresa duplicadas: mismo Nombre (difuso, ignora acentos, mayusculas y variantes como S.A. de C.V.), o mismo Correo o Telefono.</description>
         <label>Cuentas</label>
         <matchingRuleItems>
             <blankValueBehavior>NullNotAllowed</blankValueBehavior>
             <fieldName>Name</fieldName>
-            <matchingMethod>Exact</matchingMethod>
+            <matchingMethod>CompanyName</matchingMethod>
         </matchingRuleItems>
         <matchingRuleItems>
             <blankValueBehavior>NullNotAllowed</blankValueBehavior>

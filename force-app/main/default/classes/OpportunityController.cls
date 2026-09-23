@@ -418,19 +418,28 @@ public with sharing class OpportunityController {
 			if (String.isNotBlank(p)) { palabras.add(p); }
 		}
 		if (palabras.isEmpty()) { return out; }
+		// Cada palabra debe encontrarse en ALGUNO de los campos de nombre. En cuentas
+		// persona el Name compuesto puede NO incluir el segundo nombre (apellido paterno):
+		// "INGRID ARACELY ROSALES GUZMAN" queda como Name "INGRID ARACELY GUZMAN" y ROSALES
+		// vive en MiddleName. Por eso se busca en Name, FirstName, LastName y MiddleName.
+		List<String> camposNombre = new List<String>{ 'Name', 'FirstName', 'LastName' };
+		if (tieneMiddle) { camposNombre.add('MiddleName'); }
 		List<String> condiciones = new List<String>();
 		Map<String, Object> binds = new Map<String, Object>();
 		Integer i = 0;
 		for (String p : palabras) {
 			String k = 'w' + i;
 			binds.put(k, '%' + p + '%');
-			condiciones.add('Name LIKE :' + k);
+			List<String> ors = new List<String>();
+			for (String campo : camposNombre) { ors.add(campo + ' LIKE :' + k); }
+			condiciones.add('(' + String.join(ors, ' OR ') + ')');
 			i++;
 		}
 		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
 			' FROM Account WHERE ' + String.join(condiciones, ' AND ') +
 			' ORDER BY Name LIMIT 20';
-		for (Account a : Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE)) {
+		List<Account> cuentas = (List<Account>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
+		for (Account a : cuentas) {
 			out.add(toAccountResult(a, tieneMiddle));
 		}
 		return out;
