@@ -407,12 +407,30 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static List<AccountResult> searchAccounts(String searchTerm) {
-		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
+		if (String.isBlank(searchTerm)) { return out; }
 		Boolean tieneMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		// Busqueda por PALABRAS: cada palabra debe aparecer en el Name, sin importar el
+		// orden ni el espaciado. Asi "INGRID ARACELY ROSALES GUZMAN" encuentra a la cuenta
+		// aunque este guardada como "ROSALES GUZMAN INGRID ARACELY" o con otro espaciado.
+		List<String> palabras = new List<String>();
+		for (String p : searchTerm.trim().split('\\s+')) {
+			if (String.isNotBlank(p)) { palabras.add(p); }
+		}
+		if (palabras.isEmpty()) { return out; }
+		List<String> condiciones = new List<String>();
+		Map<String, Object> binds = new Map<String, Object>();
+		Integer i = 0;
+		for (String p : palabras) {
+			String k = 'w' + i;
+			binds.put(k, '%' + p + '%');
+			condiciones.add('Name LIKE :' + k);
+			i++;
+		}
 		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
-			' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
-		for (Account a : Database.query(soql)) {
+			' FROM Account WHERE ' + String.join(condiciones, ' AND ') +
+			' ORDER BY Name LIMIT 20';
+		for (Account a : Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE)) {
 			out.add(toAccountResult(a, tieneMiddle));
 		}
 		return out;

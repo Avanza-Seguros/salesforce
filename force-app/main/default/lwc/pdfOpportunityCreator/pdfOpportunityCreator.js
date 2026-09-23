@@ -341,6 +341,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 					count: quotes.length,
 					cliente: this.clienteDetectado,
 					ramo: this.ramoDetectado,
+					detalle: det,
+					quotes: quotes,
 					ganadora: (res && res.ganadora) || "",
 					recomendacion: recTexto,
 					aviso: (res && res.aviso) || "",

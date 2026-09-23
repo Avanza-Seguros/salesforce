@@ -1296,7 +1296,7 @@
                                             <div class="eq-field-full">
                                                 <lightning-combobox label="Aseguradora" value={q.aseguradoraId}
                                                     options={q.aseguradoras} placeholder="Selecciona la aseguradora"
-                                                    data-index={idx} disabled>
+                                                    data-index={idx} onchange={handleQuoteAseguradoraChange}>
                                                 </lightning-combobox>
                                             </div>
                                             <div class="eq-field-full">

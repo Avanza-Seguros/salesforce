@@ -864,10 +864,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const clean = (name || '').trim();
         if (!clean) return;
         try {
-            const res = await searchAccounts({ searchTerm: clean });
-            const exact = (res || []).find(
-                a => (a.Name || '').trim().toLowerCase() === clean.toLowerCase()
-            );
+            const res = (await searchAccounts({ searchTerm: clean })) || [];
+            // Emparejamiento tolerante: normaliza (acentos/espacios/mayúsculas), luego por
+            // conjunto de tokens (mismo nombre aunque falte un apellido o cambie el orden);
+            // y si la búsqueda devolvió UN solo resultado, se usa ese.
+            const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD')
+                .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+            const target = norm(clean);
+            const tt = target.split(' ').filter(Boolean);
+            let exact = res.find(a => norm(a.Name) === target);
+            if (!exact) {
+                exact = res.find(a => {
+                    const at = norm(a.Name).split(' ').filter(Boolean);
+                    const contieneBuscado = tt.every(t => at.includes(t));
+                    const contieneCuenta = at.every(t => tt.includes(t));
+                    return (contieneBuscado || contieneCuenta) && Math.abs(at.length - tt.length) <= 1;
+                });
+            }
+            if (!exact && res.length === 1) { exact = res[0]; }
             if (exact) {
                 this.opportunity = {
                     ...this.opportunity,
@@ -3198,6 +3212,65 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.setDefaultAgente();
         this.viewMode = VIEW_MODES.PDF;
     }
+    // Aplica el objeto "detalle" del comparador al detalle del ramo correspondiente,
+    // para que "Detalles del Seguro de {ramo}" no salga vacío.
+    aplicarDetalleRamo(det, ramo) {
+        if (!det || typeof det !== 'object') { return; }
+        const r = (ramo || this.opportunity.Ramo__c || '').toString().toUpperCase();
+        const pick = (a, b) => (a !== undefined && a !== null && a !== '') ? a : b;
+        if (r.includes('VIDA')) {
+            this.vida = { ...this.vida,
+                aseguradoPrincipal: pick(det.aseguradoPrincipal, this.vida.aseguradoPrincipal),
+                contratante:        pick(det.contratante, this.vida.contratante),
+                subramo:            pick(det.subramo, this.vida.subramo),
+                edadVida:           pick(det.edadVida, this.vida.edadVida),
+                sumaFallecimiento:  pick(det.sumaFallecimiento, this.vida.sumaFallecimiento),
+                aportacionAnual:    pick(det.aportacionAnual, this.vida.aportacionAnual),
+                plazo:              pick(det.plazo, this.vida.plazo)
+            };
+        } else if (r.includes('GMM') || r.includes('MEDIC')) {
+            this.gmm = { ...this.gmm,
+                numAsegurados:   pick(det.numAsegurados, this.gmm.numAsegurados),
+                tipoEstructura:  pick(det.tipoEstructura, this.gmm.tipoEstructura),
+                estado:          pick(det.estado, this.gmm.estado),
+                redHospitalaria: pick(det.redHospitalaria, this.gmm.redHospitalaria)
+            };
+        } else if (r.includes('DANO') || r.includes('DAÑO') || r.includes('HOGAR') || r.includes('EMPRESAR')) {
+            this.danos = { ...this.danos, subramo: pick(det.subramo, this.danos.subramo) };
+        } else if (r.includes('VIAJE')) {
+            this.viaje = { ...this.viaje,
+                destino:      pick(det.destino, this.viaje.destino),
+                numPasajeros: pick(det.numViajeros, this.viaje.numPasajeros)
+            };
+        } else if (r.includes('RC') || r.includes('RESPONSAB')) {
+            const rc = this.rc || {};
+            this.rc = { ...rc,
+                tipoRC:    pick(det.tipoRC, rc.tipoRC),
+                profesion: pick(det.profesion, rc.profesion),
+                actividad: pick(det.actividad, rc.actividad),
+                giro:      pick(det.giro, rc.giro)
+            };
+        }
+    }
+
+    // Pone la fecha de cierre sugerida: el vencimiento de la cotización más corta;
+    // si no hay vigencia (ej. Vida), hoy + 30 días. No pisa una fecha ya puesta.
+    aplicarFechaCierreSugerida(quotes) {
+        if (this.opportunity.CloseDate) { return; }
+        const vigs = (quotes || [])
+            .map(q => q && q.vigencia)
+            .filter(v => v && /^\d{4}-\d{2}-\d{2}/.test(String(v)))
+            .sort();
+        let close;
+        if (vigs.length) {
+            close = String(vigs[0]).slice(0, 10);
+        } else {
+            const dt = new Date(); dt.setDate(dt.getDate() + 30);
+            close = dt.toISOString().slice(0, 10);
+        }
+        this.opportunity = { ...this.opportunity, CloseDate: close };
+    }
+
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
     // Cambiamos a la vista de creación para que el usuario revise y guarde.
     // ---------- Archivos de la oportunidad ----------
@@ -3317,6 +3390,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.comparativoHtml = d.comparativoHtml || '';
         this._comparativoDirty = true;
 
+        // Aplica el DETALLE del ramo (Vida, GMM, Daños, Viajes, RC) desde el comparador.
+        this.aplicarDetalleRamo(d.detalle, d.ramo);
+        // Fecha de cierre sugerida: vencimiento de la cotización más corta; si no hay
+        // (ej. Vida), hoy + 30 días.
+        this.aplicarFechaCierreSugerida(d.quotes || this.uploadedQuotes);
+
         if (d.ganadora) {
             const nota = `Recomendación IA: ${d.ganadora}` +
                 (d.recomendacion ? ` — ${d.recomendacion}` : '');
@@ -3362,9 +3441,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const base = String(archivo).replace(/\.[^.]+$/, '');
         const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
         const agente = segs.length >= 2 ? segs[1] : '';
-        if (!agente || agente.length < 3) return;
         try {
-            const res = await searchAgentsProspectors({ searchTerm: agente });
+            let res = [];
+            if (agente && agente.length >= 3) {
+                res = await searchAgentsProspectors({ searchTerm: agente });
+            }
+            // Respaldo: si no se halló en el archivo, se usa "Abraham Gonzalez"
+            // (el agente no puede quedar vacío).
+            if (!res || res.length === 0) {
+                res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez' });
+            }
             if (res && res.length > 0) {
                 this.opportunity = {
                     ...this.opportunity,
@@ -3385,6 +3471,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const val = event.detail.value;
         this.editableQuotes = this.editableQuotes.map((q, i) =>
             i === idx ? { ...q, productId: val } : q);
+    }
+    // Permite ELEGIR/corregir la aseguradora en la revisión; recarga los productos.
+    async handleQuoteAseguradoraChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const asegId = event.detail.value;
+        const q = this.editableQuotes[idx];
+        if (!q) { return; }
+        let productos = [];
+        try {
+            productos = await getProductosPorAseguradoraRamo({ aseguradoraId: asegId, ramo: q.ramo });
+        } catch (e) { productos = []; }
+        const productId = (productos && productos.length) ? productos[0].value : null;
+        this.editableQuotes = this.editableQuotes.map((it, i) =>
+            i === idx ? { ...it, aseguradoraId: asegId, productos, productId, sinProductos: !(productos && productos.length) } : it);
     }
     handleQuoteFrecuenciaChange(event) {
         const idx = parseInt(event.target.dataset.index, 10);
