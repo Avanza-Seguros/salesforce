@@ -473,4 +473,20 @@
 		>InboundInsurancePayment__c.Inbound_Insurance_Payment</recordType>
         <visible>true</visible>
     </recordTypeVisibilities>
+    <tabSettings>
+        <tab>InboundInsurancePayment__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>PaymentReconciliation__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>PolicyPaymentReceipt__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>standard-InsurancePolicy</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
 </PermissionSet>
