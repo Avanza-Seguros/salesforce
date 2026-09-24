@@ -9,6 +9,10 @@
     <columns>ExpirationDate</columns>
     <columns>PremiumAmount</columns>
     <columns>Status</columns>
+    <columns>insuredAssetDescription__c</columns>
     <filterScope>Everything</filterScope>
     <label>Todas las Pólizas de seguros</label>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
 </ListView>

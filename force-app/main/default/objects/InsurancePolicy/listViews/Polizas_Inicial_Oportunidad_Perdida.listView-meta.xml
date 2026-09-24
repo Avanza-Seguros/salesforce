@@ -21,4 +21,7 @@
     </filters>
     <label>Pólizas Inicial con oportunidad perdida</label>
     <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
 </ListView>
