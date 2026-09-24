@@ -169,7 +169,10 @@ public with sharing class PolicyController {
 
 			// 4) Bien a ligar. Si hay CustomerProperty y el campo lo acepta, se usa ese
 			//    (no se crea Asset). Si no, se reúsa/crea un Asset como respaldo.
-			Boolean usarCustomerProperty = (bienCliente != null && campoAcepta(cpField, CustomerProperty.SObjectType));
+			// Para ramos que NO son de autos (GMM, Vida, Daños) no se liga un vehículo,
+			// aunque la cuenta tenga uno de otra póliza. Si el ramo viene vacío, se permite.
+			Boolean ramoNoAuto = String.isNotBlank(pol.Ramo__c) && !normKey(pol.Ramo__c).contains('auto');
+			Boolean usarCustomerProperty = (!ramoNoAuto && bienCliente != null && campoAcepta(cpField, CustomerProperty.SObjectType));
 			Id assetId = null;
 			String assetName = null;
 			if (!usarCustomerProperty) {
@@ -792,12 +795,23 @@ public with sharing class PolicyController {
 		//    participante de la cuenta.
 		try {
 			Integer n = crearParticipanteDesdePdf(policyId, accountId, d);
-			if (n == 0) { n = crearParticipantesPoliza(policyId, oppId); }
+			// Solo si la póliza quedó SIN participantes se usa el respaldo (catálogo/OCR).
+			// Si crearParticipanteDesdePdf no creó porque ya existía, NO se agrega otro.
+			if (n == 0) {
+				Integer yaHay = [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId];
+				if (yaHay == 0) { n = crearParticipantesPoliza(policyId, oppId); }
+			}
 			resumen.put('asegurados', n);
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
-		// 4) Coberturas desde el PDF (con su suma asegurada y deducible).
-		try { resumen.put('coberturas', crearCoberturasDesdePdf(policyId, d)); }
+		// 4) Coberturas: primero desde el PDF (suma/deducible). Si el PDF no trae coberturas
+		//    reales (p.ej. Vida, donde solo aparecen secciones como "TITULAR"), se usan las
+		//    coberturas del CATÁLOGO del producto.
+		try {
+			Integer nc = crearCoberturasDesdePdf(policyId, d);
+			if (nc == 0) { nc = crearCoberturasPoliza(policyId); }
+			resumen.put('coberturas', nc);
+		}
 		catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
 
 		// 5) Transacción de prima inicial.
@@ -849,11 +863,17 @@ public with sharing class PolicyController {
 		String email = datosDeLaPersona ? strOf(per.get('email')) : null;
 		String tel = datosDeLaPersona ? strOf(per.get('telefono')) : null;
 
-		// Busca el contacto por nombre bajo la cuenta; si no existe, lo crea.
+		// Busca el contacto bajo la cuenta comparando el nombre de forma TOLERANTE
+		// (ignora acentos, mayúsculas y espacios). El Name compuesto del contacto casi
+		// nunca coincide letra por letra con el texto del PDF; sin esto se creaba un
+		// contacto nuevo (y un participante nuevo) en cada guardado.
 		Id contactId = null;
+		String claveBusca = normKey(nombre).replaceAll('\\s+', ' ');
 		for (Contact c : [
-			SELECT Id FROM Contact WHERE AccountId = :accountId AND Name = :nombre LIMIT 1
-		]) { contactId = c.Id; }
+			SELECT Id, Name FROM Contact WHERE AccountId = :accountId LIMIT 200
+		]) {
+			if (normKey(c.Name).replaceAll('\\s+', ' ') == claveBusca) { contactId = c.Id; break; }
+		}
 		if (contactId == null) {
 			Contact c = new Contact(AccountId = accountId);
 			List<String> t = nombre.trim().split('\\s+');
@@ -976,6 +996,9 @@ public with sharing class PolicyController {
 		String modelo = a.get('modelo');
 		Decimal anioD = parseMonto(a.get('ano'));
 		Integer anio = (anioD != null) ? anioD.intValue() : null;
+		// Sin identificadores de vehículo no se crea CustomerProperty. Evita que ramos
+		// sin auto (GMM, Vida, Daños) generen un vehículo vacío o incorrecto.
+		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo)) { return; }
 		// Mismo auto = no duplicar: busca por VIN y, si no, por Marca+Modelo+Año
 		// (el identificador puede diferir entre la cotización y la póliza).
 		CustomerProperty cp = null;
@@ -1025,6 +1048,8 @@ public with sharing class PolicyController {
 			Map<String, Object> m = (Map<String, Object>) o;
 			String nombre = strOf(m.get('nombre'));
 			if (String.isBlank(nombre) || ya.contains(nombre.toLowerCase())) { continue; }
+			// Descarta secciones/roles que no son coberturas (TITULAR, ASEGURADO, etc.).
+			if (esRolNoCobertura(nombre)) { continue; }
 			InsurancePolicyCoverage c = new InsurancePolicyCoverage();
 			c.InsurancePolicyId = policyId;
 			c.CoverageName = nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
@@ -1043,6 +1068,19 @@ public with sharing class PolicyController {
 		}
 		if (!nuevas.isEmpty()) { insert nuevas; }
 		return nuevas.size();
+	}
+
+	// True si el texto es una sección/rol de la póliza y NO una cobertura real.
+	// Evita que en Vida entren "TITULAR", "ASEGURADO", etc. como coberturas.
+	private static Boolean esRolNoCobertura(String nombre) {
+		String k = normKey(nombre).replaceAll('\\s+', ' ');
+		Set<String> roles = new Set<String>{
+			'titular', 'contratante', 'asegurado', 'asegurada', 'asegurado titular',
+			'beneficiario', 'beneficiarios', 'conductor', 'conductor habitual',
+			'propietario', 'dependiente', 'dependientes', 'contratante/asegurado',
+			'datos del asegurado', 'datos del contratante'
+		};
+		return roles.contains(k);
 	}
 
 	// Normaliza una llave de atributo (minúsculas, sin acentos): "Número de Serie" -> "numero de serie".
