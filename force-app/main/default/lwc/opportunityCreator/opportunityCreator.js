@@ -2739,10 +2739,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // El del archivo tiene prioridad sobre el default (Abraham), pero NO sobre una
         // selección manual del usuario.
         if (this.opportunity.Agente__c && !this._agenteEsDefault) { return; }
-        const base = fileName.replace(/\.[^.]+$/, '');
-        const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
-        const agente = segs.length >= 2 ? segs[1] : '';
-        if (!agente || agente.length < 3) { return; }
+        const agente = this.agenteDesdeNombreArchivo(fileName);
+        if (!agente) { return; }
         try {
             const res = await searchAgentsProspectors({ searchTerm: agente });
             if (res && res.length) {
@@ -3436,32 +3434,57 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // El AGENTE (Producer) se toma del NOMBRE DEL ARCHIVO de las cotizaciones
     // (2° segmento separado por " - ", ej. "ARTURO VINIEGRA") y se busca en Producer.
     // Ya NO se pone un agente por default; si no hay coincidencia, se captura a mano.
-    async setDefaultAgente(d) {
-        if (this.opportunity.Agente__c) return;
-        const quotes = (d && d.quotes) || this.uploadedQuotes || [];
-        const archivo = quotes.map(q => q && (q.archivoOrigen || q.nombreArchivo)).find(Boolean) || '';
-        const base = String(archivo).replace(/\.[^.]+$/, '');
+    // Extrae el nombre del agente del nombre de archivo (2° segmento separado por " - ",
+    // ej. "AXA - ARTURO VINIEGRA - Auto.pdf" -> "ARTURO VINIEGRA"). Devuelve '' si no aplica.
+    agenteDesdeNombreArchivo(fileName) {
+        if (!fileName) { return ''; }
+        const base = String(fileName).replace(/\.[^.]+$/, '');
         const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
         const agente = segs.length >= 2 ? segs[1] : '';
-        try {
-            let res = [];
-            if (agente && agente.length >= 3) {
-                res = await searchAgentsProspectors({ searchTerm: agente });
+        return (agente && agente.length >= 3) ? agente : '';
+    }
+
+    async setDefaultAgente(d) {
+        // Respeta una selección MANUAL del usuario (agente ya elegido y no default).
+        if (this.opportunity.Agente__c && !this._agenteEsDefault) { return; }
+
+        // Junta los NOMBRES REALES de los archivos subidos (d.archivos) y, como respaldo,
+        // los de las cotizaciones. La misma regla aplica para todos los ramos.
+        const fuentes = [];
+        if (d && Array.isArray(d.archivos)) { d.archivos.forEach(a => { if (a && a.nombre) { fuentes.push(a.nombre); } }); }
+        if (d && Array.isArray(d.quotes)) { d.quotes.forEach(q => { if (q) { fuentes.push(q.archivoOrigen || q.nombreArchivo); } }); }
+        if (Array.isArray(this.uploadedQuotes)) { this.uploadedQuotes.forEach(q => { if (q) { fuentes.push(q.archivoOrigen || q.nombreArchivo); } }); }
+
+        // Toma el agente del PRIMER archivo cuyo 2° segmento exista en Producer.
+        let asignado = false;
+        for (const archivo of fuentes) {
+            const agente = this.agenteDesdeNombreArchivo(archivo);
+            if (!agente) { continue; }
+            try {
+                const res = await searchAgentsProspectors({ searchTerm: agente });
+                if (res && res.length > 0) {
+                    this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                    this._agenteEsDefault = false;
+                    asignado = true;
+                    break;
+                }
+            } catch (e) {
+                // Sigue con el siguiente archivo.
             }
-            // Respaldo: si no se halló en el archivo, se usa "Abraham Gonzalez"
-            // (el agente no puede quedar vacío).
-            if (!res || res.length === 0) {
-                res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez' });
+        }
+
+        // Respaldo: si NINGÚN archivo trae un agente válido, se usa "Abraham Gonzalez".
+        // Se marca como DEFAULT para que un evento posterior con el nombre real lo reemplace.
+        if (!asignado && !this.opportunity.Agente__c) {
+            try {
+                const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez' });
+                if (res && res.length > 0) {
+                    this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                    this._agenteEsDefault = true;
+                }
+            } catch (e) {
+                // Sin coincidencia: el usuario elige el agente a mano.
             }
-            if (res && res.length > 0) {
-                this.opportunity = {
-                    ...this.opportunity,
-                    Agente__c: res[0].Id,
-                    AgenteName: res[0].Name
-                };
-            }
-        } catch (e) {
-            // Sin coincidencia en Producer: el usuario elige el agente a mano.
         }
     }
 

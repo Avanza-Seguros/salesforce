@@ -488,6 +488,8 @@ public with sharing class PolicyController {
 			return creados;
 		}
 		if (String.isNotBlank(participante)) { p.ParticipantName = participante.left(255); }
+		// Completa Cuenta, Producto y detalle de prima desde la póliza.
+		aplicarDatosParticipante(p, policyId, p.PrimaryParticipantAccountId);
 		insert p;
 		return creados + 1;
 	}
@@ -912,8 +914,34 @@ public with sharing class PolicyController {
 			new List<String>{ 'Insured', 'Covered Party', 'Named Insured', 'Asegurado', 'Insured Party', 'Covered' });
 		if (String.isNotBlank(rol)) { part.Role = rol; }
 		try { part.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+		// Completa Cuenta, Producto y detalle de prima desde la póliza.
+		aplicarDatosParticipante(part, policyId, accountId);
 		insert part;
 		return 1;
+	}
+
+	// Completa en el participante los datos que vienen de la póliza: la Cuenta del
+	// asegurado, el Producto y el detalle de prima (para que no quede en 0). Cada campo
+	// se asigna con tolerancia: si el org lo tiene de solo lectura (p.ej. totales
+	// calculados), simplemente se omite.
+	private static void aplicarDatosParticipante(InsurancePolicyParticipant part, Id policyId, Id accountId) {
+		InsurancePolicy pol = null;
+		for (InsurancePolicy p : [SELECT ProductId, PremiumAmount FROM InsurancePolicy WHERE Id = :policyId LIMIT 1]) { pol = p; }
+		if (pol == null) { return; }
+		// Cuenta del asegurado (además del contacto persona).
+		if (accountId != null && part.PrimaryParticipantAccountId == null) {
+			try { part.PrimaryParticipantAccountId = accountId; } catch (Exception ignore) {}
+		}
+		// Producto de la póliza.
+		if (pol.ProductId != null) { try { part.ProductId = pol.ProductId; } catch (Exception ignore) {} }
+		// Detalle de prima: se copia la prima de la póliza (evita que quede en 0).
+		if (pol.PremiumAmount != null) {
+			for (String campo : new List<String>{
+				'StandardPremiumAmount', 'TermPremiumAmount', 'TotalStandardAmount', 'TotalTermAmount'
+			}) {
+				try { part.put(campo, pol.PremiumAmount); } catch (Exception ignore) {}
+			}
+		}
 	}
 
 	// Completa los campos VACÍOS de la Cuenta (RFC, dirección, teléfono) con los datos

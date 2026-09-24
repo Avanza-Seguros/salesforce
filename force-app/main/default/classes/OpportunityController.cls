@@ -256,16 +256,29 @@ public with sharing class OpportunityController {
 		try {
 			List<ProducerResult> out = new List<ProducerResult>();
 			if (String.isBlank(searchTerm) || searchTerm.length() < 3) { return out; }
-			String q = '%' + searchTerm + '%';
 			// El agente ahora es un PRODUCER (objeto estándar de FSC), que luego se liga
 			// a la póliza en InsurancePolicy.ProducerId.
-			for (Producer p : [
-				SELECT Id, Name, Account.Name, Contact.Name, Type
-				FROM Producer
-				WHERE Name LIKE :q OR Account.Name LIKE :q OR Contact.Name LIKE :q
-				ORDER BY Name
-				LIMIT 10
-			]) {
+			// Búsqueda por PALABRAS: cada palabra debe aparecer en Name, Account.Name o
+			// Contact.Name, sin importar el orden. Así "ARTURO VINIEGRA" encuentra al
+			// productor aunque esté guardado como "Viniegra Arturo" o "Arturo Viniegra Lopez".
+			List<String> palabras = new List<String>();
+			for (String w : searchTerm.trim().split('\\s+')) {
+				if (String.isNotBlank(w)) { palabras.add(w); }
+			}
+			if (palabras.isEmpty()) { return out; }
+			List<String> condiciones = new List<String>();
+			Map<String, Object> binds = new Map<String, Object>();
+			Integer i = 0;
+			for (String w : palabras) {
+				String k = 'w' + i;
+				binds.put(k, '%' + w + '%');
+				condiciones.add('(Name LIKE :' + k + ' OR Account.Name LIKE :' + k + ' OR Contact.Name LIKE :' + k + ')');
+				i++;
+			}
+			String soql = 'SELECT Id, Name, Account.Name, Contact.Name, Type FROM Producer WHERE ' +
+				String.join(condiciones, ' AND ') + ' ORDER BY Name LIMIT 10';
+			List<Producer> productores = (List<Producer>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
+			for (Producer p : productores) {
 				ProducerResult r = new ProducerResult();
 				r.Id = p.Id;
 				r.Name = p.Name;
