@@ -87,6 +87,29 @@
         <dataType>Date</dataType>
         <expression>{!$Flow.CurrentDate} + 365</expression>
     </formulas>
+    <formulas>
+        <name>PrimaPoliza</name>
+        <dataType>Number</dataType>
+        <scale>2</scale>
+        <expression>IF(
+  NOT(ISBLANK({!Get_Primary_Quote.Prima_Total__c})) &amp;&amp; {!Get_Primary_Quote.Prima_Total__c} &gt; 0,
+  {!Get_Primary_Quote.Prima_Total__c},
+  IF(
+    NOT(ISBLANK({!Get_Primary_Quote.PrimaAnual__c})) &amp;&amp; {!Get_Primary_Quote.PrimaAnual__c} &gt; 0,
+    {!Get_Primary_Quote.PrimaAnual__c},
+    {!Get_Primary_Quote.TotalPrice}
+  )
+)</expression>
+    </formulas>
+    <formulas>
+        <name>FrecuenciaPoliza</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK(TEXT({!Get_Primary_Quote.Frecuencia_de_prima__c})),
+  "Anual",
+  TEXT({!Get_Primary_Quote.Frecuencia_de_prima__c})
+)</expression>
+    </formulas>
     <interviewLabel>Create Insured Policy {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Create Insured Policy</label>
     <processMetadataValues>
@@ -134,7 +157,7 @@
         <inputAssignments>
             <field>GrossWrittenPremium</field>
             <value>
-                <elementReference>Get_Primary_Quote.TotalPrice</elementReference>
+                <elementReference>PrimaPoliza</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -182,13 +205,13 @@
         <inputAssignments>
             <field>PremiumAmount</field>
             <value>
-                <elementReference>Get_Primary_Quote.TotalPrice</elementReference>
+                <elementReference>PrimaPoliza</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
             <field>PremiumFrequency</field>
             <value>
-                <elementReference>Get_Primary_Quote.Frecuencia_de_prima__c</elementReference>
+                <elementReference>FrecuenciaPoliza</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
