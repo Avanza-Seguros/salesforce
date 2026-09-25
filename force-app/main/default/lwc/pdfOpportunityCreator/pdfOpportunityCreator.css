@@ -78,3 +78,11 @@
   padding: 1rem 1.2rem; color: #00543a; font-weight: 600;
 }
 .pdf-done lightning-icon { --sds-c-icon-color-foreground-default: #00875A; }
+/* Pasos (ritmo del flujo por PDF) */
+.pdf-steps {
+  font-size: 0.85rem;
+  color: #5a6b7b;
+  font-weight: 600;
+  margin: 0 0 14px;
+  letter-spacing: 0.02em;
+}

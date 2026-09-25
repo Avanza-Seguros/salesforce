@@ -62,21 +62,21 @@ public with sharing class OpportunityController {
                     Tipo_Contratacion__c,
                     AccountId, Account.Name, Description, Descripcion__c,
                     Agente_Relacionado__c, Agente_Relacionado__r.Name,
-                    Contacto__c, Contacto__r.Name,
-                    Automovil__c
+                    Producer__c, Producer__r.Name,
+                    Contacto__c, Contacto__r.Name
                 FROM Opportunity
                 WHERE Id = :opportunityId
                 LIMIT 1
             ];
 
-            // El auto vive ligado a la Cuenta; la oportunidad guarda solo la
-            // REFERENCIA (lookup Automovil__c). Recuperamos sus datos siguiendo esa
-            // referencia para llenar el formulario al editar.
-            if (wrapper.opportunity.Automovil__c != null) {
-                List<Automovil__c> autos = [
-                    SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c, Descripcion_Completa__c
-                    FROM Automovil__c
-                    WHERE Id = :wrapper.opportunity.Automovil__c
+            // El vehículo es un CustomerProperty ligado al dueño (la Cuenta), no a la
+            // oportunidad. Para editar, recuperamos el bien más reciente de esa cuenta.
+            if (wrapper.opportunity.AccountId != null) {
+                List<CustomerProperty> autos = [
+                    SELECT Id, Name, Make, ModelName, Vin, RegistrationNumber, Motor__c, MakeYear, Description
+                    FROM CustomerProperty
+                    WHERE PrimaryOwnerId = :wrapper.opportunity.AccountId
+                    ORDER BY LastModifiedDate DESC
                     LIMIT 1
                 ];
                 if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
@@ -102,25 +102,14 @@ public with sharing class OpportunityController {
 			//   • el conteo total para la tabla y el KPI
 			//   • el comparativo imprimible (matriz cobertura × compañía)
 			// Las coberturas de cada cotización se toman del PRODUCTO de la Quote,
-			// a través de ProductCoverageAssignment__c (Coverage_Type__r.Name = nombre real).
+			// desde ProductCoverage (estandar), misma fuente que el editor de cotizacion.
 			Set<Id> productIds = new Set<Id>();
 			for (Quote q : wrapper.quotes) { if (q.Product__c != null) productIds.add(q.Product__c); }
 
-			Map<Id, List<String>> coveragesByProduct = new Map<Id, List<String>>();
-			if (!productIds.isEmpty()) {
-				for (ProductCoverageAssignment__c pca : [
-					SELECT Product__c, Coverage_Type__r.Name
-					FROM ProductCoverageAssignment__c
-					WHERE Product__c IN :productIds
-					ORDER BY Coverage_Type__r.Name
-				]) {
-					if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) { continue; }
-					if (!coveragesByProduct.containsKey(pca.Product__c)) {
-						coveragesByProduct.put(pca.Product__c, new List<String>());
-					}
-					coveragesByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
-				}
-			}
+			// Las coberturas del producto se leen del objeto ProductCoverage (estandar),
+			// la MISMA fuente que usa el editor de cotizacion al seleccionar un producto,
+			// para que el numero de coberturas de la lista coincida con el del editor.
+			Map<Id, List<String>> coveragesByProduct = new CoberturasCatalogoBulk().porProductos(productIds);
 
 			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
 			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
@@ -150,7 +139,37 @@ public with sharing class OpportunityController {
 		@AuraEnabled public List<Quote> quotes;
 		@AuraEnabled public Map<Id, Integer> coverageCounts;
 		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
-		@AuraEnabled public Automovil__c automovil;   // vehículo ligado a la cuenta
+		@AuraEnabled public CustomerProperty automovil;   // vehículo (CustomerProperty) ligado a la cuenta
+	}
+
+	/**
+	 * @description Lee las coberturas plantilla de los productos desde ProductCoverage
+	 *              (objeto estandar), la misma fuente que el editor de cotizacion, de modo
+	 *              que el conteo de coberturas coincida en ambas vistas. Sin compartir:
+	 *              CoverageType.Name puede no ser visible por reglas de colaboracion.
+	 */
+	private without sharing class CoberturasCatalogoBulk {
+		Map<Id, List<String>> porProductos(Set<Id> productIds) {
+			Map<Id, List<String>> out = new Map<Id, List<String>>();
+			if (productIds == null || productIds.isEmpty()) { return out; }
+			try {
+				for (ProductCoverage pc : [
+					SELECT ProductId, Name, CoverageType.Name
+					FROM ProductCoverage
+					WHERE ProductId IN :productIds
+					ORDER BY Name
+				]) {
+					String nombre = (pc.CoverageType != null && String.isNotBlank(pc.CoverageType.Name))
+						? pc.CoverageType.Name : pc.Name;
+					if (String.isBlank(nombre)) { continue; }
+					if (!out.containsKey(pc.ProductId)) { out.put(pc.ProductId, new List<String>()); }
+					out.get(pc.ProductId).add(nombre);
+				}
+			} catch (Exception e) {
+				System.debug('OpportunityController::: coberturas catalogo bulk: ' + e.getMessage());
+			}
+			return out;
+		}
 	}
 
 	/**
@@ -225,24 +244,52 @@ public with sharing class OpportunityController {
 	 * @param searchTerm: Texto de busqueda (minimo 3 caracteres)
 	 * @return Lista de Agente__c coincidentes (maximo 10)
 	 */
+	// Wrapper de Producer para el buscador de agente/productor del LWC.
+	public class ProducerResult {
+		@AuraEnabled public Id Id;
+		@AuraEnabled public String Name;
+		@AuraEnabled public String detalle;
+	}
+
 	@AuraEnabled(cacheable=false)
-	public static List<Agente__c> searchAgentsProspectors(String searchTerm) {
+	public static List<ProducerResult> searchAgentsProspectors(String searchTerm) {
 		try {
-			if (String.isBlank(searchTerm) || searchTerm.length() < 3) {
-				return new List<Agente__c>();
+			List<ProducerResult> out = new List<ProducerResult>();
+			if (String.isBlank(searchTerm) || searchTerm.length() < 3) { return out; }
+			// El agente ahora es un PRODUCER (objeto estándar de FSC), que luego se liga
+			// a la póliza en InsurancePolicy.ProducerId.
+			// Búsqueda por PALABRAS: cada palabra debe aparecer en Name, Account.Name o
+			// Contact.Name, sin importar el orden. Así "ARTURO VINIEGRA" encuentra al
+			// productor aunque esté guardado como "Viniegra Arturo" o "Arturo Viniegra Lopez".
+			List<String> palabras = new List<String>();
+			for (String w : searchTerm.trim().split('\\s+')) {
+				if (String.isNotBlank(w)) { palabras.add(w); }
 			}
-			String searchQuery = '%' + searchTerm + '%';
-			return [
-				SELECT Id, Name, Email__c, Telefono__c, Contacto__r.Name, Horno_mes__c
-				FROM Agente__c
-				WHERE (Name LIKE :searchQuery
-					   OR Email__c LIKE :searchQuery
-					   OR Contacto__r.Name LIKE :searchQuery)
-				ORDER BY Name
-				LIMIT 10
-			];
+			if (palabras.isEmpty()) { return out; }
+			List<String> condiciones = new List<String>();
+			Map<String, Object> binds = new Map<String, Object>();
+			Integer i = 0;
+			for (String w : palabras) {
+				String k = 'w' + i;
+				binds.put(k, '%' + w + '%');
+				condiciones.add('(Name LIKE :' + k + ' OR Account.Name LIKE :' + k + ' OR Contact.Name LIKE :' + k + ')');
+				i++;
+			}
+			String soql = 'SELECT Id, Name, Account.Name, Contact.Name, Type FROM Producer WHERE ' +
+				String.join(condiciones, ' AND ') + ' ORDER BY Name LIMIT 10';
+			List<Producer> productores = (List<Producer>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
+			for (Producer p : productores) {
+				ProducerResult r = new ProducerResult();
+				r.Id = p.Id;
+				r.Name = p.Name;
+				r.detalle = (p.Account != null && p.Account.Name != null) ? p.Account.Name
+					: ((p.Contact != null && p.Contact.Name != null) ? p.Contact.Name
+					: (p.Type != null ? p.Type : ''));
+				out.add(r);
+			}
+			return out;
 		} catch (Exception e) {
-			throw new AuraHandledException('Error en búsqueda de agentes: ' + e.getMessage());
+			throw new AuraHandledException('Error en búsqueda de productores: ' + e.getMessage());
 		}
 	}
 
@@ -373,12 +420,39 @@ public with sharing class OpportunityController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static List<AccountResult> searchAccounts(String searchTerm) {
-		String busqTerm = '%' + searchTerm + '%';
 		List<AccountResult> out = new List<AccountResult>();
+		if (String.isBlank(searchTerm)) { return out; }
 		Boolean tieneMiddle = Schema.SObjectType.Account.fields.getMap().containsKey('MiddleName');
+		// Busqueda por PALABRAS: cada palabra debe aparecer en el Name, sin importar el
+		// orden ni el espaciado. Asi "INGRID ARACELY ROSALES GUZMAN" encuentra a la cuenta
+		// aunque este guardada como "ROSALES GUZMAN INGRID ARACELY" o con otro espaciado.
+		List<String> palabras = new List<String>();
+		for (String p : searchTerm.trim().split('\\s+')) {
+			if (String.isNotBlank(p)) { palabras.add(p); }
+		}
+		if (palabras.isEmpty()) { return out; }
+		// Cada palabra debe encontrarse en ALGUNO de los campos de nombre. En cuentas
+		// persona el Name compuesto puede NO incluir el segundo nombre (apellido paterno):
+		// "INGRID ARACELY ROSALES GUZMAN" queda como Name "INGRID ARACELY GUZMAN" y ROSALES
+		// vive en MiddleName. Por eso se busca en Name, FirstName, LastName y MiddleName.
+		List<String> camposNombre = new List<String>{ 'Name', 'FirstName', 'LastName' };
+		if (tieneMiddle) { camposNombre.add('MiddleName'); }
+		List<String> condiciones = new List<String>();
+		Map<String, Object> binds = new Map<String, Object>();
+		Integer i = 0;
+		for (String p : palabras) {
+			String k = 'w' + i;
+			binds.put(k, '%' + p + '%');
+			List<String> ors = new List<String>();
+			for (String campo : camposNombre) { ors.add(campo + ' LIKE :' + k); }
+			condiciones.add('(' + String.join(ors, ' OR ') + ')');
+			i++;
+		}
 		String soql = 'SELECT ' + camposCuenta(tieneMiddle) +
-			' FROM Account WHERE Name LIKE :busqTerm ORDER BY Name LIMIT 20';
-		for (Account a : Database.query(soql)) {
+			' FROM Account WHERE ' + String.join(condiciones, ' AND ') +
+			' ORDER BY Name LIMIT 20';
+		List<Account> cuentas = (List<Account>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
+		for (Account a : cuentas) {
 			out.add(toAccountResult(a, tieneMiddle));
 		}
 		return out;
@@ -487,6 +561,20 @@ public with sharing class OpportunityController {
 		// ------------------------------------------------------------
 		if (isNewAccount == true && accountId == null) {
 			String tipoCliente = getStr(d, 'tipoCliente');
+			// Detección de PERSONA MORAL: si el nombre trae razón social (SA de CV,
+			// S. de R.L., A.C., etc.) se crea como EMPRESA aunque el formulario diga
+			// "Persona", para no partir la razón social ni ensuciar el catálogo.
+			List<String> partesNombre = new List<String>();
+			for (String k : new List<String>{ 'clienteNombre', 'clienteApellidoPaterno', 'clienteApellidoMaterno', 'clienteApellidos' }) {
+				String v = getStr(d, k);
+				if (String.isNotBlank(v)) { partesNombre.add(v); }
+			}
+			String nombreParaTipo = String.isNotBlank(getStr(d, 'AccountName'))
+				? getStr(d, 'AccountName') : String.join(partesNombre, ' ').trim();
+			if (tipoCliente != 'Empresa' && pareceEmpresa(nombreParaTipo)) {
+				tipoCliente = 'Empresa';
+				if (String.isBlank(getStr(d, 'AccountName'))) { d.put('AccountName', nombreParaTipo); }
+			}
 			Account acc = new Account();
 
 			if (tipoCliente == 'Persona') {
@@ -495,7 +583,7 @@ public with sharing class OpportunityController {
 					acc.RecordTypeId = paRtId;
 					createdPersonAccount = true;
 				}
-				acc.FirstName = getStr(d, 'clienteNombre');
+				acc.FirstName = capLen(getStr(d, 'clienteNombre'), 40);
 				String paterno = getStr(d, 'clienteApellidoPaterno');
 				String materno = getStr(d, 'clienteApellidoMaterno');
 				if (String.isBlank(paterno) && String.isBlank(materno)) {
@@ -512,7 +600,7 @@ public with sharing class OpportunityController {
 				}
 				String last;
 				if (String.isNotBlank(materno)) {
-					try { acc.put('MiddleName', paterno); } catch (Exception ignore) {}
+					try { acc.put('MiddleName', capLen(paterno, 40)); } catch (Exception ignore) {}
 					last = materno;
 				} else if (String.isNotBlank(paterno)) {
 					last = paterno;
@@ -520,7 +608,7 @@ public with sharing class OpportunityController {
 					last = String.isNotBlank(acc.FirstName) ? acc.FirstName : getStr(d, 'AccountName');
 					acc.FirstName = null;
 				}
-				acc.LastName = String.isNotBlank(last) ? last : getStr(d, 'AccountName');
+				acc.LastName = capLen(String.isNotBlank(last) ? last : getStr(d, 'AccountName'), 80);
 				acc.PersonEmail             = getStr(d, 'clienteEmail');
 				acc.Phone                   = getStr(d, 'clienteTelefono');
 				acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');
@@ -613,28 +701,20 @@ public with sharing class OpportunityController {
 		if (String.isNotBlank(tipoContr)) { opp.Tipo_Contratacion__c = tipoContr; }
 
 		// Agente (lookup a Agente_Relacionado__c)
-		String agenteId = getStr(d, 'Agente_Relacionado__c');
-		if (String.isNotBlank(agenteId)) {
-			opp.Agente_Relacionado__c = (Id) agenteId;
+		String producerId = getStr(d, 'Producer__c');
+		if (String.isBlank(producerId)) { producerId = getStr(d, 'Agente_Relacionado__c'); }
+		if (String.isNotBlank(producerId)) {
+			try { opp.Producer__c = (Id) producerId; } catch (Exception ignore) {}
 		}
 		opp.Ramo__c     = getStr(d, 'Ramo__c');
 		opp.Description = getStr(d, 'Description');
-
-		// Prima Total (campo custom) — sustituye al Amount estándar
-		Object primaRaw = d.get('Prima_Total__c');
-		if (primaRaw != null && String.isNotBlank(String.valueOf(primaRaw))) {
-			try {
-				opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaRaw));
-			} catch (Exception ex) {
-				// Si llega un valor no numérico, lo ignoramos en vez de tronar
-			}
-		}
 
 		// Prima Neta (campo custom)
 			Object primaNetaRaw = d.get('Prima_Neta__c');
 			if (primaNetaRaw != null && String.isNotBlank(String.valueOf(primaNetaRaw))) {
 				try {
 					opp.Prima_Neta__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
+					opp.Prima_Total__c = Decimal.valueOf(String.valueOf(primaNetaRaw));
 				} catch (Exception ex) {
 					// valor no numérico: se ignora
 				}
@@ -652,10 +732,9 @@ public with sharing class OpportunityController {
 		// al auto específico de este trato; los datos del auto no se duplican aquí.
 		String ramoOpp = getStr(d, 'Ramo__c');
 		if (ramoOpp != null && ramoOpp.toUpperCase().contains('AUTO')) {
-			Id vehId = resolveVehiculo(d, accountId);
-			if (vehId != null) {
-				opp.Automovil__c = vehId;
-			}
+			// El vehículo se guarda como CustomerProperty del dueño (la Cuenta);
+			// ya NO se liga a la oportunidad (llega a la póliza vía InsurancePolicyAsset).
+			guardarBienCliente(d, accountId);
 		}
 
 		// ------------------------------------------------------------
@@ -777,7 +856,36 @@ public with sharing class OpportunityController {
 
 	// Busca una cuenta existente para evitar duplicados: primero por email (si es persona),
 	// luego por nombre exacto (la comparación de texto en SOQL no distingue mayúsculas).
+	// Detecta si un nombre corresponde a una PERSONA MORAL por su razón social.
+	private static Boolean pareceEmpresa(String nombre) {
+		if (String.isBlank(nombre)) { return false; }
+		String n = ' ' + nombre.toUpperCase().replace('.', '').replace(',', ' ') + ' ';
+		while (n.contains('  ')) { n = n.replace('  ', ' '); }
+		for (String suf : new List<String>{
+			' SA DE CV ', ' S A DE C V ', ' SA ', ' SAPI ', ' SAPI DE CV ',
+			' S DE RL ', ' S DE RL DE CV ', ' SC ', ' AC ', ' SAB ', ' SAB DE CV ',
+			' S EN C ', ' SOFOM ', ' SPR DE RL ', ' SRL ' }) {
+			if (n.contains(suf)) { return true; }
+		}
+		for (String kw : new List<String>{ 'SOCIEDAD ANONIMA', 'ASOCIACION CIVIL', 'SA DE CV', 'S DE RL' }) {
+			if (n.contains(kw)) { return true; }
+		}
+		return false;
+	}
+
 	private static Id buscarCuentaExistente(Map<String, Object> d, String tipoCliente, String nombreCuenta) {
+		// 1) Dedup por RFC PRIMERO (más confiable que el nombre exacto).
+		String rfc = getStr(d, 'clienteRFC');
+		if (String.isBlank(rfc)) { rfc = getStr(d, 'rfc'); }
+		if (String.isNotBlank(rfc)) {
+			for (Account a : [SELECT Id FROM Account WHERE RFC__pc = :rfc LIMIT 1]) { return a.Id; }
+			if (Schema.SObjectType.Account.fields.getMap().containsKey('rfc__c')) {
+				try {
+					List<Account> emp = Database.query('SELECT Id FROM Account WHERE RFC__c = :rfc LIMIT 1');
+					if (!emp.isEmpty()) { return emp[0].Id; }
+				} catch (Exception ignore) {}
+			}
+		}
 		String email = getStr(d, 'clienteEmail');
 		if (tipoCliente == 'Persona' && String.isNotBlank(email)) {
 			for (Account a : [SELECT Id FROM Account WHERE PersonEmail = :email AND IsPersonAccount = true LIMIT 1]) {
@@ -799,57 +907,77 @@ public with sharing class OpportunityController {
 	 * @param accountId: Id de la cuenta a la que se ligaria el vehiculo nuevo
 	 * @return Id del Automovil__c resuelto o null si no aplica
 	 */
-	private static Id resolveVehiculo(Map<String, Object> d, Id accountId) {
-		// 1) ¿Ya se seleccionó un vehículo en el lookup?
-		String vehiculoId = getStr(d, 'Automovil__c');
-		if (String.isNotBlank(vehiculoId)) {
-			return (Id) vehiculoId;
+	// Busca un CustomerProperty del mismo dueño que sea el MISMO auto:
+	// por VIN, luego por Placa, luego por Marca+Modelo+Año.
+	private static Id buscarBienCliente(Id accountId, String vin, String placa, String marca, String modelo, Integer anio) {
+		if (accountId == null) { return null; }
+		if (String.isNotBlank(vin)) {
+			for (CustomerProperty c : [SELECT Id FROM CustomerProperty WHERE PrimaryOwnerId = :accountId AND Vin = :vin LIMIT 1]) { return c.Id; }
 		}
-		// 2) Datos capturados/extraídos del auto.
+		if (String.isNotBlank(placa)) {
+			for (CustomerProperty c : [SELECT Id FROM CustomerProperty WHERE PrimaryOwnerId = :accountId AND RegistrationNumber = :placa LIMIT 1]) { return c.Id; }
+		}
+		if (String.isNotBlank(marca) && String.isNotBlank(modelo) && anio != null) {
+			for (CustomerProperty c : [
+				SELECT Id FROM CustomerProperty
+				WHERE PrimaryOwnerId = :accountId AND Make = :marca AND ModelName = :modelo AND MakeYear = :anio
+				LIMIT 1
+			]) { return c.Id; }
+		}
+		return null;
+	}
+
+	private static Id guardarBienCliente(Map<String, Object> d, Id accountId) {
+		// 1) ¿Ya se seleccionó un bien (CustomerProperty) en el buscador?
+		String bienId = getStr(d, 'Automovil__c');
+		if (String.isNotBlank(bienId)) {
+			return (Id) bienId;
+		}
+		// 2) Datos capturados/extraídos del vehículo.
 		Object vObj = d.get('vehiculo');
 		if (!(vObj instanceof Map<String, Object>)) {
 			return null;
 		}
 		Map<String, Object> v = (Map<String, Object>) vObj;
-		String serie = getStr(v, 'Serie__c');
-
-		// 3) Buscar por Serie/VIN.
-		if (String.isNotBlank(serie)) {
-			List<Automovil__c> ex = [
-				SELECT Id FROM Automovil__c WHERE Serie__c = :serie LIMIT 1
-			];
-			if (!ex.isEmpty()) {
-				return ex[0].Id;
-			}
-		}
-
-		// 4) Crear nuevo (si hay algún dato).
-		// Serie__c es obligatoria en Vehiculo__c: sin serie no se puede crear.
+		String serie = getStr(v, 'Serie__c');   // VIN
+		// VIN obligatorio: sin serie no se crea el bien.
 		if (String.isBlank(serie)) {
 			return null;
 		}
+		// El dueño (PrimaryOwnerId) es obligatorio (relación maestro-detalle a la Cuenta).
+		if (accountId == null) {
+			return null;
+		}
+
+		// 3) Reutiliza el bien existente del MISMO dueño (mismo auto = no duplicar):
+		//    a) por VIN, b) por Placa, c) por Marca+Modelo+Año (por si el identificador
+		//    difiere, ej. la clave vehicular de la cotización vs el VIN real de la póliza).
 		String marca = getStr(v, 'Marca__c');
 		String modelo = getStr(v, 'Modelo__c');
-		Automovil__c nv = new Automovil__c();
-		nv.Marca__c = marca;
-		nv.Modelo__c = modelo;
-		nv.Serie__c = serie;
-		nv.Placa__c = getStr(v, 'Placa__c');
-		nv.Motor__c = getStr(v, 'Motor__c');
-		nv.Descripcion_Completa__c = getStr(v, 'descripcion_completa__c');
-		if (accountId != null) {
-			nv.Cuenta__c = accountId;
-		}
-		// Año (solo si creaste el campo Anio__c en Automovil__c)
-		setIfExistsVeh(nv, 'Anio__c', getStr(v, 'Anio__c'));
-		// Name (si no es autonumérico, le ponemos algo legible)
-		Schema.DescribeFieldResult nameDesc = Automovil__c.Name.getDescribe();
-		if (!nameDesc.isAutoNumber()) {
-			String nm = ((marca == null ? '' : marca) + ' ' +
-						 (modelo == null ? '' : modelo) + ' ' +
-						 (serie == null ? '' : serie)).trim();
-			nv.Name = String.isBlank(nm) ? 'Vehículo' : nm.left(80);
-		}
+		String placa = getStr(v, 'Placa__c');
+		String serieNorm = serie.trim().toUpperCase();
+		String placaNorm = String.isNotBlank(placa) ? placa.trim().toUpperCase() : null;
+		Decimal anioDec = toDecimalSafe(getStr(v, 'Anio__c'));
+		Integer anioInt = (anioDec != null) ? anioDec.intValue() : null;
+
+		Id bienExistente = buscarBienCliente(accountId, serieNorm, placaNorm, marca, modelo, anioInt);
+		if (bienExistente != null) { return bienExistente; }
+
+		// 4) Crear el CustomerProperty ligado al dueño (la Cuenta).
+		CustomerProperty nv = new CustomerProperty();
+		nv.PrimaryOwnerId     = accountId;
+		nv.Make               = marca;
+		nv.ModelName          = modelo;
+		nv.Vin                = serieNorm;
+		nv.RegistrationNumber = placaNorm;
+		nv.Motor__c           = getStr(v, 'Motor__c');
+		nv.Description         = getStr(v, 'descripcion_completa__c');
+		// Año -> MakeYear (put dinámico para tolerar el tipo del campo).
+		Decimal anio = toDecimalSafe(getStr(v, 'Anio__c'));
+		if (anio != null) { try { nv.put('MakeYear', anio.intValue()); } catch (Exception ignore) {} }
+		// Nombre legible del bien.
+		String nm = ((marca == null ? '' : marca) + ' ' +
+					 (modelo == null ? '' : modelo) + ' ' + serie).trim();
 		insert nv;
 		return nv.Id;
 	}
@@ -866,6 +994,13 @@ public with sharing class OpportunityController {
 	private static void setIfExistsVeh(SObject so, String field, Object value) {
 		if (value == null || String.isBlank(String.valueOf(value))) { return; }
 		try { so.put(field, value); } catch (Exception ignore) {}
+	}
+
+	// Recorta un texto a la longitud máxima (evita STRING_TOO_LONG).
+	// FirstName/MiddleName estándar son de 40; LastName de 80.
+	private static String capLen(String s, Integer max) {
+		if (s == null) { return null; }
+		return s.length() > max ? s.substring(0, max) : s;
 	}
 
 	/**
@@ -893,19 +1028,19 @@ public with sharing class OpportunityController {
 	 * @return Lista de Automovil__c coincidentes (maximo 10)
 	 */
 	@AuraEnabled(cacheable=false)
-	public static List<Automovil__c> searchVehiculos(String searchTerm) {
+	public static List<CustomerProperty> searchVehiculos(String searchTerm) {
 		if (String.isBlank(searchTerm) || searchTerm.length() < 2) {
-			return new List<Automovil__c>();
+			return new List<CustomerProperty>();
 		}
 		String filtro = '%' + searchTerm + '%';
 		return [
-			SELECT Id, Name, Marca__c, Modelo__c, Serie__c, Placa__c, Motor__c,
-				   Descripcion_Completa__c, Cuenta__c, Cuenta__r.Name
-			FROM Automovil__c
-			WHERE Serie__c LIKE :filtro
-			   OR Placa__c LIKE :filtro
-			   OR Marca__c LIKE :filtro
-			   OR Modelo__c LIKE :filtro
+			SELECT Id, Name, Make, ModelName, Vin, RegistrationNumber, Motor__c,
+				   MakeYear, Description, PrimaryOwnerId, PrimaryOwner.Name
+			FROM CustomerProperty
+			WHERE Vin LIKE :filtro
+			   OR RegistrationNumber LIKE :filtro
+			   OR Make LIKE :filtro
+			   OR ModelName LIKE :filtro
 			   OR Name LIKE :filtro
 			ORDER BY LastModifiedDate DESC
 			LIMIT 10
@@ -954,14 +1089,14 @@ public with sharing class OpportunityController {
 		c.Email = getStr(d, 'clienteEmail');
 		c.Phone = getStr(d, 'clienteTelefono');
 		if (partes.size() > 1) {
-			c.LastName = partes[partes.size() - 1];
+			c.LastName = capLen(partes[partes.size() - 1], 80);
 			String first = '';
 			for (Integer i = 0; i < partes.size() - 1; i++) {
 				first += (first == '' ? '' : ' ') + partes[i];
 			}
-			c.FirstName = first;
+			c.FirstName = capLen(first, 40);
 		} else {
-			c.LastName = nombre.trim();
+			c.LastName = capLen(nombre.trim(), 80);
 		}
 		insert c;
 		return c.Id;
@@ -1001,13 +1136,13 @@ public with sharing class OpportunityController {
 		if (String.isBlank(lastName)) { return null; }
 
 		Contact c = new Contact(AccountId = accountId);
-		if (String.isNotBlank(nombre)) { c.FirstName = nombre; }
+		if (String.isNotBlank(nombre)) { c.FirstName = capLen(nombre, 40); }
 		// Si hay paterno y materno, el paterno va como segundo nombre (MiddleName)
 		// y el materno como apellido, igual que en la Cuenta Persona.
 		if (String.isNotBlank(paterno) && String.isNotBlank(materno)) {
-			try { c.put('MiddleName', paterno); } catch (Exception ignore) {}
+			try { c.put('MiddleName', capLen(paterno, 40)); } catch (Exception ignore) {}
 		}
-		c.LastName = lastName;
+		c.LastName = capLen(lastName, 80);
 		c.Email = getStr(d, 'clienteEmail');
 		c.Phone = getStr(d, 'clienteTelefono');
 		try {
@@ -1135,11 +1270,11 @@ public with sharing class OpportunityController {
 		List<String> partes = limpio.split('\\s+');
 		Contact c = new Contact(AccountId = accountId);
 		if (partes.size() > 1) {
-			c.LastName = partes[partes.size() - 1];
+			c.LastName = capLen(partes[partes.size() - 1], 80);
 			List<String> first = new List<String>();
 			for (Integer i = 0; i < partes.size() - 1; i++) { first.add(partes[i]); }
-			c.FirstName = String.join(first, ' ');
-		} else { c.LastName = limpio; }
+			c.FirstName = capLen(String.join(first, ' '), 40);
+		} else { c.LastName = capLen(limpio, 80); }
 		try { insert c; return c.Id; } catch (Exception e) { return null; }
 	}
 	

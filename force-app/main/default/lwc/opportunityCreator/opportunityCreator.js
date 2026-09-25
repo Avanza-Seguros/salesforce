@@ -15,15 +15,23 @@ import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
+import getAccountById from '@salesforce/apex/OpportunityController.getAccountById';
 import searchContacts from '@salesforce/apex/OpportunityController.searchContacts';
+import getArchivosDeOportunidad from '@salesforce/apex/OpportunityController.getArchivosDeOportunidad';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
+import guardarArchivoEnOportunidad from '@salesforce/apex/PdfOpportunityCreatorController.guardarArchivoEnOportunidad';
+import guardarComparativoPdf from '@salesforce/apex/PdfOpportunityCreatorController.guardarComparativoPdf';
+import actualizarComparativoOpp from '@salesforce/apex/PdfOpportunityCreatorController.actualizarComparativoOpp';
 import searchVehiculos from '@salesforce/apex/OpportunityController.searchVehiculos';
 import aceptarCotizacion from '@salesforce/apex/OpportunityController.aceptarCotizacion';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 import prepararCotizaciones from '@salesforce/apex/PdfOpportunityCreatorController.prepararCotizaciones';
 import getProductosPorAseguradoraRamo from '@salesforce/apex/PdfOpportunityCreatorController.getProductosPorAseguradoraRamo';
+import getAsegurados from '@salesforce/apex/AseguradosController.getAsegurados';
+import guardarAsegurados from '@salesforce/apex/AseguradosController.guardarAsegurados';
+import eliminarAsegurado from '@salesforce/apex/AseguradosController.eliminarAsegurado';
 
 // ============================================================
 // CONSTANTES
@@ -62,7 +70,29 @@ const STAGES_DATA = [
 ];
 const STAGE_DEFAULT_COLOR = '#6B7280';
 // Cantidad de oportunidades a mostrar por página
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
+
+// ============================================================
+// Catálogo de CONCEPTOS de cobertura + diccionario de sinónimos.
+// La comparación se hace por CONCEPTO, no por el texto exacto de cada
+// aseguradora, para no marcar falsos "No incluida" (ej. "Daños materiales",
+// "DAÑOS MATERIALES PERDIDA TOTAL" y "Daños Materiales" son el mismo concepto).
+// El orden importa: gana el primer concepto cuyo patrón aparezca en el nombre.
+// ============================================================
+const CONCEPTOS_AUTO = [
+    { concepto: 'Daños Materiales',                  patrones: ['danos materiales', 'dano material', 'perdida total', 'perdida parcial'] },
+    { concepto: 'Robo Total',                        patrones: ['robo total', 'robo del vehiculo', 'robo'] },
+    { concepto: 'RC Extranjero (USA/Canadá)',        patrones: ['extranjero', 'estados unidos', 'usa/', '/usa', 'canada', 'frontera', 'norteamerica'] },
+    { concepto: 'Responsabilidad Civil',             patrones: ['responsabilidad civil', 'rc danos', 'rc bienes', 'rc personas', 'rc familiar', 'danos a terceros'] },
+    { concepto: 'Muerte / Accidentes del Conductor', patrones: ['muerte del conductor', 'accidentes al conductor', 'accidentes automovilisticos al conductor', 'muerte accidental', 'gastos funerarios', 'conductor'] },
+    { concepto: 'Gastos Médicos Ocupantes',          patrones: ['gastos medicos ocupantes', 'gastos medicos a ocupantes', 'gastos medicos de ocupantes', 'gastos medicos', 'ocupantes'] },
+    { concepto: 'Asistencia Jurídica',               patrones: ['asistencia juridica', 'asistencia legal', 'gastos legales', 'defensa juridica', 'juridica'] },
+    { concepto: 'Asistencia Vial',                   patrones: ['asistencia vial', 'asistencia en viajes y vial', 'asistencia en viaje', 'asistencia en el camino', 'vial', 'grua'] },
+    { concepto: 'Asistencia Médica',                 patrones: ['asistencia medica', 'asistencia telefonica medica'] },
+    { concepto: 'Cristales',                         patrones: ['cristales', 'rotura de cristales'] },
+    { concepto: 'Equipo Especial / Adaptaciones',    patrones: ['equipo especial', 'adaptaciones', 'accesorios', 'equipo adicional'] },
+    { concepto: 'Extensión de RC',                   patrones: ['extension de responsabilidad', 'exceso de responsabilidad', 'rc en exceso'] }
+];
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -74,6 +104,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track mercadoPicklistValues = [];
     @track ramoPicklistValues = [];
     @track marcaPicklistValues = [];
+    // Buscador de Marca (escribible en vez de lista larga).
+    @track marcaResultados = [];
+    @track showMarcaDropdown = false;
+    _marcaTyped = null;
     automovilObjectInfo = { data: null, error: null };
     @track frecuenciaPicklistValues = [];
     quoteObjectInfo = { data: null, error: null };
@@ -99,10 +133,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track rc = this.getDefaultRC();
     @track dental = this.getDefaultDental();
     @track vision = this.getDefaultVision();
+    @track transporte = this.getDefaultTransporte();
     @track uploadedQuotes = [];
     // Comparativo HTML tal cual lo regresa la IA (Prompt Builder).
     // Se renderiza en un iframe vía blob URL (srcdoc no está permitido en LWC).
     @track comparativoHtml = '';
+    @track pdfArchivos = []; // PDFs cargados (base64) para guardarlos en la oportunidad
     _comparativoDirty = false;
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
@@ -126,6 +162,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track isNewContacto = false;
     _contactoSearchTimer = null;
     @track editableQuotes = [];
+    // Comparativo imprimible: reactivado tras migrar la comparación a CONCEPTOS
+    // (catálogo + sinónimos). Ya no marca falsos "No incluida" ni infla el conteo.
+    comparativoImprimible = true;
     // Modo "agregar cotizaciones por PDF" a una oportunidad EXISTENTE (no crea oportunidad).
     @track addQuotesMode = false;
     // Verdadero mientras el componente de PDF está analizando (para mostrar spinner).
@@ -153,6 +192,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         rawData: null
     };
     @track showComparisonSummary = false;
+    @track archivosModalOpen = false;
+    @track archivosList = [];
+    @track archivosLoading = false;
+    @track archivosOppName = '';
+    // Modal del Flow "Enviar Correo Oportunidad".
+    @track correoFlowOpen = false;
+
+    // ===== Colectivas: asegurados del grupo (Rol de Contacto de Oportunidad) =====
+    @track asegurados = [];
+    correoFlowOppId = null;
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
     // directamente dentro de la sección de comparativa.)
@@ -221,11 +270,18 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 ...q,
                 aseguradoraId: q.aseguradoraId,
                 aseguradoras: q.aseguradoras || [],
+                ramoLabel: q.ramoLabel || this.getRamoLabel(q.ramo),
                 productId: q.productoSugeridoId,
-                frecuencia: q.frecuencia || 'Mensual',
+                // La frecuencia sale de lo que trae la cotización (frecuenciaPago), normalizada.
+                frecuencia: this.normalizarFrecuenciaUI(q.frecuenciaPago || q.frecuencia),
                 sinProductos: !(q.productos && q.productos.length),
                 seleccionada: true
             }));
+            // Fecha de cierre sugerida = vencimiento de la cotización MÁS CORTA (si no hay una puesta).
+            if (!this.opportunity.CloseDate) {
+                const vigs = this.editableQuotes.map(q => q.vigencia).filter(Boolean).sort();
+                if (vigs.length) { this.opportunity = { ...this.opportunity, CloseDate: vigs[0] }; }
+            }
         } catch (e) {
             this.editableQuotes = [];
         }
@@ -260,16 +316,28 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const payload = seleccionadas.map(q => ({
                 id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
                 primaTotal: q.primaTotal, vigencia: q.vigencia,
+                vigenciaInicio: q.vigenciaInicio,
                 noCotizacion: q.noCotizacion, productId: q.productId,
-                aseguradoraId: q.aseguradoraId, frecuencia: q.frecuencia
+                aseguradoraId: q.aseguradoraId, frecuencia: q.frecuencia,
+                // Forma de pago y cobranza (nuevos datos del comparador).
+                formaPago: q.formaPago, frecuenciaPago: q.frecuenciaPago,
+                primaNeta: q.primaNeta, primaTotalFin: q.primaTotalFin,
+                numeroPagos: q.numeroPagos, primerPago: q.primerPago,
+                pagoSubsecuente: q.pagoSubsecuente
             }));
             const res = await crearCotizacionesDesdePdf({
                 opportunityId: this.opportunity.Id,
                 quotesJson: JSON.stringify(payload)
             });
             const n = (res && res.creadas) || 0;
+            const errs = (res && res.errores) || [];
             const eraAgregar = this.addQuotesMode;
-            this.showToast('Cotizaciones', `Se agregaron ${n} cotización(es) a la oportunidad.`, 'success');
+            if (errs.length) {
+                this.showToast('Cotizaciones con avisos',
+                    `Se agregaron ${n}. No se pudieron crear: ${errs.join(' | ')}`, 'warning');
+            } else {
+                this.showToast('Cotizaciones', `Se agregaron ${n} cotización(es) a la oportunidad.`, 'success');
+            }
             this.uploadedQuotes = [];
             this.editableQuotes = [];
             this.addQuotesMode = false;
@@ -282,6 +350,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.comparativoHtml = '';
                 this._comparativoDirty = true;
                 try { this.recomputeComparativa(); } catch (e) { /* ignorar */ }
+                // Adjuntar los PDFs recién cargados + comparativo actualizado a la oportunidad.
+                try { await this.guardarArchivosPdf(this.opportunity.Id); } catch (e) { /* ignorar */ }
             }
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
@@ -315,15 +385,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const id = event.currentTarget.dataset.id;
         const v = (this.vehiculoResults || []).find(x => x.Id === id);
         if (!v) return;
-        this.opportunity = { ...this.opportunity, Vehiculo__c: v.Id, VehiculoName: (v.Marca__c || '') + ' ' + (v.Modelo__c || '') };
+        this.opportunity = { ...this.opportunity, Vehiculo__c: v.Id, VehiculoName: (v.Make || '') + ' ' + (v.ModelName || '') };
         this.automovil = {
             ...this.automovil,
-            Marca__c: v.Marca__c || '',
-            Modelo__c: v.Modelo__c || '',
-            Serie__c: v.Serie__c || '',
-            Placa__c: v.Placa__c || '',
+            Marca__c: v.Make || '',
+            Modelo__c: v.ModelName || '',
+            Serie__c: v.Vin || '',
+            Placa__c: v.RegistrationNumber || '',
             Motor__c: v.Motor__c || '',
-            descripcion_completa__c: v.Descripcion_Completa__c || ''
+            Anio__c: v.MakeYear || '',
+            descripcion_completa__c: v.Description || ''
         };
         this.showVehiculoDropdown = false;
         this.vehiculoResults = [];
@@ -440,7 +511,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const expDate = this.parseSafeDate(q.expirationDateRaw);
             if (expDate) {
                 hasDaysInfo = true;
-                const diffDays = Math.ceil((expDate - today) / 86400000);
+                const diffDays = this.diasCalendario(today, expDate);
                 if (diffDays < 0) {
                     daysLabel = `Vencida hace ${Math.abs(diffDays)} día${Math.abs(diffDays) === 1 ? '' : 's'}`;
                     daysClass = 'days-remaining is-overdue';
@@ -559,20 +630,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         const coberturasMap = new Map();
         const companias = [];
+        // Solo en auto se normaliza por concepto (los demás ramos conservan su nombre).
+        const esAuto = this.uploadedQuotes.some(q => q.isAutomovil || /auto/i.test(q.ramo || ''));
         this.uploadedQuotes.forEach(quote => {
             const compania = quote.compania || 'Desconocida';
             if (!companias.includes(compania)) companias.push(compania);
             if (Array.isArray(quote.tablaCompletaCoberturas)) {
                 quote.tablaCompletaCoberturas.forEach(cobertura => {
                     const nombre = cobertura.cobertura || cobertura.nombre || 'Cobertura';
-                    if (!coberturasMap.has(nombre)) {
-                        coberturasMap.set(nombre, { nombre, valores: {} });
+                    const concepto = esAuto ? this.conceptoDe(nombre) : nombre;
+                    if (!coberturasMap.has(concepto)) {
+                        coberturasMap.set(concepto, { nombre: concepto, valores: {} });
                     }
-                    coberturasMap.get(nombre).valores[compania] = {
+                    const c = coberturasMap.get(concepto);
+                    c.valores[compania] = this.combinarValor(c.valores[compania], {
                         suma: cobertura.sumaAsegurada || cobertura.suma || '',
                         deducible: cobertura.deducible || '',
                         coaseguro: cobertura.coaseguro || ''
-                    };
+                    });
                 });
             }
             if (quote.isAutomovil)        this.agregarCoberturaAuto(coberturasMap, compania, quote);
@@ -635,7 +710,42 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     agregarOActualizarCobertura(map, nombre, compania, valores) {
         if (!map.has(nombre)) map.set(nombre, { nombre, valores: {} });
         const c = map.get(nombre);
-        c.valores[compania] = { ...c.valores[compania], ...valores };
+        c.valores[compania] = this.combinarValor(c.valores[compania], valores);
+    }
+
+    // Devuelve el CONCEPTO canónico de una cobertura de auto a partir de su nombre
+    // (traduce sinónimos por aseguradora). Si no reconoce el nombre, lo conserva.
+    conceptoDe(nombre) {
+        if (!nombre) { return 'Cobertura'; }
+        const n = nombre.toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        for (const item of CONCEPTOS_AUTO) {
+            if (item.patrones.some(p => n.includes(p))) { return item.concepto; }
+        }
+        return nombre.toString().trim();
+    }
+
+    // Fusiona dos valores del mismo concepto/compañía: conserva la suma mayor y
+    // el primer deducible/coaseguro no vacío (ej. Daños Materiales Pérdida Total + Parcial).
+    combinarValor(prev, nuevo) {
+        prev = prev || {}; nuevo = nuevo || {};
+        const sumaPrev = this.parseMonto(prev.suma);
+        const sumaNueva = this.parseMonto(nuevo.suma);
+        let suma = prev.suma || '';
+        if (nuevo.suma) {
+            if (!prev.suma) { suma = nuevo.suma; }
+            else if (sumaNueva != null && (sumaPrev == null || sumaNueva > sumaPrev)) { suma = nuevo.suma; }
+        }
+        return {
+            suma,
+            deducible: prev.deducible || nuevo.deducible || '',
+            coaseguro: prev.coaseguro || nuevo.coaseguro || ''
+        };
+    }
+
+    parseMonto(v) {
+        if (v == null || v === '') { return null; }
+        const num = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+        return isNaN(num) ? null : num;
     }
 
     // ============================================================
@@ -665,8 +775,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     formatDate(dateString) {
         if (!dateString) return 'Sin fecha';
-        const date = new Date(dateString);
-        if (isNaN(date.getTime()) || date.getFullYear() < 1970) return 'Sin fecha';
+        // Usa el mismo parseo que el conteo (fechas solo-día en LOCAL) para que la
+        // fecha mostrada coincida con los días restantes y no se corra un día.
+        const date = this.parseSafeDate(dateString);
+        if (!date) return 'Sin fecha';
         return date.toLocaleDateString('es-MX', {
             day: '2-digit', month: 'short', year: 'numeric'
         });
@@ -752,17 +864,33 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const clean = (name || '').trim();
         if (!clean) return;
         try {
-            const res = await searchAccounts({ searchTerm: clean });
-            const exact = (res || []).find(
-                a => (a.Name || '').trim().toLowerCase() === clean.toLowerCase()
-            );
+            const res = (await searchAccounts({ searchTerm: clean })) || [];
+            // Emparejamiento tolerante: normaliza (acentos/espacios/mayúsculas), luego por
+            // conjunto de tokens (mismo nombre aunque falte un apellido o cambie el orden);
+            // y si la búsqueda devolvió UN solo resultado, se usa ese.
+            const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')          // quita acentos
+                .replace(/[^a-z0-9\s]/g, '')      // quita apostrofos, puntos y demas signos
+                .replace(/\s+/g, ' ').trim();
+            const target = norm(clean);
+            const tt = target.split(' ').filter(Boolean);
+            let exact = res.find(a => norm(a.Name) === target);
+            if (!exact) {
+                exact = res.find(a => {
+                    const at = norm(a.Name).split(' ').filter(Boolean);
+                    const contieneBuscado = tt.every(t => at.includes(t));
+                    const contieneCuenta = at.every(t => tt.includes(t));
+                    return (contieneBuscado || contieneCuenta) && Math.abs(at.length - tt.length) <= 1;
+                });
+            }
+            if (!exact && res.length === 1) { exact = res[0]; }
             if (exact) {
                 this.opportunity = {
                     ...this.opportunity,
                     AccountId: exact.Id,
                     AccountName: exact.Name,
                     tipoCliente: exact.IsPersonAccount ? 'Persona' : 'Empresa',
-                    clienteNombre: exact.clienteNombre || exact.Name || this.opportunity.clienteNombre,
+                    ...this.nombrePartesDesdeCuenta(exact),
                     clienteRFC: exact.clienteRFC || this.opportunity.clienteRFC,
                     clienteEmail: exact.clienteEmail || this.opportunity.clienteEmail,
                     clienteTelefono: exact.clienteTelefono || this.opportunity.clienteTelefono,
@@ -789,7 +917,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountId: acc.Id,
             AccountName: acc.Name,
             tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
-            clienteNombre: acc.clienteNombre || acc.Name || '',
+            ...this.nombrePartesDesdeCuenta(acc),
             clienteRFC: acc.clienteRFC || '',
             clienteEmail: acc.clienteEmail || '',
             clienteTelefono: acc.clienteTelefono || '',
@@ -801,20 +929,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.accountResults = [];
     }
     selectNewAccount() {
+        // Crear cuenta nueva: NO borra la Información del Cliente ya capturada
+        // (razón social, RFC, dirección, correo, teléfono, CP). Solo desliga la cuenta
+        // existente para que se cree una nueva con esos datos al guardar.
         const typedName = this.opportunity.AccountName || '';
         this.opportunity = {
             ...this.opportunity,
             AccountId: null,
-            AccountName: typedName,
-            clienteNombre: '',
-            clienteApellidoPaterno: '',
-            clienteApellidoMaterno: '',
-            clienteApellidos: '',
-            clienteRFC: '',
-            clienteEmail: '',
-            clienteTelefono: '',
-            clienteCP: '',
-            clienteDireccion: ''
+            AccountName: typedName
         };
         this.isNewAccount = true;
         this.showAccountDropdown = false;
@@ -949,6 +1071,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
 
             this.populateFormFromOpportunity(opportunityData, id);
+            // Colectiva: trae los asegurados del grupo para mostrarlos/editarlos.
+            if (opportunityData.Tipo_Contratacion__c === 'Colectiva') {
+                await this.cargarAsegurados(id);
+            }
             this.relatedQuotes = Array.isArray(quotesData)
                 ? quotesData.map(q => this.mapRelatedQuote(q, coverageCounts, coverageNamesByQuote))
                 : [];
@@ -956,10 +1082,28 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(':::OpportunityCreator::: Error al cargar oportunidad para edición', e);
-            this.showToast('Error', 'No se pudo cargar la oportunidad para edición', 'error');
+            const detalle = this.extraerMensajeError(e);
+            this.showToast('Error', 'No se pudo cargar la oportunidad para edición: ' + detalle, 'error');
         } finally {
             this.isLoading = false;
         }
+    }
+    // Arma un mensaje legible desde distintos formatos de error (Apex, JS, page errors).
+    extraerMensajeError(e) {
+        if (!e) { return 'Error desconocido'; }
+        if (e.body) {
+            const b = e.body;
+            if (typeof b.message === 'string' && b.message) { return b.message; }
+            if (Array.isArray(b.pageErrors) && b.pageErrors.length) { return b.pageErrors[0].message; }
+            if (b.fieldErrors) {
+                const first = Object.values(b.fieldErrors)[0];
+                if (Array.isArray(first) && first.length) { return first[0].message; }
+            }
+            if (Array.isArray(b) && b.length && b[0].message) { return b[0].message; }
+            if (typeof b === 'string') { return b; }
+        }
+        if (e.message) { return e.message; }
+        try { return JSON.stringify(e); } catch (err) { return String(e); }
     }
     populateFormFromOpportunity(detail, id) {
         this.opportunity = {
@@ -970,15 +1114,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Type:        detail.Type        || OPPORTUNITY_TYPES.NEW_BUSINESS,
             Canal__c:    detail.Canal__c    || '',
             Mercado__c:  detail.Mercado__c  || '',
+            Tipo_Contratacion__c: detail.Tipo_Contratacion__c || 'Individual',
             Ramo__c:     detail.Ramo__c     || '',
             Description: detail.Description || '',
             AccountId:   detail.AccountId   || null,
             AccountName: detail.Account?.Name || detail.AccountName || '',
-            Agente__c:   detail.Agente_Relacionado__c || detail.Agente__c || null,
-            AgenteName:  detail.Agente_Relacionado__r?.Name || detail.Agente__r?.Name || detail.AgenteName || '',
+            Agente__c:   detail.Producer__c || detail.Agente_Relacionado__c || detail.Agente__c || null,
+            AgenteName:  detail.Producer__r?.Name || detail.Agente_Relacionado__r?.Name || detail.AgenteName || '',
             Vehiculo__c:  detail.automovil?.Id || null,
             VehiculoName: detail.automovil
-                            ? `${detail.automovil.Marca__c || ''} ${detail.automovil.Modelo__c || ''}`.trim()
+                            ? `${detail.automovil.Make || ''} ${detail.automovil.ModelName || ''}`.trim()
                             : (detail.VehiculoName || ''),
             Contacto__c:  detail.Contacto__c || null,
             ContactoName: detail.Contacto__r?.Name || detail.ContactoName || '',
@@ -992,6 +1137,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             clienteDireccion: detail.clienteDireccion || detail.Account?.BillingStreet    || ''
         };
         this.selectedQuoteRamo = this.opportunity.Ramo__c;
+
+        // Recupera los datos del cliente desde la Cuenta (nombre separado, RFC, correo,
+        // teléfono, CP, dirección) para que al cargar la oportunidad no aparezca el
+        // nombre completo en un solo campo ni queden vacíos los demás.
+        if (this.opportunity.AccountId) {
+            this.recuperarDetallesCuenta(this.opportunity.AccountId);
+        }
 
         // Comparativo de la IA guardado en la oportunidad (Descripcion__c) para
         // mostrarlo en la sección "Comparativa de Cotizaciones" al editar.
@@ -1020,13 +1172,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const a = detail.automovil || detail;
             this.automovil = {
                 ...this.getDefaultAutomovil(),
-                Marca__c:                a.Marca__c                || '',
-                Modelo__c:               a.Modelo__c               || '',
-                Anio__c:                 a.Anio__c                 || '',
-                Placa__c:                a.Placa__c                || '',
-                Serie__c:                a.Serie__c                || '',
-                Motor__c:                a.Motor__c                || '',
-                descripcion_completa__c: a.Descripcion_Completa__c || a.descripcion_completa__c || ''
+                Marca__c:                a.Make               || a.Marca__c  || '',
+                Modelo__c:               a.ModelName          || a.Modelo__c || '',
+                Anio__c:                 a.MakeYear           || a.Anio__c   || '',
+                Placa__c:                a.RegistrationNumber || a.Placa__c  || '',
+                Serie__c:                a.Vin                || a.Serie__c  || '',
+                Motor__c:                a.Motor__c           || '',
+                descripcion_completa__c: a.Description || a.Descripcion_Completa__c || a.descripcion_completa__c || ''
             };
         }
         if (this.isRamoGMM || detail.gmm) {
@@ -1113,6 +1265,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 productName = qli[0].Product2?.Name || '';
             }
         }
+        // Plan: viene embebido en el nombre de la cotización con el formato
+        // "Compañía - Plan" (así se crea al generarla). Se toma lo que va después de " - ".
+        let plan = '';
+        if (typeof q.Name === 'string') {
+            const idx = q.Name.indexOf(' - ');
+            if (idx >= 0) { plan = q.Name.substring(idx + 3).trim(); }
+        }
         return {
             Id: q.Id,
             QuoteNumber: q.QuoteNumber || q.Numero__c || '—',
@@ -1136,6 +1295,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 ? coverageNamesByQuote[q.Id]
                 : [],
             productName,
+            plan: plan || '—',
             esAceptada: /accept|acept/i.test(status),
             puedeAceptar: !/accept|acept/i.test(status)
         };
@@ -1158,7 +1318,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!id) { return; }
         try {
             await aceptarCotizacion({ quoteId: id });
-            this.showToast('Cotización aceptada', 'La cotización se marcó como Aceptado.', 'success');
+            this.showToast('Cotización aceptada', 'La cotización quedó Aceptada y sincronizada con la oportunidad.', 'success');
             if (this.opportunity?.Id) {
                 await this.openOpportunityInEditMode(this.opportunity.Id);
             }
@@ -1191,6 +1351,303 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.showToast('Error', 'No se pudo pasar a Póliza: ' + msg, 'error');
         }
     }
+    // ============================================================
+    // ENVIAR CORREO (Flow "Enviar Correo Oportunidad")
+    // Solo disponible cuando la oportunidad está en etapa "Póliza".
+    // ============================================================
+    // El botón del pie del formulario se muestra si la oportunidad abierta está en Póliza.
+    get isEtapaPoliza() {
+        return this.isPolizaStage(this.opportunity?.StageName) && !!this.opportunity?.Id;
+    }
+    // Variable de entrada del Flow: el Id de la oportunidad como recordId.
+    get correoFlowInputs() {
+        return [{ name: 'recordId', type: 'String', value: this.correoFlowOppId }];
+    }
+    // Abre el modal con el Flow. Toma el Id del botón (lista) o de la oportunidad abierta.
+    handleEnviarCorreo(event) {
+        const id = (event && event.currentTarget && event.currentTarget.dataset.id) || this.opportunity?.Id;
+        if (!id) {
+            this.showToast('Aviso', 'No se encontró la oportunidad para enviar el correo.', 'warning');
+            return;
+        }
+        this.correoFlowOppId = id;
+        this.correoFlowOpen = true;
+    }
+    closeCorreoFlow() {
+        this.correoFlowOpen = false;
+        this.correoFlowOppId = null;
+    }
+    // Cierra el modal cuando el Flow termina.
+    handleCorreoFlowStatus(event) {
+        const status = event && event.detail ? event.detail.status : '';
+        if (status === 'FINISHED' || status === 'FINISHED_SCREEN') {
+            this.correoFlowOpen = false;
+            this.correoFlowOppId = null;
+            this.showToast('Correo', 'El correo se envió correctamente.', 'success');
+        }
+    }
+
+    // ============================================================
+    // ASEGURADOS (oportunidad COLECTIVA)
+    // ============================================================
+    get isColectiva() {
+        return this.opportunity && this.opportunity.Tipo_Contratacion__c === 'Colectiva';
+    }
+    get tipoContratacionOptions() {
+        return [
+            { label: 'Individual', value: 'Individual' },
+            { label: 'Colectiva', value: 'Colectiva' }
+        ];
+    }
+    get parentescoOptions() {
+        return [
+            { label: 'Contratante', value: 'Contratante' },
+            { label: 'Asegurado titular', value: 'Asegurado titular' },
+            { label: 'Cónyuge', value: 'Conyuge' },
+            { label: 'Hijo(a)', value: 'Hijo' },
+            { label: 'Padre o Madre', value: 'Padre o Madre' },
+            { label: 'Empleado', value: 'Empleado' },
+            { label: 'Otro', value: 'Otro' }
+        ];
+    }
+    get hasAsegurados() { return this.asegurados && this.asegurados.length > 0; }
+    // Lista con número de fila para la tabla.
+    get aseguradosView() {
+        return (this.asegurados || []).map((a, i) => ({ ...a, displayNum: i + 1 }));
+    }
+    get aseguradosCount() { return this.asegurados ? this.asegurados.length : 0; }
+    get aseguradosBadge() {
+        const n = this.aseguradosCount;
+        return `${n} asegurado${n === 1 ? '' : 's'}`;
+    }
+    // Payload al Apex (contrato de guardarAsegurados).
+    get aseguradosPayload() {
+        return (this.asegurados || []).map(a => ({
+            contactId: a.contactId || null,
+            nombreCompleto: a.nombre || '',
+            parentesco: a.parentesco || '',
+            fechaNacimiento: a.fechaNacimiento || '',
+            edad: (a.edad === '' || a.edad === undefined) ? null : a.edad,
+            rfc: a.rfc || '',
+            email: a.email || '',
+            telefono: a.telefono || ''
+        }));
+    }
+    // Cambia Individual/Colectiva. Al pasar a Colectiva en una oportunidad ya
+    // guardada, trae los asegurados existentes.
+    handleTipoContratacionChange(event) {
+        const value = event.detail.value;
+        this.opportunity = { ...this.opportunity, Tipo_Contratacion__c: value };
+        if (value === 'Colectiva' && this.opportunity.Id) {
+            this.cargarAsegurados(this.opportunity.Id);
+        }
+    }
+    async cargarAsegurados(oppId) {
+        if (!oppId) { return; }
+        try {
+            const res = await getAsegurados({ opportunityId: oppId });
+            this.asegurados = (res || []).map((a, i) => this.decorarAsegurado(a, i));
+        } catch (e) {
+            this.asegurados = [];
+        }
+    }
+    decorarAsegurado(a, i) {
+        a = a || {};
+        let edad = (a.edad !== undefined && a.edad !== null) ? a.edad : '';
+        if ((edad === '' || edad === null) && a.fechaNacimiento) {
+            edad = this.calcularEdad(a.fechaNacimiento);
+        }
+        return {
+            key: a.ocrId || ('nuevo-' + i + '-' + Date.now()),
+            ocrId: a.ocrId || null,
+            contactId: a.contactId || null,
+            nombre: a.nombre || '',
+            parentesco: a.parentesco || 'Asegurado titular',
+            fechaNacimiento: a.fechaNacimiento || '',
+            edad,
+            email: a.email || '',
+            telefono: a.telefono || '',
+            rfc: a.rfc || ''
+        };
+    }
+    calcularEdad(fechaStr) {
+        const d = this.parseSafeDate(fechaStr);
+        if (!d) { return ''; }
+        const hoy = new Date();
+        let e = hoy.getFullYear() - d.getFullYear();
+        const m = hoy.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && hoy.getDate() < d.getDate())) { e--; }
+        return e >= 0 ? e : '';
+    }
+    handleAgregarAsegurado() {
+        this.asegurados = [
+            ...this.asegurados,
+            this.decorarAsegurado({ parentesco: 'Asegurado titular' }, this.asegurados.length)
+        ];
+    }
+    handleAseguradoChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const field = event.target.dataset.field;
+        if (isNaN(idx) || !field) { return; }
+        const value = (event.detail && event.detail.value !== undefined)
+            ? event.detail.value : event.target.value;
+        this.asegurados = this.asegurados.map((a, i) => {
+            if (i !== idx) { return a; }
+            const upd = { ...a, [field]: value };
+            if (field === 'fechaNacimiento') { upd.edad = this.calcularEdad(value); }
+            return upd;
+        });
+    }
+    async handleQuitarAsegurado(event) {
+        const idx = parseInt(event.currentTarget.dataset.index, 10);
+        if (isNaN(idx)) { return; }
+        const a = this.asegurados[idx];
+        if (a && a.ocrId) {
+            try { await eliminarAsegurado({ ocrId: a.ocrId }); }
+            catch (e) { /* si falla el borrado remoto, igual lo quitamos de la lista */ }
+        }
+        this.asegurados = this.asegurados.filter((_, i) => i !== idx);
+    }
+    // Descarga una plantilla CSV con las columnas esperadas.
+    descargarPlantillaAsegurados() {
+        const header = 'Nombre,ApellidoPaterno,ApellidoMaterno,Parentesco,FechaNacimiento,Edad,RFC,Email,Telefono';
+        const ej1 = 'Juan,Perez,Lopez,Asegurado titular,1985-03-14,,PELJ850314AB1,juan.perez@correo.com,5512345678';
+        const ej2 = 'Maria,Perez,Sosa,Conyuge,1988-07-02,,,maria.perez@correo.com,5512345679';
+        const csv = [header, ej1, ej2].join('\n') + '\n';
+        try {
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'plantilla_asegurados.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            this.showToast('Descarga', 'No se pudo generar la plantilla en este navegador.', 'warning');
+        }
+    }
+    // Carga masiva del censo (CSV).
+    handleCensoFile(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) { return; }
+        const nombre = (file.name || '').toLowerCase();
+        if (!nombre.endsWith('.csv')) {
+            this.showToast('Formato',
+                'Por ahora el censo se sube en CSV. En Excel: Archivo → Guardar como → CSV (delimitado por comas).',
+                'warning');
+            event.target.value = null;
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const filas = this.parseCensoCsv(reader.result);
+                if (!filas.length) {
+                    this.showToast('Censo', 'No se encontraron asegurados en el archivo.', 'warning');
+                    return;
+                }
+                const base = this.asegurados.length;
+                const nuevos = filas.map((f, i) => this.decorarAsegurado(f, base + i));
+                this.asegurados = [...this.asegurados, ...nuevos];
+                this.showToast('Censo cargado',
+                    `Se agregaron ${nuevos.length} asegurado(s). Revísalos y guarda la oportunidad.`, 'success');
+            } catch (e) {
+                this.showToast('Error', 'No se pudo leer el censo: ' + (e.message || e), 'error');
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+        event.target.value = null;
+    }
+    // Parser CSV tolerante (comillas, delimitador , o ;) -> filas normalizadas.
+    parseCensoCsv(text) {
+        if (!text) { return []; }
+        const clean = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = clean.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length < 2) { return []; }
+        const delim = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+        const parseLine = (line) => {
+            const out = [];
+            let cur = '';
+            let inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+                    else { inQ = !inQ; }
+                } else if (ch === delim && !inQ) {
+                    out.push(cur); cur = '';
+                } else { cur += ch; }
+            }
+            out.push(cur);
+            return out.map(v => v.trim());
+        };
+        const norm = (s) => (s || '').toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+        const headers = parseLine(lines[0]).map(norm);
+        const idx = (claves) => {
+            for (const c of claves) {
+                const i = headers.indexOf(c);
+                if (i >= 0) { return i; }
+            }
+            return -1;
+        };
+        const iNombre  = idx(['nombre', 'nombres']);
+        const iPat     = idx(['apellidopaterno', 'paterno']);
+        const iMat     = idx(['apellidomaterno', 'materno']);
+        const iComp    = idx(['nombrecompleto', 'nombreapellidos']);
+        const iParent  = idx(['parentesco', 'relacion']);
+        const iFecha   = idx(['fechanacimiento', 'fechadenacimiento', 'fechanac', 'fecha']);
+        const iEdad    = idx(['edad']);
+        const iRfc     = idx(['rfc']);
+        const iEmail   = idx(['email', 'correo', 'correoelectronico']);
+        const iTel     = idx(['telefono', 'tel', 'celular']);
+        const get = (arr, i) => (i >= 0 && i < arr.length) ? arr[i] : '';
+        const filas = [];
+        for (let r = 1; r < lines.length; r++) {
+            const cols = parseLine(lines[r]);
+            const partes = [get(cols, iNombre), get(cols, iPat), get(cols, iMat)].filter(Boolean);
+            const nombre = get(cols, iComp) || partes.join(' ').trim();
+            if (!nombre) { continue; }
+            filas.push({
+                nombre,
+                parentesco: this.normalizarParentesco(get(cols, iParent)),
+                fechaNacimiento: this.normalizarFecha(get(cols, iFecha)),
+                edad: get(cols, iEdad),
+                rfc: get(cols, iRfc),
+                email: get(cols, iEmail),
+                telefono: get(cols, iTel)
+            });
+        }
+        return filas;
+    }
+    normalizarParentesco(v) {
+        const s = (v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (!s) { return 'Asegurado titular'; }
+        if (s.includes('contrat')) { return 'Contratante'; }
+        if (s.includes('titular')) { return 'Asegurado titular'; }
+        if (s.includes('conyug') || s.includes('esposo') || s.includes('esposa')) { return 'Conyuge'; }
+        if (s.includes('hij')) { return 'Hijo'; }
+        if (s.includes('padre') || s.includes('madre')) { return 'Padre o Madre'; }
+        if (s.includes('emplead')) { return 'Empleado'; }
+        return 'Otro';
+    }
+    // Deja la fecha en formato yyyy-mm-dd para el input date.
+    normalizarFecha(v) {
+        if (!v) { return ''; }
+        const s = v.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s; }
+        const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+        if (m) {
+            let y = parseInt(m[3], 10);
+            if (y < 100) { y += 1900; }
+            const mo = String(parseInt(m[2], 10)).padStart(2, '0');
+            const d = String(parseInt(m[1], 10)).padStart(2, '0');
+            return `${y}-${mo}-${d}`;
+        }
+        return '';
+    }
+
     handleEditRelatedQuote(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) return;
@@ -1281,9 +1738,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         const minPrice = Math.min(...quotes.map(q => q.totalAmount));
         const maxPrice = Math.max(...quotes.map(q => q.totalAmount));
-        const maxCov   = Math.max(...quotes.map(q => (q.coverageCount || 0)));
+
+        // Coberturas comparadas por CONCEPTO (no por texto): distintas aseguradoras
+        // usan nombres distintos para lo mismo. Esto evita falsos "No incluida" y que
+        // el conteo (y el "ganador por coberturas") dependa de cómo desglosa cada póliza.
+        const esAutoCmp = /auto/i.test(this.opportunity.Ramo__c || '')
+                       || quotes.some(q => /auto/i.test(q.ramo || ''));
+        const aConcepto = (n) => (esAutoCmp ? this.conceptoDe(n) : (n || '').trim());
+        const universo = [];
+        const universoSet = new Set();
+        const conceptosPorQuote = {};
+        quotes.forEach(q => {
+            const set = new Set();
+            (q.coverageNames || []).forEach(name => {
+                const c = aConcepto(name);
+                if (!c) { return; }
+                const key = c.toLowerCase();
+                set.add(key);
+                if (!universoSet.has(key)) { universoSet.add(key); universo.push(c); }
+            });
+            conceptosPorQuote[q.Id] = set;
+        });
+        const covCount = (q) => (conceptosPorQuote[q.Id] ? conceptosPorQuote[q.Id].size : 0);
+        const maxCov   = Math.max(...quotes.map(q => covCount(q)));
         const bestPriceQuote = quotes.find(q => q.totalAmount === minPrice);
-        const bestCovQuote   = quotes.find(q => (q.coverageCount || 0) === maxCov);
+        const bestCovQuote   = quotes.find(q => covCount(q) === maxCov);
 
         // Columnas (encabezado de la tabla)
         const columns = quotes.map(q => {
@@ -1306,36 +1785,30 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                         : (q.totalAmount === maxPrice && quotes.length > 1 ? 'el más caro' : ''),
                 hasPriceSub: q.totalAmount === minPrice
                           || (q.totalAmount === maxPrice && quotes.length > 1),
-                coverageCount: q.coverageCount || 0
+                coverageCount: covCount(q)
             };
         });
 
-        // Universo de coberturas en orden de aparición
-        const allCoverages = [];
-        const covSet = new Set();
-        quotes.forEach(q => {
-            (q.coverageNames || []).forEach(name => {
-                const clean = (name || '').trim();
-                if (clean && !covSet.has(clean.toLowerCase())) {
-                    covSet.add(clean.toLowerCase());
-                    allCoverages.push(clean);
-                }
-            });
-        });
-
-        // Matriz cobertura × compañía
-        const rows = allCoverages.map((covName, idx) => {
+        // Matriz CONCEPTO × compañía (universo ya normalizado por concepto)
+        const rows = universo.map((covName, idx) => {
             const cells = quotes.map(q => {
-                const includes = (q.coverageNames || []).some(n =>
-                    (n || '').trim().toLowerCase() === covName.toLowerCase()
-                );
+                const includes = conceptosPorQuote[q.Id].has(covName.toLowerCase());
+                const det = q.coverageDetalle ? q.coverageDetalle[covName.toLowerCase()] : null;
                 const isHl = q.Id === bestPriceQuote.Id || q.Id === bestCovQuote.Id;
                 let cls = 'doc-cell';
                 if (isHl) cls += ' doc-cell-hl';
                 if (!includes) cls += ' doc-cell-no';
+                // Muestra la suma asegurada (y deducible) cuando existe; si no, Sí / No incluida.
+                let text;
+                if (det && det.suma) {
+                    text = this.formatCurrencyOrText(det.suma);
+                    if (det.deducible) { text += ` · Ded. ${det.deducible}`; }
+                } else {
+                    text = includes ? 'Sí' : 'No incluida';
+                }
                 return {
                     key: `${idx}-${q.Id}`,
-                    text: includes ? 'Sí' : 'No incluida',
+                    text,
                     cellClass: cls
                 };
             });
@@ -1343,29 +1816,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         });
 
         // Cards de mejores opciones
+        const bestPriceCov = covCount(bestPriceQuote);
+        const bestCovCov   = covCount(bestCovQuote);
         const isSameWinner = bestPriceQuote.Id === bestCovQuote.Id;
         const cards = isSameWinner
             ? [{
                 key: 'unique',
                 title: `★ Opción única recomendada — ${bestPriceQuote.companiaLabel} · ${bestPriceQuote.totalFormatted}`,
-                text:  `Esta opción combina el mejor precio y el mayor número de coberturas (${bestCovQuote.coverageCount}). Es la más equilibrada del comparativo.`
+                text:  `Esta opción combina el mejor precio y el mayor número de coberturas (${bestCovCov}). Es la más equilibrada del comparativo.`
               }]
             : [{
                 key: 'price',
                 title: `★ Opción 1 — ${bestPriceQuote.companiaLabel} · ${bestPriceQuote.totalFormatted} (mejor precio)`,
-                text:  `La más económica del comparativo, con ${bestPriceQuote.coverageCount} coberturas incluidas. Ideal si el presupuesto manda.`
+                text:  `La más económica del comparativo, con ${bestPriceCov} coberturas incluidas. Ideal si el presupuesto manda.`
               }, {
                 key: 'coverage',
                 title: `★ Opción 2 — ${bestCovQuote.companiaLabel} · ${bestCovQuote.totalFormatted} (más coberturas)`,
-                text:  `El paquete más completo, con ${bestCovQuote.coverageCount} coberturas. Mejor protección por un poco más de prima.`
+                text:  `El paquete más completo, con ${bestCovCov} coberturas. Mejor protección por un poco más de prima.`
               }];
 
         // Recomendación
         const savings = maxPrice - minPrice;
         const savingsPct = maxPrice > 0 ? Math.round((savings / maxPrice) * 100) : 0;
         const recomendacion = isSameWinner
-            ? `${bestPriceQuote.companiaLabel} es la opción más completa: ofrece el mejor precio (${bestPriceQuote.totalFormatted}) y el mayor número de coberturas (${bestCovQuote.coverageCount}).`
-            : `${bestCovQuote.companiaLabel} trae el paquete más completo (${bestCovQuote.coverageCount} coberturas). ${bestPriceQuote.companiaLabel} es la más económica (${bestPriceQuote.totalFormatted}) con un ahorro de ${this.formatCurrency(savings)} (${savingsPct}%). Tú decides qué pesa más: precio o protección.`;
+            ? `${bestPriceQuote.companiaLabel} es la opción más completa: ofrece el mejor precio (${bestPriceQuote.totalFormatted}) y el mayor número de coberturas (${bestCovCov}).`
+            : `${bestCovQuote.companiaLabel} trae el paquete más completo (${bestCovCov} coberturas). ${bestPriceQuote.companiaLabel} es la más económica (${bestPriceQuote.totalFormatted}) con un ahorro de ${this.formatCurrency(savings)} (${savingsPct}%). Tú decides qué pesa más: precio o protección.`;
 
         // Metadata del documento
         const today = new Date();
@@ -1385,6 +1860,60 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             recomendacion,
             generatedAt: this.formatDate(today)
         };
+    }
+
+    // Arma el HTML COMPLETO del comparativo (precios + matriz de coberturas + resumen),
+    // igual a lo que se ve en pantalla, con estilos en línea seguros para el motor de PDF.
+    buildComparativoHtmlCompleto() {
+        const d = this.comparativoData;
+        if (!d || !d.hasData) { return ''; }
+        const esc = (v) => String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
+        const th = 'padding:7px 9px;border:1px solid #d9dee6;font-size:12px;text-align:left;background:#f4f6f9;';
+        const thRec = th + 'background:#fff3e0;';
+        const td = 'padding:7px 9px;border:1px solid #eef1f5;font-size:12px;text-align:left;';
+        const tdHl = td + 'background:#fff8ef;';
+
+        let h = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c2433;">';
+        h += `<h2 style="font-size:18px;margin:0 0 4px;">Comparativo de Seguro de ${esc(d.ramoLabel)}</h2>`;
+        h += `<p style="font-size:11px;color:#667;margin:0 0 4px;">${esc(d.opportunityName)} &middot; ${esc(d.clienteName)} &middot; Vigencia ${esc(d.vigInicio)} – ${esc(d.vigFin)}</p>`;
+        h += `<p style="font-size:11px;color:#b85b00;margin:0 0 12px;">${d.totalQuotes} aseguradoras comparadas &middot; Cotizado por Avanza Seguro</p>`;
+
+        h += '<table style="width:100%;border-collapse:collapse;">';
+        h += `<tr><th style="${th}">Concepto</th>`;
+        d.columns.forEach((c) => {
+            h += `<th style="${c.hasBadge ? thRec : th}">${esc(c.name)}`;
+            if (c.hasBadge) { h += `<br><span style="font-size:10px;color:#b85b00;">${esc(c.badge)}</span>`; }
+            h += '</th>';
+        });
+        h += '</tr>';
+        h += `<tr><th style="${th}">Prima</th>`;
+        d.columns.forEach((c) => {
+            h += `<td style="${c.hasBadge ? tdHl : td}">${esc(c.priceFormatted)}`;
+            if (c.hasPriceSub) { h += `<br><span style="font-size:10px;color:#667;">${esc(c.priceSub)}</span>`; }
+            h += '</td>';
+        });
+        h += '</tr>';
+        h += `<tr><th style="${th}">Coberturas incluidas</th>`;
+        d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${c.coverageCount}</td>`; });
+        h += '</tr>';
+        d.rows.forEach((row) => {
+            h += `<tr><th style="${th}">${esc(row.name)}</th>`;
+            row.cells.forEach((cell) => {
+                const style = cell.text === 'No incluida' ? (td + 'color:#a94442;') : td;
+                h += `<td style="${style}">${esc(cell.text)}</td>`;
+            });
+            h += '</tr>';
+        });
+        h += '</table>';
+
+        h += '<h3 style="font-size:15px;margin:16px 0 6px;">Resumen y recomendación</h3>';
+        d.cards.forEach((card) => {
+            h += `<p style="margin:0 0 8px;"><b style="color:#b85b00;">${esc(card.title)}</b><br><span style="font-size:12px;">${esc(card.text)}</span></p>`;
+        });
+        h += `<p style="margin:8px 0 0;padding:10px;background:#f4f6f9;border:1px solid #e6e9ef;font-size:12px;">${esc(d.recomendacion)}</p>`;
+        h += '</div>';
+        return h;
     }
 
     /** @deprecated — sustituido por render declarativo bajo LWS. */
@@ -1541,8 +2070,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (this.showOnlyOverdue) {
                 if (this.isClosedStage(opp.StageName)) return false;
                 if (!opp.CloseDate) return false;
-                const cd = new Date(opp.CloseDate);
-                if (isNaN(cd.getTime()) || cd >= today) return false;
+                const cd = this.parseSafeDate(opp.CloseDate);
+                if (!cd || this.diasCalendario(today, cd) >= 0) return false;
             }
             return true;
         });
@@ -1608,7 +2137,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             let daysLabel = '';
             let daysClass = 'days-remaining';
             if (hasValidCloseDate && !isClosed) {
-                const diff = Math.ceil((closeDate - today) / 86400000);
+                const diff = this.diasCalendario(today, closeDate);
                 daysRemaining = diff;
                 if (diff < 0) {
                     daysLabel = `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`;
@@ -1660,10 +2189,26 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     parseSafeDate(value) {
         if (!value) return null;
-        const d = new Date(value);
+        let d;
+        // Las fechas de solo día ("2026-08-06") se interpretan en horario LOCAL.
+        // new Date('YYYY-MM-DD') las asume en UTC y eso corre la fecha un día en
+        // zonas horarias detrás de UTC (p. ej. México), causando días mal contados.
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [y, m, dd] = value.split('-').map(Number);
+            d = new Date(y, m - 1, dd);
+        } else {
+            d = new Date(value);
+        }
         if (isNaN(d.getTime())) return null;
         if (d.getFullYear() < 1970) return null;
         return d;
+    }
+    // Días de calendario entre dos fechas (ignora la hora): cuenta de medianoche a
+    // medianoche en local, así "hoy" a "pasado mañana" siempre da 2, sin importar la hora.
+    diasCalendario(desde, hasta) {
+        const a = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate());
+        const b = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+        return Math.round((b - a) / 86400000);
     }
     isClosedStage(stageName) {
         return stageName === 'Closed Won' || stageName === 'Closed Lost';
@@ -1752,7 +2297,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleClienteChange(event) {
         const field = event.target.dataset.field;
         if (!field) return;
-        const value = event.target.value;
+        let value = event.target.value;
+        // Máscara del teléfono: solo números, máximo 10 dígitos.
+        if (field === 'clienteTelefono') {
+            // Permite un +52 opcional al inicio; el resto solo dígitos (10).
+            const raw = (value || '');
+            const conPlus = raw.trim().startsWith('+');
+            let digitos = raw.replace(/[^0-9]/g, '');
+            if (conPlus && digitos.startsWith('52')) {
+                value = '+' + digitos.slice(0, 12);   // +52 + 10 dígitos
+            } else {
+                value = digitos.slice(0, 10);          // 10 dígitos sin lada
+            }
+            event.target.value = value;
+        }
         const updated = { ...this.opportunity, [field]: value };
         const camposNombre = ['clienteNombre', 'clienteApellidoPaterno', 'clienteApellidoMaterno'];
         if (this.isNewAccount && camposNombre.includes(field)) {
@@ -1912,6 +2470,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!event) return;
             const quote = event.detail || {};
             if (!quote.id) return;
+            // El AGENTE se toma del nombre del archivo (2° segmento separado por " - ").
+            this.asignarAgenteDesdeArchivo(quote.nombreArchivo);
             const ramo = quote.ramo || 'DESCONOCIDO';
             const ramoNormalizado = this.normalizarRamoParaCSS(ramo);
             const flags = {
@@ -2075,6 +2635,51 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const nombres = p.slice(0, p.length - 2).join(' ');
         return { nombres, paterno, materno };
     }
+    // Devuelve Nombre(s) / Apellido Paterno / Apellido Materno para llenar el formulario
+    // al recuperar una cuenta. Usa las partes que ya separa el Apex; si no vienen
+    // (datos viejos), separa el nombre completo. Para empresa, el nombre es la razón social.
+    nombrePartesDesdeCuenta(acc) {
+        if (acc && acc.IsPersonAccount) {
+            if (acc.clienteApellidoPaterno || acc.clienteApellidoMaterno) {
+                return {
+                    clienteNombre: acc.clienteNombre || '',
+                    clienteApellidoPaterno: acc.clienteApellidoPaterno || '',
+                    clienteApellidoMaterno: acc.clienteApellidoMaterno || ''
+                };
+            }
+            const partes = this.separarNombre(acc.clienteNombre || acc.Name || '');
+            return {
+                clienteNombre: partes.nombres,
+                clienteApellidoPaterno: partes.paterno,
+                clienteApellidoMaterno: partes.materno
+            };
+        }
+        return {
+            clienteNombre: (acc && (acc.clienteNombre || acc.Name)) || '',
+            clienteApellidoPaterno: '',
+            clienteApellidoMaterno: ''
+        };
+    }
+    // Al cargar una oportunidad existente, trae los datos del cliente desde la Cuenta
+    // (por Id) y llena nombre separado, RFC, correo, teléfono, CP y dirección.
+    async recuperarDetallesCuenta(accountId) {
+        try {
+            const acc = await getAccountById({ accountId });
+            if (!acc) { return; }
+            this.opportunity = {
+                ...this.opportunity,
+                tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
+                ...this.nombrePartesDesdeCuenta(acc),
+                clienteRFC:       acc.clienteRFC       || this.opportunity.clienteRFC       || '',
+                clienteEmail:     acc.clienteEmail     || this.opportunity.clienteEmail     || '',
+                clienteTelefono:  acc.clienteTelefono  || this.opportunity.clienteTelefono  || '',
+                clienteCP:        acc.clienteCP        || this.opportunity.clienteCP        || '',
+                clienteDireccion: acc.clienteDireccion || this.opportunity.clienteDireccion || ''
+            };
+        } catch (e) {
+            // Si falla, se conserva lo que ya se mostró.
+        }
+    }
 
     extractPrimaTotal(quote) {
         if (!quote) return 0;
@@ -2123,6 +2728,96 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         };
         for (const [key, value] of Object.entries(mapping)) if (u.includes(key)) return value;
         return ramo;
+    }
+    // Normaliza la frecuencia de pago al catálogo del picklist (Contado, Mensual,
+    // Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
+    // Toma el AGENTE del nombre del archivo (2° segmento separado por " - ") y lo busca
+    // en el catálogo de agentes para asignarlo a la oportunidad. Si no lo encuentra, se
+    // deja para captura manual. Solo actúa si aún no hay agente asignado.
+    async asignarAgenteDesdeArchivo(fileName) {
+        if (!fileName) { return; }
+        // El del archivo tiene prioridad sobre el default (Abraham), pero NO sobre una
+        // selección manual del usuario.
+        if (this.opportunity.Agente__c && !this._agenteEsDefault) { return; }
+        const agente = this.agenteDesdeNombreArchivo(fileName);
+        if (!agente) { return; }
+        try {
+            const res = await searchAgentsProspectors({ searchTerm: agente });
+            if (res && res.length) {
+                this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                this._agenteEsDefault = false;
+            }
+        } catch (e) {
+            // Sin coincidencia: se conserva el que hubiera (default o vacío).
+        }
+    }
+
+    // ===== Buscador de Marca (escribible) =====
+    get marcaQueryDisplay() {
+        return this._marcaTyped !== null ? this._marcaTyped
+            : ((this.automovil && this.automovil.Marca__c) || '');
+    }
+    get hasMarcaResultados() {
+        return this.marcaResultados && this.marcaResultados.length > 0;
+    }
+    filtrarMarcas(texto) {
+        const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const t = norm(texto);
+        const opts = this.marcaPicklistValues || [];
+        this.marcaResultados = t
+            ? opts.filter(o => norm(o.label).includes(t) || norm(o.value).includes(t)).slice(0, 50)
+            : opts.slice(0, 50);
+    }
+    handleMarcaFocus() {
+        if (this.isVehiculoReadOnly) { return; }
+        this.filtrarMarcas('');
+        this.showMarcaDropdown = true;
+    }
+    handleMarcaInput(event) {
+        this._marcaTyped = event.target.value;
+        this.filtrarMarcas(this._marcaTyped);
+        this.showMarcaDropdown = true;
+    }
+    selectMarca(event) {
+        const value = event.currentTarget.dataset.value;
+        this._marcaTyped = null;
+        this.showMarcaDropdown = false;
+        this.marcaResultados = [];
+        this.automovil = { ...this.automovil, Marca__c: value };
+    }
+    handleMarcaBlur() {
+        // Cierra el dropdown tras el clic (onmousedown ya seleccionó).
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => { this.showMarcaDropdown = false; }, 200);
+    }
+
+    // Empareja la marca extraída (ej. "NISSAN", "NISSAN ROGUE") con el valor exacto del
+    // picklist de Marca (ej. "Nissan"), ignorando mayúsculas/acentos, para que sí se seleccione.
+    matchMarca(nombre) {
+        if (!nombre) return '';
+        const norm = s => s.toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        const target = norm(nombre);
+        const opts = this.marcaPicklistValues || [];
+        let m = opts.find(o => norm(o.value) === target || norm(o.label) === target);
+        if (m) return m.value;
+        // Empieza por (ej. "NISSAN ROGUE ADVANCE" → "Nissan")
+        m = opts.find(o => target.startsWith(norm(o.value) + ' ') || target.startsWith(norm(o.label) + ' '));
+        if (m) return m.value;
+        // Contiene la marca como palabra
+        m = opts.find(o => target.split(' ').includes(norm(o.value)) || target.split(' ').includes(norm(o.label)));
+        if (m) return m.value;
+        return nombre;
+    }
+
+    normalizarFrecuenciaUI(valor) {
+        const v = (valor || '').toString().toLowerCase();
+        if (!v) return 'Anual';
+        if (v.includes('contado') || v.includes('una sola') || v.includes('unic')) return 'Contado';
+        if (v.includes('quincen')) return 'Quincenal';
+        if (v.includes('mensual')) return 'Mensual';
+        if (v.includes('trimestr')) return 'Trimestral';
+        if (v.includes('semestr')) return 'Semestral';
+        return 'Anual';
     }
     getRamoLabel(ramo) {
         if (!ramo) return 'Desconocido';
@@ -2195,10 +2890,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     updateOpportunityFromExtractedData(extractedData) {
         if (!extractedData || Array.isArray(extractedData)) return;
         try {
-            if (!this.opportunity.Name && extractedData.compania) {
+            if (!this.opportunity.Name) {
+                // No se bautiza con la aseguradora: hay varias opciones vivas. El nombre
+                // usa Ramo + Cliente; la aseguradora se fija al aceptar la cotización ganadora.
                 const ramoLabel = extractedData.ramoLabel || extractedData.ramo || 'Seguro';
                 const clienteNombre = extractedData.clienteNombre || 'Cliente';
-                this.opportunity.Name = `${ramoLabel} - ${extractedData.compania} - ${clienteNombre}`.substring(0, 80);
+                this.opportunity.Name = `${ramoLabel} - ${clienteNombre}`.substring(0, 80);
             }
             if (!this.opportunity.Ramo__c) {
                 const mapped = this.mapRamoToOption(extractedData.ramo);
@@ -2222,7 +2919,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (extractedData.marca || extractedData.modelo) {
                 this.automovil = {
                     ...this.automovil,
-                    Marca__c:  extractedData.marca  || this.automovil.Marca__c,
+                    Marca__c:  this.matchMarca(extractedData.marca) || this.automovil.Marca__c,
                     Modelo__c: extractedData.modelo || this.automovil.Modelo__c,
                     Placa__c:  extractedData.placa  || this.automovil.Placa__c,
                     Serie__c:  extractedData.serie  || this.automovil.Serie__c,
@@ -2346,41 +3043,61 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.isSaving = true;
         this.isLoading = true;
         try {
-            if (!this.opportunity.Name)     { this.showToast('Error', 'El nombre de la oportunidad es requerido', 'error'); return; }
-            if (!this.opportunity.StageName){ this.showToast('Error', 'La etapa es requerida', 'error'); return; }
-            if (!this.opportunity.Ramo__c)  { this.showToast('Error', 'El ramo es requerido', 'error'); return; }
-            // Serie (VIN) obligatoria cuando el ramo es Automóviles.
-            if (this.isRamoAutomovil && !(this.automovil && this.automovil.Serie__c && String(this.automovil.Serie__c).trim())) {
-                this.showToast('Error', 'El número de serie (VIN) del vehículo es obligatorio.', 'error');
-                return;
+            // Se validan TODOS los campos y se muestran los faltantes de una sola vez
+            // (antes salían de uno en uno). El VIN/Motor no se exigen en la cotización.
+            const errores = [];
+            if (!this.opportunity.Name)      { errores.push('Nombre de la oportunidad'); }
+            if (!this.opportunity.StageName) { errores.push('Etapa'); }
+            if (!this.opportunity.Ramo__c)   { errores.push('Ramo'); }
+            // Correo OPCIONAL: solo se valida el formato si viene capturado.
+            const emailVal = (this.opportunity.clienteEmail || '').trim();
+            if (emailVal) {
+                const atPos = emailVal.indexOf('@');
+                const dotPos = emailVal.lastIndexOf('.');
+                const emailOk = atPos > 0 && dotPos > atPos + 1 && dotPos < emailVal.length - 1
+                    && emailVal.indexOf(' ') === -1 && emailVal.indexOf('@', atPos + 1) === -1;
+                if (!emailOk) { errores.push('Correo válido'); }
             }
+            // Teléfono OPCIONAL: solo se valida si viene capturado.
+            const telDigits = (this.opportunity.clienteTelefono || '').replace(/[^0-9]/g, '');
+            if (telDigits) {
+                const telOk = telDigits.length === 10 || (telDigits.length === 12 && telDigits.startsWith('52'));
+                if (!telOk) { errores.push('Teléfono a 10 dígitos (opcional +52)'); }
+            }
+            // Prima neta mayor a 0.
+            const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
+            if (!primaVal || primaVal <= 0) { errores.push('Prima neta mayor a 0'); }
+            // Cuenta.
             if (!this.opportunity.AccountId && !this.isNewAccount) {
-                this.showToast('Error', 'Selecciona una cuenta o elige "Crear cuenta nueva".', 'error');
-                return;
+                errores.push('Selecciona una cuenta o elige "Crear cuenta nueva"');
             }
             if (this.isNewAccount) {
                 let newAccName = this.opportunity.AccountName;
                 if (!newAccName) {
-                    if (this.opportunity.tipoCliente === 'Persona') {
-                        newAccName = `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidos || ''}`.trim();
-                    } else {
-                        newAccName = this.opportunity.clienteNombre || '';
-                    }
+                    newAccName = (this.opportunity.tipoCliente === 'Persona')
+                        ? `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidos || ''}`.trim()
+                        : (this.opportunity.clienteNombre || '');
                 }
                 if (!newAccName) {
-                    this.showToast('Error',
-                        'Captura el nombre del cliente en "Información del Cliente" para crear la cuenta nueva.',
-                        'error');
-                    return;
+                    errores.push('Nombre del cliente (para crear la cuenta nueva)');
+                } else {
+                    this.opportunity = { ...this.opportunity, AccountName: newAccName };
                 }
-                this.opportunity = { ...this.opportunity, AccountName: newAccName };
+            }
+            if (errores.length) {
+                const msg = errores.length === 1
+                    ? `Falta: ${errores[0]}.`
+                    : `Faltan estos datos: ${errores.join(' • ')}.`;
+                this.showToast('Revisa los campos', msg, 'error');
+                return;
             }
             // Payload: oportunidad + detalle del ramo + datos del auto (para Vehiculo__c)
             const payload = {
                 ...this.opportunity,
                 Automovil__c: this.opportunity.Vehiculo__c || null,
-                // El agente se captura en Agente__c pero el Apex lo guarda en Agente_Relacionado__c.
-                Agente_Relacionado__c: this.opportunity.Agente__c || this.opportunity.Agente_Relacionado__c || null,
+                // El agente es un PRODUCER; el Apex lo guarda en Opportunity.Producer__c
+                // y luego se liga a InsurancePolicy.ProducerId.
+                Producer__c: this.opportunity.Agente__c || null,
                 isNewContacto: this.isNewContacto,
                 Descripcion__c: this.comparativoHtml || null,
                 detalleRamo: this.getActiveRamoDetail(),
@@ -2392,6 +3109,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             if (savedId) {
                 this.opportunity = { ...this.opportunity, Id: savedId };
+                // Colectiva: guarda/actualiza los asegurados del grupo.
+                if (this.isColectiva && this.asegurados.length) {
+                    try {
+                        await guardarAsegurados({
+                            opportunityId: savedId,
+                            aseguradosJson: JSON.stringify(this.aseguradosPayload)
+                        });
+                        await this.cargarAsegurados(savedId);
+                    } catch (e) {
+                        const m = (e && e.body && e.body.message) || (e && e.message) || '';
+                        this.showToast('Asegurados',
+                            'La oportunidad se guardó, pero hubo un problema con algunos asegurados: ' + m, 'warning');
+                    }
+                }
             }
             this.showToast('Éxito',
                 this.isEditMode ? 'Oportunidad actualizada correctamente' : 'Oportunidad creada correctamente',
@@ -2399,15 +3130,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             await this.loadOpportunities();
 
             if (this.hasPdfQuotes && savedId) {
-                // Venimos del flujo de PDFs: nos quedamos en la oportunidad para
-                // validar la comparativa y crear las cotizaciones al confirmar.
+                // Venimos del flujo de PDFs: guardamos los PDFs y el comparativo (como PDF)
+                // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
+                await this.guardarArchivosPdf(savedId);
                 this.viewMode = VIEW_MODES.EDIT;
             } else {
                 setTimeout(() => this.handleBackToList(), 1000);
             }
         } catch (error) {
             // eslint-disable-next-line no-console
-            console.error(':::OpportunityCreator::: Error al guardar', error);
+            console.error(':::OpportunityCreator::: Error al guardar', JSON.stringify(error));
             const msg = error?.body?.message || error?.message || 'Error al guardar la oportunidad';
             this.showToast('Error', msg, 'error');
         } finally {
@@ -2425,6 +3157,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             StageName: 'Gestion Comercial',
             Canal__c: 'Agente',                               // ← default
             Mercado__c: 'Corporativo',                        // ← default
+            Tipo_Contratacion__c: 'Individual',               // ← Individual / Colectiva
             Ramo__c: '', Description: '', AccountId: null, AccountName: '',
             Agente__c: null, AgenteName: '',                  // ← nuevo lookup de Agente
             Vehiculo__c: null, VehiculoName: '',
@@ -2463,6 +3196,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     getDefaultRC()          { return { tipoRC: '', profesion: '', actividad: '', giro: '' }; }
     getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '' }; }
     getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '' }; }
+    getDefaultTransporte()  { return { bienesCubiertos: '', medioTransporte: '', origen: '', destino: '', limiteEmbarque: '' }; }
     handleBackToList() {
         this.viewMode = VIEW_MODES.LIST;
         this.resetWizard();
@@ -2478,18 +3212,175 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.setDefaultAgente();
         this.viewMode = VIEW_MODES.PDF;
     }
+    // Aplica el objeto "detalle" del comparador al detalle del ramo correspondiente,
+    // para que "Detalles del Seguro de {ramo}" no salga vacío.
+    aplicarDetalleRamo(det, ramo) {
+        if (!det || typeof det !== 'object') { return; }
+        const r = (ramo || this.opportunity.Ramo__c || '').toString().toUpperCase();
+        const pick = (a, b) => (a !== undefined && a !== null && a !== '') ? a : b;
+        if (r.includes('VIDA')) {
+            this.vida = { ...this.vida,
+                aseguradoPrincipal: pick(det.aseguradoPrincipal, this.vida.aseguradoPrincipal),
+                contratante:        pick(det.contratante, this.vida.contratante),
+                subramo:            pick(det.subramo, this.vida.subramo),
+                edadVida:           pick(det.edadVida, this.vida.edadVida),
+                sumaFallecimiento:  pick(det.sumaFallecimiento, this.vida.sumaFallecimiento),
+                aportacionAnual:    pick(det.aportacionAnual, this.vida.aportacionAnual),
+                plazo:              pick(det.plazo, this.vida.plazo)
+            };
+        } else if (r.includes('GMM') || r.includes('MEDIC')) {
+            this.gmm = { ...this.gmm,
+                numAsegurados:   pick(det.numAsegurados, this.gmm.numAsegurados),
+                tipoEstructura:  pick(det.tipoEstructura, this.gmm.tipoEstructura),
+                estado:          pick(det.estado, this.gmm.estado),
+                redHospitalaria: pick(det.redHospitalaria, this.gmm.redHospitalaria)
+            };
+        } else if (r.includes('DANO') || r.includes('DAÑO') || r.includes('HOGAR') || r.includes('EMPRESAR')) {
+            this.danos = { ...this.danos, subramo: pick(det.subramo, this.danos.subramo) };
+        } else if (r.includes('VIAJE')) {
+            this.viaje = { ...this.viaje,
+                destino:      pick(det.destino, this.viaje.destino),
+                numPasajeros: pick(det.numViajeros, this.viaje.numPasajeros)
+            };
+        } else if (r.includes('RC') || r.includes('RESPONSAB')) {
+            const rc = this.rc || {};
+            this.rc = { ...rc,
+                tipoRC:    pick(det.tipoRC, rc.tipoRC),
+                profesion: pick(det.profesion, rc.profesion),
+                actividad: pick(det.actividad, rc.actividad),
+                giro:      pick(det.giro, rc.giro)
+            };
+        }
+    }
+
+    // Pone la fecha de cierre sugerida: el vencimiento de la cotización más corta;
+    // si no hay vigencia (ej. Vida), hoy + 30 días. No pisa una fecha ya puesta.
+    aplicarFechaCierreSugerida(quotes) {
+        if (this.opportunity.CloseDate) { return; }
+        const vigs = (quotes || [])
+            .map(q => q && q.vigencia)
+            .filter(v => v && /^\d{4}-\d{2}-\d{2}/.test(String(v)))
+            .sort();
+        let close;
+        if (vigs.length) {
+            close = String(vigs[0]).slice(0, 10);
+        } else {
+            const dt = new Date(); dt.setDate(dt.getDate() + 30);
+            close = dt.toISOString().slice(0, 10);
+        }
+        this.opportunity = { ...this.opportunity, CloseDate: close };
+    }
+
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
     // Cambiamos a la vista de creación para que el usuario revise y guarde.
+    // ---------- Archivos de la oportunidad ----------
+    async handleVerArchivos(event) {
+        const oppId = event.currentTarget.dataset.id;
+        const oppName = event.currentTarget.dataset.name || '';
+        if (!oppId) { return; }
+        this.archivosOppName = oppName;
+        this.archivosModalOpen = true;
+        this.archivosLoading = true;
+        this.archivosList = [];
+        try {
+            const files = await getArchivosDeOportunidad({ opportunityId: oppId });
+            this.archivosList = (files || []).map((f) => this.decorarArchivo(f));
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || 'No se pudieron cargar los archivos';
+            this.showToast('Error', msg, 'error');
+        } finally {
+            this.archivosLoading = false;
+        }
+    }
+
+    decorarArchivo(f) {
+        const docId = f.contentDocumentId;
+        return {
+            contentDocumentId: docId,
+            title: f.title,
+            sizeText: this.formatFileSize(f.size),
+            iconName: this.iconoPorExtension(f.extension),
+            viewUrl: `/lightning/r/ContentDocument/${docId}/view`,
+            downloadUrl: `/sfc/servlet.shepherd/document/download/${docId}`
+        };
+    }
+
+    formatFileSize(bytes) {
+        if (!bytes || bytes <= 0) { return ''; }
+        if (bytes < 1024) { return bytes + ' B'; }
+        if (bytes < 1048576) { return Math.round(bytes / 1024) + ' KB'; }
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    iconoPorExtension(ext) {
+        const e = (ext || '').toLowerCase();
+        if (e === 'pdf') { return 'doctype:pdf'; }
+        if (['png', 'jpg', 'jpeg', 'gif'].includes(e)) { return 'doctype:image'; }
+        if (['doc', 'docx'].includes(e)) { return 'doctype:word'; }
+        if (['xls', 'xlsx', 'csv'].includes(e)) { return 'doctype:excel'; }
+        return 'doctype:unknown';
+    }
+
+    closeArchivosModal() {
+        this.archivosModalOpen = false;
+        this.archivosList = [];
+    }
+
+    get tieneArchivos() {
+        return this.archivosList && this.archivosList.length > 0;
+    }
+
+    // Sube los PDFs cargados y el comparativo (como PDF) a la oportunidad indicada.
+    async guardarArchivosPdf(oppId) {
+        if (!oppId) { return; }
+        const archivos = this.pdfArchivos || [];
+        let subidos = 0;
+        for (const a of archivos) {
+            if (!a || !a.base64) { continue; }
+            try {
+                await guardarArchivoEnOportunidad({ opportunityId: oppId, fileName: a.nombre, base64Data: a.base64 });
+                subidos++;
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
+            }
+        }
+        // Se arma el comparativo COMPLETO (precios + coberturas + resumen), igual a la
+        // pestaña; si no hay datos estructurados, se usa el HTML de la IA como respaldo.
+        const htmlComparativo = this.buildComparativoHtmlCompleto() || this.comparativoHtml;
+        if (htmlComparativo) {
+            try {
+                // 1) Guarda el comparativo en la oportunidad (dato committed) y
+                // 2) genera el PDF leyéndolo desde ahí (mecanismo confiable).
+                await actualizarComparativoOpp({ opportunityId: oppId, comparativoHtml: htmlComparativo });
+                await guardarComparativoPdf({
+                    opportunityId: oppId,
+                    nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones'
+                });
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error(':::OpportunityCreator::: No se pudo generar el PDF del comparativo', e);
+            }
+        }
+        // Ya se guardaron: se limpian para no duplicar en un guardado posterior.
+        this.pdfArchivos = [];
+        if (subidos > 0 || htmlComparativo) {
+            this.showToast('Archivos', 'Se guardaron los PDFs y el comparativo en la oportunidad.', 'success');
+        }
+    }
+
     handlePdfAnalysisComplete(event) {
         const d = (event && event.detail) || {};
         const n = d.count || this.uploadedQuotes.length;
+        // Guardamos los PDFs (base64) para adjuntarlos a la oportunidad al guardar/confirmar.
+        this.pdfArchivos = d.archivos || [];
 
         // Modo "agregar a oportunidad existente": no cambia de vista ni toca la oportunidad.
         // Solo prepara las cotizaciones para que el usuario las revise y confirme.
         if (this.addQuotesMode) {
             this.loadEditableQuotes();
             this.showToast('Cotizaciones detectadas',
-                `Se detectaron ${n} cotización(es). Revisa el producto y confirma para agregarlas.`, 'success');
+                `Detecté ${n} cotización(es) en tus PDFs. Revisa el producto y confirma: yo las agrego por ti.`, 'success');
             return;
         }
 
@@ -2498,6 +3389,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.viewMode = VIEW_MODES.CREATE;
         this.comparativoHtml = d.comparativoHtml || '';
         this._comparativoDirty = true;
+
+        // Aplica el DETALLE del ramo (Vida, GMM, Daños, Viajes, RC) desde el comparador.
+        this.aplicarDetalleRamo(d.detalle, d.ramo);
+        // Fecha de cierre sugerida: vencimiento de la cotización más corta; si no hay
+        // (ej. Vida), hoy + 30 días.
+        this.aplicarFechaCierreSugerida(d.quotes || this.uploadedQuotes);
 
         if (d.ganadora) {
             const nota = `Recomendación IA: ${d.ganadora}` +
@@ -2510,34 +3407,84 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             };
         }
 
-        // Cuenta: usar el cliente detectado (buscar o marcar para crear) + agente por default.
-        this.resolveAccountByName(this.opportunity.clienteNombre);
-        this.setDefaultAgente();
+        // Cuenta: usar el nombre COMPLETO del cliente (el nombre de pila y los apellidos
+        // van separados). Antes se buscaba solo con el nombre de pila y por eso nunca
+        // encontraba la cuenta existente y la marcaba como nueva.
+        const nombreCuenta = [
+            this.opportunity.clienteNombre,
+            this.opportunity.clienteApellidoPaterno,
+            this.opportunity.clienteApellidoMaterno
+        ].filter(Boolean).join(' ').trim();
+        if (nombreCuenta) {
+            this.opportunity = { ...this.opportunity, AccountName: nombreCuenta };
+            this.resolveAccountByName(nombreCuenta);
+        }
+        this.setDefaultAgente(d);
         this.loadEditableQuotes();
 
         this.showToast(
-            'Datos listos',
+            'La IA ya lo llenó',
             d.ganadora
-                ? `Se extrajeron ${n} cotizaciones. Recomendada: ${d.ganadora}. Revisa y guarda.`
-                : `Se extrajeron ${n} cotizaciones. Revisa el formulario y guarda.`,
+                ? `Listo, sin capturar a mano: ${n} cotizaciones leídas. Recomendada: ${d.ganadora}. Solo revisa y guarda.`
+                : `Listo, sin capturar a mano: ${n} cotizaciones leídas. Solo revisa y guarda.`,
             'success'
         );
     }
 
-    // Pone Abraham Gonzalez Gonzalez como agente por default (si no hay uno ya).
-    async setDefaultAgente() {
-        if (this.opportunity.Agente__c) return;
-        try {
-            const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez Gonzalez' });
-            if (res && res.length > 0) {
-                this.opportunity = {
-                    ...this.opportunity,
-                    Agente__c: res[0].Id,
-                    AgenteName: res[0].Name
-                };
+    // El AGENTE (Producer) se toma del NOMBRE DEL ARCHIVO de las cotizaciones
+    // (2° segmento separado por " - ", ej. "ARTURO VINIEGRA") y se busca en Producer.
+    // Ya NO se pone un agente por default; si no hay coincidencia, se captura a mano.
+    // Extrae el nombre del agente del nombre de archivo (2° segmento separado por " - ",
+    // ej. "AXA - ARTURO VINIEGRA - Auto.pdf" -> "ARTURO VINIEGRA"). Devuelve '' si no aplica.
+    agenteDesdeNombreArchivo(fileName) {
+        if (!fileName) { return ''; }
+        const base = String(fileName).replace(/\.[^.]+$/, '');
+        const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
+        const agente = segs.length >= 2 ? segs[1] : '';
+        return (agente && agente.length >= 3) ? agente : '';
+    }
+
+    async setDefaultAgente(d) {
+        // Respeta una selección MANUAL del usuario (agente ya elegido y no default).
+        if (this.opportunity.Agente__c && !this._agenteEsDefault) { return; }
+
+        // Junta los NOMBRES REALES de los archivos subidos (d.archivos) y, como respaldo,
+        // los de las cotizaciones. La misma regla aplica para todos los ramos.
+        const fuentes = [];
+        if (d && Array.isArray(d.archivos)) { d.archivos.forEach(a => { if (a && a.nombre) { fuentes.push(a.nombre); } }); }
+        if (d && Array.isArray(d.quotes)) { d.quotes.forEach(q => { if (q) { fuentes.push(q.archivoOrigen || q.nombreArchivo); } }); }
+        if (Array.isArray(this.uploadedQuotes)) { this.uploadedQuotes.forEach(q => { if (q) { fuentes.push(q.archivoOrigen || q.nombreArchivo); } }); }
+
+        // Toma el agente del PRIMER archivo cuyo 2° segmento exista en Producer.
+        let asignado = false;
+        for (const archivo of fuentes) {
+            const agente = this.agenteDesdeNombreArchivo(archivo);
+            if (!agente) { continue; }
+            try {
+                const res = await searchAgentsProspectors({ searchTerm: agente });
+                if (res && res.length > 0) {
+                    this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                    this._agenteEsDefault = false;
+                    asignado = true;
+                    break;
+                }
+            } catch (e) {
+                // Sigue con el siguiente archivo.
             }
-        } catch (e) {
-            // sin agente por default; el usuario puede elegirlo
+        }
+
+        // Respaldo: si NINGÚN archivo trae un agente válido, se usa "Abraham Gonzalez".
+        // Se marca como DEFAULT para que un evento posterior con el nombre real lo reemplace.
+        if (!asignado && !this.opportunity.Agente__c) {
+            try {
+                const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez' });
+                if (res && res.length > 0) {
+                    this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                    this._agenteEsDefault = true;
+                }
+            } catch (e) {
+                // Sin coincidencia: el usuario elige el agente a mano.
+            }
         }
     }
 
@@ -2549,6 +3496,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const val = event.detail.value;
         this.editableQuotes = this.editableQuotes.map((q, i) =>
             i === idx ? { ...q, productId: val } : q);
+    }
+    // Permite ELEGIR/corregir la aseguradora en la revisión; recarga los productos.
+    async handleQuoteAseguradoraChange(event) {
+        const idx = parseInt(event.target.dataset.index, 10);
+        const asegId = event.detail.value;
+        const q = this.editableQuotes[idx];
+        if (!q) { return; }
+        let productos = [];
+        try {
+            productos = await getProductosPorAseguradoraRamo({ aseguradoraId: asegId, ramo: q.ramo });
+        } catch (e) { productos = []; }
+        const productId = (productos && productos.length) ? productos[0].value : null;
+        this.editableQuotes = this.editableQuotes.map((it, i) =>
+            i === idx ? { ...it, aseguradoraId: asegId, productos, productId, sinProductos: !(productos && productos.length) } : it);
     }
     handleQuoteFrecuenciaChange(event) {
         const idx = parseInt(event.target.dataset.index, 10);
@@ -2693,6 +3654,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const covs = (q.tablaCompletaCoberturas || [])
             .map(c => (c.cobertura || c.nombre || '').trim())
             .filter(Boolean);
+        // Detalle por concepto (suma/deducible) para mostrarlo en cada celda del comparativo.
+        const esAuto = q.isAutomovil || /auto/i.test(q.ramo || '');
+        const coverageDetalle = {};
+        (q.tablaCompletaCoberturas || []).forEach(c => {
+            const nombre = (c.cobertura || c.nombre || '').trim();
+            if (!nombre) { return; }
+            const concepto = esAuto ? this.conceptoDe(nombre) : nombre;
+            const val = { suma: c.sumaAsegurada || c.suma || '', deducible: c.deducible || '' };
+            coverageDetalle[concepto.toLowerCase()] = this.combinarValor(coverageDetalle[concepto.toLowerCase()], val);
+        });
         return {
             Id: q.id || ('pq' + i),
             companiaLabel: q.compania || '—',
@@ -2701,6 +3672,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageCount: covs.length,
             coverageLabel: covs.length === 1 ? '1 cobertura' : `${covs.length} coberturas`,
             coverageNames: covs,
+            coverageDetalle,
             expirationDateRaw: q.vigencia || null,
             expirationFormatted: q.vigencia ? this.formatDate(q.vigencia) : '',
             statusLabel: 'Vista previa',
@@ -2712,9 +3684,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasAgenteResults() {
         return this.agenteResults && this.agenteResults.length > 0;
     }
+    
     handleAgenteFocus() {
         this.showAgenteDropdown = true;
     }
+
     handleAgenteInput(event) {
         const value = event.target.value;
         this.opportunity = { ...this.opportunity, AgenteName: value, Agente__c: null };
@@ -2732,11 +3706,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
         }, 300);
     }
+
     selectAgente(event) {
         const id = event.currentTarget.dataset.id;
         const ag = (this.agenteResults || []).find(a => a.Id === id);
         if (!ag) return;
         this.opportunity = { ...this.opportunity, Agente__c: ag.Id, AgenteName: ag.Name };
+        this._agenteEsDefault = false; // selección manual: ya no es el default
         this.showAgenteDropdown = false;
         this.agenteResults = [];
     }
@@ -2768,6 +3744,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.rc = this.getDefaultRC();
         this.dental = this.getDefaultDental();
         this.vision = this.getDefaultVision();
+        this.transporte = this.getDefaultTransporte();
+        this.asegurados = [];
         this.uploadedQuotes = [];
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
@@ -2785,13 +3763,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.comparativoHtml = '';
         this._comparativoDirty = true;
     }
+
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
+
     addMoreQuotes() {
         const uploader = this.template.querySelector('c-cotizacion-op-lector');
         if (uploader && typeof uploader.openFilePicker === 'function') uploader.openFilePicker();
     }
+
     toggleQuoteExpand(event) {
         event.preventDefault(); event.stopPropagation();
         const quoteId = event.currentTarget.dataset.quoteId;
@@ -2806,6 +3787,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             };
         });
     }
+
     removeQuote(event) {
         const quoteId = event.currentTarget.dataset.quoteId;
         if (!quoteId) return;

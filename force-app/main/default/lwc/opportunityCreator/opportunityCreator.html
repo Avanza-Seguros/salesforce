@@ -22,12 +22,12 @@
                                     Editando oportunidad existente
                                 </template>
                                 <template if:false={isEditMode}>
-                                    Transforma prospectos en negocios exitosos
+                                    Captura al cliente y sus cotizaciones en un solo lugar.
                                 </template>
                             </template>
                             <!-- NUEVO -->
                             <template if:true={showPdfView}>
-                                Sube los documentos del cliente y deja que la IA cree la oportunidad
+                                Sube los PDFs y la oportunidad se arma sola. Sin capturar a mano.
                             </template>
                         </p>
                     </div>
@@ -127,9 +127,9 @@
                             Nueva Oportunidad
                         </button>
                         <!-- NUEVO -->
-                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Crear oportunidad subiendo PDFs">
+                        <button class="action-btn pdf-action" onclick={handleCreateFromPdf} title="Sube las cotizaciones en PDF y la IA arma la oportunidad, sin capturar a mano">
                             <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
-                            Crear desde PDFs
+                            Crear desde PDFs (IA)
                         </button>
                     </div>
                 </div>
@@ -188,6 +188,10 @@
                                                                 <lightning-icon icon-name="standard:policy" size="xx-small"></lightning-icon>
                                                                 <span>Ver Póliza</span>
                                                             </button>
+                                                            <button class="poliza-list-btn" onclick={handleEnviarCorreo} data-id={opp.Id} title="Enviar correo de la oportunidad">
+                                                                <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon>
+                                                                <span>Enviar Correo</span>
+                                                            </button>
                                                         </template>
                                                         <template if:true={opp.isClosed}>
                                                             <button class="info-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver información (solo lectura)">
@@ -203,6 +207,9 @@
                                                                 <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
                                                             </button>
                                                         </template>
+                                                        <button class="icon-btn" onclick={handleVerArchivos} data-id={opp.Id} data-name={opp.Name} title="Ver archivos">
+                                                            <lightning-icon icon-name="utility:attach" size="xx-small"></lightning-icon>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -243,7 +250,7 @@
                                         No se encontraron oportunidades que coincidan con "{searchTerm}".
                                     </template>
                                     <template if:false={searchTerm}>
-                                        No hay oportunidades disponibles con los filtros actuales.
+                                        Arranca tu primera oportunidad: sube las cotizaciones en PDF y deja que se arme sola, sin teclear nada.
                                     </template>
                                 </p>
                                 <button class="action-btn primary" onclick={handleCreateNew}>
@@ -253,7 +260,7 @@
                                 <!-- NUEVO -->
                                 <button class="action-btn pdf-action" onclick={handleCreateFromPdf}>
                                     <lightning-icon icon-name="utility:upload" size="xx-small"></lightning-icon>
-                                    Crear desde PDFs
+                                    Crear desde PDFs (IA)
                                 </button>
                             </div>
                         </template>
@@ -441,6 +448,17 @@
                                             variant="label-hidden" dropdown-alignment="auto" required>
                                         </lightning-combobox>
                                     </div>
+                                    <div class="form-card">
+                                        <div class="form-card-header">
+                                            <lightning-icon icon-name="utility:groups" size="x-small"></lightning-icon>
+                                            <h3>Tipo de contratación <span class="required-asterisk">*</span></h3>
+                                        </div>
+                                        <lightning-combobox label="" value={opportunity.Tipo_Contratacion__c}
+                                            placeholder="Individual o Colectiva" options={tipoContratacionOptions}
+                                            onchange={handleTipoContratacionChange} disabled={isOpportunityReadOnly}
+                                            data-field="Tipo_Contratacion__c" variant="label-hidden" dropdown-alignment="auto">
+                                        </lightning-combobox>
+                                    </div>
                                 </div>
                                 <div class="form-column">
                                     <div class="form-card">
@@ -467,7 +485,7 @@
                                                                 <li key={ag.Id} class="lookup-result-item"
                                                                     onclick={selectAgente} data-id={ag.Id}>
                                                                     <div class="result-name">{ag.Name}</div>
-                                                                    <div class="result-details">{ag.Email__c}</div>
+                                                                    <div class="result-details">{ag.detalle}</div>
                                                                 </li>
                                                             </template>
                                                         </template>
@@ -516,11 +534,12 @@
                                             <lightning-icon icon-name="utility:moneybag" size="x-small"></lightning-icon>
                                             <h3>Prima Neta <span class="required-asterisk">*</span></h3>
                                         </div>
-                                        <lightning-input type="number" formatter="currency" step="0.01"
+                                        <lightning-input type="number" formatter="currency" step="0.01" min="0.01"
                                             label="" value={opportunity.Prima_Neta__c}
                                             onchange={handleInputChange} disabled={isOpportunityReadOnly}
                                             data-field="Prima_Neta__c" variant="label-hidden"
-                                            placeholder="0.00" required>
+                                            placeholder="0.00" required
+                                            message-when-range-underflow="La prima neta debe ser mayor a 0" message-when-value-missing="La prima neta es obligatoria">
                                         </lightning-input>
                                     </div>
                                 </div>
@@ -615,7 +634,8 @@
                                         <h3>Email</h3>
                                     </div>
                                     <lightning-input type="email" label="" value={opportunity.clienteEmail} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                        data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com">
+                                        data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com"
+                                        message-when-bad-input="Ingresa un correo válido" message-when-type-mismatch="Ingresa un correo válido">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">
@@ -623,8 +643,10 @@
                                         <lightning-icon icon-name="utility:call" size="x-small"></lightning-icon>
                                         <h3>Teléfono</h3>
                                     </div>
-                                    <lightning-input label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                        data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678">
+                                    <lightning-input type="tel" label="" value={opportunity.clienteTelefono} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteTelefono" variant="label-hidden" placeholder="Ej: 5512345678 o +525512345678"
+                                        pattern="(\+52)?[0-9]{10}" maxlength="13"
+                                        message-when-pattern-mismatch="El teléfono debe tener 10 dígitos (opcional +52)">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">
@@ -649,6 +671,116 @@
                         </div>
                     </div>
                 </div>
+                <!-- ====================================================== -->
+                <!-- SECCIÓN 2.b: ASEGURADOS (solo COLECTIVA)               -->
+                <!-- ====================================================== -->
+                <template if:true={isColectiva}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Asegurados del grupo</h2>
+                                <p class="section-subtitle">Personas cubiertas por esta póliza colectiva</p>
+                            </div>
+                            <div class="section-badge">{aseguradosBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <!-- Barra de acciones -->
+                            <div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-m-bottom_small" style="gap:0.5rem;">
+                                <lightning-button
+                                    label="Agregar asegurado"
+                                    icon-name="utility:add"
+                                    onclick={handleAgregarAsegurado}
+                                    disabled={isOpportunityReadOnly}
+                                    variant="brand-outline">
+                                </lightning-button>
+                                <lightning-button
+                                    label="Descargar plantilla CSV"
+                                    icon-name="utility:download"
+                                    onclick={descargarPlantillaAsegurados}
+                                    variant="neutral">
+                                </lightning-button>
+                                <div class="slds-m-left_x-small">
+                                    <input type="file" accept=".csv" onchange={handleCensoFile}
+                                        disabled={isOpportunityReadOnly}
+                                        title="Sube el censo en CSV" />
+                                    <span class="slds-text-body_small slds-text-color_weak">
+                                        Carga masiva (CSV)
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Tabla de asegurados -->
+                            <template if:true={hasAsegurados}>
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                                    <thead>
+                                        <tr class="slds-line-height_reset">
+                                            <th class="slds-text-title_caps" scope="col" style="width:3rem;">#</th>
+                                            <th class="slds-text-title_caps" scope="col">Nombre completo</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:12rem;">Parentesco</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:11rem;">Fecha de nacimiento</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:5rem;">Edad</th>
+                                            <th class="slds-text-title_caps" scope="col">Correo</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:4rem;">Quitar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={aseguradosView} for:item="a" for:index="i">
+                                            <tr key={a.key}>
+                                                <td>{a.displayNum}</td>
+                                                <td>
+                                                    <lightning-input label="" variant="label-hidden"
+                                                        value={a.nombre} data-index={i} data-field="nombre"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
+                                                        placeholder="Nombre y apellidos">
+                                                    </lightning-input>
+                                                </td>
+                                                <td>
+                                                    <lightning-combobox label="" variant="label-hidden"
+                                                        value={a.parentesco} options={parentescoOptions}
+                                                        data-index={i} data-field="parentesco"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
+                                                        dropdown-alignment="auto">
+                                                    </lightning-combobox>
+                                                </td>
+                                                <td>
+                                                    <lightning-input type="date" label="" variant="label-hidden"
+                                                        value={a.fechaNacimiento} data-index={i} data-field="fechaNacimiento"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}>
+                                                    </lightning-input>
+                                                </td>
+                                                <td class="slds-text-align_center">{a.edad}</td>
+                                                <td>
+                                                    <lightning-input type="email" label="" variant="label-hidden"
+                                                        value={a.email} data-index={i} data-field="email"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
+                                                        placeholder="correo@dominio.com">
+                                                    </lightning-input>
+                                                </td>
+                                                <td class="slds-text-align_center">
+                                                    <lightning-button-icon icon-name="utility:delete"
+                                                        variant="border-filled" alternative-text="Quitar"
+                                                        data-index={i} onclick={handleQuitarAsegurado}
+                                                        disabled={isOpportunityReadOnly}>
+                                                    </lightning-button-icon>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+
+                            <!-- Vacío -->
+                            <template if:false={hasAsegurados}>
+                                <div class="slds-box slds-box_x-small slds-text-align_center slds-text-color_weak">
+                                    Aún no hay asegurados. Agrégalos uno por uno o sube el censo en CSV.
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
                 <!-- ====================================================== -->
@@ -706,8 +838,8 @@
                                                     <template for:each={vehiculoResults} for:item="v">
                                                         <li key={v.Id} class="lookup-result-item"
                                                             onclick={selectVehiculo} data-id={v.Id}>
-                                                            <div class="result-name">{v.Marca__c} {v.Modelo__c}</div>
-                                                            <div class="result-details">Serie: {v.Serie__c} · Placa: {v.Placa__c}</div>
+                                                            <div class="result-name">{v.Make} {v.ModelName}</div>
+                                                            <div class="result-details">Serie: {v.Vin} · Placa: {v.RegistrationNumber}</div>
                                                         </li>
                                                     </template>
                                                 </template>
@@ -722,23 +854,44 @@
                             <div class="form-grid two-columns">
                                 <div class="form-column">
                                     <div class="form-card"><h3>Marca <span class="required-asterisk">*</span></h3>
-                                        <lightning-combobox label="" value={automovil.Marca__c} options={marcaPicklistValues}
-                                            placeholder="Selecciona la marca" onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Marca__c" variant="label-hidden" dropdown-alignment="auto"></lightning-combobox>
+                                        <div class="lookup-container">
+                                            <lightning-input label="" value={marcaQueryDisplay}
+                                                placeholder="Escribe la marca (ej. Nissan)..."
+                                                onfocus={handleMarcaFocus} onkeyup={handleMarcaInput} onblur={handleMarcaBlur}
+                                                variant="label-hidden" disabled={isVehiculoReadOnly}
+                                                data-field="MarcaSearch"></lightning-input>
+                                            <template if:true={showMarcaDropdown}>
+                                                <div class="lookup-dropdown">
+                                                    <ul class="lookup-results">
+                                                        <template if:true={hasMarcaResultados}>
+                                                            <template for:each={marcaResultados} for:item="m">
+                                                                <li key={m.value} class="lookup-result-item"
+                                                                    onmousedown={selectMarca} data-value={m.value}>
+                                                                    <div class="result-name">{m.label}</div>
+                                                                </li>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasMarcaResultados}>
+                                                            <li class="no-results">Sin coincidencias</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
                                     </div>
                                     <div class="form-card"><h3>Modelo <span class="required-asterisk">*</span></h3>
                                         <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
                                             data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
                                     </div>
-                                    <div class="form-card"><h3>Motor <span class="required-asterisk">*</span></h3>
+                                    <div class="form-card"><h3>Motor <span class="opt-hint">(se captura en emisión)</span></h3>
                                         <lightning-input label="" value={automovil.Motor__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Motor__c" variant="label-hidden" placeholder="Ej: 2.0L"></lightning-input>
+                                            data-field="automovil.Motor__c" variant="label-hidden" placeholder="Opcional en cotización"></lightning-input>
                                     </div>
                                 </div>
                                 <div class="form-column">
-                                    <div class="form-card"><h3>Serie (VIN) <span class="required-asterisk">*</span></h3>
+                                    <div class="form-card"><h3>Serie (VIN) <span class="opt-hint">(se captura en emisión)</span></h3>
                                         <lightning-input label="" value={automovil.Serie__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Número de serie" required></lightning-input>
+                                            data-field="automovil.Serie__c" variant="label-hidden" placeholder="Opcional en cotización"></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Placa</h3>
                                         <lightning-input label="" value={automovil.Placa__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
@@ -1022,6 +1175,7 @@
                                             <th scope="col">Nombre</th>
                                             <th scope="col">Compañía</th>
                                             <th scope="col">Producto</th>
+                                            <th scope="col">Plan</th>
                                             <th scope="col">Coberturas</th>
                                             <th scope="col">Estado</th>
                                             <th scope="col">Prima</th>
@@ -1036,6 +1190,7 @@
                                                 <td>{q.Name}</td>
                                                 <td>{q.companiaLabel}</td>
                                                 <td>{q.productName}</td>
+                                                <td>{q.plan}</td>
                                                 <td>{q.coverageLabel}</td>
                                                 <td>
                                                     <lightning-badge label={q.statusLabel} class={q.statusBadgeClass}></lightning-badge>
@@ -1143,6 +1298,10 @@
                                                     options={q.aseguradoras} placeholder="Selecciona la aseguradora"
                                                     data-index={idx} onchange={handleQuoteAseguradoraChange}>
                                                 </lightning-combobox>
+                                            </div>
+                                            <div class="eq-field-full">
+                                                <lightning-input label="Ramo" value={q.ramoLabel} readonly>
+                                                </lightning-input>
                                             </div>
                                             <div class="eq-field-full">
                                                 <lightning-combobox label="Producto" value={q.productId}
@@ -1402,11 +1561,16 @@
                                     <p class="section-subtitle">Datos extraídos de los PDFs. Aún NO se han guardado.</p>
                                 </div>
                                 <div class="section-badge compare-badge">{comparisonSummary.totalQuotes} cotizaciones</div>
-                                <button class="action-btn primary section-action-btn print-comparativo-btn"
-                                        onclick={handlePrintComparativo} title="Imprimir o guardar como PDF">
-                                    <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
-                                    Imprimir / PDF
-                                </button>
+                                <!-- Botón de imprimir DESACTIVADO temporalmente: el comparativo compara
+                                     coberturas por texto y marca falsos "No incluida". Se reactiva al
+                                     terminar el catálogo de coberturas por concepto (Frente 2). -->
+                                <template if:true={comparativoImprimible}>
+                                    <button class="action-btn primary section-action-btn print-comparativo-btn"
+                                            onclick={handlePrintComparativo} title="Imprimir o guardar como PDF">
+                                        <lightning-icon icon-name="utility:print" size="xx-small"></lightning-icon>
+                                        Imprimir / PDF
+                                    </button>
+                                </template>
                             </div>
 
                             <!-- Comparativo generado por la IA (tal cual lo regresa el Prompt Builder) -->
@@ -1552,6 +1716,12 @@
                             <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
                             Cancelar
                         </button>
+                        <template if:true={isEtapaPoliza}>
+                            <button class="action-btn secondary" onclick={handleEnviarCorreo} title="Enviar correo de la oportunidad">
+                                <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon>
+                                Enviar Correo
+                            </button>
+                        </template>
                         <button class="action-btn primary" onclick={saveOpportunity} disabled={isSaveDisabled}>
                             <template if:true={isSaving}>
                                 <lightning-spinner alternative-text="Guardando..." size="x-small" variant="inverse"></lightning-spinner>
@@ -1582,6 +1752,69 @@
                     onanalysiscomplete={handlePdfAnalysisComplete}>
                 </c-pdf-opportunity-creator>
             </div>
+        </template>
+
+        <!-- Modal: archivos de la oportunidad -->
+        <template if:true={archivosModalOpen}>
+            <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close" title="Cerrar" onclick={closeArchivosModal}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-modal__title slds-hyphenate">Archivos de la oportunidad</h2>
+                        <p class="slds-m-top_x-small">{archivosOppName}</p>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <template if:true={archivosLoading}>
+                            <lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner>
+                        </template>
+                        <template if:false={archivosLoading}>
+                            <template if:true={tieneArchivos}>
+                                <ul class="slds-has-dividers_bottom-space">
+                                    <template for:each={archivosList} for:item="f">
+                                        <li key={f.contentDocumentId} class="slds-item slds-p-vertical_x-small">
+                                            <lightning-icon icon-name={f.iconName} size="small" class="slds-m-right_x-small"></lightning-icon>
+                                            <a href={f.viewUrl} target="_blank">{f.title}</a>
+                                            <span class="slds-text-color_weak slds-m-left_x-small">{f.sizeText}</span>
+                                            <a href={f.downloadUrl} target="_blank" class="slds-m-left_small" title="Descargar">Descargar</a>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <template if:false={tieneArchivos}>
+                                <p>Esta oportunidad no tiene archivos.</p>
+                            </template>
+                        </template>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <button class="action-btn secondary" onclick={closeArchivosModal}>Cerrar</button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+        <!-- Modal: Enviar Correo (Flow "Enviar Correo Oportunidad") -->
+        <template if:true={correoFlowOpen}>
+            <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close" title="Cerrar" onclick={closeCorreoFlow}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-modal__title slds-hyphenate">Enviar Correo</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <lightning-flow
+                            flow-api-name="Enviar_Correo_Oportunidad"
+                            flow-input-variables={correoFlowInputs}
+                            onstatuschange={handleCorreoFlowStatus}>
+                        </lightning-flow>
+                    </div>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
     </div>
 </template>
