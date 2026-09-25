@@ -475,6 +475,111 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
+	 * @description: Sube UN archivo (PDF) y lo liga a una Opportunity YA EXISTENTE.
+	 *               Se llama uno por uno desde el LWC para no exceder el tamaño de request.
+	 * @param opportunityId: Id de la oportunidad a la que se adjunta.
+	 * @param fileName: nombre del archivo.
+	 * @param base64Data: contenido del archivo en base64.
+	 * @return Id del ContentDocument creado.
+	 */
+	@AuraEnabled
+	public static Id guardarArchivoEnOportunidad(Id opportunityId, String fileName, String base64Data) {
+		if (opportunityId == null || String.isBlank(fileName) || String.isBlank(base64Data)) {
+			throw new AuraHandledException('Faltan datos para guardar el archivo.');
+		}
+		try {
+			ContentVersion cv = new ContentVersion(
+				Title = fileName,
+				PathOnClient = fileName,
+				VersionData = EncodingUtil.base64Decode(base64Data),
+				Origin = 'H'
+			);
+			insert cv;
+			ContentVersion stored = [
+				SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
+			];
+			insert new ContentDocumentLink(
+				ContentDocumentId = stored.ContentDocumentId,
+				LinkedEntityId = opportunityId,
+				ShareType = 'V',
+				Visibility = 'AllUsers'
+			);
+			return stored.ContentDocumentId;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo guardar el archivo "' + fileName + '": ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @description: Renderiza el HTML del comparativo a PDF y lo liga a la Opportunity.
+	 *               Devuelve null si no hay HTML.
+	 * @param opportunityId: Id de la oportunidad.
+	 * @param comparativoHtml: HTML del comparativo.
+	 * @param nombreArchivo: base para el nombre del PDF.
+	 * @return Id del ContentDocument, o null si no había HTML.
+	 */
+	@AuraEnabled
+	public static void actualizarComparativoOpp(Id opportunityId, String comparativoHtml) {
+		if (opportunityId == null || String.isBlank(comparativoHtml)) { return; }
+		try {
+			Opportunity o = new Opportunity(Id = opportunityId);
+			o.Descripcion__c = comparativoHtml.length() > 131072
+				? comparativoHtml.substring(0, 131072)
+				: comparativoHtml;
+			update o;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo actualizar el comparativo: ' + e.getMessage());
+		}
+	}
+
+	@AuraEnabled
+	public static Id guardarComparativoPdf(Id opportunityId, String nombreArchivo) {
+		if (opportunityId == null) { return null; }
+		try {
+			// El HTML se lee desde la Oportunidad (Descripcion__c), un registro ya COMMITTED,
+			// para que la página VF lo reciba de forma confiable (los statics no sobreviven a
+			// getContentAsPDF). No se hace DML antes de getContentAsPDF (evita "uncommitted work").
+			String html;
+			for (Opportunity o : [SELECT Descripcion__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1]) {
+				html = o.Descripcion__c;
+			}
+			if (String.isBlank(html)) { return null; }
+
+			String filename = 'Comparativo_' +
+				(String.isBlank(nombreArchivo) ? 'cotizaciones' : nombreArchivo) + '.pdf';
+
+			Blob pdfBlob;
+			if (Test.isRunningTest()) {
+				pdfBlob = Blob.valueOf(html);
+			} else {
+				PageReference pr = Page.OpportunityComparisonPdf;
+				pr.getParameters().put('oppId', opportunityId);
+				pdfBlob = pr.getContentAsPDF();
+			}
+
+			ContentVersion cv = new ContentVersion(
+				Title = filename,
+				PathOnClient = filename,
+				VersionData = pdfBlob,
+				Origin = 'H'
+			);
+			insert cv;
+			ContentVersion stored = [
+				SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
+			];
+			insert new ContentDocumentLink(
+				ContentDocumentId = stored.ContentDocumentId,
+				LinkedEntityId = opportunityId,
+				ShareType = 'V',
+				Visibility = 'AllUsers'
+			);
+			return stored.ContentDocumentId;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo generar el PDF del comparativo: ' + e.getMessage());
+		}
+	}
+
+	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Devuelve el Id del Pricebook estandar. En contexto de test usa
@@ -1059,9 +1164,18 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('primaTotal', asDecimal(m.get('prima_anual')));
 		q.put('moneda', coalesceStr(stringOf(m.get('moneda')), 'MXN'));
 		q.put('vigencia', stringOf(m.get('vigencia_fin')));
+		q.put('vigenciaInicio', stringOf(m.get('vigencia_inicio')));
 		q.put('noCotizacion', stringOf(m.get('no_cotizacion')));
 		q.put('archivoOrigen', stringOf(m.get('archivo_origen')));
 		q.put('notas', stringOf(m.get('notas')));
+		// Forma de pago y cobranza (nuevos datos del comparador).
+		q.put('formaPago', stringOf(m.get('forma_pago')));
+		q.put('frecuenciaPago', stringOf(m.get('frecuencia_pago')));
+		q.put('primaNeta', asDecimal(m.get('prima_neta')));
+		q.put('primaTotalFin', asDecimal(m.get('prima_total')));
+		q.put('numeroPagos', asDecimal(m.get('numero_pagos')));
+		q.put('primerPago', asDecimal(m.get('primer_pago')));
+		q.put('pagoSubsecuente', asDecimal(m.get('pago_subsecuente')));
 		q.put('tablaCompletaCoberturas', buildCoberturas(m));
 		return q;
 	}
@@ -1311,6 +1425,19 @@ public with sharing class PdfOpportunityCreatorController {
 	private static final String QF_FRECUENCIA  = 'Frecuencia_de_prima__c';
 	private static final String QF_RATINGDATE  = 'RatingDate';
 
+	// Normaliza la frecuencia de pago al catálogo del picklist Frecuencia_de_prima__c
+	// (Mensual, Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
+	private static String normalizarFrecuencia(String valor) {
+		String v = (valor == null) ? '' : valor.toLowerCase();
+		if (v.contains('contado') || v.contains('una sola') || v.contains('unica') || v.contains('unico')) { return 'Contado'; }
+		if (v.contains('quincen')) { return 'Quincenal'; }
+		if (v.contains('mensual')) { return 'Mensual'; }
+		if (v.contains('trimestr')) { return 'Trimestral'; }
+		if (v.contains('semestr')) { return 'Semestral'; }
+		// Anual o no especificada.
+		return 'Anual';
+	}
+
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -1404,12 +1531,33 @@ public with sharing class PdfOpportunityCreatorController {
 
 			Date vig = parseDate(stringOf(m.get('vigencia')));
 			if (vig != null) { q.ExpirationDate = vig; }
+			Date vigIni = parseDate(stringOf(m.get('vigenciaInicio')));
+			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
 			q.put(QF_RAMO, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo);
 			q.put(QF_RATINGDATE, Date.today());
-			q.put(QF_FRECUENCIA, 'Mensual');
-			q.Prima_Total__c = prima;
+			// Frecuencia real (antes fija en 'Mensual'); se normaliza al catálogo del picklist.
+			String frecRaw = coalesceStr(stringOf(m.get('frecuenciaPago')), stringOf(m.get('frecuencia')));
+			q.put(QF_FRECUENCIA, normalizarFrecuencia(frecRaw));
+			// Número de cotización.
+			String noCot = stringOf(m.get('noCotizacion'));
+			if (String.isNotBlank(noCot)) { q.put('NumeroCotizacion__c', noCot.left(60)); }
+			// Forma de pago y desglose de cobranza (nuevos datos del comparador).
+			String formaPago = stringOf(m.get('formaPago'));
+			if (String.isNotBlank(formaPago)) { q.put('Forma_de_pago__c', formaPago.left(40)); }
+			Decimal primaNeta      = asDecimal(m.get('primaNeta'));
+			Decimal primaTotalFin  = asDecimal(m.get('primaTotalFin'));
+			Decimal numeroPagos    = asDecimal(m.get('numeroPagos'));
+			Decimal primerPago     = asDecimal(m.get('primerPago'));
+			Decimal pagoSubsec     = asDecimal(m.get('pagoSubsecuente'));
+			if (primaNeta != null)     { q.put('Prima_Neta__c', primaNeta); }
+			if (numeroPagos != null)   { q.put('Numero_Pagos__c', numeroPagos); }
+			if (primerPago != null)    { q.put('Primer_Pago__c', primerPago); }
+			if (pagoSubsec != null)    { q.put('Pago_Subsecuente__c', pagoSubsec); }
+			// Prima anual (de contado) y prima total (financiada si difiere).
+			if (prima != null) { q.put('PrimaAnual__c', prima); }
+			q.Prima_Total__c = (primaTotalFin != null && primaTotalFin > 0) ? primaTotalFin : prima;
 			toInsert.add(q);
 		}
 
@@ -1426,14 +1574,60 @@ public with sharing class PdfOpportunityCreatorController {
 			System.debug('COT-PROD::: ' + JSON.serialize(d));
 		}
 
+		// Inserción tolerante: una cotización con problema (p. ej. Chubb sin producto/cobertura)
+		// no debe tumbar a las demás. Se recogen los errores por aseguradora.
+		List<String> erroresQuote = new List<String>();
 		try {
-			if (!toInsert.isEmpty()) { insert toInsert; }
+			if (!toInsert.isEmpty()) {
+				Database.SaveResult[] srs = Database.insert(toInsert, false);
+				for (Integer i = 0; i < srs.size(); i++) {
+					if (!srs[i].isSuccess()) {
+						String comp = (String) detalle[i].get('compania');
+						String m = srs[i].getErrors().isEmpty() ? 'error' : srs[i].getErrors()[0].getMessage();
+						erroresQuote.add((String.isNotBlank(comp) ? comp + ': ' : '') + m);
+					}
+				}
+			}
 		} catch (Exception e) {
 			System.debug('COT::: ' + e.getMessage() + ' | ' + e.getStackTraceString());
 			throw new AuraHandledException('No se pudieron crear las cotizaciones: ' + e.getMessage());
 		}
+		Integer creadasN = 0;
+		for (Quote qq : toInsert) { if (qq.Id != null) { creadasN++; } }
+		// Si NINGUNA se creó, sí avisamos con el detalle real del error.
+		if (creadasN == 0 && !erroresQuote.isEmpty()) {
+			throw new AuraHandledException('No se pudieron crear las cotizaciones: ' + String.join(erroresQuote, ' | '));
+		}
 
-		return new Map<String,Object>{ 'creadas' => toInsert.size(), 'detalle' => detalle };
+		// Hereda las coberturas del PRODUCTO a cada cotización (igual que el alta manual),
+		// para que no queden en 0 y coincidan la lista y la comparativa.
+		try {
+			List<Quote_Coverage__c> covsToInsert = new List<Quote_Coverage__c>();
+			for (Integer i = 0; i < toInsert.size(); i++) {
+				Id qId = toInsert[i].Id;
+				Id pId = (Id) detalle[i].get('productId');
+				Id aId = (Id) detalle[i].get('aseguradoraId');
+				if (qId == null || pId == null) { continue; }
+				Integer orden = 0;
+				for (QuoteCreatorController.CoverageTemplateWrapper w : QuoteCreatorController.getCoveragesByProduct(pId)) {
+					orden++;
+					Quote_Coverage__c qc = new Quote_Coverage__c();
+					qc.Quote__c = qId;
+					qc.Product__c = pId;
+					qc.Coverage_Name__c = w.coverageName;
+					qc.Coverage_Code__c = w.coverageCode;
+					qc.Order__c = (w.orderNum != null) ? w.orderNum : orden;
+					if (aId != null) { qc.Aseguradora__c = aId; }
+					covsToInsert.add(qc);
+				}
+			}
+			if (!covsToInsert.isEmpty()) { insert covsToInsert; }
+		} catch (Exception e) {
+			// No bloquea la creación de las cotizaciones si las coberturas fallan.
+			System.debug('COT-COB::: ' + e.getMessage());
+		}
+
+		return new Map<String,Object>{ 'creadas' => creadasN, 'detalle' => detalle, 'errores' => erroresQuote };
 	}
 
 	/**
