@@ -36,6 +36,12 @@ public with sharing class CobranzaLog {
 	public static final String STAGE_DEVOLUCION = 'Devolucion';
 	// Cambios del estado operativo de la poliza (primer pago y fin de vigencia).
 	public static final String STAGE_ESTADO_POLIZA = 'Estado de poliza';
+	// Correcciones del plan de pagos de una poliza que todavia no cobro nada (KAN-446).
+	public static final String STAGE_PLAN_PAGOS = 'Plan de pagos';
+	// El plan sin cobros se rehizo con la frecuencia, la prima o la fecha nuevas de la poliza.
+	public static final String EVENT_PAYMENT_PLAN_REGENERATED = 'PAYMENT_PLAN_REGENERATED';
+	// No se pudo rehacer el plan de una poliza; las demas del lote si se rehicieron.
+	public static final String EVENT_PAYMENT_PLAN_REGENERATION_FAILED = 'PAYMENT_PLAN_REGENERATION_FAILED';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide

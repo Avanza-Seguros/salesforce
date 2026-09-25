@@ -50,6 +50,9 @@ public with sharing class InsurancePolicyTriggerHandler {
 		List<InsurancePolicy> newPolicies,
 		Map<Id, InsurancePolicy> oldMap
 	) {
+		// Primero se separan las polizas sin cobros: esas rehacen su plan y no pasan por las
+		// reglas del cambio de frecuencia, que son para planes con historia.
+		PaymentPlanRegenerationService.prepareBeforeUpdate(newPolicies, oldMap);
 		PaymentPlanFrequencyChangeService.validateBeforeUpdate(newPolicies, oldMap);
 	}
 
@@ -96,6 +99,7 @@ public with sharing class InsurancePolicyTriggerHandler {
 		}
 
 		PaymentPlanFrequencyChangeService.processAfterUpdate(newPolicies, oldMap);
+		PaymentPlanRegenerationService.regenerateAfterUpdate(newPolicies, oldMap);
 	}
 
 	/**
@@ -226,6 +230,26 @@ public with sharing class InsurancePolicyTriggerHandler {
 		plan.insurancePolicy__c = policy.Id;
 		plan.planType__c = PLAN_TYPE_INITIAL;
 		plan.planStatus__c = PLAN_STATUS_ACTIVE;
+		applyPolicyTerms(plan, policy);
+	}
+
+	/**
+	 * @creation date: 25/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Copia al plan la frecuencia, la prima, la primera fecha y la cantidad de
+	 *               cuotas que corresponden a la poliza. Lo comparten la creacion del plan
+	 *               inicial y la regeneracion del plan sin cobros (KAN-446), para que los dos
+	 *               calculen el plan exactamente igual.
+	 * @param plan: Plan a poblar.
+	 * @param policy: Poliza origen.
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	public static void applyPolicyTerms(
+		PaymentPlan__c plan,
+		InsurancePolicy policy
+	) {
 		plan.premiumFrequency__c = getSupportedPremiumFrequency(policy);
 		plan.expectedTotalAmount__c = deriveExpectedTotalAmount(policy);
 		plan.firstDueDate__c = getDate(policy, 'PaymentDueDate');

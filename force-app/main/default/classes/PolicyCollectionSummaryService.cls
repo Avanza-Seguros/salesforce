@@ -113,7 +113,15 @@ public with sharing class PolicyCollectionSummaryService {
 				}
 			}
 		}
-		List<Database.SaveResult> results = Database.update(toUpdate, false);
+		// Este guardado mueve PaymentDueDate a la proxima cuota: es el motor siguiendo al plan,
+		// no alguien corrigiendo la poliza, asi que no debe rehacer el plan (KAN-446).
+		List<Database.SaveResult> results;
+		PaymentPlanRegenerationService.suspend();
+		try {
+			results = Database.update(toUpdate, false);
+		} finally {
+			PaymentPlanRegenerationService.resume();
+		}
 		for (Integer i = 0; i < results.size(); i++) {
 			if (results[i].isSuccess()) {
 				continue;

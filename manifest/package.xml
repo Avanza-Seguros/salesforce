@@ -39,6 +39,8 @@
         <members>InsurancePolicyTriggerHandlerTest</members>
         <members>PaymentPlanFrequencyChangeService</members>
         <members>PaymentPlanFrequencyChangeServiceTest</members>
+        <members>PaymentPlanRegenerationService</members>
+        <members>PaymentPlanRegenerationServiceTest</members>
         <members>PaymentPlanTriggerHandler</members>
         <members>PaymentPlanTriggerHandlerTest</members>
         <members>PaymentPlanInstallmentTriggerHandler</members>

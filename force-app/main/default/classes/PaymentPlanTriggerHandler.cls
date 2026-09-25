@@ -62,6 +62,39 @@ public with sharing class PaymentPlanTriggerHandler {
 	}
 
 	/**
+	 * @creation date: 25/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Genera el calendario de planes que ya existian y cuyas cuotas se acaban
+	 *               de borrar para rehacerlas (KAN-446). El trigger no lo haria solo: ese plan
+	 *               ya estaba listo antes del cambio. Los planes que no esten listos o que
+	 *               ya tengan cuotas se ignoran, igual que en el trigger.
+	 * @param plans: Planes con sus datos nuevos ya guardados.
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	public static void generateInstallments(List<PaymentPlan__c> plans) {
+		if (plans == null || plans.isEmpty()) {
+			return;
+		}
+
+		Map<Id, PaymentPlan__c> readyPlansById = new Map<Id, PaymentPlan__c>();
+
+		for (PaymentPlan__c plan : plans) {
+			if (plan == null || plan.Id == null || !isReadyForInstallments(plan)) {
+				continue;
+			}
+
+			readyPlansById.put(plan.Id, plan);
+			processedPlanIds.add(plan.Id);
+		}
+
+		if (!readyPlansById.isEmpty()) {
+			createMissingInstallments(readyPlansById);
+		}
+	}
+
+	/**
 	 * @creation date: 23/04/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Indica si el plan esta listo ahora y antes no lo estaba.
