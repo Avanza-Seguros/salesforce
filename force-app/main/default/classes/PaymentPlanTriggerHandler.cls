@@ -59,6 +59,47 @@ public with sharing class PaymentPlanTriggerHandler {
 		if (!readyPlansById.isEmpty()) {
 			createMissingInstallments(readyPlansById);
 		}
+
+		PlanPremiumMismatchService.reevaluateMarked(
+			getPoliciesWithPlanAmountChange(newPlans, oldMap)
+		);
+	}
+
+	/**
+	 * @creation date: 25/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Polizas cuyo plan cambio de importe o de estado: son los cambios que
+	 *               pueden volver a cuadrar un plan con la prima de su poliza (KAN-447).
+	 * @param newPlans: Registros nuevos del trigger.
+	 * @param oldMap: Valores anteriores de los planes.
+	 * @return: Set<Id> Polizas afectadas.
+	 * @exception:
+	 * @throws:
+	 */
+	private static Set<Id> getPoliciesWithPlanAmountChange(
+		List<PaymentPlan__c> newPlans,
+		Map<Id, PaymentPlan__c> oldMap
+	) {
+		Set<Id> policyIds = new Set<Id>();
+
+		if (oldMap == null) {
+			return policyIds;
+		}
+
+		for (PaymentPlan__c plan : newPlans) {
+			PaymentPlan__c oldPlan = plan == null ? null : oldMap.get(plan.Id);
+
+			if (
+				oldPlan != null &&
+				plan.insurancePolicy__c != null &&
+				(plan.expectedTotalAmount__c != oldPlan.expectedTotalAmount__c ||
+				plan.planStatus__c != oldPlan.planStatus__c)
+			) {
+				policyIds.add(plan.insurancePolicy__c);
+			}
+		}
+
+		return policyIds;
 	}
 
 	/**

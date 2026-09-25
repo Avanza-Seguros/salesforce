@@ -42,6 +42,12 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_PAYMENT_PLAN_REGENERATED = 'PAYMENT_PLAN_REGENERATED';
 	// No se pudo rehacer el plan de una poliza; las demas del lote si se rehicieron.
 	public static final String EVENT_PAYMENT_PLAN_REGENERATION_FAILED = 'PAYMENT_PLAN_REGENERATION_FAILED';
+	// La prima de una poliza que ya cobro dejo de coincidir con la del plan: se marca (KAN-447).
+	public static final String EVENT_PLAN_PREMIUM_MISMATCH = 'PLAN_PREMIUM_MISMATCH';
+	// La prima y el plan vuelven a coincidir: se quita la marca.
+	public static final String EVENT_PLAN_PREMIUM_MISMATCH_CLEARED = 'PLAN_PREMIUM_MISMATCH_CLEARED';
+	// No se pudo guardar la marca de una poliza; las demas del lote si se guardaron.
+	public static final String EVENT_PLAN_PREMIUM_MISMATCH_FAILED = 'PLAN_PREMIUM_MISMATCH_FAILED';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide

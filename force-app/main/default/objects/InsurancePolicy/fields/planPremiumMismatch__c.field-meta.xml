@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>planPremiumMismatch__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+	>Marcada cuando la prima de la póliza ya no coincide con la del plan de pagos y la póliza ya cobró algo: el plan no se puede rehacer sin perder historial, así que se deja como está y se revisa. Se marca y se desmarca sola; no se edita a mano.</description>
+    <label>Prima desalineada</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

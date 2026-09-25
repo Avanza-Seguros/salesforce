@@ -31,6 +31,26 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InsurancePolicy.planPremiumAmount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.planPremiumMismatch__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.premiumMismatchAmount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.premiumMismatchSince__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InsurancePolicy.sourceOpportunityCloseDate__c</field>
         <readable>true</readable>
     </fieldPermissions>

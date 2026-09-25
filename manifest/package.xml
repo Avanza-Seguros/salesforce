@@ -41,6 +41,8 @@
         <members>PaymentPlanFrequencyChangeServiceTest</members>
         <members>PaymentPlanRegenerationService</members>
         <members>PaymentPlanRegenerationServiceTest</members>
+        <members>PlanPremiumMismatchService</members>
+        <members>PlanPremiumMismatchServiceTest</members>
         <members>PaymentPlanTriggerHandler</members>
         <members>PaymentPlanTriggerHandlerTest</members>
         <members>PaymentPlanInstallmentTriggerHandler</members>
@@ -255,6 +257,10 @@
         <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
         <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
         <members>InsurancePolicy.insuredAssetDescription__c</members>
+        <members>InsurancePolicy.planPremiumAmount__c</members>
+        <members>InsurancePolicy.planPremiumMismatch__c</members>
+        <members>InsurancePolicy.premiumMismatchAmount__c</members>
+        <members>InsurancePolicy.premiumMismatchSince__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -340,6 +346,7 @@
         <members>InsurancePolicy.Polizas_Vencidas</members>
         <members>InsurancePolicy.Polizas_Canceladas</members>
         <members>InsurancePolicy.Polizas_Inicial_Venta_Ganada</members>
+        <members>InsurancePolicy.Polizas_Prima_Desalineada</members>
         <name>ListView</name>
     </types>
     <types>

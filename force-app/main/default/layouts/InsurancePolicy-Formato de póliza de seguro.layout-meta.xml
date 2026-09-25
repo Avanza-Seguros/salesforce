@@ -150,7 +150,15 @@
 				>Edit</behavior><field
 				>Pagos_Subsecuentes__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field
-				>totalRefundedAmount__c</field></layoutItems></layoutColumns><layoutColumns
+				>totalRefundedAmount__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>planPremiumMismatch__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>planPremiumAmount__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>premiumMismatchAmount__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>premiumMismatchSince__c</field></layoutItems></layoutColumns><layoutColumns
 		><layoutItems><behavior>Readonly</behavior><field
 				>carrierPolicyStatus__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field

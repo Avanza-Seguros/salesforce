@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>premiumMismatchAmount__c</fullName>
+    <description
+	>Prima de la póliza menos prima del plan. Positiva: la aseguradora comunica más de lo que cobra el plan. Vacía cuando la prima no está desalineada.</description>
+    <formula
+	>IF(planPremiumMismatch__c, PremiumAmount - planPremiumAmount__c, NULL)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Diferencia de prima</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Currency</type>
+</CustomField>

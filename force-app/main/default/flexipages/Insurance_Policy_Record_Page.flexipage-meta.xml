@@ -382,7 +382,23 @@
 				><name>uiBehavior</name><value
 					>none</value></fieldInstanceProperties><fieldItem
 				>Record.totalRefundedAmount__c</fieldItem><identifier
-				>RecordtotalRefundedAmount_cField</identifier></fieldInstance></itemInstances><name
+				>RecordtotalRefundedAmount_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>readonly</value></fieldInstanceProperties><fieldItem
+				>Record.planPremiumMismatch__c</fieldItem><identifier
+				>RecordplanPremiumMismatch_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>readonly</value></fieldInstanceProperties><fieldItem
+				>Record.planPremiumAmount__c</fieldItem><identifier
+				>RecordplanPremiumAmount_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>readonly</value></fieldInstanceProperties><fieldItem
+				>Record.premiumMismatchAmount__c</fieldItem><identifier
+				>RecordpremiumMismatchAmount_cField</identifier></fieldInstance></itemInstances><itemInstances
+		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
+					>readonly</value></fieldInstanceProperties><fieldItem
+				>Record.premiumMismatchSince__c</fieldItem><identifier
+				>RecordpremiumMismatchSince_cField</identifier></fieldInstance></itemInstances><name
 		>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
         <type>Facet</type>
     </flexiPageRegions>

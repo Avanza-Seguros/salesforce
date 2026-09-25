@@ -100,6 +100,8 @@ public with sharing class InsurancePolicyTriggerHandler {
 
 		PaymentPlanFrequencyChangeService.processAfterUpdate(newPolicies, oldMap);
 		PaymentPlanRegenerationService.regenerateAfterUpdate(newPolicies, oldMap);
+		// Despues de rehacer los planes sin cobros: solo queda por marcar lo que ya cobro.
+		PlanPremiumMismatchService.evaluateAfterUpdate(newPolicies, oldMap);
 	}
 
 	/**
