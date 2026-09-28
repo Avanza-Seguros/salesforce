@@ -50,7 +50,7 @@
         <inputParameters>
             <name>recipientId</name>
             <value>
-                <elementReference>Obtener_Oportunidad.Agente_Relacionado__r.OwnerId</elementReference>
+                <elementReference>Obtener_Oportunidad.Producer__r.Account.OwnerId</elementReference>
                 <inputConfiguratorMode>Resource</inputConfiguratorMode>
             </value>
         </inputParameters>
@@ -127,7 +127,7 @@
             <assignToReference>Agente</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Obtener_Oportunidad.Agente_Relacionado__r.Email__c</elementReference>
+                <elementReference>Obtener_Oportunidad.Producer__r.Account.Correo_electronico__c</elementReference>
             </value>
         </assignmentItems>
         <assignmentItems>

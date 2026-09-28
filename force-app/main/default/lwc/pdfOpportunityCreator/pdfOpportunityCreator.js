@@ -148,7 +148,9 @@ export default class PdfOpportunityCreator extends LightningElement {
 		if (!this.hasFiles || this.files.length < MIN_FILES) {
 			return true;
 		}
-		return !this.sharedPrefix;
+		// El prefijo común ya NO bloquea: la IA valida después si los documentos
+		// son del mismo cliente/vehículo.
+		return false;
 	}
 	get doneMessage() {
 		const c = this.clienteDetectado || "el cliente";
@@ -196,10 +198,9 @@ export default class PdfOpportunityCreator extends LightningElement {
 			return;
 		}
 		if (this.files.length >= MIN_FILES && !this.sharedPrefix) {
+			// Aviso informativo (no bloquea): conviene que los PDFs sean del mismo cliente.
 			this.prefixWarning =
-				"Los nombres de los PDFs no comparten un prefijo común. Renómbralos para que empiecen igual (mín. " +
-				MIN_PREFIX_LENGTH +
-				" caracteres en común).";
+				"Nota: los PDFs no comparten un prefijo común en el nombre. Verifica que sean del mismo cliente antes de continuar.";
 		}
 	}
 
@@ -215,14 +216,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 			);
 			return;
 		}
-		if (!this.sharedPrefix) {
-			this.showToast(
-				"Nombres no coinciden",
-				"Los PDFs deben compartir un prefijo común en el nombre.",
-				"error"
-			);
-			return;
-		}
+		// El prefijo común ya no es obligatorio; solo se avisa (la IA valida el cliente/vehículo).
 
 		this.isProcessing = true;
 		this.error = "";
