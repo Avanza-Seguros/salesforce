@@ -626,6 +626,15 @@
                                         data-field="clienteRFC" variant="label-hidden" placeholder="Ej: PEÑA710313HDF">
                                     </lightning-input>
                                 </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
+                                        <h3>Código Postal</h3>
+                                    </div>
+                                    <lightning-input label="" value={opportunity.clienteCP} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
+                                        data-field="clienteCP" variant="label-hidden" placeholder="Ej: 03100">
+                                    </lightning-input>
+                                </div>
                             </div>
                             <div class="form-column">
                                 <div class="form-card">
@@ -666,15 +675,6 @@
                                     <lightning-textarea label="" value={opportunity.clienteDireccion} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
                                         data-field="clienteDireccion" variant="label-hidden" placeholder="Calle, número, colonia, ciudad...">
                                     </lightning-textarea>
-                                </div>
-                                <div class="form-card">
-                                    <div class="form-card-header">
-                                        <lightning-icon icon-name="utility:text_template" size="x-small"></lightning-icon>
-                                        <h3>Código Postal</h3>
-                                    </div>
-                                    <lightning-input label="" value={opportunity.clienteCP} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
-                                        data-field="clienteCP" variant="label-hidden" placeholder="Ej: 03100">
-                                    </lightning-input>
                                 </div>
                             </div>
                         </div>
@@ -888,9 +888,9 @@
                                             </template>
                                         </div>
                                     </div>
-                                    <div class="form-card"><h3>Modelo <span class="required-asterisk">*</span></h3>
+                                    <div class="form-card"><h3>Modelo (Año) <span class="required-asterisk">*</span></h3>
                                         <lightning-input label="" value={automovil.Modelo__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}
-                                            data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: VERSA" required></lightning-input>
+                                            data-field="automovil.Modelo__c" variant="label-hidden" placeholder="Ej: 2024" required></lightning-input>
                                     </div>
                                     <div class="form-card"><h3>Motor <span class="opt-hint">(se captura en emisión)</span></h3>
                                         <lightning-input label="" value={automovil.Motor__c} onchange={handleAutomovilChange} disabled={isVehiculoReadOnly}

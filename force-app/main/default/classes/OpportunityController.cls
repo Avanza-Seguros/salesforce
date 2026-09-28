@@ -600,10 +600,12 @@ public with sharing class OpportunityController {
 			}
 			String nombreParaTipo = String.isNotBlank(getStr(d, 'AccountName'))
 				? getStr(d, 'AccountName') : String.join(partesNombre, ' ').trim();
-			if (tipoCliente != 'Empresa' && pareceEmpresa(nombreParaTipo)) {
-				tipoCliente = 'Empresa';
-				if (String.isBlank(getStr(d, 'AccountName'))) { d.put('AccountName', nombreParaTipo); }
-			}
+			// Empresa SOLO si se indicó explícitamente o el nombre trae razón social
+			// (SA de CV, S de RL, AC, etc.). En cualquier otro caso —incluido tipo no
+			// especificado— se trata como PERSONA. Así "Abel Perez Quijano" es Persona.
+			Boolean esEmpresa = (tipoCliente == 'Empresa') || pareceEmpresa(nombreParaTipo);
+			if (esEmpresa && String.isBlank(getStr(d, 'AccountName'))) { d.put('AccountName', nombreParaTipo); }
+			tipoCliente = esEmpresa ? 'Empresa' : 'Persona';
 			Account acc = new Account();
 
 			if (tipoCliente == 'Persona') {
@@ -982,11 +984,17 @@ public with sharing class OpportunityController {
 		//    a) por VIN, b) por Placa, c) por Marca+Modelo+Año (por si el identificador
 		//    difiere, ej. la clave vehicular de la cotización vs el VIN real de la póliza).
 		String marca = getStr(v, 'Marca__c');
-		String modelo = getStr(v, 'Modelo__c');
+		// "Modelo" puede venir como AÑO (convención MX). Si es un año de 4 dígitos,
+		// va a MakeYear y NO al nombre del modelo (ModelName).
+		String modeloRaw = getStr(v, 'Modelo__c');
+		String mt = (modeloRaw == null) ? '' : modeloRaw.trim();
+		Boolean modeloEsAnio = mt.length() == 4 && mt.isNumeric() && (mt.startsWith('19') || mt.startsWith('20'));
+		String modelo = modeloEsAnio ? null : modeloRaw;
 		String placa = getStr(v, 'Placa__c');
 		String serieNorm = serie.trim().toUpperCase();
 		String placaNorm = String.isNotBlank(placa) ? placa.trim().toUpperCase() : null;
 		Decimal anioDec = toDecimalSafe(getStr(v, 'Anio__c'));
+		if (anioDec == null && modeloEsAnio) { anioDec = toDecimalSafe(mt); }
 		Integer anioInt = (anioDec != null) ? anioDec.intValue() : null;
 
 		Id bienExistente = buscarBienCliente(accountId, serieNorm, placaNorm, marca, modelo, anioInt);
@@ -1001,9 +1009,8 @@ public with sharing class OpportunityController {
 		nv.RegistrationNumber = placaNorm;
 		nv.Motor__c           = getStr(v, 'Motor__c');
 		nv.Description         = getStr(v, 'descripcion_completa__c');
-		// Año -> MakeYear (put dinámico para tolerar el tipo del campo).
-		Decimal anio = toDecimalSafe(getStr(v, 'Anio__c'));
-		if (anio != null) { try { nv.put('MakeYear', anio.intValue()); } catch (Exception ignore) {} }
+		// Año -> MakeYear (incluye el caso en que "Modelo" viene como año).
+		if (anioInt != null) { try { nv.put('MakeYear', anioInt); } catch (Exception ignore) {} }
 		// Nombre legible del bien.
 		String nm = ((marca == null ? '' : marca) + ' ' +
 					 (modelo == null ? '' : modelo) + ' ' + serie).trim();

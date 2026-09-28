@@ -1021,12 +1021,17 @@ public with sharing class PolicyController {
 		}
 		String vin = a.get('numero de serie');
 		String marca = a.get('marca');
-		String modelo = a.get('modelo');
+		// En México "Modelo" suele ser el AÑO. Si "modelo" es un año de 4 dígitos, va a
+		// MakeYear; el nombre real del modelo (ej. X3) viene en "submarca".
+		String modeloRaw = a.get('modelo');
+		Boolean modeloEsAnio = String.isNotBlank(modeloRaw) && Pattern.matches('\\s*(19|20)\\d{2}\\s*', modeloRaw);
+		String modelo = modeloEsAnio ? a.get('submarca') : modeloRaw;
 		Decimal anioD = parseMonto(a.get('ano'));
+		if (anioD == null && modeloEsAnio) { anioD = parseMonto(modeloRaw); }
 		Integer anio = (anioD != null) ? anioD.intValue() : null;
 		// Sin identificadores de vehículo no se crea CustomerProperty. Evita que ramos
 		// sin auto (GMM, Vida, Daños) generen un vehículo vacío o incorrecto.
-		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo)) { return; }
+		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo) && anio == null) { return; }
 		// Mismo auto = no duplicar: busca por VIN y, si no, por Marca+Modelo+Año
 		// (el identificador puede diferir entre la cotización y la póliza).
 		CustomerProperty cp = null;
@@ -1044,8 +1049,8 @@ public with sharing class PolicyController {
 			]) { cp = c; }
 		}
 		if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
-		if (String.isNotBlank(a.get('marca')))           { cp.Make = a.get('marca'); }
-		if (String.isNotBlank(a.get('modelo')))          { cp.ModelName = a.get('modelo'); }
+		if (String.isNotBlank(marca))                    { cp.Make = marca; }
+		if (String.isNotBlank(modelo))                   { cp.ModelName = modelo; }
 		if (String.isNotBlank(vin))                      { cp.Vin = vin; }
 		if (String.isNotBlank(a.get('numero de motor'))) { cp.Motor__c = a.get('numero de motor'); }
 		String descBien = strOf(bien.get('descripcion'));

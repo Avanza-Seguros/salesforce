@@ -392,12 +392,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.automovil = {
             ...this.automovil,
             Marca__c: v.Make || '',
-            Modelo__c: v.ModelName || '',
+            Modelo__c: v.MakeYear || v.ModelName || '',   // "Modelo" = AÑO
             Serie__c: v.Vin || '',
             Placa__c: v.RegistrationNumber || '',
             Motor__c: v.Motor__c || '',
             Anio__c: v.MakeYear || '',
-            descripcion_completa__c: v.Description || ''
+            descripcion_completa__c: [v.ModelName, v.Description].filter(Boolean).join(' ').trim()
         };
         this.showVehiculoDropdown = false;
         this.vehiculoResults = [];
@@ -902,7 +902,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 };
                 this.isNewAccount = false;
             } else {
-                this.opportunity = { ...this.opportunity, AccountId: null, AccountName: clean };
+                // Cuenta nueva: el tipo se determina por el NOMBRE (razón social = Empresa;
+                // en otro caso Persona), para no marcar Empresa a una persona como "Abel Perez".
+                this.opportunity = {
+                    ...this.opportunity,
+                    AccountId: null,
+                    AccountName: clean,
+                    tipoCliente: this.pareceEmpresaNombre(clean) ? 'Empresa' : 'Persona'
+                };
                 this.isNewAccount = true;
             }
         } catch (e) {
@@ -910,6 +917,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.opportunity = { ...this.opportunity, AccountName: clean };
             this.isNewAccount = true;
         }
+    }
+
+    // Determina si un nombre corresponde a una EMPRESA (razón social) o a una PERSONA.
+    // Espejo de la detección del servidor (pareceEmpresa).
+    pareceEmpresaNombre(nombre) {
+        if (!nombre) { return false; }
+        let n = ' ' + String(nombre).toUpperCase().replace(/\./g, '').replace(/,/g, ' ') + ' ';
+        n = n.replace(/\s+/g, ' ');
+        const sufijos = [
+            ' SA DE CV ', ' S A DE C V ', ' SA ', ' SAPI ', ' SAPI DE CV ',
+            ' S DE RL ', ' S DE RL DE CV ', ' SC ', ' AC ', ' SAB ', ' SAB DE CV ',
+            ' S EN C ', ' SOFOM ', ' SPR DE RL ', ' SRL '
+        ];
+        if (sufijos.some(s => n.includes(s))) { return true; }
+        return ['SOCIEDAD ANONIMA', 'ASOCIACION CIVIL', 'SA DE CV', 'S DE RL'].some(k => n.includes(k));
     }
     selectAccount(event) {
         const id = event.currentTarget.dataset.id;
@@ -1185,12 +1207,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.automovil = {
                 ...this.getDefaultAutomovil(),
                 Marca__c:                a.Make               || a.Marca__c  || '',
-                Modelo__c:               a.ModelName          || a.Modelo__c || '',
+                Modelo__c:               a.MakeYear           || a.Anio__c   || a.Modelo__c || '',   // "Modelo" = AÑO
                 Anio__c:                 a.MakeYear           || a.Anio__c   || '',
                 Placa__c:                a.RegistrationNumber || a.Placa__c  || '',
                 Serie__c:                a.Vin                || a.Serie__c  || '',
                 Motor__c:                a.Motor__c           || '',
-                descripcion_completa__c: a.Description || a.Descripcion_Completa__c || a.descripcion_completa__c || ''
+                descripcion_completa__c: [a.ModelName, (a.Description || a.Descripcion_Completa__c || a.descripcion_completa__c)].filter(Boolean).join(' ').trim()
             };
         }
         if (this.isRamoGMM || detail.gmm) {
@@ -2943,15 +2965,22 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (extractedData.clienteRFC       && !this.opportunity.clienteRFC)       this.opportunity.clienteRFC       = extractedData.clienteRFC;
             if (extractedData.clienteCP        && !this.opportunity.clienteCP)        this.opportunity.clienteCP        = extractedData.clienteCP;
             if (extractedData.clienteDireccion && !this.opportunity.clienteDireccion) this.opportunity.clienteDireccion = extractedData.clienteDireccion;
-            if (extractedData.marca || extractedData.modelo) {
+            if (extractedData.marca || extractedData.modelo || extractedData.anio) {
+                // "Modelo" (convención MX) = AÑO. El nombre real del modelo (ej. X3) va a
+                // la Descripción. Si el año llega dentro de "modelo", se detecta y separa.
+                const modeloTxt = extractedData.modelo || '';
+                const modeloEsAnio = /^\s*(19|20)\d{2}\s*$/.test(modeloTxt);
+                const anioFinal = extractedData.anio || (modeloEsAnio ? modeloTxt.trim() : '');
+                const nombreModelo = modeloEsAnio ? '' : modeloTxt;
                 this.automovil = {
                     ...this.automovil,
                     Marca__c:  this.matchMarca(extractedData.marca) || this.automovil.Marca__c,
-                    Modelo__c: extractedData.modelo || this.automovil.Modelo__c,
+                    Modelo__c: anioFinal || this.automovil.Modelo__c,      // "Modelo" = AÑO
+                    Anio__c:   anioFinal || this.automovil.Anio__c,
                     Placa__c:  extractedData.placa  || this.automovil.Placa__c,
                     Serie__c:  extractedData.serie  || this.automovil.Serie__c,
                     Motor__c:   extractedData.motor   || this.automovil.Motor__c,
-                    descripcion_completa__c: extractedData.descripcion || this.automovil.descripcion_completa__c
+                    descripcion_completa__c: [nombreModelo, extractedData.descripcion].filter(Boolean).join(' ').trim() || this.automovil.descripcion_completa__c
                 };
             }
             // ===== GMM (Gastos Médicos) =====
