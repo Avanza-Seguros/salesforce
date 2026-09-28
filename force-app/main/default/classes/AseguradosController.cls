@@ -272,20 +272,20 @@ public with sharing class AseguradosController {
         if (String.isNotBlank(nombre) || String.isNotBlank(paterno) || String.isNotBlank(materno)) {
             String last = String.isNotBlank(materno) ? materno : paterno;
             if (String.isBlank(last)) { last = nombre; }
-            if (String.isNotBlank(nombre)) { c.FirstName = nombre; }
+            if (String.isNotBlank(nombre)) { c.FirstName = capLen(nombre, 40); }
             if (String.isNotBlank(paterno) && String.isNotBlank(materno)) {
-                try { c.put('MiddleName', paterno); } catch (Exception ignore) {}
+                try { c.put('MiddleName', capLen(paterno, 40)); } catch (Exception ignore) {}
             }
-            c.LastName = last;
+            c.LastName = capLen(last, 80);
         } else if (String.isNotBlank(completo)) {
             List<String> partes = completo.trim().split('\\s+');
             if (partes.size() > 1) {
-                c.LastName = partes[partes.size() - 1];
+                c.LastName = capLen(partes[partes.size() - 1], 80);
                 List<String> first = new List<String>();
                 for (Integer i = 0; i < partes.size() - 1; i++) { first.add(partes[i]); }
-                c.FirstName = String.join(first, ' ');
+                c.FirstName = capLen(String.join(first, ' '), 40);
             } else {
-                c.LastName = completo.trim();
+                c.LastName = capLen(completo.trim(), 80);
             }
         } else {
             return null; // sin nombre no se puede crear
@@ -375,6 +375,11 @@ public with sharing class AseguradosController {
     }
     private static String lower(String s) { return String.isBlank(s) ? s : s.toLowerCase(); }
     private static String upper(String s) { return String.isBlank(s) ? s : s.toUpperCase(); }
+    // Recorta a la longitud máxima (FirstName/MiddleName=40, LastName=80) para evitar STRING_TOO_LONG.
+    private static String capLen(String s, Integer max) {
+        if (s == null) { return null; }
+        return s.length() > max ? s.substring(0, max) : s;
+    }
 
     private static String errMsg(Exception e) {
         String m = e.getMessage();
