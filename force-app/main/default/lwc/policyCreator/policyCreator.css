@@ -360,3 +360,36 @@
     --slds-c-button-brand-color-background: #0052CC;
     --slds-c-button-brand-color-border: #003D99;
 }
+/* =====================================================================
+   AJUSTE DE ESTILOS: densidad compacta + solo lectura mas clara
+   ===================================================================== */
+:host {
+    --slds-c-input-color-background: #FFFFFF;
+    --slds-c-input-color-border: #C9D2E0;
+    --slds-c-input-text-color: #16325C;
+    --slds-c-input-radius-border: 8px;
+    --slds-c-input-color-background-disabled: #F5F8FE;
+    --slds-c-input-text-color-disabled: #16325C;
+    --slds-c-input-color-border-disabled: #D5DEEC;
+    --slds-c-combobox-color-background-disabled: #F5F8FE;
+    --slds-c-combobox-text-color-disabled: #16325C;
+}
+.field-card {
+    padding: 0.35rem 0.55rem;
+    min-height: 3.5rem;
+    border-radius: 8px;
+}
+.field-card::before { height: 2px; }
+/* 4 campos por fila */
+.policy-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+.policy-grid--full { grid-template-columns: 1fr; }
+@media (max-width: 1000px) {
+    .policy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+    .policy-grid { grid-template-columns: 1fr; }
+}
+

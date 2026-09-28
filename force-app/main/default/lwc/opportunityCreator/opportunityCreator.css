@@ -1278,3 +1278,52 @@ lightning-combobox {
 }
 .opportunities-table .info-list-btn:hover { background: #E6EAF2; border-color: #0052CC; }
 .opportunities-table .info-list-btn lightning-icon { --sds-c-icon-color-foreground-default: #4D4D4D; }
+/* =====================================================================
+   AJUSTE DE ESTILOS: densidad compacta + solo lectura mas clara
+   - Menos alto por campo, rejilla auto-ajustable y responsiva.
+   - Campos en solo lectura menos grises (hooks --slds-c-* heredan al base).
+   ===================================================================== */
+:host {
+    --slds-c-input-color-background: #FFFFFF;
+    --slds-c-input-color-border: #C9D2E0;
+    --slds-c-input-text-color: #16325C;
+    --slds-c-input-radius-border: 8px;
+    --slds-c-input-color-background-disabled: #F5F8FE;
+    --slds-c-input-text-color-disabled: #16325C;
+    --slds-c-input-color-border-disabled: #D5DEEC;
+    --slds-c-combobox-color-background-disabled: #F5F8FE;
+    --slds-c-combobox-text-color-disabled: #16325C;
+}
+.form-card { padding: 0.35rem 0.55rem; border-radius: 8px; }
+.form-card::before { height: 2px; }
+.form-card-header { margin-bottom: 0.2rem; padding-bottom: 0.15rem; }
+.form-card-header h3 { font-size: 0.76rem; }
+.form-card lightning-input,
+.form-card lightning-combobox,
+.form-card lightning-textarea { display: block; margin: 0; }
+.form-grid.two-columns {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+/* 4 campos por fila = 2 mitades x 2 columnas internas */
+.form-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    align-content: start;
+}
+.readonly-field {
+    background: #F5F8FE;
+    border: 1px solid #D5DEEC;
+    color: #16325C;
+    border-radius: 8px;
+    padding: 0.35rem 0.55rem;
+}
+@media (max-width: 1000px) {
+    .form-grid.two-columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+    .form-column { grid-template-columns: 1fr; }
+}
+

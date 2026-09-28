@@ -285,7 +285,7 @@
                         <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
                         <span>
                             Esta oportunidad está en etapa <strong>{readOnlyStageLabel}</strong>.
-                            Los datos solo se pueden editar mientras la oportunidad está en
+                            Los datos solo se pueden editar mientras la oportunidad está en 
                             <strong>Gestión Comercial</strong>.
                         </span>
                     </div>
@@ -631,11 +631,20 @@
                                 <div class="form-card">
                                     <div class="form-card-header">
                                         <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
-                                        <h3>Email</h3>
+                                        <h3>Email cliente</h3>
                                     </div>
                                     <lightning-input type="email" label="" value={opportunity.clienteEmail} onchange={handleClienteChange} disabled={isOpportunityReadOnly}
                                         data-field="clienteEmail" variant="label-hidden" placeholder="ejemplo@correo.com"
                                         message-when-bad-input="Ingresa un correo válido" message-when-type-mismatch="Ingresa un correo válido">
+                                    </lightning-input>
+                                </div>
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:user" size="x-small"></lightning-icon>
+                                        <h3>Email Agente</h3>
+                                    </div>
+                                    <lightning-input type="email" label="" value={agenteEmail} disabled
+                                        variant="label-hidden" placeholder="Correo del agente (Producer)">
                                     </lightning-input>
                                 </div>
                                 <div class="form-card">
@@ -1179,7 +1188,7 @@
                                             <th scope="col">Coberturas</th>
                                             <th scope="col">Estado</th>
                                             <th scope="col">Prima</th>
-                                            <th scope="col">Vigencia</th>
+                                            <th scope="col">Fecha de Cotización</th>
                                             <th scope="col">Acciones</th>
                                         </tr>
                                     </thead>
@@ -1207,15 +1216,15 @@
                                                         </button>
                                                     </template>
                                                     <template if:true={q.puedeAceptar}>
-                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} title="Aceptar cotización">
+                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} data-accepted="false" title="Aceptar y pasar a Póliza">
                                                             <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
                                                             Aceptar
                                                         </button>
                                                     </template>
                                                     <template if:true={q.esAceptada}>
-                                                        <button class="poliza-quote-btn" onclick={handlePasarAPoliza} data-id={q.Id} title="Pasar la oportunidad a Póliza">
-                                                            <lightning-icon icon-name="utility:contract" size="xx-small"></lightning-icon>
-                                                            Póliza
+                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} data-accepted="true" title="Aceptar y pasar a Póliza">
+                                                            <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
+                                                            Aceptar
                                                         </button>
                                                     </template>
                                                 </td>

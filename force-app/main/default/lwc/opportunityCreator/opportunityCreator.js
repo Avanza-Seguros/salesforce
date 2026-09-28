@@ -19,6 +19,7 @@ import getAccountById from '@salesforce/apex/OpportunityController.getAccountByI
 import searchContacts from '@salesforce/apex/OpportunityController.searchContacts';
 import getArchivosDeOportunidad from '@salesforce/apex/OpportunityController.getArchivosDeOportunidad';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
+import getProducerEmail from '@salesforce/apex/OpportunityController.getProducerEmail';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
 import guardarArchivoEnOportunidad from '@salesforce/apex/PdfOpportunityCreatorController.guardarArchivoEnOportunidad';
@@ -143,6 +144,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
     @track selectedQuoteRamo = '';
+    @track agenteEmail = '';   // Correo del agente (Producer) para "Email Agente"
     @track showVehiculoDropdown = false;
     @track vehiculoResults = [];
     _vehiculoSearchTimer = null;
@@ -277,10 +279,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 sinProductos: !(q.productos && q.productos.length),
                 seleccionada: true
             }));
-            // Fecha de cierre sugerida = vencimiento de la cotización MÁS CORTA (si no hay una puesta).
+            // Fecha de cierre sugerida = hoy + 45 días (si no hay una puesta).
             if (!this.opportunity.CloseDate) {
-                const vigs = this.editableQuotes.map(q => q.vigencia).filter(Boolean).sort();
-                if (vigs.length) { this.opportunity = { ...this.opportunity, CloseDate: vigs[0] }; }
+                const dt = new Date(); dt.setDate(dt.getDate() + 45);
+                this.opportunity = { ...this.opportunity, CloseDate: dt.toISOString().slice(0, 10) };
             }
         } catch (e) {
             this.editableQuotes = [];
@@ -343,14 +345,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.addQuotesMode = false;
             this.pdfAnalyzing = false;
             await this.openOpportunityInEditMode(this.opportunity.Id);
-            // Comparativo NUEVO con TODO (nuevas + existentes): al recargar, relatedQuotes ya
-            // incluye todas; limpiamos el comparativo IA viejo para que se muestre la matriz
-            // comparativa reconstruida con todas las cotizaciones.
+            // Se conserva el comparativo que regresa la IA (Descripcion__c recuperado al
+            // recargar). Solo si la oportunidad NO tiene comparativo de IA se reconstruye
+            // la matriz comparativa como respaldo.
             if (eraAgregar) {
-                this.comparativoHtml = '';
-                this._comparativoDirty = true;
-                try { this.recomputeComparativa(); } catch (e) { /* ignorar */ }
-                // Adjuntar los PDFs recién cargados + comparativo actualizado a la oportunidad.
+                if (!this.hasComparativoHtml) {
+                    this._comparativoDirty = true;
+                    try { this.recomputeComparativa(); } catch (e) { /* ignorar */ }
+                }
+                // Adjuntar los PDFs recién cargados a la oportunidad.
                 try { await this.guardarArchivosPdf(this.opportunity.Id); } catch (e) { /* ignorar */ }
             }
         } catch (e) {
@@ -1150,6 +1153,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.comparativoHtml = detail.Descripcion__c || '';
         this._comparativoDirty = true;
 
+        // Correo del agente (Producer) para el campo "Email Agente".
+        if (this.opportunity.Agente__c) {
+            getProducerEmail({ producerId: this.opportunity.Agente__c })
+                .then(email => { this.agenteEmail = email || ''; })
+                .catch(() => { this.agenteEmail = ''; });
+        } else {
+            this.agenteEmail = '';
+        }
+
         if (this.isRamoEmpresarial || detail.empresarial) {
             this.empresarial = { ...this.getDefaultEmpresarial(), ...(detail.empresarial || {}) };
         }
@@ -1313,18 +1325,34 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.handleEditRelatedQuote(event);
     }
     // Marca la cotización como "Aceptado" y refresca la lista.
+    // Un solo botón "Aceptar": acepta la cotización (si aún no lo está) y en el mismo
+    // clic pasa la oportunidad a etapa "Póliza" y abre el formulario de emisión.
     async handleAceptarQuote(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) { return; }
+        const yaAceptada = event.currentTarget.dataset.accepted === 'true';
+        const oppId = this.opportunity?.Id;
         try {
-            await aceptarCotizacion({ quoteId: id });
-            this.showToast('Cotización aceptada', 'La cotización quedó Aceptada y sincronizada con la oportunidad.', 'success');
-            if (this.opportunity?.Id) {
-                await this.openOpportunityInEditMode(this.opportunity.Id);
+            // 1) Acepta la cotización (queda sincronizada con la oportunidad).
+            if (!yaAceptada) {
+                await aceptarCotizacion({ quoteId: id });
+            }
+            // 2) Pasa la oportunidad a etapa "Póliza"; el flujo del org crea la InsurancePolicy.
+            if (oppId) {
+                await cambiarEtapaAPoliza({ opportunityId: oppId });
+            }
+            this.showToast('Póliza', 'La cotización se aceptó y la oportunidad pasó a Póliza.', 'success');
+            // 3) Abre el formulario de emisión de la Póliza.
+            if (oppId) {
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__navItemPage',
+                    attributes: { apiName: 'Crear_Poliza' },
+                    state: { c__quoteId: id, c__opportunityId: oppId }
+                });
             }
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
-            this.showToast('Error', 'No se pudo aceptar la cotización: ' + msg, 'error');
+            this.showToast('Error', 'No se pudo aceptar y pasar a Póliza: ' + msg, 'error');
         }
     }
     // Pasa la oportunidad a etapa "Póliza" (desde una cotización ya aceptada)
@@ -2745,6 +2773,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const res = await searchAgentsProspectors({ searchTerm: agente });
             if (res && res.length) {
                 this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                this.agenteEmail = res[0].email || '';
                 this._agenteEsDefault = false;
             }
         } catch (e) {
@@ -2891,11 +2920,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!extractedData || Array.isArray(extractedData)) return;
         try {
             if (!this.opportunity.Name) {
-                // No se bautiza con la aseguradora: hay varias opciones vivas. El nombre
-                // usa Ramo + Cliente; la aseguradora se fija al aceptar la cotización ganadora.
-                const ramoLabel = extractedData.ramoLabel || extractedData.ramo || 'Seguro';
+                // El nombre de la oportunidad es solo el nombre del CLIENTE (sin el ramo).
                 const clienteNombre = extractedData.clienteNombre || 'Cliente';
-                this.opportunity.Name = `${ramoLabel} - ${clienteNombre}`.substring(0, 80);
+                this.opportunity.Name = String(clienteNombre).substring(0, 80);
             }
             if (!this.opportunity.Ramo__c) {
                 const mapped = this.mapRamoToOption(extractedData.ramo);
@@ -3253,22 +3280,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
     }
 
-    // Pone la fecha de cierre sugerida: el vencimiento de la cotización más corta;
-    // si no hay vigencia (ej. Vida), hoy + 30 días. No pisa una fecha ya puesta.
-    aplicarFechaCierreSugerida(quotes) {
+    // Pone la fecha de cierre sugerida: hoy + 45 días. No pisa una fecha ya puesta.
+    aplicarFechaCierreSugerida() {
         if (this.opportunity.CloseDate) { return; }
-        const vigs = (quotes || [])
-            .map(q => q && q.vigencia)
-            .filter(v => v && /^\d{4}-\d{2}-\d{2}/.test(String(v)))
-            .sort();
-        let close;
-        if (vigs.length) {
-            close = String(vigs[0]).slice(0, 10);
-        } else {
-            const dt = new Date(); dt.setDate(dt.getDate() + 30);
-            close = dt.toISOString().slice(0, 10);
-        }
-        this.opportunity = { ...this.opportunity, CloseDate: close };
+        const dt = new Date(); dt.setDate(dt.getDate() + 45);
+        this.opportunity = { ...this.opportunity, CloseDate: dt.toISOString().slice(0, 10) };
     }
 
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
@@ -3345,9 +3361,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
             }
         }
-        // Se arma el comparativo COMPLETO (precios + coberturas + resumen), igual a la
-        // pestaña; si no hay datos estructurados, se usa el HTML de la IA como respaldo.
-        const htmlComparativo = this.buildComparativoHtmlCompleto() || this.comparativoHtml;
+        // Si se usó la IA, se guarda ÚNICAMENTE el comparativo que ella regresó.
+        // Solo cuando no hay comparativo de IA se arma la matriz completa como respaldo.
+        const htmlComparativo = this.hasComparativoHtml
+            ? this.comparativoHtml
+            : (this.buildComparativoHtmlCompleto() || this.comparativoHtml);
         if (htmlComparativo) {
             try {
                 // 1) Guarda el comparativo en la oportunidad (dato committed) y
@@ -3464,6 +3482,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const res = await searchAgentsProspectors({ searchTerm: agente });
                 if (res && res.length > 0) {
                     this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                    this.agenteEmail = res[0].email || '';
                     this._agenteEsDefault = false;
                     asignado = true;
                     break;
@@ -3480,6 +3499,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez' });
                 if (res && res.length > 0) {
                     this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
+                    this.agenteEmail = res[0].email || '';
                     this._agenteEsDefault = true;
                 }
             } catch (e) {
@@ -3692,6 +3712,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleAgenteInput(event) {
         const value = event.target.value;
         this.opportunity = { ...this.opportunity, AgenteName: value, Agente__c: null };
+        this.agenteEmail = '';
         this.showAgenteDropdown = true;
         clearTimeout(this._agenteSearchTimer);
         this._agenteSearchTimer = setTimeout(async () => {
@@ -3712,6 +3733,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const ag = (this.agenteResults || []).find(a => a.Id === id);
         if (!ag) return;
         this.opportunity = { ...this.opportunity, Agente__c: ag.Id, AgenteName: ag.Name };
+        this.agenteEmail = ag.email || '';
         this._agenteEsDefault = false; // selección manual: ya no es el default
         this.showAgenteDropdown = false;
         this.agenteResults = [];

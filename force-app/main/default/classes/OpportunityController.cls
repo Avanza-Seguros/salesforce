@@ -249,6 +249,33 @@ public with sharing class OpportunityController {
 		@AuraEnabled public Id Id;
 		@AuraEnabled public String Name;
 		@AuraEnabled public String detalle;
+		@AuraEnabled public String email;
+	}
+
+	// Correo del Producer: primero el de su Cuenta (persona o negocio) y si no, el del Contacto.
+	private static String correoDeProducer(Producer p) {
+		if (p == null) { return null; }
+		if (p.Account != null) {
+			String pe = (String) p.Account.get('PersonEmail');
+			if (String.isNotBlank(pe)) { return pe; }
+			String ce = (String) p.Account.get('Correo_electronico__c');
+			if (String.isNotBlank(ce)) { return ce; }
+		}
+		if (p.Contact != null && String.isNotBlank(p.Contact.Email)) { return p.Contact.Email; }
+		return null;
+	}
+
+	// Devuelve el correo de un Producer por su Id (para mostrar "Email Agente" al abrir la oportunidad).
+	@AuraEnabled(cacheable=false)
+	public static String getProducerEmail(Id producerId) {
+		if (producerId == null) { return null; }
+		for (Producer p : [
+			SELECT Account.PersonEmail, Account.Correo_electronico__c, Contact.Email
+			FROM Producer WHERE Id = :producerId LIMIT 1
+		]) {
+			return correoDeProducer(p);
+		}
+		return null;
 	}
 
 	@AuraEnabled(cacheable=false)
@@ -275,7 +302,8 @@ public with sharing class OpportunityController {
 				condiciones.add('(Name LIKE :' + k + ' OR Account.Name LIKE :' + k + ' OR Contact.Name LIKE :' + k + ')');
 				i++;
 			}
-			String soql = 'SELECT Id, Name, Account.Name, Contact.Name, Type FROM Producer WHERE ' +
+			String soql = 'SELECT Id, Name, Account.Name, Account.PersonEmail, Account.Correo_electronico__c, ' +
+				'Contact.Name, Contact.Email, Type FROM Producer WHERE ' +
 				String.join(condiciones, ' AND ') + ' ORDER BY Name LIMIT 10';
 			List<Producer> productores = (List<Producer>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
 			for (Producer p : productores) {
@@ -285,6 +313,7 @@ public with sharing class OpportunityController {
 				r.detalle = (p.Account != null && p.Account.Name != null) ? p.Account.Name
 					: ((p.Contact != null && p.Contact.Name != null) ? p.Contact.Name
 					: (p.Type != null ? p.Type : ''));
+				r.email = correoDeProducer(p);
 				out.add(r);
 			}
 			return out;
