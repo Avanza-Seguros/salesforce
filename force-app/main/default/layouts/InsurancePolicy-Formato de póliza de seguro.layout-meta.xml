@@ -58,12 +58,10 @@
 				>insuredAssetDescription__c</field></layoutItems><layoutItems><behavior
 				>Edit</behavior><field
 				>Status</field></layoutItems></layoutColumns><layoutColumns><layoutItems
-			><behavior>Readonly</behavior><field
-				>IsActive</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>EffectiveDate</field></layoutItems><layoutItems
 			><behavior>Edit</behavior><field
-				>ExpirationDate</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field
+				>EffectiveDate</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field>ExpirationDate</field></layoutItems><layoutItems
+			><behavior>Edit</behavior><field
 				>SourceOpportunityId</field></layoutItems><layoutItems><behavior
 				>Edit</behavior><field
 				>CancellationDate</field></layoutItems><layoutItems><behavior

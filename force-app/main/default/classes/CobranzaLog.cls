@@ -48,6 +48,8 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_PLAN_PREMIUM_MISMATCH_CLEARED = 'PLAN_PREMIUM_MISMATCH_CLEARED';
 	// No se pudo guardar la marca de una poliza; las demas del lote si se guardaron.
 	public static final String EVENT_PLAN_PREMIUM_MISMATCH_FAILED = 'PLAN_PREMIUM_MISMATCH_FAILED';
+	// No se pudo alinear la casilla Activa de un activo con el estado de su poliza.
+	public static final String EVENT_POLICY_ASSET_SYNC_FAILED = 'POLICY_ASSET_SYNC_FAILED';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide

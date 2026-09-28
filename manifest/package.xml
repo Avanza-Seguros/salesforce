@@ -43,6 +43,8 @@
         <members>PaymentPlanRegenerationServiceTest</members>
         <members>PlanPremiumMismatchService</members>
         <members>PlanPremiumMismatchServiceTest</members>
+        <members>PolicyAssetActivationService</members>
+        <members>PolicyAssetActivationServiceTest</members>
         <members>PaymentPlanTriggerHandler</members>
         <members>PaymentPlanTriggerHandlerTest</members>
         <members>PaymentPlanInstallmentTriggerHandler</members>
