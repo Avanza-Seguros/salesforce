@@ -23,14 +23,7 @@
             <conditionLogic>and</conditionLogic>
             <conditions>
                 <leftValueReference>Get_Primary_Quote</leftValueReference>
-                <operator>IsBlank</operator>
-                <rightValue>
-                    <booleanValue>true</booleanValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>Check_Existing_Policy</leftValueReference>
-                <operator>IsBlank</operator>
+                <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>true</booleanValue>
                 </rightValue>
@@ -45,14 +38,14 @@
             <conditionLogic>and</conditionLogic>
             <conditions>
                 <leftValueReference>Check_Existing_Policy</leftValueReference>
-                <operator>IsBlank</operator>
+                <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>true</booleanValue>
                 </rightValue>
             </conditions>
             <conditions>
                 <leftValueReference>Get_Primary_Quote</leftValueReference>
-                <operator>IsBlank</operator>
+                <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>false</booleanValue>
                 </rightValue>
@@ -64,6 +57,59 @@
         </rules>
     </decisions>
     <environments>Default</environments>
+    <formulas>
+        <name>FechaPago</name>
+        <dataType>Date</dataType>
+        <expression>IF(
+  ISPICKVAL({!Get_Primary_Quote.Frecuencia_de_prima__c}, &quot;Mensual&quot;), 
+  {!$Flow.CurrentDate} + 30,
+  IF(
+    ISPICKVAL({!Get_Primary_Quote.Frecuencia_de_prima__c}, &quot;Bimestral&quot;), 
+    {!$Flow.CurrentDate} + 60,
+    IF(
+      ISPICKVAL({!Get_Primary_Quote.Frecuencia_de_prima__c}, &quot;Trimestral&quot;), 
+      {!$Flow.CurrentDate} + 90,
+      IF(
+        ISPICKVAL({!Get_Primary_Quote.Frecuencia_de_prima__c}, &quot;Semestral&quot;), 
+        {!$Flow.CurrentDate} + 180,
+        IF(
+          ISPICKVAL({!Get_Primary_Quote.Frecuencia_de_prima__c}, &quot;Anual&quot;), 
+          {!$Flow.CurrentDate} + 365,
+          {!$Flow.CurrentDate}
+        )
+      )
+    )
+  )
+)</expression>
+    </formulas>
+    <formulas>
+        <name>FechaVencimiento</name>
+        <dataType>Date</dataType>
+        <expression>{!$Flow.CurrentDate} + 365</expression>
+    </formulas>
+    <formulas>
+        <name>FrecuenciaPoliza</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK(TEXT({!Get_Primary_Quote.Frecuencia_de_prima__c})),
+  &quot;Anual&quot;,
+  TEXT({!Get_Primary_Quote.Frecuencia_de_prima__c})
+)</expression>
+    </formulas>
+    <formulas>
+        <name>PrimaPoliza</name>
+        <dataType>Number</dataType>
+        <expression>IF(
+  NOT(ISBLANK({!Get_Primary_Quote.Prima_Total__c})) &amp;&amp; {!Get_Primary_Quote.Prima_Total__c} &gt; 0,
+  {!Get_Primary_Quote.Prima_Total__c},
+  IF(
+    NOT(ISBLANK({!Get_Primary_Quote.PrimaAnual__c})) &amp;&amp; {!Get_Primary_Quote.PrimaAnual__c} &gt; 0,
+    {!Get_Primary_Quote.PrimaAnual__c},
+    {!Get_Primary_Quote.TotalPrice}
+  )
+)</expression>
+        <scale>2</scale>
+    </formulas>
     <interviewLabel>Create Insured Policy {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Create Insured Policy</label>
     <processMetadataValues>
@@ -99,13 +145,19 @@
         <inputAssignments>
             <field>EffectiveDate</field>
             <value>
-                <elementReference>Get_Primary_Quote.RatingDate</elementReference>
+                <elementReference>$Flow.CurrentDate</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
             <field>ExpirationDate</field>
             <value>
-                <elementReference>Get_Primary_Quote.ExpirationDate</elementReference>
+                <elementReference>FechaVencimiento</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>GrossWrittenPremium</field>
+            <value>
+                <elementReference>PrimaPoliza</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -129,7 +181,7 @@
         <inputAssignments>
             <field>PaymentDueDate</field>
             <value>
-                <elementReference>Get_Primary_Quote.ExpirationDate</elementReference>
+                <elementReference>FechaPago</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -139,21 +191,33 @@
             </value>
         </inputAssignments>
         <inputAssignments>
+            <field>PolicyTerm</field>
+            <value>
+                <elementReference>Get_Primary_Quote.Frecuencia_de_prima__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>PolicyType</field>
+            <value>
+                <elementReference>Get_Primary_Quote.Ramos__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
             <field>PremiumAmount</field>
             <value>
-                <elementReference>Get_Primary_Quote.GrandTotal</elementReference>
+                <elementReference>PrimaPoliza</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
             <field>PremiumFrequency</field>
             <value>
-                <stringValue>Mensual</stringValue>
+                <elementReference>FrecuenciaPoliza</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
-            <field>Ramo__c</field>
+            <field>ProductId</field>
             <value>
-                <elementReference>Get_Primary_Quote.Opportunity.Ramo__c</elementReference>
+                <elementReference>Get_Primary_Quote.Product__c</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -195,10 +259,10 @@
             </value>
         </filters>
         <filters>
-            <field>Status</field>
-            <operator>NotEqualTo</operator>
+            <field>SourceQuoteId</field>
+            <operator>EqualTo</operator>
             <value>
-                <stringValue>Cancelado</stringValue>
+                <elementReference>Get_Primary_Quote.Id</elementReference>
             </value>
         </filters>
         <getFirstRecordOnly>true</getFirstRecordOnly>
@@ -214,26 +278,12 @@
         <connector>
             <targetReference>Get_Quote_Line_Items</targetReference>
         </connector>
-        <filterLogic>(1 AND 2 AND 4) OR (1 AND 3 AND 4)</filterLogic>
+        <filterLogic>and</filterLogic>
         <filters>
             <field>OpportunityId</field>
             <operator>EqualTo</operator>
             <value>
                 <elementReference>$Record.Id</elementReference>
-            </value>
-        </filters>
-        <filters>
-            <field>IsSyncing</field>
-            <operator>EqualTo</operator>
-            <value>
-                <booleanValue>true</booleanValue>
-            </value>
-        </filters>
-        <filters>
-            <field>Is_Selected__c</field>
-            <operator>EqualTo</operator>
-            <value>
-                <booleanValue>true</booleanValue>
             </value>
         </filters>
         <filters>
