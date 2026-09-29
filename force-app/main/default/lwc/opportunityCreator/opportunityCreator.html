@@ -683,113 +683,6 @@
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 2.b: ASEGURADOS (solo COLECTIVA)               -->
                 <!-- ====================================================== -->
-                <template if:true={mostrarPersonas}>
-                    <div class="unified-section">
-                        <div class="section-header-compact">
-                            <div class="section-icon">
-                                <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
-                            </div>
-                            <div class="section-title-group">
-                                <h2 class="section-title">{personasTitulo}</h2>
-                                <p class="section-subtitle">{personasSubtitulo}</p>
-                            </div>
-                            <div class="section-badge">{aseguradosBadge}</div>
-                        </div>
-                        <div class="form-container">
-                            <!-- Barra de acciones -->
-                            <div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-m-bottom_small" style="gap:0.5rem;">
-                                <lightning-button
-                                    label={personasBotonLabel}
-                                    icon-name="utility:add"
-                                    onclick={handleAgregarAsegurado}
-                                    disabled={isOpportunityReadOnly}
-                                    variant="brand-outline">
-                                </lightning-button>
-                                <lightning-button
-                                    label="Descargar plantilla CSV"
-                                    icon-name="utility:download"
-                                    onclick={descargarPlantillaAsegurados}
-                                    variant="neutral">
-                                </lightning-button>
-                                <div class="slds-m-left_x-small">
-                                    <input type="file" accept=".csv" onchange={handleCensoFile}
-                                        disabled={isOpportunityReadOnly}
-                                        title="Sube el censo en CSV" />
-                                    <span class="slds-text-body_small slds-text-color_weak">
-                                        Carga masiva (CSV)
-                                    </span>
-                                </div>
-                            </div>
-
-                            <!-- Tabla de asegurados -->
-                            <template if:true={hasAsegurados}>
-                                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
-                                    <thead>
-                                        <tr class="slds-line-height_reset">
-                                            <th class="slds-text-title_caps" scope="col" style="width:3rem;">#</th>
-                                            <th class="slds-text-title_caps" scope="col">Nombre completo</th>
-                                            <th class="slds-text-title_caps" scope="col" style="width:12rem;">Parentesco</th>
-                                            <th class="slds-text-title_caps" scope="col" style="width:11rem;">Fecha de nacimiento</th>
-                                            <th class="slds-text-title_caps" scope="col" style="width:5rem;">Edad</th>
-                                            <th class="slds-text-title_caps" scope="col">Correo</th>
-                                            <th class="slds-text-title_caps" scope="col" style="width:4rem;">Quitar</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template for:each={aseguradosView} for:item="a" for:index="i">
-                                            <tr key={a.key}>
-                                                <td>{a.displayNum}</td>
-                                                <td>
-                                                    <lightning-input label="" variant="label-hidden"
-                                                        value={a.nombre} data-index={i} data-field="nombre"
-                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
-                                                        placeholder="Nombre y apellidos">
-                                                    </lightning-input>
-                                                </td>
-                                                <td>
-                                                    <lightning-combobox label="" variant="label-hidden"
-                                                        value={a.parentesco} options={parentescoOptions}
-                                                        data-index={i} data-field="parentesco"
-                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
-                                                        dropdown-alignment="auto">
-                                                    </lightning-combobox>
-                                                </td>
-                                                <td>
-                                                    <lightning-input type="date" label="" variant="label-hidden"
-                                                        value={a.fechaNacimiento} data-index={i} data-field="fechaNacimiento"
-                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}>
-                                                    </lightning-input>
-                                                </td>
-                                                <td class="slds-text-align_center">{a.edad}</td>
-                                                <td>
-                                                    <lightning-input type="email" label="" variant="label-hidden"
-                                                        value={a.email} data-index={i} data-field="email"
-                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
-                                                        placeholder="correo@dominio.com">
-                                                    </lightning-input>
-                                                </td>
-                                                <td class="slds-text-align_center">
-                                                    <lightning-button-icon icon-name="utility:delete"
-                                                        variant="border-filled" alternative-text="Quitar"
-                                                        data-index={i} onclick={handleQuitarAsegurado}
-                                                        disabled={isOpportunityReadOnly}>
-                                                    </lightning-button-icon>
-                                                </td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </template>
-
-                            <!-- Vacío -->
-                            <template if:false={hasAsegurados}>
-                                <div class="slds-box slds-box_x-small slds-text-align_center slds-text-color_weak">
-                                    Aún no hay asegurados. Agrégalos uno por uno o sube el censo en CSV.
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
                 <!-- ====================================================== -->
@@ -1117,6 +1010,113 @@
                         </div>
                     </div>
                 </div>
+                <template if:true={mostrarPersonas}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">{personasTitulo}</h2>
+                                <p class="section-subtitle">{personasSubtitulo}</p>
+                            </div>
+                            <div class="section-badge">{aseguradosBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <!-- Barra de acciones -->
+                            <div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-m-bottom_small" style="gap:0.5rem;">
+                                <lightning-button
+                                    label={personasBotonLabel}
+                                    icon-name="utility:add"
+                                    onclick={handleAgregarAsegurado}
+                                    disabled={isOpportunityReadOnly}
+                                    variant="brand-outline">
+                                </lightning-button>
+                                <lightning-button
+                                    label="Descargar plantilla CSV"
+                                    icon-name="utility:download"
+                                    onclick={descargarPlantillaAsegurados}
+                                    variant="neutral">
+                                </lightning-button>
+                                <div class="slds-m-left_x-small">
+                                    <input type="file" accept=".csv" onchange={handleCensoFile}
+                                        disabled={isOpportunityReadOnly}
+                                        title="Sube el censo en CSV" />
+                                    <span class="slds-text-body_small slds-text-color_weak">
+                                        Carga masiva (CSV)
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Tabla de asegurados -->
+                            <template if:true={hasAsegurados}>
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                                    <thead>
+                                        <tr class="slds-line-height_reset">
+                                            <th class="slds-text-title_caps" scope="col" style="width:3rem;">#</th>
+                                            <th class="slds-text-title_caps" scope="col">Nombre completo</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:12rem;">Parentesco</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:11rem;">Fecha de nacimiento</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:5rem;">Edad</th>
+                                            <th class="slds-text-title_caps" scope="col">Correo</th>
+                                            <th class="slds-text-title_caps" scope="col" style="width:4rem;">Quitar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={aseguradosView} for:item="a" for:index="i">
+                                            <tr key={a.key}>
+                                                <td>{a.displayNum}</td>
+                                                <td>
+                                                    <lightning-input label="" variant="label-hidden"
+                                                        value={a.nombre} data-index={i} data-field="nombre"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
+                                                        placeholder="Nombre y apellidos">
+                                                    </lightning-input>
+                                                </td>
+                                                <td>
+                                                    <lightning-combobox label="" variant="label-hidden"
+                                                        value={a.parentesco} options={parentescoOptions}
+                                                        data-index={i} data-field="parentesco"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
+                                                        dropdown-alignment="auto">
+                                                    </lightning-combobox>
+                                                </td>
+                                                <td>
+                                                    <lightning-input type="date" label="" variant="label-hidden"
+                                                        value={a.fechaNacimiento} data-index={i} data-field="fechaNacimiento"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}>
+                                                    </lightning-input>
+                                                </td>
+                                                <td class="slds-text-align_center">{a.edad}</td>
+                                                <td>
+                                                    <lightning-input type="email" label="" variant="label-hidden"
+                                                        value={a.email} data-index={i} data-field="email"
+                                                        onchange={handleAseguradoChange} disabled={isOpportunityReadOnly}
+                                                        placeholder="correo@dominio.com">
+                                                    </lightning-input>
+                                                </td>
+                                                <td class="slds-text-align_center">
+                                                    <lightning-button-icon icon-name="utility:delete"
+                                                        variant="border-filled" alternative-text="Quitar"
+                                                        data-index={i} onclick={handleQuitarAsegurado}
+                                                        disabled={isOpportunityReadOnly}>
+                                                    </lightning-button-icon>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+
+                            <!-- Vacío -->
+                            <template if:false={hasAsegurados}>
+                                <div class="slds-box slds-box_x-small slds-text-align_center slds-text-color_weak">
+                                    Aún no hay asegurados. Agrégalos uno por uno o sube el censo en CSV.
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 4: COTIZACIONES RELACIONADAS                   -->
                 <!-- (sólo en modo edición — en modo creación no existen)   -->
