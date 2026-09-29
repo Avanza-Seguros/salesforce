@@ -852,7 +852,7 @@ public with sharing class OpportunityController {
 			String ru = ramoOpp == null ? '' : ramoOpp.toUpperCase();
 			Boolean fscGeneraRoles = ru.contains('VIDA') || ru.contains('GMM') || ru.contains('GASTOS')
 				|| ru.contains('DENTAL') || ru.contains('VISION') || ru.contains('VISIÓN');
-			if (!fscGeneraRoles) {
+			if (!fscGeneraRoles && !contactosConRol(opp.Id).contains(nuevoContactoId)) {
 				try {
 					insert new OpportunityContactRole(
 						OpportunityId = opp.Id,
@@ -1328,15 +1328,50 @@ public with sharing class OpportunityController {
 			}
 		}
 		if (!roles.isEmpty()) {
-			try { Database.insert(roles, false); } catch (Exception e) { System.debug('RAMO::: OCR -> ' + e.getMessage()); }
+			// Idempotencia: no duplicar roles para contactos que ya tienen uno en la oportunidad.
+			Set<Id> yaConRol = contactosConRol(opportunityId);
+			List<OpportunityContactRole> nuevos = new List<OpportunityContactRole>();
+			for (OpportunityContactRole ocr : roles) {
+				if (ocr.ContactId != null && !yaConRol.contains(ocr.ContactId)) {
+					nuevos.add(ocr);
+					yaConRol.add(ocr.ContactId);
+				}
+			}
+			if (!nuevos.isEmpty()) {
+				try { Database.insert(nuevos, false); } catch (Exception e) { System.debug('RAMO::: OCR -> ' + e.getMessage()); }
+			}
 		}
 	}
-	
+
+	// Contactos que YA tienen un rol de contacto en la oportunidad (para no duplicar roles).
+	private static Set<Id> contactosConRol(Id opportunityId) {
+		Set<Id> out = new Set<Id>();
+		if (opportunityId == null) { return out; }
+		for (OpportunityContactRole ocr : [
+			SELECT ContactId FROM OpportunityContactRole
+			WHERE OpportunityId = :opportunityId AND ContactId != null
+		]) { out.add(ocr.ContactId); }
+		return out;
+	}
+
+	// Normaliza un nombre para comparar (minúsculas, sin acentos, espacios colapsados).
+	private static String normNombre(String s) {
+		if (s == null) { return ''; }
+		String r = s.toLowerCase()
+			.replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+			.replace('ñ','n').replace('ü','u');
+		return r.replaceAll('\\s+', ' ').trim();
+	}
+
 	private static Id crearContactoDeNombre(String nombreCompleto, Id accountId) {
 		if (String.isBlank(nombreCompleto) || accountId == null) { return null; }
 		String limpio = nombreCompleto.trim();
-		List<Contact> existentes = [SELECT Id FROM Contact WHERE AccountId = :accountId AND Name = :limpio LIMIT 1];
-		if (!existentes.isEmpty()) { return existentes[0].Id; }
+		// Búsqueda TOLERANTE: el Name compuesto del contacto casi nunca coincide letra por
+		// letra con el texto; sin esto se creaba un contacto (y un rol) nuevo cada vez.
+		String claveBusca = normNombre(limpio);
+		for (Contact ex : [SELECT Id, Name FROM Contact WHERE AccountId = :accountId LIMIT 200]) {
+			if (normNombre(ex.Name) == claveBusca) { return ex.Id; }
+		}
 		List<String> partes = limpio.split('\\s+');
 		Contact c = new Contact(AccountId = accountId);
 		if (partes.size() > 1) {
