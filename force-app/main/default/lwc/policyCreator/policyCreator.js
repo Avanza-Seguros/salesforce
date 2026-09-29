@@ -217,8 +217,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.POLICY_DATE_FIELDS.forEach((f) => {
             const v = fields[f];
             if (typeof v === 'string' && soloFechaRegex.test(v)) {
-                const esFechaHora = this._dtFlags[f] === true
-                    || (this._dtFlags[f] === undefined && (f === 'EffectiveDate' || f === 'ExpirationDate'));
+                // Las fechas de póliza son Fecha/Hora en esta org: se agregan a menos que
+                // se haya detectado explícitamente que el campo es de tipo Fecha.
+                const esFechaHora = this._dtFlags[f] !== false;
                 if (esFechaHora) { fields[f] = v + 'T12:00:00.000Z'; }
             }
         });
@@ -390,13 +391,27 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
             this.fillForm(datos);
-            this.showToast('Listo', 'Datos de la póliza cargados. Revisa y guarda.', 'success');
+            // Una vez subido el PDF, se guarda automáticamente y se pasa a la vista de SOLO
+            // LECTURA: el usuario ya no puede modificar los valores de la póliza.
+            this.showToast('Listo', 'Datos de la póliza cargados. Guardando…', 'success');
+            this.guardarYcerrar();
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error al analizar el PDF.';
             this.showToast('Error', msg, 'error');
         } finally {
             this.analizando = false;
         }
+    }
+
+    // Guarda automáticamente la póliza tras subir el PDF y la deja en SOLO LECTURA.
+    // Envía el formulario (mismo flujo que "Guardar Póliza": handleSubmit -> handleSuccess
+    // -> navegarAPoliza). Espera un momento a que el formulario pinte los valores del PDF.
+    guardarYcerrar() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            const form = this.template.querySelector('lightning-record-edit-form');
+            if (form) { form.submit(); }
+        }, 400);
     }
 
     // Adjunta a la póliza el PDF pendiente (si hay uno y la póliza ya existe).
@@ -556,13 +571,21 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         // así que van dentro del mapeo normal. SaleDate y CancellationEffectiveDate NO se
         // llenan desde el PDF (son automáticas).
         const soloFecha = (v) => (v ? String(v).substring(0, 10) : null);
+        // Fechas de la póliza: en esta org son Fecha/Hora, así que se entregan en ISO 8601
+        // (con hora) para no romper el guardado. Si el campo fuera de tipo Fecha se deja
+        // solo AAAA-MM-DD (según lo detectado en _dtFlags al cargar el formulario).
+        const fechaPoliza = (campo, v) => {
+            const s = soloFecha(v);
+            if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s; }
+            return this._dtFlags[campo] === false ? s : (s + 'T12:00:00.000Z');
+        };
         const fechaPrimerVenc = cob.fechaVencimientoPrimerPago
             || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null);
 
         const map = {
-            EffectiveDate: soloFecha(d.vigenciaDesde),
-            ExpirationDate: soloFecha(d.vigenciaHasta),
-            PaymentDueDate: soloFecha(fechaPrimerVenc),
+            EffectiveDate: fechaPoliza('EffectiveDate', d.vigenciaDesde),
+            ExpirationDate: fechaPoliza('ExpirationDate', d.vigenciaHasta),
+            PaymentDueDate: fechaPoliza('PaymentDueDate', fechaPrimerVenc),
             // Datos generales.
             // NO se actualizan por análisis: Aseguradora__c, PolicyType, NameInsuredId,
             // ProductId, SourceQuoteId y la oportunidad origen (se conservan tal cual).
@@ -571,7 +594,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             Name: d.numeroPoliza,
             // PlanType es picklist y NO está en el formulario; NO se fuerza desde la IA
             // (un valor fuera del catálogo rompería el guardado). El plan queda en la descripción.
-            Status: this.normalizarEstatus(d.estatusPoliza),
+            // El estatus NO se toma del PDF: al crear/subir la póliza debe quedar en "Inicial".
+            Status: 'Inicial',
             CancellationReason: d.motivoCancelacion,
             // Primas (definición de negocio): GrossWrittenPremium = prima TOTAL anualizada,
             // PremiumAmount = prima NETA sin impuestos.
