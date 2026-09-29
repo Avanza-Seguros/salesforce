@@ -892,7 +892,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     ...this.opportunity,
                     AccountId: exact.Id,
                     AccountName: exact.Name,
-                    tipoCliente: exact.IsPersonAccount ? 'Persona' : 'Empresa',
+                    tipoCliente: this.tipoDeCuenta(exact.Name || clean, exact.IsPersonAccount),
                     ...this.nombrePartesDesdeCuenta(exact),
                     clienteRFC: exact.clienteRFC || this.opportunity.clienteRFC,
                     clienteEmail: exact.clienteEmail || this.opportunity.clienteEmail,
@@ -919,6 +919,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
     }
 
+    // Tipo de cuenta determinado por el NOMBRE: una cuenta persona es Persona; una cuenta
+    // marcada como empresa pero con nombre de persona (sin razón social) también se trata
+    // como Persona (corrige cuentas de personas mal marcadas como Empresa, ej. "Abel Perez").
+    tipoDeCuenta(nombre, isPersonAccount) {
+        if (isPersonAccount) { return 'Persona'; }
+        return this.pareceEmpresaNombre(nombre) ? 'Empresa' : 'Persona';
+    }
+
     // Determina si un nombre corresponde a una EMPRESA (razón social) o a una PERSONA.
     // Espejo de la detección del servidor (pareceEmpresa).
     pareceEmpresaNombre(nombre) {
@@ -941,7 +949,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             ...this.opportunity,
             AccountId: acc.Id,
             AccountName: acc.Name,
-            tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
+            tipoCliente: this.tipoDeCuenta(acc.Name, acc.IsPersonAccount),
             ...this.nombrePartesDesdeCuenta(acc),
             clienteRFC: acc.clienteRFC || '',
             clienteEmail: acc.clienteEmail || '',
@@ -958,10 +966,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // (razón social, RFC, dirección, correo, teléfono, CP). Solo desliga la cuenta
         // existente para que se cree una nueva con esos datos al guardar.
         const typedName = this.opportunity.AccountName || '';
+        // El tipo se determina por el NOMBRE (razón social = Empresa; en otro caso Persona),
+        // para no arrastrar un "Empresa" heredado de una cuenta emparejada antes.
+        const nombreTipo = typedName
+            || `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidoPaterno || ''} ${this.opportunity.clienteApellidoMaterno || ''}`.trim();
         this.opportunity = {
             ...this.opportunity,
             AccountId: null,
-            AccountName: typedName
+            AccountName: typedName,
+            tipoCliente: this.pareceEmpresaNombre(nombreTipo) ? 'Empresa' : 'Persona'
         };
         this.isNewAccount = true;
         this.showAccountDropdown = false;
@@ -2718,7 +2731,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!acc) { return; }
             this.opportunity = {
                 ...this.opportunity,
-                tipoCliente: acc.IsPersonAccount ? 'Persona' : 'Empresa',
+                tipoCliente: this.tipoDeCuenta(acc.Name, acc.IsPersonAccount),
                 ...this.nombrePartesDesdeCuenta(acc),
                 clienteRFC:       acc.clienteRFC       || this.opportunity.clienteRFC       || '',
                 clienteEmail:     acc.clienteEmail     || this.opportunity.clienteEmail     || '',

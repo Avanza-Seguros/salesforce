@@ -1759,18 +1759,10 @@ public with sharing class PdfOpportunityCreatorController {
 			String ramo = stringOf(m.get('ramo'));
 			Id asegId = asegByName.get(compania);
 
-			// Productos de esa aseguradora + ramo; si no hay, todos los de la aseguradora.
-			List<Product2> prods = new List<Product2>();
-			if (asegId != null && String.isNotBlank(ramo)) {
-				prods = [SELECT Id, Name FROM Product2
-						 WHERE IsActive = true AND Aseguradora__c = :asegId AND Family = :ramo
-						 ORDER BY Name];
-			}
-			if (prods.isEmpty() && asegId != null) {
-				prods = [SELECT Id, Name FROM Product2
-						 WHERE IsActive = true AND Aseguradora__c = :asegId
-						 ORDER BY Name];
-			}
+			// Productos de esa aseguradora + ramo (match tolerante); si no hay, todos.
+			List<Product2> prods = (asegId != null)
+				? productosDeAseguradoraRamo(asegId, ramo)
+				: new List<Product2>();
 			List<Map<String,Object>> productos = new List<Map<String,Object>>();
 			for (Product2 p : prods) {
 				productos.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
@@ -1798,22 +1790,41 @@ public with sharing class PdfOpportunityCreatorController {
 	public static List<Map<String,Object>> getProductosPorAseguradoraRamo(Id aseguradoraId, String ramo) {
 		List<Map<String,Object>> out = new List<Map<String,Object>>();
 		if (aseguradoraId == null) { return out; }
-	
-		// Primero productos de esa aseguradora + ramo; si no hay, todos los de la aseguradora.
-		List<Product2> prods = new List<Product2>();
-		if (String.isNotBlank(ramo)) {
-			prods = [SELECT Id, Name FROM Product2
-					WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family = :ramo
-					ORDER BY Name];
-		}
-		if (prods.isEmpty()) {
-			prods = [SELECT Id, Name FROM Product2
-					WHERE IsActive = true AND Aseguradora__c = :aseguradoraId
-					ORDER BY Name];
-		}
-		for (Product2 p : prods) {
+		for (Product2 p : productosDeAseguradoraRamo(aseguradoraId, ramo)) {
 			out.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
 		}
 		return out;
+	}
+
+	// Productos ACTIVOS de la aseguradora que aplican al ramo, de forma TOLERANTE
+	// (ignora acentos/mayúsculas y variantes como Automovil/Automóviles/Autos). Incluye
+	// los productos sin ramo (Family vacío). Si ninguno coincide, devuelve todos.
+	private static List<Product2> productosDeAseguradoraRamo(Id aseguradoraId, String ramo) {
+		List<Product2> todos = [SELECT Id, Name, Family FROM Product2
+			WHERE IsActive = true AND Aseguradora__c = :aseguradoraId ORDER BY Name];
+		if (String.isBlank(ramo)) { return todos; }
+		List<Product2> prods = new List<Product2>();
+		for (Product2 p : todos) {
+			if (ramoCoincide(p.Family, ramo)) { prods.add(p); }
+		}
+		return prods.isEmpty() ? todos : prods;
+	}
+
+	private static Boolean ramoCoincide(String family, String ramo) {
+		if (String.isBlank(family)) { return true; }   // sin ramo asignado: disponible
+		String f = foldRamo(family);
+		String r = foldRamo(ramo);
+		if (String.isBlank(r) || f == r) { return true; }
+		if (f.startsWith(r) || r.startsWith(f)) { return true; }
+		Integer n = Math.min(4, Math.min(f.length(), r.length()));
+		return n >= 3 && f.substring(0, n) == r.substring(0, n);
+	}
+
+	private static String foldRamo(String s) {
+		if (s == null) { return ''; }
+		String r = s.toLowerCase()
+			.replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+			.replace('ñ','n').replace('ü','u');
+		return r.replaceAll('[^a-z0-9]', '');
 	}
 }

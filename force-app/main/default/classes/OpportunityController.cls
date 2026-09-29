@@ -252,7 +252,7 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String email;
 	}
 
-	// Correo del Producer: primero el de su Cuenta (persona o negocio) y si no, el del Contacto.
+	// Correo del Producer: Cuenta (persona/negocio) -> Contacto -> Usuario interno -> Dueño.
 	private static String correoDeProducer(Producer p) {
 		if (p == null) { return null; }
 		if (p.Account != null) {
@@ -262,7 +262,22 @@ public with sharing class OpportunityController {
 			if (String.isNotBlank(ce)) { return ce; }
 		}
 		if (p.Contact != null && String.isNotBlank(p.Contact.Email)) { return p.Contact.Email; }
+		if (p.InternalUser != null && String.isNotBlank(p.InternalUser.Email)) { return p.InternalUser.Email; }
+		if (p.Owner != null && String.isNotBlank((String) p.Owner.get('Email'))) { return (String) p.Owner.get('Email'); }
 		return null;
+	}
+
+	// Respaldo: correo del agente desde el objeto Agente__c (Email__c), correlacionado por
+	// nombre con el Producer (el Producer no tiene enlace directo a Agente__c).
+	private static Map<String, String> correosAgentePorNombre(Set<String> nombres) {
+		Map<String, String> out = new Map<String, String>();
+		if (nombres == null || nombres.isEmpty()) { return out; }
+		for (Agente__c a : [SELECT Name, Email__c FROM Agente__c WHERE Name IN :nombres]) {
+			if (String.isNotBlank(a.Email__c) && a.Name != null && !out.containsKey(a.Name.toLowerCase())) {
+				out.put(a.Name.toLowerCase(), a.Email__c);
+			}
+		}
+		return out;
 	}
 
 	// Devuelve el correo de un Producer por su Id (para mostrar "Email Agente" al abrir la oportunidad).
@@ -270,10 +285,16 @@ public with sharing class OpportunityController {
 	public static String getProducerEmail(Id producerId) {
 		if (producerId == null) { return null; }
 		for (Producer p : [
-			SELECT Account.PersonEmail, Account.Correo_electronico__c, Contact.Email
+			SELECT Name, Account.PersonEmail, Account.Correo_electronico__c, Contact.Email,
+				   InternalUser.Email, Owner.Email
 			FROM Producer WHERE Id = :producerId LIMIT 1
 		]) {
-			return correoDeProducer(p);
+			String email = correoDeProducer(p);
+			if (String.isNotBlank(email)) { return email; }
+			// Respaldo por nombre en Agente__c.
+			if (String.isNotBlank(p.Name)) {
+				return correosAgentePorNombre(new Set<String>{ p.Name }).get(p.Name.toLowerCase());
+			}
 		}
 		return null;
 	}
@@ -303,7 +324,7 @@ public with sharing class OpportunityController {
 				i++;
 			}
 			String soql = 'SELECT Id, Name, Account.Name, Account.PersonEmail, Account.Correo_electronico__c, ' +
-				'Contact.Name, Contact.Email, Type FROM Producer WHERE ' +
+				'Contact.Name, Contact.Email, InternalUser.Email, Owner.Email, Type FROM Producer WHERE ' +
 				String.join(condiciones, ' AND ') + ' ORDER BY Name LIMIT 10';
 			List<Producer> productores = (List<Producer>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
 			for (Producer p : productores) {
@@ -315,6 +336,19 @@ public with sharing class OpportunityController {
 					: (p.Type != null ? p.Type : ''));
 				r.email = correoDeProducer(p);
 				out.add(r);
+			}
+			// Respaldo del correo desde Agente__c (por nombre) para los que no lo traen.
+			Set<String> nombresSinEmail = new Set<String>();
+			for (ProducerResult r : out) {
+				if (String.isBlank(r.email) && String.isNotBlank(r.Name)) { nombresSinEmail.add(r.Name); }
+			}
+			if (!nombresSinEmail.isEmpty()) {
+				Map<String, String> correos = correosAgentePorNombre(nombresSinEmail);
+				for (ProducerResult r : out) {
+					if (String.isBlank(r.email) && String.isNotBlank(r.Name)) {
+						r.email = correos.get(r.Name.toLowerCase());
+					}
+				}
 			}
 			return out;
 		} catch (Exception e) {
