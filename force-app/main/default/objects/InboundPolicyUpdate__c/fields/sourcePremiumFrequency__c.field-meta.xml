@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>sourcePremiumFrequency__c</fullName>
+    <description
+	>Forma de pago tal como la mandó la aseguradora (Mensual, Trimestral, Semestral, Anual, Contado...).</description>
+    <label>Forma de pago (aseguradora)</label>
+    <length>50</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+</CustomField>

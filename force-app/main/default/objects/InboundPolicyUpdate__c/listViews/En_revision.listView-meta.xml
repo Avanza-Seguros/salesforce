@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>En_revision</fullName>
+    <columns>NAME</columns>
+    <columns>sourcePolicyNumber__c</columns>
+    <columns>sourcePolicyStartDate__c</columns>
+    <columns>sourceCarrierCode__c</columns>
+    <columns>sourcePolicyStatusRaw__c</columns>
+    <columns>inboundStatus__c</columns>
+    <columns>resendCount__c</columns>
+    <columns>lastReceivedAt__c</columns>
+    <columns>manualReviewReason__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>inboundStatus__c</field>
+        <operation>equals</operation>
+        <value>Revision Manual</value>
+    </filters>
+    <label>Comunicaciones en revisión</label>
+    <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
+</ListView>

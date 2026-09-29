@@ -73,7 +73,7 @@
 
     <layoutSections>
 
-        <customLabel>false</customLabel>
+        <customLabel>true</customLabel>
 
         <detailHeading>true</detailHeading>
 
@@ -83,19 +83,31 @@
 
         <layoutColumns><layoutItems><behavior>Required</behavior><field
 				>PremiumAmount</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field
-				>StandardPremiumAmount</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>Subtotal__c</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field>IVA__c</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field
-				>Derecho_Poliza__c</field></layoutItems></layoutColumns><layoutColumns
-		><layoutItems><behavior>Edit</behavior><field
-				>Financiamiento__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>Discount</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field
-				>Moneda__c</field></layoutItems><layoutItems><behavior
 				>Required</behavior><field
-				>PremiumFrequency</field></layoutItems></layoutColumns><style
+				>PremiumFrequency</field></layoutItems><layoutItems><behavior
+				>Required</behavior><field
+				>PaymentDueDate</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field>Numero_Pagos__c</field></layoutItems><layoutItems
+			><behavior>Edit</behavior><field
+				>Primer_Pago__c</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field
+				>Pago_Subsecuente__c</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field
+				>Pagos_Subsecuentes__c</field></layoutItems></layoutColumns><layoutColumns
+		><layoutItems><behavior>Edit</behavior><field
+				>Subtotal__c</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field
+				>Derecho_Poliza__c</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field
+				>Financiamiento__c</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field>IVA__c</field></layoutItems><layoutItems
+			><behavior>Edit</behavior><field
+				>Discount</field></layoutItems><layoutItems><behavior
+				>Edit</behavior><field>Moneda__c</field></layoutItems><layoutItems
+			><behavior>Edit</behavior><field
+				>StandardPremiumAmount</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierPaymentMode__c</field></layoutItems></layoutColumns><style
 		>TwoColumnsTopToBottom</style>
 
     </layoutSections>
@@ -125,7 +137,7 @@
 
     <layoutSections>
 
-        <customLabel>false</customLabel>
+        <customLabel>true</customLabel>
 
         <detailHeading>true</detailHeading>
 
@@ -133,46 +145,43 @@
 
         <label>Cobranza</label>
 
-        <layoutColumns><layoutItems><behavior>Edit</behavior><field
+        <layoutColumns><layoutItems><behavior>Readonly</behavior><field
 				>collectionPaymentStatus__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field
+				>Readonly</behavior><field
 				>collectionNextDueDate__c</field></layoutItems><layoutItems><behavior
-				>Required</behavior><field
-				>PaymentDueDate</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>PaidToDate</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field
-				>Numero_Pagos__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>Primer_Pago__c</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field
-				>Pago_Subsecuente__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field
-				>Pagos_Subsecuentes__c</field></layoutItems><layoutItems><behavior
-				>Readonly</behavior><field
-				>totalRefundedAmount__c</field></layoutItems><layoutItems><behavior
-				>Readonly</behavior><field
-				>planPremiumMismatch__c</field></layoutItems><layoutItems><behavior
-				>Readonly</behavior><field
-				>planPremiumAmount__c</field></layoutItems><layoutItems><behavior
-				>Readonly</behavior><field
-				>premiumMismatchAmount__c</field></layoutItems><layoutItems><behavior
-				>Readonly</behavior><field
-				>premiumMismatchSince__c</field></layoutItems></layoutColumns><layoutColumns
+				>Readonly</behavior><field>PaidToDate</field></layoutItems><layoutItems
+			><behavior>Readonly</behavior><field
+				>totalRefundedAmount__c</field></layoutItems></layoutColumns><layoutColumns
 		><layoutItems><behavior>Readonly</behavior><field
 				>carrierPolicyStatus__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field
-				>carrierPolicyStatusRaw__c</field></layoutItems><layoutItems><behavior
-				>Readonly</behavior><field
 				>carrierStatusSyncedAt__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field
-				>carrierStatusNotice__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>Recargos__c</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field
-				>Referencia_Pago__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field
-				>Gastos_Expedicion__c</field></layoutItems><layoutItems><behavior
-				>Edit</behavior><field>CLABE__c</field></layoutItems><layoutItems
-			><behavior>Edit</behavior><field
-				>Plazo_Pago_Dias__c</field></layoutItems></layoutColumns><style
+				>carrierPolicyStatusRaw__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierStatusNotice__c</field></layoutItems></layoutColumns><style
+		>TwoColumnsTopToBottom</style>
+
+    </layoutSections>
+
+    <layoutSections>
+
+        <customLabel>true</customLabel>
+
+        <detailHeading>true</detailHeading>
+
+        <editHeading>true</editHeading>
+
+        <label>Prima desalineada</label>
+
+        <layoutColumns><layoutItems><behavior>Readonly</behavior><field
+				>planPremiumMismatch__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>planPremiumAmount__c</field></layoutItems></layoutColumns><layoutColumns
+		><layoutItems><behavior>Readonly</behavior><field
+				>premiumMismatchAmount__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>premiumMismatchSince__c</field></layoutItems></layoutColumns><style
 		>TwoColumnsTopToBottom</style>
 
     </layoutSections>
@@ -440,6 +449,28 @@
         <fields>inboundStatus__c</fields>
 
         <relatedList>InboundInsurancePayment__c.candidatePolicy__c</relatedList>
+
+    </relatedLists>
+
+    <relatedLists>
+
+        <fields>NAME</fields>
+
+        <fields>sourcePolicyStartDate__c</fields>
+
+        <fields>sourceSynchronizedAt__c</fields>
+
+        <fields>inboundStatus__c</fields>
+
+        <fields>policyMatchReason__c</fields>
+
+        <fields>resendCount__c</fields>
+
+        <relatedList>InboundPolicyUpdate__c.candidatePolicy__c</relatedList>
+
+        <sortField>sourceSynchronizedAt__c</sortField>
+
+        <sortOrder>Desc</sortOrder>
 
     </relatedLists>
 

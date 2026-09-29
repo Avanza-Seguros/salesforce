@@ -36,6 +36,19 @@ public with sharing class CobranzaLog {
 	public static final String STAGE_DEVOLUCION = 'Devolucion';
 	// Cambios del estado operativo de la poliza (primer pago y fin de vigencia).
 	public static final String STAGE_ESTADO_POLIZA = 'Estado de poliza';
+	// Canal de polizas (KAN-448): recepcion de las comunicaciones de poliza de la aseguradora.
+	public static final String STAGE_RECEPCION_POLIZAS = 'Recepcion de polizas';
+	// No se pudo guardar una comunicacion de poliza; las demas del envio si se guardaron.
+	public static final String EVENT_POLICY_INBOUND_WRITE_FAILED = 'POLICY_INBOUND_WRITE_FAILED';
+	// Fallo no previsto en el endpoint de polizas: se deshizo todo lo que el envio habia escrito.
+	public static final String EVENT_POLICY_ENDPOINT_FAILED = 'POLICY_ENDPOINT_FAILED';
+	// KAN-449: los datos de una comunicacion de poliza se aplicaron a la poliza.
+	public static final String EVENT_POLICY_DATA_APPLIED = 'POLICY_DATA_APPLIED';
+	// No se pudo guardar la poliza con los datos comunicados: la comunicacion va a revision.
+	public static final String EVENT_POLICY_DATA_APPLY_FAILED = 'POLICY_DATA_APPLY_FAILED';
+	// Forma de pago o ramo comunicados sin equivalencia: la poliza conserva el valor que tenia.
+	public static final String EVENT_CARRIER_FREQUENCY_UNMAPPED = 'CARRIER_FREQUENCY_UNMAPPED';
+	public static final String EVENT_CARRIER_BRANCH_UNMAPPED = 'CARRIER_BRANCH_UNMAPPED';
 	// Correcciones del plan de pagos de una poliza que todavia no cobro nada (KAN-446).
 	public static final String STAGE_PLAN_PAGOS = 'Plan de pagos';
 	// El plan sin cobros se rehizo con la frecuencia, la prima o la fecha nuevas de la poliza.

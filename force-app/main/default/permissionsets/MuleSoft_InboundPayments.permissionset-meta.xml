@@ -57,6 +57,21 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InsurancePolicy.carrierDataSyncedAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierPaymentMode__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierPolicyUpdate__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InsurancePolicy.planPremiumAmount__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -73,6 +88,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>InsurancePolicy.premiumMismatchSince__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.sourceIntermediaryName__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

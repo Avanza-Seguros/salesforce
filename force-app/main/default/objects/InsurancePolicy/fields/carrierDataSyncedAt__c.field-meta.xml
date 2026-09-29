@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>carrierDataSyncedAt__c</fullName>
+    <description
+	>Fecha de sincronización de la última comunicación del canal de pólizas que se aplicó a la póliza. Una comunicación anterior (entrega tardía) no la cambia.</description>
+    <label>Última comunicación aplicada</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>DateTime</type>
+</CustomField>

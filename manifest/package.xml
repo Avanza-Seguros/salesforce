@@ -64,6 +64,12 @@
         <members>PolicyStatusFromCarrierTest</members>
         <members>PaymentPlanInstallmentOverdueBatch</members>
         <members>PaymentPlanInstallmentOverdueBatchTest</members>
+        <members>InboundPolicyRestResource</members>
+        <members>InboundPolicyService</members>
+        <members>InboundPolicyServiceTest</members>
+        <members>InboundPolicyApplyQueueable</members>
+        <members>InboundPolicyApplyService</members>
+        <members>InboundPolicyApplyServiceTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -81,6 +87,7 @@
         <members>PaymentReconciliation__c</members>
         <members>PolicyPaymentReceipt__c</members>
         <members>CarrierPolicyStatusMapping__mdt</members>
+        <members>InboundPolicyUpdate__c</members>
         <name>CustomObject</name>
     </types>
     <types>
@@ -263,6 +270,59 @@
         <members>InsurancePolicy.planPremiumMismatch__c</members>
         <members>InsurancePolicy.premiumMismatchAmount__c</members>
         <members>InsurancePolicy.premiumMismatchSince__c</members>
+        <members>InboundPolicyUpdate__c.candidatePolicy__c</members>
+        <members>InboundPolicyUpdate__c.contentFingerprint__c</members>
+        <members>InboundPolicyUpdate__c.identityKey__c</members>
+        <members>InboundPolicyUpdate__c.inboundStatus__c</members>
+        <members>InboundPolicyUpdate__c.lastReceivedAt__c</members>
+        <members>InboundPolicyUpdate__c.manualReviewReason__c</members>
+        <members>InboundPolicyUpdate__c.manualReviewRequired__c</members>
+        <members>InboundPolicyUpdate__c.policyMatchReason__c</members>
+        <members>InboundPolicyUpdate__c.receivedAt__c</members>
+        <members>InboundPolicyUpdate__c.rejectionReason__c</members>
+        <members>InboundPolicyUpdate__c.reprocessCount__c</members>
+        <members>InboundPolicyUpdate__c.resendCount__c</members>
+        <members>InboundPolicyUpdate__c.sourceCancellationDate__c</members>
+        <members>InboundPolicyUpdate__c.sourceCancellationReason__c</members>
+        <members>InboundPolicyUpdate__c.sourceCarrierCode__c</members>
+        <members>InboundPolicyUpdate__c.sourceCurrency__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerAddress__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerName__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerTaxId__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerType__c</members>
+        <members>InboundPolicyUpdate__c.sourceDiscountPercent__c</members>
+        <members>InboundPolicyUpdate__c.sourceFinancingCharge__c</members>
+        <members
+		>InboundPolicyUpdate__c.sourceInsuredAssetDescription__c</members>
+        <members>InboundPolicyUpdate__c.sourceIntermediaryName__c</members>
+        <members>InboundPolicyUpdate__c.sourceLastPaymentDate__c</members>
+        <members>InboundPolicyUpdate__c.sourceNetPremium__c</members>
+        <members>InboundPolicyUpdate__c.sourceNextDueDate__c</members>
+        <members>InboundPolicyUpdate__c.sourceOutstandingPremium__c</members>
+        <members>InboundPolicyUpdate__c.sourcePaidPremium__c</members>
+        <members>InboundPolicyUpdate__c.sourcePayloadHash__c</members>
+        <members>InboundPolicyUpdate__c.sourcePayloadJson__c</members>
+        <members>InboundPolicyUpdate__c.sourcePaymentMode__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyBranch__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyEndDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyFee__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyIssueDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyNumber__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyRenewalDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyStartDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundPolicyUpdate__c.sourcePremiumFrequency__c</members>
+        <members>InboundPolicyUpdate__c.sourceProductName__c</members>
+        <members>InboundPolicyUpdate__c.sourceRenewalFlag__c</members>
+        <members>InboundPolicyUpdate__c.sourceSynchronizedAt__c</members>
+        <members>InboundPolicyUpdate__c.sourceSystem__c</members>
+        <members>InboundPolicyUpdate__c.sourceTaxAmount__c</members>
+        <members>InboundPolicyUpdate__c.sourceTotalPremium__c</members>
+        <members>InsurancePolicy.carrierDataSyncedAt__c</members>
+        <members>InsurancePolicy.carrierPaymentMode__c</members>
+        <members>InsurancePolicy.carrierPolicyUpdate__c</members>
+        <members>InsurancePolicy.sourceIntermediaryName__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyId__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -280,6 +340,7 @@
         <members
 		>InsurancePolicyAsset-Formato de Activo de póliza de seguro</members>
         <members>Account-Business Account Layout</members>
+        <members>InboundPolicyUpdate__c-Comunicacion de poliza</members>
         <name>Layout</name>
     </types>
     <types>
@@ -288,6 +349,7 @@
         <members>Cobranza_Lectura</members>
         <members>Cobranza_Revision_Manual</members>
         <members>Vehiculos_FSC</members>
+        <members>MuleSoft_InboundPolicies</members>
         <name>PermissionSet</name>
     </types>
     <types>
@@ -349,6 +411,11 @@
         <members>InsurancePolicy.Polizas_Canceladas</members>
         <members>InsurancePolicy.Polizas_Inicial_Venta_Ganada</members>
         <members>InsurancePolicy.Polizas_Prima_Desalineada</members>
+        <members>InboundPolicyUpdate__c.Aplicadas</members>
+        <members>InboundPolicyUpdate__c.En_revision</members>
+        <members>InboundPolicyUpdate__c.Rechazadas</members>
+        <members>InboundPolicyUpdate__c.Recibidas</members>
+        <members>InboundPolicyUpdate__c.Todas</members>
         <name>ListView</name>
     </types>
     <types>
@@ -356,6 +423,7 @@
         <members>InboundInsurancePayment__c</members>
         <members>PaymentReconciliation__c</members>
         <members>PolicyPaymentReceipt__c</members>
+        <members>InboundPolicyUpdate__c</members>
         <name>CustomTab</name>
     </types>
     <types>
@@ -388,6 +456,7 @@
         <members>Payment_Reconciliation</members>
         <members>Policy_Payment_Receipt</members>
         <members>Insurance_Policy_Record_Page</members>
+        <members>Comunicacion_de_Poliza</members>
         <name>FlexiPage</name>
     </types>
     <types>
