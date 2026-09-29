@@ -1536,7 +1536,9 @@ public with sharing class PdfOpportunityCreatorController {
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
 			q.put(QF_RAMO, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo);
-			q.put(QF_RATINGDATE, Date.today());
+			// Fecha de cotización (RatingDate): la capturada o, por defecto, hoy.
+			Date fCot = parseDate(stringOf(m.get('fechaCotizacion')));
+			q.put(QF_RATINGDATE, fCot != null ? fCot : Date.today());
 			// Frecuencia real (antes fija en 'Mensual'); se normaliza al catálogo del picklist.
 			String frecRaw = coalesceStr(stringOf(m.get('frecuenciaPago')), stringOf(m.get('frecuencia')));
 			q.put(QF_FRECUENCIA, normalizarFrecuencia(frecRaw));
@@ -1767,7 +1769,7 @@ public with sharing class PdfOpportunityCreatorController {
 			for (Product2 p : prods) {
 				productos.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
 			}
-			Id sugerido = prods.isEmpty() ? null : prods[0].Id;
+			Id sugerido = productoMasParecido(prods, stringOf(m.get('plan')));
 
 			out.add(new Map<String,Object>{
 				'id' => stringOf(m.get('id')),
@@ -1808,6 +1810,40 @@ public with sharing class PdfOpportunityCreatorController {
 			if (ramoCoincide(p.Family, ramo)) { prods.add(p); }
 		}
 		return prods.isEmpty() ? todos : prods;
+	}
+
+	// Elige el producto cuyo Nombre se parece MÁS al plan de la cotización (por palabras
+	// en común y por contención del texto). Si no hay parecido, sugiere el primero.
+	private static Id productoMasParecido(List<Product2> prods, String plan) {
+		if (prods == null || prods.isEmpty()) { return null; }
+		if (String.isBlank(plan)) { return prods[0].Id; }
+		Set<String> planToks = tokensDe(plan);
+		String planFold = foldRamo(plan);
+		Id mejor = prods[0].Id;
+		Integer mejorScore = -1;
+		for (Product2 p : prods) {
+			Set<String> pt = tokensDe(p.Name);
+			Integer score = 0;
+			for (String t : planToks) { if (pt.contains(t)) { score++; } }
+			String pn = foldRamo(p.Name);
+			if (String.isNotBlank(planFold) && String.isNotBlank(pn)
+				&& (pn.contains(planFold) || planFold.contains(pn))) { score += 2; }
+			if (score > mejorScore) { mejorScore = score; mejor = p.Id; }
+		}
+		return mejor;
+	}
+
+	// Palabras significativas de un texto (minúsculas, sin acentos, sin signos, largo >= 2).
+	private static Set<String> tokensDe(String s) {
+		Set<String> out = new Set<String>();
+		if (String.isBlank(s)) { return out; }
+		String norm = s.toLowerCase()
+			.replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+			.replace('ñ','n').replace('ü','u');
+		for (String t : norm.split('[^a-z0-9]+')) {
+			if (String.isNotBlank(t) && t.length() >= 2) { out.add(t); }
+		}
+		return out;
 	}
 
 	private static Boolean ramoCoincide(String family, String ramo) {

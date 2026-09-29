@@ -683,15 +683,15 @@
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 2.b: ASEGURADOS (solo COLECTIVA)               -->
                 <!-- ====================================================== -->
-                <template if:true={isColectiva}>
+                <template if:true={mostrarPersonas}>
                     <div class="unified-section">
                         <div class="section-header-compact">
                             <div class="section-icon">
                                 <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
                             </div>
                             <div class="section-title-group">
-                                <h2 class="section-title">Asegurados del grupo</h2>
-                                <p class="section-subtitle">Personas cubiertas por esta póliza colectiva</p>
+                                <h2 class="section-title">{personasTitulo}</h2>
+                                <p class="section-subtitle">{personasSubtitulo}</p>
                             </div>
                             <div class="section-badge">{aseguradosBadge}</div>
                         </div>
@@ -699,7 +699,7 @@
                             <!-- Barra de acciones -->
                             <div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-m-bottom_small" style="gap:0.5rem;">
                                 <lightning-button
-                                    label="Agregar asegurado"
+                                    label={personasBotonLabel}
                                     icon-name="utility:add"
                                     onclick={handleAgregarAsegurado}
                                     disabled={isOpportunityReadOnly}
@@ -1330,8 +1330,8 @@
                                             <lightning-combobox label="Frecuencia de prima" value={q.frecuencia}
                                                 options={frecuenciaOptions} placeholder="Selecciona la frecuencia"
                                                 data-index={idx} onchange={handleQuoteFrecuenciaChange}></lightning-combobox>
-                                            <lightning-input type="date" label="Fecha de cotización" value={q.vigencia}
-                                                data-index={idx} data-field="vigencia" onchange={handleQuoteFieldChange}></lightning-input>
+                                            <lightning-input type="date" label="Fecha de cotización" value={q.fechaCotizacion}
+                                                data-index={idx} data-field="fechaCotizacion" onchange={handleQuoteFieldChange}></lightning-input>
                                         </div>
                                     </article>
                                 </template>

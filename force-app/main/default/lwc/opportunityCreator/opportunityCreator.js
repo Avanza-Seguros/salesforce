@@ -276,6 +276,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 productId: q.productoSugeridoId,
                 // La frecuencia sale de lo que trae la cotización (frecuenciaPago), normalizada.
                 frecuencia: this.normalizarFrecuenciaUI(q.frecuenciaPago || q.frecuencia),
+                // Fecha de cotización = HOY por default (la fecha en que se cotiza).
+                fechaCotizacion: q.fechaCotizacion || this.hoyISO(),
                 sinProductos: !(q.productos && q.productos.length),
                 seleccionada: true
             }));
@@ -321,6 +323,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 vigenciaInicio: q.vigenciaInicio,
                 noCotizacion: q.noCotizacion, productId: q.productId,
                 aseguradoraId: q.aseguradoraId, frecuencia: q.frecuencia,
+                fechaCotizacion: q.fechaCotizacion,
                 // Forma de pago y cobranza (nuevos datos del comparador).
                 formaPago: q.formaPago, frecuenciaPago: q.frecuenciaPago,
                 primaNeta: q.primaNeta, primaTotalFin: q.primaTotalFin,
@@ -888,11 +891,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
             if (!exact && res.length === 1) { exact = res[0]; }
             if (exact) {
+                const tipo = this.tipoDeCuenta(exact.Name || clean, exact.IsPersonAccount);
                 this.opportunity = {
                     ...this.opportunity,
                     AccountId: exact.Id,
                     AccountName: exact.Name,
-                    tipoCliente: this.tipoDeCuenta(exact.Name || clean, exact.IsPersonAccount),
+                    tipoCliente: tipo,
+                    Mercado__c: this.mercadoPorTipo(tipo),
                     ...this.nombrePartesDesdeCuenta(exact),
                     clienteRFC: exact.clienteRFC || this.opportunity.clienteRFC,
                     clienteEmail: exact.clienteEmail || this.opportunity.clienteEmail,
@@ -904,11 +909,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             } else {
                 // Cuenta nueva: el tipo se determina por el NOMBRE (razón social = Empresa;
                 // en otro caso Persona), para no marcar Empresa a una persona como "Abel Perez".
+                const tipo = this.pareceEmpresaNombre(clean) ? 'Empresa' : 'Persona';
                 this.opportunity = {
                     ...this.opportunity,
                     AccountId: null,
                     AccountName: clean,
-                    tipoCliente: this.pareceEmpresaNombre(clean) ? 'Empresa' : 'Persona'
+                    tipoCliente: tipo,
+                    Mercado__c: this.mercadoPorTipo(tipo)
                 };
                 this.isNewAccount = true;
             }
@@ -950,6 +957,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             AccountId: acc.Id,
             AccountName: acc.Name,
             tipoCliente: this.tipoDeCuenta(acc.Name, acc.IsPersonAccount),
+            Mercado__c: this.mercadoPorTipo(this.tipoDeCuenta(acc.Name, acc.IsPersonAccount)),
             ...this.nombrePartesDesdeCuenta(acc),
             clienteRFC: acc.clienteRFC || '',
             clienteEmail: acc.clienteEmail || '',
@@ -970,11 +978,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // para no arrastrar un "Empresa" heredado de una cuenta emparejada antes.
         const nombreTipo = typedName
             || `${this.opportunity.clienteNombre || ''} ${this.opportunity.clienteApellidoPaterno || ''} ${this.opportunity.clienteApellidoMaterno || ''}`.trim();
+        const tipoNuevo = this.pareceEmpresaNombre(nombreTipo) ? 'Empresa' : 'Persona';
         this.opportunity = {
             ...this.opportunity,
             AccountId: null,
             AccountName: typedName,
-            tipoCliente: this.pareceEmpresaNombre(nombreTipo) ? 'Empresa' : 'Persona'
+            tipoCliente: tipoNuevo,
+            Mercado__c: this.mercadoPorTipo(tipoNuevo)
         };
         this.isNewAccount = true;
         this.showAccountDropdown = false;
@@ -1185,7 +1195,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
         // Comparativo de la IA guardado en la oportunidad (Descripcion__c) para
         // mostrarlo en la sección "Comparativa de Cotizaciones" al editar.
-        this.comparativoHtml = detail.Descripcion__c || '';
+        this.comparativoHtml = this.repararAcentos(detail.Descripcion__c || '');
         this._comparativoDirty = true;
 
         // Correo del agente (Producer) para el campo "Email Agente".
@@ -1236,6 +1246,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 tipoEstructura: g.tipoEstructura || '',
                 numAsegurados:  g.numAsegurados  || 1
             };
+            // Los asegurados (personas cubiertas) están persistidos como contactos con rol;
+            // se cargan para llenar la tabla de Asegurados y el detalle de GMM al abrir.
+            if (this.opportunity.Id) { this.cargarAsegurados(this.opportunity.Id); }
         }
         if (this.isRamoVida || detail.vida) {
             const v = detail.vida || detail;
@@ -1253,6 +1266,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 destino:      vj.destino      || '',
                 numPasajeros: vj.numPasajeros || 1
             };
+            // Los pasajeros (personas) se guardan como contactos con rol; se cargan al abrir.
+            if (this.opportunity.Id) { this.cargarAsegurados(this.opportunity.Id); }
         }
         if (this.isRamoDanos || detail.danos) {
             const d = detail.danos || detail;
@@ -1456,6 +1471,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isColectiva() {
         return this.opportunity && this.opportunity.Tipo_Contratacion__c === 'Colectiva';
     }
+    // Muestra la lista de PERSONAS (asegurados/pasajeros) cuando la contratación es
+    // colectiva o el ramo cubre a varias personas (GMM, Viajes, Dental, Visión).
+    get mostrarPersonas() {
+        return this.isColectiva || this.isRamoGMM || this.isRamoViajes
+            || this.isRamoDental || this.isRamoVision;
+    }
+    // Título/subtítulo de la sección de personas según el ramo.
+    get personasTitulo() {
+        return this.isRamoViajes ? 'Pasajeros del viaje' : 'Asegurados del grupo';
+    }
+    get personasSubtitulo() {
+        return this.isRamoViajes
+            ? 'Personas que viajan en esta póliza'
+            : 'Personas cubiertas por esta póliza';
+    }
+    get personasBotonLabel() {
+        return this.isRamoViajes ? 'Agregar pasajero' : 'Agregar asegurado';
+    }
     get tipoContratacionOptions() {
         return [
             { label: 'Individual', value: 'Individual' },
@@ -1510,6 +1543,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         try {
             const res = await getAsegurados({ opportunityId: oppId });
             this.asegurados = (res || []).map((a, i) => this.decorarAsegurado(a, i));
+            // En GMM, refleja el número real de asegurados y la estructura en el detalle.
+            if (this.isRamoGMM && this.asegurados.length) {
+                this.gmm = {
+                    ...this.gmm,
+                    numAsegurados: this.asegurados.length,
+                    tipoEstructura: this.gmm.tipoEstructura
+                        || (this.asegurados.length > 1 ? 'Familiar' : 'Individual')
+                };
+            }
+            // En Viajes, refleja el número real de pasajeros.
+            if (this.isRamoViajes && this.asegurados.length) {
+                this.viaje = { ...this.viaje, numPasajeros: this.asegurados.length };
+            }
         } catch (e) {
             this.asegurados = [];
         }
@@ -2308,6 +2354,40 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (field === 'Mercado__c') {
             this.syncContactoConMercado();
         }
+        // El Mercado se deriva del tipo de cliente: Persona → Individual; Empresa → Corporativo.
+        if (field === 'tipoCliente') {
+            this.opportunity = { ...this.opportunity, Mercado__c: this.mercadoPorTipo(value) };
+            this.syncContactoConMercado();
+        }
+    }
+
+    // Mercado según el tipo de cliente: Persona → Individual; Empresa → Corporativo.
+    mercadoPorTipo(tipoCliente) {
+        return tipoCliente === 'Persona' ? 'Individual' : 'Corporativo';
+    }
+
+    // Fecha de hoy en formato ISO (YYYY-MM-DD).
+    hoyISO() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    // Repara acentos del comparativo cuando llegan como el par hex de un escape Unicode
+    // al que se le perdió el prefijo "\u00" (ej. "reduccif3n" -> "reducción", "espaf1a" -> "españa").
+    // Solo reemplaza el par hex cuando aparece ENTRE letras (acento dentro de palabra).
+    repararAcentos(html) {
+        if (!html) { return html; }
+        const mapa = {
+            e1: 'á', e9: 'é', ed: 'í', f3: 'ó', fa: 'ú', f1: 'ñ', fc: 'ü',
+            c1: 'Á', c9: 'É', cd: 'Í', d3: 'Ó', da: 'Ú', d1: 'Ñ'
+        };
+        const letra = 'A-Za-zÁÉÍÓÚÑáéíóúñ';
+        const re = new RegExp('([' + letra + '])(e1|e9|ed|f3|fa|f1|fc|c1|c9|cd|d3|da|d1)(?=[' + letra + '])', 'g');
+        // Dos pasadas para palabras con más de un acento seguido.
+        let out = html;
+        for (let i = 0; i < 2; i++) {
+            out = out.replace(re, (m, prev, code) => prev + mapa[code]);
+        }
+        return out;
     }
 
     // Cuando el Mercado es Individual, el Contacto se toma de la Cuenta (se
@@ -2337,7 +2417,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const field = event.target.dataset?.field?.replace('gmm.', '');
         if (field && Object.prototype.hasOwnProperty.call(this.gmm, field)) {
             this.gmm[field] = event.detail?.value || event.target.value;
+            // Al indicar el número de asegurados, prepara las filas para capturar los nombres.
+            if (field === 'numAsegurados') { this.ajustarFilasPersonas(this.gmm.numAsegurados); }
         }
+    }
+
+    // Genera filas de personas (asegurados/pasajeros) para capturar los nombres, según el
+    // número indicado. Solo AGREGA filas faltantes; no borra las ya capturadas.
+    ajustarFilasPersonas(n) {
+        const objetivo = parseInt(n, 10);
+        if (isNaN(objetivo) || objetivo < 1) { return; }
+        const actual = (this.asegurados || []).length;
+        if (objetivo <= actual) { return; }
+        const parentesco = this.isRamoViajes ? 'Pasajero' : 'Asegurado';
+        const nuevos = [];
+        for (let i = actual; i < objetivo; i++) {
+            nuevos.push(this.decorarAsegurado({ parentesco }, i));
+        }
+        this.asegurados = [...this.asegurados, ...nuevos];
     }
     handleVidaChange(event) {
         const field = event.target.dataset?.field?.replace('vida.', '');
@@ -2349,6 +2446,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const field = event.target.dataset?.field?.replace('viaje.', '');
         if (field && Object.prototype.hasOwnProperty.call(this.viaje, field)) {
             this.viaje[field] = event.detail?.value || event.target.value;
+            // Al indicar el número de pasajeros, prepara las filas para capturar los nombres.
+            if (field === 'numPasajeros') { this.ajustarFilasPersonas(this.viaje.numPasajeros); }
         }
     }
     handleDanosChange(event) {
@@ -3178,8 +3277,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             if (savedId) {
                 this.opportunity = { ...this.opportunity, Id: savedId };
-                // Colectiva: guarda/actualiza los asegurados del grupo.
-                if (this.isColectiva && this.asegurados.length) {
+                // Guarda/actualiza las personas (asegurados/pasajeros) cuando la
+                // contratación es colectiva o el ramo las maneja (GMM, Viajes, Dental, Visión).
+                if (this.mostrarPersonas && this.asegurados.length) {
                     try {
                         await guardarAsegurados({
                             opportunityId: savedId,
@@ -3447,7 +3547,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Primero mostramos el formulario (comportamiento de siempre). El comparativo
         // de la IA es opcional y NO debe afectar este flujo.
         this.viewMode = VIEW_MODES.CREATE;
-        this.comparativoHtml = d.comparativoHtml || '';
+        this.comparativoHtml = this.repararAcentos(d.comparativoHtml || '');
         this._comparativoDirty = true;
 
         // Aplica el DETALLE del ramo (Vida, GMM, Daños, Viajes, RC) desde el comparador.
@@ -3669,7 +3769,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!host) { return; }
         this._comparativoDirty = false;
         try {
-            host.innerHTML = this.comparativoHtml || '';
+            host.innerHTML = this.repararAcentos(this.comparativoHtml || '');
         } catch (e) {
             /* no romper el flujo si el HTML no se puede inyectar */
         }
