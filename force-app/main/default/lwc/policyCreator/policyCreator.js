@@ -21,6 +21,7 @@ import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
+import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 
 export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track policyId;
@@ -38,6 +39,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track participantes = [];
     @track bienes = [];
     @track transacciones = [];
+    @track policyHero = {};
+    // Etapa real de la oportunidad (API): define el aviso y el color de la cabecera.
+    oppStage = '';
+    // true cuando se cargó el PDF de la póliza: al guardar, la oportunidad pasa a Póliza.
+    _pdfCargado = false;
 
     _pdfJsLoaded = false;
     // PDF seleccionado que se adjuntará a la póliza (queda pendiente si la póliza aún no existe).
@@ -69,16 +75,37 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.opportunityId = pageRef.state.c__opportunityId;
         this.readOnly = pageRef.state.c__readonly === '1';
         this.loadPolicy();
-        if (this.readOnly) { this.loadResumen(); }
+        // Siempre se lee la oportunidad: si ya está en Póliza, Ganada o Perdida se fuerza
+        // el modo SOLO LECTURA aunque se haya llegado sin el parámetro c__readonly.
+        this.loadResumen();
     }
 
     // Lee las fechas de la póliza para mostrarlas SIN hora en la vista de solo lectura.
     @wire(getRecord, { recordId: '$policyId', fields: [
         EFFECTIVE_DATE, EXPIRATION_DATE, PAYMENT_DUE_DATE, CANCELLATION_EFF_DATE,
         SALE_DATE, PREVIOUS_RENEWAL_DATE, RENEWAL_DATE, PLANNED_RENEWAL_DATE
+    ], optionalFields: [
+        'InsurancePolicy.Name', 'InsurancePolicy.UniversalPolicyNumber', 'InsurancePolicy.Status',
+        'InsurancePolicy.GrossWrittenPremium', 'InsurancePolicy.PremiumFrequency',
+        'InsurancePolicy.Numero_Pagos__c'
     ] })
     wiredPolicyDates({ data }) {
         if (data) {
+            const f = (name) => {
+                const cell = data.fields && data.fields[name];
+                if (!cell) { return null; }
+                return cell.displayValue != null ? cell.displayValue : cell.value;
+            };
+            const prima = data.fields && data.fields.GrossWrittenPremium
+                ? data.fields.GrossWrittenPremium.value : null;
+            this.policyHero = {
+                nombre: f('Name') || 'Póliza',
+                numero: f('UniversalPolicyNumber') || 'Sin número',
+                estatus: f('Status') || '—',
+                prima: this.fmtCurrency(prima),
+                frecuencia: f('PremiumFrequency') || '—',
+                pagos: f('Numero_Pagos__c') || '—'
+            };
             this.policyDates = {
                 EffectiveDate: this.fmtDate(getFieldValue(data, EFFECTIVE_DATE)),
                 ExpirationDate: this.fmtDate(getFieldValue(data, EXPIRATION_DATE)),
@@ -150,6 +177,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
     get isEditable() {
         return !this.readOnly;
+    }
+    get topbarSubtitle() {
+        return this.readOnly
+            ? 'Consulta de la póliza (solo lectura)'
+            : 'Carga el PDF de la póliza para emitirla';
     }
 
     get showOverlay() {
@@ -278,6 +310,20 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // No bloquea: la póliza ya quedó guardada.
             this.showToast('Aviso', msg, 'warning');
         }
+        // Sin PDF de la póliza la oportunidad sigue en emisión y el formulario editable.
+        if (!this._pdfCargado) { return; }
+        // Con el PDF cargado, la oportunidad pasa a etapa "Póliza" y ya no se puede modificar.
+        try {
+            if (this.opportunityId) {
+                await cambiarEtapaAPoliza({ opportunityId: this.opportunityId });
+            }
+            this._pdfCargado = false;
+            this.showToast('Póliza emitida', 'La oportunidad pasó a la etapa Póliza.', 'success');
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('La póliza se guardó, pero la etapa no cambió', msg, 'warning');
+            return;
+        }
         // Lleva a la vista completa de la póliza en modo lectura (resumen + coberturas,
         // participantes, bien y transacción).
         this.navegarAPoliza();
@@ -368,6 +414,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             try {
                 const base64 = await this.readFileAsBase64(file);
                 this._pdfPendiente = { base64, nombre: file.name };
+                this._pdfCargado = true;
                 await this.guardarPdfEnPoliza();
             } catch (fileErr) {
                 // No bloquea el análisis del PDF; se reintenta al guardar la póliza.
@@ -673,6 +720,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         try {
             const detail = await getOpportunityDetails({ opportunityId: this.opportunityId });
             const o = (detail && detail.opportunity) || {};
+            this.oppStage = o.StageName || '';
+            if (!this.readOnly && this.isEtapaBloqueada(o.StageName)) {
+                this.readOnly = true;
+                if (this.policyId) { this.loadRegistrosPoliza(); }
+            }
             this.oppCard = {
                 name: o.Name || '—',
                 cuenta: o.Account && o.Account.Name ? o.Account.Name : '—',
@@ -748,6 +800,49 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     get hasQuoteCards() {
         return this.quoteCards && this.quoteCards.length > 0;
+    }
+
+    // Póliza, Ganada o Perdida: la información ya no se puede modificar.
+    isEtapaBloqueada(stage) {
+        const s = (stage || '').toString().toLowerCase();
+        return /p[oó]liza/.test(s) || s === 'closed won' || s === 'closed lost';
+    }
+    get isGanada()  { return this.oppStage === 'Closed Won'; }
+    get isPerdida() { return this.oppStage === 'Closed Lost'; }
+    get heroClass() {
+        if (this.isGanada)  { return 'ro-hero ro-hero--won'; }
+        if (this.isPerdida) { return 'ro-hero ro-hero--lost'; }
+        return 'ro-hero ro-hero--poliza';
+    }
+    get heroEtapa() {
+        if (this.isGanada)  { return 'Ganada'; }
+        if (this.isPerdida) { return 'Perdida'; }
+        return 'Póliza emitida';
+    }
+    get heroIcon() {
+        if (this.isGanada)  { return 'utility:success'; }
+        if (this.isPerdida) { return 'utility:error'; }
+        return 'utility:lock';
+    }
+    get readOnlyMensaje() {
+        if (this.isGanada || this.isPerdida) {
+            return 'Oportunidad cerrada: la información se muestra en solo lectura.';
+        }
+        return 'El PDF de la póliza ya fue cargado: la información se muestra en solo lectura.';
+    }
+    get aseguradoraHero() {
+        const q = (this.quoteCards || []).find((c) => c.aceptada) || (this.quoteCards || [])[0];
+        return q ? q.aseguradora : '—';
+    }
+    get vigenciaHero() {
+        const d = this.policyDates || {};
+        return (d.EffectiveDate || '—') + '  →  ' + (d.ExpirationDate || '—');
+    }
+    get quoteCardsView() {
+        return (this.quoteCards || []).map((q) => ({
+            ...q,
+            cardClass: q.aceptada ? 'ro-quote-card ro-quote-card--accepted' : 'ro-quote-card'
+        }));
     }
 
     stageLabel(stage) {

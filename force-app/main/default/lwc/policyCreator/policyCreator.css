@@ -393,3 +393,147 @@
     .policy-grid { grid-template-columns: 1fr; }
 }
 
+
+/* =====================================================================
+   VISTA DE SOLO LECTURA (Póliza / Ganada / Perdida): compacta y destacada
+   ===================================================================== */
+.unified-view { gap: 0.6rem; padding: 0.75rem !important; }
+.content-container.glass-effect { margin: 0.5rem 1rem; }
+.policy-topbar { padding-bottom: 0.5rem; }
+
+/* ----- Cabecera (hero) ----- */
+.ro-hero {
+    --hero-a: #0052CC;
+    --hero-b: #00A3BF;
+    background: linear-gradient(120deg, var(--hero-a) 0%, var(--hero-b) 100%);
+    color: #FFFFFF;
+    border-radius: 12px;
+    padding: 0.85rem 1rem 0.7rem;
+    box-shadow: 0 6px 18px rgba(0, 82, 204, 0.25);
+}
+.ro-hero--won  { --hero-a: #006644; --hero-b: #00A86B; box-shadow: 0 6px 18px rgba(0, 135, 90, 0.25); }
+.ro-hero--lost { --hero-a: #8C1D0B; --hero-b: #DE350B; box-shadow: 0 6px 18px rgba(222, 53, 11, 0.25); }
+
+.ro-hero__top { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.ro-hero__icon {
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    display: flex; align-items: center; justify-content: center;
+}
+.ro-hero__title { flex: 1; min-width: 200px; }
+.ro-hero__eyebrow {
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; opacity: 0.85;
+}
+.ro-hero__name {
+    margin: 0; font-size: 1.3rem; font-weight: 800; line-height: 1.2;
+    color: #FFFFFF; word-break: break-word;
+}
+.ro-hero__meta { margin: 0.1rem 0 0; font-size: 0.82rem; opacity: 0.9; }
+.ro-hero__stage {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.85rem; border-radius: 999px;
+    background: #FFFFFF; color: var(--hero-a);
+    font-size: 0.8rem; font-weight: 800; white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.ro-hero__stage lightning-icon { --slds-c-icon-color-foreground-default: var(--hero-a); --sds-c-icon-color-foreground-default: var(--hero-a); }
+
+.ro-kpis {
+    display: grid;
+    grid-template-columns: 1.2fr 1.6fr 1.2fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.7rem;
+}
+.ro-kpi {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 10px;
+    padding: 0.4rem 0.65rem;
+    display: flex; flex-direction: column; gap: 0.05rem;
+    min-width: 0;
+}
+.ro-kpi--main { background: #FFFFFF; border-color: #FFFFFF; }
+.ro-kpi__label {
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; opacity: 0.85;
+}
+.ro-kpi__value { font-size: 0.95rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ro-kpi--main .ro-kpi__label { color: #667085; opacity: 1; }
+.ro-kpi--main .ro-kpi__value { color: var(--hero-a); font-size: 1.15rem; }
+.ro-hero__lock {
+    display: flex; align-items: center; gap: 0.35rem;
+    margin-top: 0.55rem; font-size: 0.75rem; font-weight: 600; opacity: 0.9;
+}
+.ro-hero__icon lightning-icon,
+.ro-hero__lock lightning-icon { --slds-c-icon-color-foreground-default: #FFFFFF; --sds-c-icon-color-foreground-default: #FFFFFF; }
+@media (max-width: 900px) { .ro-kpis { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .ro-kpis { grid-template-columns: 1fr; } }
+
+/* ----- Secciones compactas ----- */
+.ro-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+@media (max-width: 900px) { .ro-row { grid-template-columns: 1fr; } }
+.ro-section {
+    background: #FFFFFF;
+    border: 1px solid #E3E8F0;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    min-width: 0;
+}
+.ro-section__title {
+    display: flex; align-items: center; gap: 0.4rem;
+    margin: 0 0 0.45rem;
+    font-size: 0.88rem; font-weight: 800; color: #001C3D;
+}
+.ro-section .ro-grid { margin-bottom: 0; }
+.ro-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); border-radius: 6px; }
+.ro-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ro-field--wide { grid-column: 1 / -1; }
+@media (max-width: 900px) { .ro-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .ro-grid, .ro-grid--2 { grid-template-columns: 1fr; } }
+.ro-field { min-height: 0; padding: 0.3rem 0.55rem; gap: 0.05rem; }
+.ro-label { font-size: 0.66rem; }
+.ro-value { font-size: 0.85rem; }
+.ro-field lightning-output-field { font-size: 0.85rem; }
+.ro-subtitle { margin: 0.55rem 0 0.25rem; font-size: 0.7rem; padding-bottom: 0.15rem; }
+.ro-desc { margin-top: 0.25rem; font-size: 0.85rem; }
+.ro-empty { font-size: 0.82rem; margin: 0; }
+
+/* ----- Listas (cotizaciones, participantes, bienes) ----- */
+.ro-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.ro-quote-card { padding: 0.4rem 0.6rem; border-radius: 8px; box-shadow: none; border-color: #E3E8F0; }
+.ro-quote-card::before { display: none; }
+.ro-quote-card--accepted { border: 1px solid #00875A; background: #F3FBF7; }
+.ro-quote-head { margin-bottom: 0.2rem; padding-bottom: 0.2rem; }
+.ro-quote-meta {
+    display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem;
+    font-size: 0.8rem; color: #344054;
+}
+.ro-chip-row {
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #E3E8F0; border-radius: 8px;
+    font-size: 0.82rem;
+}
+.ro-chip-row .strong { flex: 1; min-width: 120px; }
+.ro-muted { color: #667085; }
+.strong { font-weight: 700; color: #001C3D; }
+.money { color: #00875A; font-weight: 800; }
+
+/* ----- Tablas (coberturas, transacciones) ----- */
+.ro-table-wrap { overflow-x: auto; }
+.ro-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.ro-table th {
+    text-align: left; padding: 0.3rem 0.5rem;
+    font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #667085; background: #F5F8FE; border-bottom: 1px solid #E3E8F0;
+}
+.ro-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #EEF1F6; color: #1A1A1A; }
+.ro-table tbody tr:hover td { background: #F9FBFF; }
+.ro-table .num { text-align: right; white-space: nowrap; }

@@ -1062,15 +1062,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     async handleEditOpportunity(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) return;
-        // Si la oportunidad está en Póliza, Ganada o Perdida, abre el formulario de la Póliza.
-        // En Ganada/Perdida se abre en modo SOLO LECTURA.
+        // Si la oportunidad está en Póliza, Ganada o Perdida, abre la Póliza en modo
+        // SOLO LECTURA: con el PDF de la póliza ya cargado no se puede modificar ningún dato.
         const fromList = (this.opportunities || []).find(o => o.Id === id) || {};
         if (this.isPolizaStage(fromList.StageName) || this.isClosedStage(fromList.StageName)) {
-            const soloLectura = this.isClosedStage(fromList.StageName) ? '1' : '';
             this[NavigationMixin.Navigate]({
                 type: 'standard__navItemPage',
                 attributes: { apiName: 'Crear_Poliza' },
-                state: { c__opportunityId: id, c__readonly: soloLectura }
+                state: { c__opportunityId: id, c__readonly: '1' }
             });
             return;
         }
@@ -1374,9 +1373,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleViewQuote(event) {
         return this.handleEditRelatedQuote(event);
     }
-    // Marca la cotización como "Aceptado" y refresca la lista.
-    // Un solo botón "Aceptar": acepta la cotización (si aún no lo está) y en el mismo
-    // clic pasa la oportunidad a etapa "Póliza" y abre el formulario de emisión.
+    // Botón "Aceptar" / "Emitir Póliza": acepta la cotización (si aún no lo está) y abre el
+    // formulario de emisión. Al aceptarla, el flujo del org pasa la oportunidad a
+    // "En proceso de emision" y crea la InsurancePolicy. La etapa "Póliza" se asigna
+    // hasta que se carga el PDF de la póliza en "Crear Póliza".
     async handleAceptarQuote(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) { return; }
@@ -1391,22 +1391,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.showToast('Error', 'No se pudo aceptar la cotización: ' + msg, 'error');
                 return;
             }
+            this.showToast('Cotización aceptada',
+                'Carga el PDF de la póliza para emitirla y pasar la oportunidad a Póliza.', 'success');
         }
-        // 2) Pasa la oportunidad a etapa "Póliza" (el flujo del org crea la InsurancePolicy).
-        //    Si esto falla (p. ej. el flujo de póliza o una validación), el cambio de etapa
-        //    se revierte: la cotización queda aceptada pero la etapa NO cambia.
-        try {
-            if (oppId) { await cambiarEtapaAPoliza({ opportunityId: oppId }); }
-        } catch (e) {
-            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
-            this.showToast('La cotización se aceptó, pero la etapa no cambió',
-                'No se pudo pasar la oportunidad a Póliza: ' + msg, 'warning');
-            // Refresca para mostrar el estado real (cotización aceptada, etapa sin cambiar).
-            if (oppId) { try { await this.openOpportunityInEditMode(oppId); } catch ( e2) { /* no-op */ } }
-            return;
-        }
-        this.showToast('Póliza', 'La cotización se aceptó y la oportunidad pasó a Póliza.', 'success');
-        // 3) Abre el formulario de emisión de la Póliza.
+        // 2) Abre el formulario de emisión de la Póliza.
         if (oppId) {
             this[NavigationMixin.Navigate]({
                 type: 'standard__navItemPage',

@@ -347,7 +347,7 @@
         <connector>
             <targetReference>Get_Primary_Quote</targetReference>
         </connector>
-        <filterLogic>and</filterLogic>
+        <filterLogic>1 AND (2 OR 3)</filterLogic>
         <filters>
             <field>StageName</field>
             <operator>IsChanged</operator>
@@ -360,6 +360,13 @@
             <operator>EqualTo</operator>
             <value>
                 <stringValue>Póliza</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>En proceso de emision</stringValue>
             </value>
         </filters>
         <object>Opportunity</object>

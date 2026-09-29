@@ -23,7 +23,7 @@
                 </div>
                 <div class="section-title-group">
                     <h2 class="section-title">Emisión de Póliza</h2>
-                    <p class="section-subtitle">Revisa los datos y guarda la póliza</p>
+                    <p class="section-subtitle">{topbarSubtitle}</p>
                 </div>
             </div>
             <template if:true={isEditable}>
@@ -36,102 +36,120 @@
             </template>
         </div>
 
-        <!-- Aviso de solo lectura -->
-        <template if:true={isReadOnly}>
-            <div class="readonly-banner">
-                <lightning-icon icon-name="utility:lock" size="x-small"></lightning-icon>
-                <span>Esta oportunidad está cerrada (Ganada o Perdida). Se muestra en <strong>solo lectura</strong>; no se puede modificar.</span>
-            </div>
-        </template>
-
         <template if:false={loading}>
 
             <!-- ============================================= -->
-            <!-- MODO SOLO LECTURA: tarjetas de resumen         -->
+            <!-- MODO SOLO LECTURA (Póliza / Ganada / Perdida)  -->
             <!-- ============================================= -->
             <template if:true={isReadOnly}>
 
-                <!-- Oportunidad -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:opportunity" size="small"></lightning-icon>
+                <!-- Cabecera destacada de la póliza -->
+                <div class={heroClass}>
+                    <div class="ro-hero__top">
+                        <div class="ro-hero__icon">
+                            <lightning-icon icon-name="standard:policy" size="medium"></lightning-icon>
                         </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Oportunidad</h2>
-                            <p class="section-subtitle">Datos generales de la oportunidad</p>
+                        <div class="ro-hero__title">
+                            <span class="ro-hero__eyebrow">Póliza</span>
+                            <h2 class="ro-hero__name">{policyHero.nombre}</h2>
+                            <p class="ro-hero__meta">No. {policyHero.numero} · {aseguradoraHero}</p>
                         </div>
-                        <template if:true={oppCard}>
-                            <div class="section-badge">{oppCard.etapa}</div>
-                        </template>
+                        <div class="ro-hero__stage">
+                            <lightning-icon icon-name={heroIcon} size="x-small"></lightning-icon>
+                            <span>{heroEtapa}</span>
+                        </div>
                     </div>
-                    <template if:true={oppCard}>
-                        <div class="ro-grid">
-                            <div class="ro-item"><span class="ro-label">Nombre</span><span class="ro-value">{oppCard.name}</span></div>
-                            <div class="ro-item"><span class="ro-label">Cuenta</span><span class="ro-value">{oppCard.cuenta}</span></div>
-                            <div class="ro-item"><span class="ro-label">Ramo</span><span class="ro-value">{oppCard.ramo}</span></div>
-                            <div class="ro-item"><span class="ro-label">Tipo</span><span class="ro-value">{oppCard.tipo}</span></div>
-                            <div class="ro-item"><span class="ro-label">Prima neta</span><span class="ro-value">{oppCard.primaNeta}</span></div>
-                            <div class="ro-item"><span class="ro-label">Cierre</span><span class="ro-value">{oppCard.cierre}</span></div>
-                            <div class="ro-item"><span class="ro-label">Agente</span><span class="ro-value">{oppCard.agente}</span></div>
+                    <div class="ro-kpis">
+                        <div class="ro-kpi ro-kpi--main">
+                            <span class="ro-kpi__label">Prima total</span>
+                            <span class="ro-kpi__value">{policyHero.prima}</span>
                         </div>
-                    </template>
+                        <div class="ro-kpi">
+                            <span class="ro-kpi__label">Vigencia</span>
+                            <span class="ro-kpi__value">{vigenciaHero}</span>
+                        </div>
+                        <div class="ro-kpi">
+                            <span class="ro-kpi__label">Forma de pago</span>
+                            <span class="ro-kpi__value">{policyHero.frecuencia} · {policyHero.pagos} pagos</span>
+                        </div>
+                        <div class="ro-kpi">
+                            <span class="ro-kpi__label">Estatus</span>
+                            <span class="ro-kpi__value">{policyHero.estatus}</span>
+                        </div>
+                    </div>
+                    <div class="ro-hero__lock">
+                        <lightning-icon icon-name="utility:lock" size="xx-small"></lightning-icon>
+                        <span>{readOnlyMensaje}</span>
+                    </div>
                 </div>
 
-                <!-- Cotizaciones -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
-                        </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Cotizaciones</h2>
-                            <p class="section-subtitle">Cotizaciones de la oportunidad</p>
-                        </div>
+                <!-- Oportunidad + Cotizaciones -->
+                <div class="ro-row">
+                    <div class="ro-section">
+                        <h3 class="ro-section__title">
+                            <lightning-icon icon-name="standard:opportunity" size="x-small"></lightning-icon>
+                            Oportunidad
+                        </h3>
+                        <template if:true={oppCard}>
+                            <div class="ro-grid ro-grid--2">
+                                <div class="ro-field ro-field--wide"><span class="ro-label">Nombre</span><span class="ro-value">{oppCard.name}</span></div>
+                                <div class="ro-field"><span class="ro-label">Cuenta</span><span class="ro-value">{oppCard.cuenta}</span></div>
+                                <div class="ro-field"><span class="ro-label">Agente</span><span class="ro-value">{oppCard.agente}</span></div>
+                                <div class="ro-field"><span class="ro-label">Ramo</span><span class="ro-value">{oppCard.ramo}</span></div>
+                                <div class="ro-field"><span class="ro-label">Tipo</span><span class="ro-value">{oppCard.tipo}</span></div>
+                                <div class="ro-field ro-amount"><span class="ro-label">Prima neta</span><span class="ro-value">{oppCard.primaNeta}</span></div>
+                                <div class="ro-field"><span class="ro-label">Cierre</span><span class="ro-value">{oppCard.cierre}</span></div>
+                            </div>
+                        </template>
                     </div>
-                    <template if:true={hasQuoteCards}>
-                        <div class="ro-card-grid">
-                            <template for:each={quoteCards} for:item="q">
-                                <div key={q.id} class="ro-quote-card">
-                                    <div class="ro-quote-head">
-                                        <span class="ro-quote-num">{q.numero}</span>
-                                        <span class="ro-status">{q.status}</span>
+
+                    <div class="ro-section">
+                        <h3 class="ro-section__title">
+                            <lightning-icon icon-name="standard:quotes" size="x-small"></lightning-icon>
+                            Cotizaciones
+                        </h3>
+                        <template if:true={hasQuoteCards}>
+                            <div class="ro-list">
+                                <template for:each={quoteCardsView} for:item="q">
+                                    <div key={q.id} class={q.cardClass}>
+                                        <div class="ro-quote-head">
+                                            <span class="ro-quote-num">{q.numero}</span>
+                                            <span class="ro-status">{q.status}</span>
+                                        </div>
+                                        <div class="ro-quote-meta">
+                                            <span>{q.aseguradora}</span>
+                                            <span class="money">{q.primaTotal}</span>
+                                            <span>{q.coberturas} coberturas</span>
+                                        </div>
                                     </div>
-                                    <div class="ro-item"><span class="ro-label">Aseguradora</span><span class="ro-value">{q.aseguradora}</span></div>
-                                    <div class="ro-item"><span class="ro-label">Prima total</span><span class="ro-value">{q.primaTotal}</span></div>
-                                    <div class="ro-item"><span class="ro-label">Coberturas</span><span class="ro-value">{q.coberturas}</span></div>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-                    <template if:false={hasQuoteCards}>
-                        <p class="ro-empty">Sin cotizaciones.</p>
-                    </template>
+                                </template>
+                            </div>
+                        </template>
+                        <template if:false={hasQuoteCards}>
+                            <p class="ro-empty">Sin cotizaciones.</p>
+                        </template>
+                    </div>
                 </div>
 
                 <!-- Póliza -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:policy" size="small"></lightning-icon>
-                        </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Póliza</h2>
-                            <p class="section-subtitle">Datos de la póliza emitida</p>
-                        </div>
-                    </div>
+                <div class="ro-section">
+                    <h3 class="ro-section__title">
+                        <lightning-icon icon-name="standard:policy" size="x-small"></lightning-icon>
+                        Datos de la póliza
+                    </h3>
                     <template if:true={hasPolicy}>
                         <lightning-record-view-form record-id={policyId} object-api-name="InsurancePolicy" density="compact">
 
                             <p class="ro-subtitle">Identificación</p>
                             <div class="ro-grid">
                                 <div class="ro-field"><lightning-output-field field-name="Name"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="UniversalPolicyNumber"></lightning-output-field></div>
                                 <div class="ro-field"><lightning-output-field field-name="PolicyType"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="Status"></lightning-output-field></div>
                                 <div class="ro-field"><lightning-output-field field-name="Aseguradora__c"></lightning-output-field></div>
                                 <div class="ro-field"><lightning-output-field field-name="ProductId"></lightning-output-field></div>
                                 <div class="ro-field"><lightning-output-field field-name="NameInsuredId"></lightning-output-field></div>
-                                <div class="ro-field"><lightning-output-field field-name="Status"></lightning-output-field></div>
-                                <div class="ro-field"><lightning-output-field field-name="UniversalPolicyNumber"></lightning-output-field></div>
+                                <div class="ro-field"><lightning-output-field field-name="ProducerId"></lightning-output-field></div>
                                 <div class="ro-field"><lightning-output-field field-name="SourceQuoteId"></lightning-output-field></div>
                                 <div class="ro-field"><lightning-output-field field-name="SourceOpportunityId"></lightning-output-field></div>
                             </div>
@@ -178,12 +196,11 @@
                                 <div class="ro-field"><span class="ro-label">Renovación anterior</span><span class="ro-value">{policyDates.PreviousRenewalDate}</span></div>
                                 <div class="ro-field"><span class="ro-label">Fecha de renovación</span><span class="ro-value">{policyDates.RenewalDate}</span></div>
                                 <div class="ro-field"><span class="ro-label">Renovación planeada</span><span class="ro-value">{policyDates.PlannedRenewalDate}</span></div>
-                                <div class="ro-field"><lightning-output-field field-name="ProducerId"></lightning-output-field></div>
                             </div>
 
                             <p class="ro-subtitle">Descripción</p>
                             <div class="ro-desc">
-                                <lightning-output-field field-name="PolicyDescription"></lightning-output-field>
+                                <lightning-output-field field-name="PolicyDescription" variant="label-hidden"></lightning-output-field>
                             </div>
                         </lightning-record-view-form>
                     </template>
@@ -192,58 +209,29 @@
                     </template>
                 </div>
 
-                <!-- Participantes -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:contact" size="small"></lightning-icon>
-                        </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Participantes</h2>
-                            <p class="section-subtitle">Asegurados y participantes de la póliza</p>
-                        </div>
-                    </div>
-                    <template if:true={hasParticipantes}>
-                        <div class="ro-card-grid">
-                            <template for:each={participantes} for:item="p">
-                                <div key={p.id} class="ro-quote-card">
-                                    <div class="ro-quote-head">
-                                        <span class="ro-quote-num">{p.nombre}</span>
-                                        <span class="ro-status">{p.rol}</span>
-                                    </div>
-                                    <div class="ro-item"><span class="ro-label">Relación</span><span class="ro-value">{p.relacion}</span></div>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-                    <template if:false={hasParticipantes}>
-                        <p class="ro-empty">Sin participantes.</p>
-                    </template>
-                </div>
-
                 <!-- Coberturas -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:shield" size="small"></lightning-icon>
-                        </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Coberturas</h2>
-                            <p class="section-subtitle">Coberturas incluidas en la póliza</p>
-                        </div>
-                    </div>
+                <div class="ro-section">
+                    <h3 class="ro-section__title">
+                        <lightning-icon icon-name="standard:shield" size="x-small"></lightning-icon>
+                        Coberturas
+                    </h3>
                     <template if:true={hasCoberturas}>
-                        <div class="ro-card-grid">
-                            <template for:each={coberturas} for:item="c">
-                                <div key={c.id} class="ro-quote-card">
-                                    <div class="ro-quote-head">
-                                        <span class="ro-quote-num">{c.nombre}</span>
-                                    </div>
-                                    <div class="ro-item"><span class="ro-label">Suma asegurada</span><span class="ro-value">{c.suma}</span></div>
-                                    <div class="ro-item"><span class="ro-label">Deducible</span><span class="ro-value">{c.deducible}</span></div>
-                                    <div class="ro-item"><span class="ro-label">Prima</span><span class="ro-value">{c.prima}</span></div>
-                                </div>
-                            </template>
+                        <div class="ro-table-wrap">
+                            <table class="ro-table">
+                                <thead>
+                                    <tr><th>Cobertura</th><th class="num">Suma asegurada</th><th class="num">Deducible</th><th class="num">Prima</th></tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={coberturas} for:item="c">
+                                        <tr key={c.id}>
+                                            <td class="strong">{c.nombre}</td>
+                                            <td class="num">{c.suma}</td>
+                                            <td class="num">{c.deducible}</td>
+                                            <td class="num money">{c.prima}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </template>
                     <template if:false={hasCoberturas}>
@@ -251,59 +239,75 @@
                     </template>
                 </div>
 
-                <!-- Bien asegurado -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
-                        </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Bien asegurado</h2>
-                            <p class="section-subtitle">Bienes vinculados a la póliza</p>
-                        </div>
+                <!-- Participantes + Bien asegurado -->
+                <div class="ro-row">
+                    <div class="ro-section">
+                        <h3 class="ro-section__title">
+                            <lightning-icon icon-name="standard:contact" size="x-small"></lightning-icon>
+                            Participantes
+                        </h3>
+                        <template if:true={hasParticipantes}>
+                            <div class="ro-list">
+                                <template for:each={participantes} for:item="p">
+                                    <div key={p.id} class="ro-chip-row">
+                                        <span class="strong">{p.nombre}</span>
+                                        <span class="ro-muted">{p.relacion}</span>
+                                        <span class="ro-status">{p.rol}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template if:false={hasParticipantes}>
+                            <p class="ro-empty">Sin participantes.</p>
+                        </template>
                     </div>
-                    <template if:true={hasBienes}>
-                        <div class="ro-card-grid">
-                            <template for:each={bienes} for:item="b">
-                                <div key={b.id} class="ro-quote-card">
-                                    <div class="ro-quote-head">
-                                        <span class="ro-quote-num">{b.nombre}</span>
+
+                    <div class="ro-section">
+                        <h3 class="ro-section__title">
+                            <lightning-icon icon-name="standard:asset_object" size="x-small"></lightning-icon>
+                            Bien asegurado
+                        </h3>
+                        <template if:true={hasBienes}>
+                            <div class="ro-list">
+                                <template for:each={bienes} for:item="b">
+                                    <div key={b.id} class="ro-chip-row">
+                                        <span class="strong">{b.nombre}</span>
+                                        <span class="money">{b.prima}</span>
                                         <span class="ro-status">{b.activo}</span>
                                     </div>
-                                    <div class="ro-item"><span class="ro-label">Prima</span><span class="ro-value">{b.prima}</span></div>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-                    <template if:false={hasBienes}>
-                        <p class="ro-empty">Sin bienes asegurados.</p>
-                    </template>
+                                </template>
+                            </div>
+                        </template>
+                        <template if:false={hasBienes}>
+                            <p class="ro-empty">Sin bienes asegurados.</p>
+                        </template>
+                    </div>
                 </div>
 
                 <!-- Transacciones -->
-                <div class="unified-section">
-                    <div class="section-header-compact">
-                        <div class="section-icon">
-                            <lightning-icon icon-name="standard:payment_gateway" size="small"></lightning-icon>
-                        </div>
-                        <div class="section-title-group">
-                            <h2 class="section-title">Transacciones</h2>
-                            <p class="section-subtitle">Movimientos de prima de la póliza</p>
-                        </div>
-                    </div>
+                <div class="ro-section">
+                    <h3 class="ro-section__title">
+                        <lightning-icon icon-name="standard:payment_gateway" size="x-small"></lightning-icon>
+                        Transacciones
+                    </h3>
                     <template if:true={hasTransacciones}>
-                        <div class="ro-card-grid">
-                            <template for:each={transacciones} for:item="t">
-                                <div key={t.id} class="ro-quote-card">
-                                    <div class="ro-quote-head">
-                                        <span class="ro-quote-num">{t.nombre}</span>
-                                        <span class="ro-status">{t.estatus}</span>
-                                    </div>
-                                    <div class="ro-item"><span class="ro-label">Tipo</span><span class="ro-value">{t.tipo}</span></div>
-                                    <div class="ro-item"><span class="ro-label">Monto</span><span class="ro-value">{t.monto}</span></div>
-                                    <div class="ro-item"><span class="ro-label">Fecha</span><span class="ro-value">{t.fecha}</span></div>
-                                </div>
-                            </template>
+                        <div class="ro-table-wrap">
+                            <table class="ro-table">
+                                <thead>
+                                    <tr><th>Transacción</th><th>Tipo</th><th>Fecha</th><th>Estatus</th><th class="num">Monto</th></tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={transacciones} for:item="t">
+                                        <tr key={t.id}>
+                                            <td class="strong">{t.nombre}</td>
+                                            <td>{t.tipo}</td>
+                                            <td>{t.fecha}</td>
+                                            <td><span class="ro-status">{t.estatus}</span></td>
+                                            <td class="num money">{t.monto}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </template>
                     <template if:false={hasTransacciones}>

@@ -222,15 +222,18 @@ public with sharing class OpportunityController {
 	/**
 	 * @creation date: 08/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Cambia la Etapa (StageName) de la oportunidad a 'Póliza'. Se usa
-	 *               desde el botón "Póliza" que aparece cuando una cotización ya está aceptada.
+	 * @description: Cambia la Etapa (StageName) de la oportunidad a 'Póliza'. Se invoca desde
+	 *               "Crear Póliza" una vez que se cargó el PDF de la póliza. Si la oportunidad ya
+	 *               está en Póliza, Ganada o Perdida no hace nada (no reabre oportunidades cerradas).
 	 * @param opportunityId: Id de la oportunidad a pasar a Póliza.
 	 * @return void
 	 */
 	@AuraEnabled(cacheable=false)
 	public static void cambiarEtapaAPoliza(String opportunityId) {
 		try {
-			Opportunity o = new Opportunity(Id = (Id) opportunityId, StageName = 'Póliza'); 
+			Opportunity actual = [SELECT Id, StageName, IsClosed FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+			if (actual.IsClosed || actual.StageName == 'Póliza') { return; }
+			Opportunity o = new Opportunity(Id = actual.Id, StageName = 'Póliza');
 			update o;
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al cambiar la etapa a Póliza: ' + e.getMessage());

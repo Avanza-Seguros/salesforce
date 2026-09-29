@@ -1216,15 +1216,15 @@
                                                         </button>
                                                     </template>
                                                     <template if:true={q.puedeAceptar}>
-                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} data-accepted="false" title="Aceptar y pasar a Póliza">
+                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} data-accepted="false" title="Aceptar y emitir la póliza">
                                                             <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
                                                             Aceptar
                                                         </button>
                                                     </template>
                                                     <template if:true={q.esAceptada}>
-                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} data-accepted="true" title="Aceptar y pasar a Póliza">
-                                                            <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
-                                                            Aceptar
+                                                        <button class="accept-quote-btn" onclick={handleAceptarQuote} data-id={q.Id} data-accepted="true" title="Cargar el PDF y emitir la póliza">
+                                                            <lightning-icon icon-name="standard:policy" size="xx-small"></lightning-icon>
+                                                            Emitir Póliza
                                                         </button>
                                                     </template>
                                                 </td>
