@@ -1382,27 +1382,37 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!id) { return; }
         const yaAceptada = event.currentTarget.dataset.accepted === 'true';
         const oppId = this.opportunity?.Id;
-        try {
-            // 1) Acepta la cotización (queda sincronizada con la oportunidad).
-            if (!yaAceptada) {
+        // 1) Acepta la cotización (queda sincronizada con la oportunidad).
+        if (!yaAceptada) {
+            try {
                 await aceptarCotizacion({ quoteId: id });
+            } catch (e) {
+                const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+                this.showToast('Error', 'No se pudo aceptar la cotización: ' + msg, 'error');
+                return;
             }
-            // 2) Pasa la oportunidad a etapa "Póliza"; el flujo del org crea la InsurancePolicy.
-            if (oppId) {
-                await cambiarEtapaAPoliza({ opportunityId: oppId });
-            }
-            this.showToast('Póliza', 'La cotización se aceptó y la oportunidad pasó a Póliza.', 'success');
-            // 3) Abre el formulario de emisión de la Póliza.
-            if (oppId) {
-                this[NavigationMixin.Navigate]({
-                    type: 'standard__navItemPage',
-                    attributes: { apiName: 'Crear_Poliza' },
-                    state: { c__quoteId: id, c__opportunityId: oppId }
-                });
-            }
+        }
+        // 2) Pasa la oportunidad a etapa "Póliza" (el flujo del org crea la InsurancePolicy).
+        //    Si esto falla (p. ej. el flujo de póliza o una validación), el cambio de etapa
+        //    se revierte: la cotización queda aceptada pero la etapa NO cambia.
+        try {
+            if (oppId) { await cambiarEtapaAPoliza({ opportunityId: oppId }); }
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
-            this.showToast('Error', 'No se pudo aceptar y pasar a Póliza: ' + msg, 'error');
+            this.showToast('La cotización se aceptó, pero la etapa no cambió',
+                'No se pudo pasar la oportunidad a Póliza: ' + msg, 'warning');
+            // Refresca para mostrar el estado real (cotización aceptada, etapa sin cambiar).
+            if (oppId) { try { await this.openOpportunityInEditMode(oppId); } catch ( e2) { /* no-op */ } }
+            return;
+        }
+        this.showToast('Póliza', 'La cotización se aceptó y la oportunidad pasó a Póliza.', 'success');
+        // 3) Abre el formulario de emisión de la Póliza.
+        if (oppId) {
+            this[NavigationMixin.Navigate]({
+                type: 'standard__navItemPage',
+                attributes: { apiName: 'Crear_Poliza' },
+                state: { c__quoteId: id, c__opportunityId: oppId }
+            });
         }
     }
     // Pasa la oportunidad a etapa "Póliza" (desde una cotización ya aceptada)

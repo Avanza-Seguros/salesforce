@@ -900,11 +900,8 @@ public with sharing class PolicyController {
 			contactId = c.Id;
 		}
 
-		// Evita duplicar el participante para ese contacto.
-		for (InsurancePolicyParticipant p : [
-			SELECT Id FROM InsurancePolicyParticipant
-			WHERE InsurancePolicyId = :policyId AND PrimaryParticipantContactId = :contactId LIMIT 1
-		]) { return 0; }
+		// Evita duplicar el participante: por contacto o por el mismo nombre.
+		if (polizaTieneParticipante(policyId, contactId, nombre)) { return 0; }
 
 		InsurancePolicyParticipant part = new InsurancePolicyParticipant();
 		part.InsurancePolicyId = policyId;
@@ -924,13 +921,36 @@ public with sharing class PolicyController {
 	// asegurado, el Producto y el detalle de prima (para que no quede en 0). Cada campo
 	// se asigna con tolerancia: si el org lo tiene de solo lectura (p.ej. totales
 	// calculados), simplemente se omite.
+	// True si la póliza ya tiene un participante para ese contacto o con el mismo nombre
+	// (evita insertarlo dos veces cuando se liga por distintos caminos).
+	private static Boolean polizaTieneParticipante(Id policyId, Id contactId, String nombre) {
+		String nom = normKey(nombre == null ? '' : nombre).replaceAll('\\s+', ' ');
+		for (InsurancePolicyParticipant p : [
+			SELECT PrimaryParticipantContactId, ParticipantName
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) {
+			if (contactId != null && p.PrimaryParticipantContactId == contactId) { return true; }
+			if (String.isNotBlank(nom)
+				&& normKey(p.ParticipantName == null ? '' : p.ParticipantName).replaceAll('\\s+', ' ') == nom) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static void aplicarDatosParticipante(InsurancePolicyParticipant part, Id policyId, Id accountId) {
 		InsurancePolicy pol = null;
-		for (InsurancePolicy p : [SELECT ProductId, PremiumAmount FROM InsurancePolicy WHERE Id = :policyId LIMIT 1]) { pol = p; }
+		for (InsurancePolicy p : [
+			SELECT ProductId, PremiumAmount, NameInsuredId, SourceOpportunityId
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		]) { pol = p; }
 		if (pol == null) { return; }
-		// Cuenta del asegurado (además del contacto persona).
-		if (accountId != null && part.PrimaryParticipantAccountId == null) {
-			try { part.PrimaryParticipantAccountId = accountId; } catch (Exception ignore) {}
+		// Participante activo.
+		try { part.IsActiveParticipant = true; } catch (Exception ignore) {}
+		// Cuenta del asegurado: la recibida o, si no llega, la de la póliza.
+		Id acc = accountId != null ? accountId : resolverCuentaDePoliza(pol);
+		if (acc != null && part.PrimaryParticipantAccountId == null) {
+			try { part.PrimaryParticipantAccountId = acc; } catch (Exception ignore) {}
 		}
 		// Producto de la póliza.
 		if (pol.ProductId != null) { try { part.ProductId = pol.ProductId; } catch (Exception ignore) {} }
