@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>carrierPolicyStatusRaw__c</fullName>
     <description
-	>Estado de la póliza tal como lo comunicó la aseguradora, sin normalizar.</description>
+	>Estado de la póliza tal como lo comunicó la aseguradora, exacto y sin normalizar (por ejemplo «Vigor sin Pago de Primas»). Se guarda siempre, tenga o no equivalencia: las acciones de negocio dependen de este valor, no del normalizado.</description>
     <label>Estado original de la aseguradora</label>
-    <length>50</length>
+    <length>100</length>
     <required>false</required>
     <type>Text</type>
     <unique>false</unique>

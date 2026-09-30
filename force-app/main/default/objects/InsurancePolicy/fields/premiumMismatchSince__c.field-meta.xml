@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>premiumMismatchSince__c</fullName>
+    <description
+	>Cuándo llegó la prima que no coincide con el plan. Vacío cuando la prima no está desalineada.</description>
+    <label>Fecha de la prima comunicada</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>DateTime</type>
+</CustomField>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>planPremiumAmount__c</fullName>
+    <description
+	>Prima que está cobrando el plan de pagos cuando la de la póliza no coincide con ella: el importe del plan vigente más lo ya cobrado o condonado en los planes que reemplazó. Vacío cuando la prima no está desalineada.</description>
+    <label>Prima del plan</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Currency</type>
+</CustomField>

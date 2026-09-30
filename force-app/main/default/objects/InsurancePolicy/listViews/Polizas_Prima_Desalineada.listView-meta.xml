@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Prima_Desalineada</fullName>
+    <columns>Name</columns>
+    <columns>NameInsured</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>planPremiumAmount__c</columns>
+    <columns>PremiumAmount</columns>
+    <columns>premiumMismatchAmount__c</columns>
+    <columns>premiumMismatchSince__c</columns>
+    <columns>Status</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>planPremiumMismatch__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Pólizas con prima desalineada</label>
+    <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
+</ListView>

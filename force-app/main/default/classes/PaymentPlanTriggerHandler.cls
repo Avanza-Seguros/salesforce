@@ -59,6 +59,80 @@ public with sharing class PaymentPlanTriggerHandler {
 		if (!readyPlansById.isEmpty()) {
 			createMissingInstallments(readyPlansById);
 		}
+
+		PlanPremiumMismatchService.reevaluateMarked(
+			getPoliciesWithPlanAmountChange(newPlans, oldMap)
+		);
+	}
+
+	/**
+	 * @creation date: 25/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Polizas cuyo plan cambio de importe o de estado: son los cambios que
+	 *               pueden volver a cuadrar un plan con la prima de su poliza (KAN-447).
+	 * @param newPlans: Registros nuevos del trigger.
+	 * @param oldMap: Valores anteriores de los planes.
+	 * @return: Set<Id> Polizas afectadas.
+	 * @exception:
+	 * @throws:
+	 */
+	private static Set<Id> getPoliciesWithPlanAmountChange(
+		List<PaymentPlan__c> newPlans,
+		Map<Id, PaymentPlan__c> oldMap
+	) {
+		Set<Id> policyIds = new Set<Id>();
+
+		if (oldMap == null) {
+			return policyIds;
+		}
+
+		for (PaymentPlan__c plan : newPlans) {
+			PaymentPlan__c oldPlan = plan == null ? null : oldMap.get(plan.Id);
+
+			if (
+				oldPlan != null &&
+				plan.insurancePolicy__c != null &&
+				(plan.expectedTotalAmount__c != oldPlan.expectedTotalAmount__c ||
+				plan.planStatus__c != oldPlan.planStatus__c)
+			) {
+				policyIds.add(plan.insurancePolicy__c);
+			}
+		}
+
+		return policyIds;
+	}
+
+	/**
+	 * @creation date: 25/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Genera el calendario de planes que ya existian y cuyas cuotas se acaban
+	 *               de borrar para rehacerlas (KAN-446). El trigger no lo haria solo: ese plan
+	 *               ya estaba listo antes del cambio. Los planes que no esten listos o que
+	 *               ya tengan cuotas se ignoran, igual que en el trigger.
+	 * @param plans: Planes con sus datos nuevos ya guardados.
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	public static void generateInstallments(List<PaymentPlan__c> plans) {
+		if (plans == null || plans.isEmpty()) {
+			return;
+		}
+
+		Map<Id, PaymentPlan__c> readyPlansById = new Map<Id, PaymentPlan__c>();
+
+		for (PaymentPlan__c plan : plans) {
+			if (plan == null || plan.Id == null || !isReadyForInstallments(plan)) {
+				continue;
+			}
+
+			readyPlansById.put(plan.Id, plan);
+			processedPlanIds.add(plan.Id);
+		}
+
+		if (!readyPlansById.isEmpty()) {
+			createMissingInstallments(readyPlansById);
+		}
 	}
 
 	/**

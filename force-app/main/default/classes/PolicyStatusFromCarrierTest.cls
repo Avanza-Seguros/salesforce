@@ -536,7 +536,9 @@ private class PolicyStatusFromCarrierTest {
 			carrierPolicyStatus__c = normalizado,
 			carrierPolicyStatusRaw__c = original,
 			carrierStatusSyncedAt__c = comunicadoEl,
-			carrierStatusNotice__c = notice.Id
+			carrierStatusNotice__c = notice.Id,
+			carrierCancellationDate__c = notice.sourceCancellationDate__c,
+			carrierCancellationReason__c = notice.sourceCancellationReason__c
 		);
 	}
 

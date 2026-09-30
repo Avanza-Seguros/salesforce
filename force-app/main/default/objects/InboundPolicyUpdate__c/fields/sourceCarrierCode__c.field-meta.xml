@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>sourceCarrierCode__c</fullName>
+    <description
+	>Código de la aseguradora que comunica (QUALITAS, GNP...). Con el número y el inicio de vigencia identifica la vigencia.</description>
+    <label>Código de aseguradora</label>
+    <length>50</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+</CustomField>

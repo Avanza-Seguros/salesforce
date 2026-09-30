@@ -227,6 +227,11 @@ public with sharing class PaymentPlanFrequencyChangeService {
 				continue;
 			}
 
+			// Un plan sin cobros no se reemplaza: se rehace entero (KAN-446).
+			if (PaymentPlanRegenerationService.isScheduled(policy.Id)) {
+				continue;
+			}
+
 			policiesById.put(policy.Id, policy);
 		}
 

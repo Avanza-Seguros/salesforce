@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Vigentes_Estado_Especial</fullName>
+    <columns>Name</columns>
+    <columns>NameInsured</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>carrierPolicyStatusRaw__c</columns>
+    <columns>carrierStatusSyncedAt__c</columns>
+    <columns>Status</columns>
+    <columns>collectionPaymentStatus__c</columns>
+    <columns>collectionNextDueDate__c</columns>
+    <columns>ExpirationDate</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>carrierPolicyStatus__c</field>
+        <operation>equals</operation>
+        <value>Vigente</value>
+    </filters>
+    <filters>
+        <field>carrierPolicyStatusRaw__c</field>
+        <operation>notEqual</operation>
+        <value>Vigor,Vigente</value>
+    </filters>
+    <label>Vigentes con estado especial</label>
+    <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
+</ListView>

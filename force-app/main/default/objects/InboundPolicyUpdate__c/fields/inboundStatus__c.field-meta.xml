@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>inboundStatus__c</fullName>
+    <description
+	>En qué punto está la comunicación: Recibido (guardada, pendiente de aplicar), Aplicado (ya se reflejó en la póliza), Revisión Manual (la decide una persona) Rechazado (la fila no se pudo aceptar) o Superada (llegó después de una comunicación más reciente de la misma póliza: se guarda pero no se aplica).</description>
+    <label>Estado de la comunicación</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Recibido</fullName>
+                <default>true</default>
+                <label>Recibido</label>
+            </value>
+            <value>
+                <fullName>Aplicado</fullName>
+                <default>false</default>
+                <label>Aplicado</label>
+            </value>
+            <value>
+                <fullName>Revision Manual</fullName>
+                <default>false</default>
+                <label>Revisión Manual</label>
+            </value>
+            <value>
+                <fullName>Rechazado</fullName>
+                <default>false</default>
+                <label>Rechazado</label>
+            </value>
+            <value>
+                <fullName>Superada</fullName>
+                <default>false</default>
+                <label>Superada</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

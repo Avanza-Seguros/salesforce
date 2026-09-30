@@ -3,6 +3,7 @@
     <fullName>Polizas_Vencidas</fullName>
     <columns>Name</columns>
     <columns>Aseguradora__c</columns>
+    <columns>carrierPolicyStatusRaw__c</columns>
     <columns>NameInsured</columns>
     <columns>PremiumFrequency</columns>
     <columns>EffectiveDate</columns>

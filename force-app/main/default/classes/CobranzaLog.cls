@@ -36,6 +36,38 @@ public with sharing class CobranzaLog {
 	public static final String STAGE_DEVOLUCION = 'Devolucion';
 	// Cambios del estado operativo de la poliza (primer pago y fin de vigencia).
 	public static final String STAGE_ESTADO_POLIZA = 'Estado de poliza';
+	// Canal de polizas: recepcion de las comunicaciones de poliza de la aseguradora.
+	public static final String STAGE_RECEPCION_POLIZAS = 'Recepcion de polizas';
+	// No se pudo guardar una comunicacion de poliza; las demas del envio si se guardaron.
+	public static final String EVENT_POLICY_INBOUND_WRITE_FAILED = 'POLICY_INBOUND_WRITE_FAILED';
+	// Fallo no previsto en el endpoint de polizas: se deshizo todo lo que el envio habia escrito.
+	public static final String EVENT_POLICY_ENDPOINT_FAILED = 'POLICY_ENDPOINT_FAILED';
+	// Los datos de una comunicacion de poliza se aplicaron a la poliza.
+	public static final String EVENT_POLICY_DATA_APPLIED = 'POLICY_DATA_APPLIED';
+	// No se pudo guardar la poliza con los datos comunicados: la comunicacion va a revision.
+	public static final String EVENT_POLICY_DATA_APPLY_FAILED = 'POLICY_DATA_APPLY_FAILED';
+	// Otro proceso ya estaba aplicando esas comunicaciones: esta aplicacion se omite.
+	public static final String EVENT_POLICY_APPLY_BUSY = 'POLICY_APPLY_BUSY';
+	// La aseguradora renovo la poliza y se creo su vigencia nueva, o no se pudo crear.
+	public static final String EVENT_POLICY_RENEWAL_CREATED = 'POLICY_RENEWAL_CREATED';
+	public static final String EVENT_POLICY_RENEWAL_FAILED = 'POLICY_RENEWAL_FAILED';
+	// Forma de pago o ramo comunicados sin equivalencia: la poliza conserva el valor que tenia.
+	public static final String EVENT_CARRIER_FREQUENCY_UNMAPPED = 'CARRIER_FREQUENCY_UNMAPPED';
+	public static final String EVENT_CARRIER_BRANCH_UNMAPPED = 'CARRIER_BRANCH_UNMAPPED';
+	// Correcciones del plan de pagos de una poliza que todavia no cobro nada.
+	public static final String STAGE_PLAN_PAGOS = 'Plan de pagos';
+	// El plan sin cobros se rehizo con la frecuencia, la prima o la fecha nuevas de la poliza.
+	public static final String EVENT_PAYMENT_PLAN_REGENERATED = 'PAYMENT_PLAN_REGENERATED';
+	// No se pudo rehacer el plan de una poliza; las demas del lote si se rehicieron.
+	public static final String EVENT_PAYMENT_PLAN_REGENERATION_FAILED = 'PAYMENT_PLAN_REGENERATION_FAILED';
+	// La prima de una poliza que ya cobro dejo de coincidir con la del plan: se marca.
+	public static final String EVENT_PLAN_PREMIUM_MISMATCH = 'PLAN_PREMIUM_MISMATCH';
+	// La prima y el plan vuelven a coincidir: se quita la marca.
+	public static final String EVENT_PLAN_PREMIUM_MISMATCH_CLEARED = 'PLAN_PREMIUM_MISMATCH_CLEARED';
+	// No se pudo guardar la marca de una poliza; las demas del lote si se guardaron.
+	public static final String EVENT_PLAN_PREMIUM_MISMATCH_FAILED = 'PLAN_PREMIUM_MISMATCH_FAILED';
+	// No se pudo alinear la casilla Activa de un activo con el estado de su poliza.
+	public static final String EVENT_POLICY_ASSET_SYNC_FAILED = 'POLICY_ASSET_SYNC_FAILED';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide

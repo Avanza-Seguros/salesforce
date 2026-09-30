@@ -61,14 +61,6 @@
         <itemInstances><fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>readonly</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.IsActive</fieldItem>
-                <identifier>RecordIsActiveField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.EffectiveDate</fieldItem>
@@ -138,7 +130,8 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>required</value>
@@ -146,67 +139,9 @@
                 <fieldItem>Record.PremiumAmount</fieldItem>
                 <identifier>RecordPremiumAmountField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.StandardPremiumAmount</fieldItem>
-                <identifier>RecordStandardPremiumAmountField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Subtotal__c</fieldItem>
-                <identifier>RecordSubtotal_cField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.IVA__c</fieldItem>
-                <identifier>RecordIVA_cField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Derecho_Poliza__c</fieldItem>
-                <identifier>RecordDerecho_Poliza_cField</identifier>
-            </fieldInstance>
-        </itemInstances><name>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Financiamiento__c</fieldItem>
-                <identifier>RecordFinanciamiento_cField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Discount</fieldItem>
-                <identifier>RecordDiscountField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Moneda__c</fieldItem>
-                <identifier>RecordMoneda_cField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>required</value>
@@ -214,7 +149,142 @@
                 <fieldItem>Record.PremiumFrequency</fieldItem>
                 <identifier>RecordPremiumFrequencyField</identifier>
             </fieldInstance>
-        </itemInstances><name>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</name>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>required</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.PaymentDueDate</fieldItem>
+                <identifier>RecordPaymentDueDateField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Numero_Pagos__c</fieldItem>
+                <identifier>RecordNumero_Pagos_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Primer_Pago__c</fieldItem>
+                <identifier>RecordPrimer_Pago_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Pago_Subsecuente__c</fieldItem>
+                <identifier>RecordPago_Subsecuente_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Pagos_Subsecuentes__c</fieldItem>
+                <identifier>RecordPagos_Subsecuentes_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-a9d5a4bf-db2c-4457-a881-905714343f0c</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Subtotal__c</fieldItem>
+                <identifier>RecordSubtotal_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Derecho_Poliza__c</fieldItem>
+                <identifier>RecordDerecho_Poliza_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Financiamiento__c</fieldItem>
+                <identifier>RecordFinanciamiento_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.IVA__c</fieldItem>
+                <identifier>RecordIVA_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Discount</fieldItem>
+                <identifier>RecordDiscountField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Moneda__c</fieldItem>
+                <identifier>RecordMoneda_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.StandardPremiumAmount</fieldItem>
+                <identifier>RecordStandardPremiumAmountField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierPaymentMode__c</fieldItem>
+                <identifier>RecordcarrierPaymentMode_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-c04b936f-1f2f-46cc-a0d9-106c32080bd9</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -266,6 +336,16 @@
                 <fieldItem>Record.OriginalPolicyId</fieldItem>
                 <identifier>RecordOriginalPolicyIdField</identifier>
             </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.nextPolicy__c</fieldItem>
+                <identifier>RecordnextPolicy_cField</identifier>
+            </fieldInstance>
         </itemInstances><name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -314,137 +394,151 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.collectionPaymentStatus__c</fieldItem>
                 <identifier>RecordcollectionPaymentStatus_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.collectionNextDueDate__c</fieldItem>
                 <identifier>RecordcollectionNextDueDate_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.PaymentDueDate</fieldItem>
-                <identifier>RecordPaymentDueDateField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.PaidToDate</fieldItem>
                 <identifier>RecordPaidToDateField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Numero_Pagos__c</fieldItem>
-                <identifier>RecordNumero_Pagos_cField</identifier>
+                <fieldItem>Record.totalRefundedAmount__c</fieldItem>
+                <identifier>RecordtotalRefundedAmount_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Primer_Pago__c</fieldItem>
-                <identifier>RecordPrimer_Pago_cField</identifier>
+                <fieldItem>Record.carrierLastSeenAt__c</fieldItem>
+                <identifier>RecordcarrierLastSeenAt_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Pago_Subsecuente__c</fieldItem>
-                <identifier>RecordPago_Subsecuente_cField</identifier>
+                <fieldItem>Record.carrierDaysUnreported__c</fieldItem>
+                <identifier>RecordcarrierDaysUnreported_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Pagos_Subsecuentes__c</fieldItem>
-                <identifier>RecordPagos_Subsecuentes_cField</identifier>
-            </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance><fieldInstanceProperties
-				><name>uiBehavior</name><value
-					>none</value></fieldInstanceProperties><fieldItem
-				>Record.totalRefundedAmount__c</fieldItem><identifier
-				>RecordtotalRefundedAmount_cField</identifier></fieldInstance></itemInstances><name
-		>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
+        </itemInstances>
+        <name>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances><fieldInstance><fieldInstanceProperties><name
-					>uiBehavior</name><value
-					>none</value></fieldInstanceProperties><fieldItem
-				>Record.carrierPolicyStatus__c</fieldItem><identifier
-				>RecordcarrierPolicyStatus_cField</identifier></fieldInstance></itemInstances><itemInstances
-		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
-					>none</value></fieldInstanceProperties><fieldItem
-				>Record.carrierPolicyStatusRaw__c</fieldItem><identifier
-				>RecordcarrierPolicyStatusRaw_cField</identifier></fieldInstance></itemInstances><itemInstances
-		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
-					>none</value></fieldInstanceProperties><fieldItem
-				>Record.carrierStatusSyncedAt__c</fieldItem><identifier
-				>RecordcarrierStatusSyncedAt_cField</identifier></fieldInstance></itemInstances><itemInstances
-		><fieldInstance><fieldInstanceProperties><name>uiBehavior</name><value
-					>none</value></fieldInstanceProperties><fieldItem
-				>Record.carrierStatusNotice__c</fieldItem><identifier
-				>RecordcarrierStatusNotice_cField</identifier></fieldInstance></itemInstances><itemInstances
-		><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Recargos__c</fieldItem>
-                <identifier>RecordRecargos_cField</identifier>
+                <fieldItem>Record.carrierPolicyStatus__c</fieldItem>
+                <identifier>RecordcarrierPolicyStatus_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Referencia_Pago__c</fieldItem>
-                <identifier>RecordReferencia_Pago_cField</identifier>
+                <fieldItem>Record.carrierStatusSyncedAt__c</fieldItem>
+                <identifier>RecordcarrierStatusSyncedAt_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Gastos_Expedicion__c</fieldItem>
-                <identifier>RecordGastos_Expedicion_cField</identifier>
+                <fieldItem>Record.carrierPolicyStatusRaw__c</fieldItem>
+                <identifier>RecordcarrierPolicyStatusRaw_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.CLABE__c</fieldItem>
-                <identifier>RecordCLABE_cField</identifier>
+                <fieldItem>Record.carrierStatusNotice__c</fieldItem>
+                <identifier>RecordcarrierStatusNotice_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>none</value>
+                    <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Plazo_Pago_Dias__c</fieldItem>
-                <identifier>RecordPlazo_Pago_Dias_cField</identifier>
+                <fieldItem>Record.carrierStatusPolicyUpdate__c</fieldItem>
+                <identifier>RecordcarrierStatusPolicyUpdate_cField</identifier>
             </fieldInstance>
-        </itemInstances><name>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</name>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierStatusSource__c</fieldItem>
+                <identifier>RecordcarrierStatusSource_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierCancellationDate__c</fieldItem>
+                <identifier>RecordcarrierCancellationDate_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierCancellationReason__c</fieldItem>
+                <identifier>RecordcarrierCancellationReason_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -469,6 +563,78 @@
             </componentInstance>
         </itemInstances>
         <name>Facet-e8873a77-2cdb-408c-b77b-92773c2e8e0e</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.planPremiumMismatch__c</fieldItem>
+                <identifier>RecordplanPremiumMismatch_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.planPremiumAmount__c</fieldItem>
+                <identifier>RecordplanPremiumAmount_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-8b2d3f5c-6e7a-4b9c-8d1e-2f3a4b5c6d7e</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.premiumMismatchAmount__c</fieldItem>
+                <identifier>RecordpremiumMismatchAmount_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.premiumMismatchSince__c</fieldItem>
+                <identifier>RecordpremiumMismatchSince_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-9c3e4a6d-7f8b-4c0d-9e2f-3a4b5c6d7e8f</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-8b2d3f5c-6e7a-4b9c-8d1e-2f3a4b5c6d7e</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_column_desalineada1</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-9c3e4a6d-7f8b-4c0d-9e2f-3a4b5c6d7e8f</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_column_desalineada2</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-7a1c2e4b-5d6f-4a8b-9c0d-1e2f3a4b5c6d</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -544,6 +710,31 @@
                 <identifier>flexipage_fieldSection4</identifier>
             </componentInstance>
         </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>columns</name>
+                    <value>Facet-7a1c2e4b-5d6f-4a8b-9c0d-1e2f3a4b5c6d</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>horizontalAlignment</name>
+                    <value>true</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>label</name>
+                    <value>Prima desalineada</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:fieldSection</componentName>
+                <identifier>flexipage_fieldSection_desalineada</identifier>
+                <visibilityRule>
+                    <criteria>
+                        <leftValue>{!Record.planPremiumMismatch__c}</leftValue>
+                        <operator>EQUAL</operator>
+                        <rightValue>true</rightValue>
+                    </criteria>
+                </visibilityRule>
+            </componentInstance>
+        </itemInstances>
         <name>Facet-debe8104-da72-4083-93b1-8e853aaf5aba</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -570,7 +761,7 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>showActionBar</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentName>force:relatedListContainer</componentName>
                 <identifier>force_relatedListContainer</identifier>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>carrierUnreported__c</fullName>
+    <description
+	>La aseguradora dejó de reportarla: lleva más días sin aparecer que los configurados en su aseguradora (7 si no hay dato) y no está Cancelado. Solo avisa: no cambia el estado ni cancela nada.</description>
+    <formula>AND(
+    NOT(ISBLANK(carrierLastSeenAt__c)),
+    NOT(ISPICKVAL(Status, &quot;Cancelado&quot;)),
+    TODAY() - DATEVALUE(carrierLastSeenAt__c) &gt; BLANKVALUE(Aseguradora__r.unreportedAlertDays__c, 7)
+)</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>La aseguradora dejó de reportarla</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

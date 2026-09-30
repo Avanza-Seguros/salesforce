@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>carrierDaysUnreported__c</fullName>
+    <description
+	>Días desde la última vez que la aseguradora reportó la póliza. Vacío si nunca la reportó.</description>
+    <formula
+	>IF(ISBLANK(carrierLastSeenAt__c), NULL, TODAY() - DATEVALUE(carrierLastSeenAt__c))</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Días sin reportarse</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
