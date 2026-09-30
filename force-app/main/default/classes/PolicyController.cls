@@ -866,12 +866,20 @@ public with sharing class PolicyController {
 		Schema.DescribeFieldResult relDesc = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
 
 		Set<String> ya = new Set<String>();
+		// Participantes existentes por nombre (ej. el asegurado): si también es beneficiario se
+		// actualiza ESE registro con ambos roles en lugar de crear otro.
+		Map<String, InsurancePolicyParticipant> porNombre = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT ParticipantName, ParticipantCode FROM InsurancePolicyParticipant
-			WHERE InsurancePolicyId = :policyId
-		]) { ya.add(llaveBeneficiario(p.ParticipantName, p.ParticipantCode)); }
+			SELECT Id, ParticipantName, ParticipantCode, Role, RelationshipToInsured, BeneficiarySharePercentage
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) {
+			ya.add(llaveBeneficiario(p.ParticipantName, p.ParticipantCode));
+			String kn = llaveBeneficiario(p.ParticipantName, null);
+			if (!porNombre.containsKey(kn)) { porNombre.put(kn, p); }
+		}
 
 		List<InsurancePolicyParticipant> nuevos = new List<InsurancePolicyParticipant>();
+		Map<Id, InsurancePolicyParticipant> actualizados = new Map<Id, InsurancePolicyParticipant>();
 		for (Object o : (List<Object>) bensO) {
 			if (!(o instanceof Map<String, Object>)) { continue; }
 			Map<String, Object> b = (Map<String, Object>) o;
@@ -887,15 +895,27 @@ public with sharing class PolicyController {
 			String llave = llaveBeneficiario(nombre, codigo);
 			if (ya.contains(llave)) { continue; }
 			ya.add(llave);
+			Decimal pct = parseMonto(strOf(b.get('porcentaje')));
+			String rel = parentescoPicklist(relDesc, parentesco);
+
+			// Ya es participante (ej. el asegurado) y aún no tiene un beneficio asignado:
+			// se le agrega el rol Beneficiario (Role es selección múltiple) en el MISMO registro.
+			InsurancePolicyParticipant ex = porNombre.get(llaveBeneficiario(nombre, null));
+			if (ex != null && String.isBlank(ex.ParticipantCode)) {
+				ex.Role = agregarRol(ex.Role, rolBen);
+				ex.ParticipantCode = codigo;
+				if (pct != null) { ex.BeneficiarySharePercentage = pct; }
+				if (String.isNotBlank(rel) && String.isBlank(ex.RelationshipToInsured)) { ex.RelationshipToInsured = rel; }
+				actualizados.put(ex.Id, ex);
+				continue;
+			}
 
 			InsurancePolicyParticipant p = new InsurancePolicyParticipant();
 			p.InsurancePolicyId = policyId;
 			p.ParticipantName = nombre.normalizeSpace().left(255);
 			p.ParticipantCode = codigo;
 			if (String.isNotBlank(rolBen)) { p.Role = rolBen; }
-			Decimal pct = parseMonto(strOf(b.get('porcentaje')));
 			if (pct != null) { p.BeneficiarySharePercentage = pct; }
-			String rel = pickPicklist(relDesc, candidatosParentesco(parentesco));
 			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
 			if (acc != null) { p.PrimaryParticipantAccountId = acc; }
 			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
@@ -904,7 +924,35 @@ public with sharing class PolicyController {
 			nuevos.add(p);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
-		return nuevos.size();
+		if (!actualizados.isEmpty()) { update actualizados.values(); }
+		return nuevos.size() + actualizados.size();
+	}
+
+	// Agrega un rol a la selección múltiple Role sin repetirlo ("Asegurado" → "Asegurado;Beneficiario").
+	@TestVisible
+	private static String agregarRol(String actuales, String rol) {
+		if (String.isBlank(rol)) { return actuales; }
+		List<String> roles = String.isBlank(actuales) ? new List<String>() : actuales.split(';');
+		for (String r : roles) { if (r.trim().equalsIgnoreCase(rol)) { return actuales; } }
+		roles.add(rol);
+		return String.join(roles, ';');
+	}
+
+	// Valor del picklist RelationshipToInsured para el parentesco impreso. Primero se busca el
+	// valor tal cual (sin importar mayúsculas ni acentos: "HERMANO" → "Hermano", "TIA" → "Tía");
+	// después sinónimos (esposo → Marido, esposa → Mujer, mamá → Madre…). Vacío si no hay equivalente.
+	@TestVisible
+	private static String parentescoPicklist(Schema.DescribeFieldResult f, String parentesco) {
+		if (f == null || String.isBlank(parentesco)) { return null; }
+		Map<String, String> activos = new Map<String, String>();
+		for (Schema.PicklistEntry pe : f.getPicklistValues()) {
+			if (pe.isActive()) { activos.put(normKey(pe.getValue()).normalizeSpace(), pe.getValue()); }
+		}
+		for (String cand : candidatosParentesco(parentesco)) {
+			String k = normKey(cand).normalizeSpace();
+			if (activos.containsKey(k)) { return activos.get(k); }
+		}
+		return null;
 	}
 
 	// Nombre del titular / asegurado principal del PDF (para resolver "EL MISMO").
@@ -944,19 +992,26 @@ public with sharing class PolicyController {
 	// Valores candidatos del picklist RelationshipToInsured según el parentesco impreso.
 	@TestVisible
 	private static List<String> candidatosParentesco(String parentesco) {
-		String p = normKey(parentesco == null ? '' : parentesco);
-		List<String> c = new List<String>();
-		if (p.contains('mismo') || p.contains('titular')) { c.addAll(new List<String>{ 'Self', 'El mismo', 'Insured' }); }
-		else if (p.contains('madre')) { c.addAll(new List<String>{ 'Mother', 'Madre', 'Parent', 'Padre/Madre' }); }
-		else if (p.contains('padre')) { c.addAll(new List<String>{ 'Father', 'Padre', 'Parent', 'Padre/Madre' }); }
-		else if (p.contains('espos') || p.contains('conyug') || p.contains('pareja') || p.contains('concubin')) {
-			c.addAll(new List<String>{ 'Spouse', 'Cónyuge', 'Conyuge', 'Esposo(a)', 'Partner', 'Domestic Partner' });
-		}
-		else if (p.contains('hij')) { c.addAll(new List<String>{ 'Child', 'Hijo(a)', 'Hijo', 'Son', 'Daughter' }); }
-		else if (p.contains('herman')) { c.addAll(new List<String>{ 'Sibling', 'Hermano(a)', 'Brother', 'Sister' }); }
-		else if (p.contains('abuel')) { c.addAll(new List<String>{ 'Grandparent', 'Abuelo(a)' }); }
-		else if (p.contains('niet')) { c.addAll(new List<String>{ 'Grandchild', 'Nieto(a)' }); }
-		c.addAll(new List<String>{ 'Other', 'Otro', 'None', 'Ninguno' });
+		String p = normKey(parentesco == null ? '' : parentesco).normalizeSpace();
+		// 1) El parentesco tal cual viene impreso (ej. HERMANO, TIA, SOBRINA, CUÑADO).
+		List<String> c = new List<String>{ p };
+		// 2) Sinónimos hacia los valores del picklist (en español y con género) y, como respaldo,
+		//    los equivalentes en inglés de otras configuraciones.
+		if (p.contains('mismo') || p.contains('titular')) { c.addAll(new List<String>{ 'El mismo', 'Self', 'Insured' }); }
+		else if (p.contains('mama') || p == 'madre') { c.addAll(new List<String>{ 'Madre', 'Mother', 'Parent' }); }
+		else if (p.contains('papa') || p == 'padre') { c.addAll(new List<String>{ 'Padre', 'Father', 'Parent' }); }
+		else if (p.contains('esposo') || p.contains('marido') || p.contains('concubino')) { c.addAll(new List<String>{ 'Marido', 'Esposo', 'Husband', 'Spouse' }); }
+		else if (p.contains('esposa') || p.contains('concubina')) { c.addAll(new List<String>{ 'Mujer', 'Esposa', 'Wife', 'Spouse' }); }
+		else if (p.contains('conyug') || p.contains('pareja')) { c.addAll(new List<String>{ 'Cónyuge', 'Spouse', 'Partner' }); }
+		else if (p.contains('hija')) { c.addAll(new List<String>{ 'Hija', 'Daughter', 'Child' }); }
+		else if (p.contains('hijo')) { c.addAll(new List<String>{ 'Hijo', 'Son', 'Child' }); }
+		else if (p.contains('hermana')) { c.addAll(new List<String>{ 'Hermana', 'Sister', 'Sibling' }); }
+		else if (p.contains('hermano')) { c.addAll(new List<String>{ 'Hermano', 'Brother', 'Sibling' }); }
+		else if (p.contains('abuela')) { c.addAll(new List<String>{ 'Abuela', 'Grandmother', 'Grandparent' }); }
+		else if (p.contains('abuelo')) { c.addAll(new List<String>{ 'Abuelo', 'Grandfather', 'Grandparent' }); }
+		else if (p.contains('nieta')) { c.addAll(new List<String>{ 'Nieta', 'Granddaughter', 'Grandchild' }); }
+		else if (p.contains('nieto')) { c.addAll(new List<String>{ 'Nieto', 'Grandson', 'Grandchild' }); }
+		c.addAll(new List<String>{ 'Otro', 'Other', 'Ninguno', 'None' });
 		return c;
 	}
 

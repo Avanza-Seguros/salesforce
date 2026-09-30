@@ -958,7 +958,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             this.participantes = (reg.participantes || []).map((p) => ({
                 id: p.id,
                 nombre: p.nombre || '—',
-                rol: p.rol || '—',
+                // Role es selección múltiple ("Asegurado;Beneficiario").
+                rol: p.rol ? String(p.rol).split(';').join(' · ') : '—',
                 relacion: p.relacion || '—',
                 // Beneficiarios: "90 % · Por muerte"
                 detalleBeneficio: [

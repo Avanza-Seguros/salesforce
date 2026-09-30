@@ -310,9 +310,21 @@ private class PolicyControllerTest {
         System.assertEquals('BEN-MUERTE', PolicyController.codigoBeneficio('Beneficiarios por muerte'));
         System.assertEquals('BEN-SUPERVIVENCIA', PolicyController.codigoBeneficio('Supervivencia'));
         System.assertEquals('BEN', PolicyController.codigoBeneficio(null));
-        System.assertEquals('Mother', PolicyController.candidatosParentesco('MADRE')[0]);
-        System.assertEquals('Self', PolicyController.candidatosParentesco('EL MISMO')[0]);
-        System.assertEquals('Other', PolicyController.candidatosParentesco('NINGUNO')[0]);
+        // El parentesco impreso se busca tal cual en el picklist (sin importar mayúsculas/acentos).
+        Schema.DescribeFieldResult rel = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
+        Set<String> activos = new Set<String>();
+        for (Schema.PicklistEntry pe : rel.getPicklistValues()) { if (pe.isActive()) { activos.add(pe.getValue()); } }
+        if (activos.contains('Hermano')) {
+            System.assertEquals('Hermano', PolicyController.parentescoPicklist(rel, 'HERMANO'));
+        }
+        if (activos.contains('Marido')) {
+            System.assertEquals('Marido', PolicyController.parentescoPicklist(rel, 'ESPOSO'), 'Sinónimo esposo → Marido');
+        }
+        System.assertEquals('hermano', PolicyController.candidatosParentesco('HERMANO')[0]);
+        // Role es selección múltiple: se agrega el rol sin repetirlo.
+        System.assertEquals('Asegurado;Beneficiario', PolicyController.agregarRol('Asegurado', 'Beneficiario'));
+        System.assertEquals('Asegurado;Beneficiario', PolicyController.agregarRol('Asegurado;Beneficiario', 'Beneficiario'));
+        System.assertEquals('Beneficiario', PolicyController.agregarRol(null, 'Beneficiario'));
     }
 
     @isTest
@@ -339,5 +351,35 @@ private class PolicyControllerTest {
         ];
         System.assertEquals('INGRID ARACELY ROSALES GUZMAN', titular.ParticipantName, '"EL MISMO" = titular');
         System.assertEquals(100, titular.BeneficiarySharePercentage);
+    }
+
+    @isTest
+    static void testAseguradoTambienBeneficiarioUnSoloRegistro() {
+        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        InsurancePolicy pol;
+        try {
+            pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente');
+            insert new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'INGRID ARACELY ROSALES GUZMAN',
+                Role = 'Asegurado', PrimaryParticipantAccountId = acc.Id);
+        } catch (Exception e) { return; } // validaciones propias del org
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
+            '{"titular":"INGRID ARACELY ROSALES GUZMAN","beneficiarios":['
+            + '{"nombre":"EL MISMO","parentesco":"EL MISMO","porcentaje":100,"tipo":"Supervivencia"},'
+            + '{"nombre":"JUAN PEREZ LOPEZ","parentesco":"HERMANO","porcentaje":100,"tipo":"Muerte"}]}');
+        Test.startTest();
+        PolicyController.crearBeneficiariosDesdePdf(pol.Id, acc.Id, d);
+        Test.stopTest();
+        List<InsurancePolicyParticipant> ingrid = [
+            SELECT Role, ParticipantCode, BeneficiarySharePercentage FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'INGRID ARACELY ROSALES GUZMAN'
+        ];
+        System.assertEquals(1, ingrid.size(), 'El asegurado que también es beneficiario debe quedar en UN solo registro');
+        System.assert(ingrid[0].Role.contains('Asegurado') && ingrid[0].Role.contains('Beneficiario'), 'Debe tener ambos roles');
+        System.assertEquals('BEN-SUPERVIVENCIA', ingrid[0].ParticipantCode);
+        InsurancePolicyParticipant hermano = [
+            SELECT RelationshipToInsured FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'JUAN PEREZ LOPEZ' LIMIT 1
+        ];
+        System.assertEquals('Hermano', hermano.RelationshipToInsured, 'HERMANO debe guardarse en el parentesco');
     }
 }
