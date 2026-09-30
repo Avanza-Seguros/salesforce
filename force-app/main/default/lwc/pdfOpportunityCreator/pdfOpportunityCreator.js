@@ -16,6 +16,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 	
 	files = [];
 	isProcessing = false;
+	// true mientras se arrastran archivos sobre el recuadro (lo resalta).
+	isDragOver = false;
 	statusMessage = "";
 	error = "";
 	prefixWarning = "";
@@ -163,10 +165,59 @@ export default class PdfOpportunityCreator extends LightningElement {
 	// ============================================================
 	// EVENTOS DE ARCHIVOS
 	// ============================================================
+	// Clase del recuadro: se resalta mientras se arrastran archivos encima.
+	get dropzoneClass() {
+		let cls = "pdf-dropzone";
+		if (this.isDragOver) { cls += " pdf-dropzone--over"; }
+		if (this.isProcessing) { cls += " pdf-dropzone--disabled"; }
+		return cls;
+	}
+
+	// Clic (o Enter/Espacio) en cualquier parte del recuadro abre el selector de archivos.
+	handleDropzoneClick(event) {
+		// El clic programático del input sube hasta el recuadro: se ignora para no reabrir el selector.
+		if (event && event.target && event.target.classList && event.target.classList.contains("pdf-file-input")) { return; }
+		if (this.isProcessing) { return; }
+		const input = this.template.querySelector("input.pdf-file-input");
+		if (input) {
+			input.value = null;
+			input.click();
+		}
+	}
+	handleDropzoneKey(event) {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			this.handleDropzoneClick();
+		}
+	}
+
+	// Arrastrar y soltar en todo el recuadro. preventDefault evita que el navegador abra el PDF.
+	handleDragOver(event) {
+		event.preventDefault();
+		if (event.dataTransfer) { event.dataTransfer.dropEffect = this.isProcessing ? "none" : "copy"; }
+		if (!this.isProcessing) { this.isDragOver = true; }
+	}
+	handleDragLeave(event) {
+		// Solo se quita el resaltado al salir del recuadro, no al pasar sobre sus elementos internos.
+		if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) { return; }
+		this.isDragOver = false;
+	}
+	handleDrop(event) {
+		event.preventDefault();
+		this.isDragOver = false;
+		if (this.isProcessing) { return; }
+		const archivos = event.dataTransfer ? Array.from(event.dataTransfer.files || []) : [];
+		this.aplicarArchivos(archivos);
+	}
+
 	handleFileChange(event) {
+		this.aplicarArchivos(Array.from(event.target.files || []));
+	}
+
+	// Valida y toma los PDFs seleccionados (desde el selector o arrastrados).
+	aplicarArchivos(selected) {
 		this.error = "";
 		this.prefixWarning = "";
-		const selected = Array.from(event.target.files || []);
 		if (selected.length === 0) {
 			this.files = [];
 			return;

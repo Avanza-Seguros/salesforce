@@ -301,4 +301,43 @@ private class PolicyControllerTest {
         System.assertEquals(false, PolicyController.esMontoSimple('50 UMAS'));
         System.assertEquals(false, PolicyController.esMontoSimple(''));
     }
+
+    @isTest
+    static void testHelpersBeneficiarios() {
+        System.assertEquals(true, PolicyController.esElMismo('EL MISMO'));
+        System.assertEquals(true, PolicyController.esElMismo('el  mismo'));
+        System.assertEquals(false, PolicyController.esElMismo('MADRE'));
+        System.assertEquals('BEN-MUERTE', PolicyController.codigoBeneficio('Beneficiarios por muerte'));
+        System.assertEquals('BEN-SUPERVIVENCIA', PolicyController.codigoBeneficio('Supervivencia'));
+        System.assertEquals('BEN', PolicyController.codigoBeneficio(null));
+        System.assertEquals('Mother', PolicyController.candidatosParentesco('MADRE')[0]);
+        System.assertEquals('Self', PolicyController.candidatosParentesco('EL MISMO')[0]);
+        System.assertEquals('Other', PolicyController.candidatosParentesco('NINGUNO')[0]);
+    }
+
+    @isTest
+    static void testCrearBeneficiariosDesdePdf() {
+        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        InsurancePolicy pol;
+        try { pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente'); }
+        catch (Exception e) { return; } // validaciones propias del org
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
+            '{"titular":"INGRID ARACELY  ROSALES GUZMAN","beneficiarios":['
+            + '{"nombre":"LIZ ARACELI GUZMAN VALLEJO","parentesco":"MADRE","porcentaje":10,"tipo":"Muerte"},'
+            + '{"nombre":"SAUL ALBERTO SALAZAR PACHECO","parentesco":"NINGUNO","porcentaje":90,"tipo":"Muerte"},'
+            + '{"nombre":"EL MISMO","parentesco":"EL MISMO","porcentaje":100,"tipo":"Supervivencia"}]}');
+        Test.startTest();
+        Integer creados = PolicyController.crearBeneficiariosDesdePdf(pol.Id, acc.Id, d);
+        Integer otraVez = PolicyController.crearBeneficiariosDesdePdf(pol.Id, acc.Id, d);
+        Test.stopTest();
+        System.assertEquals(3, creados, 'Debe crear los 3 beneficiarios');
+        System.assertEquals(0, otraVez, 'No debe duplicarlos al volver a procesar el PDF');
+        InsurancePolicyParticipant titular = [
+            SELECT ParticipantName, ParticipantCode, BeneficiarySharePercentage
+            FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantCode = 'BEN-SUPERVIVENCIA' LIMIT 1
+        ];
+        System.assertEquals('INGRID ARACELY ROSALES GUZMAN', titular.ParticipantName, '"EL MISMO" = titular');
+        System.assertEquals(100, titular.BeneficiarySharePercentage);
+    }
 }

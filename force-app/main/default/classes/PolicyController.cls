@@ -652,6 +652,9 @@ public with sharing class PolicyController {
 		@AuraEnabled public String nombre;
 		@AuraEnabled public String rol;
 		@AuraEnabled public String relacion;
+		// Beneficiarios: porcentaje asignado y tipo de beneficio (por muerte / supervivencia).
+		@AuraEnabled public Decimal porcentaje;
+		@AuraEnabled public String tipoBeneficio;
 	}
 	public class BienRow {
 		@AuraEnabled public Id id;
@@ -692,13 +695,16 @@ public with sharing class PolicyController {
 				out.coberturas.add(r);
 			}
 			for (InsurancePolicyParticipant p : [
-				SELECT Id, ParticipantName, Role, RelationshipToInsured
+				SELECT Id, ParticipantName, Role, RelationshipToInsured, BeneficiarySharePercentage, ParticipantCode
 				FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
-				ORDER BY ParticipantName
+				ORDER BY ParticipantCode NULLS FIRST, ParticipantName
 			]) {
 				ParticipanteRow r = new ParticipanteRow();
 				r.id = p.Id; r.nombre = p.ParticipantName;
 				r.rol = p.Role; r.relacion = p.RelationshipToInsured;
+				r.porcentaje = p.BeneficiarySharePercentage;
+				r.tipoBeneficio = p.ParticipantCode == 'BEN-MUERTE' ? 'Por muerte'
+					: (p.ParticipantCode == 'BEN-SUPERVIVENCIA' ? 'Por supervivencia' : null);
 				out.participantes.add(r);
 			}
 			for (InsurancePolicyAsset a : [
@@ -811,6 +817,10 @@ public with sharing class PolicyController {
 			resumen.put('asegurados', n);
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
+		// 3b) Beneficiarios (cualquier ramo que los traiga): designación de beneficiarios del PDF.
+		try { resumen.put('beneficiarios', crearBeneficiariosDesdePdf(policyId, accountId, d)); }
+		catch (Exception e) { resumen.put('beneficiariosError', msgLimpio(e)); }
+
 		// 4) Coberturas: primero desde el PDF (suma/deducible). Si el PDF no trae coberturas
 		//    reales (p.ej. Vida, donde solo aparecen secciones como "TITULAR"), se usan las
 		//    coberturas del CATÁLOGO del producto.
@@ -834,6 +844,120 @@ public with sharing class PolicyController {
 		catch (Exception e) { resumen.put('producerError', msgLimpio(e)); }
 
 		return resumen;
+	}
+
+	// Crea los BENEFICIARIOS de la póliza (Vida, Accidentes, GMM o cualquier ramo que los traiga)
+	// como participantes con rol Beneficiario, su porcentaje y su parentesco. "EL MISMO" se
+	// resuelve al titular. Se ligan a la cuenta de la póliza (no se crean contactos) y el tipo de
+	// beneficio (muerte / supervivencia) queda en ParticipantCode. Es idempotente: no repite el
+	// mismo nombre con el mismo tipo de beneficio.
+	@TestVisible
+	private static Integer crearBeneficiariosDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
+		Object bensO = d.get('beneficiarios');
+		if (!(bensO instanceof List<Object>) || ((List<Object>) bensO).isEmpty()) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, ProductId, NameInsuredId, SourceOpportunityId
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		Id acc = accountId != null ? accountId : resolverCuentaDePoliza(pol);
+		String titular = nombreTitular(d);
+		String rolBen = pickPicklist(InsurancePolicyParticipant.Role.getDescribe(),
+			new List<String>{ 'Beneficiary', 'Beneficiario', 'Primary Beneficiary', 'Beneficiario Principal' });
+		Schema.DescribeFieldResult relDesc = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
+
+		Set<String> ya = new Set<String>();
+		for (InsurancePolicyParticipant p : [
+			SELECT ParticipantName, ParticipantCode FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :policyId
+		]) { ya.add(llaveBeneficiario(p.ParticipantName, p.ParticipantCode)); }
+
+		List<InsurancePolicyParticipant> nuevos = new List<InsurancePolicyParticipant>();
+		for (Object o : (List<Object>) bensO) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> b = (Map<String, Object>) o;
+			String nombre = strOf(b.get('nombre'));
+			String parentesco = strOf(b.get('parentesco'));
+			// "EL MISMO" (en nombre o parentesco) = el titular de la póliza.
+			if (esElMismo(nombre) || esElMismo(parentesco)) {
+				if (String.isNotBlank(titular)) { nombre = titular; }
+				parentesco = 'EL MISMO';
+			}
+			if (String.isBlank(nombre) || esElMismo(nombre)) { continue; }
+			String codigo = codigoBeneficio(strOf(b.get('tipo')));
+			String llave = llaveBeneficiario(nombre, codigo);
+			if (ya.contains(llave)) { continue; }
+			ya.add(llave);
+
+			InsurancePolicyParticipant p = new InsurancePolicyParticipant();
+			p.InsurancePolicyId = policyId;
+			p.ParticipantName = nombre.normalizeSpace().left(255);
+			p.ParticipantCode = codigo;
+			if (String.isNotBlank(rolBen)) { p.Role = rolBen; }
+			Decimal pct = parseMonto(strOf(b.get('porcentaje')));
+			if (pct != null) { p.BeneficiarySharePercentage = pct; }
+			String rel = pickPicklist(relDesc, candidatosParentesco(parentesco));
+			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
+			if (acc != null) { p.PrimaryParticipantAccountId = acc; }
+			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
+			try { p.IsActiveParticipant = true; } catch (Exception ignore) {}
+			try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+			nuevos.add(p);
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+		return nuevos.size();
+	}
+
+	// Nombre del titular / asegurado principal del PDF (para resolver "EL MISMO").
+	private static String nombreTitular(Map<String, Object> d) {
+		List<String> candidatos = new List<String>{ strOf(d.get('titular')) };
+		if (d.get('asegurado') instanceof Map<String, Object>) {
+			candidatos.add(strOf(((Map<String, Object>) d.get('asegurado')).get('nombre')));
+		}
+		candidatos.add(strOf(d.get('aseguradoNombre')));
+		if (d.get('contratante') instanceof Map<String, Object>) {
+			candidatos.add(strOf(((Map<String, Object>) d.get('contratante')).get('nombre')));
+		}
+		for (String c : candidatos) { if (String.isNotBlank(c)) { return c; } }
+		return null;
+	}
+
+	@TestVisible
+	private static Boolean esElMismo(String v) {
+		if (String.isBlank(v)) { return false; }
+		Set<String> mismo = new Set<String>{ 'el mismo', 'la misma', 'mismo', 'misma', 'titular', 'el titular', 'el asegurado', 'la asegurada' };
+		return mismo.contains(normKey(v).normalizeSpace());
+	}
+
+	// Tipo de beneficio → código: BEN-MUERTE, BEN-SUPERVIVENCIA o BEN.
+	@TestVisible
+	private static String codigoBeneficio(String tipo) {
+		String t = normKey(tipo == null ? '' : tipo);
+		if (t.contains('superviv')) { return 'BEN-SUPERVIVENCIA'; }
+		if (t.contains('muerte') || t.contains('fallec') || t.contains('deceso')) { return 'BEN-MUERTE'; }
+		return 'BEN';
+	}
+
+	private static String llaveBeneficiario(String nombre, String codigo) {
+		return normKey(nombre == null ? '' : nombre).normalizeSpace() + '|' + (codigo == null ? '' : codigo);
+	}
+
+	// Valores candidatos del picklist RelationshipToInsured según el parentesco impreso.
+	@TestVisible
+	private static List<String> candidatosParentesco(String parentesco) {
+		String p = normKey(parentesco == null ? '' : parentesco);
+		List<String> c = new List<String>();
+		if (p.contains('mismo') || p.contains('titular')) { c.addAll(new List<String>{ 'Self', 'El mismo', 'Insured' }); }
+		else if (p.contains('madre')) { c.addAll(new List<String>{ 'Mother', 'Madre', 'Parent', 'Padre/Madre' }); }
+		else if (p.contains('padre')) { c.addAll(new List<String>{ 'Father', 'Padre', 'Parent', 'Padre/Madre' }); }
+		else if (p.contains('espos') || p.contains('conyug') || p.contains('pareja') || p.contains('concubin')) {
+			c.addAll(new List<String>{ 'Spouse', 'Cónyuge', 'Conyuge', 'Esposo(a)', 'Partner', 'Domestic Partner' });
+		}
+		else if (p.contains('hij')) { c.addAll(new List<String>{ 'Child', 'Hijo(a)', 'Hijo', 'Son', 'Daughter' }); }
+		else if (p.contains('herman')) { c.addAll(new List<String>{ 'Sibling', 'Hermano(a)', 'Brother', 'Sister' }); }
+		else if (p.contains('abuel')) { c.addAll(new List<String>{ 'Grandparent', 'Abuelo(a)' }); }
+		else if (p.contains('niet')) { c.addAll(new List<String>{ 'Grandchild', 'Nieto(a)' }); }
+		c.addAll(new List<String>{ 'Other', 'Otro', 'None', 'Ninguno' });
+		return c;
 	}
 
 	// Crea el participante ASEGURADO (persona) del PDF como Contacto bajo la cuenta principal.

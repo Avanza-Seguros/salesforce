@@ -432,6 +432,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const partes = [];
         if (r.coberturas) { partes.push(`${r.coberturas} cobertura(s)`); }
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
+        if (r.beneficiarios) { partes.push(`${r.beneficiarios} beneficiario(s)`); }
         if (r.cuenta) { partes.push('datos del cliente'); }
         if (r.vehiculo) { partes.push('vehículo'); }
         if (r.bien) { partes.push('bien asegurado'); }
@@ -958,7 +959,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 id: p.id,
                 nombre: p.nombre || '—',
                 rol: p.rol || '—',
-                relacion: p.relacion || '—'
+                relacion: p.relacion || '—',
+                // Beneficiarios: "90 % · Por muerte"
+                detalleBeneficio: [
+                    p.porcentaje != null ? `${Number(p.porcentaje)} %` : null,
+                    p.tipoBeneficio
+                ].filter(Boolean).join(' · ')
             }));
             this.bienes = (reg.bienes || []).map((b) => ({
                 id: b.id,

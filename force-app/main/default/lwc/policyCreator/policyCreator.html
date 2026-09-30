@@ -252,6 +252,9 @@
                                     <div key={p.id} class="ro-chip-row">
                                         <span class="strong">{p.nombre}</span>
                                         <span class="ro-muted">{p.relacion}</span>
+                                        <template if:true={p.detalleBeneficio}>
+                                            <span class="money">{p.detalleBeneficio}</span>
+                                        </template>
                                         <span class="ro-status">{p.rol}</span>
                                     </div>
                                 </template>

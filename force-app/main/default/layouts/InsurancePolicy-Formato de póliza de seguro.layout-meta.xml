@@ -602,12 +602,13 @@
         <relatedList>InsurancePolicyCoverages</relatedList>
     </relatedLists>
     <relatedLists>
-        <fields>Name</fields>
-        <fields>PrimaryParticipantAccount</fields>
+        <fields>ParticipantName</fields>
         <fields>Role</fields>
         <fields>RelationshipToInsured</fields>
-        <fields>IsActiveParticipant</fields>
         <fields>BeneficiarySharePercentage</fields>
+        <fields>ParticipantCode</fields>
+        <fields>PrimaryParticipantAccount</fields>
+        <fields>IsActiveParticipant</fields>
         <relatedList>InsurancePolicyParticipants</relatedList>
     </relatedLists>
     <relatedLists>

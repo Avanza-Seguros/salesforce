@@ -8,12 +8,18 @@
       </p>
       <p class="pdf-steps">1) Sube los PDFs &middot; 2) Revisa &middot; 3) Confirma</p>
 
-      <div class="pdf-dropzone">
+      <!-- Todo el recuadro recibe los PDFs arrastrados y abre el selector al hacer clic. -->
+      <div class={dropzoneClass} role="button" tabindex="0"
+        aria-label="Arrastra tus PDFs aquí o haz clic para seleccionarlos"
+        onclick={handleDropzoneClick} onkeydown={handleDropzoneKey}
+        ondragenter={handleDragOver} ondragover={handleDragOver}
+        ondragleave={handleDragLeave} ondrop={handleDrop}>
         <lightning-icon icon-name="utility:upload" size="large" class="pdf-dropzone__icon"></lightning-icon>
-        <lightning-input type="file" label="Documentos PDF" accept="application/pdf,.pdf"
-          multiple onchange={handleFileChange} disabled={isProcessing} variant="label-hidden">
-        </lightning-input>
+        <p class="pdf-dropzone__title">Arrastra tus PDFs a cualquier parte de este recuadro</p>
+        <span class="pdf-dropzone__btn">Seleccionar PDFs</span>
         <p class="pdf-dropzone__hint">Formato PDF · máx. ~4.5 MB · nombres con prefijo común</p>
+        <input type="file" class="pdf-file-input" accept="application/pdf,.pdf" multiple
+          onchange={handleFileChange} disabled={isProcessing} />
       </div>
 
       <template lwc:if={hasFiles}>
