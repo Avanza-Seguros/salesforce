@@ -1166,9 +1166,11 @@ lightning-combobox {
     color: #1c2433;
     line-height: 1.55;
 }
-.comparativo-ia__host h1 { font-size: 1.4rem; color: #001C3D; font-weight: 800; margin: 0 0 0.4rem; }
-.comparativo-ia__host h2 { font-size: 1.1rem; color: #0052CC; margin: 1.4rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 2px solid #E6EEFB; }
-.comparativo-ia__host h3 { color: #001C3D; margin: 0 0 0.4rem; }
+/* Sin color fijo: los títulos heredan el color que trae el HTML de la IA (p. ej. blanco
+   sobre la barra azul del encabezado). Forzar un color oscuro los volvía invisibles. */
+.comparativo-ia__host h1 { font-size: 1.4rem; color: inherit; font-weight: 800; margin: 0 0 0.4rem; }
+.comparativo-ia__host h2 { font-size: 1.1rem; color: inherit; margin: 1.4rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 2px solid #E6EEFB; }
+.comparativo-ia__host h3 { color: inherit; margin: 0 0 0.4rem; }
 .comparativo-ia__host p { margin: 0.4rem 0; }
 .comparativo-ia__host table {
     width: 100% !important;

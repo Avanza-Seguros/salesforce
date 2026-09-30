@@ -573,6 +573,8 @@ public with sharing class PdfOpportunityCreatorController {
 				ShareType = 'V',
 				Visibility = 'AllUsers'
 			);
+			// El mismo archivo queda también en cada cotización.
+			vincularComparativoACotizaciones(opportunityId, stored.ContentDocumentId);
 			return stored.ContentDocumentId;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo generar el PDF del comparativo: ' + e.getMessage());
@@ -1638,7 +1640,52 @@ public with sharing class PdfOpportunityCreatorController {
 			System.debug('COT-COB::: ' + e.getMessage());
 		}
 
+		// El comparativo en PDF (generado al guardar la oportunidad) se liga a las cotizaciones nuevas.
+		try { vincularComparativoACotizaciones(opportunityId, null); } catch (Exception e) {
+			System.debug('COT-PDF::: ' + e.getMessage());
+		}
+
 		return new Map<String,Object>{ 'creadas' => creadasN, 'detalle' => detalle, 'errores' => erroresQuote };
+	}
+
+	/**
+	 * @description: Liga el PDF del comparativo a todas las cotizaciones de la oportunidad (sin
+	 * duplicar vínculos). Si no se indica el documento, usa el comparativo más reciente de la oportunidad.
+	 * @param opportunityId: Id de la oportunidad.
+	 * @param documentId: ContentDocumentId del comparativo (opcional).
+	 */
+	@TestVisible
+	private static void vincularComparativoACotizaciones(Id opportunityId, Id documentId) {
+		if (opportunityId == null) { return; }
+		Id docId = documentId;
+		if (docId == null) {
+			for (ContentDocumentLink l : [
+				SELECT ContentDocumentId, ContentDocument.Title FROM ContentDocumentLink
+				WHERE LinkedEntityId = :opportunityId
+				ORDER BY ContentDocument.CreatedDate DESC
+			]) {
+				if (l.ContentDocument != null && String.isNotBlank(l.ContentDocument.Title)
+					&& l.ContentDocument.Title.startsWith('Comparativo_')) {
+					docId = l.ContentDocumentId;
+					break;
+				}
+			}
+		}
+		if (docId == null) { return; }
+		Set<Id> quoteIds = new Map<Id, Quote>([SELECT Id FROM Quote WHERE OpportunityId = :opportunityId]).keySet();
+		if (quoteIds.isEmpty()) { return; }
+		Set<Id> yaLigadas = new Set<Id>();
+		for (ContentDocumentLink l : [
+			SELECT LinkedEntityId FROM ContentDocumentLink
+			WHERE ContentDocumentId = :docId AND LinkedEntityId IN :quoteIds
+		]) { yaLigadas.add(l.LinkedEntityId); }
+		List<ContentDocumentLink> links = new List<ContentDocumentLink>();
+		for (Id qId : quoteIds) {
+			if (!yaLigadas.contains(qId)) {
+				links.add(new ContentDocumentLink(ContentDocumentId = docId, LinkedEntityId = qId, ShareType = 'V', Visibility = 'AllUsers'));
+			}
+		}
+		if (!links.isEmpty()) { Database.insert(links, false); }
 	}
 
 	/**

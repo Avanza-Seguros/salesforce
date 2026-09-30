@@ -57,10 +57,52 @@ public with sharing class OpportunityComparisonPdfController {
     if (String.isBlank(html)) {
       return '';
     }
+    html = paraPdf(html);
     String lower = html.toLowerCase();
     if (lower.contains('<html')) {
+      // Inserta el estilo de página dentro del <head> (o al inicio del <body>).
+      Integer i = lower.indexOf('</head>');
+      if (i >= 0) {
+        return html.substring(0, i) + ESTILO_PDF + html.substring(i);
+      }
+      Integer b = lower.indexOf('<body');
+      if (b >= 0) {
+        Integer fin = html.indexOf('>', b);
+        if (fin >= 0) {
+          return html.substring(0, fin + 1) + ESTILO_PDF + html.substring(fin + 1);
+        }
+      }
       return html;
     }
-    return '<html><body>' + html + '</body></html>';
+    return '<html><head>' + ESTILO_PDF + '</head><body>' + html + '</body></html>';
+  }
+
+  // Carta horizontal y fuente con acentos/ñ para el motor de PDF de Visualforce.
+  private static final String ESTILO_PDF =
+    '<style type="text/css">@page { size: letter landscape; margin: 12mm; } ' +
+    'body { font-family: "Arial Unicode MS", Arial, sans-serif; font-size: 11px; }</style>';
+
+  // El motor de PDF no soporta degradados (linear-gradient): el encabezado quedaba en blanco
+  // y el título (texto blanco) desaparecía. Se reemplaza cada degradado por su primer color.
+  @TestVisible
+  private static String paraPdf(String html) {
+    if (String.isBlank(html) || !html.containsIgnoreCase('gradient(')) {
+      return html;
+    }
+    Pattern p = Pattern.compile('(?i)background(-image)?\\s*:\\s*[a-z-]*gradient\\(([^;"]*)');
+    Matcher m = p.matcher(html);
+    String out = '';
+    Integer ultimo = 0;
+    while (m.find()) {
+      String color = primerColor(m.group(2));
+      out += html.substring(ultimo, m.start()) + 'background-color:' + (color != null ? color : '#0052CC');
+      ultimo = m.end();
+    }
+    return out + html.substring(ultimo);
+  }
+
+  private static String primerColor(String segmento) {
+    Matcher c = Pattern.compile('(#[0-9a-fA-F]{3,8}|rgba?\\([^)]*\\))').matcher(segmento == null ? '' : segmento);
+    return c.find() ? c.group(1) : null;
   }
 }
