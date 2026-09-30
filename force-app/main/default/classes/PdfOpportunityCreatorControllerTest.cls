@@ -80,7 +80,9 @@ private class PdfOpportunityCreatorControllerTest {
         List<Object> quotes = new List<Object>{
             new Map<String, Object>{
                 'compania' => 'HDI', 'ramo' => 'Automoviles', 'plan' => 'Amplia',
-            },
+                'primaTotal' => 12000, 'vigencia' => '2027-09-30', 'vigenciaInicio' => '2026-09-30'
+            }
+        };
         Test.startTest();
         Map<String, Object> vacio = PdfOpportunityCreatorController.crearCotizacionesDesdePdf(opp.Id, '');
         System.assertEquals(0, vacio.get('creadas'), 'JSON vacío no crea nada');
@@ -237,5 +239,32 @@ private class PdfOpportunityCreatorControllerTest {
         PdfOpportunityCreatorController.findProductByAseguradoraRamo(null, 'Automoviles');
         PdfOpportunityCreatorController.resolveAseguradoraByName(new Set<String>{ 'HDI', 'GNP' });
         Test.stopTest();
+    }
+
+    @isTest
+    static void testLlaveCotizacionDetectaDuplicadas() {
+        // Mismo archivo de origen = misma cotización, aunque la IA cambie el plan.
+        Map<String, Object> a = new Map<String, Object>{
+            'nombre' => 'Seguros Monterrey NYL', 'plan' => 'IMAGINA SER 60',
+            'archivo_origen' => 'Cotizacion_SER60.pdf', 'prima_total' => 3718.64
+        };
+        Map<String, Object> b = new Map<String, Object>{
+            'nombre' => 'Seguros Monterrey NYL', 'plan' => 'IMAGINA SER 60 (con beneficios)',
+            'archivo_origen' => 'Cotizacion_SER60.pdf', 'prima_total' => 3718.64
+        };
+        System.assertEquals(PdfOpportunityCreatorController.llaveCotizacion(a),
+            PdfOpportunityCreatorController.llaveCotizacion(b), 'Mismo archivo: debe ser la misma cotización');
+
+        // Sin archivo ni número: plan sin paréntesis + prima.
+        Map<String, Object> c = new Map<String, Object>{
+            'nombre' => 'Seguros Monterrey NYL', 'plan' => 'IMAGINA SER 65', 'prima_total' => 3674.81
+        };
+        Map<String, Object> d = new Map<String, Object>{
+            'nombre' => 'Seguros Monterrey NYL', 'plan' => 'IMAGINA SER 65 (dup)', 'prima_total' => 3674.81
+        };
+        System.assertEquals(PdfOpportunityCreatorController.llaveCotizacion(c),
+            PdfOpportunityCreatorController.llaveCotizacion(d), '"(dup)" debe detectarse como repetida');
+        System.assertNotEquals(PdfOpportunityCreatorController.llaveCotizacion(a),
+            PdfOpportunityCreatorController.llaveCotizacion(c), 'Planes distintos no son duplicados');
     }
 }

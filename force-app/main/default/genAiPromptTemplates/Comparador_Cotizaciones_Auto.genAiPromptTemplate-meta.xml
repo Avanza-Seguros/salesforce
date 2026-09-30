@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_19</activeVersionIdentifier>
+    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_20</activeVersionIdentifier>
     <developerName>Comparador_Cotizaciones_Auto</developerName>
     <masterLabel>Comparador_Cotizaciones_Auto</masterLabel>
     <templateVersions>
@@ -1270,7 +1270,7 @@ Pueden ser de CUALQUIER ramo (Automóviles, Gastos Médicos, Vida, Viajes, Daño
 
 **REGLAS DE ORO PARA EL LLENADO:**
 
-1. **Archivos vs Aseguradoras**: Crea UN objeto dentro del arreglo `aseguradoras` por CADA archivo delimitado por &quot;===== ARCHIVO:&quot;.
+1. **Archivos vs Aseguradoras**: Crea UN objeto dentro del arreglo `aseguradoras` por CADA archivo delimitado por &quot;===== ARCHIVO:&quot;. Si el mismo archivo o la misma cotización (mismo número de cotización, plan y prima) aparece más de una vez en el texto, inclúyela UNA sola vez: NUNCA dupliques cotizaciones ni agregues columnas marcadas como &quot;(dup)&quot;.
 2. **Coberturas (`coberturas`)**: 
   - Extrae SOLO las coberturas REALES del ramo detectado, con el nombre TAL CUAL aparece en ESE documento. Cada ramo tiene coberturas DISTINTAS: NUNCA copies, inventes ni repitas coberturas de otro ramo (no pongas coberturas de Auto en una póliza de Vida, etc.). Guía por ramo (conserva el nombre real): Automóviles → Daños Materiales, Robo Total, Responsabilidad Civil, Gastos Médicos Ocupantes, Muerte del Conductor, Asistencia Vial/Jurídica, Cristales, RC en el Extranjero. Vida → Fallecimiento (Suma Asegurada), Muerte Accidental, Invalidez Total y Permanente, Enfermedades Graves, Exención de Pago de Primas, Beneficio en Supervivencia/Ahorro, Aportación y Plazo. GMM → Suma Asegurada, Deducible, Coaseguro, Tope de Coaseguro, Maternidad, Enfermedades Preexistentes, Cobertura en el Extranjero, Red Hospitalaria. Viajes → Gastos Médicos, Equipaje, Cancelación, Asistencia, Muerte Accidental. Daños/Hogar → Incendio, Robo, Responsabilidad Civil, Cristales, Fenómenos Hidrometeorológicos, Contenidos. RC → Límite por Evento, Límite Agregado, Gastos de Defensa. Toma el valor propio de cada cobertura del ramo (en Vida la suma asegurada, no deducible; en Auto/GMM suma, deducible y coaseguro si aplican).
   - Si la cobertura tiene un monto numérico, asígnalo a `suma_asegurada` (ej. 92721720). 
@@ -1365,7 +1365,7 @@ GNP. Línea Azul Flexible Ámbar...
 ---
 
 **AHORA, procesa el siguiente texto de cotizaciones (NO USES el ejemplo anterior como entrada, espera el texto real del usuario debajo):**
-{!$Input:Cotizaciones}{!$Input:Cotizaciones}
+{!$Input:Cotizaciones}
 </content>
         <inputs>
             <apiName>Cotizaciones</apiName>
@@ -1379,7 +1379,7 @@ GNP. Línea Azul Flexible Ámbar...
         <responseFormat>JSON</responseFormat>
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
-        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_19</versionIdentifier>
+        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_20</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>

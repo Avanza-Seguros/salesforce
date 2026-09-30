@@ -955,11 +955,21 @@ public with sharing class PdfOpportunityCreatorController {
 		Map<String, Object> cliente = buildCliente(comparison);
 
 		// Las cotizaciones solo traen lo que cambia entre aseguradoras.
+		// Se descartan las repetidas (misma aseguradora, plan, número y prima): la IA a veces
+		// duplica una cotización, y el comparativo mostraba más columnas que PDFs cargados.
 		List<Map<String, Object>> quotes = new List<Map<String, Object>>();
+		Set<String> vistas = new Set<String>();
+		Boolean huboDuplicadas = false;
 		for (Object a : aseguradorasRaw) {
 			if (!(a instanceof Map<String, Object>)) {
 				continue;
 			}
+			String llave = llaveCotizacion((Map<String, Object>) a);
+			if (vistas.contains(llave)) {
+				huboDuplicadas = true;
+				continue;
+			}
+			vistas.add(llave);
 			quotes.add(mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm));
 		}
 
@@ -996,7 +1006,8 @@ public with sharing class PdfOpportunityCreatorController {
 		// (p. ej. solo la etiqueta de apertura). Si viene incompleto lo armamos
 		// nosotros con los datos ya estructurados para no mostrar algo roto.
 		String htmlIa = stringOf(comparison.get('comparativo_html'));
-		String htmlComparativo = esHtmlComparativoCompleto(htmlIa)
+		// Si la IA duplicó cotizaciones, su HTML trae columnas repetidas: se arma con los datos limpios.
+		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas)
 			? htmlIa
 			: construirComparativoHtml(ramoForm, cliente, quotes, ganadora);
 
@@ -1021,6 +1032,25 @@ public with sharing class PdfOpportunityCreatorController {
 
 	// Se considera completo si trae una etiqueta de cierre real (no solo la de
 	// apertura que a veces devuelve truncada la IA).
+	// Llave para detectar cotizaciones repetidas. La regla es UNA cotización por archivo, así que
+	// primero se usa el archivo de origen; si no viene, aseguradora + número de cotización; y como
+	// último recurso aseguradora + plan (sin lo que va entre paréntesis, ej. "(dup)") + prima.
+	@TestVisible
+	private static String llaveCotizacion(Map<String, Object> a) {
+		String archivo = texto(a.get('archivo_origen'));
+		if (String.isNotBlank(archivo)) { return 'archivo|' + archivo; }
+		String nombre = texto(a.get('nombre'));
+		String numero = texto(a.get('no_cotizacion'));
+		if (String.isNotBlank(numero)) { return 'numero|' + nombre + '|' + numero; }
+		String plan = texto(a.get('plan')).replaceAll('\\([^)]*\\)', ' ').replaceAll('\\s+', ' ').trim();
+		String prima = texto(a.get('prima_total')) + '/' + texto(a.get('prima_anual'));
+		return 'plan|' + nombre + '|' + plan + '|' + prima;
+	}
+
+	private static String texto(Object v) {
+		return v == null ? '' : String.valueOf(v).toLowerCase().replaceAll('\\s+', ' ').trim();
+	}
+
 	private static Boolean esHtmlComparativoCompleto(String html) {
 		if (String.isBlank(html)) { return false; }
 		String h = html.toLowerCase();

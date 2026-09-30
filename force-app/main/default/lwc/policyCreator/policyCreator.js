@@ -119,27 +119,97 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
     }
 
-    renderedCallback() {
-        if (!this._pdfJsLoaded) {
-            this._pdfJsLoaded = true;
-            this.loadPdfJs();
+    connectedCallback() {
+        console.log(':::policyCreator::: Componente conectado');
+        this.isLoading = true;
+        this.loadPdfJs();
+    }
+
+	renderedCallback() {
+		if (!this.isPdfJsLoaded && !this.pdfJsError) {
+			this.loadPdfJs();
+		}
+	}
+
+	async loadPdfJs() {
+        try {
+            await this.loadPdfJsScript();
+            await this.setupWorker();
+            await this.testPdfJs();
+            
+            this.isPdfJsLoaded = true;
+            this.pdfJsError = false;
+            console.log(':::policyCreator::: ✅ PDF.js cargado exitosamente');
+        } catch (error) {
+            console.error(':::policyCreator::: ❌ Error cargando PDF.js:', JSON.stringify(error));
+            this.pdfJsError = true;
+            this.showToast('Error', 'No se pudo cargar PDF.js. Recarga la página.', 'error');
+        } finally {
+            this.isLoading = false;
         }
     }
 
-    async loadPdfJs() {
+    async loadPdfJsScript() {
         try {
-            await loadScript(this, PDFJS + '/pdf.js');
+            const mainScript = PDFJS + '/pdf.js';
+            await loadScript(this, mainScript);
+            
             if (typeof window.pdfjsLib === 'undefined') {
-                await loadScript(this, PDFJS + '/pdf.min.js');
+                throw new Error('pdfjsLib no se definió después de cargar el script');
             }
-            try {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
-            } catch (e) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+            console.log(':::policyCreator::: ✅ Script PDF.js cargado');
+        } catch (error) {
+            console.warn('⚠️ Falló versión principal, intentando versión min...');
+            const minScript = PDFJS + '/pdf.min.js';
+            await loadScript(this, minScript);
+            
+            if (typeof window.pdfjsLib === 'undefined') {
+                throw new Error('pdfjsLib no disponible en ninguna versión');
             }
-        } catch (e) {
-            // Si no carga, el botón de análisis avisará al usuario.
-            this._pdfJsLoaded = false;
+        }
+    }
+
+    async setupWorker() {
+        try {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
+        } catch (workerError) {
+            console.warn('⚠️ Error configurando worker:', workerError);
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+        }
+    }
+
+    async testPdfJs() {
+        try {
+            const pdfData = new Uint8Array([
+                0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25,
+                0xC3, 0xA4, 0xC3, 0xBC, 0xC3, 0xB6, 0xC3, 0x9F, 0x0A, 0x31,
+                0x20, 0x30, 0x20, 0x6F, 0x62, 0x6A, 0x0A, 0x3C, 0x3C, 0x2F,
+                0x54, 0x79, 0x70, 0x65, 0x2F, 0x43, 0x61, 0x74, 0x61, 0x6C,
+                0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
+                0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
+            ]);
+
+            const fontsUrl = fontsResource + '/';
+            
+            const loadingTask = window.pdfjsLib.getDocument({ 
+                data: pdfData,
+                isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+                useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+                standardFontDataUrl: fontsUrl,
+                disableFontFace: true     // ← evita cargar fuentes externas
+            });
+            const timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
+            );
+            
+            const pdf = await Promise.race([loadingTask.promise, timeout]);
+            if (pdf && pdf.destroy) {
+                await pdf.destroy();
+            }
+            
+            console.log(':::policyCreator::: ✅ PDF.js funciona correctamente');
+        } catch (testError) {
+            console.warn('⚠️ Test de PDF.js falló:', testError.message);
         }
     }
 

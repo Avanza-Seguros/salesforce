@@ -26,101 +26,104 @@ export default class PdfOpportunityCreator extends LightningElement {
 	clienteDetectado = "";
 	ramoDetectado = "";
 
-	// Estado de pdf.js (para extraer el texto de los PDFs en el navegador).
-	pdfLibInit = false;
-	pdfLibReady = false;
 	// Confirmación cuando la IA detecta posible discrepancia de cliente/auto.
 	needsConfirm = false;
 	validacionAlerta = "";
 	_pendingRes = null;
 
+	connectedCallback() {
+        console.log(':::pdfOpportunityCreator::: Componente conectado');
+        this.isLoading = true;
+        this.loadPdfJs();
+    }
+
 	renderedCallback() {
 		if (!this.isPdfJsLoaded && !this.pdfJsError) {
-					this.loadPdfJs();
-			}
+			this.loadPdfJs();
+		}
 	}
 
 	async loadPdfJs() {
-			try {
-					await this.loadPdfJsScript();
-					await this.setupWorker();
-					await this.testPdfJs();
-					
-					this.isPdfJsLoaded = true;
-					this.pdfJsError = false;
-					console.log(':::pdfOpportunityCreator::: ✅ PDF.js cargado exitosamente');
-			} catch (error) {
-					console.error(':::pdfOpportunityCreator::: ❌ Error cargando PDF.js:', JSON.stringify(error));
-					this.pdfJsError = true;
-					this.showToast('Error', 'No se pudo cargar PDF.js. Recarga la página.', 'error');
-			} finally {
-					this.isLoading = false;
-			}
-	}
+        try {
+            await this.loadPdfJsScript();
+            await this.setupWorker();
+            await this.testPdfJs();
+            
+            this.isPdfJsLoaded = true;
+            this.pdfJsError = false;
+            console.log(':::pdfOpportunityCreator::: ✅ PDF.js cargado exitosamente');
+        } catch (error) {
+            console.error(':::pdfOpportunityCreator::: ❌ Error cargando PDF.js:', JSON.stringify(error));
+            this.pdfJsError = true;
+            this.showToast('Error', 'No se pudo cargar PDF.js. Recarga la página.', 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
 
-	async loadPdfJsScript() {
-			try {
-					const mainScript = PDFJS + '/pdf.js';
-					await loadScript(this, mainScript);
-					
-					if (typeof window.pdfjsLib === 'undefined') {
-							throw new Error('pdfjsLib no se definió después de cargar el script');
-					}
-					console.log(':::pdfOpportunityCreator::: ✅ Script PDF.js cargado');
-			} catch (error) {
-					console.warn('⚠️ Falló versión principal, intentando versión min...');
-					const minScript = PDFJS + '/pdf.min.js';
-					await loadScript(this, minScript);
-					
-					if (typeof window.pdfjsLib === 'undefined') {
-							throw new Error('pdfjsLib no disponible en ninguna versión');
-					}
-			}
-	}
+    async loadPdfJsScript() {
+        try {
+            const mainScript = PDFJS + '/pdf.js';
+            await loadScript(this, mainScript);
+            
+            if (typeof window.pdfjsLib === 'undefined') {
+                throw new Error('pdfjsLib no se definió después de cargar el script');
+            }
+            console.log(':::pdfOpportunityCreator::: ✅ Script PDF.js cargado');
+        } catch (error) {
+            console.warn('⚠️ Falló versión principal, intentando versión min...');
+            const minScript = PDFJS + '/pdf.min.js';
+            await loadScript(this, minScript);
+            
+            if (typeof window.pdfjsLib === 'undefined') {
+                throw new Error('pdfjsLib no disponible en ninguna versión');
+            }
+        }
+    }
 
-	async setupWorker() {
-			try {
-					window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
-			} catch (workerError) {
-					console.warn('⚠️ Error configurando worker:', workerError);
-					window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
-			}
-	}
+    async setupWorker() {
+        try {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
+        } catch (workerError) {
+            console.warn('⚠️ Error configurando worker:', workerError);
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+        }
+    }
 
-	async testPdfJs() {
-			try {
-					const pdfData = new Uint8Array([
-							0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25,
-							0xC3, 0xA4, 0xC3, 0xBC, 0xC3, 0xB6, 0xC3, 0x9F, 0x0A, 0x31,
-							0x20, 0x30, 0x20, 0x6F, 0x62, 0x6A, 0x0A, 0x3C, 0x3C, 0x2F,
-							0x54, 0x79, 0x70, 0x65, 0x2F, 0x43, 0x61, 0x74, 0x61, 0x6C,
-							0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
-							0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
-					]);
+    async testPdfJs() {
+        try {
+            const pdfData = new Uint8Array([
+                0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25,
+                0xC3, 0xA4, 0xC3, 0xBC, 0xC3, 0xB6, 0xC3, 0x9F, 0x0A, 0x31,
+                0x20, 0x30, 0x20, 0x6F, 0x62, 0x6A, 0x0A, 0x3C, 0x3C, 0x2F,
+                0x54, 0x79, 0x70, 0x65, 0x2F, 0x43, 0x61, 0x74, 0x61, 0x6C,
+                0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
+                0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
+            ]);
 
-					const fontsUrl = fontsResource + '/';
-					
-					const loadingTask = window.pdfjsLib.getDocument({ 
-						data: pdfData,
-						isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
-						useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
-						standardFontDataUrl: fontsUrl,
-						disableFontFace: true     // ← evita cargar fuentes externas
-					});
-					const timeout = new Promise((_, reject) => 
-							setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
-					);
-					
-					const pdf = await Promise.race([loadingTask.promise, timeout]);
-					if (pdf && pdf.destroy) {
-							await pdf.destroy();
-					}
-					
-					console.log(':::pdfOpportunityCreator::: ✅ PDF.js funciona correctamente');
-			} catch (testError) {
-					console.warn('⚠️ Test de PDF.js falló:', testError.message);
-			}
-	}
+            const fontsUrl = fontsResource + '/';
+            
+            const loadingTask = window.pdfjsLib.getDocument({ 
+                data: pdfData,
+                isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+                useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+                standardFontDataUrl: fontsUrl,
+                disableFontFace: true     // ← evita cargar fuentes externas
+            });
+            const timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
+            );
+            
+            const pdf = await Promise.race([loadingTask.promise, timeout]);
+            if (pdf && pdf.destroy) {
+                await pdf.destroy();
+            }
+            
+            console.log(':::pdfOpportunityCreator::: ✅ PDF.js funciona correctamente');
+        } catch (testError) {
+            console.warn('⚠️ Test de PDF.js falló:', testError.message);
+        }
+    }
 
 
 	// ============================================================
