@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_20</activeVersionIdentifier>
+    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_21</activeVersionIdentifier>
     <developerName>Comparador_Cotizaciones_Auto</developerName>
     <masterLabel>Comparador_Cotizaciones_Auto</masterLabel>
     <templateVersions>
@@ -1382,7 +1382,7 @@ GNP. Línea Azul Flexible Ámbar...
         <responseFormat>JSON</responseFormat>
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
-        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_20</versionIdentifier>
+        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_21</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>
