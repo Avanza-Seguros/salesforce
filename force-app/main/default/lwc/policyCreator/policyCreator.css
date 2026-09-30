@@ -537,3 +537,8 @@
 .ro-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #EEF1F6; color: #1A1A1A; }
 .ro-table tbody tr:hover td { background: #F9FBFF; }
 .ro-table .num { text-align: right; white-space: nowrap; }
+
+/* Campo de solo lectura dentro del formulario (Agente / Producer) */
+.field-card--static { justify-content: center; gap: 0.15rem; background: #F5F8FE; }
+.field-card--static .static-label { font-size: 0.75rem; color: #3E3E3C; }
+.field-card--static .static-value { font-size: 0.875rem; font-weight: 600; color: #16325C; }

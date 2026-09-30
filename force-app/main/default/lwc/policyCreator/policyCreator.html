@@ -356,9 +356,18 @@
                                 <div class="field-card"><lightning-input-field field-name="PolicyDescription" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="OriginalPolicyId" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PriorPolicyId" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="SourceQuoteId" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="SourceOpportunityId" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="ContractGroupPlanId" disabled={isReadOnly}></lightning-input-field></div>
+                                <!-- Cotización y oportunidad de origen: las asigna el flujo al crear la póliza.
+                                     Se muestran como texto porque el buscador estándar no soporta Quote
+                                     ("objectInfos attribute is missing data for Quote"). El Plan de contrato de
+                                     grupo (ContractGroupPlanId) se quitó por el mismo motivo y no se usa. -->
+                                <div class="field-card field-card--static">
+                                    <span class="static-label">Cotización origen</span>
+                                    <span class="static-value">{cotizacionOrigen}</span>
+                                </div>
+                                <div class="field-card field-card--static">
+                                    <span class="static-label">Oportunidad origen</span>
+                                    <span class="static-value">{oportunidadOrigen}</span>
+                                </div>
                                 <!-- Automático desde el módulo de pagos: no editable -->
                                 <div class="field-card"><lightning-input-field field-name="CancellationEffectiveDate" disabled></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="CancellationReason" disabled={isReadOnly}></lightning-input-field></div>
@@ -404,8 +413,14 @@
                                 <div class="field-card"><lightning-input-field field-name="PreviousRenewalDate" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="RenewalDate" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PlannedRenewalDate" disabled={isReadOnly}></lightning-input-field></div>
-                                <!-- Automático desde Gestión Comercial (ejecutivo responsable) -->
-                                <div class="field-card"><lightning-input-field field-name="ProducerId"></lightning-input-field></div>
+                                <!-- Automático desde Gestión Comercial (ejecutivo responsable). Se muestra como
+                                     texto: el buscador estándar (lightning-lookup) no soporta el objeto Producer
+                                     y arrojaba "objectInfos attribute is missing data for Producer". El valor lo
+                                     liga vincularProducer en Apex antes de abrir el formulario. -->
+                                <div class="field-card field-card--static">
+                                    <span class="static-label">Agente</span>
+                                    <span class="static-value">{agenteNombre}</span>
+                                </div>
                             </div>
                         </div>
 

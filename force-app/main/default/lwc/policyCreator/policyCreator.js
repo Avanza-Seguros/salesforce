@@ -178,6 +178,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     get isEditable() {
         return !this.readOnly;
     }
+    // Nombre del agente (Producer) de la oportunidad, para el campo de solo lectura del formulario.
+    get agenteNombre() {
+        return (this.oppCard && this.oppCard.agente) || '—';
+    }
+    // Cotización de origen (la aceptada; si no hay, la primera) y oportunidad, como texto.
+    get cotizacionOrigen() {
+        const qs = this.quoteCards || [];
+        const q = qs.find((c) => c.id === this.quoteId) || qs.find((c) => c.aceptada) || qs[0];
+        return q ? `${q.numero} · ${q.aseguradora}` : '—';
+    }
+    get oportunidadOrigen() {
+        return (this.oppCard && this.oppCard.name) || '—';
+    }
     get topbarSubtitle() {
         return this.readOnly
             ? 'Consulta de la póliza (solo lectura)'
@@ -560,12 +573,41 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
             return isNaN(n) ? null : n;
         };
-        datos.coberturas.forEach((c) => {
+        // Ubica el renglón de cada cobertura: primero por el nombre completo; si no, por sus
+        // palabras clave sin lo que va entre paréntesis ("RC en USA y Canada (Chubb)").
+        const ubicar = (c) => {
             const nombre = this.normCobertura(c && c.nombre);
-            if (!nombre || nombre.length < 4) { return; }
-            const linea = lineas.find((l) => l.includes(nombre));
-            if (!linea) { return; }
-            const resto = linea.replace(nombre, ' ');
+            if (!nombre || nombre.length < 4) { return null; }
+            let idx = lineas.findIndex((l) => l.includes(nombre));
+            if (idx >= 0) { return { idx, exacto: true, nombre }; }
+            const sinParen = this.normCobertura(String(c.nombre).replace(/\([^)]*\)/g, ' '));
+            const claves = sinParen.split(' ').filter((t) => t.length >= 3);
+            if (claves.length < 2) { return null; }
+            idx = lineas.findIndex((l) => claves.every((t) => l.includes(t)));
+            return idx >= 0 ? { idx, exacto: false, nombre: sinParen } : null;
+        };
+        const ubicaciones = datos.coberturas.map(ubicar);
+        // Rango de renglones de la tabla principal (coberturas halladas por su nombre exacto).
+        const exactos = ubicaciones.filter((u) => u && u.exacto).map((u) => u.idx);
+        const hayTabla = exactos.length >= 3;
+        const desde = hayTabla ? Math.min(...exactos) - 2 : -1;
+        const hasta = hayTabla ? Math.max(...exactos) + 3 : -1;
+        const enTabla = (u) => u && u.idx >= desde && u.idx <= hasta;
+
+        // Coberturas de anexos/certificados de otra compañía (ej. "(Chubb)") que NO están en la
+        // tabla principal: se descartan para no duplicarlas (la tabla ya incluye esa cobertura).
+        datos.coberturas = datos.coberturas.filter((c, i) => {
+            const esAnexo = /\([^)]*\)/.test(String((c && c.nombre) || ''));
+            return !(hayTabla && esAnexo && !enTabla(ubicaciones[i]));
+        });
+        const ubicacionesFinales = datos.coberturas.map(ubicar);
+
+        datos.coberturas.forEach((c, i) => {
+            const u = ubicacionesFinales[i];
+            if (!u) { return; }
+            const linea = lineas[u.idx];
+            const resto = u.exacto ? linea.replace(u.nombre, ' ')
+                : u.nombre.split(' ').filter((t) => t.length >= 3).reduce((acc, t) => acc.replace(t, ' '), linea);
             const montos = resto.match(new RegExp(MONTO, 'gi')) || [];
             const mTexto = resto.match(TEXTO_SUMA);
             let suma = mTexto ? mTexto[0] : null;
@@ -577,10 +619,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 // Un solo monto: con centavos es la prima ("$450.00"); sin centavos, el límite.
                 if (suma || /\.\d{2}/.test(montos[0])) { prima = montos[0]; } else { suma = montos[0]; }
             }
-            if (prima && vacio(c.prima)) { c.prima = aNumero(prima); }
-            if (suma && vacio(c.sumaAsegurada)) { c.sumaAsegurada = suma.toUpperCase().replace(/\s+/g, ' ').trim(); }
+            // En la tabla principal de la póliza, lo impreso manda sobre lo que interpretó la IA;
+            // fuera de ella solo se llenan los datos que la IA dejó vacíos.
+            const manda = hayTabla && enTabla(u);
+            if (prima && (manda || vacio(c.prima))) { c.prima = aNumero(prima); }
+            if (suma && (manda || vacio(c.sumaAsegurada))) { c.sumaAsegurada = suma.toUpperCase().replace(/\s+/g, ' ').trim(); }
             const mDed = resto.replace(new RegExp(MONTO, 'gi'), ' ').match(PCT);
-            if (mDed && vacio(c.deducible)) { c.deducible = mDed[0].replace(/\s?%/, ' %'); }
+            if (mDed && (manda || vacio(c.deducible))) { c.deducible = mDed[0].replace(/\s?%/, ' %'); }
         });
         return datos;
     }
