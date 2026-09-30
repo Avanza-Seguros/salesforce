@@ -151,7 +151,11 @@
 				>collectionNextDueDate__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field>PaidToDate</field></layoutItems><layoutItems
 			><behavior>Readonly</behavior><field
-				>totalRefundedAmount__c</field></layoutItems></layoutColumns><layoutColumns
+				>totalRefundedAmount__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierLastSeenAt__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierDaysUnreported__c</field></layoutItems></layoutColumns><layoutColumns
 		><layoutItems><behavior>Readonly</behavior><field
 				>carrierPolicyStatus__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field
@@ -159,7 +163,15 @@
 				>Readonly</behavior><field
 				>carrierPolicyStatusRaw__c</field></layoutItems><layoutItems><behavior
 				>Readonly</behavior><field
-				>carrierStatusNotice__c</field></layoutItems></layoutColumns><style
+				>carrierStatusNotice__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierStatusPolicyUpdate__c</field></layoutItems><layoutItems
+			><behavior>Readonly</behavior><field
+				>carrierStatusSource__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierCancellationDate__c</field></layoutItems><layoutItems><behavior
+				>Readonly</behavior><field
+				>carrierCancellationReason__c</field></layoutItems></layoutColumns><style
 		>TwoColumnsTopToBottom</style>
 
     </layoutSections>

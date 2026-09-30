@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>reviewReasonCode__c</fullName>
+    <description
+	>Por qué la comunicación quedó en revisión, con valores fijos para agrupar en informes. El detalle está en «Motivo de la revisión». Vacío si no está en revisión.</description>
+    <label>Tipo de motivo de la revisión</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>SIN_POLIZA</fullName>
+                <default>false</default>
+                <label>La póliza no existe en Salesforce</label>
+            </value>
+            <value>
+                <fullName>SIN_VIGENCIA</fullName>
+                <default>false</default>
+                <label>Ninguna vigencia contiene el inicio</label>
+            </value>
+            <value>
+                <fullName>VIGENCIA_AMBIGUA</fullName>
+                <default>false</default>
+                <label>Varias vigencias posibles</label>
+            </value>
+            <value>
+                <fullName>MONEDA_DISTINTA</fullName>
+                <default>false</default>
+                <label>La moneda no coincide</label>
+            </value>
+            <value>
+                <fullName>NO_SE_PUDO_GUARDAR</fullName>
+                <default>false</default>
+                <label>La póliza no aceptó los datos</label>
+            </value>
+            <value>
+                <fullName>RENOVACION_INCOMPLETA</fullName>
+                <default>false</default>
+                <label>Renovación sin prima o forma de pago</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,6 +1,6 @@
 /**
  *   @name: PolicyCarrierStatusService
- *   @version: 1.0
+ *   @version: 1.1
  *   @creation date: 16/09/2026
  *   @author: Javier Torres - Volestra
  *   @description: Guarda en la poliza el estado que comunica la aseguradora, tal cual y
@@ -8,6 +8,8 @@
  *                 (registros sin folio que llegan por el canal de pagos) y los recibos que
  *                 ademas informan el estado de su poliza. Solo guarda lo que dijo la
  *                 aseguradora: no cambia el estado operativo de la poliza (Status).
+ *                 La regla es la misma para el canal de polizas: los dos canales
+ *                 entregan una CarrierStatusCommunication a applyCarrierStatus.
  */
 public with sharing class PolicyCarrierStatusService {
 	public static final String STATUS_POLICY_NOTICE = 'Estado de poliza';
@@ -20,7 +22,7 @@ public with sharing class PolicyCarrierStatusService {
 		'Cancelado',
 		'Vencido'
 	};
-	private static final Integer RAW_STATUS_LENGTH = 50;
+	private static final Integer RAW_STATUS_LENGTH = 100;
 
 	// Sustituye las equivalencias configuradas: la metadata no se puede crear desde una prueba.
 	@TestVisible
@@ -58,6 +60,7 @@ public with sharing class PolicyCarrierStatusService {
 				sourceCarrierCode__c,
 				sourcePolicyStatusRaw__c,
 				sourceCancellationDate__c,
+				sourceCancellationReason__c,
 				sourceSynchronizedAt__c,
 				receivedAt__c,
 				sourceDueDate__c,
@@ -84,8 +87,7 @@ public with sharing class PolicyCarrierStatusService {
 		Map<Id, InboundPolicyCandidateQueueable.PolicyMatchResult> matches = InboundPolicyCandidateQueueable.resolveAll(
 			forResolution(all)
 		);
-		Map<Id, Id> policyByCommunication = new Map<Id, Id>();
-		List<InboundInsurancePayment__c> communications = new List<InboundInsurancePayment__c>();
+		List<CarrierStatusCommunication> communications = new List<CarrierStatusCommunication>();
 		List<InboundInsurancePayment__c> noticeUpdates = new List<InboundInsurancePayment__c>();
 
 		for (InboundInsurancePayment__c notice : notices) {
@@ -113,8 +115,9 @@ public with sharing class PolicyCarrierStatusService {
 					)
 					.onInbound(notice.Id);
 			} else {
-				policyByCommunication.put(notice.Id, match.policyId);
-				communications.add(notice);
+				communications.add(
+					CarrierStatusCommunication.fromPayment(notice, match.policyId)
+				);
 			}
 			noticeUpdates.add(upd);
 		}
@@ -123,13 +126,14 @@ public with sharing class PolicyCarrierStatusService {
 				payment.Id
 			);
 			if (match != null && match.policyId != null) {
-				policyByCommunication.put(payment.Id, match.policyId);
-				communications.add(payment);
+				communications.add(
+					CarrierStatusCommunication.fromPayment(payment, match.policyId)
+				);
 			}
 		}
 
 		saveNotices(noticeUpdates);
-		applyCarrierStatus(communications, policyByCommunication);
+		applyCarrierStatus(communications);
 	}
 
 	/**
@@ -178,94 +182,154 @@ public with sharing class PolicyCarrierStatusService {
 	/**
 	 * @creation date: 16/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Guarda en cada poliza la comunicacion mas reciente. Una comunicacion anterior
-	 *               a la ultima guardada no cambia nada (entrega tardia). Una igual a la guardada
-	 *               tampoco, salvo que su equivalencia haya cambiado: asi, al configurar una
-	 *               equivalencia que faltaba, la siguiente comunicacion la aplica.
-	 * @param communications: Comunicaciones y pagos con su poliza identificada.
-	 * @param policyByCommunication: Poliza de cada registro.
+	 * @description: Guarda en cada poliza el estado de la comunicacion mas reciente, venga por el
+	 *               canal de pagos o por el de polizas. Una comunicacion anterior a la
+	 *               ultima guardada no cambia nada (entrega tardia); con la misma fecha, la del
+	 *               canal de pagos no pisa a la del canal de polizas. Una igual a la guardada
+	 *               tampoco cambia nada, salvo que su equivalencia haya cambiado: asi, al
+	 *               configurar una equivalencia que faltaba, la siguiente comunicacion la aplica.
+	 *               Toda comunicacion, informe estado o no, deja en la poliza cuando la reporto
+	 *               la aseguradora por ultima vez.
+	 * @param communications: Comunicaciones con su poliza identificada.
 	 * @return
 	 */
-	private static void applyCarrierStatus(
-		List<InboundInsurancePayment__c> communications,
-		Map<Id, Id> policyByCommunication
+	public static void applyCarrierStatus(
+		List<CarrierStatusCommunication> communications
 	) {
-		if (communications.isEmpty()) {
+		if (communications == null || communications.isEmpty()) {
 			return;
 		}
-		List<Communication> ordered = new List<Communication>();
-		for (InboundInsurancePayment__c rec : communications) {
-			ordered.add(new Communication(rec, policyByCommunication.get(rec.Id)));
-		}
+		List<CarrierStatusCommunication> ordered = new List<CarrierStatusCommunication>(
+			communications
+		);
 		ordered.sort();
 
+		Set<Id> policyIds = new Set<Id>();
+		for (CarrierStatusCommunication c : ordered) {
+			if (c.policyId != null) {
+				policyIds.add(c.policyId);
+			}
+		}
 		Map<Id, InsurancePolicy> current = new Map<Id, InsurancePolicy>(
 			[
 				SELECT
 					Id,
 					carrierPolicyStatus__c,
 					carrierPolicyStatusRaw__c,
-					carrierStatusSyncedAt__c
+					carrierStatusSyncedAt__c,
+					carrierStatusSource__c,
+					carrierLastSeenAt__c
 				FROM InsurancePolicy
-				WHERE Id IN :policyByCommunication.values()
+				WHERE Id IN :policyIds
 			]
 		);
 		Map<String, String> mappings = loadMappings();
 		Map<Id, InsurancePolicy> toUpdate = new Map<Id, InsurancePolicy>();
+		Set<Id> statusChanged = new Set<Id>();
 
-		for (Communication c : ordered) {
+		for (CarrierStatusCommunication c : ordered) {
 			InsurancePolicy policy = current.get(c.policyId);
 			if (policy == null) {
 				continue;
 			}
-			String raw = c.record.sourcePolicyStatusRaw__c.trim()
-				.left(RAW_STATUS_LENGTH);
-			String normalized = mappings.get(
-				mappingKey(c.record.sourceCarrierCode__c, raw)
-			);
-			if (normalized == null) {
-				CobranzaLog.warn(
-						CobranzaLog.STAGE_ESTADO_POLIZA,
-						CobranzaLog.EVENT_CARRIER_POLICY_STATUS_UNMAPPED,
-						'La aseguradora ' +
-							c.record.sourceCarrierCode__c +
-							' comunicó el estado de póliza "' +
-							raw +
-							'", que no tiene equivalencia configurada. Se guarda el estado original ' +
-							'y el normalizado queda vacío hasta configurar la equivalencia.'
-					)
-					.onInbound(c.record.Id);
+			if (
+				c.communicatedAt != null &&
+				(policy.carrierLastSeenAt__c == null ||
+				c.communicatedAt > policy.carrierLastSeenAt__c)
+			) {
+				policy.carrierLastSeenAt__c = c.communicatedAt;
+				changeOf(toUpdate, policy.Id).carrierLastSeenAt__c = c.communicatedAt;
 			}
+			if (String.isBlank(c.rawStatus)) {
+				continue;
+			}
+			String raw = c.rawStatus.trim().left(RAW_STATUS_LENGTH);
+			String normalized = mappings.get(mappingKey(c.carrierCode, raw));
+			if (normalized == null) {
+				AppLogger.Entry entry = CobranzaLog.warn(
+					CobranzaLog.STAGE_ESTADO_POLIZA,
+					CobranzaLog.EVENT_CARRIER_POLICY_STATUS_UNMAPPED,
+					'La aseguradora ' +
+						c.carrierCode +
+						' comunicó el estado de póliza "' +
+						raw +
+						'", que no tiene equivalencia configurada. Se guarda el estado original ' +
+						'y el normalizado queda vacío hasta configurar la equivalencia.'
+				);
+				if (c.fromPolicyChannel()) {
+					entry.onRecord(c.sourceRecordId);
+				} else {
+					entry.onInbound(c.sourceRecordId);
+				}
+			}
+			// Por segundo: la fecha guardada en la poliza no conserva los milisegundos.
+			Datetime communicatedAt = toSecond(c.communicatedAt);
 			if (
 				policy.carrierStatusSyncedAt__c != null &&
-				c.communicatedAt != null &&
-				c.communicatedAt < policy.carrierStatusSyncedAt__c
+				communicatedAt != null &&
+				communicatedAt < policy.carrierStatusSyncedAt__c
 			) {
+				continue;
+			}
+			if (
+				communicatedAt != null &&
+				communicatedAt == policy.carrierStatusSyncedAt__c &&
+				CarrierStatusCommunication.SOURCE_POLICIES.equals(
+					policy.carrierStatusSource__c
+				) &&
+				!c.fromPolicyChannel()
+			) {
+				// Empate: manda el canal de polizas, que es el dedicado.
 				continue;
 			}
 			Boolean sameRaw =
 				policy.carrierPolicyStatusRaw__c != null &&
-				raw.equalsIgnoreCase(policy.carrierPolicyStatusRaw__c);
+				// Exacto, con mayusculas: se guarda el estado tal como lo escribe la aseguradora.
+				raw.equals(policy.carrierPolicyStatusRaw__c);
 			if (sameRaw && normalized == policy.carrierPolicyStatus__c) {
 				continue;
 			}
 			policy.carrierPolicyStatus__c = normalized;
 			policy.carrierPolicyStatusRaw__c = raw;
-			policy.carrierStatusSyncedAt__c = c.communicatedAt;
-			toUpdate.put(
-				policy.Id,
-				new InsurancePolicy(
-					Id = policy.Id,
-					carrierPolicyStatus__c = normalized,
-					carrierPolicyStatusRaw__c = raw,
-					carrierStatusSyncedAt__c = c.communicatedAt,
-					carrierStatusNotice__c = c.record.Id
-				)
-			);
+			policy.carrierStatusSyncedAt__c = communicatedAt;
+			policy.carrierStatusSource__c = c.source;
+			InsurancePolicy upd = changeOf(toUpdate, policy.Id);
+			upd.carrierPolicyStatus__c = normalized;
+			upd.carrierPolicyStatusRaw__c = raw;
+			upd.carrierStatusSyncedAt__c = communicatedAt;
+			upd.carrierStatusSource__c = c.source;
+			upd.carrierCancellationDate__c = c.cancellationDate;
+			upd.carrierCancellationReason__c = String.isBlank(c.cancellationReason)
+				? null
+				: c.cancellationReason.left(255);
+			upd.carrierStatusNotice__c = c.fromPolicyChannel()
+				? null
+				: c.sourceRecordId;
+			upd.carrierStatusPolicyUpdate__c = c.fromPolicyChannel()
+				? c.sourceRecordId
+				: null;
+			statusChanged.add(policy.Id);
 		}
 		Set<Id> saved = savePolicies(toUpdate.values());
+		saved.retainAll(statusChanged);
 		// El estado operativo lo calcula un unico servicio a partir de lo que quedo guardado.
 		PolicyStatusService.applyCommunicatedStatus(saved);
+	}
+
+	private static Datetime toSecond(Datetime value) {
+		return value == null
+			? null
+			: Datetime.newInstance(value.getTime() - Math.mod(value.getTime(), 1000));
+	}
+
+	private static InsurancePolicy changeOf(
+		Map<Id, InsurancePolicy> changes,
+		Id policyId
+	) {
+		if (!changes.containsKey(policyId)) {
+			changes.put(policyId, new InsurancePolicy(Id = policyId));
+		}
+		return changes.get(policyId);
 	}
 
 	/**
@@ -412,32 +476,5 @@ public with sharing class PolicyCarrierStatusService {
 		AuraHandledException e = new AuraHandledException(message);
 		e.setMessage(message);
 		return e;
-	}
-
-	private class Communication implements Comparable {
-		InboundInsurancePayment__c record;
-		Id policyId;
-		DateTime communicatedAt;
-
-		Communication(InboundInsurancePayment__c record, Id policyId) {
-			this.record = record;
-			this.policyId = policyId;
-			this.communicatedAt = timestampOf(record);
-		}
-
-		public Integer compareTo(Object other) {
-			DateTime mine = communicatedAt;
-			DateTime theirs = ((Communication) other).communicatedAt;
-			if (mine == theirs) {
-				return 0;
-			}
-			if (mine == null) {
-				return -1;
-			}
-			if (theirs == null) {
-				return 1;
-			}
-			return mine < theirs ? -1 : 1;
-		}
 	}
 }

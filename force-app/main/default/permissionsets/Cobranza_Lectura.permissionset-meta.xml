@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
-	>Deja ver los datos de cobranza de la póliza y de sus cuotas. Solo lectura de campos, más la lectura de las comunicaciones de póliza (canal de pólizas, KAN-448) y su pestaña. No da acceso de escritura, clases ni permisos del sistema.</description>
+	>Deja ver los datos de cobranza de la póliza y de sus cuotas. Solo lectura de campos, más la lectura de las comunicaciones de póliza (canal de pólizas) y su pestaña. No da acceso de escritura, clases ni permisos del sistema.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Cobranza: ver póliza y cuotas</label>
     <fieldPermissions>
@@ -422,6 +422,56 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>PaymentPlanInstallment__c.sequenceNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierCancellationDate__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierCancellationReason__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierLastSeenAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierStatusPolicyUpdate__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierStatusSource__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.cancelledByPolicyUpdate__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierDaysUnreported__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierUnreported__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InboundPolicyUpdate__c.reviewReasonCode__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.nextPolicy__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <objectPermissions>

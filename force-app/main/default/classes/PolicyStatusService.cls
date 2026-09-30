@@ -1,6 +1,6 @@
 /**
  *   @name: PolicyStatusService
- *   @version: 1.1
+ *   @version: 1.2
  *   @creation date: 16/09/2026
  *   @author: Javier Torres - Volestra
  *   @description: Unico punto que escribe el estado operativo de la poliza (Status) desde la
@@ -110,18 +110,24 @@ public with sharing class PolicyStatusService {
 				carrierPolicyStatus__c,
 				carrierStatusSyncedAt__c,
 				carrierStatusNotice__c,
-				carrierStatusNotice__r.sourceCancellationDate__c,
-				carrierStatusNotice__r.sourceCancellationReason__c
+				carrierStatusPolicyUpdate__c,
+				carrierCancellationDate__c,
+				carrierCancellationReason__c,
+				carrierPolicyStatusRaw__c
 			FROM InsurancePolicy
 			WHERE Id IN :policyIds AND carrierPolicyStatus__c != NULL
 		]) {
 			String communicated = policy.carrierPolicyStatus__c;
+			// La comunicacion que dejo el estado, venga del canal que venga.
+			Id notice = policy.carrierStatusPolicyUpdate__c != null
+				? policy.carrierStatusPolicyUpdate__c
+				: policy.carrierStatusNotice__c;
 
 			if (STATUS_CANCELLED.equals(communicated)) {
 				Date since = cancellationDateOf(policy, today);
 				if (STATUS_CANCELLED.equals(policy.Status)) {
 					alreadyCancelledFrom.put(policy.Id, since);
-					noticeByPolicy.put(policy.Id, policy.carrierStatusNotice__c);
+					noticeByPolicy.put(policy.Id, notice);
 					continue;
 				}
 				InsurancePolicy upd = new InsurancePolicy(
@@ -129,15 +135,17 @@ public with sharing class PolicyStatusService {
 					Status = STATUS_CANCELLED,
 					CancellationDate = mexicoMidnight(since)
 				);
-				String reason = policy.carrierStatusNotice__c == null
-					? null
-					: policy.carrierStatusNotice__r.sourceCancellationReason__c;
+				// Si la aseguradora no da motivo, su estado original lo explica (por ejemplo
+				// «Se cambio de agente» o «No tomada»).
+				String reason = String.isNotBlank(policy.carrierCancellationReason__c)
+					? policy.carrierCancellationReason__c
+					: policy.carrierPolicyStatusRaw__c;
 				if (String.isNotBlank(reason)) {
 					upd.CancellationReason = reason;
 				}
 				toUpdate.add(upd);
 				cancelledFrom.put(policy.Id, since);
-				noticeByPolicy.put(policy.Id, policy.carrierStatusNotice__c);
+				noticeByPolicy.put(policy.Id, notice);
 				continue;
 			}
 
@@ -189,18 +197,16 @@ public with sharing class PolicyStatusService {
 	/**
 	 * @creation date: 17/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Fecha desde la que la poliza esta cancelada: la que informa la aseguradora en
-	 *               su comunicacion y, si no la informa, la fecha de la propia comunicacion.
+	 * @description: Fecha desde la que la poliza esta cancelada: la que informo la aseguradora,
+	 *               guardada en la propia poliza por cualquiera de los dos canales y, si
+	 *               no la informo, la fecha de la comunicacion.
 	 * @param policy: Poliza con su comunicacion.
 	 * @param today: Hoy en Ciudad de Mexico.
 	 * @return Fecha de cancelacion.
 	 */
 	private static Date cancellationDateOf(InsurancePolicy policy, Date today) {
-		if (
-			policy.carrierStatusNotice__c != null &&
-			policy.carrierStatusNotice__r.sourceCancellationDate__c != null
-		) {
-			return policy.carrierStatusNotice__r.sourceCancellationDate__c;
+		if (policy.carrierCancellationDate__c != null) {
+			return policy.carrierCancellationDate__c;
 		}
 		return policy.carrierStatusSyncedAt__c == null
 			? today
@@ -240,21 +246,46 @@ public with sharing class PolicyStatusService {
 				continue;
 			}
 			if (installment.dueDate__c > since) {
-				toCancel.add(
-					new PaymentPlanInstallment__c(
-						Id = installment.Id,
-						installmentStatus__c = INSTALLMENT_CANCELLED,
-						cancelledByCarrierNotice__c = noticeByPolicy.get(policyId)
-					)
+				PaymentPlanInstallment__c cancelled = new PaymentPlanInstallment__c(
+					Id = installment.Id,
+					installmentStatus__c = INSTALLMENT_CANCELLED
 				);
+				markCancelledBy(cancelled, noticeByPolicy.get(policyId));
+				toCancel.add(cancelled);
 			}
 		}
-		saveInstallments(toCancel);
+		// Primero el plan: con el plan ya Cancelado, el trigger de cuotas no lo recalcula. Al
+		// reves, una poliza con cuotas pagadas y el resto cancelado dejaba el plan «Completado»,
+		// como si se hubiera cobrado entero.
 		setPlanStatus(
 			cancelledFrom.keySet(),
 			PLAN_STATUSES_TO_CANCEL,
 			PLAN_CANCELLED
 		);
+		saveInstallments(toCancel);
+	}
+
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Enlaza la cuota cancelada con la comunicacion que la cancelo, en el campo de
+	 *               su canal: un pago inbound (canal de pagos) o una comunicacion de poliza.
+	 * @param installment: Cuota que se cancela.
+	 * @param notice: Comunicacion que cancelo la poliza (puede ser vacia).
+	 * @return
+	 */
+	private static void markCancelledBy(
+		PaymentPlanInstallment__c installment,
+		Id notice
+	) {
+		if (notice == null) {
+			return;
+		}
+		if (notice.getSObjectType() == InboundPolicyUpdate__c.SObjectType) {
+			installment.cancelledByPolicyUpdate__c = notice;
+		} else {
+			installment.cancelledByCarrierNotice__c = notice;
+		}
 	}
 
 	/**
@@ -277,7 +308,8 @@ public with sharing class PolicyStatusService {
 			FROM PaymentPlanInstallment__c
 			WHERE
 				paymentPlan__r.insurancePolicy__c IN :policyIds
-				AND cancelledByCarrierNotice__c != NULL
+				AND (cancelledByCarrierNotice__c != NULL
+				OR cancelledByPolicyUpdate__c != NULL)
 				AND installmentStatus__c = :INSTALLMENT_CANCELLED
 		]) {
 			toReopen.add(
@@ -285,6 +317,7 @@ public with sharing class PolicyStatusService {
 					Id = installment.Id,
 					installmentStatus__c = INSTALLMENT_PENDING,
 					cancelledByCarrierNotice__c = null,
+					cancelledByPolicyUpdate__c = null,
 					reopenedFromCancelledOn__c = now
 				)
 			);

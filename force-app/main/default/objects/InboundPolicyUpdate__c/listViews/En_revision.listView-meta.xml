@@ -6,10 +6,11 @@
     <columns>sourcePolicyStartDate__c</columns>
     <columns>sourceCarrierCode__c</columns>
     <columns>sourcePolicyStatusRaw__c</columns>
-    <columns>inboundStatus__c</columns>
-    <columns>resendCount__c</columns>
-    <columns>lastReceivedAt__c</columns>
+    <columns>reviewReasonCode__c</columns>
     <columns>manualReviewReason__c</columns>
+    <columns>receivedAt__c</columns>
+    <columns>lastReceivedAt__c</columns>
+    <columns>resendCount__c</columns>
     <filterScope>Everything</filterScope>
     <filters>
         <field>inboundStatus__c</field>

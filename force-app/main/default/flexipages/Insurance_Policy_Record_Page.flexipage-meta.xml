@@ -336,6 +336,16 @@
                 <fieldItem>Record.OriginalPolicyId</fieldItem>
                 <identifier>RecordOriginalPolicyIdField</identifier>
             </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.nextPolicy__c</fieldItem>
+                <identifier>RecordnextPolicy_cField</identifier>
+            </fieldInstance>
         </itemInstances><name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -424,6 +434,26 @@
                 <identifier>RecordtotalRefundedAmount_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierLastSeenAt__c</fieldItem>
+                <identifier>RecordcarrierLastSeenAt_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierDaysUnreported__c</fieldItem>
+                <identifier>RecordcarrierDaysUnreported_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-d304f3d9-a197-45ae-b14b-487054547b4c</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -466,6 +496,46 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.carrierStatusNotice__c</fieldItem>
                 <identifier>RecordcarrierStatusNotice_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierStatusPolicyUpdate__c</fieldItem>
+                <identifier>RecordcarrierStatusPolicyUpdate_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierStatusSource__c</fieldItem>
+                <identifier>RecordcarrierStatusSource_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierCancellationDate__c</fieldItem>
+                <identifier>RecordcarrierCancellationDate_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.carrierCancellationReason__c</fieldItem>
+                <identifier>RecordcarrierCancellationReason_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-1bb08bc3-f3af-4131-8372-95035b05b493</name>
@@ -691,7 +761,7 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>showActionBar</name>
-                    <value>true</value>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentName>force:relatedListContainer</componentName>
                 <identifier>force_relatedListContainer</identifier>

@@ -4,7 +4,7 @@
  *   @creation date: 25/09/2026
  *   @author: Javier Torres - Volestra
  *   @description: Recibe y guarda las comunicaciones de poliza que manda la aseguradora por
- *                 MuleSoft (canal de polizas, KAN-448). Solo recibe y guarda: aplicar los
+ *                 MuleSoft (canal de polizas). Solo recibe y guarda: aplicar los
  *                 datos a la poliza es trabajo de otras historias.
  *                 Cada fila queda en un InboundPolicyUpdate__c con sus datos, el JSON tal
  *                 como llego y su huella. Nada se descarta: una fila que no se puede aceptar
@@ -19,6 +19,7 @@ public with sharing class InboundPolicyService {
 
 	private static final String STATUS_RECEIVED = 'Recibido';
 	private static final String STATUS_REJECTED = 'Rechazado';
+	private static final String STATUS_REVIEW = 'Revision Manual';
 	private static final String SOURCE_SYSTEM = 'MuleSoft';
 
 	private static final String CODE_RECEIVED = 'RECEIVED';
@@ -44,6 +45,8 @@ public with sharing class InboundPolicyService {
 	private static final String KEY_POLICY_NUMBER = 'sourcePolicyNumber__c';
 	private static final String KEY_START_DATE = 'sourcePolicyStartDate__c';
 	private static final String KEY_SYNCHRONIZED_AT = 'sourceSynchronizedAt__c';
+	// Zona de las horas que llegan sin zona (la del usuario de integracion en todas las orgs).
+	private static final String MEXICO_TIME_ZONE = 'America/Mexico_City';
 
 	// Claves de texto que se copian tal cual al registro.
 	private static final List<String> TEXT_KEYS = new List<String>{
@@ -176,7 +179,12 @@ public with sharing class InboundPolicyService {
 		Map<String, InboundPolicyUpdate__c> existingByFingerprint = new Map<String, InboundPolicyUpdate__c>();
 
 		for (InboundPolicyUpdate__c existing : [
-			SELECT Id, contentFingerprint__c, resendCount__c, inboundStatus__c
+			SELECT
+				Id,
+				contentFingerprint__c,
+				resendCount__c,
+				inboundStatus__c,
+				candidatePolicy__c
 			FROM InboundPolicyUpdate__c
 			WHERE contentFingerprint__c IN :fingerprints
 		]) {
@@ -186,6 +194,8 @@ public with sharing class InboundPolicyService {
 		Map<String, RowContext> ownerByFingerprint = new Map<String, RowContext>();
 		List<RowContext> toInsert = new List<RowContext>();
 		List<RowContext> toUpdate = new List<RowContext>();
+		// Un reenvio no se vuelve a aplicar, pero la poliza si se reporto hoy.
+		List<CarrierStatusCommunication> seen = new List<CarrierStatusCommunication>();
 		Datetime now = System.now();
 
 		for (RowContext ctx : contexts) {
@@ -217,8 +227,28 @@ public with sharing class InboundPolicyService {
 					resend.sourceSynchronizedAt__c = ctx.record.sourceSynchronizedAt__c;
 				}
 
-				// Si la anterior no llego a aplicarse, el reenvio le da otra oportunidad.
-				ctx.pendingApply = existing.inboundStatus__c == STATUS_RECEIVED;
+				// Si la anterior no llego a aplicarse, el reenvio le da otra oportunidad. Tambien si
+				// estaba en revision: si ya se creo la poliza que faltaba, se aplica sola sin que
+				// nadie la reprocese a mano; si no, vuelve a revision con su motivo.
+				ctx.pendingApply =
+					existing.inboundStatus__c == STATUS_RECEIVED ||
+					existing.inboundStatus__c == STATUS_REVIEW;
+
+				if (existing.inboundStatus__c == STATUS_REVIEW) {
+					resend.inboundStatus__c = STATUS_RECEIVED;
+				}
+
+				if (existing.candidatePolicy__c != null) {
+					seen.add(
+						seenOn(
+							existing,
+							ctx.record.sourceSynchronizedAt__c != null
+								? ctx.record.sourceSynchronizedAt__c
+								: now
+						)
+					);
+				}
+
 				ctx.record = resend;
 				toUpdate.add(ctx);
 				continue;
@@ -233,6 +263,7 @@ public with sharing class InboundPolicyService {
 
 		write(toInsert, true);
 		write(toUpdate, false);
+		PolicyCarrierStatusService.applyCarrierStatus(seen);
 		enqueueApply(contexts);
 		AppLogger.flush();
 
@@ -240,9 +271,32 @@ public with sharing class InboundPolicyService {
 	}
 
 	/**
+	 * @creation date: 29/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Comunicacion que solo dice que la aseguradora volvio a reportar la poliza:
+	 *               sin estado, no cambia nada mas que la fecha en que se la vio por ultima vez.
+	 * @param existing: Comunicacion ya guardada, con su poliza.
+	 * @param reportedAt: Fecha de la sincronizacion que la reenvio.
+	 * @return: CarrierStatusCommunication Comunicacion.
+	 * @exception:
+	 * @throws:
+	 */
+	private static CarrierStatusCommunication seenOn(
+		InboundPolicyUpdate__c existing,
+		Datetime reportedAt
+	) {
+		CarrierStatusCommunication c = new CarrierStatusCommunication();
+		c.sourceRecordId = existing.Id;
+		c.policyId = existing.candidatePolicy__c;
+		c.source = CarrierStatusCommunication.SOURCE_POLICIES;
+		c.communicatedAt = reportedAt;
+		return c;
+	}
+
+	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Encola la aplicacion a la poliza (KAN-449) de las comunicaciones aceptadas
+	 * @description: Encola la aplicacion a la poliza de las comunicaciones aceptadas
 	 *               que quedaron pendientes. Si no se puede encolar, quedan en Recibido y se
 	 *               registra: el siguiente reenvio las vuelve a intentar.
 	 * @param contexts: Filas del lote ya guardadas.
@@ -768,7 +822,10 @@ public with sharing class InboundPolicyService {
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Fecha y hora en ISO-8601 (2025-12-06T10:57:14Z) o dd/mm/aaaa hh:mm:ss.
-	 *               Una fecha sola se toma a medianoche GMT. Lo que no se entiende queda vacio.
+	 *               Con zona (Z o +hh:mm) se respeta; sin zona es hora de Ciudad de Mexico, como
+	 *               la lee el canal de pagos (su usuario de integracion esta en esa zona): asi el
+	 *               mismo texto es el mismo instante en los dos canales y la regla «gana la mas
+	 *               reciente» compara bien entre ellos. Lo que no se entiende queda vacio.
 	 * @param value: Valor crudo.
 	 * @return: Datetime Fecha y hora, o null.
 	 * @exception:
@@ -783,6 +840,32 @@ public with sharing class InboundPolicyService {
 		}
 
 		if (text.contains('T')) {
+			if (!Pattern.matches('.*T.*(Z|[+-]\\d{2}:?\\d{2})$', text)) {
+				// ISO sin zona: hora de Ciudad de Mexico.
+				Matcher local = Pattern.compile(
+						'^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(\\.\\d+)?$'
+					)
+					.matcher(text);
+
+				if (!local.matches()) {
+					return null;
+				}
+
+				return mexicoTime(
+					Date.newInstance(
+						Integer.valueOf(local.group(1)),
+						Integer.valueOf(local.group(2)),
+						Integer.valueOf(local.group(3))
+					),
+					Time.newInstance(
+						Integer.valueOf(local.group(4)),
+						Integer.valueOf(local.group(5)),
+						Integer.valueOf(local.group(6)),
+						0
+					)
+				);
+			}
+
 			try {
 				return (Datetime) JSON.deserialize('"' + text + '"', Datetime.class);
 			} catch (Exception e) {
@@ -806,7 +889,24 @@ public with sharing class InboundPolicyService {
 					0
 			  )
 			: Time.newInstance(0, 0, 0, 0);
-		return Datetime.newInstanceGmt(day, moment);
+		return mexicoTime(day, moment);
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: El instante que corresponde a esa fecha y hora en Ciudad de Mexico.
+	 * @param day: Fecha.
+	 * @param moment: Hora local de Ciudad de Mexico.
+	 * @return: Datetime Instante.
+	 * @exception:
+	 * @throws:
+	 */
+	private static Datetime mexicoTime(Date day, Time moment) {
+		Datetime asGmt = Datetime.newInstanceGmt(day, moment);
+		Integer offsetMillis = TimeZone.getTimeZone(MEXICO_TIME_ZONE)
+			.getOffset(asGmt);
+		return asGmt.addSeconds(-offsetMillis / 1000);
 	}
 
 	private static String sha256(String value) {

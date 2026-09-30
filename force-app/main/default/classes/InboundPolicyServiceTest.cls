@@ -6,7 +6,7 @@ private class InboundPolicyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA1/CA2. Un lote valido se guarda entero: datos, JSON crudo, huella,
+	 * @description: Un lote valido se guarda entero: datos, JSON crudo, huella,
 	 *               fecha de recepcion y sistema de origen.
 	 * @param:
 	 * @return:
@@ -58,7 +58,7 @@ private class InboundPolicyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA3. La misma poliza reenviada sin cambios (aunque cambie la fecha de
+	 * @description: La misma poliza reenviada sin cambios (aunque cambie la fecha de
 	 *               sincronizacion) no se duplica: suma un reenvio.
 	 * @param:
 	 * @return:
@@ -148,7 +148,7 @@ private class InboundPolicyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA4. El numero de poliza conserva sus ceros; si llega como numero se
+	 * @description: El numero de poliza conserva sus ceros; si llega como numero se
 	 *               rechaza con un motivo claro, y se guarda igual.
 	 * @param:
 	 * @return:
@@ -178,7 +178,7 @@ private class InboundPolicyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA5. Se aceptan fechas ISO y dd/mm/aaaa; una fecha imposible no se toma.
+	 * @description: Se aceptan fechas ISO y dd/mm/aaaa; una fecha imposible no se toma.
 	 * @param:
 	 * @return:
 	 * @exception:
@@ -206,8 +206,23 @@ private class InboundPolicyServiceTest {
 		Assert.isNull(InboundPolicyService.parseDate('31/02/2026'));
 		Assert.isNull(InboundPolicyService.parseDate('06-12-2025'));
 		Assert.areEqual(
+			Datetime.newInstanceGmt(2026, 9, 25, 20, 30, 0),
+			InboundPolicyService.parseDatetime('25/09/2026 14:30:00'),
+			'Sin zona es hora de Ciudad de Mexico (GMT-6), como en el canal de pagos'
+		);
+		Assert.areEqual(
+			Datetime.newInstanceGmt(2026, 9, 25, 20, 30, 0),
+			InboundPolicyService.parseDatetime('2026-09-25T14:30:00'),
+			'ISO sin zona, igual'
+		);
+		Assert.areEqual(
 			Datetime.newInstanceGmt(2026, 9, 25, 14, 30, 0),
-			InboundPolicyService.parseDatetime('25/09/2026 14:30:00')
+			InboundPolicyService.parseDatetime('2026-09-25T14:30:00Z'),
+			'Con Z se respeta'
+		);
+		Assert.areEqual(
+			Datetime.newInstanceGmt(2026, 9, 25, 20, 30, 0),
+			InboundPolicyService.parseDatetime('2026-09-25T14:30:00-06:00')
 		);
 		Assert.isNull(InboundPolicyService.parseDatetime('no es fecha'));
 	}
@@ -215,7 +230,7 @@ private class InboundPolicyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA6. Las filas incompletas se rechazan con su motivo y las demas se
+	 * @description: Las filas incompletas se rechazan con su motivo y las demas se
 	 *               procesan; la respuesta lo dice fila por fila.
 	 * @param:
 	 * @return:
@@ -267,7 +282,7 @@ private class InboundPolicyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA7. Un cuerpo que no es un arreglo JSON responde error y queda guardado;
+	 * @description: Un cuerpo que no es un arreglo JSON responde error y queda guardado;
 	 *               el mismo cuerpo reenviado suma un reenvio.
 	 * @param:
 	 * @return:

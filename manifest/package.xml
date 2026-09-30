@@ -70,6 +70,10 @@
         <members>InboundPolicyApplyQueueable</members>
         <members>InboundPolicyApplyService</members>
         <members>InboundPolicyApplyServiceTest</members>
+        <members>CarrierStatusCommunication</members>
+        <members>PolicyStatusBothChannelsTest</members>
+        <members>InboundPolicyReviewTest</members>
+        <members>InboundPolicyRenewalTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -323,6 +327,17 @@
         <members>InsurancePolicy.carrierPolicyUpdate__c</members>
         <members>InsurancePolicy.sourceIntermediaryName__c</members>
         <members>InboundPolicyUpdate__c.sourcePolicyId__c</members>
+        <members>Aseguradora__c.unreportedAlertDays__c</members>
+        <members>InsurancePolicy.carrierCancellationDate__c</members>
+        <members>InsurancePolicy.carrierCancellationReason__c</members>
+        <members>InsurancePolicy.carrierDaysUnreported__c</members>
+        <members>InsurancePolicy.carrierLastSeenAt__c</members>
+        <members>InsurancePolicy.carrierStatusPolicyUpdate__c</members>
+        <members>InsurancePolicy.carrierStatusSource__c</members>
+        <members>InsurancePolicy.carrierUnreported__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByPolicyUpdate__c</members>
+        <members>InboundPolicyUpdate__c.reviewReasonCode__c</members>
+        <members>InsurancePolicy.nextPolicy__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -360,6 +375,7 @@
         <members>inboundRefundResolve</members>
         <members>policyPaymentReceiptReverse</members>
         <members>inboundPolicyStatusReprocess</members>
+        <members>inboundPolicyUpdateReprocess</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
@@ -370,6 +386,7 @@
         <members>PolicyPaymentReceipt__c.Reversar_recibo</members>
         <members
 		>InboundInsurancePayment__c.Reprocesar_estado_de_poliza</members>
+        <members>InboundPolicyUpdate__c.Reprocesar</members>
         <name>QuickAction</name>
     </types>
     <types>
@@ -416,6 +433,8 @@
         <members>InboundPolicyUpdate__c.Rechazadas</members>
         <members>InboundPolicyUpdate__c.Recibidas</members>
         <members>InboundPolicyUpdate__c.Todas</members>
+        <members>InsurancePolicy.Polizas_Sin_Reportar</members>
+        <members>InsurancePolicy.Polizas_Vigentes_Estado_Especial</members>
         <name>ListView</name>
     </types>
     <types>
@@ -462,6 +481,15 @@
     <types>
         <members>CarrierPolicyStatusMapping.QUALITAS_Cancelada</members>
         <members>CarrierPolicyStatusMapping.QUALITAS_Vigente</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_No_tomada</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Renovada</members>
+        <members
+		>CarrierPolicyStatusMapping.QUALITAS_Se_cambio_de_agente</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vencida</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigor</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigor_Prorrogado</members>
+        <members
+		>CarrierPolicyStatusMapping.QUALITAS_Vigor_sin_Pago_de_Primas</members>
         <name>CustomMetadata</name>
     </types>
     <types>

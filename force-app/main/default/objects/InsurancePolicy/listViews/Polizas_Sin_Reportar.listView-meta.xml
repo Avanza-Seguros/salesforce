@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Sin_Reportar</fullName>
+    <columns>Name</columns>
+    <columns>NameInsured</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>Status</columns>
+    <columns>carrierPolicyStatus__c</columns>
+    <columns>collectionPaymentStatus__c</columns>
+    <columns>collectionNextDueDate__c</columns>
+    <columns>carrierLastSeenAt__c</columns>
+    <columns>carrierDaysUnreported__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>carrierUnreported__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Pólizas sin reportar por la aseguradora</label>
+    <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
+</ListView>

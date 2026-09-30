@@ -19,7 +19,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA1/CA2/CA7. Con dos vigencias del mismo numero, los datos van a la que
+	 * @description: Con dos vigencias del mismo numero, los datos van a la que
 	 *               contiene el inicio comunicado; las fechas quedan a medianoche de Mexico y
 	 *               la otra vigencia no se toca.
 	 * @param:
@@ -103,7 +103,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA1. Sin una vigencia que contenga el inicio comunicado -aunque el numero
+	 * @description: Sin una vigencia que contenga el inicio comunicado -aunque el numero
 	 *               tenga una sola poliza-, o sin poliza, la comunicacion va a revision y no se
 	 *               aplica nada.
 	 * @param:
@@ -196,7 +196,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA1. Si varias vigencias contienen el inicio, no se elige por descarte.
+	 * @description: Si varias vigencias contienen el inicio, no se elige por descarte.
 	 * @param:
 	 * @return:
 	 * @exception:
@@ -323,7 +323,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA3. Lo que calcula el motor (lo pagado, lo pendiente, las fechas de pago)
+	 * @description: Lo que calcula el motor (lo pagado, lo pendiente, las fechas de pago)
 	 *               se queda en la comunicacion y no se escribe en la poliza.
 	 * @param:
 	 * @return:
@@ -364,7 +364,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA4/CA5. «Contado» se traduce a Unico y, como la poliza no ha cobrado, el
+	 * @description: «Contado» se traduce a Unico y, como la poliza no ha cobrado, el
 	 *               plan se rehace. Una forma de pago sin equivalencia no cambia la poliza y se
 	 *               registra.
 	 * @param:
@@ -416,8 +416,8 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA5. En una poliza que ya cobro, la prima nueva se escribe, el plan no se
-	 *               toca y la poliza queda marcada (KAN-447).
+	 * @description: En una poliza que ya cobro, la prima nueva se escribe, el plan no se
+	 *               toca y la poliza queda marcada.
 	 * @param:
 	 * @return:
 	 * @exception:
@@ -451,7 +451,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA6. Una moneda distinta de la de la poliza no escribe importes y manda la
+	 * @description: Una moneda distinta de la de la poliza no escribe importes y manda la
 	 *               comunicacion a revision.
 	 * @param:
 	 * @return:
@@ -491,9 +491,128 @@ private class InboundPolicyApplyServiceTest {
 	}
 
 	/**
+	 * @creation date: 29/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: La cartera cargada guarda «PESOS»; si la integracion manda «MXN» es la
+	 *               misma moneda: se aplica con normalidad.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void equivalentCurrencyIsApplied() {
+		InsurancePolicy policy = createPolicy(
+			'0971000701',
+			Date.newInstance(2026, 1, 15),
+			Date.newInstance(2027, 1, 15)
+		);
+		policy.Moneda__c = 'PESOS';
+		update policy;
+		InboundPolicyUpdate__c communication = createCommunication(
+			'0971000701',
+			Date.newInstance(2026, 1, 15),
+			System.now()
+		);
+		communication.sourceCurrency__c = 'MXN';
+		communication.sourceNetPremium__c = 1000;
+		update communication;
+
+		Test.startTest();
+		InboundPolicyApplyService.apply(new Set<Id>{ communication.Id });
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Aplicado',
+			loadCommunication(communication.Id).inboundStatus__c
+		);
+		Assert.areEqual(
+			Decimal.valueOf('1000.00'),
+			loadPolicy(policy.Id).Subtotal__c
+		);
+	}
+
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Las formas de escribir una moneda se reducen a su codigo; lo desconocido se
+	 *               compara tal cual.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void normalizesCurrencies() {
+		Assert.areEqual(
+			'MXN',
+			InboundPolicyApplyService.normalizeCurrency('PESOS')
+		);
+		Assert.areEqual(
+			'MXN',
+			InboundPolicyApplyService.normalizeCurrency(' mxn ')
+		);
+		Assert.areEqual('MXN', InboundPolicyApplyService.normalizeCurrency('M.N.'));
+		Assert.areEqual(
+			'MXN',
+			InboundPolicyApplyService.normalizeCurrency('Pesos mexicanos')
+		);
+		Assert.areEqual(
+			'USD',
+			InboundPolicyApplyService.normalizeCurrency('Dólares')
+		);
+		Assert.areEqual('USD', InboundPolicyApplyService.normalizeCurrency('usd'));
+		Assert.areEqual('UDI', InboundPolicyApplyService.normalizeCurrency('UDIS'));
+		Assert.areEqual('EUR', InboundPolicyApplyService.normalizeCurrency('eur'));
+	}
+
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Si otro proceso ya esta aplicando las mismas comunicaciones (un reenvio
+	 *               que llega mientras corre la aplicacion anterior), esta se omite: no toca la
+	 *               poliza y deja constancia.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void skipsWhenAnotherProcessIsApplying() {
+		InsurancePolicy policy = createPolicy(
+			'0971000702',
+			Date.newInstance(2026, 1, 15),
+			Date.newInstance(2027, 1, 15)
+		);
+		InboundPolicyUpdate__c communication = createCommunication(
+			'0971000702',
+			Date.newInstance(2026, 1, 15),
+			System.now()
+		);
+		communication.sourceNetPremium__c = 1000;
+		update communication;
+		Decimal netBefore = loadPolicy(policy.Id).Subtotal__c;
+		InboundPolicyApplyService.simulateLockTimeoutForTest = true;
+
+		Test.startTest();
+		InboundPolicyApplyService.apply(new Set<Id>{ communication.Id });
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Recibido',
+			loadCommunication(communication.Id).inboundStatus__c
+		);
+		Assert.areEqual(netBefore, loadPolicy(policy.Id).Subtotal__c);
+		Assert.areEqual(
+			1,
+			[SELECT COUNT() FROM AppLog__c WHERE eventCode__c = 'POLICY_APPLY_BUSY']
+		);
+	}
+
+	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA8. Una poliza que no se puede guardar (aqui, un cambio de frecuencia que
+	 * @description: Una poliza que no se puede guardar (aqui, un cambio de frecuencia que
 	 *               el plan con cobros rechaza) no arrastra a las demas: su comunicacion va a
 	 *               revision con el motivo y el fallo queda registrado.
 	 * @param:
@@ -552,7 +671,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA9. Aplicar dos veces la misma comunicacion no cambia nada ni registra.
+	 * @description: Aplicar dos veces la misma comunicacion no cambia nada ni registra.
 	 * @param:
 	 * @return:
 	 * @exception:
@@ -603,7 +722,7 @@ private class InboundPolicyApplyServiceTest {
 	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: CA10. Solo gana la mas reciente: una comunicacion anterior a la ya
+	 * @description: Solo gana la mas reciente: una comunicacion anterior a la ya
 	 *               aplicada no cambia la poliza, y en un mismo lote se aplica la ultima.
 	 * @param:
 	 * @return:
