@@ -521,11 +521,15 @@ public with sharing class PdfOpportunityCreatorController {
 	@AuraEnabled
 	public static void actualizarComparativoOpp(Id opportunityId, String comparativoHtml) {
 		if (opportunityId == null || String.isBlank(comparativoHtml)) { return; }
+		// Tamaño real del campo (32,768). Recortar el HTML lo dejaría roto: si no cabe, se avisa.
+		Integer maximo = Opportunity.Descripcion__c.getDescribe().getLength();
+		if (comparativoHtml.length() > maximo) {
+			throw new AuraHandledException('El comparativo es demasiado grande para guardarse ('
+				+ comparativoHtml.length() + ' de ' + maximo + ' caracteres).');
+		}
 		try {
 			Opportunity o = new Opportunity(Id = opportunityId);
-			o.Descripcion__c = comparativoHtml.length() > 131072
-				? comparativoHtml.substring(0, 131072)
-				: comparativoHtml;
+			o.Descripcion__c = comparativoHtml;
 			update o;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo actualizar el comparativo: ' + e.getMessage());

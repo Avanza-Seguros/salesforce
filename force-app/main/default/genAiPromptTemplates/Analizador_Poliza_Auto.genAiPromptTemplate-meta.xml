@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_10</activeVersionIdentifier>
+    <activeVersionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_11</activeVersionIdentifier>
     <developerName>Analizador_Poliza_Auto</developerName>
     <masterLabel>Analizador Poliza Auto</masterLabel>
     <templateVersions>
@@ -313,7 +313,7 @@ PRIMA:
 &quot;primaTotal&quot; es la prima total a pagar (con impuestos/recargos). &quot;primaNeta&quot; es antes de recargos, derecho e IVA.
 VIDA con prima desglosada por beneficio o cobertura: si NO hay un total único, SUMA las primas de todos los beneficios/coberturas para obtener &quot;primaTotal&quot; (y &quot;primaNeta&quot; si el desglose lo permite).
 PLANES DE INVERSIÓN, PPR o RETIRO (Vida con fondo o aportaciones): si no hay prima tradicional, usa la &quot;Aportación Comprometida&quot; (o &quot;Aportación&quot;/&quot;Prima programada&quot;) como &quot;primaTotal&quot; y su periodicidad como &quot;frecuenciaPago&quot;.
-No inventes números de póliza ni RFC; cópialos tal cual aparecen (aunque vengan enmascarados con X).
+No inventes números de póliza ni RFC; cópialos tal cual aparecen (aunque vengan enmascarados con X). &quot;numeroPoliza&quot; es SOLO el número de la PÓLIZA: si el documento muestra en el mismo renglón las columnas &quot;PÓLIZA ENDOSO INCISO&quot; (ej. &quot;0971273390 000000 0001&quot;), el número de póliza es únicamente el valor de la columna PÓLIZA (&quot;0971273390&quot;); NO le agregues el endoso ni el inciso.
 BIEN ASEGURADO: describe lo que protege la póliza según el ramo, con sus datos como pares campo/valor en &quot;bienAsegurado.atributos&quot;. Ejemplos por ramo:
 Automóviles: Marca, Modelo, Año, Serie/VIN, Placas, Motor, Uso y el &quot;Tipo de unidad&quot; (Auto, Pickup, Motocicleta, Camión).
 Vida: Asegurado titular, Beneficiarios, Suma asegurada, Edad, Moneda (UDI/Pesos).
@@ -342,7 +342,7 @@ TEXTO DE LA PÓLIZA:
         <primaryModel>sfdc_ai__DefaultGPT5Mini</primaryModel>
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
-        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_10</versionIdentifier>
+        <versionIdentifier>4oWWspoA5XAP10NUJdtqPu77UEc6ztO5GjUkgeWBB30=_11</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>

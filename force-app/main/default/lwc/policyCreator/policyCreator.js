@@ -521,6 +521,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
             this.completarCoberturasDesdeTexto(datos, texto);
+            // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
+            datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
             this.fillForm(datos);
@@ -622,6 +624,20 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         return filas
             .map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim())
             .join('\n');
+    }
+
+    // Deja solo el número de PÓLIZA. Varias aseguradoras imprimen en el mismo renglón las
+    // columnas PÓLIZA / ENDOSO / INCISO (ej. "0971273390 000000 0001") y la IA las junta.
+    // Si el número trae varios bloques y el PDF tiene ese encabezado, o el segundo bloque es
+    // solo ceros (endoso 000000), se conserva únicamente el primer bloque.
+    limpiarNumeroPoliza(numero, texto) {
+        if (!numero) { return numero; }
+        const partes = String(numero).trim().split(/\s+/);
+        if (partes.length < 2) { return String(numero).trim(); }
+        const t = this.normCobertura(texto || '');
+        const conEndoso = /poliza\s+endoso/.test(t);
+        const endosoEnCeros = /^0+$/.test(partes[1]);
+        return (conEndoso || endosoEnCeros) ? partes[0] : String(numero).trim();
     }
 
     // Texto en minúsculas y sin acentos para ubicar el renglón de cada cobertura.

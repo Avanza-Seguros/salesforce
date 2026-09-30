@@ -833,8 +833,11 @@ public with sharing class OpportunityController {
 			opp.Contacto__c = nuevoContactoId;
 		}
 
+		// Comparativo (HTML). Si excede el tamaño del campo no se guarda aquí (un HTML recortado
+		// se vería roto) para no impedir que la oportunidad se guarde.
 		String compHtml = getStr(d, 'Descripcion__c');
-		if (String.isNotBlank(compHtml)) {
+		if (String.isNotBlank(compHtml)
+			&& compHtml.length() <= Opportunity.Descripcion__c.getDescribe().getLength()) {
 			opp.Descripcion__c = compHtml;
 		}
 

@@ -2240,37 +2240,35 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (dets.some(d => d && d.plazo)) { subcols.push({ key: 'plazo', label: 'Plazo' }); }
         const span = subcols.length;
 
-        const AZUL = '#1E5BB8';
-        const CELESTE = '#4FC3F7';
-        const GRIS = '#6B6B6B';
-        const FONDO = '#EDEDED';
-        const base = 'font-family:Arial,Helvetica,sans-serif;font-size:11px;padding:6px 8px;border:2px solid #FFFFFF;';
-        const lbl = `${base}background:${AZUL};color:#FFFFFF;font-weight:bold;text-align:center;font-size:12px;`;
+        // Estilos COMPACTOS: tipografía, alineación y espaciado se declaran una sola vez en la
+        // tabla y cada celda solo lleva su color. El HTML se guarda en Descripcion__c (máx.
+        // 32,768 caracteres): repetir todos los estilos en cada celda lo excedía.
+        const lbl = 'background:#1E5BB8;color:#FFF;font-weight:bold';
+        const lblPrima = 'background:#4FC3F7;color:#FFF;font-weight:bold';
+        const cel = 'background:#EDEDED';
+        const sub = 'background:#6B6B6B;color:#FFF;font-size:10px';
         // Ancho de la columna de cobertura: fijo y suficiente para los nombres de concepto.
         const anchoLbl = 18;
-        const anchoSub = ((100 - anchoLbl) / (qs.length * span)).toFixed(2);
-        const lblPrima = `${base}background:${CELESTE};color:#FFFFFF;font-weight:bold;text-align:center;`;
-        const cel = `${base}background:${FONDO};color:#333333;text-align:center;vertical-align:top;`;
+        const anchoSub = ((100 - anchoLbl) / (qs.length * span)).toFixed(1);
 
-        let h = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1C2433;">';
-        h += '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">';
-        h += `<colgroup><col style="width:${anchoLbl}%;">`;
-        qs.forEach(() => subcols.forEach(() => { h += `<col style="width:${anchoSub}%;">`; }));
+        let h = '<table class="cmp-matriz" cellpadding="6" cellspacing="2" style="width:100%;table-layout:fixed;'
+            + 'border-collapse:separate;border-spacing:2px;font-family:Arial,sans-serif;font-size:11px;'
+            + 'color:#333;text-align:center;">';
+        h += `<colgroup><col width="${anchoLbl}%">`;
+        qs.forEach(() => subcols.forEach(() => { h += `<col width="${anchoSub}%">`; }));
         h += '</colgroup>';
         // Encabezado: aseguradoras
-        h += `<tr><td style="${base}background:#FFFFFF;"></td>`;
+        h += '<tr><td></td>';
         qs.forEach(q => {
-            h += `<td colspan="${span}" style="${base}background:#FFFFFF;text-align:center;border-bottom:3px solid #D0D0D0;">`
-                + `<span style="font-size:15px;font-weight:bold;color:${this.colorAseguradora(q.companiaLabel)};">${esc(q.companiaLabel)}</span>`
-                + (q.planLabel ? `<br><span style="font-size:10px;color:#667085;">${esc(q.planLabel)}</span>` : '')
+            h += `<td colspan="${span}" style="border-bottom:3px solid #D0D0D0">`
+                + `<b style="font-size:15px;color:${this.colorAseguradora(q.companiaLabel)}">${esc(q.companiaLabel)}</b>`
+                + (q.planLabel ? `<br><span style="font-size:10px;color:#667085">${esc(q.planLabel)}</span>` : '')
                 + '</td>';
         });
         h += '</tr>';
         // Sub-encabezado
-        h += `<tr><td style="${lbl}font-size:16px;">Cobertura</td>`;
-        qs.forEach(() => subcols.forEach(s => {
-            h += `<td style="${base}background:${GRIS};color:#FFFFFF;text-align:center;font-size:10px;">${s.label}</td>`;
-        }));
+        h += `<tr><td style="${lbl};font-size:16px">Cobertura</td>`;
+        qs.forEach(() => subcols.forEach(sc => { h += `<td style="${sub}">${sc.label}</td>`; }));
         h += '</tr>';
         // Filas por concepto
         conceptos.forEach(c => {
@@ -2285,7 +2283,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     if (s.key === 'deducible') { v = d.deducible || ''; }
                     if (s.key === 'prima') { v = Number(d.prima) > 0 ? this.formatCurrency(Number(d.prima)) : ''; }
                     if (s.key === 'plazo') { v = d.plazo || ''; }
-                    h += `<td style="${cel}">${esc(v)}</td>`;
+                    h += `<td style="${cel}">${v ? esc(v) : ''}</td>`;
                 });
             });
             h += '</tr>';
@@ -2301,11 +2299,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             h += `<tr><td style="${lblPrima}">${etiqueta}</td>`;
             qs.forEach(q => {
                 const v = fn(q);
-                h += `<td colspan="${span}" style="${cel}font-weight:bold;">${v > 0 ? esc(this.formatCurrency(v)) : ''}</td>`;
+                h += `<td colspan="${span}" style="${cel};font-weight:bold">${v > 0 ? esc(this.formatCurrency(v)) : ''}</td>`;
             });
             h += '</tr>';
         });
-        h += '</table></div>';
+        h += '</table>';
         return h;
     }
 
