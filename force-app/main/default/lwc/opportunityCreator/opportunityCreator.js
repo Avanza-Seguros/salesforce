@@ -1878,10 +1878,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const key = c.toLowerCase();
                 set.add(key);
                 if (!universoSet.has(key)) { universoSet.add(key); universo.push(c); }
-                const orig = (name || '').toString().replace(/\s+/g, ' ').trim();
-                if (orig && orig.toLowerCase() !== key) {
+                // Solo se listan en "Incluye" los nombres que agregan información al título
+                // (se ignoran repeticiones del concepto con otras mayúsculas/acentos).
+                const orig = (name || '').toString().replace(/[*]/g, ' ').replace(/\s+/g, ' ').trim();
+                const origKey = this.normalizarTexto(orig);
+                const conceptoKey = this.normalizarTexto(c);
+                if (orig && origKey !== conceptoKey && !conceptoKey.includes(origKey)) {
                     originalesPorConcepto[key] = originalesPorConcepto[key] || new Map();
-                    originalesPorConcepto[key].set(orig.toLowerCase(), orig);
+                    if (!originalesPorConcepto[key].has(origKey)) {
+                        originalesPorConcepto[key].set(origKey, orig);
+                    }
                 }
             });
             conceptosPorQuote[q.Id] = set;
@@ -2327,6 +2333,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             };
         });
     }
+    // Texto en minúsculas, sin acentos ni signos, para comparar nombres de coberturas.
+    normalizarTexto(v) {
+        return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
     // Fecha + 1 año en formato YYYY-MM-DD (respaldo del fin de vigencia). null si no hay fecha.
     sumarUnAnio(value) {
         const d = this.parseSafeDate(value);
@@ -2426,9 +2437,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             c1: 'Á', c9: 'É', cd: 'Í', d3: 'Ó', da: 'Ú', d1: 'Ñ'
         };
         const letra = 'A-Za-zÁÉÍÓÚÑáéíóúñ';
-        const re = new RegExp('([' + letra + '])(e1|e9|ed|f3|fa|f1|fc|c1|c9|cd|d3|da|d1)(?=[' + letra + '])', 'g');
+        // 1) Escapes con el prefijo "u00" visible (ej. "Mu00e9dicos", "\\u00ed"): son inequívocos.
+        let out = html.replace(/\\?u00(e1|e9|ed|f3|fa|f1|fc|c1|c9|cd|d3|da|d1)/gi,
+            (m, code) => mapa[code.toLowerCase()]);
+        // 2) Códigos sueltos entre letras: SOLO los que llevan dígito (e1, f3, f1…). Los que son
+        //    solo letras (ed, fa, cd, da) aparecen en palabras normales ("Médicos", "Responsabilidad")
+        //    y romperían el texto, por eso no se reparan aquí.
+        const re = new RegExp('([' + letra + '])(e1|e9|f3|f1|fc|c1|c9|d3|d1)(?=[' + letra + '])', 'g');
         // Dos pasadas para palabras con más de un acento seguido.
-        let out = html;
         for (let i = 0; i < 2; i++) {
             out = out.replace(re, (m, prev, code) => prev + mapa[code]);
         }
