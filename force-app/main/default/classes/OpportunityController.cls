@@ -88,7 +88,7 @@ public with sharing class OpportunityController {
 				SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber,
 					   IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId,
 					   Account.Name, Product__c, Product__r.Name, Is_Selected__c,
-					   Prima_Total__c, PrimaAnual__c,
+					   Prima_Total__c, PrimaAnual__c, Vigencia_Inicio__c,
 					   Aseguradora__c, Aseguradora__r.Name, Price_Book__c,
 					   (SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice, TotalPrice
 						FROM QuoteLineItems)

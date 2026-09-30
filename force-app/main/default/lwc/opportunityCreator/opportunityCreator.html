@@ -1464,6 +1464,14 @@
                                             </tr>
                                             <tr>
                                                 <td class="doc-cell doc-cell-lbl">
+                                                    <span class="doc-cn">Vigencia (inicio – fin)</span>
+                                                </td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>{col.vigenciaLabel}</td>
+                                                </template>
+                                            </tr>
+                                            <tr>
+                                                <td class="doc-cell doc-cell-lbl">
                                                     <span class="doc-cn">Coberturas incluidas (total)</span>
                                                     <span class="doc-cd">Número de coberturas que trae cada cotización</span>
                                                 </td>
@@ -1475,6 +1483,7 @@
                                                 <tr key={row.key}>
                                                     <td class="doc-cell doc-cell-lbl">
                                                         <span class="doc-cn">{row.name}</span>
+                                                        <template if:true={row.hasIncluye}><span class="doc-cd">{row.incluye}</span></template>
                                                     </td>
                                                     <template for:each={row.cells} for:item="cell">
                                                         <td key={cell.key} class={cell.cellClass}>{cell.text}</td>
@@ -1629,6 +1638,12 @@
                                                 </template>
                                             </tr>
                                             <tr>
+                                                <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Vigencia (inicio – fin)</span></td>
+                                                <template for:each={comparativoData.columns} for:item="col">
+                                                    <td key={col.Id} class={col.bodyClass}>{col.vigenciaLabel}</td>
+                                                </template>
+                                            </tr>
+                                            <tr>
                                                 <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Coberturas incluidas (total)</span></td>
                                                 <template for:each={comparativoData.columns} for:item="col">
                                                     <td key={col.Id} class={col.bodyClass}>{col.coverageCount}</td>
@@ -1636,7 +1651,10 @@
                                             </tr>
                                             <template for:each={comparativoData.rows} for:item="row">
                                                 <tr key={row.key}>
-                                                    <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{row.name}</span></td>
+                                                    <td class="doc-cell doc-cell-lbl">
+                                                        <span class="doc-cn">{row.name}</span>
+                                                        <template if:true={row.hasIncluye}><span class="doc-cd">{row.incluye}</span></template>
+                                                    </td>
                                                     <template for:each={row.cells} for:item="cell">
                                                         <td key={cell.key} class={cell.cellClass}>{cell.text}</td>
                                                     </template>

@@ -1163,8 +1163,15 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('ramo', ramoForm);
 		q.put('primaTotal', asDecimal(m.get('prima_anual')));
 		q.put('moneda', coalesceStr(stringOf(m.get('moneda')), 'MXN'));
-		q.put('vigencia', stringOf(m.get('vigencia_fin')));
-		q.put('vigenciaInicio', stringOf(m.get('vigencia_inicio')));
+		// Fin de vigencia: si la IA no lo trae, se calcula como inicio + 1 año.
+		String vigIniTxt = stringOf(m.get('vigencia_inicio'));
+		String vigFinTxt = stringOf(m.get('vigencia_fin'));
+		if (parseDate(vigFinTxt) == null) {
+			Date iniVig = parseDate(vigIniTxt);
+			vigFinTxt = iniVig != null ? String.valueOf(iniVig.addYears(1)) : '';
+		}
+		q.put('vigencia', vigFinTxt);
+		q.put('vigenciaInicio', vigIniTxt);
 		q.put('noCotizacion', stringOf(m.get('no_cotizacion')));
 		q.put('archivoOrigen', stringOf(m.get('archivo_origen')));
 		q.put('notas', stringOf(m.get('notas')));
@@ -1530,8 +1537,10 @@ public with sharing class PdfOpportunityCreatorController {
 			if (String.isNotBlank(email)) { q.Email = email; }
 
 			Date vig = parseDate(stringOf(m.get('vigencia')));
-			if (vig != null) { q.ExpirationDate = vig; }
 			Date vigIni = parseDate(stringOf(m.get('vigenciaInicio')));
+			// Sin fin de vigencia: se toma inicio + 1 año (o hoy + 1 año si tampoco hay inicio).
+			if (vig == null) { vig = (vigIni != null ? vigIni : Date.today()).addYears(1); }
+			q.ExpirationDate = vig;
 			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }

@@ -81,18 +81,25 @@ const PAGE_SIZE = 20;
 // El orden importa: gana el primer concepto cuyo patrón aparezca en el nombre.
 // ============================================================
 const CONCEPTOS_AUTO = [
-    { concepto: 'Daños Materiales',                  patrones: ['danos materiales', 'dano material', 'perdida total', 'perdida parcial'] },
-    { concepto: 'Robo Total',                        patrones: ['robo total', 'robo del vehiculo', 'robo'] },
-    { concepto: 'RC Extranjero (USA/Canadá)',        patrones: ['extranjero', 'estados unidos', 'usa/', '/usa', 'canada', 'frontera', 'norteamerica'] },
-    { concepto: 'Responsabilidad Civil',             patrones: ['responsabilidad civil', 'rc danos', 'rc bienes', 'rc personas', 'rc familiar', 'danos a terceros'] },
-    { concepto: 'Muerte / Accidentes del Conductor', patrones: ['muerte del conductor', 'accidentes al conductor', 'accidentes automovilisticos al conductor', 'muerte accidental', 'gastos funerarios', 'conductor'] },
-    { concepto: 'Gastos Médicos Ocupantes',          patrones: ['gastos medicos ocupantes', 'gastos medicos a ocupantes', 'gastos medicos de ocupantes', 'gastos medicos', 'ocupantes'] },
-    { concepto: 'Asistencia Jurídica',               patrones: ['asistencia juridica', 'asistencia legal', 'gastos legales', 'defensa juridica', 'juridica'] },
-    { concepto: 'Asistencia Vial',                   patrones: ['asistencia vial', 'asistencia en viajes y vial', 'asistencia en viaje', 'asistencia en el camino', 'vial', 'grua'] },
-    { concepto: 'Asistencia Médica',                 patrones: ['asistencia medica', 'asistencia telefonica medica'] },
-    { concepto: 'Cristales',                         patrones: ['cristales', 'rotura de cristales'] },
-    { concepto: 'Equipo Especial / Adaptaciones',    patrones: ['equipo especial', 'adaptaciones', 'accesorios', 'equipo adicional'] },
-    { concepto: 'Extensión de RC',                   patrones: ['extension de responsabilidad', 'exceso de responsabilidad', 'rc en exceso'] }
+    // Coberturas adicionales de RC: van ANTES de "Responsabilidad Civil" para no absorberse en ella.
+    { concepto: 'RC en el Extranjero (USA/Canadá)',    patrones: ['extranjero', 'estados unidos', 'usa y canada', 'usa/', '/usa', 'canada', 'frontera', 'norteamerica'] },
+    { concepto: 'RC Complementaria / en Exceso',      patrones: ['rc complementaria', 'responsabilidad civil complementaria', 'complementaria personas', 'en exceso', 'exceso por muerte', 'exceso de responsabilidad', 'extension de responsabilidad', 'extension de rc', 'rc en exceso', 'rc catastrofica', 'responsabilidad civil catastrofica'] },
+    { concepto: 'RC Familiar',                         patrones: ['rc familiar', 'responsabilidad civil familiar', 'responsabilidad civil del hogar'] },
+    { concepto: 'Daños Materiales',                    patrones: ['danos materiales', 'dano material', 'perdida total', 'perdida parcial', 'colision', 'vuelco'] },
+    { concepto: 'Cristales',                           patrones: ['cristales', 'rotura de cristales', 'parabrisas'] },
+    { concepto: 'Robo Parcial',                        patrones: ['robo parcial', 'robo de partes', 'robo de autopartes'] },
+    { concepto: 'Robo Total',                          patrones: ['robo total', 'robo del vehiculo', 'robo'] },
+    { concepto: 'Responsabilidad Civil',               patrones: ['responsabilidad civil', 'rc danos', 'rc bienes', 'rc personas', 'rc por danos', 'danos a terceros', 'terceros', /^r\.?\s?c\.?$/, /^r\.?c\.?\s/] },
+    { concepto: 'Muerte / Accidentes del Conductor',   patrones: ['muerte del conductor', 'muerte accidental', 'accidentes al conductor', 'accidentes automovilisticos', 'accidentes personales', 'gastos funerarios', 'conductor'] },
+    { concepto: 'Gastos Médicos Ocupantes',            patrones: ['gastos medicos ocupantes', 'gastos medicos a ocupantes', 'gastos medicos de ocupantes', 'gastos medicos', 'ocupantes'] },
+    { concepto: 'Asistencia Jurídica / Legal',         patrones: ['asistencia juridica', 'asistencia legal', 'gastos legales', 'defensa juridica', 'defensa legal', 'proteccion legal', 'juridica', 'legal'] },
+    { concepto: 'Asistencia Funeraria',                patrones: ['funerari'] },
+    { concepto: 'Asistencia Médica',                   patrones: ['asistencia medica', 'asistencia telefonica medica', 'medico a domicilio'] },
+    { concepto: 'Asistencia Vial / en Viajes',         patrones: ['asistencia vial', 'asistencia en viaje', 'asistencia en el camino', 'asistencia completa', 'asistencia auto', 'vial', 'grua', 'auxilio'] },
+    { concepto: 'Auto Sustituto / Transporte',         patrones: ['auto sustituto', 'vehiculo sustituto', 'auto de reemplazo', 'renta de auto', 'transporte alternativo', 'gastos de transporte', 'movilidad'] },
+    { concepto: 'Llantas y Rines',                     patrones: ['llantas', 'rines'] },
+    { concepto: 'Exención / Devolución de Deducible',  patrones: ['exencion de deducible', 'devolucion de deducible', 'deducible cero', 'cero deducible', 'sin deducible', 'eliminacion de deducible'] },
+    { concepto: 'Equipo Especial / Adaptaciones',      patrones: ['equipo especial', 'adaptaciones', 'accesorios', 'equipo adicional', 'conversiones'] }
 ];
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
@@ -723,9 +730,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // (traduce sinónimos por aseguradora). Si no reconoce el nombre, lo conserva.
     conceptoDe(nombre) {
         if (!nombre) { return 'Cobertura'; }
-        const n = nombre.toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        const n = nombre.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[*]/g, ' ').replace(/\s+/g, ' ').trim();
         for (const item of CONCEPTOS_AUTO) {
-            if (item.patrones.some(p => n.includes(p))) { return item.concepto; }
+            if (item.patrones.some(p => (p instanceof RegExp ? p.test(n) : n.includes(p)))) {
+                return item.concepto;
+            }
         }
         return nombre.toString().trim();
     }
@@ -1301,7 +1311,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                        || q.Account?.Name
                        || q.AccountName
                        || '—';
-        const expirationDateRaw = q.ExpirationDate || q.Vigencia__c || q.FechaVencimiento__c || null;
+        const vigenciaInicioRaw = q.Vigencia_Inicio__c || null;
+        const expirationDateRaw = q.ExpirationDate || q.Vigencia__c || q.FechaVencimiento__c
+            || this.sumarUnAnio(vigenciaInicioRaw);
         // COBERTURAS: el Apex ahora envía un mapa { quoteId: total }
         // calculado con COUNT(Id) sobre Quote_Coverage__c.
         let coverageCount = 0;
@@ -1347,6 +1359,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             totalFormatted: this.formatCurrency(totalAmount),
             expirationDateRaw,
             expirationFormatted: this.formatDate(expirationDateRaw),
+            vigenciaInicioRaw,
             coverageCount,
             coverageLabel: coverageCount === 1
                 ? '1 cobertura'
@@ -1855,6 +1868,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const universo = [];
         const universoSet = new Set();
         const conceptosPorQuote = {};
+        // Nombres originales que abarca cada concepto (para mostrarlos bajo la fila).
+        const originalesPorConcepto = {};
         quotes.forEach(q => {
             const set = new Set();
             (q.coverageNames || []).forEach(name => {
@@ -1863,6 +1878,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const key = c.toLowerCase();
                 set.add(key);
                 if (!universoSet.has(key)) { universoSet.add(key); universo.push(c); }
+                const orig = (name || '').toString().replace(/\s+/g, ' ').trim();
+                if (orig && orig.toLowerCase() !== key) {
+                    originalesPorConcepto[key] = originalesPorConcepto[key] || new Map();
+                    originalesPorConcepto[key].set(orig.toLowerCase(), orig);
+                }
             });
             conceptosPorQuote[q.Id] = set;
         });
@@ -1892,7 +1912,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                         : (q.totalAmount === maxPrice && quotes.length > 1 ? 'el más caro' : ''),
                 hasPriceSub: q.totalAmount === minPrice
                           || (q.totalAmount === maxPrice && quotes.length > 1),
-                coverageCount: covCount(q)
+                coverageCount: covCount(q),
+                vigenciaLabel: `${this.formatDate(q.vigenciaInicioRaw || this.restarUnAnio(q.expirationDateRaw))} – ${this.formatDate(q.expirationDateRaw)}`
             };
         });
 
@@ -1919,7 +1940,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     cellClass: cls
                 };
             });
-            return { key: `row-${idx}`, name: covName, cells };
+            const origs = originalesPorConcepto[covName.toLowerCase()];
+            const incluye = origs && origs.size ? 'Incluye: ' + Array.from(origs.values()).join(' · ') : '';
+            return { key: `row-${idx}`, name: covName, incluye, hasIncluye: !!incluye, cells };
         });
 
         // Cards de mejores opciones
@@ -1949,16 +1972,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             ? `${bestPriceQuote.companiaLabel} es la opción más completa: ofrece el mejor precio (${bestPriceQuote.totalFormatted}) y el mayor número de coberturas (${bestCovCov}).`
             : `${bestCovQuote.companiaLabel} trae el paquete más completo (${bestCovCov} coberturas). ${bestPriceQuote.companiaLabel} es la más económica (${bestPriceQuote.totalFormatted}) con un ahorro de ${this.formatCurrency(savings)} (${savingsPct}%). Tú decides qué pesa más: precio o protección.`;
 
-        // Metadata del documento
+        // Metadata del documento: vigencia real de las cotizaciones (o hoy + 1 año de respaldo).
         const today = new Date();
-        const finVig = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+        const conFin = quotes.find(q => this.parseSafeDate(q.expirationDateRaw));
+        const finVig = conFin
+            ? this.parseSafeDate(conFin.expirationDateRaw)
+            : new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+        const iniVig = (conFin && this.parseSafeDate(conFin.vigenciaInicioRaw))
+            || new Date(finVig.getFullYear() - 1, finVig.getMonth(), finVig.getDate());
         return {
             hasData: true,
             ramoLabel: this.opportunity.Ramo__c || 'Seguro',
             clienteName: this.opportunity.AccountName
                       || this.opportunity.clienteNombre || 'Cliente',
             opportunityName: this.opportunity.Name || 'Cotización',
-            vigInicio: this.formatDate(today),
+            vigInicio: this.formatDate(iniVig),
             vigFin: this.formatDate(finVig),
             totalQuotes: quotes.length,
             columns,
@@ -2001,11 +2029,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             h += '</td>';
         });
         h += '</tr>';
+        h += `<tr><th style="${th}">Vigencia (inicio – fin)</th>`;
+        d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${esc(c.vigenciaLabel)}</td>`; });
+        h += '</tr>';
         h += `<tr><th style="${th}">Coberturas incluidas</th>`;
         d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${c.coverageCount}</td>`; });
         h += '</tr>';
         d.rows.forEach((row) => {
-            h += `<tr><th style="${th}">${esc(row.name)}</th>`;
+            h += `<tr><th style="${th}">${esc(row.name)}`;
+            if (row.hasIncluye) { h += `<br><span style="font-size:10px;font-weight:400;color:#667;">${esc(row.incluye)}</span>`; }
+            h += '</th>';
             row.cells.forEach((cell) => {
                 const style = cell.text === 'No incluida' ? (td + 'color:#a94442;') : td;
                 h += `<td style="${style}">${esc(cell.text)}</td>`;
@@ -2293,6 +2326,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 typeLabel: this.getTypeLabel(opp.Type)
             };
         });
+    }
+    // Fecha + 1 año en formato YYYY-MM-DD (respaldo del fin de vigencia). null si no hay fecha.
+    sumarUnAnio(value) {
+        const d = this.parseSafeDate(value);
+        if (!d) { return null; }
+        const r = new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
+        return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, '0')}-${String(r.getDate()).padStart(2, '0')}`;
+    }
+    // Fecha - 1 año (inicio de vigencia estimado cuando solo se conoce el fin).
+    restarUnAnio(value) {
+        const d = this.parseSafeDate(value);
+        if (!d) { return null; }
+        const r = new Date(d.getFullYear() - 1, d.getMonth(), d.getDate());
+        return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, '0')}-${String(r.getDate()).padStart(2, '0')}`;
     }
     parseSafeDate(value) {
         if (!value) return null;
@@ -3833,8 +3880,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageLabel: covs.length === 1 ? '1 cobertura' : `${covs.length} coberturas`,
             coverageNames: covs,
             coverageDetalle,
-            expirationDateRaw: q.vigencia || null,
-            expirationFormatted: q.vigencia ? this.formatDate(q.vigencia) : '',
+            expirationDateRaw: q.vigencia || this.sumarUnAnio(q.vigenciaInicio),
+            expirationFormatted: this.formatDate(q.vigencia || this.sumarUnAnio(q.vigenciaInicio)),
+            vigenciaInicioRaw: q.vigenciaInicio || null,
             statusLabel: 'Vista previa',
             statusBadgeClass: 'quote-badge quote-badge-neutral',
             isSelected: !!q.esGanadora
