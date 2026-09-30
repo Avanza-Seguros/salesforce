@@ -1002,14 +1002,12 @@ public with sharing class PdfOpportunityCreatorController {
 					'alerta' => ''
 				};
 
-		// El HTML del comparativo lo genera la IA, pero a veces llega truncado
-		// (p. ej. solo la etiqueta de apertura). Si viene incompleto lo armamos
-		// nosotros con los datos ya estructurados para no mostrar algo roto.
+		// El HTML del comparativo lo genera la IA, pero a veces llega truncado (p. ej. solo la
+		// etiqueta de apertura) o con columnas repetidas si duplicó cotizaciones. En esos casos se
+		// devuelve vacío y el LWC arma el comparativo con los datos limpios, agrupando las
+		// coberturas por concepto según el ramo (un solo catálogo de conceptos, en el LWC).
 		String htmlIa = stringOf(comparison.get('comparativo_html'));
-		// Si la IA duplicó cotizaciones, su HTML trae columnas repetidas: se arma con los datos limpios.
-		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas)
-			? htmlIa
-			: construirComparativoHtml(ramoForm, cliente, quotes, ganadora);
+		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas) ? htmlIa : '';
 
 		return new Map<String, Object>{
 			'ramo' => ramoForm,
@@ -1058,121 +1056,15 @@ public with sharing class PdfOpportunityCreatorController {
 		return cierra && html.length() > 300;
 	}
 
-	// Arma un comparativo en HTML a partir de los datos ya estructurados
-	// (aseguradoras y coberturas). Se usa como respaldo confiable.
-	private static String construirComparativoHtml(
-		String ramoForm,
-		Map<String, Object> cliente,
-		List<Map<String, Object>> quotes,
-		String ganadora
-	) {
-		if (quotes == null || quotes.isEmpty()) { return ''; }
-
-		String nombreCliente = cliente != null ? stringOf(cliente.get('nombre')) : '';
-
-		// Nombres de cobertura en orden de aparicion (union de todas las aseguradoras).
-		List<String> nombresCob = new List<String>();
-		Set<String> vistos = new Set<String>();
-		for (Map<String, Object> q : quotes) {
-			for (Map<String, Object> c : coberturasDe(q)) {
-				String nom = stringOf(c.get('cobertura'));
-				if (String.isNotBlank(nom) && !vistos.contains(nom.toLowerCase())) {
-					vistos.add(nom.toLowerCase());
-					nombresCob.add(nom);
-				}
-			}
-		}
-
-		String th = 'padding:8px 10px;border:1px solid #d9dee6;text-align:left;font-size:13px;';
-		String td = 'padding:8px 10px;border:1px solid #eef1f5;text-align:left;font-size:13px;vertical-align:top;';
-
-		String html = '<div style="font-family:\'Segoe UI\',Arial,sans-serif;color:#1c2433;">';
-		html += '<h2 style="font-size:18px;margin:0 0 12px;">Comparativo ' + htmlEscape(ramoForm);
-		if (String.isNotBlank(nombreCliente)) { html += ' - ' + htmlEscape(nombreCliente); }
-		html += '</h2>';
-		html += '<table style="width:100%;border-collapse:collapse;">';
-
-		// Encabezado: aseguradoras
-		html += '<tr><th style="' + th + 'background:#f4f6f9;">Concepto</th>';
-		for (Map<String, Object> q : quotes) {
-			String comp = stringOf(q.get('compania'));
-			Boolean esGan = String.isNotBlank(ganadora) && ganadora.equalsIgnoreCase(comp);
-			String bg = esGan ? 'background:#fff3e0;' : 'background:#f4f6f9;';
-			html += '<th style="' + th + bg + '">' + htmlEscape(comp);
-			if (esGan) { html += ' <span style="color:#b85b00;font-size:11px;">&#9733; Recomendada</span>'; }
-			html += '</th>';
-		}
-		html += '</tr>';
-
-		// Plan
-		html += filaHtml('Plan', quotes, 'plan', td, th);
-
-		// Prima anual
-		html += '<tr><th style="' + th + '">Prima Anual</th>';
-		for (Map<String, Object> q : quotes) {
-			Decimal prima = asDecimal(q.get('primaTotal'));
-			String moneda = coalesceStr(stringOf(q.get('moneda')), 'MXN');
-			String txt = prima != null ? ('$' + formatoMonto(prima) + ' ' + moneda) : '-';
-			html += '<td style="' + td + '">' + htmlEscape(txt) + '</td>';
-		}
-		html += '</tr>';
-
-		// Coberturas
-		for (String nom : nombresCob) {
-			html += '<tr><th style="' + th + '">' + htmlEscape(nom) + '</th>';
-			for (Map<String, Object> q : quotes) {
-				html += '<td style="' + td + '">' + htmlEscape(valorCobertura(q, nom)) + '</td>';
-			}
-			html += '</tr>';
-		}
-
-		html += '</table></div>';
-		return html;
-	}
-
-	private static String filaHtml(String etiqueta, List<Map<String, Object>> quotes, String key, String td, String th) {
-		String row = '<tr><th style="' + th + '">' + htmlEscape(etiqueta) + '</th>';
-		for (Map<String, Object> q : quotes) {
-			String v = stringOf(q.get(key));
-			row += '<td style="' + td + '">' + (String.isBlank(v) ? '-' : htmlEscape(v)) + '</td>';
-		}
-		return row + '</tr>';
-	}
-
-	private static List<Map<String, Object>> coberturasDe(Map<String, Object> q) {
+	// Lista de mapas a partir de un valor del JSON (vacía si no es una lista).
+	private static List<Map<String, Object>> listaDeMapas(Object o) {
 		List<Map<String, Object>> out = new List<Map<String, Object>>();
-		if (q.get('tablaCompletaCoberturas') instanceof List<Object>) {
-			for (Object o : (List<Object>) q.get('tablaCompletaCoberturas')) {
-				if (o instanceof Map<String, Object>) { out.add((Map<String, Object>) o); }
+		if (o instanceof List<Object>) {
+			for (Object x : (List<Object>) o) {
+				if (x instanceof Map<String, Object>) { out.add((Map<String, Object>) x); }
 			}
 		}
 		return out;
-	}
-
-	private static String valorCobertura(Map<String, Object> q, String nombre) {
-		for (Map<String, Object> c : coberturasDe(q)) {
-			if (nombre.equalsIgnoreCase(stringOf(c.get('cobertura')))) {
-				String suma = stringOf(c.get('sumaAsegurada'));
-				String ded = stringOf(c.get('deducible'));
-				String coa = stringOf(c.get('coaseguro'));
-				List<String> partes = new List<String>();
-				if (String.isNotBlank(suma)) { partes.add(suma); }
-				if (String.isNotBlank(ded)) { partes.add('Ded: ' + ded); }
-				if (String.isNotBlank(coa)) { partes.add('Coa: ' + coa); }
-				return partes.isEmpty() ? '-' : String.join(partes, ' | ');
-			}
-		}
-		return '-';
-	}
-
-	private static String formatoMonto(Decimal d) {
-		if (d == null) { return '0'; }
-		return d.setScale(0).format();
-	}
-
-	private static String htmlEscape(String s) {
-		if (String.isBlank(s)) { return ''; }
-		return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;');
 	}
 
 	/**
@@ -1216,6 +1108,12 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('primerPago', asDecimal(m.get('primer_pago')));
 		q.put('pagoSubsecuente', asDecimal(m.get('pago_subsecuente')));
 		q.put('tablaCompletaCoberturas', buildCoberturas(m));
+		// Primas por forma de pago y beneficios opcionales/sugeridos (ej. Vida: ADAPTA).
+		if (m.get('primas_por_frecuencia') instanceof Map<String, Object>) {
+			q.put('primasPorFrecuencia', m.get('primas_por_frecuencia'));
+		}
+		q.put('beneficiosOpcionales', listaDeMapas(m.get('beneficios_opcionales')));
+		q.put('primaConOpcionales', asDecimal(m.get('prima_con_opcionales')));
 		return q;
 	}
 
@@ -1266,7 +1164,10 @@ public with sharing class PdfOpportunityCreatorController {
 						'cobertura' => stringOf(c.get('nombre')),
 						'sumaAsegurada' => normalizeSuma(c.get('suma_asegurada')),
 						'deducible' => stringOf(c.get('deducible')),
-						'coaseguro' => stringOf(c.get('coaseguro'))
+						'coaseguro' => stringOf(c.get('coaseguro')),
+						// Prima y plazo de la cobertura (ej. Vida: "32 años", prima anual de la cobertura).
+						'prima' => asDecimal(c.get('prima')),
+						'plazo' => stringOf(c.get('plazo'))
 					});
 				}
 			}
@@ -1571,8 +1472,11 @@ public with sharing class PdfOpportunityCreatorController {
 			Date vig = parseDate(stringOf(m.get('vigencia')));
 			Date vigIni = parseDate(stringOf(m.get('vigenciaInicio')));
 			// Sin fin de vigencia: se toma inicio + 1 año (o hoy + 1 año si tampoco hay inicio).
-			if (vig == null) { vig = (vigIni != null ? vigIni : Date.today()).addYears(1); }
-			q.ExpirationDate = vig;
+			// En Vida las cotizaciones no traen vigencia (traen el plazo de cada cobertura): no se inventa.
+			String ramoQuote = String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo;
+			Boolean esVida = String.isNotBlank(ramoQuote) && ramoQuote.containsIgnoreCase('vida');
+			if (vig == null && !esVida) { vig = (vigIni != null ? vigIni : Date.today()).addYears(1); }
+			if (vig != null) { q.ExpirationDate = vig; }
 			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }

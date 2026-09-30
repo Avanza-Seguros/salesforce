@@ -102,6 +102,86 @@ const CONCEPTOS_AUTO = [
     { concepto: 'Equipo Especial / Adaptaciones',      patrones: ['equipo especial', 'adaptaciones', 'accesorios', 'equipo adicional', 'conversiones'] }
 ];
 
+// Vida: los beneficios adicionales van ANTES de la cobertura básica (contienen "muerte").
+// Las claves de cada aseguradora (BAIT, BMA, etc.) NO se traducen: sin descripción quedan como su propia fila.
+const CONCEPTOS_VIDA = [
+    { concepto: 'Exención de Pago de Primas',         patrones: ['exencion', 'exoneracion de primas', 'liberacion de pago', 'pago de primas por invalidez'] },
+    { concepto: 'Muerte Accidental',                  patrones: ['muerte accidental', 'muerte por accidente', 'doble indemnizacion', 'triple indemnizacion'] },
+    { concepto: 'Pérdidas Orgánicas',                 patrones: ['perdidas organicas', 'perdida organica'] },
+    { concepto: 'Invalidez Total y Permanente',       patrones: ['invalidez', 'incapacidad total', 'incapacidad permanente'] },
+    { concepto: 'Enfermedades Graves',                patrones: ['enfermedades graves', 'enfermedad grave', 'enfermedad terminal', 'cancer', 'padecimientos graves'] },
+    { concepto: 'Gastos Funerarios',                  patrones: ['funerari', 'sepelio'] },
+    { concepto: 'Supervivencia / Ahorro',             patrones: ['supervivencia', 'ahorro', 'dotal', 'rescate', 'valor en efectivo', 'aportacion', 'inversion'] },
+    { concepto: 'Cobertura Básica / Fallecimiento',   patrones: ['fallecimiento', 'cobertura basica', 'basica', 'plan base', 'ordinario', 'vida entera', 'temporal', 'plenitud', 'imagina ser', 'seguro de vida', 'muerte'] }
+];
+
+// Gastos Médicos Mayores.
+const CONCEPTOS_GMM = [
+    { concepto: 'Cero Deducible por Accidente',       patrones: ['cero deducible', 'deducible cero', 'eliminacion de deducible', 'sin deducible'] },
+    { concepto: 'Emergencia / Cobertura en el Extranjero', patrones: ['extranjero', 'internacional', 'mundial'] },
+    { concepto: 'Coaseguro',                          patrones: ['coaseguro', 'participacion'] },
+    { concepto: 'Deducible',                          patrones: ['deducible'] },
+    { concepto: 'Suma Asegurada',                     patrones: ['suma asegurada', 'limite maximo', 'tope de suma'] },
+    { concepto: 'Maternidad / Parto',                 patrones: ['maternidad', 'parto', 'cesarea', 'embarazo', 'recien nacido'] },
+    { concepto: 'Dental',                             patrones: ['dental', 'odontolog'] },
+    { concepto: 'Visión',                             patrones: ['vision', 'optic', 'lentes'] },
+    { concepto: 'Enfermedades Graves',                patrones: ['enfermedades graves', 'enfermedad grave', 'catastrofic', 'cancer'] },
+    { concepto: 'Padecimientos Preexistentes',        patrones: ['preexistent'] },
+    { concepto: 'Hospitalización y Honorarios',       patrones: ['hospital', 'honorarios', 'cirug', 'quirurg', 'medicamentos', 'gastos medicos'] },
+    { concepto: 'Muerte Accidental / Funerarios',     patrones: ['muerte accidental', 'funerari'] },
+    { concepto: 'Asistencias',                        patrones: ['asistencia', 'telemedicina', 'medico a domicilio', 'check up', 'chequeo'] }
+];
+
+// Daños / Hogar / Empresarial / Transporte.
+const CONCEPTOS_DANOS = [
+    { concepto: 'Fenómenos Hidrometeorológicos',      patrones: ['hidrometeorolog', 'huracan', 'inundacion', 'granizo', 'tormenta', 'fhm'] },
+    { concepto: 'Terremoto / Erupción Volcánica',     patrones: ['terremoto', 'sismo', 'temblor', 'erupcion'] },
+    { concepto: 'Robo',                               patrones: ['robo', 'asalto', 'hurto'] },
+    { concepto: 'Responsabilidad Civil',              patrones: ['responsabilidad civil', /^r\.?\s?c\.?(\s|$)/] },
+    { concepto: 'Cristales',                          patrones: ['cristal', 'vidrio'] },
+    { concepto: 'Equipo Electrónico',                 patrones: ['equipo electronico', 'electronico'] },
+    { concepto: 'Rotura de Maquinaria',               patrones: ['maquinaria', 'calderas'] },
+    { concepto: 'Pérdidas Consecuenciales',           patrones: ['perdidas consecuenciales', 'interrupcion', 'gastos extraordinarios', 'perdida de rentas'] },
+    { concepto: 'Remoción de Escombros',              patrones: ['escombros'] },
+    { concepto: 'Dinero y Valores',                   patrones: ['dinero', 'valores'] },
+    { concepto: 'Contenidos',                         patrones: ['contenido', 'menaje', 'bienes muebles'] },
+    { concepto: 'Incendio / Edificio',                patrones: ['incendio', 'rayo', 'explosion', 'edificio', 'inmueble', 'construccion'] },
+    { concepto: 'Asistencias',                        patrones: ['asistencia'] }
+];
+
+// Viajes.
+const CONCEPTOS_VIAJES = [
+    { concepto: 'Equipaje',                           patrones: ['equipaje', 'maleta'] },
+    { concepto: 'Cancelación / Interrupción de Viaje', patrones: ['cancelacion', 'interrupcion', 'demora de viaje', 'retraso'] },
+    { concepto: 'Repatriación / Evacuación',          patrones: ['repatriacion', 'traslado de restos', 'evacuacion'] },
+    { concepto: 'Muerte / Invalidez Accidental',      patrones: ['muerte accidental', 'invalidez', 'accidentes personales'] },
+    { concepto: 'Dental',                             patrones: ['dental', 'odontolog'] },
+    { concepto: 'Responsabilidad Civil',              patrones: ['responsabilidad civil'] },
+    { concepto: 'Asistencia Legal',                   patrones: ['legal', 'juridic'] },
+    { concepto: 'Gastos Médicos',                     patrones: ['gastos medicos', 'asistencia medica', 'hospitalizacion', 'medica'] }
+];
+
+// Responsabilidad Civil.
+const CONCEPTOS_RC = [
+    { concepto: 'Gastos de Defensa',                  patrones: ['defensa', 'gastos legales'] },
+    { concepto: 'RC Profesional',                     patrones: ['profesional', 'errores', 'omisiones'] },
+    { concepto: 'RC Productos',                       patrones: ['productos'] },
+    { concepto: 'RC Arrendatario',                    patrones: ['arrendatario'] },
+    { concepto: 'Contaminación',                      patrones: ['contaminacion'] },
+    { concepto: 'Límite Agregado',                    patrones: ['agregado'] },
+    { concepto: 'Límite por Evento',                  patrones: ['por evento', 'por ocurrencia', 'limite unico', 'suma asegurada', 'limite maximo'] }
+];
+
+// Catálogo de conceptos por ramo. Un ramo sin catálogo conserva el nombre tal cual.
+const CONCEPTOS_POR_RAMO = {
+    auto: CONCEPTOS_AUTO,
+    vida: CONCEPTOS_VIDA,
+    gmm: CONCEPTOS_GMM,
+    danos: CONCEPTOS_DANOS,
+    viajes: CONCEPTOS_VIAJES,
+    rc: CONCEPTOS_RC
+};
+
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
     // === Wires y picklists ===
@@ -644,14 +724,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const coberturasMap = new Map();
         const companias = [];
         // Solo en auto se normaliza por concepto (los demás ramos conservan su nombre).
-        const esAuto = this.uploadedQuotes.some(q => q.isAutomovil || /auto/i.test(q.ramo || ''));
+        // Se agrupa por concepto con el catálogo del ramo (Autos, Vida, GMM, Daños, Viajes, RC).
+        const ramoCmp = this.ramoKeyDe(this.uploadedQuotes);
         this.uploadedQuotes.forEach(quote => {
             const compania = quote.compania || 'Desconocida';
             if (!companias.includes(compania)) companias.push(compania);
             if (Array.isArray(quote.tablaCompletaCoberturas)) {
                 quote.tablaCompletaCoberturas.forEach(cobertura => {
                     const nombre = cobertura.cobertura || cobertura.nombre || 'Cobertura';
-                    const concepto = esAuto ? this.conceptoDe(nombre) : nombre;
+                    const concepto = this.conceptoDe(nombre, ramoCmp);
                     if (!coberturasMap.has(concepto)) {
                         coberturasMap.set(concepto, { nombre: concepto, valores: {} });
                     }
@@ -726,13 +807,39 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         c.valores[compania] = this.combinarValor(c.valores[compania], valores);
     }
 
-    // Devuelve el CONCEPTO canónico de una cobertura de auto a partir de su nombre
-    // (traduce sinónimos por aseguradora). Si no reconoce el nombre, lo conserva.
-    conceptoDe(nombre) {
+    // Clave del catálogo de conceptos a partir del ramo (toma el primer valor reconocible).
+    ramoKey(...valores) {
+        for (const v of valores) {
+            const r = this.normalizarTexto(v);
+            if (!r) { continue; }
+            if (/auto|automovil|flotilla|moto/.test(r)) { return 'auto'; }
+            if (/\bvida\b/.test(r)) { return 'vida'; }
+            if (/\bgmm\b|gastos medicos|salud|medico/.test(r)) { return 'gmm'; }
+            if (/viaje/.test(r)) { return 'viajes'; }
+            if (/\brc\b|responsabilidad/.test(r)) { return 'rc'; }
+            if (/dano|hogar|empresarial|incendio|transporte|pyme|casa/.test(r)) { return 'danos'; }
+        }
+        return null;
+    }
+
+    // Ramo de un conjunto de cotizaciones (el de la oportunidad manda; si no, el de las cotizaciones).
+    ramoKeyDe(quotes) {
+        const q = quotes || [];
+        const banderas = q.some(x => x && x.isAutomovil) ? 'auto'
+            : (q.some(x => x && x.isGastosMedicos) ? 'gmm'
+            : (q.some(x => x && x.isViaje) ? 'viajes' : (q.some(x => x && x.isRC) ? 'rc' : '')));
+        return this.ramoKey(this.opportunity && this.opportunity.Ramo__c, ...q.map(x => x && x.ramo), banderas);
+    }
+
+    // Devuelve el CONCEPTO canónico de una cobertura según el catálogo del ramo (traduce
+    // sinónimos entre aseguradoras). Si no reconoce el nombre, lo conserva tal cual.
+    conceptoDe(nombre, ramo) {
         if (!nombre) { return 'Cobertura'; }
+        const catalogo = CONCEPTOS_POR_RAMO[ramo || this.ramoKey(this.opportunity && this.opportunity.Ramo__c) || ''];
+        if (!catalogo) { return nombre.toString().trim(); }
         const n = nombre.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
             .replace(/[*]/g, ' ').replace(/\s+/g, ' ').trim();
-        for (const item of CONCEPTOS_AUTO) {
+        for (const item of catalogo) {
             if (item.patrones.some(p => (p instanceof RegExp ? p.test(n) : n.includes(p)))) {
                 return item.concepto;
             }
@@ -754,7 +861,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return {
             suma,
             deducible: prev.deducible || nuevo.deducible || '',
-            coaseguro: prev.coaseguro || nuevo.coaseguro || ''
+            coaseguro: prev.coaseguro || nuevo.coaseguro || '',
+            // Varias coberturas del mismo concepto: las primas se suman; se conserva el primer plazo.
+            prima: (Number(prev.prima) || 0) + (Number(nuevo.prima) || 0) || null,
+            plazo: prev.plazo || nuevo.plazo || ''
         };
     }
 
@@ -1862,9 +1972,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Coberturas comparadas por CONCEPTO (no por texto): distintas aseguradoras
         // usan nombres distintos para lo mismo. Esto evita falsos "No incluida" y que
         // el conteo (y el "ganador por coberturas") dependa de cómo desglosa cada póliza.
-        const esAutoCmp = /auto/i.test(this.opportunity.Ramo__c || '')
-                       || quotes.some(q => /auto/i.test(q.ramo || ''));
-        const aConcepto = (n) => (esAutoCmp ? this.conceptoDe(n) : (n || '').trim());
+        // Aplica a todos los ramos: cada uno con su catálogo de conceptos.
+        const ramoCmp = this.ramoKeyDe(quotes);
+        const aConcepto = (n) => this.conceptoDe(n, ramoCmp);
         const universo = [];
         const universoSet = new Set();
         const conceptosPorQuote = {};
@@ -1932,11 +2042,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 let cls = 'doc-cell';
                 if (isHl) cls += ' doc-cell-hl';
                 if (!includes) cls += ' doc-cell-no';
-                // Muestra la suma asegurada (y deducible) cuando existe; si no, Sí / No incluida.
+                // Muestra lo que traiga la cobertura (suma, deducible, prima y plazo) para comparar
+                // lado a lado; si no trae valores, Sí / No incluida.
                 let text;
-                if (det && det.suma) {
-                    text = this.formatCurrencyOrText(det.suma);
-                    if (det.deducible) { text += ` · Ded. ${det.deducible}`; }
+                const partes = [];
+                if (det && det.suma) { partes.push(this.formatCurrencyOrText(det.suma)); }
+                if (det && det.deducible) { partes.push(`Ded. ${det.deducible}`); }
+                if (det && det.prima) { partes.push(`Prima ${this.formatCurrency(det.prima)}`); }
+                if (det && det.plazo) { partes.push(det.plazo); }
+                if (partes.length) {
+                    text = partes.join(' · ');
                 } else {
                     text = includes ? 'Sí' : 'No incluida';
                 }
@@ -1950,6 +2065,52 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const incluye = origs && origs.size ? 'Incluye: ' + Array.from(origs.values()).join(' · ') : '';
             return { key: `row-${idx}`, name: covName, incluye, hasIncluye: !!incluye, cells };
         });
+
+        // Primas por forma de pago: una fila por frecuencia que traiga alguna cotización.
+        const montoPf = (q, f) => Number(q.primasPorFrecuencia && q.primasPorFrecuencia[f]) || 0;
+        const filasFrecuencia = ['mensual', 'trimestral', 'semestral', 'anual']
+            .filter(f => quotes.some(q => montoPf(q, f) > 0))
+            .map(f => ({
+                key: `pf-${f}`,
+                name: `Prima ${f}`,
+                cells: quotes.map(q => ({
+                    key: `pf-${f}-${q.Id}`,
+                    text: montoPf(q, f) > 0 ? this.formatCurrency(montoPf(q, f)) : '—'
+                }))
+            }));
+
+        // Beneficios opcionales / sugeridos (no incluidos en la prima) + total con ellos.
+        const nombresOpc = [];
+        quotes.forEach(q => (q.beneficiosOpcionales || []).forEach(o => {
+            const nom = (o && o.nombre ? String(o.nombre) : '').trim();
+            if (nom && !nombresOpc.some(x => x.toLowerCase() === nom.toLowerCase())) { nombresOpc.push(nom); }
+        }));
+        const filasOpcionales = nombresOpc.map((nom, i) => ({
+            key: `opc-${i}`,
+            name: nom,
+            cells: quotes.map(q => {
+                const o = (q.beneficiosOpcionales || []).find(x => x && String(x.nombre || '').trim().toLowerCase() === nom.toLowerCase());
+                let text = '—';
+                if (o) {
+                    const partes = [];
+                    if (o.suma_asegurada) { partes.push(this.formatCurrencyOrText(o.suma_asegurada)); }
+                    if (Number(o.prima) > 0) { partes.push(`Prima ${this.formatCurrency(Number(o.prima))}`); }
+                    if (o.plazo) { partes.push(o.plazo); }
+                    text = partes.length ? partes.join(' · ') : 'Incluido';
+                }
+                return { key: `opc-${i}-${q.Id}`, text };
+            })
+        }));
+        if (filasOpcionales.length) {
+            filasOpcionales.push({
+                key: 'opc-total',
+                name: 'Total con beneficios opcionales',
+                cells: quotes.map(q => ({
+                    key: `opc-total-${q.Id}`,
+                    text: Number(q.primaConOpcionales) > 0 ? this.formatCurrency(Number(q.primaConOpcionales)) : '—'
+                }))
+            });
+        }
 
         // Cards de mejores opciones
         const bestPriceCov = covCount(bestPriceQuote);
@@ -1992,11 +2153,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             clienteName: this.opportunity.AccountName
                       || this.opportunity.clienteNombre || 'Cliente',
             opportunityName: this.opportunity.Name || 'Cotización',
+            // Vigencia solo cuando aplica: nunca en Vida (sus cotizaciones traen plazos, no vigencia)
+            // y solo si alguna cotización trae fecha real.
+            mostrarVigencia: !/vida/i.test(this.opportunity.Ramo__c || '')
+                && !quotes.some(q => /vida/i.test(q.ramo || ''))
+                && !!conFin,
             vigInicio: this.formatDate(iniVig),
             vigFin: this.formatDate(finVig),
             totalQuotes: quotes.length,
             columns,
             rows,
+            filasFrecuencia,
+            filasOpcionales,
+            hasOpcionales: filasOpcionales.length > 0,
+            opcionalesColspan: quotes.length + 1,
             cards,
             recomendacion,
             generatedAt: this.formatDate(today)
@@ -2017,7 +2187,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
         let h = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c2433;">';
         h += `<h2 style="font-size:18px;margin:0 0 4px;">Comparativo de Seguro de ${esc(d.ramoLabel)}</h2>`;
-        h += `<p style="font-size:11px;color:#667;margin:0 0 4px;">${esc(d.opportunityName)} &middot; ${esc(d.clienteName)} &middot; Vigencia ${esc(d.vigInicio)} – ${esc(d.vigFin)}</p>`;
+        h += `<p style="font-size:11px;color:#667;margin:0 0 4px;">${esc(d.opportunityName)} &middot; ${esc(d.clienteName)}${d.mostrarVigencia ? ` &middot; Vigencia ${esc(d.vigInicio)} – ${esc(d.vigFin)}` : ''}</p>`;
         h += `<p style="font-size:11px;color:#b85b00;margin:0 0 12px;">${d.totalQuotes} aseguradoras comparadas &middot; Cotizado por Avanza Seguro</p>`;
 
         h += '<table style="width:100%;border-collapse:collapse;">';
@@ -2035,9 +2205,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             h += '</td>';
         });
         h += '</tr>';
-        h += `<tr><th style="${th}">Vigencia (inicio – fin)</th>`;
-        d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${esc(c.vigenciaLabel)}</td>`; });
-        h += '</tr>';
+        (d.filasFrecuencia || []).forEach((fila) => {
+            h += `<tr><th style="${th}">${esc(fila.name)}</th>`;
+            fila.cells.forEach((cell) => { h += `<td style="${td}">${esc(cell.text)}</td>`; });
+            h += '</tr>';
+        });
+        if (d.mostrarVigencia) {
+            h += `<tr><th style="${th}">Vigencia (inicio – fin)</th>`;
+            d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${esc(c.vigenciaLabel)}</td>`; });
+            h += '</tr>';
+        }
         h += `<tr><th style="${th}">Coberturas incluidas</th>`;
         d.columns.forEach((c) => { h += `<td style="${c.hasBadge ? tdHl : td}">${c.coverageCount}</td>`; });
         h += '</tr>';
@@ -2051,6 +2228,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             h += '</tr>';
         });
+        if (d.hasOpcionales) {
+            h += `<tr><th colspan="${d.opcionalesColspan}" style="${th}">Opcionales (no incluidos en la prima)</th></tr>`;
+            d.filasOpcionales.forEach((fila) => {
+                h += `<tr><th style="${th}">${esc(fila.name)}</th>`;
+                fila.cells.forEach((cell) => { h += `<td style="${td}">${esc(cell.text)}</td>`; });
+                h += '</tr>';
+            });
+        }
         h += '</table>';
 
         h += '<h3 style="font-size:15px;margin:16px 0 6px;">Resumen y recomendación</h3>';
@@ -2744,7 +2929,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 clienteDireccion: quote.clienteDireccion || '',
                 formaPago: quote.formaPago || '',
                 vigencia: quote.vigencia || '',
-                moneda: quote.moneda || 'MXN'
+                vigenciaInicio: quote.vigenciaInicio || '',
+                moneda: quote.moneda || 'MXN',
+                // Primas por forma de pago y beneficios opcionales/sugeridos (para el comparativo).
+                primasPorFrecuencia: quote.primasPorFrecuencia || null,
+                beneficiosOpcionales: Array.isArray(quote.beneficiosOpcionales) ? quote.beneficiosOpcionales : [],
+                primaConOpcionales: quote.primaConOpcionales || null
             };
             const quoteWithKeys = this.procesarArraysParaKeys(quoteWithDefaults);
             const confidenceColor = this.getConfidenceColor(quoteWithKeys.extractionConfidence || 0);
@@ -3878,13 +4068,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             .map(c => (c.cobertura || c.nombre || '').trim())
             .filter(Boolean);
         // Detalle por concepto (suma/deducible) para mostrarlo en cada celda del comparativo.
-        const esAuto = q.isAutomovil || /auto/i.test(q.ramo || '');
+        const ramoCmp = this.ramoKeyDe([q]);
         const coverageDetalle = {};
         (q.tablaCompletaCoberturas || []).forEach(c => {
             const nombre = (c.cobertura || c.nombre || '').trim();
             if (!nombre) { return; }
-            const concepto = esAuto ? this.conceptoDe(nombre) : nombre;
-            const val = { suma: c.sumaAsegurada || c.suma || '', deducible: c.deducible || '' };
+            const concepto = this.conceptoDe(nombre, ramoCmp);
+            const val = {
+                suma: c.sumaAsegurada || c.suma || '', deducible: c.deducible || '',
+                prima: c.prima || null, plazo: c.plazo || ''
+            };
             coverageDetalle[concepto.toLowerCase()] = this.combinarValor(coverageDetalle[concepto.toLowerCase()], val);
         });
         return {
@@ -3899,6 +4092,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             expirationDateRaw: q.vigencia || this.sumarUnAnio(q.vigenciaInicio),
             expirationFormatted: this.formatDate(q.vigencia || this.sumarUnAnio(q.vigenciaInicio)),
             vigenciaInicioRaw: q.vigenciaInicio || null,
+            primasPorFrecuencia: q.primasPorFrecuencia || null,
+            beneficiosOpcionales: q.beneficiosOpcionales || [],
+            primaConOpcionales: q.primaConOpcionales || null,
             statusLabel: 'Vista previa',
             statusBadgeClass: 'quote-badge quote-badge-neutral',
             isSelected: !!q.esGanadora
