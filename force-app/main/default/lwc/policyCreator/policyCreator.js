@@ -760,12 +760,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         try {
             const r = await getRegistrosPoliza({ policyId: this.policyId });
             const reg = r || {};
+            // Se muestra el texto tal cual la póliza (ej. "5 %", "AMPARADA") cuando existe;
+            // si no, el monto numérico. "—" solo cuando no aplica.
             this.coberturas = (reg.coberturas || []).map((c) => ({
                 id: c.id,
                 nombre: c.nombre || '—',
-                suma: this.fmtCurrency(c.suma),
-                deducible: c.deducible != null ? this.fmtCurrency(c.deducible) : '—',
-                prima: this.fmtCurrency(c.prima)
+                suma: c.suma != null ? this.fmtCurrency(c.suma) : (c.sumaTexto || '—'),
+                deducible: c.deducibleTexto || (c.deducible != null ? this.fmtCurrency(c.deducible) : '—'),
+                prima: c.prima != null ? this.fmtCurrency(c.prima) : '—'
             }));
             this.participantes = (reg.participantes || []).map((p) => ({
                 id: p.id,

@@ -643,6 +643,9 @@ public with sharing class PolicyController {
 		@AuraEnabled public Decimal suma;
 		@AuraEnabled public Decimal deducible;
 		@AuraEnabled public Decimal prima;
+		// Texto tal cual aparece en la póliza (ej. "5 %", "AMPARADA", "50 UMAS").
+		@AuraEnabled public String sumaTexto;
+		@AuraEnabled public String deducibleTexto;
 	}
 	public class ParticipanteRow {
 		@AuraEnabled public Id id;
@@ -677,13 +680,15 @@ public with sharing class PolicyController {
 		if (policyId == null) { return out; }
 		try {
 			for (InsurancePolicyCoverage c : [
-				SELECT Id, CoverageName, LimitAmount, DeductibleAmount, PremiumAmount
+				SELECT Id, CoverageName, LimitAmount, DeductibleAmount, PremiumAmount, Description
 				FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
 				ORDER BY CoverageName
 			]) {
 				CoberturaRow r = new CoberturaRow();
 				r.id = c.Id; r.nombre = c.CoverageName;
 				r.suma = c.LimitAmount; r.deducible = c.DeductibleAmount; r.prima = c.PremiumAmount;
+				r.sumaTexto = valorDeDescripcion(c.Description, 'Suma asegurada');
+				r.deducibleTexto = valorDeDescripcion(c.Description, 'Deducible');
 				out.coberturas.add(r);
 			}
 			for (InsurancePolicyParticipant p : [
@@ -1081,15 +1086,25 @@ public with sharing class PolicyController {
 		upsert cp;
 	}
 
-	// Crea las coberturas de la póliza (InsurancePolicyCoverage) desde el arreglo del PDF,
-	// con su suma asegurada (LimitAmount) y el deducible (texto, en la descripción).
+	// Crea las coberturas de la póliza (InsurancePolicyCoverage) desde el arreglo del PDF, con su
+	// suma asegurada (LimitAmount), deducible (DeductibleAmount si es un monto) y prima (PremiumAmount).
+	// Los textos tal cual (ej. "5 %", "AMPARADA") se guardan en la descripción para mostrarlos.
+	// Si la cobertura ya existe, completa los datos que le falten (re-análisis del PDF).
 	private static Integer crearCoberturasDesdePdf(Id policyId, Map<String, Object> d) {
 		Object covsO = d.get('coberturas');
 		if (!(covsO instanceof List<Object>)) { return 0; }
 		Set<String> ya = new Set<String>();
+		Map<String, InsurancePolicyCoverage> existentes = new Map<String, InsurancePolicyCoverage>();
 		for (InsurancePolicyCoverage c : [
-			SELECT CoverageName FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
-		]) { if (String.isNotBlank(c.CoverageName)) { ya.add(c.CoverageName.toLowerCase()); } }
+			SELECT Id, CoverageName, LimitAmount, DeductibleAmount, PremiumAmount, Description
+			FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+		]) {
+			if (String.isNotBlank(c.CoverageName)) {
+				ya.add(c.CoverageName.toLowerCase());
+				existentes.put(c.CoverageName.toLowerCase(), c);
+			}
+		}
+		Map<Id, InsurancePolicyCoverage> porActualizar = new Map<Id, InsurancePolicyCoverage>();
 
 		InsurancePolicy pol = [SELECT Id, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
 		Id assetId = null;
@@ -1100,19 +1115,34 @@ public with sharing class PolicyController {
 			if (!(o instanceof Map<String, Object>)) { continue; }
 			Map<String, Object> m = (Map<String, Object>) o;
 			String nombre = strOf(m.get('nombre'));
-			if (String.isBlank(nombre) || ya.contains(nombre.toLowerCase())) { continue; }
+			if (String.isBlank(nombre)) { continue; }
 			// Descarta secciones/roles que no son coberturas (TITULAR, ASEGURADO, etc.).
 			if (esRolNoCobertura(nombre)) { continue; }
+			String sumaTxt = strOf(m.get('sumaAsegurada'));
+			String ded = strOf(m.get('deducible'));
+			Decimal suma = parseMonto(sumaTxt);
+			Decimal dedMonto = esMontoSimple(ded) ? parseMonto(ded) : null;
+			Decimal prima = parseMonto(strOf(m.get('prima')));
+			String descCob = descripcionCobertura(suma == null ? sumaTxt : null, ded);
+
+			InsurancePolicyCoverage ex = existentes.get(nombre.toLowerCase());
+			if (ex != null) {
+				Boolean cambio = false;
+				if (ex.LimitAmount == null && suma != null)         { ex.LimitAmount = suma; cambio = true; }
+				if (ex.DeductibleAmount == null && dedMonto != null) { ex.DeductibleAmount = dedMonto; cambio = true; }
+				if (ex.PremiumAmount == null && prima != null)       { ex.PremiumAmount = prima; cambio = true; }
+				if (String.isNotBlank(descCob) && ex.Description != descCob) { ex.Description = descCob; cambio = true; }
+				if (cambio) { porActualizar.put(ex.Id, ex); }
+				continue;
+			}
+			if (ya.contains(nombre.toLowerCase())) { continue; }
 			InsurancePolicyCoverage c = new InsurancePolicyCoverage();
 			c.InsurancePolicyId = policyId;
 			c.CoverageName = nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
-			Decimal suma = parseMonto(strOf(m.get('sumaAsegurada')));
-			if (suma != null) { c.LimitAmount = suma; }
-			String ded = strOf(m.get('deducible'));
-			if (String.isNotBlank(ded)) {
-				// El deducible viene como texto ("$119,519  5 %"); se guarda en la descripción.
-				c.Description = ('Deducible: ' + ded).left(255);
-			}
+			if (suma != null)     { c.LimitAmount = suma; }
+			if (dedMonto != null) { c.DeductibleAmount = dedMonto; }
+			if (prima != null)    { c.PremiumAmount = prima; }
+			if (String.isNotBlank(descCob)) { c.Description = descCob; }
 			if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
 			if (assetId != null)       { c.InsurancePolicyAssetId = assetId; }
 			if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
@@ -1120,7 +1150,39 @@ public with sharing class PolicyController {
 			nuevas.add(c);
 		}
 		if (!nuevas.isEmpty()) { insert nuevas; }
+		if (!porActualizar.isEmpty()) { update porActualizar.values(); }
 		return nuevas.size();
+	}
+
+	// Descripción de la cobertura con los valores en texto tal cual la póliza:
+	// "Suma asegurada: AMPARADA | Deducible: 5 %".
+	private static String descripcionCobertura(String sumaTxt, String dedTxt) {
+		List<String> partes = new List<String>();
+		if (String.isNotBlank(sumaTxt)) { partes.add('Suma asegurada: ' + sumaTxt); }
+		if (String.isNotBlank(dedTxt))  { partes.add('Deducible: ' + dedTxt); }
+		return partes.isEmpty() ? null : String.join(partes, ' | ').left(255);
+	}
+
+	// Lee un valor ("Deducible", "Suma asegurada") de la descripción de la cobertura.
+	@TestVisible
+	private static String valorDeDescripcion(String descripcion, String etiqueta) {
+		if (String.isBlank(descripcion)) { return null; }
+		for (String parte : descripcion.split('\\|')) {
+			String p = parte.trim();
+			if (p.startsWithIgnoreCase(etiqueta + ':')) {
+				String v = p.substring(etiqueta.length() + 1).trim();
+				return String.isBlank(v) ? null : v;
+			}
+		}
+		return null;
+	}
+
+	// True si el deducible es solo un monto (ej. "$5,000"); false si trae % u otras unidades.
+	@TestVisible
+	private static Boolean esMontoSimple(String v) {
+		if (String.isBlank(v)) { return false; }
+		String sinMonto = v.replaceAll('[0-9$.,\\s]', '').replaceAll('(?i)mxn|pesos|m\\.n\\.?', '');
+		return String.isBlank(sinMonto) && parseMonto(v) != null;
 	}
 
 	// True si el texto es una sección/rol de la póliza y NO una cobertura real.

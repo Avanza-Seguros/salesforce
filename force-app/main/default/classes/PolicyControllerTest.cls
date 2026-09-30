@@ -288,4 +288,17 @@ private class PolicyControllerTest {
         } catch (Exception e) { /* pasos individuales pueden requerir campos extra en el org */ }
         Test.stopTest();
     }
+
+    @isTest
+    static void testTextosDeCobertura() {
+        String descCob = 'Suma asegurada: AMPARADA | Deducible: 5 %';
+        System.assertEquals('AMPARADA', PolicyController.valorDeDescripcion(descCob, 'Suma asegurada'));
+        System.assertEquals('5 %', PolicyController.valorDeDescripcion(descCob, 'Deducible'));
+        System.assertEquals('$119,519  5 %', PolicyController.valorDeDescripcion('Deducible: $119,519  5 %', 'Deducible'));
+        System.assertEquals(null, PolicyController.valorDeDescripcion(null, 'Deducible'));
+        System.assertEquals(true, PolicyController.esMontoSimple('$5,000.00'));
+        System.assertEquals(false, PolicyController.esMontoSimple('5 %'));
+        System.assertEquals(false, PolicyController.esMontoSimple('50 UMAS'));
+        System.assertEquals(false, PolicyController.esMontoSimple(''));
+    }
 }
