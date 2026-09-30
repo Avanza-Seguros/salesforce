@@ -430,20 +430,3 @@
   font-size: 0.78rem;
   color: #4a6580;
 }
-
-/* Matriz del comparativo (tabla con formato fijo): conserva sus separaciones blancas y su
-   relleno; las reglas genéricas de arriba son para el HTML libre que genera la IA. */
-.comparativo-ia__host table.cmp-matriz {
-  border-collapse: separate !important;
-  border-spacing: 2px !important;
-  border: none !important;
-  border-radius: 0;
-  box-shadow: none;
-  margin: 0 !important;
-}
-.comparativo-ia__host table.cmp-matriz td {
-  padding: 6px 8px !important;
-  border: none !important;
-}
-.comparativo-ia__host table.cmp-matriz tbody tr:nth-child(even) td,
-.comparativo-ia__host table.cmp-matriz tbody tr:hover td { background: inherit; }

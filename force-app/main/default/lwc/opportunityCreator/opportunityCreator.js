@@ -172,24 +172,6 @@ const CONCEPTOS_RC = [
     { concepto: 'Límite por Evento',                  patrones: ['por evento', 'por ocurrencia', 'limite unico', 'suma asegurada', 'limite maximo'] }
 ];
 
-// Orden en que se PRESENTAN los conceptos en el comparativo (el orden de los catálogos de arriba
-// es para reconocerlos: los específicos van primero). Lo que no esté aquí va al final.
-const ORDEN_VISTA = {
-    auto: ['Daños Materiales', 'Cristales', 'Robo Total', 'Robo Parcial', 'Responsabilidad Civil',
-        'RC Complementaria / en Exceso', 'RC Familiar', 'RC en el Extranjero (USA/Canadá)', 'Gastos Médicos Ocupantes',
-        'Muerte / Accidentes del Conductor', 'Asistencia Jurídica / Legal', 'Asistencia Vial / en Viajes',
-        'Asistencia Médica', 'Asistencia Funeraria', 'Auto Sustituto / Transporte', 'Llantas y Rines',
-        'Exención / Devolución de Deducible', 'Equipo Especial / Adaptaciones'],
-    vida: ['Cobertura Básica / Fallecimiento', 'Muerte Accidental', 'Pérdidas Orgánicas', 'Invalidez Total y Permanente',
-        'Exención de Pago de Primas', 'Enfermedades Graves', 'Gastos Funerarios', 'Supervivencia / Ahorro'],
-    gmm: ['Suma Asegurada', 'Deducible', 'Coaseguro', 'Hospitalización y Honorarios', 'Maternidad / Parto',
-        'Emergencia / Cobertura en el Extranjero', 'Cero Deducible por Accidente', 'Enfermedades Graves',
-        'Padecimientos Preexistentes', 'Dental', 'Visión', 'Muerte Accidental / Funerarios', 'Asistencias'],
-    danos: ['Incendio / Edificio', 'Contenidos', 'Terremoto / Erupción Volcánica', 'Fenómenos Hidrometeorológicos',
-        'Robo', 'Responsabilidad Civil', 'Cristales', 'Equipo Electrónico', 'Rotura de Maquinaria',
-        'Pérdidas Consecuenciales', 'Remoción de Escombros', 'Dinero y Valores', 'Asistencias']
-};
-
 // Catálogo de conceptos por ramo. Un ramo sin catálogo conserva el nombre tal cual.
 const CONCEPTOS_POR_RAMO = {
     auto: CONCEPTOS_AUTO,
@@ -2193,120 +2175,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     // Arma el HTML COMPLETO del comparativo (precios + matriz de coberturas + resumen),
     // igual a lo que se ve en pantalla, con estilos en línea seguros para el motor de PDF.
-    // Color de marca de cada aseguradora para el encabezado del comparativo.
-    colorAseguradora(nombre) {
-        const n = this.normalizarTexto(nombre);
-        const colores = [
-            ['hdi', '#00843D'], ['qualitas', '#6A1B9A'], ['chubb', '#000000'], ['gnp', '#F28C00'],
-            ['grupo nacional provincial', '#F28C00'], ['mapfre', '#D81E05'], ['afirme', '#3A8F3E'],
-            ['sura', '#0033A0'], ['axa', '#00008F'], ['zurich', '#2167AE'], ['banorte', '#EB0029'],
-            ['monterrey', '#0055A5'], ['nyl', '#0055A5'], ['metlife', '#0090DA'], ['allianz', '#003781'],
-            ['ana', '#E30613'], ['inbursa', '#004B8D'], ['atlas', '#003B71'], ['bupa', '#0079C8'],
-            ['primero', '#E4002B'], ['potosi', '#00529B'], ['general de seguros', '#1F4E9A']
-        ];
-        const hit = colores.find(([k]) => new RegExp(`\\b${k}\\b`).test(n));
-        return hit ? hit[1] : '#1C2433';
-    }
-
-    // Comparativo con formato fijo (tipo matriz): una columna por aseguradora con sub-columnas
-    // (Suma asegurada / Deducible, o Prima / Plazo según lo que traigan las coberturas), filas
-    // por CONCEPTO del ramo y, al final, las primas anual / semestral / trimestral / mensual.
-    // Solo estilos en línea: se ve igual en pantalla, en el PDF y al reabrir la oportunidad.
-    construirTablaComparativa(quotes) {
-        const qs = (quotes || []).filter(q => q && q.totalAmount > 0);
-        if (qs.length < 2) { return ''; }
-        const esc = (v) => String(v == null ? '' : v)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const ramo = this.ramoKeyDe(qs);
-        const vista = ORDEN_VISTA[ramo || ''] || (CONCEPTOS_POR_RAMO[ramo || ''] || []).map(x => x.concepto);
-        const orden = (c) => {
-            const i = vista.indexOf(c);
-            return i < 0 ? 999 : i;
-        };
-
-        // Conceptos: unión de todas las cotizaciones, en el orden de presentación del ramo.
-        const conceptos = [];
-        qs.forEach(q => (q.coverageNames || []).forEach(nom => {
-            const c = this.conceptoDe(nom, ramo);
-            if (!conceptos.some(x => x.toLowerCase() === c.toLowerCase())) { conceptos.push(c); }
-        }));
-        conceptos.sort((a, b) => orden(a) - orden(b));
-
-        // Sub-columnas dinámicas: solo las que traiga alguna cobertura.
-        const dets = qs.flatMap(q => Object.values(q.coverageDetalle || {}));
-        const subcols = [{ key: 'suma', label: 'Suma asegurada' }];
-        if (dets.some(d => d && d.deducible)) { subcols.push({ key: 'deducible', label: 'Deducible' }); }
-        if (dets.some(d => d && Number(d.prima) > 0)) { subcols.push({ key: 'prima', label: 'Prima' }); }
-        if (dets.some(d => d && d.plazo)) { subcols.push({ key: 'plazo', label: 'Plazo' }); }
-        const span = subcols.length;
-
-        // Estilos COMPACTOS: tipografía, alineación y espaciado se declaran una sola vez en la
-        // tabla y cada celda solo lleva su color. El HTML se guarda en Descripcion__c (máx.
-        // 32,768 caracteres): repetir todos los estilos en cada celda lo excedía.
-        const lbl = 'background:#1E5BB8;color:#FFF;font-weight:bold';
-        const lblPrima = 'background:#4FC3F7;color:#FFF;font-weight:bold';
-        const cel = 'background:#EDEDED';
-        const sub = 'background:#6B6B6B;color:#FFF;font-size:10px';
-        // Ancho de la columna de cobertura: fijo y suficiente para los nombres de concepto.
-        const anchoLbl = 18;
-        const anchoSub = ((100 - anchoLbl) / (qs.length * span)).toFixed(1);
-
-        let h = '<table class="cmp-matriz" cellpadding="6" cellspacing="2" style="width:100%;table-layout:fixed;'
-            + 'border-collapse:separate;border-spacing:2px;font-family:Arial,sans-serif;font-size:11px;'
-            + 'color:#333;text-align:center;">';
-        h += `<colgroup><col width="${anchoLbl}%">`;
-        qs.forEach(() => subcols.forEach(() => { h += `<col width="${anchoSub}%">`; }));
-        h += '</colgroup>';
-        // Encabezado: aseguradoras
-        h += '<tr><td></td>';
-        qs.forEach(q => {
-            h += `<td colspan="${span}" style="border-bottom:3px solid #D0D0D0">`
-                + `<b style="font-size:15px;color:${this.colorAseguradora(q.companiaLabel)}">${esc(q.companiaLabel)}</b>`
-                + (q.planLabel ? `<br><span style="font-size:10px;color:#667085">${esc(q.planLabel)}</span>` : '')
-                + '</td>';
-        });
-        h += '</tr>';
-        // Sub-encabezado
-        h += `<tr><td style="${lbl};font-size:16px">Cobertura</td>`;
-        qs.forEach(() => subcols.forEach(sc => { h += `<td style="${sub}">${sc.label}</td>`; }));
-        h += '</tr>';
-        // Filas por concepto
-        conceptos.forEach(c => {
-            const k = c.toLowerCase();
-            h += `<tr><td style="${lbl}">${esc(c)}</td>`;
-            qs.forEach(q => {
-                const tiene = (q.coverageNames || []).some(n => this.conceptoDe(n, ramo).toLowerCase() === k);
-                const d = (q.coverageDetalle || {})[k] || {};
-                subcols.forEach(s => {
-                    let v = '';
-                    if (s.key === 'suma') { v = d.suma ? this.formatCurrencyOrText(d.suma) : (tiene ? 'Amparada' : ''); }
-                    if (s.key === 'deducible') { v = d.deducible || ''; }
-                    if (s.key === 'prima') { v = Number(d.prima) > 0 ? this.formatCurrency(Number(d.prima)) : ''; }
-                    if (s.key === 'plazo') { v = d.plazo || ''; }
-                    h += `<td style="${cel}">${v ? esc(v) : ''}</td>`;
-                });
-            });
-            h += '</tr>';
-        });
-        // Primas por forma de pago
-        const primas = [
-            ['Prima anual', q => Number(q.primasPorFrecuencia && q.primasPorFrecuencia.anual) || q.totalAmount],
-            ['Prima semestral', q => Number(q.primasPorFrecuencia && q.primasPorFrecuencia.semestral) || 0],
-            ['Prima trimestral', q => Number(q.primasPorFrecuencia && q.primasPorFrecuencia.trimestral) || 0],
-            ['Prima mensual', q => Number(q.primasPorFrecuencia && q.primasPorFrecuencia.mensual) || 0]
-        ];
-        primas.forEach(([etiqueta, fn]) => {
-            h += `<tr><td style="${lblPrima}">${etiqueta}</td>`;
-            qs.forEach(q => {
-                const v = fn(q);
-                h += `<td colspan="${span}" style="${cel};font-weight:bold">${v > 0 ? esc(this.formatCurrency(v)) : ''}</td>`;
-            });
-            h += '</tr>';
-        });
-        h += '</table>';
-        return h;
-    }
-
     buildComparativoHtmlCompleto() {
         const d = this.comparativoData;
         if (!d || !d.hasData) { return ''; }
@@ -3934,11 +3802,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Primero mostramos el formulario (comportamiento de siempre). El comparativo
         // de la IA es opcional y NO debe afectar este flujo.
         this.viewMode = VIEW_MODES.CREATE;
-        // El comparativo se arma con formato fijo desde los datos extraídos (misma tabla en
-        // pantalla, en el PDF y al reabrir). Si no se puede armar, se usa el HTML de la IA.
-        const tabla = this.construirTablaComparativa(
-            (this.uploadedQuotes || []).map((q, i) => this.mapPdfQuoteToComparativa(q, i)));
-        this.comparativoHtml = tabla || this.repararAcentos(d.comparativoHtml || '');
+        this.comparativoHtml = this.repararAcentos(d.comparativoHtml || '');
         this._comparativoDirty = true;
 
         // Aplica el DETALLE del ramo (Vida, GMM, Daños, Viajes, RC) desde el comparador.
@@ -4223,7 +4087,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return {
             Id: q.id || ('pq' + i),
             companiaLabel: q.compania || '—',
-            planLabel: q.plan && q.plan !== 'No especificado' ? q.plan : '',
             totalAmount: total,
             totalFormatted: this.formatCurrency(total),
             coverageCount: covs.length,
