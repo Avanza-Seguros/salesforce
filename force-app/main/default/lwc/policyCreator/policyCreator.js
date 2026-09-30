@@ -435,6 +435,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 this.showToast('Aviso', 'La IA respondió en un formato no válido. Intenta de nuevo.', 'warning');
                 return;
             }
+            // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
+            this.completarCoberturasDesdeTexto(datos, texto);
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
             this.fillForm(datos);
@@ -507,12 +509,80 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             for (let p = 1; p <= pdf.numPages; p++) {
                 const page = await pdf.getPage(p);
                 const content = await page.getTextContent();
-                text += content.items.map((it) => it.str).join(' ') + '\n';
+                text += this.textoPorRenglones(content.items) + '\n';
             }
             return text.trim();
         } catch (e) {
             return '';
         }
+    }
+
+    // Arma el texto de la página respetando los renglones: agrupa los fragmentos por su
+    // posición vertical y los ordena de izquierda a derecha. Antes todo se unía en una sola
+    // línea y la IA no sabía a qué cobertura pertenecía cada suma, deducible o prima.
+    textoPorRenglones(items) {
+        const tolerancia = 3;
+        const filas = [];
+        (items || []).forEach((it) => {
+            if (!it || typeof it.str !== 'string' || !it.str.trim() || !it.transform) { return; }
+            const x = it.transform[4];
+            const y = it.transform[5];
+            let fila = filas.find((f) => Math.abs(f.y - y) <= tolerancia);
+            if (!fila) {
+                fila = { y, partes: [] };
+                filas.push(fila);
+            }
+            fila.partes.push({ x, s: it.str.trim() });
+        });
+        filas.sort((a, b) => b.y - a.y);
+        return filas
+            .map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim())
+            .join('\n');
+    }
+
+    // Texto en minúsculas y sin acentos para ubicar el renglón de cada cobertura.
+    normCobertura(v) {
+        return (v || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9%$., ]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // Completa suma asegurada (límite), deducible y prima de cada cobertura leyendo su renglón
+    // en el texto del PDF. Solo llena lo que la IA dejó vacío. Funciona sin importar el orden de
+    // las columnas: el primer monto es el límite y el último (con centavos) la prima.
+    completarCoberturasDesdeTexto(datos, texto) {
+        if (!datos || !Array.isArray(datos.coberturas) || !texto) { return datos; }
+        const lineas = texto.split('\n').map((l) => this.normCobertura(l));
+        const MONTO = '\\$\\s?\\d[\\d,]*(?:\\.\\d+)?(?:\\s?(?:usd|mxn|dlls?))?';
+        const TEXTO_SUMA = /\b(amparad[ao]|valor comercial|valor convenido|valor factura|incluid[ao])\b/;
+        const PCT = /\d+(?:\.\d+)?\s?%/;
+        const vacio = (v) => v === null || v === undefined || v === '';
+        const aNumero = (s) => {
+            const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
+            return isNaN(n) ? null : n;
+        };
+        datos.coberturas.forEach((c) => {
+            const nombre = this.normCobertura(c && c.nombre);
+            if (!nombre || nombre.length < 4) { return; }
+            const linea = lineas.find((l) => l.includes(nombre));
+            if (!linea) { return; }
+            const resto = linea.replace(nombre, ' ');
+            const montos = resto.match(new RegExp(MONTO, 'gi')) || [];
+            const mTexto = resto.match(TEXTO_SUMA);
+            let suma = mTexto ? mTexto[0] : null;
+            let prima = null;
+            if (montos.length >= 2) {
+                suma = suma || montos[0];
+                prima = montos[montos.length - 1];
+            } else if (montos.length === 1) {
+                // Un solo monto: con centavos es la prima ("$450.00"); sin centavos, el límite.
+                if (suma || /\.\d{2}/.test(montos[0])) { prima = montos[0]; } else { suma = montos[0]; }
+            }
+            if (prima && vacio(c.prima)) { c.prima = aNumero(prima); }
+            if (suma && vacio(c.sumaAsegurada)) { c.sumaAsegurada = suma.toUpperCase().replace(/\s+/g, ' ').trim(); }
+            const mDed = resto.replace(new RegExp(MONTO, 'gi'), ' ').match(PCT);
+            if (mDed && vacio(c.deducible)) { c.deducible = mDed[0].replace(/\s?%/, ' %'); }
+        });
+        return datos;
     }
 
     // Prellena los campos del formulario con el JSON devuelto por la IA.
