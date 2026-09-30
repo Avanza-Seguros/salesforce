@@ -2934,7 +2934,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // Primas por forma de pago y beneficios opcionales/sugeridos (para el comparativo).
                 primasPorFrecuencia: quote.primasPorFrecuencia || null,
                 beneficiosOpcionales: Array.isArray(quote.beneficiosOpcionales) ? quote.beneficiosOpcionales : [],
-                primaConOpcionales: quote.primaConOpcionales || null
+                primaConOpcionales: quote.primaConOpcionales || null,
+                // Producto y aseguradora encontrados en el catálogo por plan + aseguradora (Apex).
+                productId: quote.productId || null,
+                productoNombre: quote.productoNombre || '',
+                aseguradoraId: quote.aseguradoraId || null
             };
             const quoteWithKeys = this.procesarArraysParaKeys(quoteWithDefaults);
             const confidenceColor = this.getConfidenceColor(quoteWithKeys.extractionConfidence || 0);

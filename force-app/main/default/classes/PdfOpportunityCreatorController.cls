@@ -948,7 +948,17 @@ public with sharing class PdfOpportunityCreatorController {
 			? (List<Object>) comparison.get('aseguradoras')
 			: new List<Object>();
 
-		String ramoForm = mapRamoToFormValue(stringOf(comparison.get('ramo')));
+		String ramoIa = mapRamoToFormValue(stringOf(comparison.get('ramo')));
+		String ramoForm = ramoIa;
+
+		// Validación contra el catálogo: se busca el PRODUCTO de cada cotización por su plan y
+		// su aseguradora. Si se encuentra, el ramo del producto (Family) manda sobre el que
+		// dedujo la IA (p. ej. "IMAGINA SER 65" → Vida, aunque el PDF mencione gmm@...).
+		Map<Integer, Product2> productoPorIndice = new Map<Integer, Product2>();
+		Map<Integer, Id> asegPorIndice = new Map<Integer, Id>();
+		String ramoCatalogo = ramoPorCatalogo(aseguradorasRaw, productoPorIndice, asegPorIndice);
+		Boolean ramoCorregido = String.isNotBlank(ramoCatalogo) && ramoCatalogo != ramoIa;
+		if (String.isNotBlank(ramoCatalogo)) { ramoForm = ramoCatalogo; }
 
 		// Datos comunes (mismos para todas): se devuelven UNA sola vez, aparte.
 		Map<String, Object> detalle = buildDetalle(comparison);
@@ -960,7 +970,8 @@ public with sharing class PdfOpportunityCreatorController {
 		List<Map<String, Object>> quotes = new List<Map<String, Object>>();
 		Set<String> vistas = new Set<String>();
 		Boolean huboDuplicadas = false;
-		for (Object a : aseguradorasRaw) {
+		for (Integer idx = 0; idx < aseguradorasRaw.size(); idx++) {
+			Object a = aseguradorasRaw[idx];
 			if (!(a instanceof Map<String, Object>)) {
 				continue;
 			}
@@ -970,7 +981,15 @@ public with sharing class PdfOpportunityCreatorController {
 				continue;
 			}
 			vistas.add(llave);
-			quotes.add(mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm));
+			Map<String, Object> fq = mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm);
+			// Producto y aseguradora encontrados en el catálogo: se precargan en la cotización.
+			Product2 prod = productoPorIndice.get(idx);
+			if (prod != null) {
+				fq.put('productId', prod.Id);
+				fq.put('productoNombre', prod.Name);
+			}
+			if (asegPorIndice.get(idx) != null) { fq.put('aseguradoraId', asegPorIndice.get(idx)); }
+			quotes.add(fq);
 		}
 
 		// --- Aseguradora ganadora (de la recomendación de la IA) ---
@@ -1007,7 +1026,9 @@ public with sharing class PdfOpportunityCreatorController {
 		// devuelve vacío y el LWC arma el comparativo con los datos limpios, agrupando las
 		// coberturas por concepto según el ramo (un solo catálogo de conceptos, en el LWC).
 		String htmlIa = stringOf(comparison.get('comparativo_html'));
-		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas) ? htmlIa : '';
+		// Si el catálogo corrigió el ramo, el HTML de la IA está armado con el ramo equivocado
+		// (ej. filas de Deducible/Coaseguro de GMM en una póliza de Vida): también se rehace.
+		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas && !ramoCorregido) ? htmlIa : '';
 
 		return new Map<String, Object>{
 			'ramo' => ramoForm,
@@ -1019,6 +1040,9 @@ public with sharing class PdfOpportunityCreatorController {
 			'recomendacion' => comparison.get('recomendacion'),
 			'glosario' => comparison.get('glosario'),
 			'fuente' => lastUsedMock ? 'mock' : 'einstein',
+			// De dónde salió el ramo: 'catalogo' (producto encontrado por plan + aseguradora) o 'ia'.
+			'ramoDetectadoPor' => String.isNotBlank(ramoCatalogo) ? 'catalogo' : 'ia',
+			'ramoIa' => ramoIa,
 			'aviso' => stringOf(comparison.get('aviso')),
 			'comparativo_html' => htmlComparativo
 		};
@@ -1620,6 +1644,87 @@ public with sharing class PdfOpportunityCreatorController {
 			}
 		}
 		if (!links.isEmpty()) { Database.insert(links, false); }
+	}
+
+	/**
+	 * @description: Deduce el ramo con el catálogo de Productos: por cada cotización busca el
+	 * producto de su aseguradora cuyo nombre coincide con el plan. El ramo es la familia
+	 * (Family) con más coincidencias. Devuelve vacío si ninguna cotización tiene producto.
+	 * @param aseguradorasRaw: cotizaciones tal como las devolvió la IA (nombre + plan).
+	 * @param productoPorIndice: salida, producto encontrado por índice de cotización.
+	 * @param asegPorIndice: salida, Id de Aseguradora__c por índice de cotización.
+	 * @return ramo en el formato del formulario (ej. 'Vida', 'GMM') o '' si no se encontró.
+	 */
+	@TestVisible
+	private static String ramoPorCatalogo(List<Object> aseguradorasRaw, Map<Integer, Product2> productoPorIndice,
+			Map<Integer, Id> asegPorIndice) {
+		if (aseguradorasRaw == null || aseguradorasRaw.isEmpty()) { return ''; }
+		Set<String> nombres = new Set<String>();
+		for (Object a : aseguradorasRaw) {
+			if (a instanceof Map<String, Object>) {
+				String n = stringOf(((Map<String, Object>) a).get('nombre'));
+				if (String.isNotBlank(n)) { nombres.add(n); }
+			}
+		}
+		Map<String, Id> asegByName = resolveAseguradoraByName(nombres);
+		Map<Id, List<Product2>> productosPorAseg = new Map<Id, List<Product2>>();
+		Set<Id> asegIds = new Set<Id>(asegByName.values());
+		if (!asegIds.isEmpty()) {
+			for (Product2 p : [
+				SELECT Id, Name, Family, Aseguradora__c FROM Product2
+				WHERE IsActive = true AND Aseguradora__c IN :asegIds LIMIT 5000
+			]) {
+				if (!productosPorAseg.containsKey(p.Aseguradora__c)) { productosPorAseg.put(p.Aseguradora__c, new List<Product2>()); }
+				productosPorAseg.get(p.Aseguradora__c).add(p);
+			}
+		}
+		Map<String, Integer> votos = new Map<String, Integer>();
+		for (Integer i = 0; i < aseguradorasRaw.size(); i++) {
+			if (!(aseguradorasRaw[i] instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) aseguradorasRaw[i];
+			Id asegId = asegByName.get(stringOf(m.get('nombre')));
+			if (asegId == null) { continue; }
+			asegPorIndice.put(i, asegId);
+			Product2 p = mejorProductoPorPlan(stringOf(m.get('plan')), productosPorAseg.get(asegId));
+			if (p == null || String.isBlank(p.Family)) { continue; }
+			productoPorIndice.put(i, p);
+			String ramo = mapRamoToFormValue(p.Family);
+			votos.put(ramo, (votos.containsKey(ramo) ? votos.get(ramo) : 0) + 1);
+		}
+		String mejor = '';
+		Integer max = 0;
+		for (String r : votos.keySet()) {
+			if (votos.get(r) > max) { max = votos.get(r); mejor = r; }
+		}
+		return mejor;
+	}
+
+	// Producto cuyo nombre coincide con el plan: TODAS las palabras del producto (sin ®,
+	// números ni conectores) deben aparecer en el plan; gana el que tiene más palabras.
+	// Ej.: plan "IMAGINA SER 65 PAGOS LIMITADOS 15" → "Imagina Ser Pagos Limitados®".
+	@TestVisible
+	private static Product2 mejorProductoPorPlan(String plan, List<Product2> productos) {
+		if (String.isBlank(plan) || productos == null || productos.isEmpty()) { return null; }
+		Set<String> planToks = tokensProducto(plan);
+		if (planToks.isEmpty()) { return null; }
+		Product2 mejor = null;
+		Integer mejorScore = 0;
+		for (Product2 p : productos) {
+			Set<String> pt = tokensProducto(p.Name);
+			if (pt.isEmpty() || !planToks.containsAll(pt)) { continue; }
+			if (pt.size() > mejorScore) { mejorScore = pt.size(); mejor = p; }
+		}
+		return mejor;
+	}
+
+	private static Set<String> tokensProducto(String s) {
+		Set<String> stop = new Set<String>{ 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'para', 'en', 'plan' };
+		Set<String> out = new Set<String>();
+		for (String t : fold(s).replaceAll('[^a-z0-9 ]', ' ').split(' ')) {
+			if (String.isBlank(t) || t.isNumeric() || t.length() < 2 || stop.contains(t)) { continue; }
+			out.add(t);
+		}
+		return out;
 	}
 
 	/**

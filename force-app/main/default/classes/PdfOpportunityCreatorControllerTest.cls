@@ -267,4 +267,28 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertNotEquals(PdfOpportunityCreatorController.llaveCotizacion(a),
             PdfOpportunityCreatorController.llaveCotizacion(c), 'Planes distintos no son duplicados');
     }
+
+    @isTest
+    static void testMejorProductoPorPlan() {
+        List<Product2> catalogo = new List<Product2>{
+            new Product2(Name = 'Imagina Ser®', Family = 'Vida'),
+            new Product2(Name = 'Imagina Ser Pagos Limitados®', Family = 'Vida'),
+            new Product2(Name = 'Alfa Medical®', Family = 'GMM')
+        };
+        Product2 p1 = PdfOpportunityCreatorController.mejorProductoPorPlan('IMAGINA SER 65 PAGOS LIMITADOS 15', catalogo);
+        System.assertEquals('Imagina Ser Pagos Limitados®', p1.Name, 'Gana el producto con más palabras coincidentes');
+        Product2 p2 = PdfOpportunityCreatorController.mejorProductoPorPlan('IMAGINA SER 60', catalogo);
+        System.assertEquals('Imagina Ser®', p2.Name);
+        System.assertEquals(null, PdfOpportunityCreatorController.mejorProductoPorPlan('MedicaLife Familiar', catalogo),
+            'Sin coincidencia no debe devolver producto');
+    }
+
+    @isTest
+    static void testRamoPorCatalogoSinDatos() {
+        Map<Integer, Product2> prods = new Map<Integer, Product2>();
+        Map<Integer, Id> asegs = new Map<Integer, Id>();
+        List<Object> raw = new List<Object>{ new Map<String, Object>{ 'nombre' => 'Aseguradora Inexistente XYZ', 'plan' => 'Plan X' } };
+        System.assertEquals('', PdfOpportunityCreatorController.ramoPorCatalogo(raw, prods, asegs),
+            'Sin aseguradora/producto en el catálogo se conserva el ramo de la IA');
+    }
 }
