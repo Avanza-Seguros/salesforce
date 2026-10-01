@@ -140,10 +140,18 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
     }
     return this.rawQuotes.map((q, i) => {
       const title = (q.aseguradora && q.aseguradora.trim()) || q.name || `Cotización ${i + 1}`;
-      const rows = [
-        { key: "p", label: "Prima anual", value: formatCurrency(q.primaAnual) },
+      // Coberturas incluidas (casillas de la cotización).
+      const incluidas = [
+        q.cristales ? "Cristales" : null,
+        q.asistenciaVial ? "Asistencia vial" : null,
+        q.defensaJuridica ? "Defensa jurídica" : null,
+        q.rcExtranjero ? "RC en el extranjero" : null
+      ].filter(Boolean);
+      const tipoValor = q.tipoValor && q.tipoValor !== "a confirmar" ? q.tipoValor : "";
+      const todas = [
+        { key: "p", label: "Prima anual", value: formatCurrency(q.primaAnual), siempre: true },
         { key: "s", label: "Suma asegurada", value: formatCurrency(q.sumaAsegurada) },
-        { key: "tv", label: "Tipo de valor", value: q.tipoValor || "—", isBadge: true },
+        { key: "tv", label: "Tipo de valor", value: tipoValor || "—", isBadge: !!tipoValor },
         {
           key: "dd",
           label: "Deducible Daños",
@@ -153,8 +161,14 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
           key: "dr",
           label: "Deducible Robo",
           value: formatDeducible(q.deducibleRoboPct, q.deducibleRoboMxn)
-        }
+        },
+        { key: "rc", label: "Responsabilidad civil", value: formatCurrency(q.responsabilidadCivil) },
+        { key: "gm", label: "Gastos médicos", value: formatCurrency(q.gastosMedicos) },
+        { key: "vc", label: "Muerte del conductor", value: formatCurrency(q.vidaConductor) },
+        { key: "inc", label: "Incluye", value: incluidas.length ? incluidas.join(", ") : "—" }
       ];
+      // Solo se muestran los datos que trae la cotización (la prima siempre).
+      const rows = todas.filter((r) => r.siempre || (r.value && r.value !== "—"));
       return {
         key: q.id || "qt" + i,
         id: q.id,
@@ -632,7 +646,8 @@ function formatDeducible(pct, mxn) {
   if (!hasPct && !hasMxn) {
     return "—";
   }
-  const pctStr = hasPct ? `${Number(pct)}%` : "—";
-  const mxnStr = hasMxn ? formatCurrency(mxn) : "—";
-  return `${pctStr} — ${mxnStr}`;
+  // Solo lo que exista: "5%", "$5,000" o "5% · $5,000".
+  return [hasPct ? `${Number(pct)}%` : null, hasMxn ? formatCurrency(mxn) : null]
+    .filter(Boolean)
+    .join(" · ");
 }

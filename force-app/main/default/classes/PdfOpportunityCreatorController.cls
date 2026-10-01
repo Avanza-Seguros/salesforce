@@ -1508,6 +1508,10 @@ public with sharing class PdfOpportunityCreatorController {
 			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
+			// Resumen de coberturas del PDF en los campos de la Quote (suma, tipo de valor,
+			// deducibles, RC, gastos médicos…) que muestran las "Cotizaciones comparadas".
+			try { aplicarResumenCoberturas(q, m.get('coberturas'), stringOf(m.get('notas'))); }
+			catch (Exception e) { System.debug('COT-RESUMEN::: ' + e.getMessage()); }
 			q.put(QF_RAMO, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo);
 			// Fecha de cotización (RatingDate): la capturada o, por defecto, hoy.
 			Date fCot = parseDate(stringOf(m.get('fechaCotizacion')));
@@ -1729,6 +1733,92 @@ public with sharing class PdfOpportunityCreatorController {
 			out.add(t);
 		}
 		return out;
+	}
+
+	
+	/**
+	 *  * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena los campos de resumen de la Quote a partir de las coberturas del PDF:
+	 * suma asegurada y tipo de valor (de Daños Materiales o, en otros ramos, la primera suma),
+	 * deducibles de Daños y Robo (en % o en monto), RC, Gastos Médicos, Vida del conductor y
+	 * las casillas de Cristales, Asistencia Vial, Defensa Jurídica y RC en el Extranjero.
+	 * @param q: Quote que se está construyendo (aún sin insertar).
+	 * @param coberturasObj: lista de coberturas { nombre, sumaAsegurada, deducible, prima }.
+	 * @param notas: notas de la IA para la cotización.
+	 */
+	@TestVisible
+	private static void aplicarResumenCoberturas(Quote q, Object coberturasObj, String notas) {
+		if (String.isNotBlank(notas)) { q.put('Notas_IA__c', notas); }
+		if (!(coberturasObj instanceof List<Object>)) { return; }
+		Decimal primeraSuma = null;
+		for (Object o : (List<Object>) coberturasObj) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> c = (Map<String, Object>) o;
+			String n = fold(stringOf(c.get('nombre')));
+			String sumaTxt = stringOf(c.get('sumaAsegurada'));
+			String ded = stringOf(c.get('deducible'));
+			Decimal suma = montoDe(sumaTxt);
+			if (String.isBlank(n)) { continue; }
+			if (primeraSuma == null && suma != null) { primeraSuma = suma; }
+
+			if (n.contains('danos materiales') || n.contains('perdida total') || n.contains('perdida parcial')) {
+				if (q.get('SumaAsegurada__c') == null && suma != null) { q.put('SumaAsegurada__c', suma); }
+				if (q.get('TipoValor__c') == null) { String tv = tipoValorDe(sumaTxt); if (tv != null) { q.put('TipoValor__c', tv); } }
+				ponerDeducible(q, ded, 'DeducibleDanos_Pct__c', 'DeducibleDanos_Mxn__c');
+			} else if (n.contains('robo total') || (n.contains('robo') && !n.contains('parcial'))) {
+				if (q.get('SumaAsegurada__c') == null && suma != null) { q.put('SumaAsegurada__c', suma); }
+				if (q.get('TipoValor__c') == null) { String tv = tipoValorDe(sumaTxt); if (tv != null) { q.put('TipoValor__c', tv); } }
+				ponerDeducible(q, ded, 'DeducibleRobo_Pct__c', 'DeducibleRobo_Mxn__c');
+			} else if (n.contains('cristal')) {
+				q.put('Cristales__c', true);
+			} else if (n.contains('usa') || n.contains('canada') || n.contains('extranjero')) {
+				q.put('RCExtranjero__c', true);
+			} else if (n.contains('conductor')) {
+				if (suma != null) { q.put('VidaConductor__c', suma); }
+			} else if (n.contains('gastos medicos')) {
+				if (suma != null && q.get('GastosMedicos__c') == null) { q.put('GastosMedicos__c', suma); }
+			} else if (n.contains('juridic') || n.contains('legal')) {
+				q.put('DefensaJuridica__c', true);
+			} else if (n.contains('vial') || n.contains('asistencia en viaje') || n.contains('grua')) {
+				q.put('AsistenciaVial__c', true);
+			} else if ((n.contains('responsabilidad civil') || n.startsWith('rc'))
+					&& !n.contains('exceso') && !n.contains('familiar') && !n.contains('complementaria')) {
+				Decimal actual = (Decimal) q.get('ResponsabilidadCivil__c');
+				if (suma != null && (actual == null || suma > actual)) { q.put('ResponsabilidadCivil__c', suma); }
+			}
+		}
+		// Otros ramos (Vida, GMM, Daños…): la suma asegurada principal es la primera con monto.
+		if (q.get('SumaAsegurada__c') == null && primeraSuma != null) { q.put('SumaAsegurada__c', primeraSuma); }
+	}
+
+	// Monto de un texto ("$575,928", "3000000"). Null si es texto ("AMPARADA") o un porcentaje.
+	private static Decimal montoDe(String s) {
+		if (String.isBlank(s) || s.contains('%')) { return null; }
+		String limpio = s.replaceAll('[^0-9.]', '');
+		if (String.isBlank(limpio)) { return null; }
+		try { return Decimal.valueOf(limpio); } catch (Exception e) { return null; }
+	}
+
+	// Tipo de valor del vehículo según el texto de la suma (picklist TipoValor__c).
+	private static String tipoValorDe(String sumaTxt) {
+		String t = fold(sumaTxt);
+		if (t.contains('comercial')) { return t.contains('10') ? 'comercial+10' : 'comercial'; }
+		if (t.contains('convenido')) { return 'convenido'; }
+		if (t.contains('factura') || t.contains('actual')) { return 'actual'; }
+		return null;
+	}
+
+	// Deducible en % ("5 %", "10%") o en monto ("$5,000"), en el campo que corresponda.
+	private static void ponerDeducible(Quote q, String ded, String campoPct, String campoMxn) {
+		if (String.isBlank(ded)) { return; }
+		Matcher mp = Pattern.compile('(\\d+(?:\\.\\d+)?)\\s*%').matcher(ded);
+		if (mp.find()) {
+			if (q.get(campoPct) == null) { q.put(campoPct, Decimal.valueOf(mp.group(1))); }
+			return;
+		}
+		Decimal monto = montoDe(ded);
+		if (monto != null && q.get(campoMxn) == null) { q.put(campoMxn, monto); }
 	}
 
 	/**

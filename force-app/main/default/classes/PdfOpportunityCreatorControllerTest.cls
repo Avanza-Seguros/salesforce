@@ -284,6 +284,29 @@ private class PdfOpportunityCreatorControllerTest {
     }
 
     @isTest
+    static void testAplicarResumenCoberturas() {
+        Quote q = new Quote(Name = 'Afirme');
+        List<Object> covs = (List<Object>) JSON.deserializeUntyped('['
+            + '{"nombre":"DAÑOS MATERIALES PERDIDA TOTAL","sumaAsegurada":"VALOR COMERCIAL","deducible":"5 %"},'
+            + '{"nombre":"ROBO TOTAL","sumaAsegurada":"VALOR COMERCIAL","deducible":"10 %"},'
+            + '{"nombre":"CRISTALES","sumaAsegurada":"AMPARADA","deducible":"20 %"},'
+            + '{"nombre":"RESPONSABILIDAD CIVIL DAÑOS A TERCEROS","sumaAsegurada":"$3,000,000","deducible":""},'
+            + '{"nombre":"RC EN USA Y CANADA","sumaAsegurada":"AMPARADA","deducible":""},'
+            + '{"nombre":"GASTOS MÉDICOS OCUPANTES","sumaAsegurada":"500000","deducible":""},'
+            + '{"nombre":"ASISTENCIA JURÍDICA","sumaAsegurada":"AMPARADA","deducible":""}]');
+        PdfOpportunityCreatorController.aplicarResumenCoberturas(q, covs, 'Notas de prueba');
+        System.assertEquals('comercial', q.get('TipoValor__c'));
+        System.assertEquals(5, ((Decimal) q.get('DeducibleDanos_Pct__c')).intValue());
+        System.assertEquals(10, ((Decimal) q.get('DeducibleRobo_Pct__c')).intValue());
+        System.assertEquals(3000000, ((Decimal) q.get('ResponsabilidadCivil__c')).intValue());
+        System.assertEquals(500000, ((Decimal) q.get('GastosMedicos__c')).intValue());
+        System.assertEquals(true, q.get('Cristales__c'));
+        System.assertEquals(true, q.get('RCExtranjero__c'));
+        System.assertEquals(true, q.get('DefensaJuridica__c'));
+        System.assertEquals('Notas de prueba', q.get('Notas_IA__c'));
+    }
+
+    @isTest
     static void testRamoPorCatalogoSinDatos() {
         Map<Integer, Product2> prods = new Map<Integer, Product2>();
         Map<Integer, Id> asegs = new Map<Integer, Id>();

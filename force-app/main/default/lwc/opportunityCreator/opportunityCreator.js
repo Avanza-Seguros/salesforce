@@ -404,7 +404,17 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         this.isSaving = true; this.isLoading = true;
         try {
+            // Coberturas y notas del PDF de cada cotización: con ellas Apex llena la suma
+            // asegurada, el tipo de valor, los deducibles, RC, gastos médicos, etc. de la Quote.
+            const origenPorId = new Map((this.uploadedQuotes || []).map(u => [u.id, u]));
             const payload = seleccionadas.map(q => ({
+                coberturas: ((origenPorId.get(q.id) || {}).tablaCompletaCoberturas || []).map(c => ({
+                    nombre: c.cobertura || c.nombre || '',
+                    sumaAsegurada: c.sumaAsegurada || c.suma || '',
+                    deducible: c.deducible || '',
+                    prima: c.prima || null
+                })),
+                notas: (origenPorId.get(q.id) || {}).notas || q.notas || '',
                 id: q.id, compania: q.compania, ramo: q.ramo, plan: q.plan,
                 primaTotal: q.primaTotal, vigencia: q.vigencia,
                 vigenciaInicio: q.vigenciaInicio,
@@ -2938,6 +2948,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // Producto y aseguradora encontrados en el catálogo por plan + aseguradora (Apex).
                 productId: quote.productId || null,
                 productoNombre: quote.productoNombre || '',
+                notas: quote.notas || '',
                 aseguradoraId: quote.aseguradoraId || null
             };
             const quoteWithKeys = this.procesarArraysParaKeys(quoteWithDefaults);
