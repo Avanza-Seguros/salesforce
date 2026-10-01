@@ -1858,40 +1858,77 @@ public with sharing class PdfOpportunityCreatorController {
 		Map<String, Id> result = new Map<String, Id>();
 		if (nombres == null || nombres.isEmpty()) { return result; }
 
-		// Palabras a ignorar al comparar (genéricas).
-		Set<String> stop = new Set<String>{'seguros','seguro','mexico','de','del','la','el','nyl','sa','cv','consultores'};
-		// Alias de nombres cortos del PDF hacia la marca real en el org.
+		// Alias de nombres cortos del PDF hacia la marca real en el org (valen menos que una
+		// coincidencia directa, para que "Insignia Life" gane sobre "Latino" si existen ambas).
 		Map<String,String> alias = new Map<String,String>{ 'bupa'=>'chubb', 'insignia'=>'latino', 'continental'=>'gmx' };
 
-		List<Aseguradora__c> all = [SELECT Id, Name FROM Aseguradora__c];
+		List<Aseguradora__c> all = [SELECT Id, Name FROM Aseguradora__c ORDER BY Name];
 		List<Set<String>> tokensList = new List<Set<String>>();
-		List<Id> idList = new List<Id>();
-		for (Aseguradora__c a : all) {
-			Set<String> toks = new Set<String>();
-			for (String t : fold(a.Name).split(' ')) {
-				if (String.isNotBlank(t) && !stop.contains(t)) { toks.add(t); }
-			}
-			tokensList.add(toks); idList.add(a.Id);
-		}
+		for (Aseguradora__c a : all) { tokensList.add(llavesAseguradora(a.Name)); }
 
 		for (String req : nombres) {
-			Set<String> reqToks = new Set<String>();
-			for (String t : fold(req).split(' ')) {
-				if (String.isNotBlank(t) && !stop.contains(t)) { reqToks.add(t); }
-			}
-			// aplicar alias (bupa->chubb, insignia->latino, continental->gmx)
-			Set<String> aliased = new Set<String>(reqToks);
-			for (String t : reqToks) { if (alias.containsKey(t)) { aliased.add(alias.get(t)); } }
+			Set<String> reqToks = llavesAseguradora(req);
+			if (reqToks.isEmpty()) { continue; }
+			String compacto = fold(req).replaceAll('[^a-z0-9]', '');
 
-			Id best = null; Integer bestScore = 0;
-			for (Integer i = 0; i < tokensList.size(); i++) {
-				Integer score = 0;
-				for (String t : aliased) { if (tokensList[i].contains(t)) { score++; } }
-				if (score > bestScore) { bestScore = score; best = idList[i]; }
+			Id best = null; Decimal bestScore = 0;
+			for (Integer i = 0; i < all.size(); i++) {
+				Set<String> cand = tokensList[i];
+				if (cand.isEmpty()) { continue; }
+				Decimal score = 0;
+				// Mismo nombre (sin espacios ni signos): coincidencia segura.
+				if (fold(all[i].Name).replaceAll('[^a-z0-9]', '') == compacto) { score += 100; }
+				for (String t : reqToks) {
+					if (cand.contains(t)) { score += 1; }
+					else if (alias.containsKey(t) && cand.contains(alias.get(t))) { score += 0.5; }
+				}
+				if (score == 0) { continue; }
+				// Desempate: la que tenga menos palabras sin coincidir.
+				score += score / (cand.size() + 10);
+				if (score > bestScore) { bestScore = score; best = all[i].Id; }
 			}
 			if (best != null) { result.put(req, best); }
 		}
 		return result;
+	}
+
+	// Palabras genéricas que no distinguen a una aseguradora.
+	private static final Set<String> STOP_ASEGURADORA = new Set<String>{
+		'seguros', 'seguro', 'mexico', 'de', 'del', 'la', 'el', 'y', 'sa', 'cv', 'sab', 'consultores',
+		'compania', 'company', 'insurance', 'grupo', 'life', 'vida', 'new', 'york'
+	};
+
+	// Llaves para comparar aseguradoras: palabras distintivas más las SIGLAS de cada tramo de
+	// palabras ("Seguros Monterrey New York Life" → monterrey, nyl, smnyl…). Una palabra que ya es
+	// sigla (NYL) aporta todas sus letras ("Seguros Monterrey NYL" → smnyl), de modo que "SMNYL",
+	// "Seguros Monterrey NYL" y el nombre completo coincidan entre sí.
+	@TestVisible
+	private static Set<String> llavesAseguradora(String nombre) {
+		Set<String> out = new Set<String>();
+		if (String.isBlank(nombre)) { return out; }
+		List<String> palabras = new List<String>();
+		List<String> aportes = new List<String>();
+		for (String original : nombre.replaceAll('[^\\p{L}0-9 ]', ' ').normalizeSpace().split(' ')) {
+			String t = fold(original).replaceAll('[^a-z0-9]', '');
+			if (String.isBlank(t)) { continue; }
+			palabras.add(t);
+			Boolean esSigla = original.length() >= 2 && original.length() <= 5 && original.isAllUpperCase();
+			aportes.add(esSigla ? t : t.left(1));
+		}
+		for (String t : palabras) {
+			if (!STOP_ASEGURADORA.contains(t) && t.length() > 1) { out.add(t); }
+		}
+		for (Integer i = 0; i < palabras.size(); i++) {
+			String siglas = palabras[i].left(1);
+			String extendidas = aportes[i];
+			for (Integer j = i + 1; j < palabras.size() && j < i + 6; j++) {
+				siglas += palabras[j].left(1);
+				extendidas += aportes[j];
+				if (siglas.length() >= 3) { out.add(siglas); }
+				if (extendidas.length() >= 3) { out.add(extendidas); }
+			}
+		}
+		return out;
 	}
 
 	/**

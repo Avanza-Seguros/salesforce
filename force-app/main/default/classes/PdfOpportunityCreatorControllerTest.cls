@@ -242,6 +242,23 @@ private class PdfOpportunityCreatorControllerTest {
     }
 
     @isTest
+    static void testResolveAseguradoraPorSiglas() {
+        Set<String> llaves = PdfOpportunityCreatorController.llavesAseguradora('Seguros Monterrey New York Life');
+        System.assert(llaves.contains('monterrey') && llaves.contains('nyl') && llaves.contains('smnyl'), String.valueOf(llaves));
+        System.assert(!llaves.contains('life'), '"Life" es genérica');
+
+        Aseguradora__c insignia = new Aseguradora__c(Name = 'Insignia Life');
+        Aseguradora__c smnyl = new Aseguradora__c(Name = 'Seguros Monterrey NYL');
+        Aseguradora__c siglas = new Aseguradora__c(Name = 'SMNYL Siglas');
+        try { insert new List<Aseguradora__c>{ insignia, smnyl, siglas }; }
+        catch (Exception e) { return; } // validaciones propias del org
+        Map<String, Id> r = PdfOpportunityCreatorController.resolveAseguradoraByName(
+            new Set<String>{ 'Seguros Monterrey New York Life', 'Insignia Life' });
+        System.assertEquals(smnyl.Id, r.get('Seguros Monterrey New York Life'), 'No debe elegir Insignia Life por la palabra "Life"');
+        System.assertEquals(insignia.Id, r.get('Insignia Life'));
+    }
+
+    @isTest
     static void testLlaveCotizacionDetectaDuplicadas() {
         // Mismo archivo de origen = misma cotización, aunque la IA cambie el plan.
         Map<String, Object> a = new Map<String, Object>{
