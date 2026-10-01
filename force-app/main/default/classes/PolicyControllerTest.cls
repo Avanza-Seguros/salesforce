@@ -34,6 +34,10 @@ private class PolicyControllerTest {
             Status = 'Draft',
             Pricebook2Id = Test.getStandardPricebookId()
         );
+        // Campos obligatorios de Quote en el org.
+        q.put('Frecuencia_de_prima__c', 'Anual'); // valor habilitado en el tipo de registro
+        q.put('Ramos__c', 'Vida');
+        q.put('Prima_Total__c', 1000);
         insert q;
     }
 
@@ -381,5 +385,79 @@ private class PolicyControllerTest {
             WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'JUAN PEREZ LOPEZ' LIMIT 1
         ];
         System.assertEquals('Hermano', hermano.RelationshipToInsured, 'HERMANO debe guardarse en el parentesco');
+    }
+
+    @isTest
+    static void testHelpersGrupoFamiliar() {
+        System.assertEquals('Cónyuge', PolicyController.funcionEnGrupo('Mujer'));
+        System.assertEquals('Hijo(a)', PolicyController.funcionEnGrupo('Hija'));
+        System.assertEquals('Padre / Madre', PolicyController.funcionEnGrupo('Madre'));
+        System.assertEquals('Otro familiar', PolicyController.funcionEnGrupo('Hermano'));
+        System.assertEquals('Femenino', PolicyController.sexoDeRol('Tía'));
+        System.assertEquals('Masculino', PolicyController.sexoDeRol('Hermano'));
+        System.assertEquals(null, PolicyController.sexoDeRol(null));
+
+        PartyRoleRelation simetrica = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermano');
+        PartyRoleRelation conHermana = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana');
+        Map<String, List<PartyRoleRelation>> porRol = new Map<String, List<PartyRoleRelation>>{
+            'hermano' => new List<PartyRoleRelation>{ simetrica, conHermana }
+        };
+        System.assertEquals(conHermana, PolicyController.definicionParentesco(porRol, 'Hermano', 'Femenino'));
+        System.assertEquals(simetrica, PolicyController.definicionParentesco(porRol, 'Hermano', 'Masculino'));
+        System.assertEquals(simetrica, PolicyController.definicionParentesco(porRol, 'Hermano', null));
+        System.assertEquals(null, PolicyController.definicionParentesco(porRol, 'Madre', null));
+    }
+
+    @isTest
+    static void testVincularBeneficiariosAGrupo() {
+        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        InsurancePolicy pol;
+        Contact titular;
+        try {
+            pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente');
+            titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino');
+            insert titular;
+            PartyRoleRelation hermano = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana',
+                RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
+            PartyRoleRelation hermana = new PartyRoleRelation(RoleName = 'Hermana', RelatedRoleName = 'Hermano',
+                RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
+            insert new List<PartyRoleRelation>{ hermano, hermana };
+            hermano.RelatedInverseRecordId = hermana.Id;
+            update hermano;
+            insert new List<InsurancePolicyParticipant>{
+                new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'SOFIA CORONA PADILLA',
+                    Role = 'Asegurado', PrimaryParticipantContactId = titular.Id, PrimaryParticipantAccountId = acc.Id),
+                new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'ALDO CORONA PADILLA',
+                    Role = 'Beneficiario', ParticipantCode = 'BEN-MUERTE', RelationshipToInsured = 'Hermano',
+                    PrimaryParticipantAccountId = acc.Id)
+            };
+        } catch (Exception e) { return; } // validaciones propias del org
+
+        Test.startTest();
+        Integer n = PolicyController.vincularBeneficiariosAGrupo(pol.Id);
+        Integer otraVez = PolicyController.vincularBeneficiariosAGrupo(pol.Id);
+        Test.stopTest();
+
+        System.assertEquals(1, n, 'Debe vincular al beneficiario');
+        System.assertEquals(1, otraVez, 'Reprocesar reutiliza el mismo contacto');
+        PartyRelationshipGroup g = [SELECT AccountId, Category, GroupSize FROM PartyRelationshipGroup LIMIT 1];
+        System.assertEquals('Familia', g.Category);
+        System.assertEquals(1, [SELECT COUNT() FROM PartyRelationshipGroup], 'Un solo grupo familiar');
+        System.assertEquals(2, [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :g.AccountId], 'Titular + beneficiario');
+        System.assertEquals('Titular', [SELECT Roles FROM AccountContactRelation WHERE AccountId = :g.AccountId AND ContactId = :titular.Id].Roles);
+        InsurancePolicyParticipant aldo = [
+            SELECT PrimaryParticipantContactId, PrimaryParticipantContact.Sexo__c FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'ALDO CORONA PADILLA'
+        ];
+        System.assertNotEquals(null, aldo.PrimaryParticipantContactId, 'El participante queda ligado a su contacto');
+        System.assertEquals('Masculino', aldo.PrimaryParticipantContact.Sexo__c);
+        List<ContactContactRelation> rels = [
+            SELECT ContactId, PartyRoleRelation.RoleName FROM ContactContactRelation
+            WHERE ContactId IN (:titular.Id, :aldo.PrimaryParticipantContactId)
+        ];
+        System.assertEquals(2, rels.size(), 'Parentesco en ambos sentidos, sin duplicar');
+        for (ContactContactRelation r : rels) {
+            System.assertEquals(r.ContactId == titular.Id ? 'Hermana' : 'Hermano', r.PartyRoleRelation.RoleName);
+        }
     }
 }

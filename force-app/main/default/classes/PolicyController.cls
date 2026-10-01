@@ -821,6 +821,11 @@ public with sharing class PolicyController {
 		try { resumen.put('beneficiarios', crearBeneficiariosDesdePdf(policyId, accountId, d)); }
 		catch (Exception e) { resumen.put('beneficiariosError', msgLimpio(e)); }
 
+		// 3c) Grupo familiar del titular: agrega a los beneficiarios como miembros y crea las
+		//     relaciones de parentesco entre contactos (ambos sentidos).
+		try { resumen.put('grupo', vincularBeneficiariosAGrupo(policyId)); }
+		catch (Exception e) { resumen.put('grupoError', msgLimpio(e)); }
+
 		// 4) Coberturas: primero desde el PDF (suma/deducible). Si el PDF no trae coberturas
 		//    reales (p.ej. Vida, donde solo aparecen secciones como "TITULAR"), se usan las
 		//    coberturas del CATÁLOGO del producto.
@@ -1013,6 +1018,290 @@ public with sharing class PolicyController {
 		else if (p.contains('nieto')) { c.addAll(new List<String>{ 'Nieto', 'Grandson', 'Grandchild' }); }
 		c.addAll(new List<String>{ 'Otro', 'Other', 'Ninguno', 'None' });
 		return c;
+	}
+
+	// ============================================================
+	// GRUPO FAMILIAR (afiliación a grupos): a partir de los participantes de la póliza.
+	//  - Grupo = cuenta de negocio "Familia <titular>" + PartyRelationshipGroup (Familia).
+	//    Se reutiliza el grupo familiar al que ya pertenezca el titular.
+	//  - Miembros = relación contacto-cuenta con su función (Titular, Cónyuge, Hijo(a)…).
+	//    Cada beneficiario se crea como contacto del grupo (o se reutiliza por nombre) y se liga
+	//    a su participante de la póliza.
+	//  - Parentesco = ContactContactRelation en ambos sentidos con las funciones recíprocas
+	//    (Aldo "Hermano" ↔ Sofía "Hermana"); el género del titular sale de Contact.Sexo__c.
+	// Idempotente: no repite miembros ni relaciones. Devuelve los beneficiarios vinculados.
+	// ============================================================
+	@AuraEnabled
+	public static Integer vincularBeneficiariosAGrupo(Id policyId) {
+		if (policyId == null) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, NameInsuredId, NameInsured.IsPersonAccount, NameInsured.PersonContactId
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		List<InsurancePolicyParticipant> parts = [
+			SELECT Id, ParticipantName, Role, RelationshipToInsured, ParticipantCode, PrimaryParticipantContactId
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		];
+
+		// Titular: el participante asegurado con contacto; si no, la persona de la cuenta asegurada.
+		Id titularId = null;
+		String titularNombre = null;
+		for (InsurancePolicyParticipant p : parts) {
+			if (p.PrimaryParticipantContactId != null && String.isNotBlank(p.Role) && p.Role.contains('Asegurado')) {
+				titularId = p.PrimaryParticipantContactId; titularNombre = p.ParticipantName; break;
+			}
+		}
+		if (titularId == null && pol.NameInsured != null && pol.NameInsured.IsPersonAccount) {
+			titularId = pol.NameInsured.PersonContactId;
+		}
+		if (titularId == null) { return 0; }
+		Contact titular = [SELECT Id, Name, Sexo__c FROM Contact WHERE Id = :titularId LIMIT 1];
+		String claveTitular = normKey(titular.Name).normalizeSpace();
+		String claveTitularPart = normKey(titularNombre == null ? '' : titularNombre).normalizeSpace();
+
+		// Beneficiarios distintos del titular (un mismo nombre puede tener varios beneficios).
+		Map<String, List<InsurancePolicyParticipant>> bens = new Map<String, List<InsurancePolicyParticipant>>();
+		for (InsurancePolicyParticipant p : parts) {
+			if (String.isBlank(p.ParticipantCode) || !p.ParticipantCode.startsWith('BEN')) { continue; }
+			String k = normKey(p.ParticipantName == null ? '' : p.ParticipantName).normalizeSpace();
+			if (String.isBlank(k) || k == claveTitular || k == claveTitularPart || p.PrimaryParticipantContactId == titularId) { continue; }
+			if (!bens.containsKey(k)) { bens.put(k, new List<InsurancePolicyParticipant>()); }
+			bens.get(k).add(p);
+		}
+		if (bens.isEmpty()) { return 0; }
+
+		PartyRelationshipGroup grupo = grupoFamiliar(titular);
+
+		// Miembros actuales del grupo (por contacto y por nombre).
+		Map<Id, AccountContactRelation> acrPorContacto = new Map<Id, AccountContactRelation>();
+		Map<String, Id> contactoPorNombre = new Map<String, Id>();
+		for (AccountContactRelation a : [
+			SELECT Id, ContactId, Contact.Name, Roles FROM AccountContactRelation WHERE AccountId = :grupo.AccountId
+		]) {
+			acrPorContacto.put(a.ContactId, a);
+			contactoPorNombre.put(normKey(a.Contact.Name).normalizeSpace(), a.ContactId);
+		}
+
+		// El titular es miembro con función Titular.
+		if (!acrPorContacto.containsKey(titular.Id)) {
+			AccountContactRelation a = new AccountContactRelation(AccountId = grupo.AccountId, ContactId = titular.Id,
+				Roles = 'Titular', IsActive = true);
+			insert a;
+			acrPorContacto.put(titular.Id, a);
+		}
+
+		// Contactos de los beneficiarios: el ya ligado al participante, uno del grupo con el mismo
+		// nombre o uno nuevo bajo la cuenta del grupo.
+		Map<String, Id> contactoDe = new Map<String, Id>();
+		Map<String, Contact> nuevos = new Map<String, Contact>();
+		for (String k : bens.keySet()) {
+			Id cid = null;
+			for (InsurancePolicyParticipant p : bens.get(k)) { if (p.PrimaryParticipantContactId != null) { cid = p.PrimaryParticipantContactId; } }
+			if (cid == null) { cid = contactoPorNombre.get(k); }
+			if (cid != null) { contactoDe.put(k, cid); continue; }
+			Contact c = contactoDesdeNombre(bens.get(k)[0].ParticipantName, grupo.AccountId);
+			String sexo = sexoDeRol(bens.get(k)[0].RelationshipToInsured);
+			if (sexo != null) { c.Sexo__c = sexo; }
+			nuevos.put(k, c);
+		}
+		if (!nuevos.isEmpty()) {
+			insert nuevos.values();
+			for (String k : nuevos.keySet()) { contactoDe.put(k, nuevos.get(k).Id); }
+		}
+
+		// Membresía con su función en el grupo (la relación directa se crea con el contacto).
+		Map<Id, AccountContactRelation> acrs = new Map<Id, AccountContactRelation>();
+		for (AccountContactRelation a : [
+			SELECT Id, ContactId, Roles FROM AccountContactRelation
+			WHERE AccountId = :grupo.AccountId AND ContactId IN :contactoDe.values()
+		]) { acrs.put(a.ContactId, a); }
+		List<AccountContactRelation> acrNuevas = new List<AccountContactRelation>();
+		List<AccountContactRelation> acrCambios = new List<AccountContactRelation>();
+		Boolean extendida = false;
+		for (String k : contactoDe.keySet()) {
+			String parentesco = bens.get(k)[0].RelationshipToInsured;
+			String funcion = funcionEnGrupo(parentesco);
+			if (funcion == 'Otro familiar') { extendida = true; }
+			AccountContactRelation a = acrs.get(contactoDe.get(k));
+			if (a == null) {
+				acrNuevas.add(new AccountContactRelation(AccountId = grupo.AccountId, ContactId = contactoDe.get(k),
+					Roles = funcion, IsActive = true));
+			} else if (String.isBlank(a.Roles)) {
+				a.Roles = funcion;
+				acrCambios.add(a);
+			}
+		}
+		if (!acrNuevas.isEmpty()) { insert acrNuevas; }
+		if (!acrCambios.isEmpty()) { update acrCambios; }
+
+		// Participantes de la póliza ligados a su contacto.
+		List<InsurancePolicyParticipant> partCambios = new List<InsurancePolicyParticipant>();
+		for (String k : contactoDe.keySet()) {
+			for (InsurancePolicyParticipant p : bens.get(k)) {
+				if (p.PrimaryParticipantContactId == null) {
+					p.PrimaryParticipantContactId = contactoDe.get(k);
+					partCambios.add(p);
+				}
+			}
+		}
+		if (!partCambios.isEmpty()) { update partCambios; }
+
+		// Relaciones de parentesco titular ↔ beneficiario.
+		crearParentescos(titular, contactoDe, bens);
+
+		// Tamaño y subtipo del grupo.
+		grupo.GroupSize = [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :grupo.AccountId AND IsActive = true];
+		if (extendida && grupo.Subtype == 'Núcleo familiar') { grupo.Subtype = 'Familia extendida'; }
+		update grupo;
+		return contactoDe.size();
+	}
+
+	// Grupo familiar del titular: el que ya tenga (por su membresía) o uno nuevo.
+	private static PartyRelationshipGroup grupoFamiliar(Contact titular) {
+		Set<Id> cuentas = new Set<Id>();
+		for (AccountContactRelation a : [SELECT AccountId FROM AccountContactRelation WHERE ContactId = :titular.Id]) {
+			cuentas.add(a.AccountId);
+		}
+		for (PartyRelationshipGroup g : [
+			SELECT Id, AccountId, Subtype, GroupSize FROM PartyRelationshipGroup
+			WHERE AccountId IN :cuentas AND Category = 'Familia' ORDER BY CreatedDate LIMIT 1
+		]) { return g; }
+
+		String nombre = ('Familia ' + titular.Name.normalizeSpace()).left(80);
+		Account cuenta = new Account(Name = nombre);
+		Schema.RecordTypeInfo rt = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
+		if (rt != null) { cuenta.RecordTypeId = rt.getRecordTypeId(); }
+		insert cuenta;
+		PartyRelationshipGroup g = new PartyRelationshipGroup(Name = nombre, AccountId = cuenta.Id,
+			Type = 'Household', Category = 'Familia', Subtype = 'Núcleo familiar', Status = 'Active', StartDate = Date.today());
+		insert g;
+		return g;
+	}
+
+	// Contacto nuevo con el nombre impreso: los dos últimos tokens son los apellidos.
+	private static Contact contactoDesdeNombre(String nombre, Id accountId) {
+		Contact c = new Contact(AccountId = accountId);
+		List<String> t = nombre.normalizeSpace().split(' ');
+		if (t.size() >= 3) {
+			c.LastName = (t[t.size() - 2] + ' ' + t[t.size() - 1]).left(80);
+			List<String> fn = new List<String>();
+			for (Integer i = 0; i < t.size() - 2; i++) { fn.add(t[i]); }
+			c.FirstName = String.join(fn, ' ').left(40);
+		} else if (t.size() == 2) {
+			c.FirstName = t[0].left(40); c.LastName = t[1].left(80);
+		} else {
+			c.LastName = nombre.normalizeSpace().left(80);
+		}
+		return c;
+	}
+
+	// Función del miembro en el grupo según su parentesco con el titular.
+	@TestVisible
+	private static String funcionEnGrupo(String parentesco) {
+		String p = normKey(parentesco == null ? '' : parentesco).normalizeSpace();
+		if (p == 'marido' || p == 'mujer' || p.contains('conyug') || p.contains('espos')) { return 'Cónyuge'; }
+		if (p == 'hijo' || p == 'hija') { return 'Hijo(a)'; }
+		if (p == 'padre' || p == 'madre') { return 'Padre / Madre'; }
+		return 'Otro familiar';
+	}
+
+	private static final Set<String> ROLES_FEMENINOS = new Set<String>{
+		'hermana', 'hija', 'madre', 'mujer', 'abuela', 'nieta', 'tia', 'sobrina', 'suegra', 'nuera',
+		'cunada', 'prima', 'esposa', 'media hermana', 'hermanastra', 'hijastra', 'madrastra', 'ex mujer'
+	};
+
+	// Sexo que implica el parentesco impreso (Hermano → Masculino, Madre → Femenino).
+	@TestVisible
+	private static String sexoDeRol(String rol) {
+		if (String.isBlank(rol)) { return null; }
+		String r = normKey(rol).normalizeSpace();
+		if (r.contains('comun')) { return null; }
+		return ROLES_FEMENINOS.contains(r) ? 'Femenino' : 'Masculino';
+	}
+
+	// Crea las ContactContactRelation titular ↔ beneficiario con la definición recíproca cuyo
+	// rol del beneficiario coincide con su parentesco y cuyo rol del titular coincide con su sexo.
+	private static void crearParentescos(Contact titular, Map<String, Id> contactoDe,
+			Map<String, List<InsurancePolicyParticipant>> bens) {
+		Map<String, List<PartyRoleRelation>> porRol = new Map<String, List<PartyRoleRelation>>();
+		for (PartyRoleRelation r : [
+			SELECT Id, RoleName, RelatedRoleName, RelatedInverseRecordId FROM PartyRoleRelation
+			WHERE RelationshipObjectName = 'Contact_Contact_Relationship'
+		]) {
+			String k = normKey(r.RoleName).normalizeSpace();
+			if (!porRol.containsKey(k)) { porRol.put(k, new List<PartyRoleRelation>()); }
+			porRol.get(k).add(r);
+		}
+		Map<String, ContactContactRelation> existentes = new Map<String, ContactContactRelation>();
+		for (ContactContactRelation c : [
+			SELECT Id, ContactId, RelatedContactId, PartyRoleRelationId FROM ContactContactRelation
+			WHERE ContactId = :titular.Id OR RelatedContactId = :titular.Id
+		]) {
+			existentes.put(c.ContactId + '|' + c.RelatedContactId, c);
+		}
+
+		List<ContactContactRelation> directas = new List<ContactContactRelation>();
+		List<ContactContactRelation> inversas = new List<ContactContactRelation>();
+		List<ContactContactRelation> corregidas = new List<ContactContactRelation>();
+		for (String k : contactoDe.keySet()) {
+			Id ben = contactoDe.get(k);
+			PartyRoleRelation def = definicionParentesco(porRol, bens.get(k)[0].RelationshipToInsured, titular.Sexo__c);
+			ContactContactRelation exDir = existentes.get(ben + '|' + titular.Id);
+			ContactContactRelation exInv = existentes.get(titular.Id + '|' + ben);
+			if (exDir != null || exInv != null) {
+				// Ya existe: solo se corrige la definición si cambió (p.ej. se capturó el sexo del titular).
+				if (def != null && exDir != null && exDir.PartyRoleRelationId != def.Id) {
+					exDir.PartyRoleRelationId = def.Id;
+					corregidas.add(exDir);
+					if (exInv != null) {
+						exInv.PartyRoleRelationId = def.RelatedInverseRecordId != null ? def.RelatedInverseRecordId : def.Id;
+						corregidas.add(exInv);
+					}
+				}
+				continue;
+			}
+			if (def == null) { continue; }
+			// RoleName = función del contacto (beneficiario); RelatedRoleName = la del relacionado (titular).
+			directas.add(new ContactContactRelation(ContactId = ben, RelatedContactId = titular.Id,
+				PartyRoleRelationId = def.Id, IsActive = true, StartDate = Date.today()));
+			inversas.add(new ContactContactRelation(ContactId = titular.Id, RelatedContactId = ben,
+				PartyRoleRelationId = def.RelatedInverseRecordId != null ? def.RelatedInverseRecordId : def.Id,
+				IsActive = true, StartDate = Date.today()));
+		}
+		if (!corregidas.isEmpty()) { update corregidas; }
+		if (directas.isEmpty()) { return; }
+		insert directas;
+		insert inversas;
+		for (Integer i = 0; i < directas.size(); i++) {
+			directas[i].RelatedInverseRecordId = inversas[i].Id;
+			inversas[i].RelatedInverseRecordId = directas[i].Id;
+		}
+		try {
+			List<ContactContactRelation> todas = new List<ContactContactRelation>(directas);
+			todas.addAll(inversas);
+			update todas;
+		} catch (Exception ignore) {}
+	}
+
+	// Definición recíproca para un parentesco: rol del beneficiario = parentesco; el rol del
+	// titular se elige por su sexo. Sin sexo, la simétrica (Hermano ↔ Hermano) o la masculina.
+	@TestVisible
+	private static PartyRoleRelation definicionParentesco(Map<String, List<PartyRoleRelation>> porRol,
+			String parentesco, String sexoTitular) {
+		if (String.isBlank(parentesco)) { return null; }
+		List<PartyRoleRelation> opciones = porRol.get(normKey(parentesco).normalizeSpace());
+		if (opciones == null || opciones.isEmpty()) { return null; }
+		String sexo = normKey(sexoTitular == null ? '' : sexoTitular);
+		PartyRoleRelation simetrica = null, masculina = null;
+		for (PartyRoleRelation r : opciones) {
+			Boolean fem = ROLES_FEMENINOS.contains(normKey(r.RelatedRoleName).normalizeSpace());
+			if (sexo.startsWith('fem') && fem) { return r; }
+			if (sexo.startsWith('masc') && !fem) { return r; }
+			if (r.RelatedRoleName == r.RoleName && simetrica == null) { simetrica = r; }
+			if (!fem && masculina == null) { masculina = r; }
+		}
+		if (simetrica != null) { return simetrica; }
+		return masculina != null ? masculina : opciones[0];
 	}
 
 	// Crea el participante ASEGURADO (persona) del PDF como Contacto bajo la cuenta principal.
