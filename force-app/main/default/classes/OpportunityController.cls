@@ -143,12 +143,19 @@ public with sharing class OpportunityController {
 	}
 
 	/**
-	 * @description Lee las coberturas plantilla de los productos desde ProductCoverage
-	 *              (objeto estandar), la misma fuente que el editor de cotizacion, de modo
-	 *              que el conteo de coberturas coincida en ambas vistas. Sin compartir:
-	 *              CoverageType.Name puede no ser visible por reglas de colaboracion.
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Lee las coberturas plantilla de los productos desde ProductCoverage (la misma fuente que el
+	 * editor de cotización) sin aplicar sharing, para que el catálogo se vea igual para todos los usuarios.
 	 */
 	private without sharing class CoberturasCatalogoBulk {
+		/**
+		 * @creation date: 17/09/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Obtiene los nombres de las coberturas de catálogo de cada producto.
+		 * @param productIds: Ids de los productos
+		 * @return Nombres de cobertura por Id de producto
+		 */
 		Map<Id, List<String>> porProductos(Set<Id> productIds) {
 			Map<Id, List<String>> out = new Map<Id, List<String>>();
 			if (productIds == null || productIds.isEmpty()) { return out; }
@@ -247,7 +254,11 @@ public with sharing class OpportunityController {
 	 * @param searchTerm: Texto de busqueda (minimo 3 caracteres)
 	 * @return Lista de Agente__c coincidentes (maximo 10)
 	 */
-	// Wrapper de Producer para el buscador de agente/productor del LWC.
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Wrapper de Producer para el buscador de agente o productor del LWC.
+	 */
 	public class ProducerResult {
 		@AuraEnabled public Id Id;
 		@AuraEnabled public String Name;
@@ -255,7 +266,14 @@ public with sharing class OpportunityController {
 		@AuraEnabled public String email;
 	}
 
-	// Correo del Producer: Cuenta (persona/negocio) -> Contacto -> Usuario interno -> Dueño.
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el correo del Producer: de su cuenta, su contacto, su usuario interno o su dueño, en ese
+	 * orden.
+	 * @param p: Producer con sus relaciones consultadas
+	 * @return Correo; null si no tiene
+	 */
 	private static String correoDeProducer(Producer p) {
 		if (p == null) { return null; }
 		if (p.Account != null) {
@@ -270,8 +288,14 @@ public with sharing class OpportunityController {
 		return null;
 	}
 
-	// Respaldo: correo del agente desde el objeto Agente__c (Email__c), correlacionado por
-	// nombre con el Producer (el Producer no tiene enlace directo a Agente__c).
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Respaldo: obtiene el correo del agente desde Agente__c (Email__c), correlacionado por nombre con
+	 * el Producer.
+	 * @param nombres: Nombres de los productores
+	 * @return Correo por nombre en mayúsculas
+	 */
 	private static Map<String, String> correosAgentePorNombre(Set<String> nombres) {
 		Map<String, String> out = new Map<String, String>();
 		if (nombres == null || nombres.isEmpty()) { return out; }
@@ -283,7 +307,14 @@ public with sharing class OpportunityController {
 		return out;
 	}
 
-	// Devuelve el correo de un Producer por su Id (para mostrar "Email Agente" al abrir la oportunidad).
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve el correo de un Producer por su Id (para mostrar "Email Agente" al abrir la
+	 * oportunidad).
+	 * @param producerId: Id del Producer
+	 * @return Correo; null si no tiene
+	 */
 	@AuraEnabled(cacheable=false)
 	public static String getProducerEmail(Id producerId) {
 		if (producerId == null) { return null; }
@@ -302,6 +333,14 @@ public with sharing class OpportunityController {
 		return null;
 	}
 
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca productores (Producer) por palabras en su nombre, cuenta o contacto, sin importar el orden
+	 * ("ARTURO VINIEGRA" encuentra "Viniegra Arturo").
+	 * @param searchTerm: Texto a buscar (mínimo 3 caracteres)
+	 * @return Productores encontrados con su correo
+	 */
 	@AuraEnabled(cacheable=false)
 	public static List<ProducerResult> searchAgentsProspectors(String searchTerm) {
 		try {
@@ -525,11 +564,12 @@ public with sharing class OpportunityController {
 	}
 
 	/**
-	 * @description Recupera una cuenta por su Id con el MISMO mapeo que searchAccounts.
-	 *              Se usa al cargar una oportunidad para llenar los datos del cliente
-	 *              (nombre separado, RFC, correo, telefono, CP, direccion).
-	 * @param accountId Id de la cuenta.
-	 * @return AccountResult con los datos, o null si no existe.
+	 * @creation date: 04/08/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Recupera una cuenta por su Id con el mismo mapeo que searchAccounts, para llenar los datos del
+	 * cliente al cargar una oportunidad.
+	 * @param accountId: Id de la cuenta
+	 * @return Datos de la cuenta; null si no existe
 	 */
 	@AuraEnabled(cacheable=false)
 	public static AccountResult getAccountById(Id accountId) {
@@ -543,8 +583,14 @@ public with sharing class OpportunityController {
 		return null;
 	}
 
-	// Campos de Account que necesita el formulario. MiddleName (segundo nombre) solo
-	// existe si el org lo tiene habilitado, por eso se agrega de forma dinamica.
+	/**
+	 * @creation date: 04/08/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma la lista de campos de Account que necesita el formulario. MiddleName solo se agrega si el
+	 * org lo tiene habilitado.
+	 * @param tieneMiddle: true si el org tiene segundo nombre
+	 * @return Campos separados por coma para la consulta
+	 */
 	private static String camposCuenta(Boolean tieneMiddle) {
 		return 'Id, Name, IsPersonAccount, Phone, FirstName, LastName, ' +
 			'BillingStreet, BillingPostalCode, PersonEmail, PersonMobilePhone, ' +
@@ -552,7 +598,14 @@ public with sharing class OpportunityController {
 			(tieneMiddle ? ', MiddleName' : '');
 	}
 
-	// Convierte una Account en AccountResult para el formulario.
+	/**
+	 * @creation date: 04/08/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte una Account en AccountResult para el formulario.
+	 * @param a: Cuenta consultada
+	 * @param tieneMiddle: true si el org tiene segundo nombre
+	 * @return Datos de la cuenta para el LWC
+	 */
 	private static AccountResult toAccountResult(Account a, Boolean tieneMiddle) {
 		AccountResult r = new AccountResult();
 		r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
@@ -887,7 +940,13 @@ public with sharing class OpportunityController {
 		}
 	}
 
-	// Arma un mensaje de error legible para el usuario a partir de errores de DML.
+	/**
+	 * @creation date: 03/08/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma un mensaje de error legible para el usuario a partir de errores de DML.
+	 * @param e: Excepción capturada
+	 * @return Mensaje para mostrar
+	 */
 	private static String detalleError(Exception e) {
 		if (e instanceof DmlException) {
 			DmlException de = (DmlException) e;
@@ -914,7 +973,13 @@ public with sharing class OpportunityController {
 		return v == null ? null : String.valueOf(v);
 	}
 
-	// Nombre completo de una Cuenta Persona a partir de sus componentes.
+	/**
+	 * @creation date: 28/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma el nombre completo de una cuenta persona a partir de sus componentes.
+	 * @param acc: Cuenta persona
+	 * @return Nombre completo
+	 */
 	private static String nombrePersona(Account acc) {
 		List<String> partes = new List<String>();
 		if (String.isNotBlank(acc.FirstName)) { partes.add(acc.FirstName); }
@@ -925,9 +990,13 @@ public with sharing class OpportunityController {
 		return String.join(partes, ' ').trim();
 	}
 
-	// Busca una cuenta existente para evitar duplicados: primero por email (si es persona),
-	// luego por nombre exacto (la comparación de texto en SOQL no distingue mayúsculas).
-	// Detecta si un nombre corresponde a una PERSONA MORAL por su razón social.
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el nombre parece de una empresa (S.A. de C.V., S. de R.L., A.C., etc.).
+	 * @param nombre: Nombre a revisar
+	 * @return true si parece empresa
+	 */
 	private static Boolean pareceEmpresa(String nombre) {
 		if (String.isBlank(nombre)) { return false; }
 		String n = ' ' + nombre.toUpperCase().replace('.', '').replace(',', ' ') + ' ';
@@ -944,6 +1013,16 @@ public with sharing class OpportunityController {
 		return false;
 	}
 
+	/**
+	 * @creation date: 28/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca una cuenta existente para evitar duplicados: primero por RFC, luego por correo (persona) y
+	 * al final por nombre.
+	 * @param d: Datos del formulario
+	 * @param tipoCliente: Persona o Empresa
+	 * @param nombreCuenta: Nombre de la cuenta
+	 * @return Id de la cuenta existente; null si no hay
+	 */
 	private static Id buscarCuentaExistente(Map<String, Object> d, String tipoCliente, String nombreCuenta) {
 		// 1) Dedup por RFC PRIMERO (más confiable que el nombre exacto).
 		String rfc = getStr(d, 'clienteRFC');
@@ -978,8 +1057,19 @@ public with sharing class OpportunityController {
 	 * @param accountId: Id de la cuenta a la que se ligaria el vehiculo nuevo
 	 * @return Id del Automovil__c resuelto o null si no aplica
 	 */
-	// Busca un CustomerProperty del mismo dueño que sea el MISMO auto:
-	// por VIN, luego por Placa, luego por Marca+Modelo+Año.
+	/**
+	 * @creation date: 20/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca un CustomerProperty del mismo dueño que sea el mismo auto: por VIN, luego por placa y
+	 * luego por marca + modelo + año.
+	 * @param accountId: Id del dueño
+	 * @param vin: Número de serie
+	 * @param placa: Placa
+	 * @param marca: Marca
+	 * @param modelo: Modelo
+	 * @param anio: Año
+	 * @return Id del bien existente; null si no hay
+	 */
 	private static Id buscarBienCliente(Id accountId, String vin, String placa, String marca, String modelo, Integer anio) {
 		if (accountId == null) { return null; }
 		if (String.isNotBlank(vin)) {
@@ -998,6 +1088,15 @@ public with sharing class OpportunityController {
 		return null;
 	}
 
+	/**
+	 * @creation date: 14/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el bien del cliente (vehículo): el seleccionado en el buscador o uno creado o
+	 * reutilizado con los datos capturados. Sin número de serie no se crea.
+	 * @param d: Datos del formulario
+	 * @param accountId: Id del dueño
+	 * @return Id del CustomerProperty; null si no aplica
+	 */
 	private static Id guardarBienCliente(Map<String, Object> d, Id accountId) {
 		// 1) ¿Ya se seleccionó un bien (CustomerProperty) en el buscador?
 		String bienId = getStr(d, 'Automovil__c');
@@ -1072,8 +1171,14 @@ public with sharing class OpportunityController {
 		try { so.put(field, value); } catch (Exception ignore) {}
 	}
 
-	// Recorta un texto a la longitud máxima (evita STRING_TOO_LONG).
-	// FirstName/MiddleName estándar son de 40; LastName de 80.
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Recorta un texto a la longitud máxima (evita STRING_TOO_LONG).
+	 * @param s: Texto
+	 * @param max: Longitud máxima
+	 * @return Texto recortado
+	 */
 	private static String capLen(String s, Integer max) {
 		if (s == null) { return null; }
 		return s.length() > max ? s.substring(0, max) : s;
@@ -1144,7 +1249,13 @@ public with sharing class OpportunityController {
 		];
 	}
 
-	// Devuelve el Id del Contacto de una Cuenta Persona (PersonContactId).
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el contacto de una cuenta persona (PersonContactId).
+	 * @param accountId: Id de la cuenta persona
+	 * @return Id del contacto; null si no es cuenta persona
+	 */
 	private static Id getPersonContactId(Id accountId) {
 		try {
 			Account a = [SELECT PersonContactId FROM Account WHERE Id = :accountId LIMIT 1];
@@ -1154,7 +1265,14 @@ public with sharing class OpportunityController {
 		}
 	}
 
-	// Crea un Contacto bajo la cuenta con el nombre escrito (o el del cliente).
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea un contacto bajo la cuenta con el nombre escrito o el del cliente.
+	 * @param d: Datos del formulario
+	 * @param accountId: Id de la cuenta
+	 * @return Id del contacto creado
+	 */
 	private static Id crearContacto(Map<String, Object> d, Id accountId) {
 		String nombre = getStr(d, 'ContactoName');
 		if (String.isBlank(nombre)) { nombre = getStr(d, 'clienteNombre'); }
@@ -1178,10 +1296,15 @@ public with sharing class OpportunityController {
 		return c.Id;
 	}
 
-	// Crea (o reutiliza) un Contacto de persona bajo la cuenta usando el nombre y
-	// apellidos del cliente. Respaldo para Individual cuando la cuenta no tiene
-	// contacto de persona. Como solo se invoca si PersonContactId vino vacio, la
-	// cuenta no es Cuenta Persona y por eso si se permite crear un Contacto normal.
+	/**
+	 * @creation date: 26/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea o reutiliza el contacto de la persona bajo la cuenta con el nombre y apellidos del cliente.
+	 * Respaldo para Individual cuando la cuenta no tiene contacto de persona.
+	 * @param d: Datos del formulario
+	 * @param accountId: Id de la cuenta
+	 * @return Id del contacto
+	 */
 	private static Id crearContactoIndividual(Map<String, Object> d, Id accountId) {
 		if (accountId == null) { return null; }
 		String nombre  = getStr(d, 'clienteNombre');
@@ -1229,9 +1352,14 @@ public with sharing class OpportunityController {
 		}
 	}
 
-	// ============================================================
-	// Persistencia por ramo con objetos ESTÁNDAR de FSC
-	// ============================================================
+	/**
+	 * @creation date: 22/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma el resumen de los datos del ramo para la descripción de la oportunidad.
+	 * @param ramo: Ramo de la oportunidad
+	 * @param det: Datos del detalle del ramo
+	 * @return Resumen en texto; null si no hay datos
+	 */
 	private static String buildRamoResumen(String ramo, Map<String, Object> det) {
 		if (det == null || det.isEmpty()) { return null; }
 		Map<String, String> etiquetas = new Map<String, String>{
@@ -1266,6 +1394,17 @@ public with sharing class OpportunityController {
 		return 'Detalle del ramo' + (String.isBlank(ramo) ? '' : ' (' + ramo + ')') + ':\n' + String.join(lineas, '\n');
 	}
 	
+	/**
+	 * @creation date: 22/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda los datos del ramo en objetos estándar de FSC (Asset para empresarial, hogar, etc.)
+	 * ligados a la cuenta y a la oportunidad.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param accountId: Id de la cuenta
+	 * @param ramo: Ramo de la oportunidad
+	 * @param det: Datos del detalle del ramo
+	 * @return void
+	 */
 	private static void persistRamoStandardData(Id opportunityId, Id accountId, String ramo, Map<String, Object> det) {
 		if (det == null || det.isEmpty()) { return; }
 		String r = ramo.toUpperCase();
@@ -1349,7 +1488,13 @@ public with sharing class OpportunityController {
 		}
 	}
 
-	// Contactos que YA tienen un rol de contacto en la oportunidad (para no duplicar roles).
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene los contactos que ya tienen rol en la oportunidad, para no duplicar roles.
+	 * @param opportunityId: Id de la oportunidad
+	 * @return Ids de los contactos con rol
+	 */
 	private static Set<Id> contactosConRol(Id opportunityId) {
 		Set<Id> out = new Set<Id>();
 		if (opportunityId == null) { return out; }
@@ -1360,7 +1505,13 @@ public with sharing class OpportunityController {
 		return out;
 	}
 
-	// Normaliza un nombre para comparar (minúsculas, sin acentos, espacios colapsados).
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Normaliza un nombre para comparar: minúsculas, sin acentos y con espacios colapsados.
+	 * @param s: Nombre
+	 * @return Nombre normalizado
+	 */
 	private static String normNombre(String s) {
 		if (s == null) { return ''; }
 		String r = s.toLowerCase()
@@ -1369,6 +1520,14 @@ public with sharing class OpportunityController {
 		return r.replaceAll('\\s+', ' ').trim();
 	}
 
+	/**
+	 * @creation date: 22/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca un contacto de la cuenta con ese nombre (comparación tolerante) o crea uno nuevo.
+	 * @param nombreCompleto: Nombre completo
+	 * @param accountId: Id de la cuenta
+	 * @return Id del contacto; null si faltan datos
+	 */
 	private static Id crearContactoDeNombre(String nombreCompleto, Id accountId) {
 		if (String.isBlank(nombreCompleto) || accountId == null) { return null; }
 		String limpio = nombreCompleto.trim();
@@ -1390,6 +1549,14 @@ public with sharing class OpportunityController {
 	}
 	
 	private static Set<String> ocrRolesCache;
+	/**
+	 * @creation date: 22/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elige el primer rol de contacto de oportunidad que exista en el picklist, en orden de
+	 * preferencia.
+	 * @param preferidos: Roles en orden de preferencia
+	 * @return Rol encontrado; null si ninguno existe
+	 */
 	private static String pickRole(List<String> preferidos) {
 		if (ocrRolesCache == null) {
 			ocrRolesCache = new Set<String>();
@@ -1401,12 +1568,25 @@ public with sharing class OpportunityController {
 		return null;
 	}
 	
+	/**
+	 * @creation date: 22/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor a Decimal sin lanzar error.
+	 * @param o: Valor a convertir
+	 * @return Número; null si no es numérico
+	 */
 	private static Decimal toDecimalSafe(Object o) {
 		if (o == null) { return null; }
 		try { return Decimal.valueOf(String.valueOf(o)); } catch (Exception e) { return null; }
 	}
 	
-	// Buscador de contactos para el lookup del LWC (mismo patrón que searchAccounts).
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca contactos para el lookup del LWC (mismo patrón que searchAccounts).
+	 * @param searchTerm: Texto a buscar (mínimo 2 caracteres)
+	 * @return Contactos encontrados
+	 */
 	@AuraEnabled(cacheable=false)
 	public static List<ContactResult> searchContacts(String searchTerm) {
 		List<ContactResult> out = new List<ContactResult>();
@@ -1432,6 +1612,11 @@ public with sharing class OpportunityController {
 		return out;
 	}
 
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Wrapper de contacto para el buscador de contactos del LWC.
+	 */
 	public class ContactResult {
 		@AuraEnabled public Id Id;
 		@AuraEnabled public String Name;
@@ -1440,8 +1625,12 @@ public with sharing class OpportunityController {
 		@AuraEnabled public Id AccountId;
 	}
 	/**
-	 * @description: Devuelve los archivos (ContentDocument) ligados a una oportunidad,
-	 *               con lo necesario para mostrarlos y abrirlos/descargarlos desde el LWC.
+	 * @creation date: 28/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los archivos (ContentDocument) ligados a una oportunidad con lo necesario para
+	 * mostrarlos y abrirlos desde el LWC.
+	 * @param opportunityId: Id de la oportunidad
+	 * @return Archivos de la oportunidad
 	 */
 	@AuraEnabled(cacheable=false)
 	public static List<ArchivoOpp> getArchivosDeOportunidad(Id opportunityId) {
@@ -1472,6 +1661,11 @@ public with sharing class OpportunityController {
 		return out;
 	}
 
+	/**
+	 * @creation date: 28/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Wrapper de archivo de la oportunidad para el LWC.
+	 */
 	public class ArchivoOpp {
 		@AuraEnabled public Id contentDocumentId;
 		@AuraEnabled public String title;

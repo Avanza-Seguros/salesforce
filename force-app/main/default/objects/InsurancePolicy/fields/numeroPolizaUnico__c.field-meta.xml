@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>numeroPolizaUnico__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>Número de póliza normalizado (sin espacios, en mayúsculas). Lo llena el trigger de InsurancePolicy y es único: impide registrar dos pólizas con el mismo número. Vacío mientras la póliza tiene el nombre provisional de la cotización.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>Se llena automáticamente con el número de póliza. No se captura.</inlineHelpText>
+    <label>Número de póliza (único)</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

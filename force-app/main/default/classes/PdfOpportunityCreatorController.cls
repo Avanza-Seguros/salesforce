@@ -475,12 +475,14 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
-	 * @description: Sube UN archivo (PDF) y lo liga a una Opportunity YA EXISTENTE.
-	 *               Se llama uno por uno desde el LWC para no exceder el tamaño de request.
-	 * @param opportunityId: Id de la oportunidad a la que se adjunta.
-	 * @param fileName: nombre del archivo.
-	 * @param base64Data: contenido del archivo en base64.
-	 * @return Id del ContentDocument creado.
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Sube un archivo (PDF) y lo liga a una oportunidad existente. Se llama uno por uno desde el LWC
+	 * para no exceder el tamaño del request.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param fileName: Nombre del archivo
+	 * @param base64Data: Contenido del archivo en Base64
+	 * @return Id del ContentDocument creado
 	 */
 	@AuraEnabled
 	public static Id guardarArchivoEnOportunidad(Id opportunityId, String fileName, String base64Data) {
@@ -511,12 +513,13 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
-	 * @description: Renderiza el HTML del comparativo a PDF y lo liga a la Opportunity.
-	 *               Devuelve null si no hay HTML.
-	 * @param opportunityId: Id de la oportunidad.
-	 * @param comparativoHtml: HTML del comparativo.
-	 * @param nombreArchivo: base para el nombre del PDF.
-	 * @return Id del ContentDocument, o null si no había HTML.
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda el HTML del comparativo en la oportunidad (Descripcion__c). Si no cabe en el campo avisa
+	 * en lugar de recortarlo, para no dejarlo roto.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param comparativoHtml: HTML del comparativo
+	 * @return void
 	 */
 	@AuraEnabled
 	public static void actualizarComparativoOpp(Id opportunityId, String comparativoHtml) {
@@ -536,6 +539,15 @@ public with sharing class PdfOpportunityCreatorController {
 		}
 	}
 
+	/**
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Genera el PDF del comparativo desde el HTML guardado en la oportunidad, lo liga a la oportunidad
+	 * y a sus cotizaciones.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param nombreArchivo: Base del nombre del archivo
+	 * @return Id del ContentDocument del PDF; null si no hay comparativo
+	 */
 	@AuraEnabled
 	public static Id guardarComparativoPdf(Id opportunityId, String nombreArchivo) {
 		if (opportunityId == null) { return null; }
@@ -1056,11 +1068,14 @@ public with sharing class PdfOpportunityCreatorController {
 	// Comparativo HTML de respaldo (cuando la IA lo devuelve truncado)
 	// ============================================================
 
-	// Se considera completo si trae una etiqueta de cierre real (no solo la de
-	// apertura que a veces devuelve truncada la IA).
-	// Llave para detectar cotizaciones repetidas. La regla es UNA cotización por archivo, así que
-	// primero se usa el archivo de origen; si no viene, aseguradora + número de cotización; y como
-	// último recurso aseguradora + plan (sin lo que va entre paréntesis, ej. "(dup)") + prima.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma la llave para detectar cotizaciones repetidas que devuelve la IA: archivo de origen, o
+	 * nombre + número de cotización, o nombre + plan + prima.
+	 * @param a: Cotización (aseguradora) devuelta por la IA
+	 * @return Llave de comparación
+	 */
 	@TestVisible
 	private static String llaveCotizacion(Map<String, Object> a) {
 		String archivo = texto(a.get('archivo_origen'));
@@ -1073,10 +1088,25 @@ public with sharing class PdfOpportunityCreatorController {
 		return 'plan|' + nombre + '|' + plan + '|' + prima;
 	}
 
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor a texto en minúsculas y sin espacios sobrantes.
+	 * @param v: Valor a convertir
+	 * @return Texto normalizado; vacío si es null
+	 */
 	private static String texto(Object v) {
 		return v == null ? '' : String.valueOf(v).toLowerCase().replaceAll('\\s+', ' ').trim();
 	}
 
+	/**
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el HTML del comparativo está completo (trae una etiqueta de cierre real y un tamaño
+	 * mínimo), porque la IA a veces lo devuelve truncado.
+	 * @param html: HTML devuelto por la IA
+	 * @return true si está completo
+	 */
 	private static Boolean esHtmlComparativoCompleto(String html) {
 		if (String.isBlank(html)) { return false; }
 		String h = html.toLowerCase();
@@ -1084,7 +1114,13 @@ public with sharing class PdfOpportunityCreatorController {
 		return cierra && html.length() > 300;
 	}
 
-	// Lista de mapas a partir de un valor del JSON (vacía si no es una lista).
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor del JSON en lista de mapas.
+	 * @param o: Valor del JSON
+	 * @return Lista de mapas; vacía si el valor no es una lista
+	 */
 	private static List<Map<String, Object>> listaDeMapas(Object o) {
 		List<Map<String, Object>> out = new List<Map<String, Object>>();
 		if (o instanceof List<Object>) {
@@ -1393,8 +1429,14 @@ public with sharing class PdfOpportunityCreatorController {
 	private static final String QF_FRECUENCIA  = 'Frecuencia_de_prima__c';
 	private static final String QF_RATINGDATE  = 'RatingDate';
 
-	// Normaliza la frecuencia de pago al catálogo del picklist Frecuencia_de_prima__c
-	// (Mensual, Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Normaliza la frecuencia de pago al picklist Frecuencia_de_prima__c (Mensual, Quincenal,
+	 * Trimestral, Semestral, Anual). Por defecto, Anual.
+	 * @param valor: Frecuencia tal como viene del PDF
+	 * @return Valor del picklist
+	 */
 	private static String normalizarFrecuencia(String valor) {
 		String v = (valor == null) ? '' : valor.toLowerCase();
 		if (v.contains('contado') || v.contains('una sola') || v.contains('unica') || v.contains('unico')) { return 'Contado'; }
@@ -1615,10 +1657,13 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
-	 * @description: Liga el PDF del comparativo a todas las cotizaciones de la oportunidad (sin
-	 * duplicar vínculos). Si no se indica el documento, usa el comparativo más reciente de la oportunidad.
-	 * @param opportunityId: Id de la oportunidad.
-	 * @param documentId: ContentDocumentId del comparativo (opcional).
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga el PDF del comparativo a todas las cotizaciones de la oportunidad sin duplicar vínculos. Si
+	 * no se indica el documento, usa el comparativo más reciente.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param documentId: Id del ContentDocument del comparativo (opcional)
+	 * @return void
 	 */
 	@TestVisible
 	private static void vincularComparativoACotizaciones(Id opportunityId, Id documentId) {
@@ -1655,13 +1700,14 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
-	 * @description: Deduce el ramo con el catálogo de Productos: por cada cotización busca el
-	 * producto de su aseguradora cuyo nombre coincide con el plan. El ramo es la familia
-	 * (Family) con más coincidencias. Devuelve vacío si ninguna cotización tiene producto.
-	 * @param aseguradorasRaw: cotizaciones tal como las devolvió la IA (nombre + plan).
-	 * @param productoPorIndice: salida, producto encontrado por índice de cotización.
-	 * @param asegPorIndice: salida, Id de Aseguradora__c por índice de cotización.
-	 * @return ramo en el formato del formulario (ej. 'Vida', 'GMM') o '' si no se encontró.
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Deduce el ramo con el catálogo de productos: por cada cotización busca el producto de su
+	 * aseguradora que coincide con el plan; el ramo es la familia del producto.
+	 * @param aseguradorasRaw: Cotizaciones devueltas por la IA
+	 * @param productoPorIndice: Salida: producto encontrado por índice de cotización
+	 * @param asegPorIndice: Salida: aseguradora encontrada por índice de cotización
+	 * @return Ramo del catálogo; vacío si no hay coincidencias
 	 */
 	@TestVisible
 	private static String ramoPorCatalogo(List<Object> aseguradorasRaw, Map<Integer, Product2> productoPorIndice,
@@ -1707,9 +1753,15 @@ public with sharing class PdfOpportunityCreatorController {
 		return mejor;
 	}
 
-	// Producto cuyo nombre coincide con el plan: TODAS las palabras del producto (sin ®,
-	// números ni conectores) deben aparecer en el plan; gana el que tiene más palabras.
-	// Ej.: plan "IMAGINA SER 65 PAGOS LIMITADOS 15" → "Imagina Ser Pagos Limitados®".
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elige el producto cuyo nombre coincide con el plan: todas sus palabras deben aparecer en el plan
+	 * y gana el que tiene más palabras.
+	 * @param plan: Plan de la cotización
+	 * @param productos: Productos de la aseguradora
+	 * @return Producto encontrado; null si ninguno coincide
+	 */
 	@TestVisible
 	private static Product2 mejorProductoPorPlan(String plan, List<Product2> productos) {
 		if (String.isBlank(plan) || productos == null || productos.isEmpty()) { return null; }
@@ -1725,6 +1777,14 @@ public with sharing class PdfOpportunityCreatorController {
 		return mejor;
 	}
 
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene las palabras significativas del nombre de un producto (sin números, conectores ni la
+	 * palabra "plan").
+	 * @param s: Nombre del producto o plan
+	 * @return Conjunto de palabras
+	 */
 	private static Set<String> tokensProducto(String s) {
 		Set<String> stop = new Set<String>{ 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'para', 'en', 'plan' };
 		Set<String> out = new Set<String>();
@@ -1792,7 +1852,14 @@ public with sharing class PdfOpportunityCreatorController {
 		if (q.get('SumaAsegurada__c') == null && primeraSuma != null) { q.put('SumaAsegurada__c', primeraSuma); }
 	}
 
-	// Monto de un texto ("$575,928", "3000000"). Null si es texto ("AMPARADA") o un porcentaje.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el monto de un texto ("$575,928", "3000000"); null si es texto como "AMPARADA" o un
+	 * porcentaje.
+	 * @param s: Texto con el monto
+	 * @return Monto; null si no es un monto
+	 */
 	private static Decimal montoDe(String s) {
 		if (String.isBlank(s) || s.contains('%')) { return null; }
 		String limpio = s.replaceAll('[^0-9.]', '');
@@ -1800,7 +1867,14 @@ public with sharing class PdfOpportunityCreatorController {
 		try { return Decimal.valueOf(limpio); } catch (Exception e) { return null; }
 	}
 
-	// Tipo de valor del vehículo según el texto de la suma (picklist TipoValor__c).
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el tipo de valor del vehículo (picklist TipoValor__c) según el texto de la suma
+	 * asegurada.
+	 * @param sumaTxt: Suma asegurada en texto
+	 * @return Valor del picklist; null si no se reconoce
+	 */
 	private static String tipoValorDe(String sumaTxt) {
 		String t = fold(sumaTxt);
 		if (t.contains('comercial')) { return t.contains('10') ? 'comercial+10' : 'comercial'; }
@@ -1809,7 +1883,17 @@ public with sharing class PdfOpportunityCreatorController {
 		return null;
 	}
 
-	// Deducible en % ("5 %", "10%") o en monto ("$5,000"), en el campo que corresponda.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asigna el deducible en el campo de porcentaje ("5 %") o de monto ("$5,000") de la cotización,
+	 * según corresponda.
+	 * @param q: Cotización a modificar
+	 * @param ded: Deducible en texto
+	 * @param campoPct: API name del campo de porcentaje
+	 * @param campoMxn: API name del campo de monto
+	 * @return void
+	 */
 	private static void ponerDeducible(Quote q, String ded, String campoPct, String campoMxn) {
 		if (String.isBlank(ded)) { return; }
 		Matcher mp = Pattern.compile('(\\d+(?:\\.\\d+)?)\\s*%').matcher(ded);
@@ -1898,10 +1982,15 @@ public with sharing class PdfOpportunityCreatorController {
 		'compania', 'company', 'insurance', 'grupo', 'life', 'vida', 'new', 'york'
 	};
 
-	// Llaves para comparar aseguradoras: palabras distintivas más las SIGLAS de cada tramo de
-	// palabras ("Seguros Monterrey New York Life" → monterrey, nyl, smnyl…). Una palabra que ya es
-	// sigla (NYL) aporta todas sus letras ("Seguros Monterrey NYL" → smnyl), de modo que "SMNYL",
-	// "Seguros Monterrey NYL" y el nombre completo coincidan entre sí.
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene las llaves para comparar aseguradoras: palabras distintivas y las siglas de cada tramo
+	 * de palabras. Una palabra que ya es sigla (NYL) aporta todas sus letras, de modo que "SMNYL", "Seguros
+	 * Monterrey NYL" y "Seguros Monterrey New York Life" coinciden.
+	 * @param nombre: Nombre de la aseguradora
+	 * @return Conjunto de llaves
+	 */
 	@TestVisible
 	private static Set<String> llavesAseguradora(String nombre) {
 		Set<String> out = new Set<String>();
@@ -2014,6 +2103,15 @@ public with sharing class PdfOpportunityCreatorController {
 		return out;
 	}
 
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los productos activos de la aseguradora para el ramo, como opciones para el combo del
+	 * LWC.
+	 * @param aseguradoraId: Id de la Aseguradora__c
+	 * @param ramo: Ramo de la cotización
+	 * @return Opciones con label (nombre) y value (Id)
+	 */
 	@AuraEnabled(cacheable=false)
 	public static List<Map<String,Object>> getProductosPorAseguradoraRamo(Id aseguradoraId, String ramo) {
 		List<Map<String,Object>> out = new List<Map<String,Object>>();
@@ -2024,9 +2122,15 @@ public with sharing class PdfOpportunityCreatorController {
 		return out;
 	}
 
-	// Productos ACTIVOS de la aseguradora que aplican al ramo, de forma TOLERANTE
-	// (ignora acentos/mayúsculas y variantes como Automovil/Automóviles/Autos). Incluye
-	// los productos sin ramo (Family vacío). Si ninguno coincide, devuelve todos.
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene los productos activos de la aseguradora que aplican al ramo de forma tolerante (acentos,
+	 * mayúsculas y variantes). Incluye los productos sin ramo; si ninguno coincide, devuelve todos.
+	 * @param aseguradoraId: Id de la Aseguradora__c
+	 * @param ramo: Ramo de la cotización
+	 * @return Productos encontrados
+	 */
 	private static List<Product2> productosDeAseguradoraRamo(Id aseguradoraId, String ramo) {
 		List<Product2> todos = [SELECT Id, Name, Family FROM Product2
 			WHERE IsActive = true AND Aseguradora__c = :aseguradoraId ORDER BY Name];
@@ -2038,8 +2142,15 @@ public with sharing class PdfOpportunityCreatorController {
 		return prods.isEmpty() ? todos : prods;
 	}
 
-	// Elige el producto cuyo Nombre se parece MÁS al plan de la cotización (por palabras
-	// en común y por contención del texto). Si no hay parecido, sugiere el primero.
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elige el producto cuyo nombre se parece más al plan de la cotización (palabras en común y
+	 * contención del texto). Si no hay parecido, sugiere el primero.
+	 * @param prods: Productos candidatos
+	 * @param plan: Plan de la cotización
+	 * @return Id del producto sugerido; null si no hay productos
+	 */
 	private static Id productoMasParecido(List<Product2> prods, String plan) {
 		if (prods == null || prods.isEmpty()) { return null; }
 		if (String.isBlank(plan)) { return prods[0].Id; }
@@ -2059,7 +2170,14 @@ public with sharing class PdfOpportunityCreatorController {
 		return mejor;
 	}
 
-	// Palabras significativas de un texto (minúsculas, sin acentos, sin signos, largo >= 2).
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene las palabras significativas de un texto (minúsculas, sin acentos ni signos, de 2 o más
+	 * letras).
+	 * @param s: Texto a dividir
+	 * @return Conjunto de palabras
+	 */
 	private static Set<String> tokensDe(String s) {
 		Set<String> out = new Set<String>();
 		if (String.isBlank(s)) { return out; }
@@ -2072,6 +2190,15 @@ public with sharing class PdfOpportunityCreatorController {
 		return out;
 	}
 
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si la familia del producto corresponde al ramo de forma tolerante. Un producto sin ramo
+	 * siempre aplica.
+	 * @param family: Familia (ramo) del producto
+	 * @param ramo: Ramo de la cotización
+	 * @return true si coinciden
+	 */
 	private static Boolean ramoCoincide(String family, String ramo) {
 		if (String.isBlank(family)) { return true; }   // sin ramo asignado: disponible
 		String f = foldRamo(family);
@@ -2082,6 +2209,13 @@ public with sharing class PdfOpportunityCreatorController {
 		return n >= 3 && f.substring(0, n) == r.substring(0, n);
 	}
 
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Normaliza un ramo para comparar: minúsculas, sin acentos y sin signos.
+	 * @param s: Ramo a normalizar
+	 * @return Ramo normalizado
+	 */
 	private static String foldRamo(String s) {
 		if (s == null) { return ''; }
 		String r = s.toLowerCase()

@@ -48,10 +48,86 @@ public with sharing class PolicyController {
 					];
 					if (!ps.isEmpty()) { return ps[0].Id; }
 				}
+				// 3) Por la oportunidad origen (pólizas creadas desde Crear Póliza).
+				for (InsurancePolicy p : [
+					SELECT Id FROM InsurancePolicy WHERE SourceOpportunityId = :opportunityId
+					ORDER BY CreatedDate DESC LIMIT 1
+				]) { return p.Id; }
 			}
 			return null;
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al localizar la póliza: ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 02/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los datos base para crear la póliza desde Crear Póliza (la póliza se crea al subir el
+	 * PDF, ya con su número real). Toma de la oportunidad el asegurado y el propietario, y de la cotización
+	 * aceptada la aseguradora, el producto, el ramo, la prima, la frecuencia y las fechas, con las mismas reglas
+	 * que usaba el flujo Create_Insured_Policy. Los picklists solo se llenan con valores válidos.
+	 * @param opportunityId: Id de la oportunidad (obligatoria: no hay pólizas sin oportunidad)
+	 * @param quoteId: Id de la cotización aceptada (opcional; si no llega se toma la aceptada más reciente)
+	 * @return Valores por API name de InsurancePolicy (fechas como AAAA-MM-DD)
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> datosBasePoliza(Id opportunityId, Id quoteId) {
+		if (opportunityId == null) {
+			throw new AuraHandledException('No se pueden crear pólizas sin oportunidad.');
+		}
+		Opportunity opp = [SELECT Id, AccountId, OwnerId FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+		Map<String, Object> base = new Map<String, Object>{
+			'SourceOpportunityId' => opp.Id,
+			'NameInsuredId' => opp.AccountId,
+			'OwnerId' => opp.OwnerId,
+			'Status' => 'Inicial'
+		};
+		List<Quote> qs = quoteId != null
+			? [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
+			   FROM Quote WHERE Id = :quoteId AND OpportunityId = :opportunityId LIMIT 1]
+			: [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
+			   FROM Quote WHERE OpportunityId = :opportunityId AND Status = 'Accepted' ORDER BY CreatedDate DESC LIMIT 1];
+		Date hoy = Date.today();
+		base.put('EffectiveDate', String.valueOf(hoy));
+		base.put('ExpirationDate', String.valueOf(hoy.addDays(365)));
+		if (qs.isEmpty()) { return base; }
+		Quote q = qs[0];
+		base.put('SourceQuoteId', q.Id);
+		base.put('Aseguradora__c', q.Aseguradora__c);
+		base.put('ProductId', q.Product__c);
+		putPicklist(base, 'PolicyType', InsurancePolicy.PolicyType.getDescribe(), q.Ramos__c);
+		putPicklist(base, 'Ramo__c', InsurancePolicy.Ramo__c.getDescribe(), q.Ramos__c);
+		Decimal prima = (q.Prima_Total__c != null && q.Prima_Total__c > 0) ? q.Prima_Total__c
+			: ((q.PrimaAnual__c != null && q.PrimaAnual__c > 0) ? q.PrimaAnual__c : q.TotalPrice);
+		base.put('PremiumAmount', prima);
+		base.put('GrossWrittenPremium', prima);
+		String frecuencia = String.isBlank(q.Frecuencia_de_prima__c) ? 'Anual' : q.Frecuencia_de_prima__c;
+		putPicklist(base, 'PremiumFrequency', InsurancePolicy.PremiumFrequency.getDescribe(), frecuencia);
+		Map<String, Integer> diasPago = new Map<String, Integer>{
+			'Mensual' => 30, 'Bimestral' => 60, 'Trimestral' => 90, 'Semestral' => 180, 'Anual' => 365
+		};
+		Integer dias = diasPago.containsKey(q.Frecuencia_de_prima__c) ? diasPago.get(q.Frecuencia_de_prima__c) : 0;
+		base.put('PaymentDueDate', String.valueOf(hoy.addDays(dias)));
+		return base;
+	}
+
+	/**
+	 * @creation date: 02/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega al mapa el valor de un picklist solo si es un valor activo del campo (sin importar
+	 * mayúsculas ni acentos), para no romper el guardado con un valor fuera del catálogo.
+	 * @param base: Mapa de valores por API name
+	 * @param campo: API name del campo
+	 * @param f: Describe del campo picklist
+	 * @param valor: Valor propuesto
+	 * @return void
+	 */
+	private static void putPicklist(Map<String, Object> base, String campo, Schema.DescribeFieldResult f, String valor) {
+		if (String.isBlank(valor)) { return; }
+		String buscado = normKey(valor);
+		for (Schema.PicklistEntry pe : f.getPicklistValues()) {
+			if (pe.isActive() && normKey(pe.getValue()) == buscado) { base.put(campo, pe.getValue()); return; }
 		}
 	}
 
@@ -105,7 +181,14 @@ public with sharing class PolicyController {
 		}
 	}
 
-	// Quita fences de Markdown (```json ... ```) y recorta al primer '{' y último '}'.
+	/**
+	 * @creation date: 10/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Limpia la respuesta de la IA: quita los bloques de Markdown (```json) y recorta del primer "{"
+	 * al último "}" para dejar solo el JSON.
+	 * @param raw: Texto devuelto por el modelo
+	 * @return JSON limpio listo para deserializar
+	 */
 	private static String cleanJson(String raw) {
 		if (String.isBlank(raw)) { return '{}'; }
 		String payload = raw.trim();
@@ -123,11 +206,11 @@ public with sharing class PolicyController {
 
 	/**
 	 * @creation date: 27/07/2026
-	 * @description: Al emitir la póliza, crea el vínculo póliza–bien (InsurancePolicyAsset).
-	 *               Reúsa el Asset creado por la oportunidad si existe; si no, crea uno con
-	 *               los datos de la póliza. Es idempotente: si el vínculo ya existe, no duplica.
-	 * @param policyId: Id de la InsurancePolicy recién emitida.
-	 * @return Id del InsurancePolicyAsset creado o existente.
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Al emitir la póliza crea el vínculo póliza–bien (InsurancePolicyAsset). Reúsa el Asset creado
+	 * por la oportunidad si existe; si no, crea uno con los datos del vehículo o bien asegurado. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Id del InsurancePolicyAsset creado o existente; null si no hay bien que ligar
 	 */
 	@AuraEnabled
 	public static Id crearVinculoBien(Id policyId) {
@@ -233,7 +316,14 @@ public with sharing class PolicyController {
 		}
 	}
 
-	// Indica si un campo de tipo lookup acepta registros del objeto indicado.
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si un campo de tipo lookup acepta registros del objeto indicado.
+	 * @param f: Describe del campo a revisar
+	 * @param objetivo: Objeto que se quiere asignar al lookup
+	 * @return true si el lookup apunta a ese objeto
+	 */
 	private static Boolean campoAcepta(Schema.DescribeFieldResult f, Schema.SObjectType objetivo) {
 		if (f == null || objetivo == null) { return false; }
 		for (Schema.SObjectType t : f.getReferenceTo()) {
@@ -242,7 +332,14 @@ public with sharing class PolicyController {
 		return false;
 	}
 
-	// Cuenta del asegurado: por la oportunidad origen o, si NameInsured es una cuenta, esa.
+	/**
+	 * @creation date: 27/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene la cuenta del asegurado de la póliza: la de la oportunidad origen o, si NameInsured es
+	 * una cuenta, esa misma.
+	 * @param pol: Póliza con NameInsuredId y SourceOpportunityId consultados
+	 * @return Id de la cuenta del asegurado; null si no se puede resolver
+	 */
 	private static Id resolverCuentaDePoliza(InsurancePolicy pol) {
 		if (pol.SourceOpportunityId != null) {
 			for (Opportunity o : [SELECT AccountId FROM Opportunity WHERE Id = :pol.SourceOpportunityId LIMIT 1]) {
@@ -256,13 +353,14 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Guarda (adjunta) el PDF seleccionado como archivo de la Póliza.
-	 *              Es idempotente: si ya existe un archivo con el mismo nombre ligado
-	 *              a la póliza, no lo vuelve a subir.
-	 * @param base64 Contenido del PDF en base64 (sin el prefijo data:).
-	 * @param nombreArchivo Nombre del archivo (con extensión).
-	 * @param policyId Id de la InsurancePolicy a la que se adjunta.
-	 * @return Id del ContentDocument adjuntado o existente, o null.
+	 * @creation date: 06/08/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda el PDF seleccionado como archivo de la póliza. Es idempotente: si ya existe un archivo
+	 * con el mismo nombre ligado a la póliza, no lo duplica.
+	 * @param base64: Contenido del PDF en Base64
+	 * @param nombreArchivo: Nombre del archivo
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Id del ContentDocument ligado a la póliza
 	 */
 	@AuraEnabled
 	public static Id guardarArchivoEnPoliza(String base64, String nombreArchivo, Id policyId) {
@@ -306,20 +404,16 @@ public with sharing class PolicyController {
 		}
 	}
 
-	// ============================================================
-	// ORQUESTADOR: completa los registros hijos de la póliza (FSC).
-	//   Al emitir la póliza crea, de forma idempotente e independiente,
-	//   los registros que faltan del modelo de Financial Services:
-	//     1) Bien asegurado        (InsurancePolicyAsset)
-	//     2) Asegurados/participantes (InsurancePolicyParticipant)
-	//     3) Coberturas            (InsurancePolicyCoverage) desde el catálogo del producto
-	//     4) Transacción de prima  (InsurancePolicyTransaction)
-	//   Cada paso va en su propio try: si uno falla, los demás continúan.
-	// @param policyId Id de la InsurancePolicy recién emitida.
-	// @param opportunityId Oportunidad origen (para los asegurados). Puede ser null;
-	//        en ese caso se toma de InsurancePolicy.SourceOpportunityId.
-	// @return Mapa con el resumen de lo creado y, si aplica, los errores por paso.
-	// ============================================================
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Orquestador: completa los registros hijos de la póliza (bien, participantes, coberturas,
+	 * transacción inicial, fecha de renovación y producer) de forma idempotente. Cada paso se ejecuta por separado
+	 * para que un error no detenga a los demás.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param opportunityId: Id de la oportunidad origen (si es null se toma de la póliza)
+	 * @return Resumen con el resultado o el error de cada paso
+	 */
 	@AuraEnabled
 	public static Map<String, Object> completarPoliza(Id policyId, Id opportunityId) {
 		Map<String, Object> resumen = new Map<String, Object>();
@@ -371,9 +465,13 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Liga el Producer de la oportunidad a la póliza (InsurancePolicy.ProducerId),
-	 *              si la póliza aún no tiene productor.
-	 * @return true si asignó el productor.
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga el Producer de la oportunidad a la póliza (InsurancePolicy.ProducerId) si la póliza aún no
+	 * tiene productor.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param opportunityId: Id de la oportunidad origen
+	 * @return true si asignó el productor
 	 */
 	@AuraEnabled
 	public static Boolean vincularProducer(Id policyId, Id opportunityId) {
@@ -391,10 +489,12 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Llena la fecha de renovación de la póliza (RenewalDate / PlannedRenewalDate)
-	 *              con el fin de vigencia (ExpirationDate) si están vacías. Habilita los avisos
-	 *              de renovación (60/30 días) que se disparan por una automatización aparte.
-	 * @return true si actualizó alguna fecha.
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena la fecha de renovación de la póliza (RenewalDate / PlannedRenewalDate) con el fin de
+	 * vigencia si están vacías, para habilitar los avisos de renovación.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return true si se actualizó alguna fecha
 	 */
 	@AuraEnabled
 	public static Boolean llenarFechaRenovacion(Id policyId) {
@@ -419,15 +519,14 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Crea los Participantes de la póliza (InsurancePolicyParticipant).
-	 *              1) Colectiva: copia los asegurados capturados como Rol de Contacto de
-	 *                 Oportunidad (reúsa AseguradosController.copiarAseguradosAPoliza).
-	 *              2) Individual: si la póliza queda sin participantes, crea uno con el
-	 *                 asegurado de la póliza (cuenta en NameInsured) o el contacto de la
-	 *                 oportunidad. Es idempotente: no crea si ya hay participantes.
-	 * @param policyId Id de la InsurancePolicy.
-	 * @param opportunityId Oportunidad origen. Puede ser null (se toma de la póliza).
-	 * @return número de participantes creados.
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea los participantes de la póliza (InsurancePolicyParticipant): en colectivas copia los
+	 * asegurados capturados como roles de contacto de la oportunidad; en individuales usa la persona de la cuenta
+	 * asegurada.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param opportunityId: Id de la oportunidad origen
+	 * @return Número de participantes creados
 	 */
 	@AuraEnabled
 	public static Integer crearParticipantesPoliza(Id policyId, Id opportunityId) {
@@ -495,12 +594,12 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Crea las Coberturas de la póliza (InsurancePolicyCoverage) a partir
-	 *              de las coberturas del producto (ProductCoverageAssignment__c → CoverageType).
-	 *              Es idempotente: no duplica coberturas ya existentes en la póliza y omite
-	 *              cualquier cobertura marcada como "PENDIENTE" (placeholder del catálogo).
-	 * @param policyId Id de la InsurancePolicy.
-	 * @return número de coberturas creadas.
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea las coberturas de la póliza (InsurancePolicyCoverage) a partir de las coberturas del
+	 * catálogo del producto. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Número de coberturas creadas
 	 */
 	@AuraEnabled
 	public static Integer crearCoberturasPoliza(Id policyId) {
@@ -576,12 +675,12 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Crea la Transacción de prima inicial (InsurancePolicyTransaction) de la póliza.
-	 *              Es idempotente: si la póliza ya tiene una transacción, devuelve la existente.
-	 *              El importe usa la prima del periodo (TermPremiumAmount); si no, la prima total
-	 *              o la neta como respaldo. Los picklists se resuelven contra el catálogo del org.
-	 * @param policyId Id de la InsurancePolicy.
-	 * @return Id de la transacción creada o existente.
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea la transacción de prima inicial (InsurancePolicyTransaction) de la póliza. Es idempotente:
+	 * si ya tiene una transacción, devuelve la existente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Id de la transacción creada o existente
 	 */
 	@AuraEnabled
 	public static Id crearTransaccionInicial(Id policyId) {
@@ -628,15 +727,24 @@ public with sharing class PolicyController {
 		return t.Id;
 	}
 
-	// ============================================================
-	// Wrappers para la vista de solo lectura (registros hijos de la póliza).
-	// ============================================================
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Wrapper con los registros hijos de la póliza (coberturas, participantes, bienes y transacciones)
+	 * para la vista de solo lectura del LWC policyCreator.
+	 */
 	public class RegistrosPoliza {
 		@AuraEnabled public List<CoberturaRow> coberturas = new List<CoberturaRow>();
 		@AuraEnabled public List<ParticipanteRow> participantes = new List<ParticipanteRow>();
 		@AuraEnabled public List<BienRow> bienes = new List<BienRow>();
 		@AuraEnabled public List<TransaccionRow> transacciones = new List<TransaccionRow>();
 	}
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de cobertura para la vista de la póliza: nombre, suma, deducible, prima y sus textos tal
+	 * cual vienen en la póliza.
+	 */
 	public class CoberturaRow {
 		@AuraEnabled public Id id;
 		@AuraEnabled public String nombre;
@@ -647,6 +755,12 @@ public with sharing class PolicyController {
 		@AuraEnabled public String sumaTexto;
 		@AuraEnabled public String deducibleTexto;
 	}
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de participante para la vista de la póliza: nombre, rol, parentesco y, en beneficiarios,
+	 * porcentaje y tipo de beneficio.
+	 */
 	public class ParticipanteRow {
 		@AuraEnabled public Id id;
 		@AuraEnabled public String nombre;
@@ -656,12 +770,22 @@ public with sharing class PolicyController {
 		@AuraEnabled public Decimal porcentaje;
 		@AuraEnabled public String tipoBeneficio;
 	}
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de bien asegurado (InsurancePolicyAsset) para la vista de la póliza.
+	 */
 	public class BienRow {
 		@AuraEnabled public Id id;
 		@AuraEnabled public String nombre;
 		@AuraEnabled public Boolean activo;
 		@AuraEnabled public Decimal prima;
 	}
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de transacción de la póliza (InsurancePolicyTransaction) para la vista de la póliza.
+	 */
 	public class TransaccionRow {
 		@AuraEnabled public Id id;
 		@AuraEnabled public String nombre;
@@ -672,10 +796,12 @@ public with sharing class PolicyController {
 	}
 
 	/**
-	 * @description Devuelve los registros hijos de la póliza (coberturas, participantes,
-	 *              bien asegurado y transacciones) para mostrarlos en la vista de la póliza.
-	 * @param policyId Id de la InsurancePolicy.
-	 * @return wrapper con las cuatro listas (vacías si no hay).
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los registros hijos de la póliza (coberturas, participantes, bien asegurado y
+	 * transacciones) para mostrarlos en la vista de la póliza.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Wrapper con las cuatro listas (vacías si no hay registros)
 	 */
 	@AuraEnabled(cacheable=false)
 	public static RegistrosPoliza getRegistrosPoliza(Id policyId) {
@@ -733,7 +859,16 @@ public with sharing class PolicyController {
 		return out;
 	}
 
-	// Asigna una fecha al campo con el tipo correcto (Date o Datetime según el org).
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asigna una fecha al campo con el tipo correcto según el org (Date o Datetime).
+	 * @param rec: Registro a modificar
+	 * @param field: API name del campo
+	 * @param d: Valor como fecha
+	 * @param dt: Valor como fecha/hora
+	 * @return void
+	 */
 	private static void asignaFechaFlexible(SObject rec, String field, Date d, Datetime dt) {
 		try {
 			Schema.SObjectField f = rec.getSObjectType().getDescribe().fields.getMap().get(field);
@@ -746,7 +881,15 @@ public with sharing class PolicyController {
 		} catch (Exception ignore) {}
 	}
 
-	// Devuelve el primer valor de picklist activo que coincida (ignora mayúsculas).
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve el primer valor activo del picklist que coincida con alguno de los candidatos (sin
+	 * importar mayúsculas).
+	 * @param f: Describe del campo picklist
+	 * @param candidatos: Valores aceptables en orden de preferencia
+	 * @return Valor del picklist encontrado; null si ninguno existe
+	 */
 	private static String pickPicklist(Schema.DescribeFieldResult f, List<String> candidatos) {
 		if (f == null) { return null; }
 		Set<String> activos = new Set<String>();
@@ -761,7 +904,14 @@ public with sharing class PolicyController {
 		return null;
 	}
 
-	// Mensaje de error legible (primer mensaje DML si aplica).
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma un mensaje de error legible: el primer mensaje DML si la excepción es de DML, o el mensaje
+	 * general.
+	 * @param e: Excepción capturada
+	 * @return Mensaje para mostrar al usuario
+	 */
 	private static String msgLimpio(Exception e) {
 		if (e instanceof DmlException && ((DmlException) e).getNumDml() > 0) {
 			return ((DmlException) e).getDmlMessage(0);
@@ -769,11 +919,17 @@ public with sharing class PolicyController {
 		return e.getMessage();
 	}
 
-	// ============================================================
-	// GUARDA DESDE EL PDF ANALIZADO: crea/actualiza todos los objetos hijos de la
-	// póliza con los datos extraídos del PDF (vehículo, bien, participantes,
-	// coberturas con suma/deducible y transacción de prima).
-	// ============================================================
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda en la póliza los datos del PDF analizado: completa la cuenta, el vehículo, el bien, los
+	 * participantes, los beneficiarios (y su grupo familiar), las coberturas con suma/deducible/prima, la
+	 * transacción inicial, la fecha de renovación y el producer. Cada paso es independiente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param opportunityId: Id de la oportunidad origen (opcional)
+	 * @param datosJson: JSON con los datos extraídos del PDF por la IA
+	 * @return Resumen con el resultado o el error de cada paso
+	 */
 	@AuraEnabled
 	public static Map<String, Object> guardarDatosPolizaDesdePdf(Id policyId, Id opportunityId, String datosJson) {
 		Map<String, Object> resumen = new Map<String, Object>();
@@ -851,11 +1007,17 @@ public with sharing class PolicyController {
 		return resumen;
 	}
 
-	// Crea los BENEFICIARIOS de la póliza (Vida, Accidentes, GMM o cualquier ramo que los traiga)
-	// como participantes con rol Beneficiario, su porcentaje y su parentesco. "EL MISMO" se
-	// resuelve al titular. Se ligan a la cuenta de la póliza (no se crean contactos) y el tipo de
-	// beneficio (muerte / supervivencia) queda en ParticipantCode. Es idempotente: no repite el
-	// mismo nombre con el mismo tipo de beneficio.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea los beneficiarios de la póliza (cualquier ramo que los traiga) como participantes con rol
+	 * Beneficiario, su porcentaje, su parentesco y el tipo de beneficio en ParticipantCode. "EL MISMO" se resuelve
+	 * al titular y, si ya es participante, se le agrega el rol en el mismo registro. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param d: Datos del PDF con el arreglo "beneficiarios"
+	 * @return Número de beneficiarios creados o actualizados
+	 */
 	@TestVisible
 	private static Integer crearBeneficiariosDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
 		Object bensO = d.get('beneficiarios');
@@ -933,7 +1095,15 @@ public with sharing class PolicyController {
 		return nuevos.size() + actualizados.size();
 	}
 
-	// Agrega un rol a la selección múltiple Role sin repetirlo ("Asegurado" → "Asegurado;Beneficiario").
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega un rol a la selección múltiple Role sin repetirlo ("Asegurado" →
+	 * "Asegurado;Beneficiario").
+	 * @param actuales: Roles actuales separados por ";"
+	 * @param rol: Rol a agregar
+	 * @return Roles resultantes
+	 */
 	@TestVisible
 	private static String agregarRol(String actuales, String rol) {
 		if (String.isBlank(rol)) { return actuales; }
@@ -943,9 +1113,15 @@ public with sharing class PolicyController {
 		return String.join(roles, ';');
 	}
 
-	// Valor del picklist RelationshipToInsured para el parentesco impreso. Primero se busca el
-	// valor tal cual (sin importar mayúsculas ni acentos: "HERMANO" → "Hermano", "TIA" → "Tía");
-	// después sinónimos (esposo → Marido, esposa → Mujer, mamá → Madre…). Vacío si no hay equivalente.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el valor del picklist RelationshipToInsured para el parentesco impreso: primero el valor
+	 * tal cual (sin mayúsculas ni acentos) y después sus sinónimos.
+	 * @param f: Describe del campo RelationshipToInsured
+	 * @param parentesco: Parentesco tal como viene en el PDF
+	 * @return Valor del picklist; null si no hay equivalente
+	 */
 	@TestVisible
 	private static String parentescoPicklist(Schema.DescribeFieldResult f, String parentesco) {
 		if (f == null || String.isBlank(parentesco)) { return null; }
@@ -960,7 +1136,13 @@ public with sharing class PolicyController {
 		return null;
 	}
 
-	// Nombre del titular / asegurado principal del PDF (para resolver "EL MISMO").
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el nombre del titular o asegurado principal del PDF (para resolver "EL MISMO").
+	 * @param d: Datos del PDF
+	 * @return Nombre del titular; null si no viene
+	 */
 	private static String nombreTitular(Map<String, Object> d) {
 		List<String> candidatos = new List<String>{ strOf(d.get('titular')) };
 		if (d.get('asegurado') instanceof Map<String, Object>) {
@@ -974,6 +1156,13 @@ public with sharing class PolicyController {
 		return null;
 	}
 
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el texto se refiere al propio titular ("EL MISMO", "TITULAR", "EL ASEGURADO"…).
+	 * @param v: Texto del nombre o parentesco
+	 * @return true si se refiere al titular
+	 */
 	@TestVisible
 	private static Boolean esElMismo(String v) {
 		if (String.isBlank(v)) { return false; }
@@ -981,7 +1170,13 @@ public with sharing class PolicyController {
 		return mismo.contains(normKey(v).normalizeSpace());
 	}
 
-	// Tipo de beneficio → código: BEN-MUERTE, BEN-SUPERVIVENCIA o BEN.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte el tipo de beneficio en código: BEN-MUERTE, BEN-SUPERVIVENCIA o BEN.
+	 * @param tipo: Tipo de beneficio impreso
+	 * @return Código del beneficio
+	 */
 	@TestVisible
 	private static String codigoBeneficio(String tipo) {
 		String t = normKey(tipo == null ? '' : tipo);
@@ -990,11 +1185,26 @@ public with sharing class PolicyController {
 		return 'BEN';
 	}
 
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma la llave de un beneficiario (nombre normalizado + código de beneficio) para no duplicarlo.
+	 * @param nombre: Nombre del beneficiario
+	 * @param codigo: Código del beneficio (puede ser null)
+	 * @return Llave de comparación
+	 */
 	private static String llaveBeneficiario(String nombre, String codigo) {
 		return normKey(nombre == null ? '' : nombre).normalizeSpace() + '|' + (codigo == null ? '' : codigo);
 	}
 
-	// Valores candidatos del picklist RelationshipToInsured según el parentesco impreso.
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Lista los valores candidatos del picklist RelationshipToInsured para el parentesco impreso: el
+	 * valor literal, sus sinónimos en español y equivalentes en inglés.
+	 * @param parentesco: Parentesco tal como viene en el PDF
+	 * @return Candidatos en orden de preferencia
+	 */
 	@TestVisible
 	private static List<String> candidatosParentesco(String parentesco) {
 		String p = normKey(parentesco == null ? '' : parentesco).normalizeSpace();
@@ -1020,17 +1230,15 @@ public with sharing class PolicyController {
 		return c;
 	}
 
-	// ============================================================
-	// GRUPO FAMILIAR (afiliación a grupos): a partir de los participantes de la póliza.
-	//  - Grupo = cuenta de negocio "Familia <titular>" + PartyRelationshipGroup (Familia).
-	//    Se reutiliza el grupo familiar al que ya pertenezca el titular.
-	//  - Miembros = relación contacto-cuenta con su función (Titular, Cónyuge, Hijo(a)…).
-	//    Cada beneficiario se crea como contacto del grupo (o se reutiliza por nombre) y se liga
-	//    a su participante de la póliza.
-	//  - Parentesco = ContactContactRelation en ambos sentidos con las funciones recíprocas
-	//    (Aldo "Hermano" ↔ Sofía "Hermana"); el género del titular sale de Contact.Sexo__c.
-	// Idempotente: no repite miembros ni relaciones. Devuelve los beneficiarios vinculados.
-	// ============================================================
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega a los beneficiarios de la póliza al grupo familiar del titular: crea o reutiliza el grupo
+	 * (cuenta + PartyRelationshipGroup), crea los contactos de los beneficiarios, sus membresías con función y las
+	 * relaciones de parentesco en ambos sentidos. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Número de beneficiarios vinculados al grupo
+	 */
 	@AuraEnabled
 	public static Integer vincularBeneficiariosAGrupo(Id policyId) {
 		if (policyId == null) { return 0; }
@@ -1156,7 +1364,14 @@ public with sharing class PolicyController {
 		return contactoDe.size();
 	}
 
-	// Grupo familiar del titular: el que ya tenga (por su membresía) o uno nuevo.
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el grupo familiar del titular: el que ya tenga por su membresía o uno nuevo ("Familia
+	 * <titular>") con su cuenta de negocio.
+	 * @param titular: Contacto del titular
+	 * @return Grupo familiar (PartyRelationshipGroup)
+	 */
 	private static PartyRelationshipGroup grupoFamiliar(Contact titular) {
 		Set<Id> cuentas = new Set<Id>();
 		for (AccountContactRelation a : [SELECT AccountId FROM AccountContactRelation WHERE ContactId = :titular.Id]) {
@@ -1178,7 +1393,14 @@ public with sharing class PolicyController {
 		return g;
 	}
 
-	// Contacto nuevo con el nombre impreso: los dos últimos tokens son los apellidos.
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma un contacto nuevo con el nombre impreso: los dos últimos tokens son los apellidos.
+	 * @param nombre: Nombre completo impreso
+	 * @param accountId: Cuenta a la que pertenece el contacto
+	 * @return Contacto sin insertar
+	 */
 	private static Contact contactoDesdeNombre(String nombre, Id accountId) {
 		Contact c = new Contact(AccountId = accountId);
 		List<String> t = nombre.normalizeSpace().split(' ');
@@ -1195,7 +1417,14 @@ public with sharing class PolicyController {
 		return c;
 	}
 
-	// Función del miembro en el grupo según su parentesco con el titular.
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene la función del miembro en el grupo según su parentesco con el titular (Cónyuge, Hijo(a),
+	 * Padre / Madre u Otro familiar).
+	 * @param parentesco: Parentesco con el titular
+	 * @return Función para AccountContactRelation.Roles
+	 */
 	@TestVisible
 	private static String funcionEnGrupo(String parentesco) {
 		String p = normKey(parentesco == null ? '' : parentesco).normalizeSpace();
@@ -1210,7 +1439,13 @@ public with sharing class PolicyController {
 		'cunada', 'prima', 'esposa', 'media hermana', 'hermanastra', 'hijastra', 'madrastra', 'ex mujer'
 	};
 
-	// Sexo que implica el parentesco impreso (Hermano → Masculino, Madre → Femenino).
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el sexo que implica el parentesco impreso (Hermano → Masculino, Madre → Femenino).
+	 * @param rol: Parentesco
+	 * @return Femenino, Masculino o null
+	 */
 	@TestVisible
 	private static String sexoDeRol(String rol) {
 		if (String.isBlank(rol)) { return null; }
@@ -1219,8 +1454,17 @@ public with sharing class PolicyController {
 		return ROLES_FEMENINOS.contains(r) ? 'Femenino' : 'Masculino';
 	}
 
-	// Crea las ContactContactRelation titular ↔ beneficiario con la definición recíproca cuyo
-	// rol del beneficiario coincide con su parentesco y cuyo rol del titular coincide con su sexo.
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea las relaciones de parentesco (ContactContactRelation) titular ↔ beneficiario en ambos
+	 * sentidos con la definición recíproca correcta. Si ya existen y cambió la definición (p. ej. se capturó el sexo
+	 * del titular), las corrige.
+	 * @param titular: Contacto del titular (con Sexo__c)
+	 * @param contactoDe: Contacto de cada beneficiario por su llave
+	 * @param bens: Participantes beneficiarios por llave
+	 * @return void
+	 */
 	private static void crearParentescos(Contact titular, Map<String, Id> contactoDe,
 			Map<String, List<InsurancePolicyParticipant>> bens) {
 		Map<String, List<PartyRoleRelation>> porRol = new Map<String, List<PartyRoleRelation>>();
@@ -1283,8 +1527,16 @@ public with sharing class PolicyController {
 		} catch (Exception ignore) {}
 	}
 
-	// Definición recíproca para un parentesco: rol del beneficiario = parentesco; el rol del
-	// titular se elige por su sexo. Sin sexo, la simétrica (Hermano ↔ Hermano) o la masculina.
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elige la definición recíproca (PartyRoleRelation) para un parentesco: el rol del beneficiario es
+	 * el parentesco y el del titular se elige por su sexo. Sin sexo usa la simétrica o la masculina.
+	 * @param porRol: Definiciones agrupadas por rol normalizado
+	 * @param parentesco: Parentesco del beneficiario
+	 * @param sexoTitular: Sexo del titular
+	 * @return Definición elegida; null si no existe
+	 */
 	@TestVisible
 	private static PartyRoleRelation definicionParentesco(Map<String, List<PartyRoleRelation>> porRol,
 			String parentesco, String sexoTitular) {
@@ -1304,8 +1556,16 @@ public with sharing class PolicyController {
 		return masculina != null ? masculina : opciones[0];
 	}
 
-	// Crea el participante ASEGURADO (persona) del PDF como Contacto bajo la cuenta principal.
-	// La persona viene en "contratante" (el "asegurado" formal puede ser la empresa/cuenta).
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea el participante asegurado (persona) del PDF como contacto bajo la cuenta principal y como
+	 * InsurancePolicyParticipant. No lo duplica si ya existe.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta principal
+	 * @param d: Datos del PDF
+	 * @return Número de participantes creados (0 o 1)
+	 */
 	private static Integer crearParticipanteDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
 		if (accountId == null) { return 0; }
 		Map<String, Object> per = (d.get('contratante') instanceof Map<String, Object>)
@@ -1390,12 +1650,16 @@ public with sharing class PolicyController {
 		return 1;
 	}
 
-	// Completa en el participante los datos que vienen de la póliza: la Cuenta del
-	// asegurado, el Producto y el detalle de prima (para que no quede en 0). Cada campo
-	// se asigna con tolerancia: si el org lo tiene de solo lectura (p.ej. totales
-	// calculados), simplemente se omite.
-	// True si la póliza ya tiene un participante para ese contacto o con el mismo nombre
-	// (evita insertarlo dos veces cuando se liga por distintos caminos).
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si la póliza ya tiene un participante para ese contacto o con el mismo nombre (evita
+	 * insertarlo dos veces).
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param contactId: Id del contacto
+	 * @param nombre: Nombre del participante
+	 * @return true si ya existe
+	 */
 	private static Boolean polizaTieneParticipante(Id policyId, Id contactId, String nombre) {
 		String nom = normKey(nombre == null ? '' : nombre).replaceAll('\\s+', ' ');
 		for (InsurancePolicyParticipant p : [
@@ -1411,6 +1675,16 @@ public with sharing class PolicyController {
 		return false;
 	}
 
+	/**
+	 * @creation date: 24/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Completa en el participante los datos de la póliza: cuenta del asegurado, producto y detalle de
+	 * prima. Cada campo se asigna con tolerancia por si el org lo tiene de solo lectura.
+	 * @param part: Participante a completar
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @return void
+	 */
 	private static void aplicarDatosParticipante(InsurancePolicyParticipant part, Id policyId, Id accountId) {
 		InsurancePolicy pol = null;
 		for (InsurancePolicy p : [
@@ -1437,8 +1711,15 @@ public with sharing class PolicyController {
 		}
 	}
 
-	// Completa los campos VACÍOS de la Cuenta (RFC, dirección, teléfono) con los datos
-	// correctos del PDF de la póliza. No pisa lo ya capturado.
+	/**
+	 * @creation date: 20/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Completa los campos vacíos de la cuenta (RFC, dirección, teléfono) con los datos del PDF. No
+	 * sobrescribe lo ya capturado.
+	 * @param accountId: Id de la cuenta
+	 * @param d: Datos del PDF
+	 * @return void
+	 */
 	private static void completarCuentaDesdePdf(Id accountId, Map<String, Object> d) {
 		if (accountId == null) { return; }
 		Object cObj = d.get('contratante');
@@ -1497,7 +1778,14 @@ public with sharing class PolicyController {
 		if (cambio) { try { update upd; } catch (Exception ignore) {} }
 	}
 
-	// Crea/actualiza el CustomerProperty (vehículo) del asegurado con los datos del PDF.
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea o actualiza el CustomerProperty (vehículo) del asegurado con los datos del PDF.
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param d: Datos del PDF
+	 * @return void
+	 */
 	private static void guardarVehiculoDesdePdf(Id accountId, Map<String, Object> d) {
 		if (accountId == null) { return; }
 		Object bienO = d.get('bienAsegurado');
@@ -1554,10 +1842,15 @@ public with sharing class PolicyController {
 		upsert cp;
 	}
 
-	// Crea las coberturas de la póliza (InsurancePolicyCoverage) desde el arreglo del PDF, con su
-	// suma asegurada (LimitAmount), deducible (DeductibleAmount si es un monto) y prima (PremiumAmount).
-	// Los textos tal cual (ej. "5 %", "AMPARADA") se guardan en la descripción para mostrarlos.
-	// Si la cobertura ya existe, completa los datos que le falten (re-análisis del PDF).
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea o actualiza las coberturas de la póliza desde el PDF con su suma asegurada, deducible,
+	 * prima y la descripción en texto; quita las coberturas de catálogo que quedaron sin valores.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param d: Datos del PDF con el arreglo "coberturas"
+	 * @return Número de coberturas creadas o actualizadas
+	 */
 	private static Integer crearCoberturasDesdePdf(Id policyId, Map<String, Object> d) {
 		Object covsO = d.get('coberturas');
 		if (!(covsO instanceof List<Object>)) { return 0; }
@@ -1622,8 +1915,15 @@ public with sharing class PolicyController {
 		return nuevas.size();
 	}
 
-	// Descripción de la cobertura con los valores en texto tal cual la póliza:
-	// "Suma asegurada: AMPARADA | Deducible: 5 %".
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma la descripción de la cobertura con los valores en texto tal cual la póliza ("Suma
+	 * asegurada: AMPARADA | Deducible: 5 %").
+	 * @param sumaTxt: Suma asegurada en texto
+	 * @param dedTxt: Deducible en texto
+	 * @return Descripción; null si no hay valores
+	 */
 	private static String descripcionCobertura(String sumaTxt, String dedTxt) {
 		List<String> partes = new List<String>();
 		if (String.isNotBlank(sumaTxt)) { partes.add('Suma asegurada: ' + sumaTxt); }
@@ -1631,7 +1931,14 @@ public with sharing class PolicyController {
 		return partes.isEmpty() ? null : String.join(partes, ' | ').left(255);
 	}
 
-	// Lee un valor ("Deducible", "Suma asegurada") de la descripción de la cobertura.
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Lee un valor ("Deducible", "Suma asegurada") de la descripción de la cobertura.
+	 * @param descripcion: Descripción de la cobertura
+	 * @param etiqueta: Etiqueta a buscar
+	 * @return Valor encontrado; null si no está
+	 */
 	@TestVisible
 	private static String valorDeDescripcion(String descripcion, String etiqueta) {
 		if (String.isBlank(descripcion)) { return null; }
@@ -1645,7 +1952,13 @@ public with sharing class PolicyController {
 		return null;
 	}
 
-	// True si el deducible es solo un monto (ej. "$5,000"); false si trae % u otras unidades.
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el deducible es solo un monto (ej. "$5,000") y no trae porcentaje u otras unidades.
+	 * @param v: Deducible en texto
+	 * @return true si es un monto simple
+	 */
 	@TestVisible
 	private static Boolean esMontoSimple(String v) {
 		if (String.isBlank(v)) { return false; }
@@ -1653,8 +1966,14 @@ public with sharing class PolicyController {
 		return String.isBlank(sinMonto) && parseMonto(v) != null;
 	}
 
-	// True si el texto es una sección/rol de la póliza y NO una cobertura real.
-	// Evita que en Vida entren "TITULAR", "ASEGURADO", etc. como coberturas.
+	/**
+	 * @creation date: 24/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el texto es una sección o rol de la póliza ("TITULAR", "ASEGURADO"…) y no una
+	 * cobertura real.
+	 * @param nombre: Nombre de la supuesta cobertura
+	 * @return true si no es una cobertura
+	 */
 	private static Boolean esRolNoCobertura(String nombre) {
 		String k = normKey(nombre).replaceAll('\\s+', ' ');
 		Set<String> roles = new Set<String>{
@@ -1666,7 +1985,13 @@ public with sharing class PolicyController {
 		return roles.contains(k);
 	}
 
-	// Normaliza una llave de atributo (minúsculas, sin acentos): "Número de Serie" -> "numero de serie".
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Normaliza una llave de texto: minúsculas y sin acentos ("Número de Serie" → "numero de serie").
+	 * @param s: Texto a normalizar
+	 * @return Texto normalizado
+	 */
 	private static String normKey(String s) {
 		if (s == null) { return ''; }
 		String r = s.toLowerCase();
@@ -1674,9 +1999,22 @@ public with sharing class PolicyController {
 		return r.trim();
 	}
 
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor del JSON a texto sin espacios sobrantes.
+	 * @param o: Valor a convertir
+	 * @return Texto; null si el valor es null
+	 */
 	private static String strOf(Object o) { return o == null ? null : String.valueOf(o).trim(); }
 
-	// Extrae el primer número de un texto ("$3,000,000", "150000 USD", "5000 USD / 25000 USD" -> 5000).
+	/**
+	 * @creation date: 18/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Extrae el primer número de un texto ("$3,000,000", "150000 USD" → 150000).
+	 * @param v: Texto con el monto
+	 * @return Monto; null si no hay número
+	 */
 	private static Decimal parseMonto(String v) {
 		if (String.isBlank(v)) { return null; }
 		Matcher mt = Pattern.compile('[0-9][0-9,]*(\\.[0-9]+)?').matcher(v);
@@ -1686,6 +2024,13 @@ public with sharing class PolicyController {
 		return null;
 	}
 
+	/**
+	 * @creation date: 27/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Une todos los mensajes DML de la excepción en un solo texto.
+	 * @param e: Excepción DML
+	 * @return Mensajes separados por " | "
+	 */
 	private static String detalleDml(DmlException e) {
 		List<String> partes = new List<String>();
 		for (Integer i = 0; i < e.getNumDml(); i++) {

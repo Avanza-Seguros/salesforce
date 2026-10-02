@@ -1,16 +1,28 @@
 /**
- *  @name: PdfOpportunityCreatorControllerTest
- *  @description: Pruebas unitarias para PdfOpportunityCreatorController. El path de Einstein
- *               se salta con Test.isRunningTest() (usa el JSON de respaldo interno), por lo que
- *               se cubre el análisis/parseo, la creación de borrador, cotizaciones y helpers.
+ * @creation date: 22/07/2026
+ * @author: Sergio Uribe Toledo - Volestra
+ * @description: Pruebas unitarias de PdfOpportunityCreatorController: carga de PDFs, análisis con IA (JSON de
+ * respaldo), creación de cotizaciones, productos y emparejamiento de aseguradoras.
  */
 @isTest
 private class PdfOpportunityCreatorControllerTest {
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Devuelve un PDF de prueba en Base64.
+     * @return Contenido en Base64
+     */
     static String base64Demo() {
         return EncodingUtil.base64Encode(Blob.valueOf('CONTENIDO PDF DEMO'));
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Obtiene la primera etapa activa de oportunidad del org para crear datos de prueba.
+     * @return Etiqueta de la etapa
+     */
     static String activeStage() {
         List<OpportunityStage> s = [
             SELECT MasterLabel FROM OpportunityStage WHERE IsActive = true ORDER BY SortOrder LIMIT 1
@@ -18,7 +30,12 @@ private class PdfOpportunityCreatorControllerTest {
         return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
     }
 
-    // ---------------- uploadAndCreateDraft ----------------
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que uploadAndCreateDraft cree la oportunidad borrador con su archivo.
+     * @return void
+     */
     @isTest
     static void testUploadAndCreateDraft_ok() {
         List<String> names = new List<String>{ 'AutoCotiza HDI.pdf', 'AutoCotiza GNP.pdf' };
@@ -29,6 +46,12 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertNotEquals(null, res.get('opportunityId'), 'Debe crear el borrador');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los errores de uploadAndCreateDraft con datos inválidos.
+     * @return void
+     */
     @isTest
     static void testUploadAndCreateDraft_errores() {
         Integer errores = 0;
@@ -54,7 +77,12 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertEquals(4, errores, 'Las 4 validaciones deben lanzar excepción');
     }
 
-    // ---------------- analyzeQuotes (usa el JSON de respaldo) ----------------
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida analyzeQuotes con el JSON de respaldo de la IA.
+     * @return void
+     */
     @isTest
     static void testAnalyzeQuotes() {
         List<String> names = new List<String>{ 'Auto HDI.pdf', 'Auto GNP.pdf' };
@@ -68,7 +96,12 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertNotEquals(null, res.get('quotes'), 'Debe devolver la lista de cotizaciones');
     }
 
-    // ---------------- crearCotizacionesDesdePdf ----------------
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearCotizacionesDesdePdf cree las cotizaciones con sus coberturas.
+     * @return void
+     */
     @isTest
     static void testCrearCotizaciones() {
         Opportunity opp = new Opportunity(
@@ -99,7 +132,12 @@ private class PdfOpportunityCreatorControllerTest {
         Test.stopTest();
     }
 
-    // ---------------- prepararCotizaciones ----------------
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que prepararCotizaciones devuelva aseguradora, productos y producto sugerido.
+     * @return void
+     */
     @isTest
     static void testPrepararCotizaciones() {
         List<Object> quotes = new List<Object>{
@@ -113,7 +151,12 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertEquals(1, res.size(), 'Debe preparar una cotización');
     }
 
-    // ---------------- getProductosPorAseguradoraRamo ----------------
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida getProductosPorAseguradoraRamo con y sin ramo.
+     * @return void
+     */
     @isTest
     static void testGetProductosPorAseguradoraRamo() {
         Test.startTest();
@@ -136,7 +179,12 @@ private class PdfOpportunityCreatorControllerTest {
         Test.stopTest();
     }
 
-    // ---------------- Helpers de parseo / negocio ----------------
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los auxiliares de parseo de montos, fechas y texto.
+     * @return void
+     */
     @isTest
     static void testHelpersParseoYTexto() {
         Test.startTest();
@@ -167,6 +215,12 @@ private class PdfOpportunityCreatorControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida el mapeo de los datos de aseguradoras a cotizaciones del formulario.
+     * @return void
+     */
     @isTest
     static void testHelpersMapeoAseguradora() {
         Map<String, Object> aseg = new Map<String, Object>{
@@ -193,6 +247,13 @@ private class PdfOpportunityCreatorControllerTest {
         System.assert(!cobs.isEmpty(), 'Debe armar coberturas');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los auxiliares de oportunidad y cuenta (lista de precios, etapa, cuenta y búsqueda de
+     * producto).
+     * @return void
+     */
     @isTest
     static void testHelpersOportunidadYCuenta() {
         Account acc = new Account(Name = 'Empresa Dup Test', AnnualRevenue = 100);
@@ -241,6 +302,13 @@ private class PdfOpportunityCreatorControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 01/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que "Seguros Monterrey New York Life" elija Seguros Monterrey NYL y no Insignia Life por
+     * la palabra "Life".
+     * @return void
+     */
     @isTest
     static void testResolveAseguradoraPorSiglas() {
         Set<String> llaves = PdfOpportunityCreatorController.llavesAseguradora('Seguros Monterrey New York Life');
@@ -258,6 +326,12 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertEquals(insignia.Id, r.get('Insignia Life'));
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que llaveCotizacion detecte cotizaciones repetidas.
+     * @return void
+     */
     @isTest
     static void testLlaveCotizacionDetectaDuplicadas() {
         // Mismo archivo de origen = misma cotización, aunque la IA cambie el plan.
@@ -285,6 +359,12 @@ private class PdfOpportunityCreatorControllerTest {
             PdfOpportunityCreatorController.llaveCotizacion(c), 'Planes distintos no son duplicados');
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que mejorProductoPorPlan elija el producto que coincide con el plan.
+     * @return void
+     */
     @isTest
     static void testMejorProductoPorPlan() {
         List<Product2> catalogo = new List<Product2>{
@@ -300,6 +380,12 @@ private class PdfOpportunityCreatorControllerTest {
             'Sin coincidencia no debe devolver producto');
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que aplicarResumenCoberturas llene suma, tipo de valor y deducibles de la cotización.
+     * @return void
+     */
     @isTest
     static void testAplicarResumenCoberturas() {
         Quote q = new Quote(Name = 'Afirme');
@@ -323,6 +409,12 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertEquals('Notas de prueba', q.get('Notas_IA__c'));
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que ramoPorCatalogo devuelva vacío cuando no hay datos.
+     * @return void
+     */
     @isTest
     static void testRamoPorCatalogoSinDatos() {
         Map<Integer, Product2> prods = new Map<Integer, Product2>();

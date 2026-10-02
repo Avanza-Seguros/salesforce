@@ -1,10 +1,17 @@
 /**
- *  @name: OpportunityComparisonPdfControllerTest
- *  @description: Pruebas del HTML que se envía al motor de PDF del comparativo.
+ * @creation date: 29/09/2026
+ * @author: Sergio Uribe Toledo - Volestra
+ * @description: Pruebas del HTML que se envía al motor de PDF del comparativo.
  */
 @isTest
 private class OpportunityComparisonPdfControllerTest {
 
+    /**
+     * @creation date: 29/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que los degradados se conviertan en color sólido.
+     * @return void
+     */
     @isTest
     static void testDegradadoAColorSolido() {
         String html = '<div style="background:linear-gradient(90deg,#0052CC 0%,#00A3BF 100%);color:#fff">'
@@ -15,6 +22,12 @@ private class OpportunityComparisonPdfControllerTest {
         System.assertEquals('<p>Sin degradado</p>', OpportunityComparisonPdfController.paraPdf('<p>Sin degradado</p>'));
     }
 
+    /**
+     * @creation date: 29/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que la página tome el comparativo guardado en la oportunidad.
+     * @return void
+     */
     @isTest
     static void testPaginaConComparativoDeOportunidad() {
         Opportunity opp;

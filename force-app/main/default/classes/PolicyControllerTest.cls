@@ -1,12 +1,18 @@
 /**
- *  @name: PolicyControllerTest
- *  @description: Pruebas unitarias para PolicyController (getPolicyIdByQuote, analizarPoliza).
- *               El path de Einstein se salta con Test.isRunningTest() en la clase, por lo que
- *               aquí se cubren las rutas de datos (SOQL) y las validaciones.
+ * @creation date: 22/07/2026
+ * @author: Sergio Uribe Toledo - Volestra
+ * @description: Pruebas unitarias de PolicyController: búsqueda de póliza por cotización, análisis del PDF,
+ * registros hijos de la póliza, coberturas, beneficiarios y grupo familiar.
  */
 @isTest
 private class PolicyControllerTest {
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Obtiene la primera etapa activa de oportunidad del org para crear datos de prueba.
+     * @return Etiqueta de la etapa
+     */
     static String activeStage() {
         List<OpportunityStage> s = [
             SELECT MasterLabel FROM OpportunityStage
@@ -15,6 +21,13 @@ private class PolicyControllerTest {
         return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Crea los datos base de las pruebas: cuenta, oportunidad y cotización con sus campos
+     * obligatorios.
+     * @return void
+     */
     @testSetup
     static void setup() {
         Account acc = new Account(Name = 'Cuenta Póliza Test');
@@ -41,14 +54,22 @@ private class PolicyControllerTest {
         insert q;
     }
 
-    // Intenta crear una InsurancePolicy ligada a la cotización. Devuelve el Id o null
-    // si el objeto tiene campos obligatorios adicionales en el org.
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Intenta crear una InsurancePolicy ligada a la cotización; devuelve null si el org exige campos
+     * adicionales.
+     * @param quoteId: Id de la cotización origen
+     * @param nameInsuredId: Id de la cuenta asegurada
+     * @return Id de la póliza creada; null si no se pudo crear
+     */
     static Id tryCreatePolicy(Id quoteId, Id nameInsuredId) {
         try {
             InsurancePolicy p = new InsurancePolicy(
                 Name = 'POL-TEST-001',
                 NameInsuredId = nameInsuredId,
-                SourceQuoteId = quoteId
+                SourceQuoteId = quoteId,
+                SourceOpportunityId = [SELECT OpportunityId FROM Quote WHERE Id = :quoteId].OpportunityId
             );
             insert p;
             return p.Id;
@@ -57,6 +78,12 @@ private class PolicyControllerTest {
         }
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote devuelva null cuando no recibe cotización.
+     * @return void
+     */
     @isTest
     static void testGetPolicyIdByQuote_nulls() {
         Test.startTest();
@@ -65,6 +92,12 @@ private class PolicyControllerTest {
         System.assertEquals(null, result, 'Sin ids debe devolver null');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote devuelva null cuando la cotización no tiene póliza.
+     * @return void
+     */
     @isTest
     static void testGetPolicyIdByQuote_notFound() {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
@@ -76,6 +109,12 @@ private class PolicyControllerTest {
         System.assertEquals(null, byOpp, 'Sin póliza debe ser null');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote devuelva la póliza ligada a la cotización.
+     * @return void
+     */
     @isTest
     static void testGetPolicyIdByQuote_found() {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
@@ -93,6 +132,12 @@ private class PolicyControllerTest {
         }
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que analizarPoliza rechace un texto vacío.
+     * @return void
+     */
     @isTest
     static void testAnalizarPoliza_blank() {
         Boolean threw = false;
@@ -106,6 +151,12 @@ private class PolicyControllerTest {
         System.assert(threw, 'Texto en blanco debe lanzar excepción');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que analizarPoliza devuelva el JSON de respaldo en pruebas.
+     * @return void
+     */
     @isTest
     static void testAnalizarPoliza_ok() {
         Test.startTest();
@@ -114,6 +165,12 @@ private class PolicyControllerTest {
         // En contexto de test la clase devuelve '{}' sin llamar a Einstein.
         System.assertEquals('{}', result, 'En test debe devolver JSON vacío');
     }
+    /**
+     * @creation date: 27/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearVinculoBien no falle sin póliza.
+     * @return void
+     */
     @isTest
     static void testCrearVinculoBien_nulo() {
         Boolean threw = false;
@@ -127,6 +184,12 @@ private class PolicyControllerTest {
         System.assert(threw, 'Sin póliza debe lanzar excepción');
     }
 
+    /**
+     * @creation date: 27/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearVinculoBien ligue el bien asegurado a la póliza.
+     * @return void
+     */
     @isTest
     static void testCrearVinculoBien_ok() {
         Quote q = [SELECT Id FROM Quote LIMIT 1];
@@ -147,7 +210,12 @@ private class PolicyControllerTest {
         Test.stopTest();
     }
 
-    // Crea un producto con una cobertura en el catálogo (para las pruebas de coberturas).
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Crea un producto con una cobertura en el catálogo para las pruebas de coberturas.
+     * @return Id del producto creado
+     */
     static Id crearProductoConCobertura() {
         try {
             Product2 prod = new Product2(Name = 'Producto Póliza Test', IsActive = true);
@@ -163,6 +231,12 @@ private class PolicyControllerTest {
         }
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearCoberturasPoliza copie las coberturas del catálogo del producto.
+     * @return void
+     */
     @isTest
     static void testCrearCoberturasPoliza_ok() {
         Quote q = [SELECT Id FROM Quote LIMIT 1];
@@ -185,6 +259,12 @@ private class PolicyControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearCoberturasPoliza no cree coberturas si la póliza no tiene producto.
+     * @return void
+     */
     @isTest
     static void testCrearCoberturasPoliza_sinProducto() {
         Quote q = [SELECT Id FROM Quote LIMIT 1];
@@ -197,6 +277,12 @@ private class PolicyControllerTest {
         System.assertEquals(0, n, 'Sin producto no debe crear coberturas');
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearTransaccionInicial cree la transacción de prima inicial.
+     * @return void
+     */
     @isTest
     static void testCrearTransaccionInicial_ok() {
         Quote q = [SELECT Id FROM Quote LIMIT 1];
@@ -215,6 +301,12 @@ private class PolicyControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearParticipantesPoliza cree el participante de una póliza individual.
+     * @return void
+     */
     @isTest
     static void testCrearParticipantesPoliza_individual() {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
@@ -234,6 +326,12 @@ private class PolicyControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearParticipantesPoliza no falle sin póliza.
+     * @return void
+     */
     @isTest
     static void testCrearParticipantesPoliza_nulo() {
         Boolean threw = false;
@@ -247,6 +345,12 @@ private class PolicyControllerTest {
         System.assert(threw, 'Sin póliza debe lanzar excepción');
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getRegistrosPoliza devuelva las listas de registros hijos.
+     * @return void
+     */
     @isTest
     static void testGetRegistrosPoliza() {
         Quote q = [SELECT Id FROM Quote LIMIT 1];
@@ -265,6 +369,12 @@ private class PolicyControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que completarPoliza rechace una póliza nula.
+     * @return void
+     */
     @isTest
     static void testCompletarPoliza_nulo() {
         Boolean threw = false;
@@ -278,6 +388,12 @@ private class PolicyControllerTest {
         System.assert(threw, 'Sin póliza debe lanzar excepción');
     }
 
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que completarPoliza ejecute todos los pasos y devuelva su resumen.
+     * @return void
+     */
     @isTest
     static void testCompletarPoliza_ok() {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
@@ -293,6 +409,12 @@ private class PolicyControllerTest {
         Test.stopTest();
     }
 
+    /**
+     * @creation date: 29/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los textos de cobertura (descripción, lectura de valores y monto simple).
+     * @return void
+     */
     @isTest
     static void testTextosDeCobertura() {
         String descCob = 'Suma asegurada: AMPARADA | Deducible: 5 %';
@@ -306,6 +428,13 @@ private class PolicyControllerTest {
         System.assertEquals(false, PolicyController.esMontoSimple(''));
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los auxiliares de beneficiarios: "EL MISMO", código de beneficio, parentesco del picklist
+     * y roles.
+     * @return void
+     */
     @isTest
     static void testHelpersBeneficiarios() {
         System.assertEquals(true, PolicyController.esElMismo('EL MISMO'));
@@ -331,6 +460,12 @@ private class PolicyControllerTest {
         System.assertEquals('Beneficiario', PolicyController.agregarRol(null, 'Beneficiario'));
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearBeneficiariosDesdePdf cree los beneficiarios sin duplicarlos al reprocesar.
+     * @return void
+     */
     @isTest
     static void testCrearBeneficiariosDesdePdf() {
         Account acc = CollectionsTestDataFactory.createInsuredAccount();
@@ -357,6 +492,12 @@ private class PolicyControllerTest {
         System.assertEquals(100, titular.BeneficiarySharePercentage);
     }
 
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que el asegurado que también es beneficiario quede en un solo registro con ambos roles.
+     * @return void
+     */
     @isTest
     static void testAseguradoTambienBeneficiarioUnSoloRegistro() {
         Account acc = CollectionsTestDataFactory.createInsuredAccount();
@@ -387,6 +528,38 @@ private class PolicyControllerTest {
         System.assertEquals('Hermano', hermano.RelationshipToInsured, 'HERMANO debe guardarse en el parentesco');
     }
 
+    /**
+     * @creation date: 01/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los auxiliares del grupo familiar: función en el grupo, sexo por parentesco y definición
+     * recíproca.
+     * @return void
+     */
+    /**
+     * @creation date: 02/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que datosBasePoliza devuelva los datos de la oportunidad y la cotización para crear la
+     * póliza, y que rechace la falta de oportunidad.
+     * @return void
+     */
+    @isTest
+    static void testDatosBasePoliza() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Opportunity opp = [SELECT AccountId, OwnerId FROM Opportunity WHERE Id = :q.OpportunityId];
+        Map<String, Object> base = PolicyController.datosBasePoliza(q.OpportunityId, q.Id);
+        System.assertEquals(q.OpportunityId, base.get('SourceOpportunityId'));
+        System.assertEquals(q.Id, base.get('SourceQuoteId'));
+        System.assertEquals(opp.AccountId, base.get('NameInsuredId'));
+        System.assertEquals('Inicial', base.get('Status'));
+        System.assertNotEquals(null, base.get('EffectiveDate'));
+        try {
+            PolicyController.datosBasePoliza(null, null);
+            System.assert(false, 'Debe exigir la oportunidad');
+        } catch (AuraHandledException e) {
+            System.assert(true);
+        }
+    }
+
     @isTest
     static void testHelpersGrupoFamiliar() {
         System.assertEquals('Cónyuge', PolicyController.funcionEnGrupo('Mujer'));
@@ -408,6 +581,13 @@ private class PolicyControllerTest {
         System.assertEquals(null, PolicyController.definicionParentesco(porRol, 'Madre', null));
     }
 
+    /**
+     * @creation date: 01/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que vincularBeneficiariosAGrupo cree el grupo, las membresías y los parentescos sin
+     * duplicar.
+     * @return void
+     */
     @isTest
     static void testVincularBeneficiariosAGrupo() {
         Account acc = CollectionsTestDataFactory.createInsuredAccount();
