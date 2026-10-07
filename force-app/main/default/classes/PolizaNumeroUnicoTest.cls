@@ -96,23 +96,19 @@ private class PolizaNumeroUnicoTest {
 	/**
 	 * @creation date: 02/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Valida que no se pueda crear una póliza sin oportunidad ni quitarle la oportunidad.
+	 * @description: Valida que una póliza sin oportunidad se pueda guardar y que también reciba su llave única.
 	 * @return void
 	 */
 	@isTest
-	static void testNoPermitePolizaSinOportunidad() {
+	static void testPolizaSinOportunidad() {
 		Account acc = new Account(Name = 'Cuenta Sin Oportunidad');
 		insert acc;
 		InsurancePolicy sinOpp = poliza(acc.Id, 'SINOPP-001');
 		sinOpp.SourceOpportunityId = null;
 		Database.SaveResult r = Database.insert(sinOpp, false);
-		System.assert(!r.isSuccess(), 'Debe rechazar la póliza sin oportunidad');
-		System.assertEquals(PolizaNumeroUnico.SIN_OPORTUNIDAD, r.getErrors()[0].getMessage());
-
-		InsurancePolicy conOpp = poliza(acc.Id, 'CONOPP-001');
-		insert conOpp;
-		conOpp.SourceOpportunityId = null;
-		System.assert(!Database.update(conOpp, false).isSuccess(), 'No se le puede quitar la oportunidad');
+		System.assert(r.isSuccess(), 'La póliza sin oportunidad se puede guardar');
+		System.assertEquals('SINOPP-001',
+			[SELECT numeroPolizaUnico__c FROM InsurancePolicy WHERE Id = :sinOpp.Id].numeroPolizaUnico__c);
 	}
 
 	/**

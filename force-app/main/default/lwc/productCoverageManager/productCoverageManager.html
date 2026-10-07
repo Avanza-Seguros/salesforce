@@ -13,12 +13,32 @@
                 </lightning-button>
             </div>
             
-            <!-- Indicador de carga -->
-            <div if:true={isLoading} class="slds-m-top_medium">
-                <lightning-spinner alternative-text="Cargando..." size="medium"></lightning-spinner>
+            <!-- Paso 1: Aseguradora (solo se muestran sus productos) -->
+            <div class="slds-grid slds-wrap slds-m-bottom_small">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3 slds-p-around_xx-small">
+                    <lightning-combobox
+                        name="aseguradora"
+                        label="1. Aseguradora"
+                        placeholder="Selecciona la aseguradora"
+                        options={aseguradoraOptions}
+                        value={selectedAseguradoraId}
+                        onchange={handleAseguradoraChange}
+                        required>
+                    </lightning-combobox>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_2-of-3 slds-p-around_xx-small slds-align-bottom">
+                    <p class="slds-text-body_small slds-text-color_weak slds-p-top_large">
+                        2. Selecciona uno o más productos de la aseguradora · 3. Marca sus coberturas · 4. Guarda los cambios
+                    </p>
+                </div>
             </div>
-            
-            <template if:false={isLoading}>
+
+            <!-- Las columnas no se vuelven a dibujar al cargar (así no se pierden las búsquedas):
+                 el indicador de carga se muestra encima. -->
+            <div class="slds-is-relative">
+                <template if:true={isLoading}>
+                    <lightning-spinner alternative-text="Cargando..." size="medium"></lightning-spinner>
+                </template>
                 <div class="slds-grid slds-wrap">
                     
                     <!-- Columna 1: Productos (Ahora con selección múltiple) -->
@@ -33,14 +53,18 @@
                                         <h2 class="slds-card__header-title">
                                             <span>Productos ({productCount})</span>
                                         </h2>
+                                        <template if:true={hasAseguradora}>
+                                            <p class="slds-text-body_small slds-text-color_weak">{selectedAseguradoraName}</p>
+                                        </template>
                                     </div>
                                 </header>
                             </div>
                             <div class="slds-card__body" style="max-height: 600px; overflow-y: auto;">
                                 <template if:true={hasProducts}>
                                     <lightning-input
-                                        type="text"
+                                        type="search"
                                         label="Buscar producto"
+                                        value={productSearchTerm}
                                         onchange={handleProductSearch}
                                         class="slds-m-bottom_small">
                                     </lightning-input>
@@ -64,7 +88,7 @@
                                         <div key={product.Id} class="slds-p-vertical_x-small slds-border_bottom slds-p-horizontal_small">
                                             <lightning-input
                                                 type="checkbox"
-                                                label={product.Name}
+                                                label={product.label}
                                                 checked={product.selected}
                                                 onchange={handleProductCheckbox}
                                                 data-id={product.Id}>
@@ -79,7 +103,13 @@
                                 </template>
                                 <template if:false={hasProducts}>
                                     <div class="slds-p-around_medium slds-text-align_center slds-text-color_weak">
-                                        <p>No hay productos activos</p>
+                                        <template if:true={hasAseguradora}>
+                                            <p>{selectedAseguradoraName} no tiene productos activos</p>
+                                        </template>
+                                        <template if:false={hasAseguradora}>
+                                            <lightning-icon icon-name="utility:company" size="small"></lightning-icon>
+                                            <p>Selecciona primero la aseguradora para ver sus productos</p>
+                                        </template>
                                     </div>
                                 </template>
                             </div>
@@ -104,8 +134,9 @@
                             <div class="slds-card__body" style="max-height: 600px; overflow-y: auto;">
                                 <template if:true={hasCoverages}>
                                     <lightning-input
-                                        type="text"
+                                        type="search"
                                         label="Buscar cobertura"
+                                        value={coverageSearchTerm}
                                         onchange={handleCoverageSearch}
                                         class="slds-m-bottom_small">
                                     </lightning-input>
@@ -169,8 +200,9 @@
                                 <template if:true={hasSelectedProducts}>
                                     <template if:true={hasAssignedCoverages}>
                                         <lightning-input
-                                            type="text"
+                                            type="search"
                                             label="Buscar en asignadas"
+                                            value={assignedSearchTerm}
                                             onchange={handleAssignedSearch}
                                             class="slds-m-bottom_small">
                                         </lightning-input>
@@ -223,10 +255,10 @@
                             </div>
                         </article>
                     </div>
-                    
+
                 </div>
-            </template>
-            
+            </div>
+
         </div>
     </lightning-card>
 </template>

@@ -238,15 +238,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 try { await vincularProducer({ policyId: id, opportunityId: this.idOrNull(this.opportunityId) }); } catch (e) { /* no bloquea */ }
                 this.policyId = id;
                 if (this.readOnly) { this.loadRegistrosPoliza(); }
-            } else if (this.idOrNull(this.opportunityId) && !this.readOnly) {
-                // Aún no hay póliza: se creará al subir el PDF, con los datos base precargados.
+            } else if (!this.readOnly) {
+                // Aún no hay póliza: se creará al subir el PDF, con los datos base precargados
+                // (de la oportunidad y la cotización, si se abrió desde una).
                 this._datosBase = await datosBasePoliza({
                     opportunityId: this.idOrNull(this.opportunityId),
                     quoteId: this.idOrNull(this.quoteId)
                 });
                 this.esNueva = true;
-            } else if (!this.idOrNull(this.opportunityId)) {
-                this.errorMsg = 'No se pueden crear pólizas sin oportunidad. Abre Crear Póliza desde la oportunidad.';
             } else {
                 this.errorMsg = 'Esta oportunidad todavía no tiene póliza.';
             }
@@ -346,10 +345,6 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // que no se muestran en el formulario (así no se pierde información).
     handleSubmit(event) {
         event.preventDefault();
-        if (!this.policyId && !this.idOrNull(this.opportunityId)) {
-            this.showToast('No se pudo guardar la póliza', 'No se pueden crear pólizas sin oportunidad.', 'error');
-            return;
-        }
         const fields = this.armarCampos({ ...(event.detail ? event.detail.fields : {}) });
         const form = this.template.querySelector('lightning-record-edit-form');
         if (form) { form.submit(fields); }
@@ -364,7 +359,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 const v = fields[k];
                 if (v === undefined || v === null || v === '') { fields[k] = this._datosBase[k]; }
             });
-            fields.SourceOpportunityId = this._datosBase.SourceOpportunityId;
+            if (this._datosBase.SourceOpportunityId) { fields.SourceOpportunityId = this._datosBase.SourceOpportunityId; }
         }
         // Lo capturado en pantalla manda. Los datos de la IA solo se agregan para campos
         // que NO están en el formulario; si el campo está presente (aunque el usuario lo

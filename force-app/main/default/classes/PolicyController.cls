@@ -67,30 +67,28 @@ public with sharing class PolicyController {
 	 * PDF, ya con su número real). Toma de la oportunidad el asegurado y el propietario, y de la cotización
 	 * aceptada la aseguradora, el producto, el ramo, la prima, la frecuencia y las fechas, con las mismas reglas
 	 * que usaba el flujo Create_Insured_Policy. Los picklists solo se llenan con valores válidos.
-	 * @param opportunityId: Id de la oportunidad (obligatoria: no hay pólizas sin oportunidad)
+	 * @param opportunityId: Id de la oportunidad (opcional; sin ella solo se devuelven el estatus y las fechas)
 	 * @param quoteId: Id de la cotización aceptada (opcional; si no llega se toma la aceptada más reciente)
 	 * @return Valores por API name de InsurancePolicy (fechas como AAAA-MM-DD)
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> datosBasePoliza(Id opportunityId, Id quoteId) {
-		if (opportunityId == null) {
-			throw new AuraHandledException('No se pueden crear pólizas sin oportunidad.');
-		}
-		Opportunity opp = [SELECT Id, AccountId, OwnerId FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+		Date hoy = Date.today();
 		Map<String, Object> base = new Map<String, Object>{
-			'SourceOpportunityId' => opp.Id,
-			'NameInsuredId' => opp.AccountId,
-			'OwnerId' => opp.OwnerId,
-			'Status' => 'Inicial'
+			'Status' => 'Inicial',
+			'EffectiveDate' => String.valueOf(hoy),
+			'ExpirationDate' => String.valueOf(hoy.addDays(365))
 		};
+		if (opportunityId == null) { return base; }
+		Opportunity opp = [SELECT Id, AccountId, OwnerId FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+		base.put('SourceOpportunityId', opp.Id);
+		base.put('NameInsuredId', opp.AccountId);
+		base.put('OwnerId', opp.OwnerId);
 		List<Quote> qs = quoteId != null
 			? [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
 			   FROM Quote WHERE Id = :quoteId AND OpportunityId = :opportunityId LIMIT 1]
 			: [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
 			   FROM Quote WHERE OpportunityId = :opportunityId AND Status = 'Accepted' ORDER BY CreatedDate DESC LIMIT 1];
-		Date hoy = Date.today();
-		base.put('EffectiveDate', String.valueOf(hoy));
-		base.put('ExpirationDate', String.valueOf(hoy.addDays(365)));
 		if (qs.isEmpty()) { return base; }
 		Quote q = qs[0];
 		base.put('SourceQuoteId', q.Id);
@@ -634,30 +632,31 @@ public with sharing class PolicyController {
 		]) { assetId = a.Id; }
 
 		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
-		for (ProductCoverageAssignment__c pca : [
-			SELECT Coverage_Type__c, Coverage_Type__r.Name, Coverage_Type__r.CoverageCode,
-				   Coverage_Type__r.LimitAmount, Coverage_Type__r.DeductibleAmount,
-				   Coverage_Type__r.PremiumAmount, Coverage_Type__r.Description
-			FROM ProductCoverageAssignment__c
-			WHERE Product__c = :pol.ProductId AND Coverage_Type__c != null
+		// Catálogo de coberturas del producto: ProductCoverage (lo administra Productos y Coberturas).
+		for (ProductCoverage pca : [
+			SELECT CoverageTypeId, CoverageType.Name, CoverageType.CoverageCode,
+				   CoverageType.LimitAmount, CoverageType.DeductibleAmount,
+				   CoverageType.PremiumAmount, CoverageType.Description
+			FROM ProductCoverage
+			WHERE ProductId = :pol.ProductId AND CoverageTypeId != null
 		]) {
-			String nombre = pca.Coverage_Type__r != null ? pca.Coverage_Type__r.Name : null;
+			String nombre = pca.CoverageType != null ? pca.CoverageType.Name : null;
 			if (String.isBlank(nombre)) { continue; }
 			// Defensa: no traer placeholders "PENDIENTE" aunque quedara alguno en el catálogo.
 			if (nombre.toUpperCase().startsWith('PENDIENTE')) { continue; }
-			if (yaPorTipo.contains(pca.Coverage_Type__c)) { continue; }
+			if (yaPorTipo.contains(pca.CoverageTypeId)) { continue; }
 			if (yaPorNombre.contains(nombre.toLowerCase())) { continue; }
 
 			InsurancePolicyCoverage c = new InsurancePolicyCoverage();
 			c.InsurancePolicyId = policyId;
-			c.CoverageTypeId = pca.Coverage_Type__c;
+			c.CoverageTypeId = pca.CoverageTypeId;
 			c.CoverageName = nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
-			if (pca.Coverage_Type__r != null) {
-				if (String.isNotBlank(pca.Coverage_Type__r.CoverageCode)) { c.CoverageCode = pca.Coverage_Type__r.CoverageCode; }
-				if (pca.Coverage_Type__r.LimitAmount != null)      { c.LimitAmount = pca.Coverage_Type__r.LimitAmount; }
-				if (pca.Coverage_Type__r.DeductibleAmount != null) { c.DeductibleAmount = pca.Coverage_Type__r.DeductibleAmount; }
-				if (pca.Coverage_Type__r.PremiumAmount != null)    { c.PremiumAmount = pca.Coverage_Type__r.PremiumAmount; }
-				if (String.isNotBlank(pca.Coverage_Type__r.Description)) { c.Description = pca.Coverage_Type__r.Description; }
+			if (pca.CoverageType != null) {
+				if (String.isNotBlank(pca.CoverageType.CoverageCode)) { c.CoverageCode = pca.CoverageType.CoverageCode; }
+				if (pca.CoverageType.LimitAmount != null)      { c.LimitAmount = pca.CoverageType.LimitAmount; }
+				if (pca.CoverageType.DeductibleAmount != null) { c.DeductibleAmount = pca.CoverageType.DeductibleAmount; }
+				if (pca.CoverageType.PremiumAmount != null)    { c.PremiumAmount = pca.CoverageType.PremiumAmount; }
+				if (String.isNotBlank(pca.CoverageType.Description)) { c.Description = pca.CoverageType.Description; }
 			}
 			if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
 			if (assetId != null)       { c.InsurancePolicyAssetId = assetId; }
@@ -666,7 +665,7 @@ public with sharing class PolicyController {
 				asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate);
 			}
 			// Evita duplicados dentro del mismo lote.
-			yaPorTipo.add(pca.Coverage_Type__c);
+			yaPorTipo.add(pca.CoverageTypeId);
 			yaPorNombre.add(nombre.toLowerCase());
 			nuevas.add(c);
 		}

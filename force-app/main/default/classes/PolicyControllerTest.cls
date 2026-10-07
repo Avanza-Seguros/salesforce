@@ -222,8 +222,8 @@ private class PolicyControllerTest {
             insert prod;
             CoverageType ct = new CoverageType(Name = 'Daños Materiales Test');
             insert ct;
-            insert new ProductCoverageAssignment__c(
-                Product__c = prod.Id, Coverage_Type__c = ct.Id
+            insert new ProductCoverage(
+                ProductId = prod.Id, CoverageTypeId = ct.Id, IsCovered = true
             );
             return prod.Id;
         } catch (Exception e) {
@@ -539,7 +539,7 @@ private class PolicyControllerTest {
      * @creation date: 02/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que datosBasePoliza devuelva los datos de la oportunidad y la cotización para crear la
-     * póliza, y que rechace la falta de oportunidad.
+     * póliza, y que sin oportunidad solo devuelva el estatus y las fechas.
      * @return void
      */
     @isTest
@@ -552,12 +552,10 @@ private class PolicyControllerTest {
         System.assertEquals(opp.AccountId, base.get('NameInsuredId'));
         System.assertEquals('Inicial', base.get('Status'));
         System.assertNotEquals(null, base.get('EffectiveDate'));
-        try {
-            PolicyController.datosBasePoliza(null, null);
-            System.assert(false, 'Debe exigir la oportunidad');
-        } catch (AuraHandledException e) {
-            System.assert(true);
-        }
+        // Sin oportunidad solo se devuelven el estatus y las fechas.
+        Map<String, Object> sinOpp = PolicyController.datosBasePoliza(null, null);
+        System.assertEquals('Inicial', sinOpp.get('Status'));
+        System.assertEquals(null, sinOpp.get('SourceOpportunityId'));
     }
 
     @isTest

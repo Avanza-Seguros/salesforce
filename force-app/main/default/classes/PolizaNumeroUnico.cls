@@ -1,27 +1,22 @@
 /**
  * @creation date: 02/10/2026
  * @author: Sergio Uribe Toledo - Volestra
- * @description: Reglas de alta de pólizas (InsurancePolicy): toda póliza debe tener oportunidad origen y no
- * puede haber dos pólizas con el mismo número. La póliza se crea en Crear Póliza al subir el PDF, cuando ya se
- * conoce su número real; la llave numeroPolizaUnico__c (campo único) guarda ese número normalizado.
+ * @description: Regla de pólizas (InsurancePolicy): no puede haber dos pólizas con el mismo número. La póliza se
+ * crea en Crear Póliza al subir el PDF, cuando ya se conoce su número real; la llave numeroPolizaUnico__c (campo
+ * único) guarda ese número normalizado.
  */
 public with sharing class PolizaNumeroUnico {
 
-	@TestVisible
-	private static final String SIN_OPORTUNIDAD = 'No se pueden crear pólizas sin oportunidad. Crea la póliza desde '
-		+ 'la oportunidad (Crear Póliza).';
-
-	// En pruebas las reglas solo aplican cuando la prueba lo pide: las pruebas de cobranza crean pólizas sin
-	// oportunidad y con números repetidos (vigencias) como datos de prueba. Fuera de pruebas siempre aplican.
+	// En pruebas la regla solo aplica cuando la prueba lo pide: las pruebas de cobranza crean pólizas con números
+	// repetidos (vigencias) como datos de prueba. Fuera de pruebas siempre aplica.
 	@TestVisible
 	private static Boolean aplicarEnPruebas = false;
 
 	/**
 	 * @creation date: 02/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Valida las pólizas antes de guardarse: rechaza las que se crean sin oportunidad (o a las que
-	 * se les quita), asigna la llave del número al crearlas o al cambiarles el número, y marca error si el número
-	 * ya pertenece a otra póliza o se repite en el mismo lote.
+	 * @description: Valida las pólizas antes de guardarse: asigna la llave del número al crearlas o al cambiarles
+	 * el número, y marca error si el número ya pertenece a otra póliza o se repite en el mismo lote.
 	 * @param nuevas: Trigger.new de InsurancePolicy
 	 * @param anteriores: Trigger.oldMap (null en inserción)
 	 * @return void
@@ -31,11 +26,6 @@ public with sharing class PolizaNumeroUnico {
 		Map<String, InsurancePolicy> porLlave = new Map<String, InsurancePolicy>();
 		for (InsurancePolicy p : nuevas) {
 			InsurancePolicy ant = anteriores == null ? null : anteriores.get(p.Id);
-			// Sin oportunidad no hay póliza (las existentes sin oportunidad se pueden seguir editando).
-			if (p.SourceOpportunityId == null && (ant == null || ant.SourceOpportunityId != null)) {
-				p.SourceOpportunityId.addError(SIN_OPORTUNIDAD);
-				continue;
-			}
 			// La llave cambia solo al crear la póliza o al cambiarle el número.
 			if (ant != null && ant.Name == p.Name) { continue; }
 			String llave = normalizar(p.Name);

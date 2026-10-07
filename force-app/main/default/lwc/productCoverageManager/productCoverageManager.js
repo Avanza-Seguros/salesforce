@@ -1,4 +1,5 @@
 import { LightningElement, track, wire } from 'lwc';
+import getAseguradoras from '@salesforce/apex/ProductCoverageManagerController.getAseguradoras';
 import getProducts from '@salesforce/apex/ProductCoverageManagerController.getProducts';
 import getCoverages from '@salesforce/apex/ProductCoverageManagerController.getCoverages';
 import getAssignedCoveragesForMultipleProducts from '@salesforce/apex/ProductCoverageManagerController.getAssignedCoveragesForMultipleProducts';
@@ -6,6 +7,9 @@ import saveAssignmentsForMultipleProducts from '@salesforce/apex/ProductCoverage
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class ProductCoverageManager extends LightningElement {
+    // Paso 1: aseguradora. Solo se muestran sus productos.
+    @track aseguradoras = [];
+    selectedAseguradoraId = '';
     @track products = [];
     @track coverages = [];
     @track assignedCoverages = [];
@@ -21,23 +25,77 @@ export default class ProductCoverageManager extends LightningElement {
     coverageSearchTerm = '';
     assignedSearchTerm = '';
     
-    @wire(getProducts)
-    wiredProducts({ data, error }) {
-        if (data) {
-            this.products = data.map(p => ({
-                Id: p.Id,
-                Name: p.Name,
-                selected: false
-            }));
-            this.filteredProducts = [...this.products];
-            console.log('Productos cargados:', this.products.length);
-            this.checkLoadingComplete();
-        } else if (error) {
-            console.error('Error cargando productos:', error);
-            this.checkLoadingComplete();
-        }
+    connectedCallback() {
+        this.loadAseguradoras();
     }
-    
+
+    // Carga las aseguradoras con el número de productos activos de cada una.
+    loadAseguradoras() {
+        getAseguradoras()
+            .then(data => {
+                this.aseguradoras = data || [];
+            })
+            .catch(error => {
+                this.showError('Error cargando aseguradoras', error);
+            });
+    }
+
+    get aseguradoraOptions() {
+        return this.aseguradoras.map(a => ({
+            label: `${a.Name} (${a.productos} producto${a.productos === 1 ? '' : 's'})`,
+            value: a.Id
+        }));
+    }
+
+    get hasAseguradora() {
+        return !!this.selectedAseguradoraId;
+    }
+
+    get selectedAseguradoraName() {
+        const a = this.aseguradoras.find(x => x.Id === this.selectedAseguradoraId);
+        return a ? a.Name : '';
+    }
+
+    // Al elegir la aseguradora se cargan SOLO sus productos y se reinicia la selección.
+    handleAseguradoraChange(event) {
+        this.selectedAseguradoraId = event.detail.value;
+        this.selectedProductIds = [];
+        this.productSearchTerm = '';
+        this.products = [];
+        this.filteredProducts = [];
+        this.assignedCoverageMap.clear();
+        this.originalAssignedCoverageMap.clear();
+        this.updateCoveragesAssignment();
+        this.updateAssignedCoveragesList();
+        if (!this.selectedAseguradoraId) { return; }
+        this.isLoading = true;
+        getProducts({ aseguradoraId: this.selectedAseguradoraId })
+            .then(data => {
+                this.products = (data || []).map(p => ({
+                    Id: p.Id,
+                    Name: p.Name,
+                    Family: p.Family,
+                    label: p.Family ? `${p.Name} · ${p.Family}` : p.Name,
+                    selected: false
+                }));
+                this.filteredProducts = [...this.products];
+            })
+            .catch(error => {
+                this.showError('Error cargando productos', error);
+            })
+            .finally(() => {
+                this.isLoading = false;
+            });
+    }
+
+    showError(titulo, error) {
+        this.dispatchEvent(new ShowToastEvent({
+            title: titulo,
+            message: (error && error.body && error.body.message) || (error && error.message) || 'Error desconocido',
+            variant: 'error'
+        }));
+    }
+
     @wire(getCoverages)
     wiredCoverages({ data, error }) {
         if (data) {
@@ -56,13 +114,13 @@ export default class ProductCoverageManager extends LightningElement {
     }
     
     checkLoadingComplete() {
-        if (this.products !== undefined && this.coverages !== undefined) {
+        if (this.coverages !== undefined) {
             this.isLoading = false;
         }
     }
     
     handleProductSearch(event) {
-        this.productSearchTerm = event.target.value.toLowerCase();
+        this.productSearchTerm = event.target.value || '';
         this.filterProducts();
     }
     
@@ -71,7 +129,7 @@ export default class ProductCoverageManager extends LightningElement {
             this.filteredProducts = [...this.products];
         } else {
             this.filteredProducts = this.products.filter(product => 
-                product.Name.toLowerCase().includes(this.productSearchTerm)
+                (product.label || product.Name).toLowerCase().includes(this.productSearchTerm.toLowerCase())
             );
         }
     }
@@ -198,7 +256,7 @@ export default class ProductCoverageManager extends LightningElement {
     }
     
     handleCoverageSearch(event) {
-        this.coverageSearchTerm = event.target.value.toLowerCase();
+        this.coverageSearchTerm = event.target.value || '';
         this.filterCoverages();
     }
     
@@ -207,7 +265,7 @@ export default class ProductCoverageManager extends LightningElement {
             this.filteredCoverages = [...this.coverages];
         } else {
             this.filteredCoverages = this.coverages.filter(coverage => 
-                coverage.Name.toLowerCase().includes(this.coverageSearchTerm)
+                coverage.Name.toLowerCase().includes(this.coverageSearchTerm.toLowerCase())
             );
         }
         
@@ -218,7 +276,7 @@ export default class ProductCoverageManager extends LightningElement {
     }
     
     handleAssignedSearch(event) {
-        this.assignedSearchTerm = event.target.value.toLowerCase();
+        this.assignedSearchTerm = event.target.value || '';
         this.filterAssignedCoverages();
     }
     
@@ -227,7 +285,7 @@ export default class ProductCoverageManager extends LightningElement {
             this.filteredAssignedCoverages = [...this.assignedCoverages];
         } else {
             this.filteredAssignedCoverages = this.assignedCoverages.filter(coverage => 
-                coverage.Name.toLowerCase().includes(this.assignedSearchTerm)
+                coverage.Name.toLowerCase().includes(this.assignedSearchTerm.toLowerCase())
             );
         }
     }
@@ -283,23 +341,22 @@ export default class ProductCoverageManager extends LightningElement {
         const coverageIds = Array.from(this.assignedCoverageMap.keys());
         
         saveAssignmentsForMultipleProducts({
+            aseguradoraId: this.selectedAseguradoraId,
             productIds: this.selectedProductIds,
             coverageIds: coverageIds
         })
-        .then(() => {
-            // Actualizar el estado original
-            this.originalAssignedCoverageMap.clear();
-            for (let [key, value] of this.assignedCoverageMap) {
-                this.originalAssignedCoverageMap.set(key, { ...value });
-            }
-            
+        .then((res) => {
+            const r = res || {};
             this.dispatchEvent(
                 new ShowToastEvent({
-                    title: 'Éxito',
-                    message: `Se han guardado ${coverageIds.length} coberturas para ${this.selectedProductsCount} producto(s)`,
+                    title: 'Coberturas guardadas',
+                    message: `${this.selectedAseguradoraName}: ${coverageIds.length} cobertura(s) en ${this.selectedProductsCount} producto(s). `
+                        + `Agregadas: ${r.agregadas || 0} · Quitadas: ${r.quitadas || 0}.`,
                     variant: 'success'
                 })
             );
+            // Vuelve a leer lo que quedó guardado en ProductCoverage.
+            this.loadAssignedCoveragesForSelection();
         })
         .catch(error => {
             console.error('Error guardando:', error);
