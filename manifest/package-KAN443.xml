@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-443 - La pestana Pagos muestra las cuotas reales de la poliza.
+  Manifest acotado: solo lo de esta historia. Requiere KAN-442 desplegada (datos de la aseguradora
+  en la cuota).
+  Validar con: -l RunSpecifiedTests -t PolicyInstallmentsControllerTest
+  Las pruebas del componente corren aparte, con sfdx-lwc-jest sobre lwc/policyInstallments.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>PolicyInstallmentsController</members>
+        <members>PolicyInstallmentsControllerTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>policyInstallments</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

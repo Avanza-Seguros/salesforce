@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-444 - Las cuotas pasan a Vencido al dia siguiente de su vencimiento.
+  Manifest acotado: solo lo de esta historia.
+  Validar con: -l RunSpecifiedTests -t PaymentPlanInstallmentOverdueBatchTest CobranzaLogTest PaymentPlanInstallmentTriggerHandlerTest PolicyCollectionSummaryServiceTest InsurancePolicyExpirationBatchTest PaymentInstallmentMatchQueueableTest InboundInstallmentCandidateQueueableTest
+  Despues de desplegar, programarlo una vez por org: scripts/apex/programar-cuotas-vencidas.apex
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>PaymentPlanInstallmentOverdueBatch</members>
+        <members>PaymentPlanInstallmentOverdueBatchTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

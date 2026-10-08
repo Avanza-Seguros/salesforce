@@ -37,9 +37,9 @@
                 <label>La póliza no aceptó los datos</label>
             </value>
             <value>
-                <fullName>RENOVACION_INCOMPLETA</fullName>
+                <fullName>RENOVACION_PENDIENTE</fullName>
                 <default>false</default>
-                <label>Renovación sin prima o forma de pago</label>
+                <label>Renovación: falta crear su vigencia</label>
             </value>
         </valueSetDefinition>
     </valueSet>

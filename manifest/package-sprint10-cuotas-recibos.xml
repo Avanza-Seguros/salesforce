@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Cuota y recibo de la aseguradora, a UAT de una sola vez: KAN-442 (la cuota guarda su recibo),
+  KAN-444 (cuotas a Vencido) y KAN-443 (pestana Pagos). Es la union de sus tres manifests.
+  Validar con: -l RunSpecifiedTests -t CobranzaLogTest InboundConfidenceScoreQueueableTest InboundInstallmentCandidateQueueableTest InboundInsurancePaymentRestResourceTest InboundPolicyCandidateQueueableTest InboundReconciliationRulesQueueableTest InboundRefundServiceTest InsurancePolicyExpirationBatchTest PaymentInstallmentMatchQueueableTest PaymentPlanInstallmentOverdueBatchTest PaymentPlanInstallmentTriggerHandlerTest PaymentReconciliationManualServiceTest PolicyCarrierStatusServiceTest PolicyCollectionSummaryServiceTest PolicyInstallmentsControllerTest PolicyPaymentReceiptReversalServiceTest PolicyStatusFromCarrierTest
+  Despues de desplegar: programar el proceso de cuotas vencidas
+  (scripts/apex/programar-cuotas-vencidas.apex) y rellenar el origen de las cuotas cargadas
+  (extraccion-qualitas/scripts/rellena_origen_cuotas.py).
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundInstallmentCandidateQueueable</members>
+        <members>InboundInstallmentCandidateQueueableTest</members>
+        <members>InboundRefundService</members>
+        <members>InboundRefundServiceTest</members>
+        <members>PaymentPlanInstallmentOverdueBatch</members>
+        <members>PaymentPlanInstallmentOverdueBatchTest</members>
+        <members>PolicyInstallmentsController</members>
+        <members>PolicyInstallmentsControllerTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
+        <members>PaymentPlanInstallment__c.carrierEndorsementNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierInstallmentNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
+        <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members
+		>PaymentPlanInstallment__c-Payment Plan Installment Layout</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>policyInstallments</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <name>RecordType</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

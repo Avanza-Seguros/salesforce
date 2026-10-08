@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-448 + KAN-449 - El canal de polizas recibe lo que manda la aseguradora y lo aplica a la poliza.
+  Van juntas: la recepcion (448) encola la aplicacion (449).
+  Validar con: -l RunSpecifiedTests -t InboundPolicyServiceTest InboundPolicyApplyServiceTest CobranzaLogTest PaymentPlanRegenerationServiceTest PlanPremiumMismatchServiceTest PaymentPlanFrequencyChangeServiceTest InsurancePolicyTriggerHandlerTest PolicyAssetActivationServiceTest PolicyCollectionSummaryServiceTest
+  Despues de desplegar: asignar el permission set MuleSoft_InboundPolicies al usuario de la integracion.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundPolicyApplyQueueable</members>
+        <members>InboundPolicyApplyService</members>
+        <members>InboundPolicyApplyServiceTest</members>
+        <members>InboundPolicyRestResource</members>
+        <members>InboundPolicyService</members>
+        <members>InboundPolicyServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InboundPolicyUpdate__c</members>
+        <name>CustomObject</name>
+    </types>
+
+    <types>
+        <members>InboundPolicyUpdate__c.candidatePolicy__c</members>
+        <members>InboundPolicyUpdate__c.contentFingerprint__c</members>
+        <members>InboundPolicyUpdate__c.identityKey__c</members>
+        <members>InboundPolicyUpdate__c.inboundStatus__c</members>
+        <members>InboundPolicyUpdate__c.lastReceivedAt__c</members>
+        <members>InboundPolicyUpdate__c.manualReviewReason__c</members>
+        <members>InboundPolicyUpdate__c.manualReviewRequired__c</members>
+        <members>InboundPolicyUpdate__c.policyMatchReason__c</members>
+        <members>InboundPolicyUpdate__c.receivedAt__c</members>
+        <members>InboundPolicyUpdate__c.rejectionReason__c</members>
+        <members>InboundPolicyUpdate__c.reprocessCount__c</members>
+        <members>InboundPolicyUpdate__c.resendCount__c</members>
+        <members>InboundPolicyUpdate__c.sourceCancellationDate__c</members>
+        <members>InboundPolicyUpdate__c.sourceCancellationReason__c</members>
+        <members>InboundPolicyUpdate__c.sourceCarrierCode__c</members>
+        <members>InboundPolicyUpdate__c.sourceCurrency__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerAddress__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerName__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerTaxId__c</members>
+        <members>InboundPolicyUpdate__c.sourceCustomerType__c</members>
+        <members>InboundPolicyUpdate__c.sourceDiscountPercent__c</members>
+        <members>InboundPolicyUpdate__c.sourceFinancingCharge__c</members>
+        <members
+		>InboundPolicyUpdate__c.sourceInsuredAssetDescription__c</members>
+        <members>InboundPolicyUpdate__c.sourceIntermediaryName__c</members>
+        <members>InboundPolicyUpdate__c.sourceLastPaymentDate__c</members>
+        <members>InboundPolicyUpdate__c.sourceNetPremium__c</members>
+        <members>InboundPolicyUpdate__c.sourceNextDueDate__c</members>
+        <members>InboundPolicyUpdate__c.sourceOutstandingPremium__c</members>
+        <members>InboundPolicyUpdate__c.sourcePaidPremium__c</members>
+        <members>InboundPolicyUpdate__c.sourcePayloadHash__c</members>
+        <members>InboundPolicyUpdate__c.sourcePayloadJson__c</members>
+        <members>InboundPolicyUpdate__c.sourcePaymentMode__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyBranch__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyEndDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyFee__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyId__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyIssueDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyNumber__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyRenewalDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyStartDate__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundPolicyUpdate__c.sourcePremiumFrequency__c</members>
+        <members>InboundPolicyUpdate__c.sourceProductName__c</members>
+        <members>InboundPolicyUpdate__c.sourceRenewalFlag__c</members>
+        <members>InboundPolicyUpdate__c.sourceSynchronizedAt__c</members>
+        <members>InboundPolicyUpdate__c.sourceSystem__c</members>
+        <members>InboundPolicyUpdate__c.sourceTaxAmount__c</members>
+        <members>InboundPolicyUpdate__c.sourceTotalPremium__c</members>
+        <members>InsurancePolicy.carrierDataSyncedAt__c</members>
+        <members>InsurancePolicy.carrierPaymentMode__c</members>
+        <members>InsurancePolicy.carrierPolicyUpdate__c</members>
+        <members>InsurancePolicy.sourceIntermediaryName__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>InboundPolicyUpdate__c.Aplicadas</members>
+        <members>InboundPolicyUpdate__c.En_revision</members>
+        <members>InboundPolicyUpdate__c.Rechazadas</members>
+        <members>InboundPolicyUpdate__c.Recibidas</members>
+        <members>InboundPolicyUpdate__c.Todas</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members>InboundPolicyUpdate__c</members>
+        <name>CustomTab</name>
+    </types>
+
+    <types>
+        <members>InboundPolicyUpdate__c-Comunicacion de poliza</members>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>Insurance_Policy_Record_Page</members>
+        <members>Comunicacion_de_Poliza</members>
+        <name>FlexiPage</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Lectura</members>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <members>MuleSoft_InboundPolicies</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

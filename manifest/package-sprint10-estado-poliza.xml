@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Estado de la poliza a UAT de una sola vez (KAN-440 + KAN-438 + KAN-439 y el picklist del
+  estado normalizado). Es la union de package-KAN440/438/439 y package-mdt-estado-normalizado.
+  NO incluye manifest/destructive/: el campo de texto que retira nunca existio en UAT.
+  Validar con: -l RunSpecifiedTests -t CobranzaLogTest InboundInsurancePaymentRestResourceTest InboundPolicyCandidateQueueableTest InboundRefundServiceTest InsurancePolicyExpirationBatchTest OpportunityPolizaStageGuardTest PaymentInstallmentMatchQueueableTest PolicyCarrierStatusServiceTest PolicyPaymentReceiptQueueableTest PolicyPaymentReceiptReversalServiceTest PolicyPaymentReceiptTriggerHandlerTest PolicyStatusFromCarrierTest PolicyStatusServiceTest
+  Despues de desplegar: programar el proceso diario (scripts/apex/programar-vencimiento-polizas.apex).
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundInsurancePaymentService</members>
+        <members>InboundPolicyCandidateQueueable</members>
+        <members>InsurancePolicyExpirationBatch</members>
+        <members>InsurancePolicyExpirationBatchTest</members>
+        <members>PolicyCarrierStatusService</members>
+        <members>PolicyCarrierStatusServiceTest</members>
+        <members>PolicyPaymentReceiptTriggerHandler</members>
+        <members>PolicyStatusFromCarrierTest</members>
+        <members>PolicyStatusNoticeQueueable</members>
+        <members>PolicyStatusService</members>
+        <members>PolicyStatusServiceTest</members>
+        <members>PolicyPaymentReceiptReversalServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt.CarrierCode__c</members>
+        <members
+		>CarrierPolicyStatusMapping__mdt.NormalizedPolicyStatus__c</members>
+        <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
+        <members>InboundInsurancePayment__c.inboundStatus__c</members>
+        <members>InboundInsurancePayment__c.manualReviewReason__c</members>
+        <members>InboundInsurancePayment__c.policyStatusNotice__c</members>
+        <members>InsurancePolicy.carrierPolicyStatusRaw__c</members>
+        <members>InsurancePolicy.carrierPolicyStatus__c</members>
+        <members>InsurancePolicy.carrierStatusNotice__c</members>
+        <members>InsurancePolicy.carrierStatusSyncedAt__c</members>
+        <members>InsurancePolicy.sourceOpportunityCloseDate__c</members>
+        <members>InsurancePolicy.sourceOpportunityStage__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Cancelada</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigente</members>
+        <name>CustomMetadata</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt</members>
+        <name>CustomObject</name>
+    </types>
+
+    <types>
+        <members>Update_Status_Insurance_Policy</members>
+        <name>Flow</name>
+    </types>
+
+    <types>
+        <members
+		>InboundInsurancePayment__c-Inbound Insurance Payment Layout</members>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <members
+		>PaymentPlanInstallment__c-Payment Plan Installment Layout</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>inboundPolicyStatusReprocess</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.En_Revision_Manual</members>
+        <members>InboundInsurancePayment__c.Estados_de_poliza</members>
+        <members
+		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
+        <members>InboundInsurancePayment__c.Pagos_Detenidos</members>
+        <members>InsurancePolicy.Polizas_Inicial_Oportunidad_Perdida</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <types>
+        <members
+		>InboundInsurancePayment__c.Reprocesar_estado_de_poliza</members>
+        <name>QuickAction</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>RecordType</name>
+    </types>
+
+    <types>
+        <members>Senalar_Oportunidad_Por_Reversa</members>
+        <name>CustomPermission</name>
+    </types>
+
+    <types>
+        <members>Opportunity.BloquearCerrada</members>
+        <name>ValidationRule</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

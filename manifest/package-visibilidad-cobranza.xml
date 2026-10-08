@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Lo que hace falta para que las personas VEAN lo que ya construimos:
+  el conjunto de permisos de solo lectura (hay que asignarlo a cada usuario) y las
+  vistas de lista de la póliza (la de todas, más una por cada estado).
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>Cobranza_Lectura</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy.All_InsurancePolicies</members>
+        <members>InsurancePolicy.Polizas_Vigentes</members>
+        <members>InsurancePolicy.Polizas_Iniciales</members>
+        <members>InsurancePolicy.Polizas_Vencidas</members>
+        <members>InsurancePolicy.Polizas_Canceladas</members>
+        <members>InsurancePolicy.Polizas_Inicial_Venta_Ganada</members>
+        <members>InsurancePolicy.Polizas_Inicial_Oportunidad_Perdida</members>
+        <name>ListView</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

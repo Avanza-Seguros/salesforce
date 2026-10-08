@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-440 - La poliza pasa a Vigente con su primer pago y a Vencido al terminar su vigencia.
+  Manifest acotado: SOLO lo de esta historia.
+  Validar con: -l RunSpecifiedTests -t PolicyStatusServiceTest InsurancePolicyExpirationBatchTest
+  PolicyPaymentReceiptTriggerHandlerTest CobranzaLogTest OpportunityPolizaStageGuardTest
+  PolicyPaymentReceiptQueueableTest PolicyPaymentReceiptReversalServiceTest InboundRefundServiceTest
+  Despues de desplegar, programar el proceso diario una vez (ver instrucciones de la historia).
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InsurancePolicyExpirationBatch</members>
+        <members>InsurancePolicyExpirationBatchTest</members>
+        <members>PolicyPaymentReceiptTriggerHandler</members>
+        <members>PolicyStatusService</members>
+        <members>PolicyStatusServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy.sourceOpportunityCloseDate__c</members>
+        <members>InsurancePolicy.sourceOpportunityStage__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy.Polizas_Inicial_Oportunidad_Perdida</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

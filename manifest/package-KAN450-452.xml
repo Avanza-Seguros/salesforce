@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-450 (el estado entra por los dos canales) + KAN-452 (revision y reproceso de comunicaciones de poliza).
+  Van juntas: comparten InboundPolicyApplyService e InboundPolicyService.
+  Incluye los ajustes de KAN-449 del 29/09 (moneda PESOS = MXN y bloqueo FOR UPDATE).
+  El layout de la poliza NO va aqui: sus campos de la 450 ya estan en DEV y el 30/09 alguien quito en DEV
+  tres listas relacionadas (pendiente de decidir si el repo las quita tambien).
+  Despues de desplegar, UNA vez por org: scripts/apex/kan450-rellenar-cancelacion-en-poliza.apex
+  Validar con: -l RunSpecifiedTests -t PolicyStatusBothChannelsTest InboundPolicyReviewTest PolicyCarrierStatusServiceTest PolicyStatusFromCarrierTest PolicyStatusServiceTest InboundPolicyApplyServiceTest InboundPolicyServiceTest InboundPolicyCandidateQueueableTest CobranzaLogTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>CarrierStatusCommunication</members>
+        <members>CobranzaLog</members>
+        <members>InboundPolicyApplyService</members>
+        <members>InboundPolicyApplyServiceTest</members>
+        <members>InboundPolicyService</members>
+        <members>InboundPolicyServiceTest</members>
+        <members>PolicyCarrierStatusService</members>
+        <members>PolicyStatusBothChannelsTest</members>
+        <members>PolicyStatusFromCarrierTest</members>
+        <members>PolicyStatusService</members>
+        <members>InboundPolicyReviewTest</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>CarrierPolicyStatusMapping.QUALITAS_No_tomada</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Renovada</members>
+        <members
+		>CarrierPolicyStatusMapping.QUALITAS_Se_cambio_de_agente</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vencida</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigor</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigor_Prorrogado</members>
+        <members
+		>CarrierPolicyStatusMapping.QUALITAS_Vigor_sin_Pago_de_Primas</members>
+        <name>CustomMetadata</name>
+    </types>
+    <types>
+        <members>Aseguradora__c.unreportedAlertDays__c</members>
+        <members>InsurancePolicy.carrierCancellationDate__c</members>
+        <members>InsurancePolicy.carrierCancellationReason__c</members>
+        <members>InsurancePolicy.carrierDaysUnreported__c</members>
+        <members>InsurancePolicy.carrierLastSeenAt__c</members>
+        <members>InsurancePolicy.carrierStatusPolicyUpdate__c</members>
+        <members>InsurancePolicy.carrierStatusSource__c</members>
+        <members>InsurancePolicy.carrierUnreported__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByPolicyUpdate__c</members>
+        <members>InsurancePolicy.carrierPolicyStatusRaw__c</members>
+        <members>InboundPolicyUpdate__c.reviewReasonCode__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>InsurancePolicy.Polizas_Sin_Reportar</members>
+        <members>InsurancePolicy.Polizas_Vigentes_Estado_Especial</members>
+        <members>InsurancePolicy.Polizas_Vigentes</members>
+        <members>InsurancePolicy.Polizas_Vencidas</members>
+        <members>InsurancePolicy.Polizas_Canceladas</members>
+        <members>InboundPolicyUpdate__c.En_revision</members>
+        <name>ListView</name>
+    </types>
+    <types>
+        <members>InboundPolicyUpdate__c-Comunicacion de poliza</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <members>Cobranza_Lectura</members>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <members>MuleSoft_InboundPolicies</members>
+        <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>inboundPolicyUpdateReprocess</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>InboundPolicyUpdate__c.Reprocesar</members>
+        <name>QuickAction</name>
+    </types>
+    <types>
+        <members>Insurance_Policy_Record_Page</members>
+        <name>FlexiPage</name>
+    </types>
+    <version>66.0</version>
+</Package>

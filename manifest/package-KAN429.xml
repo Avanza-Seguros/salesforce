@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-429 - Modelo de vehiculo en FSC: CustomerProperty + InsurancePolicyAsset.
+  Manifest acotado: SOLO lo de esta historia, para poder desplegar a UAT sin
+  arrastrar el resto del sprint 9 que sigue en manifest/package.xml.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CustomerProperty.Motor__c</members>
+        <members>CustomerProperty.Uso__c</members>
+        <members>CustomerProperty.Servicio__c</members>
+        <members>CustomerProperty.Carroceria__c</members>
+        <members>CustomerProperty.TipoVehiculo__c</members>
+        <members>CustomerProperty.Color__c</members>
+        <members>CustomerProperty.TarifaAseguradora__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>CustomerProperty-Formato de Propiedad de cliente</members>
+        <members
+		>InsurancePolicyAsset-Formato de Activo de póliza de seguro</members>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <members>Account-Business Account Layout</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicyAsset.All_InsurancePolicyAssets</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members>Vehiculos_FSC</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

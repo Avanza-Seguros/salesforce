@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-438 - La aseguradora puede comunicar el estado de una poliza.
+  Manifest acotado: SOLO lo de esta historia. Requiere KAN-440 desplegada (etapa de log).
+  Validar con: -l RunSpecifiedTests -t PolicyCarrierStatusServiceTest InboundInsurancePaymentRestResourceTest
+  InboundPolicyCandidateQueueableTest InboundRefundServiceTest CobranzaLogTest PolicyStatusServiceTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundInsurancePaymentService</members>
+        <members>PolicyCarrierStatusService</members>
+        <members>PolicyCarrierStatusServiceTest</members>
+        <members>PolicyStatusNoticeQueueable</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt</members>
+        <name>CustomObject</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt.CarrierCode__c</members>
+        <members
+		>CarrierPolicyStatusMapping__mdt.NormalizedPolicyStatus__c</members>
+        <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
+        <members>InboundInsurancePayment__c.inboundStatus__c</members>
+        <members>InboundInsurancePayment__c.policyStatusNotice__c</members>
+        <members>InsurancePolicy.carrierPolicyStatus__c</members>
+        <members>InsurancePolicy.carrierPolicyStatusRaw__c</members>
+        <members>InsurancePolicy.carrierStatusNotice__c</members>
+        <members>InsurancePolicy.carrierStatusSyncedAt__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Cancelada</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigente</members>
+        <name>CustomMetadata</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>RecordType</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.En_Revision_Manual</members>
+        <members>InboundInsurancePayment__c.Estados_de_poliza</members>
+        <members
+		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
+        <members>InboundInsurancePayment__c.Pagos_Detenidos</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members
+		>InboundInsurancePayment__c-Inbound Insurance Payment Layout</members>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>inboundPolicyStatusReprocess</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <types>
+        <members
+		>InboundInsurancePayment__c.Reprocesar_estado_de_poliza</members>
+        <name>QuickAction</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

@@ -33,11 +33,7 @@ public with sharing class InboundPolicyApplyService {
 	private static final String REVIEW_AMBIGUOUS_TERM = 'VIGENCIA_AMBIGUA';
 	private static final String REVIEW_CURRENCY = 'MONEDA_DISTINTA';
 	private static final String REVIEW_SAVE_FAILED = 'NO_SE_PUDO_GUARDAR';
-	private static final String REVIEW_RENEWAL_INCOMPLETE = 'RENOVACION_INCOMPLETA';
-
-	// La comunicacion es una renovacion y creo su vigencia nueva.
-	private static final String REASON_RENEWAL = 'RENOVACION_CREADA';
-	private static final String STATUS_INITIAL = 'Inicial';
+	private static final String REVIEW_RENEWAL_PENDING = 'RENOVACION_PENDIENTE';
 
 	// Evita que el reproceso del analista se vuelva a disparar a si mismo en la misma transaccion.
 	private static Boolean reprocessing = false;
@@ -73,10 +69,6 @@ public with sharing class InboundPolicyApplyService {
 		'UDI' => 'UDI',
 		'UDIS' => 'UDI'
 	};
-
-	// Solo para pruebas: renovaciones de estos numeros fallan al crearse.
-	@TestVisible
-	private static Set<String> failRenewalForTest = new Set<String>();
 
 	// Solo para pruebas: simula que otro proceso tiene bloqueadas las comunicaciones.
 	@TestVisible
@@ -282,7 +274,6 @@ public with sharing class InboundPolicyApplyService {
 		Map<Id, List<InboundPolicyUpdate__c>> updatesByPolicyId = new Map<Id, List<InboundPolicyUpdate__c>>();
 		Map<Id, String> matchReasonByUpdateId = new Map<Id, String>();
 		List<InboundPolicyUpdate__c> toSave = new List<InboundPolicyUpdate__c>();
-		List<Renewal> renewals = new List<Renewal>();
 
 		for (InboundPolicyUpdate__c communication : updates) {
 			InsurancePolicy byId = policyByReportedId(
@@ -346,8 +337,22 @@ public with sharing class InboundPolicyApplyService {
 						communication.sourcePolicyStartDate__c
 					)
 				) {
-					// Numero conocido, vigencia nueva y posterior a todas: es la renovacion.
-					renewals.add(new Renewal(communication, latestTerm(candidates)));
+					// Numero conocido y vigencia posterior a todas: es la renovacion de una
+					// aseguradora que conserva el numero. No se crea sola: espera a que se dé de
+					// alta su vigencia, y entonces el siguiente reenvio la aplica.
+					InboundPolicyUpdate__c pending = review(
+						communication,
+						REASON_NO_TERM,
+						REVIEW_RENEWAL_PENDING,
+						'Es una renovacion de la poliza ' +
+							communication.sourcePolicyNumber__c +
+							' que empieza el ' +
+							communication.sourcePolicyStartDate__c.format() +
+							', y esa vigencia no existe en Salesforce. Cuando se cree, el siguiente ' +
+							'reenvio de la aseguradora la aplica solo, o se puede reprocesar.'
+					);
+					pending.candidatePolicy__c = latestTerm(candidates).Id;
+					toSave.add(pending);
 					continue;
 				}
 
@@ -360,7 +365,7 @@ public with sharing class InboundPolicyApplyService {
 							communication.sourcePolicyNumber__c +
 							' contiene el inicio comunicado ' +
 							communication.sourcePolicyStartDate__c.format() +
-							' y no es posterior a todas: no se crea como renovacion (puede ser una vigencia historica o un error).'
+							' (puede ser una vigencia historica o un error).'
 					)
 				);
 			} else if (containing.size() > 1) {
@@ -386,14 +391,6 @@ public with sharing class InboundPolicyApplyService {
 				updatesByPolicyId.get(policy.Id).add(communication);
 			}
 		}
-
-		createRenewals(
-			renewals,
-			policyById,
-			updatesByPolicyId,
-			matchReasonByUpdateId,
-			toSave
-		);
 
 		List<InsurancePolicy> policiesToUpdate = new List<InsurancePolicy>();
 		Map<Id, InboundPolicyUpdate__c> appliedByPolicyId = new Map<Id, InboundPolicyUpdate__c>();
@@ -1056,13 +1053,7 @@ public with sharing class InboundPolicyApplyService {
 				sourceIntermediaryName__c,
 				Moneda__c,
 				carrierDataSyncedAt__c,
-				carrierPolicyUpdate__c,
-				NameInsuredId,
-				Aseguradora__c,
-				ProductId,
-				PolicyName,
-				OriginalPolicyId,
-				IsRenewedPolicy
+				carrierPolicyUpdate__c
 			FROM InsurancePolicy
 			WHERE Name IN :numbers
 		]) {
@@ -1076,284 +1067,6 @@ public with sharing class InboundPolicyApplyService {
 		}
 
 		return result;
-	}
-
-	/**
-	 * @creation date: 30/09/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Crea la vigencia nueva de cada renovacion: mismo numero, las fechas,
-	 *               la prima y la frecuencia comunicadas, y lo que no viene (cliente, aseguradora,
-	 *               producto, ramo, moneda) heredado de la vigencia anterior, a la que queda
-	 *               encadenada. Nace en Inicial para que el trigger le cree su plan; su estado lo
-	 *               pone despues lo que comunico la aseguradora. La vigencia anterior no se toca,
-	 *               salvo la marca de renovada. Si en el envio hay varias comunicaciones de la misma
-	 *               renovacion, se crea una sola vigencia y se aplica la mas reciente. Sin prima o
-	 *               frecuencia, o con otra moneda, va a revision; una que no se puede crear no
-	 *               detiene a las demas.
-	 * @param renewals: Renovaciones detectadas.
-	 * @param policyById: Polizas a las que se aplicaran comunicaciones.
-	 * @param updatesByPolicyId: Comunicaciones por poliza.
-	 * @param matchReasonByUpdateId: Como se identifico la poliza de cada comunicacion.
-	 * @param toSave: Resultados de las comunicaciones.
-	 * @return:
-	 * @exception:
-	 * @throws:
-	 */
-	private static void createRenewals(
-		List<Renewal> renewals,
-		Map<Id, InsurancePolicy> policyById,
-		Map<Id, List<InboundPolicyUpdate__c>> updatesByPolicyId,
-		Map<Id, String> matchReasonByUpdateId,
-		List<InboundPolicyUpdate__c> toSave
-	) {
-		if (renewals.isEmpty()) {
-			return;
-		}
-
-		// Una sola vigencia por numero + inicio, aunque lleguen varias comunicaciones.
-		Map<String, List<Renewal>> byTerm = new Map<String, List<Renewal>>();
-
-		for (Renewal renewal : renewals) {
-			String key =
-				normalizeNumber(renewal.communication.sourcePolicyNumber__c) +
-				'|' +
-				renewal.communication.sourcePolicyStartDate__c;
-
-			if (!byTerm.containsKey(key)) {
-				byTerm.put(key, new List<Renewal>());
-			}
-
-			byTerm.get(key).add(renewal);
-		}
-
-		List<InsurancePolicy> toInsert = new List<InsurancePolicy>();
-		List<List<Renewal>> insertedGroups = new List<List<Renewal>>();
-
-		for (List<Renewal> sameTerm : byTerm.values()) {
-			Renewal latest = sameTerm[0];
-
-			for (Renewal renewal : sameTerm) {
-				if (syncOf(renewal.communication) > syncOf(latest.communication)) {
-					latest = renewal;
-				}
-			}
-
-			InboundPolicyUpdate__c communication = latest.communication;
-			InsurancePolicy prior = latest.prior;
-			String frequency = communication.sourcePremiumFrequency__c == null
-				? null
-				: FREQUENCY_BY_CARRIER.get(
-						normalizeKey(communication.sourcePremiumFrequency__c)
-				  );
-			String problem = null;
-			String code = REVIEW_RENEWAL_INCOMPLETE;
-
-			if (
-				communication.sourceTotalPremium__c == null ||
-				communication.sourceTotalPremium__c <= 0
-			) {
-				problem = 'no trae la prima total';
-			} else if (frequency == null) {
-				problem = communication.sourcePremiumFrequency__c == null
-					? 'no trae la forma de pago'
-					: 'su forma de pago «' +
-					  communication.sourcePremiumFrequency__c +
-					  '» no tiene equivalencia';
-			} else if (currencyMismatch(communication, prior)) {
-				problem =
-					'su moneda (' +
-					communication.sourceCurrency__c +
-					') no es la de la vigencia anterior (' +
-					prior.Moneda__c +
-					')';
-				code = REVIEW_CURRENCY;
-			}
-
-			if (problem != null) {
-				for (Renewal renewal : sameTerm) {
-					InboundPolicyUpdate__c inReview = review(
-						renewal.communication,
-						REASON_NO_TERM,
-						code,
-						'Es una renovacion de la poliza ' +
-							communication.sourcePolicyNumber__c +
-							' que empieza el ' +
-							communication.sourcePolicyStartDate__c.format() +
-							', pero ' +
-							problem +
-							': no se crea la vigencia nueva.'
-					);
-					inReview.candidatePolicy__c = prior.Id;
-					toSave.add(inReview);
-				}
-
-				continue;
-			}
-
-			InsurancePolicy built = buildRenewal(communication, prior, frequency);
-
-			if (Test.isRunningTest() && failRenewalForTest.contains(prior.Name)) {
-				built.NameInsuredId = null;
-			}
-
-			toInsert.add(built);
-			insertedGroups.add(sameTerm);
-		}
-
-		if (toInsert.isEmpty()) {
-			return;
-		}
-
-		List<Database.SaveResult> results = Database.insert(toInsert, false);
-		List<InsurancePolicy> priorsToMark = new List<InsurancePolicy>();
-
-		for (Integer i = 0; i < results.size(); i++) {
-			List<Renewal> sameTerm = insertedGroups[i];
-			InsurancePolicy prior = sameTerm[0].prior;
-
-			if (!results[i].isSuccess()) {
-				List<String> errors = new List<String>();
-
-				for (Database.Error error : results[i].getErrors()) {
-					errors.add(error.getMessage());
-				}
-
-				String reason =
-					'No se pudo crear la renovacion que empieza el ' +
-					sameTerm[0].communication.sourcePolicyStartDate__c.format() +
-					': ' +
-					String.join(errors, '; ');
-
-				for (Renewal renewal : sameTerm) {
-					InboundPolicyUpdate__c inReview = review(
-						renewal.communication,
-						REASON_NO_TERM,
-						REVIEW_SAVE_FAILED,
-						reason
-					);
-					inReview.candidatePolicy__c = prior.Id;
-					toSave.add(inReview);
-				}
-
-				CobranzaLog.error(
-						CobranzaLog.STAGE_RECEPCION_POLIZAS,
-						CobranzaLog.EVENT_POLICY_RENEWAL_FAILED,
-						reason
-					)
-					.onRecord(prior.Id);
-				continue;
-			}
-
-			InsurancePolicy created = toInsert[i];
-			policyById.put(created.Id, created);
-			updatesByPolicyId.put(created.Id, new List<InboundPolicyUpdate__c>());
-
-			for (Renewal renewal : sameTerm) {
-				updatesByPolicyId.get(created.Id).add(renewal.communication);
-				matchReasonByUpdateId.put(renewal.communication.Id, REASON_RENEWAL);
-			}
-
-			// La anterior solo gana la marca de renovada y el enlace a la siguiente.
-			priorsToMark.add(
-				new InsurancePolicy(
-					Id = prior.Id,
-					IsRenewedPolicy = true,
-					nextPolicy__c = created.Id
-				)
-			);
-
-			CobranzaLog.info(
-					CobranzaLog.STAGE_RECEPCION_POLIZAS,
-					CobranzaLog.EVENT_POLICY_RENEWAL_CREATED,
-					'La aseguradora renovo la poliza ' +
-						created.Name +
-						': se creo la vigencia del ' +
-						created.EffectiveDate.dateGmt().format() +
-						' al ' +
-						created.ExpirationDate.dateGmt().format() +
-						', encadenada a la anterior.'
-				)
-				.onRecord(created.Id);
-		}
-
-		if (!priorsToMark.isEmpty()) {
-			List<Database.SaveResult> marks = Database.update(priorsToMark, false);
-
-			for (Integer i = 0; i < marks.size(); i++) {
-				if (!marks[i].isSuccess()) {
-					CobranzaLog.error(
-							CobranzaLog.STAGE_RECEPCION_POLIZAS,
-							CobranzaLog.EVENT_POLICY_RENEWAL_FAILED,
-							'Se creo la renovacion, pero no se pudo enlazar desde la vigencia anterior: ' +
-							marks[i].getErrors()[0].getMessage()
-						)
-						.onRecord(priorsToMark[i].Id);
-				}
-			}
-		}
-	}
-
-	/**
-	 * @creation date: 30/09/2026
-	 * @author: Javier Torres - Volestra
-	 * @description: Arma la vigencia nueva de una renovacion. Si la comunicacion no trae el fin
-	 *               de vigencia, dura lo mismo que la anterior (un año si la anterior no lo dice).
-	 * @param communication: Comunicacion de la renovacion.
-	 * @param prior: Vigencia anterior.
-	 * @param frequency: Frecuencia del motor ya traducida.
-	 * @return: InsurancePolicy Vigencia nueva, sin guardar.
-	 * @exception:
-	 * @throws:
-	 */
-	private static InsurancePolicy buildRenewal(
-		InboundPolicyUpdate__c communication,
-		InsurancePolicy prior,
-		String frequency
-	) {
-		Date start = communication.sourcePolicyStartDate__c;
-		Date finish = communication.sourcePolicyEndDate__c;
-
-		if (finish == null) {
-			finish = prior.EffectiveDate != null &&
-				prior.ExpirationDate != null
-				? start.addDays(
-						prior.EffectiveDate.dateGmt()
-							.daysBetween(prior.ExpirationDate.dateGmt())
-				  )
-				: start.addYears(1);
-		}
-
-		String branch = communication.sourcePolicyBranch__c == null
-			? null
-			: BRANCH_BY_CARRIER.get(
-					normalizeKey(communication.sourcePolicyBranch__c)
-			  );
-
-		return new InsurancePolicy(
-			Name = prior.Name,
-			PolicyName = prior.PolicyName,
-			NameInsuredId = prior.NameInsuredId,
-			Aseguradora__c = prior.Aseguradora__c,
-			ProductId = prior.ProductId,
-			Ramo__c = branch != null ? branch : prior.Ramo__c,
-			Moneda__c = prior.Moneda__c,
-			Status = STATUS_INITIAL,
-			EffectiveDate = PolicyStatusService.mexicoMidnight(start),
-			ExpirationDate = PolicyStatusService.mexicoMidnight(finish),
-			SaleDate = PolicyStatusService.mexicoMidnight(
-				communication.sourcePolicyIssueDate__c != null
-					? communication.sourcePolicyIssueDate__c
-					: start
-			),
-			PaymentDueDate = PolicyStatusService.mexicoMidnight(start),
-			PremiumAmount = communication.sourceTotalPremium__c,
-			PremiumFrequency = frequency,
-			PriorPolicyId = prior.Id,
-			RenewedFromPolicyId = prior.Id,
-			OriginalPolicyId = prior.OriginalPolicyId != null
-				? prior.OriginalPolicyId
-				: prior.Id
-		);
 	}
 
 	/**
@@ -1522,15 +1235,5 @@ public with sharing class InboundPolicyApplyService {
 		}
 
 		return text.replaceAll('[^A-Z]', '');
-	}
-
-	private class Renewal {
-		InboundPolicyUpdate__c communication;
-		InsurancePolicy prior;
-
-		Renewal(InboundPolicyUpdate__c communication, InsurancePolicy prior) {
-			this.communication = communication;
-			this.prior = prior;
-		}
 	}
 }

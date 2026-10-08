@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  DT-12 - Los pagos de polizas que no existen quedan en la bandeja y se reintentan solos.
+  Despues de desplegar, UNA vez por org: scripts/apex/dt12-restaurar-marca-sin-match.apex
+  Validar con: -l RunSpecifiedTests -t InboundNoMatchReviewTest InboundConfidenceScoreQueueableTest InboundInsurancePaymentRestResourceTest PolicyCarrierStatusServiceTest CobranzaLogTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundConfidenceScoreQueueable</members>
+        <members>InboundInsurancePaymentService</members>
+        <members>InboundNoMatchReviewTest</members>
+        <name>ApexClass</name>
+    </types>
+    <version>66.0</version>
+</Package>

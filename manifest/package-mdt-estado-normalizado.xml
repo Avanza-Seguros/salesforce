@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  El estado normalizado de la equivalencia pasa de texto libre a picklist restringido, para que no
+  se pueda configurar un valor que el motor no sabe aplicar. Un Custom Metadata no admite cambiar
+  el tipo de un campo, asi que es un campo nuevo (NormalizedPolicyStatus__c) y el de texto se
+  retira despues con manifest/destructive/.
+  Paso 1 de 2. Validar con: -l RunSpecifiedTests -t PolicyCarrierStatusServiceTest PolicyStatusFromCarrierTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>PolicyCarrierStatusService</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt</members>
+        <name>CustomObject</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt.CarrierCode__c</members>
+        <members
+		>CarrierPolicyStatusMapping__mdt.NormalizedPolicyStatus__c</members>
+        <members>CarrierPolicyStatusMapping__mdt.RawStatus__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Cancelada</members>
+        <members>CarrierPolicyStatusMapping.QUALITAS_Vigente</members>
+        <name>CustomMetadata</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

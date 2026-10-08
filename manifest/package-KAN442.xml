@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-442 - Cada cuota guarda el recibo y el numero de cuota de la aseguradora.
+  Manifest acotado: solo lo de esta historia.
+  Validar con: -l RunSpecifiedTests -t InboundInstallmentCandidateQueueableTest InboundRefundServiceTest InboundReconciliationRulesQueueableTest InboundConfidenceScoreQueueableTest PaymentPlanInstallmentTriggerHandlerTest PaymentInstallmentMatchQueueableTest PolicyInstallmentsControllerTest PaymentReconciliationManualServiceTest InboundInsurancePaymentRestResourceTest InboundPolicyCandidateQueueableTest CobranzaLogTest PolicyStatusFromCarrierTest PolicyCarrierStatusServiceTest PolicyPaymentReceiptReversalServiceTest
+  Despues de desplegar en un org con cartera cargada: extraccion-qualitas/scripts/rellena_origen_cuotas.py
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>InboundInstallmentCandidateQueueable</members>
+        <members>InboundInstallmentCandidateQueueableTest</members>
+        <members>InboundRefundService</members>
+        <members>InboundRefundServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.installmentMatchReason__c</members>
+        <members>PaymentPlanInstallment__c.carrierEndorsementNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierInstallmentNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
+        <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members
+		>PaymentPlanInstallment__c-Payment Plan Installment Layout</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <name>RecordType</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

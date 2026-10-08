@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Lo que acompana a la pagina de la poliza: el layout con solo las listas relacionadas que se usan
+  (es lo que muestra la pestana Relacionado), el bien asegurado en la cabecera y la vista de polizas
+  en Inicial con venta ganada.
+  La ESTRUCTURA de la pagina (pestanas a todo lo ancho) se rehizo a mano en avanzaUAT, porque
+  Salesforce no deja cambiar la plantilla de una pagina existente. Para llevarla a otro org hay que
+  rehacerla igual o borrar la pagina antes de desplegarla. Hecho ya en avanzaUAT y avanzaDEV,
+  asi que la pagina (con su formulario dinamico) YA viaja en este paquete.
+  Despues de desplegar, para rellenar el bien asegurado en lo ya cargado:
+  extraccion-qualitas/scripts/rellena_bien_asegurado.py
+  El permiso de lectura del bien asegurado va en el conjunto de permisos de cobranza; sin el,
+  el campo existe pero no lo ve nadie (ni un administrador).
+
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>InsurancePolicy.insuredAssetDescription__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>CompactLayout</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <name>Layout</name>
+    </types>
+
+
+    <types>
+        <members>InsurancePolicy.Polizas_Inicial_Venta_Ganada</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members>policyInstallments</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <types>
+        <members>Insurance_Policy_Record_Page</members>
+        <name>FlexiPage</name>
+    </types>
+
+    <version>66.0</version>
+</Package>
