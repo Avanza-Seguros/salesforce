@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Ajustes de KAN-449 (29/09): moneda PESOS = MXN y bloqueo para que dos aplicaciones no corran en paralelo.
+  Validar con: -l RunSpecifiedTests -t InboundPolicyApplyServiceTest InboundPolicyServiceTest CobranzaLogTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundPolicyApplyService</members>
+        <members>InboundPolicyApplyServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+    <version>66.0</version>
+</Package>

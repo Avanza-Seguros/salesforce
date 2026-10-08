@@ -74,6 +74,7 @@
         <members>PolicyStatusBothChannelsTest</members>
         <members>InboundPolicyReviewTest</members>
         <members>InboundPolicyRenewalTest</members>
+        <members>InboundNoMatchReviewTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -92,6 +93,7 @@
         <members>PolicyPaymentReceipt__c</members>
         <members>CarrierPolicyStatusMapping__mdt</members>
         <members>InboundPolicyUpdate__c</members>
+        <members>InsurancePolicy</members>
         <name>CustomObject</name>
     </types>
     <types>
@@ -338,6 +340,7 @@
         <members>PaymentPlanInstallment__c.cancelledByPolicyUpdate__c</members>
         <members>InboundPolicyUpdate__c.reviewReasonCode__c</members>
         <members>InsurancePolicy.nextPolicy__c</members>
+        <members>InsurancePolicy.termPeriod__c</members>
         <name>CustomField</name>
     </types>
     <types>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-446 - La poliza que todavia no ha cobrado nada puede corregir su frecuencia, su prima y sus fechas.
+  Manifest acotado: solo lo de esta historia.
+  Validar con: -l RunSpecifiedTests -t PaymentPlanRegenerationServiceTest PaymentPlanFrequencyChangeServiceTest InsurancePolicyTriggerHandlerTest PaymentPlanTriggerHandlerTest PaymentPlanInstallmentTriggerHandlerTest PolicyCollectionSummaryServiceTest CobranzaLogTest InsurancePolicyExpirationBatchTest PaymentPlanInstallmentOverdueBatchTest PolicyStatusServiceTest PolicyStatusFromCarrierTest PolicyCarrierStatusServiceTest InboundRefundServiceTest OpportunityPolizaStageGuardTest PolicyPaymentReceiptTriggerHandlerTest PolicyPaymentReceiptReversalServiceTest PolicyPaymentReceiptQueueableTest PaymentInstallmentMatchQueueableTest InboundInstallmentCandidateQueueableTest InboundPolicyCandidateQueueableTest InboundReconciliationRulesQueueableTest InboundPaymentNormalizerQueueableTest InboundInsurancePaymentRestResourceTest PaymentReconciliationQueueableTest PaymentReconciliationManualServiceTest PolicyInstallmentsControllerTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InsurancePolicyTriggerHandler</members>
+        <members>PaymentPlanFrequencyChangeService</members>
+        <members>PaymentPlanRegenerationService</members>
+        <members>PaymentPlanRegenerationServiceTest</members>
+        <members>PaymentPlanTriggerHandler</members>
+        <members>PolicyCollectionSummaryService</members>
+        <name>ApexClass</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

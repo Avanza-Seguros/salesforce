@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Cierre del sprint 11 (08/10/2026): lo que quedo despues del merge #43. Sirve para avanzaDEV y, tras el merge,
+  para avanzaUAT.
+  - DT-12: los pagos de polizas que no existen quedan en la bandeja y se reintentan solos.
+    Despues de desplegar, UNA vez por org: scripts/apex/dt12-restaurar-marca-sin-match.apex
+  - KAN-453 rehecha: la renovacion espera a que exista su vigencia; campo «Vigencia» en busqueda y cabecera.
+  - Prueba de cambio de frecuencia que solo pasaba los dias 28.
+  NO lleva el layout de la poliza (el otro dev le quito 3 listas en DEV).
+  Tests: -l RunSpecifiedTests -t InboundNoMatchReviewTest InboundConfidenceScoreQueueableTest InboundInsurancePaymentRestResourceTest PolicyCarrierStatusServiceTest CobranzaLogTest InboundPolicyRenewalTest InboundPolicyApplyServiceTest InboundPolicyReviewTest PolicyStatusBothChannelsTest InboundPolicyServiceTest PaymentPlanFrequencyChangeServiceTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundConfidenceScoreQueueable</members>
+        <members>InboundInsurancePaymentService</members>
+        <members>InboundNoMatchReviewTest</members>
+        <members>InboundPolicyApplyService</members>
+        <members>InboundPolicyRenewalTest</members>
+        <members>PaymentPlanFrequencyChangeServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>CompactLayout</name>
+    </types>
+    <types>
+        <members>InboundPolicyUpdate__c.reviewReasonCode__c</members>
+        <members>InsurancePolicy.termPeriod__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>InsurancePolicy</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Insurance_Policy_Record_Page</members>
+        <name>FlexiPage</name>
+    </types>
+    <types>
+        <members>Cobranza_Lectura</members>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <members>MuleSoft_InboundPolicies</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>66.0</version>
+</Package>

@@ -336,16 +336,6 @@
                 <fieldItem>Record.OriginalPolicyId</fieldItem>
                 <identifier>RecordOriginalPolicyIdField</identifier>
             </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>readonly</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.nextPolicy__c</fieldItem>
-                <identifier>RecordnextPolicy_cField</identifier>
-            </fieldInstance>
         </itemInstances><name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
         <type>Facet</type>
     </flexiPageRegions>

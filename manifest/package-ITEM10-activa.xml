@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Deuda tecnica item 10 - La casilla «Activa» congelada.
+  - Poliza: la casilla la calcula la plataforma (solo Cancelado la apaga) y no se puede escribir:
+    se quita de la pagina y del layout; manda el Estado.
+  - Activos de poliza: PolicyAssetActivationService la alinea con el estado de la poliza.
+  Validar con: -l RunSpecifiedTests -t PolicyAssetActivationServiceTest PlanPremiumMismatchServiceTest PaymentPlanRegenerationServiceTest PaymentPlanFrequencyChangeServiceTest InsurancePolicyTriggerHandlerTest PaymentPlanTriggerHandlerTest PaymentPlanInstallmentTriggerHandlerTest PolicyCollectionSummaryServiceTest CobranzaLogTest InsurancePolicyExpirationBatchTest PaymentPlanInstallmentOverdueBatchTest PolicyStatusServiceTest PolicyStatusFromCarrierTest PolicyCarrierStatusServiceTest InboundRefundServiceTest OpportunityPolizaStageGuardTest PolicyPaymentReceiptTriggerHandlerTest PolicyPaymentReceiptReversalServiceTest PolicyPaymentReceiptQueueableTest PaymentInstallmentMatchQueueableTest InboundInstallmentCandidateQueueableTest InboundPolicyCandidateQueueableTest InboundReconciliationRulesQueueableTest InboundPaymentNormalizerQueueableTest InboundInsurancePaymentRestResourceTest PaymentReconciliationQueueableTest PaymentReconciliationManualServiceTest PolicyInstallmentsControllerTest
+  Despues de desplegar, una vez por org: scripts/apex/corregir-activos-segun-estado-poliza.apex
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InsurancePolicyTriggerHandler</members>
+        <members>PolicyAssetActivationService</members>
+        <members>PolicyAssetActivationServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>Insurance_Policy_Record_Page</members>
+        <name>FlexiPage</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

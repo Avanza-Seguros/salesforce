@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Sprint 10 completo (KAN-431 reenvios seguros + KAN-432 devoluciones), para desplegar a UAT
+  de una sola vez desde develop. Es la union de package-KAN431.xml y package-KAN432.xml, sin
+  arrastrar el acumulado de manifest/package.xml.
+  Validar con: -l RunSpecifiedTests -t InboundRefundServiceTest
+  InboundInsurancePaymentRestResourceTest PolicyPaymentReceiptReversalServiceTest
+  InboundPolicyCandidateQueueableTest CobranzaLogTest PolicyPaymentReceiptTriggerHandlerTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundInsurancePaymentRestResource</members>
+        <members>InboundInsurancePaymentRestResourceTest</members>
+        <members>InboundInsurancePaymentService</members>
+        <members>InboundPolicyCandidateQueueable</members>
+        <members>InboundRefundQueueable</members>
+        <members>InboundRefundService</members>
+        <members>InboundRefundServiceTest</members>
+        <members>OpportunityPolizaStageGuardTest</members>
+        <members>PolicyPaymentReceiptReversalService</members>
+        <members>PolicyPaymentReceiptReversalServiceTest</members>
+        <members>PolicyPaymentReceiptTriggerHandlerTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.contentFingerprint__c</members>
+        <members>InboundInsurancePayment__c.inboundStatus__c</members>
+        <members>InboundInsurancePayment__c.refundOutcome__c</members>
+        <members>InboundInsurancePayment__c.refundResolutionNotes__c</members>
+        <members>InboundInsurancePayment__c.refundResolvedAt__c</members>
+        <members>InboundInsurancePayment__c.refundResolvedBy__c</members>
+        <members>InboundInsurancePayment__c.refundReviewReason__c</members>
+        <members>InsurancePolicy.totalRefundedAmount__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByRefund__c</members>
+        <members>PolicyPaymentReceipt__c.refundInboundPayment__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Inbound_Insurance_Payment</members>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>RecordType</name>
+    </types>
+
+    <types>
+        <members>IPolicyStatus</members>
+        <name>StandardValueSet</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Devoluciones</members>
+        <members>InboundInsurancePayment__c.Devoluciones_por_revisar</members>
+        <members>InboundInsurancePayment__c.Pagos_Detenidos</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members
+		>InboundInsurancePayment__c-Inbound Insurance Payment Layout</members>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <members
+		>PaymentPlanInstallment__c-Payment Plan Installment Layout</members>
+        <members>PolicyPaymentReceipt__c-Policy Payment Receipt Layout</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>inboundRefundResolve</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.Resolver_devolucion</members>
+        <name>QuickAction</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

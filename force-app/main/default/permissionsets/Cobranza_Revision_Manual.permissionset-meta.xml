@@ -795,6 +795,11 @@
         <field>InsurancePolicy.nextPolicy__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.termPeriod__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <recordTypeVisibilities>
         <recordType>PaymentReconciliation__c.Payment_Reconciliation</recordType>
         <visible>true</visible>

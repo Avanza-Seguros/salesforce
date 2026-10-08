@@ -13,6 +13,7 @@
 public with sharing class InboundInsurancePaymentService {
 	private static final String STATUS_PARSED = 'Parseado';
 	private static final String STATUS_REJECTED = 'Rechazado';
+	private static final String STATUS_NO_MATCH = 'Sin Match';
 	private static final String STATUS_PENDING_PAYMENT = 'Pendiente de Pago';
 	private static final String INBOUND_STATUS_RECONCILED = 'Conciliado';
 	private static final String REJECTION_REASON_MALFORMED_PAYLOAD = 'Payload malformado';
@@ -584,8 +585,24 @@ public with sharing class InboundInsurancePaymentService {
 		InboundInsurancePayment__c existing = owner.existing;
 		owner.changes = describeMaterialChanges(existing, data);
 		owner.materialChange = !owner.changes.isEmpty();
+		// Un pago Sin Match no encontro su poliza. Si ahora existe (se creo o se corrigio su
+		// numero), el reenvio lo devuelve al circuito sin que nadie lo reprocese a mano.
+		Boolean noMatchNowHasPolicy =
+			STATUS_NO_MATCH.equals(existing.inboundStatus__c) &&
+			candidatePolicyId != null;
 		Boolean reevaluate =
-			owner.materialChange || STATUS_REJECTED.equals(existing.inboundStatus__c);
+			owner.materialChange ||
+			STATUS_REJECTED.equals(existing.inboundStatus__c) ||
+			noMatchNowHasPolicy;
+
+		if (noMatchNowHasPolicy && !owner.materialChange) {
+			CobranzaLog.info(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_NO_MATCH_RETRIED,
+					'El pago estaba Sin Match y su poliza ya existe: vuelve al circuito.'
+				)
+				.onInbound(existing.Id);
+		}
 
 		String resolvedStatus = existing.inboundStatus__c;
 		if (reevaluate) {
@@ -1546,10 +1563,15 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.inboundStatus__c = inboundStatus;
 		// La bandeja de revision manual es una vista de lista que filtra por esta marca, no
 		// por el estado. Un pago que la recepcion manda a revisar sin pasar por el pipeline
-		// no la tendria poblada y quedaria invisible para el analista.
-		inboundPayment.manualReviewRequired__c = STATUS_MANUAL_REVIEW.equals(
-			inboundStatus
-		);
+		// no la tendria poblada y quedaria invisible para el analista. Solo se recalcula
+		// cuando el pago empieza o vuelve a empezar el circuito: un reenvio sin cambios
+		// conserva la marca que le dejo el circuito (por ejemplo, la de un Sin Match), o lo
+		// sacaria de la bandeja en cada sincronizacion.
+		if (restartsPipeline) {
+			inboundPayment.manualReviewRequired__c = STATUS_MANUAL_REVIEW.equals(
+				inboundStatus
+			);
+		}
 		if (restartsPipeline) {
 			// Primera etapa del pipeline: el pago quedo recibido y persistido. Los eslabones
 			// siguientes la van avanzando; junto con el estado permite listar los detenidos.

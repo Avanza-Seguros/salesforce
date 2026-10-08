@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-431 - Reenvios de la aseguradora sin romper lo conciliado.
+  Manifest acotado: SOLO lo de esta historia, para desplegar sin arrastrar el resto
+  del acumulado de manifest/package.xml.
+  Validar con: -l RunSpecifiedTests -t InboundInsurancePaymentRestResourceTest
+  PolicyPaymentReceiptReversalServiceTest CobranzaLogTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundInsurancePaymentRestResource</members>
+        <members>InboundInsurancePaymentRestResourceTest</members>
+        <members>InboundInsurancePaymentService</members>
+        <members>PolicyPaymentReceiptReversalService</members>
+        <members>PolicyPaymentReceiptReversalServiceTest</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.contentFingerprint__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <types>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>RecordType</name>
+    </types>
+
+    <types>
+        <members>IPolicyStatus</members>
+        <name>StandardValueSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

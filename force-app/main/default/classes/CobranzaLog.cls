@@ -48,9 +48,6 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_POLICY_DATA_APPLY_FAILED = 'POLICY_DATA_APPLY_FAILED';
 	// Otro proceso ya estaba aplicando esas comunicaciones: esta aplicacion se omite.
 	public static final String EVENT_POLICY_APPLY_BUSY = 'POLICY_APPLY_BUSY';
-	// La aseguradora renovo la poliza y se creo su vigencia nueva, o no se pudo crear.
-	public static final String EVENT_POLICY_RENEWAL_CREATED = 'POLICY_RENEWAL_CREATED';
-	public static final String EVENT_POLICY_RENEWAL_FAILED = 'POLICY_RENEWAL_FAILED';
 	// Forma de pago o ramo comunicados sin equivalencia: la poliza conserva el valor que tenia.
 	public static final String EVENT_CARRIER_FREQUENCY_UNMAPPED = 'CARRIER_FREQUENCY_UNMAPPED';
 	public static final String EVENT_CARRIER_BRANCH_UNMAPPED = 'CARRIER_BRANCH_UNMAPPED';
@@ -128,6 +125,8 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_OPPORTUNITY_LOST = 'OPPORTUNITY_NOT_CLOSED_LOST';
 	// La integracion reenvio un pago ya conciliado con datos distintos a los conciliados.
 	public static final String EVENT_INBOUND_RESENT_CHANGED = 'INBOUND_RESENT_WITH_CHANGES';
+	// Un pago Sin Match se reenvio cuando su poliza ya existia: vuelve al circuito solo.
+	public static final String EVENT_NO_MATCH_RETRIED = 'NO_MATCH_RETRIED';
 	// La aseguradora envio un numero de cuota no numerico: el matcher pierde su senal de
 	// mayor peso (+6 puntos por secuencia exacta) y el pago tiene mas chance de caer a
 	// revision manual. Es calidad de dato de origen, no un fallo del motor.

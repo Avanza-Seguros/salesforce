@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-439 - La cancelacion y la rehabilitacion que comunica la aseguradora se reflejan en la poliza.
+  Manifest acotado: SOLO lo de esta historia. Requiere KAN-438 y KAN-440 desplegadas.
+  Validar con: -l RunSpecifiedTests -t PolicyStatusFromCarrierTest PolicyCarrierStatusServiceTest
+  PolicyStatusServiceTest InsurancePolicyExpirationBatchTest InboundPolicyCandidateQueueableTest
+  InboundInsurancePaymentRestResourceTest InboundRefundServiceTest CobranzaLogTest
+  PaymentInstallmentMatchQueueableTest PolicyPaymentReceiptQueueableTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundPolicyCandidateQueueable</members>
+        <members>InsurancePolicyExpirationBatch</members>
+        <members>InsurancePolicyExpirationBatchTest</members>
+        <members>PolicyCarrierStatusService</members>
+        <members>PolicyCarrierStatusServiceTest</members>
+        <members>PolicyStatusFromCarrierTest</members>
+        <members>PolicyStatusService</members>
+        <name>ApexClass</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.manualReviewReason__c</members>
+        <members>PaymentPlanInstallment__c.cancelledByCarrierNotice__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <types>
+        <members>InboundInsurancePayment__c.En_Revision_Manual</members>
+        <name>ListView</name>
+    </types>
+
+    <types>
+        <members
+		>InboundInsurancePayment__c-Inbound Insurance Payment Layout</members>
+        <members
+		>PaymentPlanInstallment__c-Payment Plan Installment Layout</members>
+        <name>Layout</name>
+    </types>
+
+    <types>
+        <members>Update_Status_Insurance_Policy</members>
+        <name>Flow</name>
+    </types>
+
+    <types>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>66.0</version>
+</Package>

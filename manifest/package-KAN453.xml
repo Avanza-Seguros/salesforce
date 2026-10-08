@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  KAN-453 (rehecha el 07/10, ajustada el 08/10) - La renovacion espera a que exista su vigencia: ya no se crea sola.
+  Una renovacion de una aseguradora que conserva el numero queda en revision (RENOVACION_PENDIENTE) y se aplica
+  sola cuando su vigencia existe. La pagina de la poliza deja de mostrar «Vigencia siguiente».
+  Las vigencias se distinguen a simple vista: campo formula «Vigencia» en la busqueda global, las ventanas de
+  busqueda, la pestana y la cabecera de la poliza (con el estado). Desplegar el objeto InsurancePolicy solo
+  lleva su archivo de configuracion (busqueda), no sus campos.
+  Validar con: -l RunSpecifiedTests -t InboundPolicyRenewalTest InboundPolicyApplyServiceTest InboundPolicyReviewTest PolicyStatusBothChannelsTest InboundPolicyServiceTest InboundNoMatchReviewTest CobranzaLogTest
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>CobranzaLog</members>
+        <members>InboundPolicyApplyService</members>
+        <members>InboundPolicyRenewalTest</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>InsurancePolicy.Insurance_Policy</members>
+        <name>CompactLayout</name>
+    </types>
+    <types>
+        <members>InboundPolicyUpdate__c.reviewReasonCode__c</members>
+        <members>InsurancePolicy.termPeriod__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>InsurancePolicy</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Insurance_Policy_Record_Page</members>
+        <name>FlexiPage</name>
+    </types>
+    <types>
+        <members>Cobranza_Lectura</members>
+        <members>Cobranza_Revision_Manual</members>
+        <members>MuleSoft_InboundPayments</members>
+        <members>MuleSoft_InboundPolicies</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>66.0</version>
+</Package>
