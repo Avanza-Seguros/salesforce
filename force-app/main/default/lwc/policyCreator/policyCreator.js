@@ -561,11 +561,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             this.completarCoberturasDesdeTexto(datos, texto);
             // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
             datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
-            // No puede haber dos pólizas con el mismo número: si ya existe, se avisa y NO se
-            // crea/actualiza la póliza ni se adjunta el PDF.
+            // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe, se
+            // avisa y NO se crea/actualiza la póliza ni se adjunta el PDF.
             if (datos.numeroPoliza) {
+                const vigencia = datos.vigenciaDesde
+                    || (this._datosBase && this._datosBase.EffectiveDate) || null;
                 const repetida = await validarNumeroPoliza({
                     numero: datos.numeroPoliza,
+                    vigenciaDesde: vigencia ? String(vigencia).substring(0, 10) : null,
                     policyId: this.idOrNull(this.policyId)
                 });
                 if (repetida) {

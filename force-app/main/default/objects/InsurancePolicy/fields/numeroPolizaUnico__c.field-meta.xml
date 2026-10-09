@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>numeroPolizaUnico__c</fullName>
     <caseSensitive>false</caseSensitive>
-    <description>Número de póliza normalizado (sin espacios, en mayúsculas). Lo llena el trigger de InsurancePolicy y es único: impide registrar dos pólizas con el mismo número. Vacío mientras la póliza tiene el nombre provisional de la cotización.</description>
+    <description>Llave única de la póliza: número normalizado (sin espacios, en mayúsculas) + inicio de vigencia, como NUMERO|AAAA-MM-DD. La llena el trigger de InsurancePolicy e impide registrar dos pólizas con el mismo número y la misma vigencia (las renovaciones con otra vigencia sí se permiten).</description>
     <externalId>true</externalId>
-    <inlineHelpText>Se llena automáticamente con el número de póliza. No se captura.</inlineHelpText>
+    <inlineHelpText>Se llena automáticamente con el número de póliza y el inicio de vigencia. No se captura.</inlineHelpText>
     <label>Número de póliza (único)</label>
     <length>255</length>
     <required>false</required>
