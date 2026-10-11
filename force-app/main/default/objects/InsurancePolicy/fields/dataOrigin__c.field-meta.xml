@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>dataOrigin__c</fullName>
+    <description
+	>De dónde salió el registro: Handle (carga desde Handle), Portal (integración con la aseguradora) o Comercial (alta manual).</description>
+    <label>Origen del dato</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Handle</fullName>
+                <default>false</default>
+                <label>Handle</label>
+            </value>
+            <value>
+                <fullName>Portal</fullName>
+                <default>false</default>
+                <label>Portal</label>
+            </value>
+            <value>
+                <fullName>Comercial</fullName>
+                <default>false</default>
+                <label>Comercial</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

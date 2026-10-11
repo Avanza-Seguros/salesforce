@@ -34,6 +34,8 @@ public with sharing class InboundPolicyApplyService {
 	private static final String REVIEW_CURRENCY = 'MONEDA_DISTINTA';
 	private static final String REVIEW_SAVE_FAILED = 'NO_SE_PUDO_GUARDAR';
 	private static final String REVIEW_RENEWAL_PENDING = 'RENOVACION_PENDIENTE';
+	private static final String REVIEW_HANDLE_SOURCE = 'ORIGEN_HANDLE';
+	private static final String REVIEW_HANDLE_SOURCE_MESSAGE = 'Los datos de esta aseguradora se cargan desde Handle: la comunicación se guarda sin aplicarla para que dos fuentes no escriban sobre la misma póliza.';
 
 	// Evita que el reproceso del analista se vuelva a disparar a si mismo en la misma transaccion.
 	private static Boolean reprocessing = false;
@@ -389,6 +391,38 @@ public with sharing class InboundPolicyApplyService {
 				}
 
 				updatesByPolicyId.get(policy.Id).add(communication);
+			}
+		}
+
+		// Una aseguradora que se carga desde Handle no recibe datos por este canal: la
+		// comunicacion se guarda para consulta y va a revision, para que dos fuentes no escriban
+		// sobre la misma poliza.
+		for (
+			Id policyId : CarrierDataSourceService.handleSourcedPolicies(
+				updatesByPolicyId.keySet()
+			)
+		) {
+			for (
+				InboundPolicyUpdate__c communication : updatesByPolicyId.remove(
+					policyId
+				)
+			) {
+				InboundPolicyUpdate__c held = review(
+					communication,
+					matchReasonByUpdateId.containsKey(communication.Id)
+						? matchReasonByUpdateId.get(communication.Id)
+						: REASON_BY_TERM,
+					REVIEW_HANDLE_SOURCE,
+					REVIEW_HANDLE_SOURCE_MESSAGE
+				);
+				held.candidatePolicy__c = policyId;
+				toSave.add(held);
+				CobranzaLog.info(
+						CobranzaLog.STAGE_RECEPCION_POLIZAS,
+						CobranzaLog.EVENT_POLICY_UPDATE_HELD_BY_DATA_SOURCE,
+						REVIEW_HANDLE_SOURCE_MESSAGE
+					)
+					.onRecord(communication.Id);
 			}
 		}
 

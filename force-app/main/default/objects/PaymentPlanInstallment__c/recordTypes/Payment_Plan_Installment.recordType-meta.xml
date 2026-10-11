@@ -26,4 +26,19 @@
             <default>false</default>
         </values>
     </picklistValues>
+    <picklistValues>
+        <picklist>dataOrigin__c</picklist>
+        <values>
+            <fullName>Handle</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Portal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Comercial</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
 </RecordType>

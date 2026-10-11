@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>handleLookupKey__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description
+	>Llave del registro de Handle del que salió este registro. Permite que la carga diaria actualice en lugar de duplicar y que los registros hijos se enlacen por ella.</description>
+    <externalId>true</externalId>
+    <label>Llave de Handle</label>
+    <length>64</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

@@ -136,6 +136,7 @@
     </actionOverrides>
     <compactLayoutAssignment>Insurance_Policy</compactLayoutAssignment>
     <enableFeeds>false</enableFeeds>
+    <enableHistory>true</enableHistory>
     <externalSharingModel>Private</externalSharingModel>
     <recordTypeTrackHistory>false</recordTypeTrackHistory>
     <searchLayouts>

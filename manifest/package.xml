@@ -75,6 +75,9 @@
         <members>InboundPolicyReviewTest</members>
         <members>InboundPolicyRenewalTest</members>
         <members>InboundNoMatchReviewTest</members>
+        <members>BulkLoadBypass</members>
+        <members>CarrierDataSourceService</members>
+        <members>HandleLoadSwitchesTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -94,6 +97,7 @@
         <members>CarrierPolicyStatusMapping__mdt</members>
         <members>InboundPolicyUpdate__c</members>
         <members>InsurancePolicy</members>
+        <members>CarrierDataSource__mdt</members>
         <name>CustomObject</name>
     </types>
     <types>
@@ -341,6 +345,24 @@
         <members>InboundPolicyUpdate__c.reviewReasonCode__c</members>
         <members>InsurancePolicy.nextPolicy__c</members>
         <members>InsurancePolicy.termPeriod__c</members>
+        <members>Account.handleCustomerKey__c</members>
+        <members>Account.taxId__c</members>
+        <members>CarrierDataSource__mdt.CarrierName__c</members>
+        <members>CarrierDataSource__mdt.DataSource__c</members>
+        <members>InboundInsurancePayment__c.handleLookupKey__c</members>
+        <members>InsurancePolicy.EffectiveDate</members>
+        <members>InsurancePolicy.ExpirationDate</members>
+        <members>InsurancePolicy.PremiumAmount</members>
+        <members>InsurancePolicy.Status</members>
+        <members>InsurancePolicy.dataOrigin__c</members>
+        <members>InsurancePolicy.deducedData__c</members>
+        <members>InsurancePolicy.handleLookupKey__c</members>
+        <members>PaymentPlanInstallment__c.dataOrigin__c</members>
+        <members>PaymentPlanInstallment__c.handleLookupKey__c</members>
+        <members>PaymentPlanInstallment__c.isEstimated__c</members>
+        <members>PaymentPlan__c.handleLookupKey__c</members>
+        <members>PaymentReconciliation__c.handleLookupKey__c</members>
+        <members>PolicyPaymentReceipt__c.handleLookupKey__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -368,6 +390,7 @@
         <members>Cobranza_Revision_Manual</members>
         <members>Vehiculos_FSC</members>
         <members>MuleSoft_InboundPolicies</members>
+        <members>Carga_Masiva_Handle</members>
         <name>PermissionSet</name>
     </types>
     <types>
@@ -493,10 +516,19 @@
         <members>CarrierPolicyStatusMapping.QUALITAS_Vigor_Prorrogado</members>
         <members
 		>CarrierPolicyStatusMapping.QUALITAS_Vigor_sin_Pago_de_Primas</members>
+        <members>CarrierDataSource.AXA_Seguros</members>
+        <members>CarrierDataSource.Afirme_Seguros</members>
+        <members>CarrierDataSource.Allianz_Mexico</members>
+        <members>CarrierDataSource.Chubb_Mexico</members>
+        <members>CarrierDataSource.HDI_Seguros</members>
+        <members>CarrierDataSource.MAPFRE_Mexico</members>
+        <members>CarrierDataSource.MetLife_Mexico</members>
+        <members>CarrierDataSource.Plan_Seguro</members>
         <name>CustomMetadata</name>
     </types>
     <types>
         <members>Senalar_Oportunidad_Por_Reversa</members>
+        <members>Carga_Masiva_Handle</members>
         <name>CustomPermission</name>
     </types>
 

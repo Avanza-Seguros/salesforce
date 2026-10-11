@@ -41,6 +41,11 @@
                 <default>false</default>
                 <label>Renovación: falta crear su vigencia</label>
             </value>
+            <value>
+                <fullName>ORIGEN_HANDLE</fullName>
+                <default>false</default>
+                <label>El origen de la aseguradora es Handle</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

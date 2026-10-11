@@ -170,6 +170,10 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_CARRIER_POLICY_STATUS_FAILED = 'CARRIER_POLICY_STATUS_FAILED';
 	// Llego un cobro de una poliza que la aseguradora da por cancelada: lo revisa una persona.
 	public static final String EVENT_PAYMENT_ON_CANCELLED_POLICY = 'PAYMENT_ON_CANCELLED_POLICY';
+	// Llego un cobro de una aseguradora cuyos datos se cargan desde Handle: se guarda sin aplicarlo.
+	public static final String EVENT_PAYMENT_HELD_BY_DATA_SOURCE = 'PAYMENT_HELD_BY_DATA_SOURCE';
+	// Llego una comunicacion de poliza de una aseguradora cuyos datos se cargan desde Handle.
+	public static final String EVENT_POLICY_UPDATE_HELD_BY_DATA_SOURCE = 'POLICY_UPDATE_HELD_BY_DATA_SOURCE';
 
 	/**
 	 * @creation date: 29/07/2026
