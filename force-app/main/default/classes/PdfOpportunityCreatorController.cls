@@ -475,12 +475,14 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
-	 * @description: Sube UN archivo (PDF) y lo liga a una Opportunity YA EXISTENTE.
-	 *               Se llama uno por uno desde el LWC para no exceder el tamaño de request.
-	 * @param opportunityId: Id de la oportunidad a la que se adjunta.
-	 * @param fileName: nombre del archivo.
-	 * @param base64Data: contenido del archivo en base64.
-	 * @return Id del ContentDocument creado.
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Sube un archivo (PDF) y lo liga a una oportunidad existente. Se llama uno por uno desde el LWC
+	 * para no exceder el tamaño del request.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param fileName: Nombre del archivo
+	 * @param base64Data: Contenido del archivo en Base64
+	 * @return Id del ContentDocument creado
 	 */
 	@AuraEnabled
 	public static Id guardarArchivoEnOportunidad(Id opportunityId, String fileName, String base64Data) {
@@ -511,27 +513,41 @@ public with sharing class PdfOpportunityCreatorController {
 	}
 
 	/**
-	 * @description: Renderiza el HTML del comparativo a PDF y lo liga a la Opportunity.
-	 *               Devuelve null si no hay HTML.
-	 * @param opportunityId: Id de la oportunidad.
-	 * @param comparativoHtml: HTML del comparativo.
-	 * @param nombreArchivo: base para el nombre del PDF.
-	 * @return Id del ContentDocument, o null si no había HTML.
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda el HTML del comparativo en la oportunidad (Descripcion__c). Si no cabe en el campo avisa
+	 * en lugar de recortarlo, para no dejarlo roto.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param comparativoHtml: HTML del comparativo
+	 * @return void
 	 */
 	@AuraEnabled
 	public static void actualizarComparativoOpp(Id opportunityId, String comparativoHtml) {
 		if (opportunityId == null || String.isBlank(comparativoHtml)) { return; }
+		// Tamaño real del campo (32,768). Recortar el HTML lo dejaría roto: si no cabe, se avisa.
+		Integer maximo = Opportunity.Descripcion__c.getDescribe().getLength();
+		if (comparativoHtml.length() > maximo) {
+			throw new AuraHandledException('El comparativo es demasiado grande para guardarse ('
+				+ comparativoHtml.length() + ' de ' + maximo + ' caracteres).');
+		}
 		try {
 			Opportunity o = new Opportunity(Id = opportunityId);
-			o.Descripcion__c = comparativoHtml.length() > 131072
-				? comparativoHtml.substring(0, 131072)
-				: comparativoHtml;
+			o.Descripcion__c = comparativoHtml;
 			update o;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo actualizar el comparativo: ' + e.getMessage());
 		}
 	}
 
+	/**
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Genera el PDF del comparativo desde el HTML guardado en la oportunidad, lo liga a la oportunidad
+	 * y a sus cotizaciones.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param nombreArchivo: Base del nombre del archivo
+	 * @return Id del ContentDocument del PDF; null si no hay comparativo
+	 */
 	@AuraEnabled
 	public static Id guardarComparativoPdf(Id opportunityId, String nombreArchivo) {
 		if (opportunityId == null) { return null; }
@@ -573,6 +589,8 @@ public with sharing class PdfOpportunityCreatorController {
 				ShareType = 'V',
 				Visibility = 'AllUsers'
 			);
+			// El mismo archivo queda también en cada cotización.
+			vincularComparativoACotizaciones(opportunityId, stored.ContentDocumentId);
 			return stored.ContentDocumentId;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo generar el PDF del comparativo: ' + e.getMessage());
@@ -946,19 +964,48 @@ public with sharing class PdfOpportunityCreatorController {
 			? (List<Object>) comparison.get('aseguradoras')
 			: new List<Object>();
 
-		String ramoForm = mapRamoToFormValue(stringOf(comparison.get('ramo')));
+		String ramoIa = mapRamoToFormValue(stringOf(comparison.get('ramo')));
+		String ramoForm = ramoIa;
+
+		// Validación contra el catálogo: se busca el PRODUCTO de cada cotización por su plan y
+		// su aseguradora. Si se encuentra, el ramo del producto (Family) manda sobre el que
+		// dedujo la IA (p. ej. "IMAGINA SER 65" → Vida, aunque el PDF mencione gmm@...).
+		Map<Integer, Product2> productoPorIndice = new Map<Integer, Product2>();
+		Map<Integer, Id> asegPorIndice = new Map<Integer, Id>();
+		String ramoCatalogo = ramoPorCatalogo(aseguradorasRaw, productoPorIndice, asegPorIndice);
+		Boolean ramoCorregido = String.isNotBlank(ramoCatalogo) && ramoCatalogo != ramoIa;
+		if (String.isNotBlank(ramoCatalogo)) { ramoForm = ramoCatalogo; }
 
 		// Datos comunes (mismos para todas): se devuelven UNA sola vez, aparte.
 		Map<String, Object> detalle = buildDetalle(comparison);
 		Map<String, Object> cliente = buildCliente(comparison);
 
 		// Las cotizaciones solo traen lo que cambia entre aseguradoras.
+		// Se descartan las repetidas (misma aseguradora, plan, número y prima): la IA a veces
+		// duplica una cotización, y el comparativo mostraba más columnas que PDFs cargados.
 		List<Map<String, Object>> quotes = new List<Map<String, Object>>();
-		for (Object a : aseguradorasRaw) {
+		Set<String> vistas = new Set<String>();
+		Boolean huboDuplicadas = false;
+		for (Integer idx = 0; idx < aseguradorasRaw.size(); idx++) {
+			Object a = aseguradorasRaw[idx];
 			if (!(a instanceof Map<String, Object>)) {
 				continue;
 			}
-			quotes.add(mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm));
+			String llave = llaveCotizacion((Map<String, Object>) a);
+			if (vistas.contains(llave)) {
+				huboDuplicadas = true;
+				continue;
+			}
+			vistas.add(llave);
+			Map<String, Object> fq = mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm);
+			// Producto y aseguradora encontrados en el catálogo: se precargan en la cotización.
+			Product2 prod = productoPorIndice.get(idx);
+			if (prod != null) {
+				fq.put('productId', prod.Id);
+				fq.put('productoNombre', prod.Name);
+			}
+			if (asegPorIndice.get(idx) != null) { fq.put('aseguradoraId', asegPorIndice.get(idx)); }
+			quotes.add(fq);
 		}
 
 		// --- Aseguradora ganadora (de la recomendación de la IA) ---
@@ -990,13 +1037,14 @@ public with sharing class PdfOpportunityCreatorController {
 					'alerta' => ''
 				};
 
-		// El HTML del comparativo lo genera la IA, pero a veces llega truncado
-		// (p. ej. solo la etiqueta de apertura). Si viene incompleto lo armamos
-		// nosotros con los datos ya estructurados para no mostrar algo roto.
+		// El HTML del comparativo lo genera la IA, pero a veces llega truncado (p. ej. solo la
+		// etiqueta de apertura) o con columnas repetidas si duplicó cotizaciones. En esos casos se
+		// devuelve vacío y el LWC arma el comparativo con los datos limpios, agrupando las
+		// coberturas por concepto según el ramo (un solo catálogo de conceptos, en el LWC).
 		String htmlIa = stringOf(comparison.get('comparativo_html'));
-		String htmlComparativo = esHtmlComparativoCompleto(htmlIa)
-			? htmlIa
-			: construirComparativoHtml(ramoForm, cliente, quotes, ganadora);
+		// Si el catálogo corrigió el ramo, el HTML de la IA está armado con el ramo equivocado
+		// (ej. filas de Deducible/Coaseguro de GMM en una póliza de Vida): también se rehace.
+		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas && !ramoCorregido) ? htmlIa : '';
 
 		return new Map<String, Object>{
 			'ramo' => ramoForm,
@@ -1008,6 +1056,9 @@ public with sharing class PdfOpportunityCreatorController {
 			'recomendacion' => comparison.get('recomendacion'),
 			'glosario' => comparison.get('glosario'),
 			'fuente' => lastUsedMock ? 'mock' : 'einstein',
+			// De dónde salió el ramo: 'catalogo' (producto encontrado por plan + aseguradora) o 'ia'.
+			'ramoDetectadoPor' => String.isNotBlank(ramoCatalogo) ? 'catalogo' : 'ia',
+			'ramoIa' => ramoIa,
 			'aviso' => stringOf(comparison.get('aviso')),
 			'comparativo_html' => htmlComparativo
 		};
@@ -1017,8 +1068,45 @@ public with sharing class PdfOpportunityCreatorController {
 	// Comparativo HTML de respaldo (cuando la IA lo devuelve truncado)
 	// ============================================================
 
-	// Se considera completo si trae una etiqueta de cierre real (no solo la de
-	// apertura que a veces devuelve truncada la IA).
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma la llave para detectar cotizaciones repetidas que devuelve la IA: archivo de origen, o
+	 * nombre + número de cotización, o nombre + plan + prima.
+	 * @param a: Cotización (aseguradora) devuelta por la IA
+	 * @return Llave de comparación
+	 */
+	@TestVisible
+	private static String llaveCotizacion(Map<String, Object> a) {
+		String archivo = texto(a.get('archivo_origen'));
+		if (String.isNotBlank(archivo)) { return 'archivo|' + archivo; }
+		String nombre = texto(a.get('nombre'));
+		String numero = texto(a.get('no_cotizacion'));
+		if (String.isNotBlank(numero)) { return 'numero|' + nombre + '|' + numero; }
+		String plan = texto(a.get('plan')).replaceAll('\\([^)]*\\)', ' ').replaceAll('\\s+', ' ').trim();
+		String prima = texto(a.get('prima_total')) + '/' + texto(a.get('prima_anual'));
+		return 'plan|' + nombre + '|' + plan + '|' + prima;
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor a texto en minúsculas y sin espacios sobrantes.
+	 * @param v: Valor a convertir
+	 * @return Texto normalizado; vacío si es null
+	 */
+	private static String texto(Object v) {
+		return v == null ? '' : String.valueOf(v).toLowerCase().replaceAll('\\s+', ' ').trim();
+	}
+
+	/**
+	 * @creation date: 31/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el HTML del comparativo está completo (trae una etiqueta de cierre real y un tamaño
+	 * mínimo), porque la IA a veces lo devuelve truncado.
+	 * @param html: HTML devuelto por la IA
+	 * @return true si está completo
+	 */
 	private static Boolean esHtmlComparativoCompleto(String html) {
 		if (String.isBlank(html)) { return false; }
 		String h = html.toLowerCase();
@@ -1026,121 +1114,21 @@ public with sharing class PdfOpportunityCreatorController {
 		return cierra && html.length() > 300;
 	}
 
-	// Arma un comparativo en HTML a partir de los datos ya estructurados
-	// (aseguradoras y coberturas). Se usa como respaldo confiable.
-	private static String construirComparativoHtml(
-		String ramoForm,
-		Map<String, Object> cliente,
-		List<Map<String, Object>> quotes,
-		String ganadora
-	) {
-		if (quotes == null || quotes.isEmpty()) { return ''; }
-
-		String nombreCliente = cliente != null ? stringOf(cliente.get('nombre')) : '';
-
-		// Nombres de cobertura en orden de aparicion (union de todas las aseguradoras).
-		List<String> nombresCob = new List<String>();
-		Set<String> vistos = new Set<String>();
-		for (Map<String, Object> q : quotes) {
-			for (Map<String, Object> c : coberturasDe(q)) {
-				String nom = stringOf(c.get('cobertura'));
-				if (String.isNotBlank(nom) && !vistos.contains(nom.toLowerCase())) {
-					vistos.add(nom.toLowerCase());
-					nombresCob.add(nom);
-				}
-			}
-		}
-
-		String th = 'padding:8px 10px;border:1px solid #d9dee6;text-align:left;font-size:13px;';
-		String td = 'padding:8px 10px;border:1px solid #eef1f5;text-align:left;font-size:13px;vertical-align:top;';
-
-		String html = '<div style="font-family:\'Segoe UI\',Arial,sans-serif;color:#1c2433;">';
-		html += '<h2 style="font-size:18px;margin:0 0 12px;">Comparativo ' + htmlEscape(ramoForm);
-		if (String.isNotBlank(nombreCliente)) { html += ' - ' + htmlEscape(nombreCliente); }
-		html += '</h2>';
-		html += '<table style="width:100%;border-collapse:collapse;">';
-
-		// Encabezado: aseguradoras
-		html += '<tr><th style="' + th + 'background:#f4f6f9;">Concepto</th>';
-		for (Map<String, Object> q : quotes) {
-			String comp = stringOf(q.get('compania'));
-			Boolean esGan = String.isNotBlank(ganadora) && ganadora.equalsIgnoreCase(comp);
-			String bg = esGan ? 'background:#fff3e0;' : 'background:#f4f6f9;';
-			html += '<th style="' + th + bg + '">' + htmlEscape(comp);
-			if (esGan) { html += ' <span style="color:#b85b00;font-size:11px;">&#9733; Recomendada</span>'; }
-			html += '</th>';
-		}
-		html += '</tr>';
-
-		// Plan
-		html += filaHtml('Plan', quotes, 'plan', td, th);
-
-		// Prima anual
-		html += '<tr><th style="' + th + '">Prima Anual</th>';
-		for (Map<String, Object> q : quotes) {
-			Decimal prima = asDecimal(q.get('primaTotal'));
-			String moneda = coalesceStr(stringOf(q.get('moneda')), 'MXN');
-			String txt = prima != null ? ('$' + formatoMonto(prima) + ' ' + moneda) : '-';
-			html += '<td style="' + td + '">' + htmlEscape(txt) + '</td>';
-		}
-		html += '</tr>';
-
-		// Coberturas
-		for (String nom : nombresCob) {
-			html += '<tr><th style="' + th + '">' + htmlEscape(nom) + '</th>';
-			for (Map<String, Object> q : quotes) {
-				html += '<td style="' + td + '">' + htmlEscape(valorCobertura(q, nom)) + '</td>';
-			}
-			html += '</tr>';
-		}
-
-		html += '</table></div>';
-		return html;
-	}
-
-	private static String filaHtml(String etiqueta, List<Map<String, Object>> quotes, String key, String td, String th) {
-		String row = '<tr><th style="' + th + '">' + htmlEscape(etiqueta) + '</th>';
-		for (Map<String, Object> q : quotes) {
-			String v = stringOf(q.get(key));
-			row += '<td style="' + td + '">' + (String.isBlank(v) ? '-' : htmlEscape(v)) + '</td>';
-		}
-		return row + '</tr>';
-	}
-
-	private static List<Map<String, Object>> coberturasDe(Map<String, Object> q) {
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor del JSON en lista de mapas.
+	 * @param o: Valor del JSON
+	 * @return Lista de mapas; vacía si el valor no es una lista
+	 */
+	private static List<Map<String, Object>> listaDeMapas(Object o) {
 		List<Map<String, Object>> out = new List<Map<String, Object>>();
-		if (q.get('tablaCompletaCoberturas') instanceof List<Object>) {
-			for (Object o : (List<Object>) q.get('tablaCompletaCoberturas')) {
-				if (o instanceof Map<String, Object>) { out.add((Map<String, Object>) o); }
+		if (o instanceof List<Object>) {
+			for (Object x : (List<Object>) o) {
+				if (x instanceof Map<String, Object>) { out.add((Map<String, Object>) x); }
 			}
 		}
 		return out;
-	}
-
-	private static String valorCobertura(Map<String, Object> q, String nombre) {
-		for (Map<String, Object> c : coberturasDe(q)) {
-			if (nombre.equalsIgnoreCase(stringOf(c.get('cobertura')))) {
-				String suma = stringOf(c.get('sumaAsegurada'));
-				String ded = stringOf(c.get('deducible'));
-				String coa = stringOf(c.get('coaseguro'));
-				List<String> partes = new List<String>();
-				if (String.isNotBlank(suma)) { partes.add(suma); }
-				if (String.isNotBlank(ded)) { partes.add('Ded: ' + ded); }
-				if (String.isNotBlank(coa)) { partes.add('Coa: ' + coa); }
-				return partes.isEmpty() ? '-' : String.join(partes, ' | ');
-			}
-		}
-		return '-';
-	}
-
-	private static String formatoMonto(Decimal d) {
-		if (d == null) { return '0'; }
-		return d.setScale(0).format();
-	}
-
-	private static String htmlEscape(String s) {
-		if (String.isBlank(s)) { return ''; }
-		return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;');
 	}
 
 	/**
@@ -1163,8 +1151,15 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('ramo', ramoForm);
 		q.put('primaTotal', asDecimal(m.get('prima_anual')));
 		q.put('moneda', coalesceStr(stringOf(m.get('moneda')), 'MXN'));
-		q.put('vigencia', stringOf(m.get('vigencia_fin')));
-		q.put('vigenciaInicio', stringOf(m.get('vigencia_inicio')));
+		// Fin de vigencia: si la IA no lo trae, se calcula como inicio + 1 año.
+		String vigIniTxt = stringOf(m.get('vigencia_inicio'));
+		String vigFinTxt = stringOf(m.get('vigencia_fin'));
+		if (parseDate(vigFinTxt) == null) {
+			Date iniVig = parseDate(vigIniTxt);
+			vigFinTxt = iniVig != null ? String.valueOf(iniVig.addYears(1)) : '';
+		}
+		q.put('vigencia', vigFinTxt);
+		q.put('vigenciaInicio', vigIniTxt);
 		q.put('noCotizacion', stringOf(m.get('no_cotizacion')));
 		q.put('archivoOrigen', stringOf(m.get('archivo_origen')));
 		q.put('notas', stringOf(m.get('notas')));
@@ -1177,6 +1172,12 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('primerPago', asDecimal(m.get('primer_pago')));
 		q.put('pagoSubsecuente', asDecimal(m.get('pago_subsecuente')));
 		q.put('tablaCompletaCoberturas', buildCoberturas(m));
+		// Primas por forma de pago y beneficios opcionales/sugeridos (ej. Vida: ADAPTA).
+		if (m.get('primas_por_frecuencia') instanceof Map<String, Object>) {
+			q.put('primasPorFrecuencia', m.get('primas_por_frecuencia'));
+		}
+		q.put('beneficiosOpcionales', listaDeMapas(m.get('beneficios_opcionales')));
+		q.put('primaConOpcionales', asDecimal(m.get('prima_con_opcionales')));
 		return q;
 	}
 
@@ -1227,7 +1228,10 @@ public with sharing class PdfOpportunityCreatorController {
 						'cobertura' => stringOf(c.get('nombre')),
 						'sumaAsegurada' => normalizeSuma(c.get('suma_asegurada')),
 						'deducible' => stringOf(c.get('deducible')),
-						'coaseguro' => stringOf(c.get('coaseguro'))
+						'coaseguro' => stringOf(c.get('coaseguro')),
+						// Prima y plazo de la cobertura (ej. Vida: "32 años", prima anual de la cobertura).
+						'prima' => asDecimal(c.get('prima')),
+						'plazo' => stringOf(c.get('plazo'))
 					});
 				}
 			}
@@ -1425,8 +1429,14 @@ public with sharing class PdfOpportunityCreatorController {
 	private static final String QF_FRECUENCIA  = 'Frecuencia_de_prima__c';
 	private static final String QF_RATINGDATE  = 'RatingDate';
 
-	// Normaliza la frecuencia de pago al catálogo del picklist Frecuencia_de_prima__c
-	// (Mensual, Quincenal, Trimestral, Semestral, Anual). Por defecto Anual.
+	/**
+	 * @creation date: 17/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Normaliza la frecuencia de pago al picklist Frecuencia_de_prima__c (Mensual, Quincenal,
+	 * Trimestral, Semestral, Anual). Por defecto, Anual.
+	 * @param valor: Frecuencia tal como viene del PDF
+	 * @return Valor del picklist
+	 */
 	private static String normalizarFrecuencia(String valor) {
 		String v = (valor == null) ? '' : valor.toLowerCase();
 		if (v.contains('contado') || v.contains('una sola') || v.contains('unica') || v.contains('unico')) { return 'Contado'; }
@@ -1530,13 +1540,24 @@ public with sharing class PdfOpportunityCreatorController {
 			if (String.isNotBlank(email)) { q.Email = email; }
 
 			Date vig = parseDate(stringOf(m.get('vigencia')));
-			if (vig != null) { q.ExpirationDate = vig; }
 			Date vigIni = parseDate(stringOf(m.get('vigenciaInicio')));
+			// Sin fin de vigencia: se toma inicio + 1 año (o hoy + 1 año si tampoco hay inicio).
+			// En Vida las cotizaciones no traen vigencia (traen el plazo de cada cobertura): no se inventa.
+			String ramoQuote = String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo;
+			Boolean esVida = String.isNotBlank(ramoQuote) && ramoQuote.containsIgnoreCase('vida');
+			if (vig == null && !esVida) { vig = (vigIni != null ? vigIni : Date.today()).addYears(1); }
+			if (vig != null) { q.ExpirationDate = vig; }
 			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
+			// Resumen de coberturas del PDF en los campos de la Quote (suma, tipo de valor,
+			// deducibles, RC, gastos médicos…) que muestran las "Cotizaciones comparadas".
+			try { aplicarResumenCoberturas(q, m.get('coberturas'), stringOf(m.get('notas'))); }
+			catch (Exception e) { System.debug('COT-RESUMEN::: ' + e.getMessage()); }
 			q.put(QF_RAMO, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : ramo);
-			q.put(QF_RATINGDATE, Date.today());
+			// Fecha de cotización (RatingDate): la capturada o, por defecto, hoy.
+			Date fCot = parseDate(stringOf(m.get('fechaCotizacion')));
+			q.put(QF_RATINGDATE, fCot != null ? fCot : Date.today());
 			// Frecuencia real (antes fija en 'Mensual'); se normaliza al catálogo del picklist.
 			String frecRaw = coalesceStr(stringOf(m.get('frecuenciaPago')), stringOf(m.get('frecuencia')));
 			q.put(QF_FRECUENCIA, normalizarFrecuencia(frecRaw));
@@ -1627,7 +1648,261 @@ public with sharing class PdfOpportunityCreatorController {
 			System.debug('COT-COB::: ' + e.getMessage());
 		}
 
+		// El comparativo en PDF (generado al guardar la oportunidad) se liga a las cotizaciones nuevas.
+		try { vincularComparativoACotizaciones(opportunityId, null); } catch (Exception e) {
+			System.debug('COT-PDF::: ' + e.getMessage());
+		}
+
 		return new Map<String,Object>{ 'creadas' => creadasN, 'detalle' => detalle, 'errores' => erroresQuote };
+	}
+
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga el PDF del comparativo a todas las cotizaciones de la oportunidad sin duplicar vínculos. Si
+	 * no se indica el documento, usa el comparativo más reciente.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param documentId: Id del ContentDocument del comparativo (opcional)
+	 * @return void
+	 */
+	@TestVisible
+	private static void vincularComparativoACotizaciones(Id opportunityId, Id documentId) {
+		if (opportunityId == null) { return; }
+		Id docId = documentId;
+		if (docId == null) {
+			for (ContentDocumentLink l : [
+				SELECT ContentDocumentId, ContentDocument.Title FROM ContentDocumentLink
+				WHERE LinkedEntityId = :opportunityId
+				ORDER BY ContentDocument.CreatedDate DESC
+			]) {
+				if (l.ContentDocument != null && String.isNotBlank(l.ContentDocument.Title)
+					&& l.ContentDocument.Title.startsWith('Comparativo_')) {
+					docId = l.ContentDocumentId;
+					break;
+				}
+			}
+		}
+		if (docId == null) { return; }
+		Set<Id> quoteIds = new Map<Id, Quote>([SELECT Id FROM Quote WHERE OpportunityId = :opportunityId]).keySet();
+		if (quoteIds.isEmpty()) { return; }
+		Set<Id> yaLigadas = new Set<Id>();
+		for (ContentDocumentLink l : [
+			SELECT LinkedEntityId FROM ContentDocumentLink
+			WHERE ContentDocumentId = :docId AND LinkedEntityId IN :quoteIds
+		]) { yaLigadas.add(l.LinkedEntityId); }
+		List<ContentDocumentLink> links = new List<ContentDocumentLink>();
+		for (Id qId : quoteIds) {
+			if (!yaLigadas.contains(qId)) {
+				links.add(new ContentDocumentLink(ContentDocumentId = docId, LinkedEntityId = qId, ShareType = 'V', Visibility = 'AllUsers'));
+			}
+		}
+		if (!links.isEmpty()) { Database.insert(links, false); }
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Deduce el ramo con el catálogo de productos: por cada cotización busca el producto de su
+	 * aseguradora que coincide con el plan; el ramo es la familia del producto.
+	 * @param aseguradorasRaw: Cotizaciones devueltas por la IA
+	 * @param productoPorIndice: Salida: producto encontrado por índice de cotización
+	 * @param asegPorIndice: Salida: aseguradora encontrada por índice de cotización
+	 * @return Ramo del catálogo; vacío si no hay coincidencias
+	 */
+	@TestVisible
+	private static String ramoPorCatalogo(List<Object> aseguradorasRaw, Map<Integer, Product2> productoPorIndice,
+			Map<Integer, Id> asegPorIndice) {
+		if (aseguradorasRaw == null || aseguradorasRaw.isEmpty()) { return ''; }
+		Set<String> nombres = new Set<String>();
+		for (Object a : aseguradorasRaw) {
+			if (a instanceof Map<String, Object>) {
+				String n = stringOf(((Map<String, Object>) a).get('nombre'));
+				if (String.isNotBlank(n)) { nombres.add(n); }
+			}
+		}
+		Map<String, Id> asegByName = resolveAseguradoraByName(nombres);
+		Map<Id, List<Product2>> productosPorAseg = new Map<Id, List<Product2>>();
+		Set<Id> asegIds = new Set<Id>(asegByName.values());
+		if (!asegIds.isEmpty()) {
+			for (Product2 p : [
+				SELECT Id, Name, Family, Aseguradora__c FROM Product2
+				WHERE IsActive = true AND Aseguradora__c IN :asegIds LIMIT 5000
+			]) {
+				if (!productosPorAseg.containsKey(p.Aseguradora__c)) { productosPorAseg.put(p.Aseguradora__c, new List<Product2>()); }
+				productosPorAseg.get(p.Aseguradora__c).add(p);
+			}
+		}
+		Map<String, Integer> votos = new Map<String, Integer>();
+		for (Integer i = 0; i < aseguradorasRaw.size(); i++) {
+			if (!(aseguradorasRaw[i] instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) aseguradorasRaw[i];
+			Id asegId = asegByName.get(stringOf(m.get('nombre')));
+			if (asegId == null) { continue; }
+			asegPorIndice.put(i, asegId);
+			Product2 p = mejorProductoPorPlan(stringOf(m.get('plan')), productosPorAseg.get(asegId));
+			if (p == null || String.isBlank(p.Family)) { continue; }
+			productoPorIndice.put(i, p);
+			String ramo = mapRamoToFormValue(p.Family);
+			votos.put(ramo, (votos.containsKey(ramo) ? votos.get(ramo) : 0) + 1);
+		}
+		String mejor = '';
+		Integer max = 0;
+		for (String r : votos.keySet()) {
+			if (votos.get(r) > max) { max = votos.get(r); mejor = r; }
+		}
+		return mejor;
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elige el producto cuyo nombre coincide con el plan: todas sus palabras deben aparecer en el plan
+	 * y gana el que tiene más palabras.
+	 * @param plan: Plan de la cotización
+	 * @param productos: Productos de la aseguradora
+	 * @return Producto encontrado; null si ninguno coincide
+	 */
+	@TestVisible
+	private static Product2 mejorProductoPorPlan(String plan, List<Product2> productos) {
+		if (String.isBlank(plan) || productos == null || productos.isEmpty()) { return null; }
+		Set<String> planToks = tokensProducto(plan);
+		if (planToks.isEmpty()) { return null; }
+		Product2 mejor = null;
+		Integer mejorScore = 0;
+		for (Product2 p : productos) {
+			Set<String> pt = tokensProducto(p.Name);
+			if (pt.isEmpty() || !planToks.containsAll(pt)) { continue; }
+			if (pt.size() > mejorScore) { mejorScore = pt.size(); mejor = p; }
+		}
+		return mejor;
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene las palabras significativas del nombre de un producto (sin números, conectores ni la
+	 * palabra "plan").
+	 * @param s: Nombre del producto o plan
+	 * @return Conjunto de palabras
+	 */
+	private static Set<String> tokensProducto(String s) {
+		Set<String> stop = new Set<String>{ 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'para', 'en', 'plan' };
+		Set<String> out = new Set<String>();
+		for (String t : fold(s).replaceAll('[^a-z0-9 ]', ' ').split(' ')) {
+			if (String.isBlank(t) || t.isNumeric() || t.length() < 2 || stop.contains(t)) { continue; }
+			out.add(t);
+		}
+		return out;
+	}
+
+	
+	/**
+	 *  * @creation date: 02/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena los campos de resumen de la Quote a partir de las coberturas del PDF:
+	 * suma asegurada y tipo de valor (de Daños Materiales o, en otros ramos, la primera suma),
+	 * deducibles de Daños y Robo (en % o en monto), RC, Gastos Médicos, Vida del conductor y
+	 * las casillas de Cristales, Asistencia Vial, Defensa Jurídica y RC en el Extranjero.
+	 * @param q: Quote que se está construyendo (aún sin insertar).
+	 * @param coberturasObj: lista de coberturas { nombre, sumaAsegurada, deducible, prima }.
+	 * @param notas: notas de la IA para la cotización.
+	 */
+	@TestVisible
+	private static void aplicarResumenCoberturas(Quote q, Object coberturasObj, String notas) {
+		if (String.isNotBlank(notas)) { q.put('Notas_IA__c', notas); }
+		if (!(coberturasObj instanceof List<Object>)) { return; }
+		Decimal primeraSuma = null;
+		for (Object o : (List<Object>) coberturasObj) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> c = (Map<String, Object>) o;
+			String n = fold(stringOf(c.get('nombre')));
+			String sumaTxt = stringOf(c.get('sumaAsegurada'));
+			String ded = stringOf(c.get('deducible'));
+			Decimal suma = montoDe(sumaTxt);
+			if (String.isBlank(n)) { continue; }
+			if (primeraSuma == null && suma != null) { primeraSuma = suma; }
+
+			if (n.contains('danos materiales') || n.contains('perdida total') || n.contains('perdida parcial')) {
+				if (q.get('SumaAsegurada__c') == null && suma != null) { q.put('SumaAsegurada__c', suma); }
+				if (q.get('TipoValor__c') == null) { String tv = tipoValorDe(sumaTxt); if (tv != null) { q.put('TipoValor__c', tv); } }
+				ponerDeducible(q, ded, 'DeducibleDanos_Pct__c', 'DeducibleDanos_Mxn__c');
+			} else if (n.contains('robo total') || (n.contains('robo') && !n.contains('parcial'))) {
+				if (q.get('SumaAsegurada__c') == null && suma != null) { q.put('SumaAsegurada__c', suma); }
+				if (q.get('TipoValor__c') == null) { String tv = tipoValorDe(sumaTxt); if (tv != null) { q.put('TipoValor__c', tv); } }
+				ponerDeducible(q, ded, 'DeducibleRobo_Pct__c', 'DeducibleRobo_Mxn__c');
+			} else if (n.contains('cristal')) {
+				q.put('Cristales__c', true);
+			} else if (n.contains('usa') || n.contains('canada') || n.contains('extranjero')) {
+				q.put('RCExtranjero__c', true);
+			} else if (n.contains('conductor')) {
+				if (suma != null) { q.put('VidaConductor__c', suma); }
+			} else if (n.contains('gastos medicos')) {
+				if (suma != null && q.get('GastosMedicos__c') == null) { q.put('GastosMedicos__c', suma); }
+			} else if (n.contains('juridic') || n.contains('legal')) {
+				q.put('DefensaJuridica__c', true);
+			} else if (n.contains('vial') || n.contains('asistencia en viaje') || n.contains('grua')) {
+				q.put('AsistenciaVial__c', true);
+			} else if ((n.contains('responsabilidad civil') || n.startsWith('rc'))
+					&& !n.contains('exceso') && !n.contains('familiar') && !n.contains('complementaria')) {
+				Decimal actual = (Decimal) q.get('ResponsabilidadCivil__c');
+				if (suma != null && (actual == null || suma > actual)) { q.put('ResponsabilidadCivil__c', suma); }
+			}
+		}
+		// Otros ramos (Vida, GMM, Daños…): la suma asegurada principal es la primera con monto.
+		if (q.get('SumaAsegurada__c') == null && primeraSuma != null) { q.put('SumaAsegurada__c', primeraSuma); }
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el monto de un texto ("$575,928", "3000000"); null si es texto como "AMPARADA" o un
+	 * porcentaje.
+	 * @param s: Texto con el monto
+	 * @return Monto; null si no es un monto
+	 */
+	private static Decimal montoDe(String s) {
+		if (String.isBlank(s) || s.contains('%')) { return null; }
+		String limpio = s.replaceAll('[^0-9.]', '');
+		if (String.isBlank(limpio)) { return null; }
+		try { return Decimal.valueOf(limpio); } catch (Exception e) { return null; }
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene el tipo de valor del vehículo (picklist TipoValor__c) según el texto de la suma
+	 * asegurada.
+	 * @param sumaTxt: Suma asegurada en texto
+	 * @return Valor del picklist; null si no se reconoce
+	 */
+	private static String tipoValorDe(String sumaTxt) {
+		String t = fold(sumaTxt);
+		if (t.contains('comercial')) { return t.contains('10') ? 'comercial+10' : 'comercial'; }
+		if (t.contains('convenido')) { return 'convenido'; }
+		if (t.contains('factura') || t.contains('actual')) { return 'actual'; }
+		return null;
+	}
+
+	/**
+	 * @creation date: 30/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asigna el deducible en el campo de porcentaje ("5 %") o de monto ("$5,000") de la cotización,
+	 * según corresponda.
+	 * @param q: Cotización a modificar
+	 * @param ded: Deducible en texto
+	 * @param campoPct: API name del campo de porcentaje
+	 * @param campoMxn: API name del campo de monto
+	 * @return void
+	 */
+	private static void ponerDeducible(Quote q, String ded, String campoPct, String campoMxn) {
+		if (String.isBlank(ded)) { return; }
+		Matcher mp = Pattern.compile('(\\d+(?:\\.\\d+)?)\\s*%').matcher(ded);
+		if (mp.find()) {
+			if (q.get(campoPct) == null) { q.put(campoPct, Decimal.valueOf(mp.group(1))); }
+			return;
+		}
+		Decimal monto = montoDe(ded);
+		if (monto != null && q.get(campoMxn) == null) { q.put(campoMxn, monto); }
 	}
 
 	/**
@@ -1667,40 +1942,82 @@ public with sharing class PdfOpportunityCreatorController {
 		Map<String, Id> result = new Map<String, Id>();
 		if (nombres == null || nombres.isEmpty()) { return result; }
 
-		// Palabras a ignorar al comparar (genéricas).
-		Set<String> stop = new Set<String>{'seguros','seguro','mexico','de','del','la','el','nyl','sa','cv','consultores'};
-		// Alias de nombres cortos del PDF hacia la marca real en el org.
+		// Alias de nombres cortos del PDF hacia la marca real en el org (valen menos que una
+		// coincidencia directa, para que "Insignia Life" gane sobre "Latino" si existen ambas).
 		Map<String,String> alias = new Map<String,String>{ 'bupa'=>'chubb', 'insignia'=>'latino', 'continental'=>'gmx' };
 
-		List<Aseguradora__c> all = [SELECT Id, Name FROM Aseguradora__c];
+		List<Aseguradora__c> all = [SELECT Id, Name FROM Aseguradora__c ORDER BY Name];
 		List<Set<String>> tokensList = new List<Set<String>>();
-		List<Id> idList = new List<Id>();
-		for (Aseguradora__c a : all) {
-			Set<String> toks = new Set<String>();
-			for (String t : fold(a.Name).split(' ')) {
-				if (String.isNotBlank(t) && !stop.contains(t)) { toks.add(t); }
-			}
-			tokensList.add(toks); idList.add(a.Id);
-		}
+		for (Aseguradora__c a : all) { tokensList.add(llavesAseguradora(a.Name)); }
 
 		for (String req : nombres) {
-			Set<String> reqToks = new Set<String>();
-			for (String t : fold(req).split(' ')) {
-				if (String.isNotBlank(t) && !stop.contains(t)) { reqToks.add(t); }
-			}
-			// aplicar alias (bupa->chubb, insignia->latino, continental->gmx)
-			Set<String> aliased = new Set<String>(reqToks);
-			for (String t : reqToks) { if (alias.containsKey(t)) { aliased.add(alias.get(t)); } }
+			Set<String> reqToks = llavesAseguradora(req);
+			if (reqToks.isEmpty()) { continue; }
+			String compacto = fold(req).replaceAll('[^a-z0-9]', '');
 
-			Id best = null; Integer bestScore = 0;
-			for (Integer i = 0; i < tokensList.size(); i++) {
-				Integer score = 0;
-				for (String t : aliased) { if (tokensList[i].contains(t)) { score++; } }
-				if (score > bestScore) { bestScore = score; best = idList[i]; }
+			Id best = null; Decimal bestScore = 0;
+			for (Integer i = 0; i < all.size(); i++) {
+				Set<String> cand = tokensList[i];
+				if (cand.isEmpty()) { continue; }
+				Decimal score = 0;
+				// Mismo nombre (sin espacios ni signos): coincidencia segura.
+				if (fold(all[i].Name).replaceAll('[^a-z0-9]', '') == compacto) { score += 100; }
+				for (String t : reqToks) {
+					if (cand.contains(t)) { score += 1; }
+					else if (alias.containsKey(t) && cand.contains(alias.get(t))) { score += 0.5; }
+				}
+				if (score == 0) { continue; }
+				// Desempate: la que tenga menos palabras sin coincidir.
+				score += score / (cand.size() + 10);
+				if (score > bestScore) { bestScore = score; best = all[i].Id; }
 			}
 			if (best != null) { result.put(req, best); }
 		}
 		return result;
+	}
+
+	// Palabras genéricas que no distinguen a una aseguradora.
+	private static final Set<String> STOP_ASEGURADORA = new Set<String>{
+		'seguros', 'seguro', 'mexico', 'de', 'del', 'la', 'el', 'y', 'sa', 'cv', 'sab', 'consultores',
+		'compania', 'company', 'insurance', 'grupo', 'life', 'vida', 'new', 'york'
+	};
+
+	/**
+	 * @creation date: 01/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene las llaves para comparar aseguradoras: palabras distintivas y las siglas de cada tramo
+	 * de palabras. Una palabra que ya es sigla (NYL) aporta todas sus letras, de modo que "SMNYL", "Seguros
+	 * Monterrey NYL" y "Seguros Monterrey New York Life" coinciden.
+	 * @param nombre: Nombre de la aseguradora
+	 * @return Conjunto de llaves
+	 */
+	@TestVisible
+	private static Set<String> llavesAseguradora(String nombre) {
+		Set<String> out = new Set<String>();
+		if (String.isBlank(nombre)) { return out; }
+		List<String> palabras = new List<String>();
+		List<String> aportes = new List<String>();
+		for (String original : nombre.replaceAll('[^\\p{L}0-9 ]', ' ').normalizeSpace().split(' ')) {
+			String t = fold(original).replaceAll('[^a-z0-9]', '');
+			if (String.isBlank(t)) { continue; }
+			palabras.add(t);
+			Boolean esSigla = original.length() >= 2 && original.length() <= 5 && original.isAllUpperCase();
+			aportes.add(esSigla ? t : t.left(1));
+		}
+		for (String t : palabras) {
+			if (!STOP_ASEGURADORA.contains(t) && t.length() > 1) { out.add(t); }
+		}
+		for (Integer i = 0; i < palabras.size(); i++) {
+			String siglas = palabras[i].left(1);
+			String extendidas = aportes[i];
+			for (Integer j = i + 1; j < palabras.size() && j < i + 6; j++) {
+				siglas += palabras[j].left(1);
+				extendidas += aportes[j];
+				if (siglas.length() >= 3) { out.add(siglas); }
+				if (extendidas.length() >= 3) { out.add(extendidas); }
+			}
+		}
+		return out;
 	}
 
 	/**
@@ -1759,23 +2076,15 @@ public with sharing class PdfOpportunityCreatorController {
 			String ramo = stringOf(m.get('ramo'));
 			Id asegId = asegByName.get(compania);
 
-			// Productos de esa aseguradora + ramo; si no hay, todos los de la aseguradora.
-			List<Product2> prods = new List<Product2>();
-			if (asegId != null && String.isNotBlank(ramo)) {
-				prods = [SELECT Id, Name FROM Product2
-						 WHERE IsActive = true AND Aseguradora__c = :asegId AND Family = :ramo
-						 ORDER BY Name];
-			}
-			if (prods.isEmpty() && asegId != null) {
-				prods = [SELECT Id, Name FROM Product2
-						 WHERE IsActive = true AND Aseguradora__c = :asegId
-						 ORDER BY Name];
-			}
+			// Productos de esa aseguradora + ramo (match tolerante); si no hay, todos.
+			List<Product2> prods = (asegId != null)
+				? productosDeAseguradoraRamo(asegId, ramo)
+				: new List<Product2>();
 			List<Map<String,Object>> productos = new List<Map<String,Object>>();
 			for (Product2 p : prods) {
 				productos.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
 			}
-			Id sugerido = prods.isEmpty() ? null : prods[0].Id;
+			Id sugerido = productoMasParecido(prods, stringOf(m.get('plan')));
 
 			out.add(new Map<String,Object>{
 				'id' => stringOf(m.get('id')),
@@ -1794,26 +2103,124 @@ public with sharing class PdfOpportunityCreatorController {
 		return out;
 	}
 
+	/**
+	 * @creation date: 08/07/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Devuelve los productos activos de la aseguradora para el ramo, como opciones para el combo del
+	 * LWC.
+	 * @param aseguradoraId: Id de la Aseguradora__c
+	 * @param ramo: Ramo de la cotización
+	 * @return Opciones con label (nombre) y value (Id)
+	 */
 	@AuraEnabled(cacheable=false)
 	public static List<Map<String,Object>> getProductosPorAseguradoraRamo(Id aseguradoraId, String ramo) {
 		List<Map<String,Object>> out = new List<Map<String,Object>>();
 		if (aseguradoraId == null) { return out; }
-	
-		// Primero productos de esa aseguradora + ramo; si no hay, todos los de la aseguradora.
-		List<Product2> prods = new List<Product2>();
-		if (String.isNotBlank(ramo)) {
-			prods = [SELECT Id, Name FROM Product2
-					WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family = :ramo
-					ORDER BY Name];
-		}
-		if (prods.isEmpty()) {
-			prods = [SELECT Id, Name FROM Product2
-					WHERE IsActive = true AND Aseguradora__c = :aseguradoraId
-					ORDER BY Name];
-		}
-		for (Product2 p : prods) {
+		for (Product2 p : productosDeAseguradoraRamo(aseguradoraId, ramo)) {
 			out.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
 		}
 		return out;
+	}
+
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene los productos activos de la aseguradora que aplican al ramo de forma tolerante (acentos,
+	 * mayúsculas y variantes). Incluye los productos sin ramo; si ninguno coincide, devuelve todos.
+	 * @param aseguradoraId: Id de la Aseguradora__c
+	 * @param ramo: Ramo de la cotización
+	 * @return Productos encontrados
+	 */
+	private static List<Product2> productosDeAseguradoraRamo(Id aseguradoraId, String ramo) {
+		List<Product2> todos = [SELECT Id, Name, Family FROM Product2
+			WHERE IsActive = true AND Aseguradora__c = :aseguradoraId ORDER BY Name];
+		if (String.isBlank(ramo)) { return todos; }
+		List<Product2> prods = new List<Product2>();
+		for (Product2 p : todos) {
+			if (ramoCoincide(p.Family, ramo)) { prods.add(p); }
+		}
+		return prods.isEmpty() ? todos : prods;
+	}
+
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elige el producto cuyo nombre se parece más al plan de la cotización (palabras en común y
+	 * contención del texto). Si no hay parecido, sugiere el primero.
+	 * @param prods: Productos candidatos
+	 * @param plan: Plan de la cotización
+	 * @return Id del producto sugerido; null si no hay productos
+	 */
+	private static Id productoMasParecido(List<Product2> prods, String plan) {
+		if (prods == null || prods.isEmpty()) { return null; }
+		if (String.isBlank(plan)) { return prods[0].Id; }
+		Set<String> planToks = tokensDe(plan);
+		String planFold = foldRamo(plan);
+		Id mejor = prods[0].Id;
+		Integer mejorScore = -1;
+		for (Product2 p : prods) {
+			Set<String> pt = tokensDe(p.Name);
+			Integer score = 0;
+			for (String t : planToks) { if (pt.contains(t)) { score++; } }
+			String pn = foldRamo(p.Name);
+			if (String.isNotBlank(planFold) && String.isNotBlank(pn)
+				&& (pn.contains(planFold) || planFold.contains(pn))) { score += 2; }
+			if (score > mejorScore) { mejorScore = score; mejor = p.Id; }
+		}
+		return mejor;
+	}
+
+	/**
+	 * @creation date: 29/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Obtiene las palabras significativas de un texto (minúsculas, sin acentos ni signos, de 2 o más
+	 * letras).
+	 * @param s: Texto a dividir
+	 * @return Conjunto de palabras
+	 */
+	private static Set<String> tokensDe(String s) {
+		Set<String> out = new Set<String>();
+		if (String.isBlank(s)) { return out; }
+		String norm = s.toLowerCase()
+			.replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+			.replace('ñ','n').replace('ü','u');
+		for (String t : norm.split('[^a-z0-9]+')) {
+			if (String.isNotBlank(t) && t.length() >= 2) { out.add(t); }
+		}
+		return out;
+	}
+
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si la familia del producto corresponde al ramo de forma tolerante. Un producto sin ramo
+	 * siempre aplica.
+	 * @param family: Familia (ramo) del producto
+	 * @param ramo: Ramo de la cotización
+	 * @return true si coinciden
+	 */
+	private static Boolean ramoCoincide(String family, String ramo) {
+		if (String.isBlank(family)) { return true; }   // sin ramo asignado: disponible
+		String f = foldRamo(family);
+		String r = foldRamo(ramo);
+		if (String.isBlank(r) || f == r) { return true; }
+		if (f.startsWith(r) || r.startsWith(f)) { return true; }
+		Integer n = Math.min(4, Math.min(f.length(), r.length()));
+		return n >= 3 && f.substring(0, n) == r.substring(0, n);
+	}
+
+	/**
+	 * @creation date: 28/09/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Normaliza un ramo para comparar: minúsculas, sin acentos y sin signos.
+	 * @param s: Ramo a normalizar
+	 * @return Ramo normalizado
+	 */
+	private static String foldRamo(String s) {
+		if (s == null) { return ''; }
+		String r = s.toLowerCase()
+			.replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u')
+			.replace('ñ','n').replace('ü','u');
+		return r.replaceAll('[^a-z0-9]', '');
 	}
 }

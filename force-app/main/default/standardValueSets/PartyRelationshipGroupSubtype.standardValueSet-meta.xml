@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Núcleo familiar</fullName>
+        <default>false</default>
+        <label>Núcleo familiar</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Familia extendida</fullName>
+        <default>false</default>
+        <label>Familia extendida</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Dependientes económicos</fullName>
+        <default>false</default>
+        <label>Dependientes económicos</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Colectivo empresarial</fullName>
+        <default>false</default>
+        <label>Colectivo empresarial</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Núcleo doméstico</fullName>
+        <default>false</default>
+        <label>Núcleo doméstico</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Extensión doméstica</fullName>
+        <default>false</default>
+        <label>Extensión doméstica</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Entorno doméstico de tres personas</fullName>
+        <default>false</default>
+        <label>Entorno doméstico de tres personas</label>
+    </standardValue>
+</StandardValueSet>

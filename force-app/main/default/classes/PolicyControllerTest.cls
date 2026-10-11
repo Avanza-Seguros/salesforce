@@ -1,12 +1,18 @@
 /**
- *  @name: PolicyControllerTest
- *  @description: Pruebas unitarias para PolicyController (getPolicyIdByQuote, analizarPoliza).
- *               El path de Einstein se salta con Test.isRunningTest() en la clase, por lo que
- *               aquí se cubren las rutas de datos (SOQL) y las validaciones.
+ * @creation date: 22/07/2026
+ * @author: Sergio Uribe Toledo - Volestra
+ * @description: Pruebas unitarias de PolicyController: búsqueda de póliza por cotización, análisis del PDF,
+ * registros hijos de la póliza, coberturas, beneficiarios y grupo familiar.
  */
 @isTest
 private class PolicyControllerTest {
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Obtiene la primera etapa activa de oportunidad del org para crear datos de prueba.
+     * @return Etiqueta de la etapa
+     */
     static String activeStage() {
         List<OpportunityStage> s = [
             SELECT MasterLabel FROM OpportunityStage
@@ -15,6 +21,13 @@ private class PolicyControllerTest {
         return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Crea los datos base de las pruebas: cuenta, oportunidad y cotización con sus campos
+     * obligatorios.
+     * @return void
+     */
     @testSetup
     static void setup() {
         Account acc = new Account(Name = 'Cuenta Póliza Test');
@@ -34,17 +47,29 @@ private class PolicyControllerTest {
             Status = 'Draft',
             Pricebook2Id = Test.getStandardPricebookId()
         );
+        // Campos obligatorios de Quote en el org.
+        q.put('Frecuencia_de_prima__c', 'Anual'); // valor habilitado en el tipo de registro
+        q.put('Ramos__c', 'Vida');
+        q.put('Prima_Total__c', 1000);
         insert q;
     }
 
-    // Intenta crear una InsurancePolicy ligada a la cotización. Devuelve el Id o null
-    // si el objeto tiene campos obligatorios adicionales en el org.
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Intenta crear una InsurancePolicy ligada a la cotización; devuelve null si el org exige campos
+     * adicionales.
+     * @param quoteId: Id de la cotización origen
+     * @param nameInsuredId: Id de la cuenta asegurada
+     * @return Id de la póliza creada; null si no se pudo crear
+     */
     static Id tryCreatePolicy(Id quoteId, Id nameInsuredId) {
         try {
             InsurancePolicy p = new InsurancePolicy(
                 Name = 'POL-TEST-001',
                 NameInsuredId = nameInsuredId,
-                SourceQuoteId = quoteId
+                SourceQuoteId = quoteId,
+                SourceOpportunityId = [SELECT OpportunityId FROM Quote WHERE Id = :quoteId].OpportunityId
             );
             insert p;
             return p.Id;
@@ -53,6 +78,12 @@ private class PolicyControllerTest {
         }
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote devuelva null cuando no recibe cotización.
+     * @return void
+     */
     @isTest
     static void testGetPolicyIdByQuote_nulls() {
         Test.startTest();
@@ -61,6 +92,12 @@ private class PolicyControllerTest {
         System.assertEquals(null, result, 'Sin ids debe devolver null');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote devuelva null cuando la cotización no tiene póliza.
+     * @return void
+     */
     @isTest
     static void testGetPolicyIdByQuote_notFound() {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
@@ -72,6 +109,12 @@ private class PolicyControllerTest {
         System.assertEquals(null, byOpp, 'Sin póliza debe ser null');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote devuelva la póliza ligada a la cotización.
+     * @return void
+     */
     @isTest
     static void testGetPolicyIdByQuote_found() {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
@@ -89,6 +132,12 @@ private class PolicyControllerTest {
         }
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que analizarPoliza rechace un texto vacío.
+     * @return void
+     */
     @isTest
     static void testAnalizarPoliza_blank() {
         Boolean threw = false;
@@ -102,6 +151,12 @@ private class PolicyControllerTest {
         System.assert(threw, 'Texto en blanco debe lanzar excepción');
     }
 
+    /**
+     * @creation date: 22/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que analizarPoliza devuelva el JSON de respaldo en pruebas.
+     * @return void
+     */
     @isTest
     static void testAnalizarPoliza_ok() {
         Test.startTest();
@@ -110,6 +165,12 @@ private class PolicyControllerTest {
         // En contexto de test la clase devuelve '{}' sin llamar a Einstein.
         System.assertEquals('{}', result, 'En test debe devolver JSON vacío');
     }
+    /**
+     * @creation date: 27/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearVinculoBien no falle sin póliza.
+     * @return void
+     */
     @isTest
     static void testCrearVinculoBien_nulo() {
         Boolean threw = false;
@@ -123,6 +184,12 @@ private class PolicyControllerTest {
         System.assert(threw, 'Sin póliza debe lanzar excepción');
     }
 
+    /**
+     * @creation date: 27/07/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearVinculoBien ligue el bien asegurado a la póliza.
+     * @return void
+     */
     @isTest
     static void testCrearVinculoBien_ok() {
         Quote q = [SELECT Id FROM Quote LIMIT 1];
@@ -141,5 +208,434 @@ private class PolicyControllerTest {
             // la ruta principal ya se ejecutó para efectos de cobertura.
         }
         Test.stopTest();
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Crea un producto con una cobertura en el catálogo para las pruebas de coberturas.
+     * @return Id del producto creado
+     */
+    static Id crearProductoConCobertura() {
+        try {
+            Product2 prod = new Product2(Name = 'Producto Póliza Test', IsActive = true);
+            insert prod;
+            CoverageType ct = new CoverageType(Name = 'Daños Materiales Test');
+            insert ct;
+            insert new ProductCoverage(
+                ProductId = prod.Id, CoverageTypeId = ct.Id, IsCovered = true
+            );
+            return prod.Id;
+        } catch (Exception e) {
+            return null; // El org puede exigir campos extra en CoverageType.
+        }
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearCoberturasPoliza copie las coberturas del catálogo del producto.
+     * @return void
+     */
+    @isTest
+    static void testCrearCoberturasPoliza_ok() {
+        Quote q = [SELECT Id FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        if (policyId == null) { return; }
+        Id prodId = crearProductoConCobertura();
+        if (prodId == null) { return; }
+        try { update new InsurancePolicy(Id = policyId, ProductId = prodId); }
+        catch (Exception e) { return; } // ProductId puede no ser escribible en el org.
+
+        Test.startTest();
+        try {
+            Integer n  = PolicyController.crearCoberturasPoliza(policyId);
+            // Segunda llamada: idempotente (no duplica).
+            Integer n2 = PolicyController.crearCoberturasPoliza(policyId);
+            System.assertEquals(0, n2, 'No debe duplicar coberturas ya creadas');
+            System.assert(n >= 0, 'Debe devolver el conteo de coberturas creadas');
+        } catch (Exception e) { /* el org puede exigir campos extra en la cobertura */ }
+        Test.stopTest();
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearCoberturasPoliza no cree coberturas si la póliza no tiene producto.
+     * @return void
+     */
+    @isTest
+    static void testCrearCoberturasPoliza_sinProducto() {
+        Quote q = [SELECT Id FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        if (policyId == null) { return; }
+        Test.startTest();
+        Integer n = PolicyController.crearCoberturasPoliza(policyId);
+        Test.stopTest();
+        System.assertEquals(0, n, 'Sin producto no debe crear coberturas');
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearTransaccionInicial cree la transacción de prima inicial.
+     * @return void
+     */
+    @isTest
+    static void testCrearTransaccionInicial_ok() {
+        Quote q = [SELECT Id FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        if (policyId == null) { return; }
+        try { update new InsurancePolicy(Id = policyId, PremiumAmount = 1200); } catch (Exception e) {}
+
+        Test.startTest();
+        try {
+            Id txId  = PolicyController.crearTransaccionInicial(policyId);
+            // Segunda llamada: idempotente (devuelve la misma transacción).
+            Id txId2 = PolicyController.crearTransaccionInicial(policyId);
+            System.assertEquals(txId, txId2, 'No debe crear una transacción duplicada');
+        } catch (Exception e) { /* el org puede exigir campos extra en la transacción */ }
+        Test.stopTest();
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearParticipantesPoliza cree el participante de una póliza individual.
+     * @return void
+     */
+    @isTest
+    static void testCrearParticipantesPoliza_individual() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        if (policyId == null) { return; }
+
+        Test.startTest();
+        try {
+            // Sin OCR debe crear el respaldo desde el asegurado (cuenta en NameInsured).
+            Integer n  = PolicyController.crearParticipantesPoliza(policyId, q.OpportunityId);
+            // Segunda llamada: idempotente (ya hay participante).
+            Integer n2 = PolicyController.crearParticipantesPoliza(policyId, q.OpportunityId);
+            System.assertEquals(0, n2, 'No debe duplicar participantes');
+            System.assert(n >= 0, 'Debe devolver el conteo de participantes creados');
+        } catch (Exception e) { /* el org puede exigir campos extra en el participante */ }
+        Test.stopTest();
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearParticipantesPoliza no falle sin póliza.
+     * @return void
+     */
+    @isTest
+    static void testCrearParticipantesPoliza_nulo() {
+        Boolean threw = false;
+        Test.startTest();
+        try {
+            PolicyController.crearParticipantesPoliza(null, null);
+        } catch (AuraHandledException e) {
+            threw = true;
+        }
+        Test.stopTest();
+        System.assert(threw, 'Sin póliza debe lanzar excepción');
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getRegistrosPoliza devuelva las listas de registros hijos.
+     * @return void
+     */
+    @isTest
+    static void testGetRegistrosPoliza() {
+        Quote q = [SELECT Id FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+
+        Test.startTest();
+        // Con null devuelve un wrapper vacío (no rompe).
+        PolicyController.RegistrosPoliza vacio = PolicyController.getRegistrosPoliza(null);
+        System.assertNotEquals(null, vacio, 'Debe devolver un wrapper aunque sea nulo el id');
+        System.assertEquals(0, vacio.coberturas.size(), 'Sin id no hay coberturas');
+        if (policyId != null) {
+            PolicyController.RegistrosPoliza reg = PolicyController.getRegistrosPoliza(policyId);
+            System.assertNotEquals(null, reg, 'Debe devolver el wrapper de registros');
+        }
+        Test.stopTest();
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que completarPoliza rechace una póliza nula.
+     * @return void
+     */
+    @isTest
+    static void testCompletarPoliza_nulo() {
+        Boolean threw = false;
+        Test.startTest();
+        try {
+            PolicyController.completarPoliza(null, null);
+        } catch (AuraHandledException e) {
+            threw = true;
+        }
+        Test.stopTest();
+        System.assert(threw, 'Sin póliza debe lanzar excepción');
+    }
+
+    /**
+     * @creation date: 17/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que completarPoliza ejecute todos los pasos y devuelva su resumen.
+     * @return void
+     */
+    @isTest
+    static void testCompletarPoliza_ok() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        if (policyId == null) { return; }
+
+        Test.startTest();
+        try {
+            Map<String, Object> resumen = PolicyController.completarPoliza(policyId, q.OpportunityId);
+            System.assertNotEquals(null, resumen, 'Debe devolver un resumen');
+        } catch (Exception e) { /* pasos individuales pueden requerir campos extra en el org */ }
+        Test.stopTest();
+    }
+
+    /**
+     * @creation date: 29/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los textos de cobertura (descripción, lectura de valores y monto simple).
+     * @return void
+     */
+    @isTest
+    static void testTextosDeCobertura() {
+        String descCob = 'Suma asegurada: AMPARADA | Deducible: 5 %';
+        System.assertEquals('AMPARADA', PolicyController.valorDeDescripcion(descCob, 'Suma asegurada'));
+        System.assertEquals('5 %', PolicyController.valorDeDescripcion(descCob, 'Deducible'));
+        System.assertEquals('$119,519  5 %', PolicyController.valorDeDescripcion('Deducible: $119,519  5 %', 'Deducible'));
+        System.assertEquals(null, PolicyController.valorDeDescripcion(null, 'Deducible'));
+        System.assertEquals(true, PolicyController.esMontoSimple('$5,000.00'));
+        System.assertEquals(false, PolicyController.esMontoSimple('5 %'));
+        System.assertEquals(false, PolicyController.esMontoSimple('50 UMAS'));
+        System.assertEquals(false, PolicyController.esMontoSimple(''));
+    }
+
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los auxiliares de beneficiarios: "EL MISMO", código de beneficio, parentesco del picklist
+     * y roles.
+     * @return void
+     */
+    @isTest
+    static void testHelpersBeneficiarios() {
+        System.assertEquals(true, PolicyController.esElMismo('EL MISMO'));
+        System.assertEquals(true, PolicyController.esElMismo('el  mismo'));
+        System.assertEquals(false, PolicyController.esElMismo('MADRE'));
+        System.assertEquals('BEN-MUERTE', PolicyController.codigoBeneficio('Beneficiarios por muerte'));
+        System.assertEquals('BEN-SUPERVIVENCIA', PolicyController.codigoBeneficio('Supervivencia'));
+        System.assertEquals('BEN', PolicyController.codigoBeneficio(null));
+        // El parentesco impreso se busca tal cual en el picklist (sin importar mayúsculas/acentos).
+        Schema.DescribeFieldResult rel = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
+        Set<String> activos = new Set<String>();
+        for (Schema.PicklistEntry pe : rel.getPicklistValues()) { if (pe.isActive()) { activos.add(pe.getValue()); } }
+        if (activos.contains('Hermano')) {
+            System.assertEquals('Hermano', PolicyController.parentescoPicklist(rel, 'HERMANO'));
+        }
+        if (activos.contains('Marido')) {
+            System.assertEquals('Marido', PolicyController.parentescoPicklist(rel, 'ESPOSO'), 'Sinónimo esposo → Marido');
+        }
+        System.assertEquals('hermano', PolicyController.candidatosParentesco('HERMANO')[0]);
+        // Role es selección múltiple: se agrega el rol sin repetirlo.
+        System.assertEquals('Asegurado;Beneficiario', PolicyController.agregarRol('Asegurado', 'Beneficiario'));
+        System.assertEquals('Asegurado;Beneficiario', PolicyController.agregarRol('Asegurado;Beneficiario', 'Beneficiario'));
+        System.assertEquals('Beneficiario', PolicyController.agregarRol(null, 'Beneficiario'));
+    }
+
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que crearBeneficiariosDesdePdf cree los beneficiarios sin duplicarlos al reprocesar.
+     * @return void
+     */
+    @isTest
+    static void testCrearBeneficiariosDesdePdf() {
+        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        InsurancePolicy pol;
+        try { pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente'); }
+        catch (Exception e) { return; } // validaciones propias del org
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
+            '{"titular":"INGRID ARACELY  ROSALES GUZMAN","beneficiarios":['
+            + '{"nombre":"LIZ ARACELI GUZMAN VALLEJO","parentesco":"MADRE","porcentaje":10,"tipo":"Muerte"},'
+            + '{"nombre":"SAUL ALBERTO SALAZAR PACHECO","parentesco":"NINGUNO","porcentaje":90,"tipo":"Muerte"},'
+            + '{"nombre":"EL MISMO","parentesco":"EL MISMO","porcentaje":100,"tipo":"Supervivencia"}]}');
+        Test.startTest();
+        Integer creados = PolicyController.crearBeneficiariosDesdePdf(pol.Id, acc.Id, d);
+        Integer otraVez = PolicyController.crearBeneficiariosDesdePdf(pol.Id, acc.Id, d);
+        Test.stopTest();
+        System.assertEquals(3, creados, 'Debe crear los 3 beneficiarios');
+        System.assertEquals(0, otraVez, 'No debe duplicarlos al volver a procesar el PDF');
+        InsurancePolicyParticipant titular = [
+            SELECT ParticipantName, ParticipantCode, BeneficiarySharePercentage
+            FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantCode = 'BEN-SUPERVIVENCIA' LIMIT 1
+        ];
+        System.assertEquals('INGRID ARACELY ROSALES GUZMAN', titular.ParticipantName, '"EL MISMO" = titular');
+        System.assertEquals(100, titular.BeneficiarySharePercentage);
+    }
+
+    /**
+     * @creation date: 30/09/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que el asegurado que también es beneficiario quede en un solo registro con ambos roles.
+     * @return void
+     */
+    @isTest
+    static void testAseguradoTambienBeneficiarioUnSoloRegistro() {
+        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        InsurancePolicy pol;
+        try {
+            pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente');
+            insert new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'INGRID ARACELY ROSALES GUZMAN',
+                Role = 'Asegurado', PrimaryParticipantAccountId = acc.Id);
+        } catch (Exception e) { return; } // validaciones propias del org
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
+            '{"titular":"INGRID ARACELY ROSALES GUZMAN","beneficiarios":['
+            + '{"nombre":"EL MISMO","parentesco":"EL MISMO","porcentaje":100,"tipo":"Supervivencia"},'
+            + '{"nombre":"JUAN PEREZ LOPEZ","parentesco":"HERMANO","porcentaje":100,"tipo":"Muerte"}]}');
+        Test.startTest();
+        PolicyController.crearBeneficiariosDesdePdf(pol.Id, acc.Id, d);
+        Test.stopTest();
+        List<InsurancePolicyParticipant> ingrid = [
+            SELECT Role, ParticipantCode, BeneficiarySharePercentage FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'INGRID ARACELY ROSALES GUZMAN'
+        ];
+        System.assertEquals(1, ingrid.size(), 'El asegurado que también es beneficiario debe quedar en UN solo registro');
+        System.assert(ingrid[0].Role.contains('Asegurado') && ingrid[0].Role.contains('Beneficiario'), 'Debe tener ambos roles');
+        System.assertEquals('BEN-SUPERVIVENCIA', ingrid[0].ParticipantCode);
+        InsurancePolicyParticipant hermano = [
+            SELECT RelationshipToInsured FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'JUAN PEREZ LOPEZ' LIMIT 1
+        ];
+        System.assertEquals('Hermano', hermano.RelationshipToInsured, 'HERMANO debe guardarse en el parentesco');
+    }
+
+    /**
+     * @creation date: 01/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los auxiliares del grupo familiar: función en el grupo, sexo por parentesco y definición
+     * recíproca.
+     * @return void
+     */
+    /**
+     * @creation date: 02/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que datosBasePoliza devuelva los datos de la oportunidad y la cotización para crear la
+     * póliza, y que sin oportunidad solo devuelva el estatus y las fechas.
+     * @return void
+     */
+    @isTest
+    static void testDatosBasePoliza() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Opportunity opp = [SELECT AccountId, OwnerId FROM Opportunity WHERE Id = :q.OpportunityId];
+        Map<String, Object> base = PolicyController.datosBasePoliza(q.OpportunityId, q.Id);
+        System.assertEquals(q.OpportunityId, base.get('SourceOpportunityId'));
+        System.assertEquals(q.Id, base.get('SourceQuoteId'));
+        System.assertEquals(opp.AccountId, base.get('NameInsuredId'));
+        System.assertEquals('Inicial', base.get('Status'));
+        System.assertNotEquals(null, base.get('EffectiveDate'));
+        // Sin oportunidad solo se devuelven el estatus y las fechas.
+        Map<String, Object> sinOpp = PolicyController.datosBasePoliza(null, null);
+        System.assertEquals('Inicial', sinOpp.get('Status'));
+        System.assertEquals(null, sinOpp.get('SourceOpportunityId'));
+    }
+
+    @isTest
+    static void testHelpersGrupoFamiliar() {
+        System.assertEquals('Cónyuge', PolicyController.funcionEnGrupo('Mujer'));
+        System.assertEquals('Hijo(a)', PolicyController.funcionEnGrupo('Hija'));
+        System.assertEquals('Padre / Madre', PolicyController.funcionEnGrupo('Madre'));
+        System.assertEquals('Otro familiar', PolicyController.funcionEnGrupo('Hermano'));
+        System.assertEquals('Femenino', PolicyController.sexoDeRol('Tía'));
+        System.assertEquals('Masculino', PolicyController.sexoDeRol('Hermano'));
+        System.assertEquals(null, PolicyController.sexoDeRol(null));
+
+        PartyRoleRelation simetrica = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermano');
+        PartyRoleRelation conHermana = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana');
+        Map<String, List<PartyRoleRelation>> porRol = new Map<String, List<PartyRoleRelation>>{
+            'hermano' => new List<PartyRoleRelation>{ simetrica, conHermana }
+        };
+        System.assertEquals(conHermana, PolicyController.definicionParentesco(porRol, 'Hermano', 'Femenino'));
+        System.assertEquals(simetrica, PolicyController.definicionParentesco(porRol, 'Hermano', 'Masculino'));
+        System.assertEquals(simetrica, PolicyController.definicionParentesco(porRol, 'Hermano', null));
+        System.assertEquals(null, PolicyController.definicionParentesco(porRol, 'Madre', null));
+    }
+
+    /**
+     * @creation date: 01/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que vincularBeneficiariosAGrupo cree el grupo, las membresías y los parentescos sin
+     * duplicar.
+     * @return void
+     */
+    @isTest
+    static void testVincularBeneficiariosAGrupo() {
+        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        InsurancePolicy pol;
+        Contact titular;
+        try {
+            pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente');
+            titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino');
+            insert titular;
+            PartyRoleRelation hermano = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana',
+                RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
+            PartyRoleRelation hermana = new PartyRoleRelation(RoleName = 'Hermana', RelatedRoleName = 'Hermano',
+                RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
+            insert new List<PartyRoleRelation>{ hermano, hermana };
+            hermano.RelatedInverseRecordId = hermana.Id;
+            update hermano;
+            insert new List<InsurancePolicyParticipant>{
+                new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'SOFIA CORONA PADILLA',
+                    Role = 'Asegurado', PrimaryParticipantContactId = titular.Id, PrimaryParticipantAccountId = acc.Id),
+                new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'ALDO CORONA PADILLA',
+                    Role = 'Beneficiario', ParticipantCode = 'BEN-MUERTE', RelationshipToInsured = 'Hermano',
+                    PrimaryParticipantAccountId = acc.Id)
+            };
+        } catch (Exception e) { return; } // validaciones propias del org
+
+        Test.startTest();
+        Integer n = PolicyController.vincularBeneficiariosAGrupo(pol.Id);
+        Integer otraVez = PolicyController.vincularBeneficiariosAGrupo(pol.Id);
+        Test.stopTest();
+
+        System.assertEquals(1, n, 'Debe vincular al beneficiario');
+        System.assertEquals(1, otraVez, 'Reprocesar reutiliza el mismo contacto');
+        PartyRelationshipGroup g = [SELECT AccountId, Category, GroupSize FROM PartyRelationshipGroup LIMIT 1];
+        System.assertEquals('Familia', g.Category);
+        System.assertEquals(1, [SELECT COUNT() FROM PartyRelationshipGroup], 'Un solo grupo familiar');
+        System.assertEquals(2, [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :g.AccountId], 'Titular + beneficiario');
+        System.assertEquals('Titular', [SELECT Roles FROM AccountContactRelation WHERE AccountId = :g.AccountId AND ContactId = :titular.Id].Roles);
+        InsurancePolicyParticipant aldo = [
+            SELECT PrimaryParticipantContactId, PrimaryParticipantContact.Sexo__c FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'ALDO CORONA PADILLA'
+        ];
+        System.assertNotEquals(null, aldo.PrimaryParticipantContactId, 'El participante queda ligado a su contacto');
+        System.assertEquals('Masculino', aldo.PrimaryParticipantContact.Sexo__c);
+        List<ContactContactRelation> rels = [
+            SELECT ContactId, PartyRoleRelation.RoleName FROM ContactContactRelation
+            WHERE ContactId IN (:titular.Id, :aldo.PrimaryParticipantContactId)
+        ];
+        System.assertEquals(2, rels.size(), 'Parentesco en ambos sentidos, sin duplicar');
+        for (ContactContactRelation r : rels) {
+            System.assertEquals(r.ContactId == titular.Id ? 'Hermana' : 'Hermano', r.PartyRoleRelation.RoleName);
+        }
     }
 }

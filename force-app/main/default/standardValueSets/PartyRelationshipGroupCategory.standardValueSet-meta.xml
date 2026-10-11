@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Familia</fullName>
+        <default>false</default>
+        <label>Familia</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Empresa / Colectivo</fullName>
+        <default>false</default>
+        <label>Empresa / Colectivo</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Conviviendo bajo el mismo techo</fullName>
+        <default>false</default>
+        <label>Conviviendo bajo el mismo techo</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Comidas conjuntas</fullName>
+        <default>false</default>
+        <label>Comidas conjuntas</label>
+    </standardValue>
+</StandardValueSet>
