@@ -15,7 +15,7 @@ const COLUMNS = [
 	},
 	{
 		label: "Recibo",
-		fieldName: "carrierReceiptNumber__c",
+		fieldName: "receiptLabel",
 		type: "text",
 		initialWidth: 130,
 		cellAttributes: { class: { fieldName: "statusClass" } }
@@ -75,7 +75,7 @@ export default class PolicyInstallments extends LightningElement {
 	columns = COLUMNS;
 	rows = [];
 	expandedRows = [];
-	totals = { expected: 0, matched: 0, outstanding: 0, count: 0 };
+	totals = { expected: 0, matched: 0, outstanding: 0, estimated: 0, count: 0 };
 	error;
 	loaded = false;
 
@@ -145,5 +145,14 @@ export default class PolicyInstallments extends LightningElement {
 
 	get outstandingTotal() {
 		return this.totals.outstanding;
+	}
+
+	/** Parte de lo esperado que sale de cuotas estimadas: sin recibo de la aseguradora todavía. */
+	get hasEstimated() {
+		return this.totals.estimated > 0;
+	}
+
+	get estimatedTotal() {
+		return this.totals.estimated;
 	}
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>deducedData__c</fullName>
+    <description
+	>Datos de la póliza que la carga no recibió de la fuente y dedujo, y cómo (por ejemplo, la prima como suma de los recibos o el estado por las fechas de vigencia).</description>
+    <label>Datos deducidos en la carga</label>
+    <length>4000</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>

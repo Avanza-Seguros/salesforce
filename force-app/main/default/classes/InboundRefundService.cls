@@ -77,6 +77,7 @@ public with sharing class InboundRefundService {
 	private static final String REVERSAL_REASON_REFUND = 'Devolucion';
 	private static final String STATUS_REJECTED = 'Rechazado';
 	private static final String REASON_AMBIGUOUS_TERM = 'VIGENCIA_AMBIGUA';
+	private static final String REVIEW_HANDLE_SOURCE = 'Los datos de esta aseguradora se cargan desde Handle: la devolución se guarda sin aplicarla para que dos fuentes no muevan las mismas cuotas.';
 
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
@@ -181,15 +182,29 @@ public with sharing class InboundRefundService {
 		// lote apuntan a la misma, la segunda la decide el analista.
 		Set<Id> claimedInstallments = new Set<Id>();
 		Set<Id> policiesWithMoney = new Set<Id>();
+		Set<Id> handleSourced = CarrierDataSourceService.handleSourcedPolicies(
+			policyIds
+		);
 		for (InboundInsurancePayment__c refund : refunds) {
-			Decision decision = decide(
-				refund,
-				matchByRefund.get(refund.Id),
-				policies,
-				installmentsByPolicy,
-				chargesByPolicyNumber,
-				claimedInstallments
+			InboundPolicyCandidateQueueable.PolicyMatchResult match = matchByRefund.get(
+				refund.Id
 			);
+			// Las cuotas de una aseguradora que se carga desde Handle las mueve la carga: una
+			// devolucion que llegue por la integracion no las toca.
+			Decision decision;
+			if (match != null && handleSourced.contains(match.policyId)) {
+				decision = new Decision(refund).review(REVIEW_HANDLE_SOURCE);
+				decision.policyId = match.policyId;
+			} else {
+				decision = decide(
+					refund,
+					match,
+					policies,
+					installmentsByPolicy,
+					chargesByPolicyNumber,
+					claimedInstallments
+				);
+			}
 			applyDecision(decision);
 			if (
 				decision.policyId != null && MONEY_OUTCOMES.contains(decision.outcome)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>isEstimated__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+	>La cuota se calculó con la prima y la forma de pago porque todavía no llegó el recibo de la aseguradora. Cuando llega el recibo de su periodo, lo ocupa y deja de estar marcada.</description>
+    <label>Cuota estimada</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

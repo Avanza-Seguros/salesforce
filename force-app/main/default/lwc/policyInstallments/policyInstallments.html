@@ -77,6 +77,22 @@
 					Los recibos que la aseguradora canceló y volvió a emitir se abren
 					desde la flecha de su cuota. No cuentan para los totales.
 				</p>
+				<template if:true={hasEstimated}>
+					<div
+						class="slds-box slds-box_x-small slds-theme_warning slds-text-body_small slds-m-bottom_x-small"
+					>
+						Hay cuotas marcadas «Estimada» por&nbsp;
+						<lightning-formatted-number
+							value={estimatedTotal}
+							format-style="currency"
+							currency-code="MXN"
+						></lightning-formatted-number>
+						: la aseguradora aún no informó su recibo, así que se calcularon con
+						la prima y la forma de pago, y su importe y su fecha pueden no ser
+						los reales. Sus días de mora se cuentan igual: conviene revisarlas
+						en el portal de la aseguradora.
+					</div>
+				</template>
 			</template>
 		</div>
 	</lightning-card>

@@ -50,6 +50,11 @@ public with sharing class InsurancePolicyTriggerHandler {
 		List<InsurancePolicy> newPolicies,
 		Map<Id, InsurancePolicy> oldMap
 	) {
+		// La carga masiva trae la poliza tal como esta en la fuente, plan incluido: ni se rehace
+		// su plan ni se le aplican las reglas del cambio de frecuencia.
+		if (BulkLoadBypass.isActive()) {
+			return;
+		}
 		// Primero se separan las polizas sin cobros: esas rehacen su plan y no pasan por las
 		// reglas del cambio de frecuencia, que son para planes con historia.
 		PaymentPlanRegenerationService.prepareBeforeUpdate(newPolicies, oldMap);
@@ -72,6 +77,13 @@ public with sharing class InsurancePolicyTriggerHandler {
 		Map<Id, InsurancePolicy> oldMap
 	) {
 		if (newPolicies == null || newPolicies.isEmpty()) {
+			return;
+		}
+
+		// En la carga masiva el plan y las cuotas los trae la propia carga. Lo unico que sigue
+		// corriendo es la sincronizacion de los vehiculos asegurados, que solo refleja el estado.
+		if (BulkLoadBypass.isActive()) {
+			PolicyAssetActivationService.syncAfterUpdate(newPolicies, oldMap);
 			return;
 		}
 

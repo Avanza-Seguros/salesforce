@@ -33,7 +33,9 @@ public with sharing class PaymentPlanTriggerHandler {
 		List<PaymentPlan__c> newPlans,
 		Map<Id, PaymentPlan__c> oldMap
 	) {
-		if (newPlans == null || newPlans.isEmpty()) {
+		// En la carga masiva las cuotas salen de los recibos de la aseguradora y las sube la
+		// propia carga: generarlas aqui las duplicaria.
+		if (newPlans == null || newPlans.isEmpty() || BulkLoadBypass.isActive()) {
 			return;
 		}
 
