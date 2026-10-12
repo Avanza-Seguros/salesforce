@@ -577,16 +577,36 @@ private class PolicyControllerTest {
         System.assertEquals('Femenino', PolicyController.sexoDeRol('Tía'));
         System.assertEquals('Masculino', PolicyController.sexoDeRol('Hermano'));
         System.assertEquals(null, PolicyController.sexoDeRol(null));
+        // Las definiciones recíprocas solo existen en orgs con afiliación a grupos.
+        if (!PolicyController.hayAfiliacionAGrupos()) { return; }
 
-        PartyRoleRelation simetrica = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermano');
-        PartyRoleRelation conHermana = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana');
-        Map<String, List<PartyRoleRelation>> porRol = new Map<String, List<PartyRoleRelation>>{
-            'hermano' => new List<PartyRoleRelation>{ simetrica, conHermana }
+        SObject simetrica = definicion('Hermano', 'Hermano');
+        SObject conHermana = definicion('Hermano', 'Hermana');
+        Map<String, List<SObject>> porRol = new Map<String, List<SObject>>{
+            'hermano' => new List<SObject>{ simetrica, conHermana }
         };
         System.assertEquals(conHermana, PolicyController.definicionParentesco(porRol, 'Hermano', 'Femenino'));
         System.assertEquals(simetrica, PolicyController.definicionParentesco(porRol, 'Hermano', 'Masculino'));
         System.assertEquals(simetrica, PolicyController.definicionParentesco(porRol, 'Hermano', null));
         System.assertEquals(null, PolicyController.definicionParentesco(porRol, 'Madre', null));
+    }
+
+    /**
+     * @creation date: 12/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Arma una definición recíproca de parentesco (PartyRoleRelation) sin insertar; se crea de forma
+     * dinámica porque el objeto solo existe en orgs con afiliación a grupos.
+     * @param rol: Rol del contacto
+     * @param rolRelacionado: Rol del contacto relacionado
+     * @return Registro sin insertar
+     */
+    static SObject definicion(String rol, String rolRelacionado) {
+        SObject r = Schema.getGlobalDescribe().get('PartyRoleRelation').newSObject();
+        r.put('RoleName', rol);
+        r.put('RelatedRoleName', rolRelacionado);
+        r.put('RelationshipObjectName', 'Contact_Contact_Relationship');
+        r.put('ShouldCreaInversRoleAuto', false);
+        return r;
     }
 
     /**
@@ -599,27 +619,26 @@ private class PolicyControllerTest {
     @isTest
     static void testVincularBeneficiariosAGrupo() {
         Account acc = CollectionsTestDataFactory.createInsuredAccount();
-        InsurancePolicy pol;
-        Contact titular;
-        try {
-            pol = polizaValida(acc.Id, null, null, 'POL-BEN-002');
-            titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino', AccountId = acc.Id);
-            insert titular;
-            PartyRoleRelation hermano = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana',
-                RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
-            PartyRoleRelation hermana = new PartyRoleRelation(RoleName = 'Hermana', RelatedRoleName = 'Hermano',
-                RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
-            insert new List<PartyRoleRelation>{ hermano, hermana };
-            hermano.RelatedInverseRecordId = hermana.Id;
-            update hermano;
-            insert new List<InsurancePolicyParticipant>{
-                new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'SOFIA CORONA PADILLA',
-                    Role = 'Asegurado', PrimaryParticipantContactId = titular.Id, PrimaryParticipantAccountId = acc.Id),
-                new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'ALDO CORONA PADILLA',
-                    Role = 'Beneficiario', ParticipantCode = 'BEN-MUERTE', RelationshipToInsured = 'Hermano',
-                    PrimaryParticipantAccountId = acc.Id)
-            };
-        } catch (Exception e) { return; } // validaciones propias del org
+        InsurancePolicy pol = polizaValida(acc.Id, null, null, 'POL-BEN-002');
+        Contact titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino', AccountId = acc.Id);
+        insert titular;
+        insert new List<InsurancePolicyParticipant>{
+            new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'SOFIA CORONA PADILLA',
+                Role = 'Asegurado', PrimaryParticipantContactId = titular.Id, PrimaryParticipantAccountId = acc.Id),
+            new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'ALDO CORONA PADILLA',
+                Role = 'Beneficiario', ParticipantCode = 'BEN-MUERTE', RelationshipToInsured = 'Hermano',
+                PrimaryParticipantAccountId = acc.Id)
+        };
+        // Sin afiliación a grupos en el org no se hace nada (y no falla).
+        if (!PolicyController.hayAfiliacionAGrupos()) {
+            System.assertEquals(0, PolicyController.vincularBeneficiariosAGrupo(pol.Id));
+            return;
+        }
+        SObject hermano = definicion('Hermano', 'Hermana');
+        SObject hermana = definicion('Hermana', 'Hermano');
+        insert new List<SObject>{ hermano, hermana };
+        hermano.put('RelatedInverseRecordId', hermana.Id);
+        update hermano;
 
         Test.startTest();
         Integer n = PolicyController.vincularBeneficiariosAGrupo(pol.Id);
@@ -628,24 +647,26 @@ private class PolicyControllerTest {
 
         System.assertEquals(1, n, 'Debe vincular al beneficiario');
         System.assertEquals(1, otraVez, 'Reprocesar reutiliza el mismo contacto');
-        PartyRelationshipGroup g = [SELECT AccountId, Category, GroupSize FROM PartyRelationshipGroup LIMIT 1];
-        System.assertEquals('Familia', g.Category);
-        System.assertEquals(1, [SELECT COUNT() FROM PartyRelationshipGroup], 'Un solo grupo familiar');
-        System.assertEquals(2, [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :g.AccountId], 'Titular + beneficiario');
-        System.assertEquals('Titular', [SELECT Roles FROM AccountContactRelation WHERE AccountId = :g.AccountId AND ContactId = :titular.Id].Roles);
+        List<SObject> grupos = Database.query('SELECT AccountId, Category FROM PartyRelationshipGroup');
+        System.assertEquals(1, grupos.size(), 'Un solo grupo familiar');
+        System.assertEquals('Familia', grupos[0].get('Category'));
+        Id grupoCuentaId = (Id) grupos[0].get('AccountId');
+        System.assertEquals(2, [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :grupoCuentaId], 'Titular + beneficiario');
+        System.assertEquals('Titular', [SELECT Roles FROM AccountContactRelation WHERE AccountId = :grupoCuentaId AND ContactId = :titular.Id].Roles);
         InsurancePolicyParticipant aldo = [
             SELECT PrimaryParticipantContactId, PrimaryParticipantContact.Sexo__c FROM InsurancePolicyParticipant
             WHERE InsurancePolicyId = :pol.Id AND ParticipantName = 'ALDO CORONA PADILLA'
         ];
         System.assertNotEquals(null, aldo.PrimaryParticipantContactId, 'El participante queda ligado a su contacto');
         System.assertEquals('Masculino', aldo.PrimaryParticipantContact.Sexo__c);
-        List<ContactContactRelation> rels = [
-            SELECT ContactId, PartyRoleRelation.RoleName FROM ContactContactRelation
-            WHERE ContactId IN (:titular.Id, :aldo.PrimaryParticipantContactId)
-        ];
+        Id titularId = titular.Id;
+        Id aldoId = aldo.PrimaryParticipantContactId;
+        List<SObject> rels = Database.query('SELECT ContactId, PartyRoleRelation.RoleName FROM ContactContactRelation '
+            + 'WHERE ContactId IN (:titularId, :aldoId)');
         System.assertEquals(2, rels.size(), 'Parentesco en ambos sentidos, sin duplicar');
-        for (ContactContactRelation r : rels) {
-            System.assertEquals(r.ContactId == titular.Id ? 'Hermana' : 'Hermano', r.PartyRoleRelation.RoleName);
+        for (SObject r : rels) {
+            String rol = (String) r.getSObject('PartyRoleRelation').get('RoleName');
+            System.assertEquals(r.get('ContactId') == titularId ? 'Hermana' : 'Hermano', rol);
         }
     }
 

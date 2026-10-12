@@ -1234,13 +1234,15 @@ public with sharing class PolicyController {
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Agrega a los beneficiarios de la póliza al grupo familiar del titular: crea o reutiliza el grupo
 	 * (cuenta + PartyRelationshipGroup), crea los contactos de los beneficiarios, sus membresías con función y las
-	 * relaciones de parentesco en ambos sentidos. Es idempotente.
+	 * relaciones de parentesco en ambos sentidos. Es idempotente. Si el org no tiene habilitada la afiliación a
+	 * grupos (PartyRelationshipGroup, ContactContactRelation, PartyRoleRelation) no hace nada: esos objetos se usan
+	 * de forma dinámica para que la clase compile en cualquier org.
 	 * @param policyId: Id de la InsurancePolicy
-	 * @return Número de beneficiarios vinculados al grupo
+	 * @return Número de beneficiarios vinculados al grupo (0 si el org no tiene afiliación a grupos)
 	 */
 	@AuraEnabled
 	public static Integer vincularBeneficiariosAGrupo(Id policyId) {
-		if (policyId == null) { return 0; }
+		if (policyId == null || !hayAfiliacionAGrupos()) { return 0; }
 		InsurancePolicy pol = [
 			SELECT Id, NameInsuredId, NameInsured.IsPersonAccount, NameInsured.PersonContactId
 			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
@@ -1277,13 +1279,14 @@ public with sharing class PolicyController {
 		}
 		if (bens.isEmpty()) { return 0; }
 
-		PartyRelationshipGroup grupo = grupoFamiliar(titular);
+		SObject grupo = grupoFamiliar(titular);
+		Id grupoCuentaId = (Id) grupo.get('AccountId');
 
 		// Miembros actuales del grupo (por contacto y por nombre).
 		Map<Id, AccountContactRelation> acrPorContacto = new Map<Id, AccountContactRelation>();
 		Map<String, Id> contactoPorNombre = new Map<String, Id>();
 		for (AccountContactRelation a : [
-			SELECT Id, ContactId, Contact.Name, Roles FROM AccountContactRelation WHERE AccountId = :grupo.AccountId
+			SELECT Id, ContactId, Contact.Name, Roles FROM AccountContactRelation WHERE AccountId = :grupoCuentaId
 		]) {
 			acrPorContacto.put(a.ContactId, a);
 			contactoPorNombre.put(normKey(a.Contact.Name).normalizeSpace(), a.ContactId);
@@ -1291,7 +1294,7 @@ public with sharing class PolicyController {
 
 		// El titular es miembro con función Titular.
 		if (!acrPorContacto.containsKey(titular.Id)) {
-			AccountContactRelation a = new AccountContactRelation(AccountId = grupo.AccountId, ContactId = titular.Id,
+			AccountContactRelation a = new AccountContactRelation(AccountId = grupoCuentaId, ContactId = titular.Id,
 				Roles = 'Titular', IsActive = true);
 			insert a;
 			acrPorContacto.put(titular.Id, a);
@@ -1306,7 +1309,7 @@ public with sharing class PolicyController {
 			for (InsurancePolicyParticipant p : bens.get(k)) { if (p.PrimaryParticipantContactId != null) { cid = p.PrimaryParticipantContactId; } }
 			if (cid == null) { cid = contactoPorNombre.get(k); }
 			if (cid != null) { contactoDe.put(k, cid); continue; }
-			Contact c = contactoDesdeNombre(bens.get(k)[0].ParticipantName, grupo.AccountId);
+			Contact c = contactoDesdeNombre(bens.get(k)[0].ParticipantName, grupoCuentaId);
 			String sexo = sexoDeRol(bens.get(k)[0].RelationshipToInsured);
 			if (sexo != null) { c.Sexo__c = sexo; }
 			nuevos.put(k, c);
@@ -1320,7 +1323,7 @@ public with sharing class PolicyController {
 		Map<Id, AccountContactRelation> acrs = new Map<Id, AccountContactRelation>();
 		for (AccountContactRelation a : [
 			SELECT Id, ContactId, Roles FROM AccountContactRelation
-			WHERE AccountId = :grupo.AccountId AND ContactId IN :contactoDe.values()
+			WHERE AccountId = :grupoCuentaId AND ContactId IN :contactoDe.values()
 		]) { acrs.put(a.ContactId, a); }
 		List<AccountContactRelation> acrNuevas = new List<AccountContactRelation>();
 		List<AccountContactRelation> acrCambios = new List<AccountContactRelation>();
@@ -1331,7 +1334,7 @@ public with sharing class PolicyController {
 			if (funcion == 'Otro familiar') { extendida = true; }
 			AccountContactRelation a = acrs.get(contactoDe.get(k));
 			if (a == null) {
-				acrNuevas.add(new AccountContactRelation(AccountId = grupo.AccountId, ContactId = contactoDe.get(k),
+				acrNuevas.add(new AccountContactRelation(AccountId = grupoCuentaId, ContactId = contactoDe.get(k),
 					Roles = funcion, IsActive = true));
 			} else if (String.isBlank(a.Roles)) {
 				a.Roles = funcion;
@@ -1357,8 +1360,8 @@ public with sharing class PolicyController {
 		crearParentescos(titular, contactoDe, bens);
 
 		// Tamaño y subtipo del grupo.
-		grupo.GroupSize = [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :grupo.AccountId AND IsActive = true];
-		if (extendida && grupo.Subtype == 'Núcleo familiar') { grupo.Subtype = 'Familia extendida'; }
+		grupo.put('GroupSize', [SELECT COUNT() FROM AccountContactRelation WHERE AccountId = :grupoCuentaId AND IsActive = true]);
+		if (extendida && grupo.get('Subtype') == 'Núcleo familiar') { grupo.put('Subtype', 'Familia extendida'); }
 		update grupo;
 		return contactoDe.size();
 	}
@@ -1369,25 +1372,31 @@ public with sharing class PolicyController {
 	 * @description: Obtiene el grupo familiar del titular: el que ya tenga por su membresía o uno nuevo ("Familia
 	 * <titular>") con su cuenta de negocio.
 	 * @param titular: Contacto del titular
-	 * @return Grupo familiar (PartyRelationshipGroup)
+	 * @return Grupo familiar (registro de PartyRelationshipGroup)
 	 */
-	private static PartyRelationshipGroup grupoFamiliar(Contact titular) {
+	private static SObject grupoFamiliar(Contact titular) {
 		Set<Id> cuentas = new Set<Id>();
 		for (AccountContactRelation a : [SELECT AccountId FROM AccountContactRelation WHERE ContactId = :titular.Id]) {
 			cuentas.add(a.AccountId);
 		}
-		for (PartyRelationshipGroup g : [
-			SELECT Id, AccountId, Subtype, GroupSize FROM PartyRelationshipGroup
-			WHERE AccountId IN :cuentas AND Category = 'Familia' ORDER BY CreatedDate LIMIT 1
-		]) { return g; }
+		for (SObject g : Database.query(
+			'SELECT Id, AccountId, Subtype, GroupSize FROM PartyRelationshipGroup '
+			+ 'WHERE AccountId IN :cuentas AND Category = \'Familia\' ORDER BY CreatedDate LIMIT 1'
+		)) { return g; }
 
 		String nombre = ('Familia ' + titular.Name.normalizeSpace()).left(80);
 		Account cuenta = new Account(Name = nombre);
 		Schema.RecordTypeInfo rt = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
 		if (rt != null) { cuenta.RecordTypeId = rt.getRecordTypeId(); }
 		insert cuenta;
-		PartyRelationshipGroup g = new PartyRelationshipGroup(Name = nombre, AccountId = cuenta.Id,
-			Type = 'Household', Category = 'Familia', Subtype = 'Núcleo familiar', Status = 'Active', StartDate = Date.today());
+		SObject g = nuevoRegistro('PartyRelationshipGroup');
+		g.put('Name', nombre);
+		g.put('AccountId', cuenta.Id);
+		g.put('Type', 'Household');
+		g.put('Category', 'Familia');
+		g.put('Subtype', 'Núcleo familiar');
+		g.put('Status', 'Active');
+		g.put('StartDate', Date.today());
 		insert g;
 		return g;
 	}
@@ -1466,38 +1475,41 @@ public with sharing class PolicyController {
 	 */
 	private static void crearParentescos(Contact titular, Map<String, Id> contactoDe,
 			Map<String, List<InsurancePolicyParticipant>> bens) {
-		Map<String, List<PartyRoleRelation>> porRol = new Map<String, List<PartyRoleRelation>>();
-		for (PartyRoleRelation r : [
-			SELECT Id, RoleName, RelatedRoleName, RelatedInverseRecordId FROM PartyRoleRelation
-			WHERE RelationshipObjectName = 'Contact_Contact_Relationship'
-		]) {
-			String k = normKey(r.RoleName).normalizeSpace();
-			if (!porRol.containsKey(k)) { porRol.put(k, new List<PartyRoleRelation>()); }
+		Map<String, List<SObject>> porRol = new Map<String, List<SObject>>();
+		for (SObject r : Database.query(
+			'SELECT Id, RoleName, RelatedRoleName, RelatedInverseRecordId FROM PartyRoleRelation '
+			+ 'WHERE RelationshipObjectName = \'Contact_Contact_Relationship\''
+		)) {
+			String k = normKey((String) r.get('RoleName')).normalizeSpace();
+			if (!porRol.containsKey(k)) { porRol.put(k, new List<SObject>()); }
 			porRol.get(k).add(r);
 		}
-		Map<String, ContactContactRelation> existentes = new Map<String, ContactContactRelation>();
-		for (ContactContactRelation c : [
-			SELECT Id, ContactId, RelatedContactId, PartyRoleRelationId FROM ContactContactRelation
-			WHERE ContactId = :titular.Id OR RelatedContactId = :titular.Id
-		]) {
-			existentes.put(c.ContactId + '|' + c.RelatedContactId, c);
+		Id titularId = titular.Id;
+		Map<String, SObject> existentes = new Map<String, SObject>();
+		for (SObject c : Database.query(
+			'SELECT Id, ContactId, RelatedContactId, PartyRoleRelationId FROM ContactContactRelation '
+			+ 'WHERE ContactId = :titularId OR RelatedContactId = :titularId'
+		)) {
+			existentes.put(c.get('ContactId') + '|' + c.get('RelatedContactId'), c);
 		}
 
-		List<ContactContactRelation> directas = new List<ContactContactRelation>();
-		List<ContactContactRelation> inversas = new List<ContactContactRelation>();
-		List<ContactContactRelation> corregidas = new List<ContactContactRelation>();
+		List<SObject> directas = new List<SObject>();
+		List<SObject> inversas = new List<SObject>();
+		List<SObject> corregidas = new List<SObject>();
 		for (String k : contactoDe.keySet()) {
 			Id ben = contactoDe.get(k);
-			PartyRoleRelation def = definicionParentesco(porRol, bens.get(k)[0].RelationshipToInsured, titular.Sexo__c);
-			ContactContactRelation exDir = existentes.get(ben + '|' + titular.Id);
-			ContactContactRelation exInv = existentes.get(titular.Id + '|' + ben);
+			SObject def = definicionParentesco(porRol, bens.get(k)[0].RelationshipToInsured, titular.Sexo__c);
+			Id defInversa = def == null ? null
+				: (def.get('RelatedInverseRecordId') != null ? (Id) def.get('RelatedInverseRecordId') : def.Id);
+			SObject exDir = existentes.get(ben + '|' + titularId);
+			SObject exInv = existentes.get(titularId + '|' + ben);
 			if (exDir != null || exInv != null) {
 				// Ya existe: solo se corrige la definición si cambió (p.ej. se capturó el sexo del titular).
-				if (def != null && exDir != null && exDir.PartyRoleRelationId != def.Id) {
-					exDir.PartyRoleRelationId = def.Id;
+				if (def != null && exDir != null && exDir.get('PartyRoleRelationId') != def.Id) {
+					exDir.put('PartyRoleRelationId', def.Id);
 					corregidas.add(exDir);
 					if (exInv != null) {
-						exInv.PartyRoleRelationId = def.RelatedInverseRecordId != null ? def.RelatedInverseRecordId : def.Id;
+						exInv.put('PartyRoleRelationId', defInversa);
 						corregidas.add(exInv);
 					}
 				}
@@ -1505,31 +1517,73 @@ public with sharing class PolicyController {
 			}
 			if (def == null) { continue; }
 			// RoleName = función del contacto (beneficiario); RelatedRoleName = la del relacionado (titular).
-			directas.add(new ContactContactRelation(ContactId = ben, RelatedContactId = titular.Id,
-				PartyRoleRelationId = def.Id, IsActive = true, StartDate = Date.today()));
-			inversas.add(new ContactContactRelation(ContactId = titular.Id, RelatedContactId = ben,
-				PartyRoleRelationId = def.RelatedInverseRecordId != null ? def.RelatedInverseRecordId : def.Id,
-				IsActive = true, StartDate = Date.today()));
+			directas.add(parentesco(ben, titularId, def.Id));
+			inversas.add(parentesco(titularId, ben, defInversa));
 		}
 		if (!corregidas.isEmpty()) { update corregidas; }
 		if (directas.isEmpty()) { return; }
 		insert directas;
 		insert inversas;
 		for (Integer i = 0; i < directas.size(); i++) {
-			directas[i].RelatedInverseRecordId = inversas[i].Id;
-			inversas[i].RelatedInverseRecordId = directas[i].Id;
+			directas[i].put('RelatedInverseRecordId', inversas[i].Id);
+			inversas[i].put('RelatedInverseRecordId', directas[i].Id);
 		}
 		try {
-			List<ContactContactRelation> todas = new List<ContactContactRelation>(directas);
+			List<SObject> todas = new List<SObject>(directas);
 			todas.addAll(inversas);
 			update todas;
 		} catch (Exception ignore) {}
 	}
 
 	/**
+	 * @creation date: 12/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma una relación de parentesco (ContactContactRelation) activa desde hoy.
+	 * @param contactoId: Contacto de la relación
+	 * @param relacionadoId: Contacto relacionado
+	 * @param definicionId: Definición recíproca (PartyRoleRelation)
+	 * @return Registro sin insertar
+	 */
+	private static SObject parentesco(Id contactoId, Id relacionadoId, Id definicionId) {
+		SObject r = nuevoRegistro('ContactContactRelation');
+		r.put('ContactId', contactoId);
+		r.put('RelatedContactId', relacionadoId);
+		r.put('PartyRoleRelationId', definicionId);
+		r.put('IsActive', true);
+		r.put('StartDate', Date.today());
+		return r;
+	}
+
+	/**
+	 * @creation date: 12/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el org tiene habilitada la afiliación a grupos (grupo, definiciones recíprocas y
+	 * relaciones entre contactos). En orgs sin la función esos objetos no existen.
+	 * @return true si existen PartyRelationshipGroup, PartyRoleRelation y ContactContactRelation
+	 */
+	@TestVisible
+	private static Boolean hayAfiliacionAGrupos() {
+		Map<String, Schema.SObjectType> g = Schema.getGlobalDescribe();
+		return g.containsKey('partyrelationshipgroup') && g.containsKey('partyrolerelation')
+			&& g.containsKey('contactcontactrelation');
+	}
+
+	/**
+	 * @creation date: 12/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea un registro vacío del objeto indicado por su nombre (para objetos que pueden no existir en
+	 * el org y por eso no se referencian directamente).
+	 * @param objeto: API name del objeto
+	 * @return Registro nuevo sin insertar
+	 */
+	private static SObject nuevoRegistro(String objeto) {
+		return Schema.getGlobalDescribe().get(objeto).newSObject();
+	}
+
+	/**
 	 * @creation date: 01/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Elige la definición recíproca (PartyRoleRelation) para un parentesco: el rol del beneficiario es
+	 * @description: Elige la definición recíproca (registro de PartyRoleRelation) para un parentesco: el rol del beneficiario es
 	 * el parentesco y el del titular se elige por su sexo. Sin sexo usa la simétrica o la masculina.
 	 * @param porRol: Definiciones agrupadas por rol normalizado
 	 * @param parentesco: Parentesco del beneficiario
@@ -1537,18 +1591,19 @@ public with sharing class PolicyController {
 	 * @return Definición elegida; null si no existe
 	 */
 	@TestVisible
-	private static PartyRoleRelation definicionParentesco(Map<String, List<PartyRoleRelation>> porRol,
+	private static SObject definicionParentesco(Map<String, List<SObject>> porRol,
 			String parentesco, String sexoTitular) {
 		if (String.isBlank(parentesco)) { return null; }
-		List<PartyRoleRelation> opciones = porRol.get(normKey(parentesco).normalizeSpace());
+		List<SObject> opciones = porRol.get(normKey(parentesco).normalizeSpace());
 		if (opciones == null || opciones.isEmpty()) { return null; }
 		String sexo = normKey(sexoTitular == null ? '' : sexoTitular);
-		PartyRoleRelation simetrica = null, masculina = null;
-		for (PartyRoleRelation r : opciones) {
-			Boolean fem = ROLES_FEMENINOS.contains(normKey(r.RelatedRoleName).normalizeSpace());
+		SObject simetrica = null, masculina = null;
+		for (SObject r : opciones) {
+			String relacionado = (String) r.get('RelatedRoleName');
+			Boolean fem = ROLES_FEMENINOS.contains(normKey(relacionado).normalizeSpace());
 			if (sexo.startsWith('fem') && fem) { return r; }
 			if (sexo.startsWith('masc') && !fem) { return r; }
-			if (r.RelatedRoleName == r.RoleName && simetrica == null) { simetrica = r; }
+			if (relacionado == r.get('RoleName') && simetrica == null) { simetrica = r; }
 			if (!fem && masculina == null) { masculina = r; }
 		}
 		if (simetrica != null) { return simetrica; }
