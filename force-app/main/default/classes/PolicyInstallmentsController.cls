@@ -42,6 +42,7 @@ public with sharing class PolicyInstallmentsController {
 				carrierReceiptNumber__c,
 				carrierEndorsementNumber__c,
 				carrierInstallmentNumber__c,
+				isEstimated__c,
 				replacesInstallment__c,
 				matchedOn__c,
 				matchedReceipt__c,

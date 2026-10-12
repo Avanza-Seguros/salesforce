@@ -115,6 +115,7 @@ private class HandleLoadSwitchesTest {
 			);
 		}
 
+		BulkLoadBypass.checkPermissionInTests = true;
 		Boolean loaderActive;
 		Boolean otherActive;
 		System.runAs(loader) {
@@ -128,6 +129,33 @@ private class HandleLoadSwitchesTest {
 		Assert.isFalse(
 			otherActive,
 			'Quien no carga sigue con las automatizaciones.'
+		);
+	}
+
+	@IsTest
+	static void otherTestsIgnoreThePermissionOfWhoRunsThem() {
+		User loader = newUser('carga');
+		System.runAs(new User(Id = UserInfo.getUserId())) {
+			insert loader;
+			insert new PermissionSetAssignment(
+				AssigneeId = loader.Id,
+				PermissionSetId = [
+					SELECT Id
+					FROM PermissionSet
+					WHERE Name = 'Carga_Masiva_Handle'
+				]
+				.Id
+			);
+		}
+
+		Boolean active;
+		System.runAs(loader) {
+			active = BulkLoadBypass.isActive();
+		}
+
+		Assert.isFalse(
+			active,
+			'Si quien despliega tiene el permiso, las pruebas que esperan el plan del trigger no deben fallar.'
 		);
 	}
 

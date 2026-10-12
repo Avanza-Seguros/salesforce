@@ -153,10 +153,38 @@ describe("buildRows", () => {
 		expect(rows[1].overdueClass).toBe("slds-text-color_error");
 	});
 
+	it("una cuota estimada se marca, dice que no tiene recibo y muestra su mora", () => {
+		const estimada = cuota({
+			Id: "g1",
+			isEstimated__c: true,
+			expectedAmount__c: 2806.55,
+			outstandingAmount__c: 2806.55,
+			installmentStatus__c: "Vencido",
+			daysOverdue__c: 181
+		});
+		const real = cuota({ Id: "g2", carrierReceiptNumber__c: "000101" });
+
+		const { rows, totals } = buildRows([estimada, real]);
+
+		expect(rows[0].sequenceLabel).toBe("Cuota 1 · Estimada");
+		expect(rows[0].receiptLabel).toBe("Sin recibo aún");
+		expect(rows[0].daysOverdue).toBe(181);
+		expect(rows[1].sequenceLabel).toBe("Cuota 1");
+		expect(rows[1].receiptLabel).toBe("000101");
+		expect(totals.estimated).toBe(2806.55);
+		expect(totals.expected).toBe(2906.55);
+	});
+
 	it("sin cuotas no falla", () => {
 		expect(buildRows(null)).toEqual({
 			rows: [],
-			totals: { expected: 0, matched: 0, outstanding: 0, count: 0 }
+			totals: {
+				expected: 0,
+				matched: 0,
+				outstanding: 0,
+				estimated: 0,
+				count: 0
+			}
 		});
 	});
 });

@@ -19,6 +19,12 @@ public with sharing class BulkLoadBypass {
 	@TestVisible
 	private static Boolean forcedForTest;
 
+	// Las pruebas corren con el usuario que despliega: si ese usuario tiene el permiso, todas las
+	// pruebas que esperan que el trigger cree el plan fallarian. Por eso en pruebas el interruptor
+	// solo mira el permiso cuando una prueba lo pide expresamente.
+	@TestVisible
+	private static Boolean checkPermissionInTests = false;
+
 	/**
 	 * @creation date: 11/10/2026
 	 * @author: Javier Torres - Volestra
@@ -29,6 +35,9 @@ public with sharing class BulkLoadBypass {
 	public static Boolean isActive() {
 		if (forcedForTest != null) {
 			return forcedForTest;
+		}
+		if (Test.isRunningTest() && !checkPermissionInTests) {
+			return false;
 		}
 		if (active == null || checkedUserId != UserInfo.getUserId()) {
 			active = FeatureManagement.checkPermission(PERMISSION);

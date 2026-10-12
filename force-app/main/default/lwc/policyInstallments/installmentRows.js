@@ -5,6 +5,10 @@
  * cobra, y puede cambiar sin que cambie la obligación: si cancela un recibo y emite otro para el
  * mismo periodo, la cuota nueva apunta a la anterior. Aquí se muestra una fila por cuota viva, con
  * los recibos a los que reemplaza colgando de ella, plegados.
+ *
+ * Una cuota estimada se calculó con la prima y la forma de pago porque la aseguradora todavía no
+ * informó su recibo: su importe y su fecha pueden no ser los reales. Se marca para que nadie la tome
+ * por un dato de la aseguradora, pero su mora se muestra igual, para que alguien la revise.
  */
 
 const EMISSION_ENDORSEMENT = "000000";
@@ -42,6 +46,9 @@ function statusClass(status) {
 function baseRow(record) {
 	return {
 		...record,
+		receiptLabel:
+			record.carrierReceiptNumber__c ||
+			(record.isEstimated__c ? "Sin recibo aún" : null),
 		paymentDate: record.matchedReceipt__r
 			? record.matchedReceipt__r.receiptDate__c
 			: null,
@@ -68,7 +75,13 @@ export function buildRows(records) {
 	);
 
 	const rows = [];
-	const totals = { expected: 0, matched: 0, outstanding: 0, count: 0 };
+	const totals = {
+		expected: 0,
+		matched: 0,
+		outstanding: 0,
+		estimated: 0,
+		count: 0
+	};
 
 	list
 		.filter((record) => !replaced.has(record.Id))
@@ -85,7 +98,8 @@ export function buildRows(records) {
 			const origin = chain.length ? chain[chain.length - 1] : live;
 
 			const row = baseRow(live);
-			row.sequenceLabel = labelFor(origin, live);
+			row.sequenceLabel =
+				labelFor(origin, live) + (live.isEstimated__c ? " · Estimada" : "");
 			if (chain.length) {
 				row.replacedLabel =
 					chain.length === 1
@@ -107,6 +121,9 @@ export function buildRows(records) {
 				totals.expected += live.expectedAmount__c || 0;
 				totals.matched += live.matchedAmount__c || 0;
 				totals.outstanding += live.outstandingAmount__c || 0;
+				if (live.isEstimated__c) {
+					totals.estimated += live.expectedAmount__c || 0;
+				}
 			}
 		});
 
