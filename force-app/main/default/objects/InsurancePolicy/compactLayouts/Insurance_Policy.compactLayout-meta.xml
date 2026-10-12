@@ -3,6 +3,8 @@
     <fullName>Insurance_Policy</fullName>
     <fields>PolicyName</fields>
     <fields>Name</fields>
+    <fields>termPeriod__c</fields>
+    <fields>Status</fields>
     <fields>Aseguradora__c</fields>
     <fields>NameInsuredId</fields>
     <fields>PremiumAmount</fields>

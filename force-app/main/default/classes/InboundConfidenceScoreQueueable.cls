@@ -90,7 +90,8 @@ public with sharing class InboundConfidenceScoreQueueable implements Queueable {
 				reconciliationMethod__c,
 				reconciliationResult__c,
 				installmentMatchReason__c,
-				candidateInstallment__c
+				candidateInstallment__c,
+				sourcePolicyNumber__c
 			FROM InboundInsurancePayment__c
 			WHERE Id IN :inboundPaymentIds AND inboundStatus__c = :STATUS_NORMALIZED
 		];
@@ -186,6 +187,8 @@ public with sharing class InboundConfidenceScoreQueueable implements Queueable {
 		rec.confidenceBand__c = band;
 
 		String result = payment.reconciliationResult__c;
+		// El motivo solo explica un Sin Match; cualquier otro resultado lo deja vacio.
+		rec.manualReviewReason__c = null;
 
 		if (BAND_HIGH.equals(band) && RESULT_EXACT_MATCH.equals(result)) {
 			rec.inboundStatus__c = STATUS_RECONCILED;
@@ -198,6 +201,12 @@ public with sharing class InboundConfidenceScoreQueueable implements Queueable {
 		} else if (BAND_LOW.equals(band) && RESULT_NO_MATCH.equals(result)) {
 			rec.inboundStatus__c = STATUS_NO_MATCH;
 			rec.manualReviewRequired__c = true;
+			rec.manualReviewReason__c =
+				'La poliza no existe en Salesforce: no hay ninguna con el numero ' +
+				payment.sourcePolicyNumber__c +
+				'. Cuando exista, el pago se reintenta solo con el siguiente reenvio de la ' +
+				'aseguradora, o se puede reprocesar desde su conciliacion.';
+			rec.manualReviewReason__c = rec.manualReviewReason__c.left(255);
 		} else {
 			rec.inboundStatus__c = STATUS_MANUAL_REVIEW;
 			rec.manualReviewRequired__c = true;

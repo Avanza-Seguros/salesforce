@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Paso 2 de 2: retira el campo de texto que sustituyo el picklist NormalizedPolicyStatus__c.
+  Lanzar SOLO despues de que el paso 1 este desplegado, porque hasta entonces el Apex lo usa.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>CarrierPolicyStatusMapping__mdt.NormalizedStatus__c</members>
+        <name>CustomField</name>
+    </types>
+    <version>66.0</version>
+</Package>

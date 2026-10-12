@@ -290,9 +290,13 @@ private class PaymentPlanFrequencyChangeServiceTest {
 			originalPlan.Id
 		);
 
+		// Siete cuotas cobradas y la octava vence hoy: el cambio solo se permite desde la proxima
+		// cuota pendiente, y fijarla hoy evita depender del dia del mes en que corre la prueba.
 		for (PaymentPlanInstallment__c installment : originalInstallments) {
-			if (installment.dueDate__c < Date.today()) {
+			if (installment.sequenceNumber__c <= 7) {
 				installment.installmentStatus__c = 'Conciliado';
+			} else if (installment.sequenceNumber__c == 8) {
+				installment.dueDate__c = Date.today();
 			}
 		}
 
@@ -306,7 +310,7 @@ private class PaymentPlanFrequencyChangeServiceTest {
 			update policy;
 		} catch (DmlException e) {
 			threwException = true;
-			Assert.isTrue(e.getMessage().contains('cuota valida'));
+			Assert.isTrue(e.getMessage().contains('cuota valida'), e.getMessage());
 		}
 
 		Test.stopTest();
