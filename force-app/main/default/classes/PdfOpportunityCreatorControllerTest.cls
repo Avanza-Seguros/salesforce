@@ -423,4 +423,198 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertEquals('', PdfOpportunityCreatorController.ramoPorCatalogo(raw, prods, asegs),
             'Sin aseguradora/producto en el catálogo se conserva el ramo de la IA');
     }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Crea una oportunidad con cuenta y una aseguradora con un producto de Vida y su catálogo de
+     * coberturas, para las pruebas de cotizaciones y comparativo.
+     * @return Oportunidad creada
+     */
+    static Opportunity oportunidadConCatalogo() {
+        Account acc = new Account(Name = 'Cliente Cotizaciones PDF');
+        insert acc;
+        Opportunity opp = new Opportunity(Name = 'Opp Cotizaciones PDF', StageName = activeStage(),
+            CloseDate = Date.today().addDays(30), AccountId = acc.Id, Ramo__c = 'Vida');
+        insert opp;
+        Aseguradora__c aseg = new Aseguradora__c(Name = 'Seguros Monterrey NYL');
+        insert aseg;
+        Product2 prod = new Product2(Name = 'IMAGINA SER 65', IsActive = true, Family = 'Vida', Aseguradora__c = aseg.Id);
+        insert prod;
+        CoverageType ct = new CoverageType(Name = 'Fallecimiento Test PDF');
+        insert ct;
+        insert new ProductCoverage(ProductId = prod.Id, CoverageTypeId = ct.Id, IsCovered = true);
+        return opp;
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida el flujo completo de cotizaciones desde PDF: crea la cotización con su aseguradora,
+     * producto y coberturas; guarda el comparativo en la oportunidad, genera su PDF y lo liga a las cotizaciones.
+     * @return void
+     */
+    @isTest
+    static void testCotizacionesYComparativoCompleto() {
+        Opportunity opp = oportunidadConCatalogo();
+        Product2 prod = [SELECT Id, Aseguradora__c FROM Product2 WHERE Name = 'IMAGINA SER 65'];
+        List<Object> quotes = new List<Object>{
+            new Map<String, Object>{
+                'id' => 'q1', 'compania' => 'Seguros Monterrey New York Life', 'ramo' => 'Vida',
+                'plan' => 'IMAGINA SER 65', 'primaTotal' => 15000, 'frecuencia' => 'Anual',
+                'vigenciaInicio' => '2026-10-01', 'noCotizacion' => 'COT-123', 'notas' => 'Incluye asistencia',
+                'productId' => prod.Id, 'aseguradoraId' => prod.Aseguradora__c,
+                'coberturas' => new List<Object>{
+                    new Map<String, Object>{ 'nombre' => 'Fallecimiento', 'sumaAsegurada' => '$1,000,000',
+                        'deducible' => '', 'prima' => '1200' },
+                    new Map<String, Object>{ 'nombre' => 'Invalidez', 'sumaAsegurada' => 'AMPARADA',
+                        'deducible' => '', 'prima' => '' }
+                }
+            }
+        };
+
+        Test.startTest();
+        Map<String, Object> res = PdfOpportunityCreatorController.crearCotizacionesDesdePdf(opp.Id, JSON.serialize(quotes));
+        PdfOpportunityCreatorController.actualizarComparativoOpp(opp.Id,
+            '<html><body><h1>Comparativo</h1><table><tr><td>Seguros Monterrey</td></tr></table></body></html>');
+        Id docId = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, 'Cliente');
+        Test.stopTest();
+
+        System.assertEquals(1, res.get('creadas'), 'Debe crear la cotización: ' + res);
+        Quote q = [SELECT Id, Aseguradora__c, Product__c FROM Quote WHERE OpportunityId = :opp.Id LIMIT 1];
+        System.assertEquals(prod.Aseguradora__c, q.Aseguradora__c);
+        System.assertEquals(prod.Id, q.Product__c);
+        if (docId != null) {
+            System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :q.Id AND ContentDocumentId = :docId],
+                'El PDF del comparativo se liga a la cotización');
+        }
+        System.assertEquals(null, PdfOpportunityCreatorController.guardarComparativoPdf(null, 'x'));
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que un comparativo que no cabe en el campo se rechace en lugar de guardarse recortado.
+     * @return void
+     */
+    @isTest
+    static void testComparativoDemasiadoGrande() {
+        Opportunity opp = oportunidadConCatalogo();
+        Integer maximo = Opportunity.Descripcion__c.getDescribe().getLength();
+        Boolean error = false;
+        try {
+            PdfOpportunityCreatorController.actualizarComparativoOpp(opp.Id, 'x'.repeat(maximo + 1));
+        } catch (AuraHandledException e) {
+            error = true;
+        }
+        System.assert(error, 'Debe avisar que el comparativo es demasiado grande');
+        PdfOpportunityCreatorController.actualizarComparativoOpp(null, '<p>sin oportunidad</p>');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que los PDFs se suban a la oportunidad uno por uno y se rechacen datos incompletos.
+     * @return void
+     */
+    @isTest
+    static void testGuardarArchivoEnOportunidad() {
+        Opportunity opp = oportunidadConCatalogo();
+        String base64 = EncodingUtil.base64Encode(Blob.valueOf('PDF COTIZACION'));
+        Test.startTest();
+        Id doc = PdfOpportunityCreatorController.guardarArchivoEnOportunidad(opp.Id, 'cotizacion.pdf', base64);
+        Test.stopTest();
+        System.assertNotEquals(null, doc);
+        System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :opp.Id AND ContentDocumentId = :doc]);
+        Integer errores = 0;
+        try { PdfOpportunityCreatorController.guardarArchivoEnOportunidad(null, 'a.pdf', base64); } catch (Exception e) { errores++; }
+        try { PdfOpportunityCreatorController.guardarArchivoEnOportunidad(opp.Id, 'a.pdf', ''); } catch (Exception e) { errores++; }
+        System.assertEquals(2, errores, 'Sin oportunidad o sin contenido debe avisar');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que prepararCotizaciones resuelva la aseguradora por siglas, liste sus productos y
+     * sugiera el producto que coincide con el plan.
+     * @return void
+     */
+    @isTest
+    static void testPrepararCotizacionesConCatalogo() {
+        oportunidadConCatalogo();
+        Product2 prod = [SELECT Id, Aseguradora__c FROM Product2 WHERE Name = 'IMAGINA SER 65'];
+        List<Object> quotes = new List<Object>{
+            new Map<String, Object>{ 'id' => 'q1', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Imagina Ser 65 - 15 pagos' }
+        };
+        Test.startTest();
+        List<Map<String, Object>> res = PdfOpportunityCreatorController.prepararCotizaciones(JSON.serialize(quotes));
+        Test.stopTest();
+        System.assertEquals(prod.Aseguradora__c, res[0].get('aseguradoraId'), 'SMNYL = Seguros Monterrey NYL');
+        System.assertEquals(prod.Id, res[0].get('productoSugeridoId'), 'Sugiere el producto que coincide con el plan');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida los mapeos alternos de la respuesta de la IA: esquema anterior de Autos (campos fijos),
+     * cliente como texto, detalle del vehículo, todos los ramos y cotización de Vida con primas por frecuencia y
+     * beneficios opcionales.
+     * @return void
+     */
+    @isTest
+    static void testMapeosAlternos() {
+        Map<String, Object> autoViejo = new Map<String, Object>{
+            'nombre' => 'Qualitas', 'suma_asegurada' => '450000', 'deducible_danos_pct' => 5,
+            'deducible_robo_pct' => 10, 'responsabilidad_civil' => 3000000, 'gastos_medicos' => 200000,
+            'vida_conductor' => 100000, 'cristales' => 'si', 'asistencia_vial' => true,
+            'defensa_juridica' => '1', 'rc_extranjero' => 'true'
+        };
+        List<Map<String, Object>> cobs = PdfOpportunityCreatorController.buildCoberturas(autoViejo);
+        System.assertEquals(9, cobs.size(), 'Esquema anterior de Autos: ' + cobs);
+
+        Map<String, Object> cli = PdfOpportunityCreatorController.buildCliente(new Map<String, Object>{ 'cliente' => 'Diego Torres' });
+        System.assertEquals('Diego Torres', cli.get('nombre'));
+        Map<String, Object> det = PdfOpportunityCreatorController.buildDetalle(
+            new Map<String, Object>{ 'vehiculo_detalle' => new Map<String, Object>{ 'marca' => 'NISSAN' } });
+        System.assertEquals('NISSAN', det.get('marca'));
+        System.assertNotEquals(null, PdfOpportunityCreatorController.buildDetalle(new Map<String, Object>()));
+
+        Map<String, String> ramos = new Map<String, String>{
+            'Viajes Internacional' => 'Viajes', 'Daños a casa' => 'Danos', 'Paquete Empresarial' => 'Empresarial',
+            'Fianzas' => 'Fianzas', 'Plan Dental' => 'Dental', 'Visión' => 'Vision', 'Responsabilidad civil' => 'RC',
+            'Gastos Médicos' => 'GMM', 'Otro ramo' => 'Otro ramo'
+        };
+        for (String r : ramos.keySet()) {
+            System.assertEquals(ramos.get(r), PdfOpportunityCreatorController.mapRamoToFormValue(r), r);
+        }
+
+        Map<String, Object> vida = new Map<String, Object>{
+            'nombre' => 'Seguros Monterrey NYL', 'plan' => 'Imagina Ser 65', 'prima_anual' => '15,000.00',
+            'vigencia_inicio' => '2026-10-01', 'archivo_origen' => 'vida.pdf',
+            'coberturas' => new List<Object>{
+                new Map<String, Object>{ 'nombre' => 'Fallecimiento', 'suma_asegurada' => '1000000', 'prima' => '1200', 'plazo' => '20 años' }
+            },
+            'primas_por_frecuencia' => new List<Object>{ new Map<String, Object>{ 'frecuencia' => 'Mensual', 'prima' => 1300 } },
+            'beneficios_opcionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'Invalidez', 'prima' => 300 } },
+            'prima_con_opcionales' => 15300
+        };
+        Map<String, Object> q = PdfOpportunityCreatorController.mapAseguradoraToFormQuote(vida, 'Vida');
+        System.assertEquals('Seguros Monterrey NYL', q.get('compania'));
+        System.assertEquals('2027-10-01', q.get('vigencia'), 'Sin fin de vigencia se calcula un año después del inicio');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida el análisis de cotizaciones con textos vacíos (usa el respaldo) y con una sola.
+     * @return void
+     */
+    @isTest
+    static void testAnalyzeQuotesVariantes() {
+        Map<String, Object> sinTexto = PdfOpportunityCreatorController.analyzeQuotes(
+            new List<String>{ 'a.pdf' }, new List<String>{ '' });
+        System.assertNotEquals(null, sinTexto.get('quotes'));
+        Map<String, Object> vacio = PdfOpportunityCreatorController.analyzeQuotes(new List<String>(), new List<String>());
+        System.assertNotEquals(null, vacio);
+    }
 }

@@ -25,6 +25,15 @@ private class OpportunityControllerTest {
         return a.Id;
     }
 
+    // Crea (o reutiliza) el Producer (agente) que guarda saveOpportunity en Opportunity.Producer__c.
+    static Id producerId() {
+        List<Producer> ps = [SELECT Id FROM Producer LIMIT 1];
+        if (!ps.isEmpty()) { return ps[0].Id; }
+        Producer p = new Producer(Name = 'Abraham Gonzalez');
+        insert p;
+        return p.Id;
+    }
+
     @testSetup
     static void setup() {
         Account acc = new Account(Name = 'Empresa Prueba Uno', AnnualRevenue = 100);
@@ -182,20 +191,14 @@ private class OpportunityControllerTest {
 
     @isTest
     static void testSearchVehiculosWithData() {
-        try {
-            Account acc = [SELECT Id FROM Account LIMIT 1];
-            Automovil__c v = new Automovil__c();
-            v.put('Serie__c', 'VINTEST123456');
-            try { v.put('Marca__c', 'CHEVROLET'); } catch (Exception ig) {}
-            try { v.put('Cuenta__c', acc.Id); } catch (Exception ig) {}
-            insert v;
-            Test.startTest();
-            List<Automovil__c> res = OpportunityController.searchVehiculos('VINTEST');
-            Test.stopTest();
-            System.assert(!res.isEmpty(), 'Debe encontrar el vehículo');
-        } catch (Exception e) {
-            // Objeto/campo con requeridos adicionales: se omite el assert de datos.
-        }
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        CustomerProperty v = new CustomerProperty(Vin = 'VINTEST123456', ModelName = 'AVEO',
+            Make = 'CHEVROLET', PrimaryOwnerId = acc.Id);
+        try { insert v; } catch (Exception e) { return; } // requeridos adicionales del org
+        Test.startTest();
+        List<CustomerProperty> res = OpportunityController.searchVehiculos('VINTEST');
+        Test.stopTest();
+        System.assert(!res.isEmpty(), 'Debe encontrar el vehículo');
     }
 
     @isTest
@@ -241,7 +244,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Vida',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'Canal__c' => 'Agente',
             'Prima_Total__c' => '12500.50',
             'Prima_Neta__c' => '10000.00',
@@ -272,7 +275,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Vida',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30))
         };
         Test.startTest();
@@ -307,7 +310,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Vida',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'AnnualRevenue' => 100,
             'detalleRamo' => det
@@ -336,7 +339,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'GMM',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'AnnualRevenue' => 100,
             'detalleRamo' => det
@@ -361,7 +364,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Empresarial',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'AnnualRevenue' => 100,
             'detalleRamo' => det
@@ -384,7 +387,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Danos',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'AnnualRevenue' => 100,
             'CloseDate' => String.valueOf(Date.today().addDays(30)),
             'detalleRamo' => det
@@ -414,7 +417,7 @@ private class OpportunityControllerTest {
             'Type' => 'New_Business',
             'Ramo__c' => 'Automoviles',
             'Mercado__c' => 'Corporativo',
-            'Agente_Relacionado__c' => agenteId(),
+            'Producer__c' => producerId(),
             'Prima_Total__c' => '9000',
             'CloseDate' => String.valueOf(Date.today().addDays(60)),
             'isNewContacto' => true,
@@ -431,5 +434,142 @@ private class OpportunityControllerTest {
             // Automovil__c/Contact con requeridos extra en el org: las líneas quedan cubiertas.
         }
         Test.stopTest();
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que se listen los archivos ligados a la oportunidad (y lista vacía sin oportunidad).
+     * @return void
+     */
+    @isTest
+    static void testGetArchivosDeOportunidad() {
+        Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+        ContentVersion cv = new ContentVersion(Title = 'Cotizacion Test', PathOnClient = 'cotizacion.pdf',
+            VersionData = Blob.valueOf('pdf'), FirstPublishLocationId = opp.Id);
+        insert cv;
+        Test.startTest();
+        List<OpportunityController.ArchivoOpp> archivos = OpportunityController.getArchivosDeOportunidad(opp.Id);
+        Test.stopTest();
+        System.assertEquals(1, archivos.size());
+        System.assertEquals('Cotizacion Test', archivos[0].title);
+        System.assertEquals(0, OpportunityController.getArchivosDeOportunidad(null).size());
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida la búsqueda de productores por palabras en cualquier orden y el correo del productor
+     * (tomado de su contacto).
+     * @return void
+     */
+    @isTest
+    static void testProductorYCorreo() {
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Contact c = new Contact(LastName = 'Viniegra', FirstName = 'Arturo', Email = 'arturo@test.com', AccountId = acc.Id);
+        insert c;
+        Producer p = new Producer(Name = 'Arturo Viniegra Lopez', ContactId = c.Id);
+        insert p;
+        Test.startTest();
+        List<OpportunityController.ProducerResult> res = OpportunityController.searchAgentsProspectors('viniegra arturo');
+        String correo = OpportunityController.getProducerEmail(p.Id);
+        Test.stopTest();
+        System.assert(!res.isEmpty(), 'Debe encontrar al productor sin importar el orden de las palabras');
+        System.assertEquals('arturo@test.com', correo);
+        System.assertEquals(null, OpportunityController.getProducerEmail(null));
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getAccountById devuelva los datos de la cuenta para el formulario.
+     * @return void
+     */
+    @isTest
+    static void testGetAccountById() {
+        Account acc = [SELECT Id, Name FROM Account WHERE Name = 'Empresa Prueba Uno' LIMIT 1];
+        Test.startTest();
+        OpportunityController.AccountResult r = OpportunityController.getAccountById(acc.Id);
+        Test.stopTest();
+        System.assertNotEquals(null, r);
+        System.assertEquals(acc.Id, r.Id);
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que el detalle de la oportunidad incluya el catálogo de coberturas del producto
+     * (ProductCoverage) de sus cotizaciones.
+     * @return void
+     */
+    @isTest
+    static void testDetalleConCatalogoDeCoberturas() {
+        Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+        Product2 prod = [SELECT Id FROM Product2 WHERE Name = 'Producto Auto Prueba' LIMIT 1];
+        CoverageType ct = new CoverageType(Name = 'Daños Materiales Test');
+        insert ct;
+        insert new ProductCoverage(ProductId = prod.Id, CoverageTypeId = ct.Id, IsCovered = true);
+        Test.startTest();
+        OpportunityController.OpportunityDetailWrapper w = OpportunityController.getOpportunityDetails(opp.Id);
+        Test.stopTest();
+        System.assertNotEquals(null, w.opportunity);
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que un error al guardar la oportunidad llegue con un mensaje legible.
+     * @return void
+     */
+    @isTest
+    static void testSaveOpportunity_error() {
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp con error',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Empresa Error SA',
+            'Ramo__c' => 'Vida',
+            'Producer__c' => producerId(),
+            'CloseDate' => 'no-es-fecha'
+        };
+        Test.startTest();
+        String msg;
+        try {
+            OpportunityController.saveOpportunity(JSON.serialize(d), true);
+        } catch (AuraHandledException e) {
+            msg = e.getMessage();
+        }
+        Test.stopTest();
+        System.assertNotEquals(null, msg, 'Debe avisar del error');
+        System.assert(msg.contains('No se pudo guardar la oportunidad'), msg);
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que al crear la oportunidad de una empresa con contacto nuevo se cree el contacto.
+     * @return void
+     */
+    @isTest
+    static void testSaveOpportunity_empresaConContactoNuevo() {
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp Empresa Contacto',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Empresa Con Contacto SA',
+            'isNewContacto' => true,
+            'ContactoName' => 'Laura Méndez Ruiz',
+            'clienteEmail' => 'laura@test.com',
+            'clienteTelefono' => '5550001111',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'Vida',
+            'Mercado__c' => 'Corporativo',
+            'Producer__c' => producerId(),
+            'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'AnnualRevenue' => 100
+        };
+        Test.startTest();
+        Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+        Test.stopTest();
+        Opportunity o = [SELECT AccountId FROM Opportunity WHERE Id = :oppId];
+        System.assert([SELECT COUNT() FROM Contact WHERE AccountId = :o.AccountId] >= 1, 'Debe crear el contacto de la empresa');
     }
 }

@@ -1386,7 +1386,7 @@ public with sharing class PdfOpportunityCreatorController {
 		}
 		String u = ramo.toUpperCase();
 		if (u.contains('AUTO')) return 'Automoviles';
-		if (u.contains('GMM') || u.contains('MEDIC')) return 'GMM';
+		if (u.contains('GMM') || u.contains('MEDIC') || u.contains('MÉDIC')) return 'GMM';
 		if (u.contains('VIDA')) return 'Vida';
 		if (u.contains('VIAJE')) return 'Viajes';
 		if (u.contains('DAÑO') || u.contains('DANO')) return 'Danos';

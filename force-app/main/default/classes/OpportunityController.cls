@@ -933,10 +933,12 @@ public with sharing class OpportunityController {
 		return opp.Id;
 		} catch (AuraHandledException ahe) {
 			throw ahe;
-		} catch (DmlException e) {
-			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
 		} catch (Exception e) {
-			throw new AuraHandledException('No se pudo guardar la oportunidad: ' + detalleError(e));
+			// setMessage: el mensaje real también se ve en pruebas y bitácoras (no solo "Script-thrown exception").
+			String msg = 'No se pudo guardar la oportunidad: ' + detalleError(e);
+			AuraHandledException ex = new AuraHandledException(msg);
+			ex.setMessage(msg);
+			throw ex;
 		}
 	}
 

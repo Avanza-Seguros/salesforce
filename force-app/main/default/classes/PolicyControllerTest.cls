@@ -55,27 +55,38 @@ private class PolicyControllerTest {
     }
 
     /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Crea una InsurancePolicy válida para el org (prima, frecuencia, fecha de pago y vigencia).
+     * @param nameInsuredId: Id de la cuenta asegurada
+     * @param quoteId: Id de la cotización origen (puede ser null)
+     * @param oppId: Id de la oportunidad origen (puede ser null)
+     * @param numero: Número de póliza
+     * @return Póliza insertada
+     */
+    static InsurancePolicy polizaValida(Id nameInsuredId, Id quoteId, Id oppId, String numero) {
+        InsurancePolicy p = new InsurancePolicy(Name = numero, NameInsuredId = nameInsuredId, SourceQuoteId = quoteId,
+            SourceOpportunityId = oppId, Status = 'Inicial', PremiumAmount = 1200, GrossWrittenPremium = 1392,
+            PaymentDueDate = Date.today().addDays(30), EffectiveDate = Datetime.now(),
+            ExpirationDate = Datetime.now().addDays(365));
+        for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+            if (pe.isActive()) { p.PremiumFrequency = pe.getValue(); break; }
+        }
+        insert p;
+        return p;
+    }
+
+    /**
      * @creation date: 22/07/2026
      * @author: Sergio Uribe Toledo - Volestra
-     * @description: Intenta crear una InsurancePolicy ligada a la cotización; devuelve null si el org exige campos
-     * adicionales.
+     * @description: Crea la póliza de prueba ligada a la cotización y a su oportunidad.
      * @param quoteId: Id de la cotización origen
      * @param nameInsuredId: Id de la cuenta asegurada
-     * @return Id de la póliza creada; null si no se pudo crear
+     * @return Id de la póliza creada
      */
     static Id tryCreatePolicy(Id quoteId, Id nameInsuredId) {
-        try {
-            InsurancePolicy p = new InsurancePolicy(
-                Name = 'POL-TEST-001',
-                NameInsuredId = nameInsuredId,
-                SourceQuoteId = quoteId,
-                SourceOpportunityId = [SELECT OpportunityId FROM Quote WHERE Id = :quoteId].OpportunityId
-            );
-            insert p;
-            return p.Id;
-        } catch (Exception e) {
-            return null;
-        }
+        Id oppId = [SELECT OpportunityId FROM Quote WHERE Id = :quoteId].OpportunityId;
+        return polizaValida(nameInsuredId, quoteId, oppId, 'POL-TEST-001').Id;
     }
 
     /**
@@ -470,8 +481,7 @@ private class PolicyControllerTest {
     static void testCrearBeneficiariosDesdePdf() {
         Account acc = CollectionsTestDataFactory.createInsuredAccount();
         InsurancePolicy pol;
-        try { pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente'); }
-        catch (Exception e) { return; } // validaciones propias del org
+        pol = polizaValida(acc.Id, null, null, 'POL-BEN-001');
         Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
             '{"titular":"INGRID ARACELY  ROSALES GUZMAN","beneficiarios":['
             + '{"nombre":"LIZ ARACELI GUZMAN VALLEJO","parentesco":"MADRE","porcentaje":10,"tipo":"Muerte"},'
@@ -503,7 +513,7 @@ private class PolicyControllerTest {
         Account acc = CollectionsTestDataFactory.createInsuredAccount();
         InsurancePolicy pol;
         try {
-            pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente');
+            pol = polizaValida(acc.Id, null, null, 'POL-BEN-002');
             insert new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'INGRID ARACELY ROSALES GUZMAN',
                 Role = 'Asegurado', PrimaryParticipantAccountId = acc.Id);
         } catch (Exception e) { return; } // validaciones propias del org
@@ -592,8 +602,8 @@ private class PolicyControllerTest {
         InsurancePolicy pol;
         Contact titular;
         try {
-            pol = CollectionsTestDataFactory.createPolicy(acc.Id, 'Vigente');
-            titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino');
+            pol = polizaValida(acc.Id, null, null, 'POL-BEN-002');
+            titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino', AccountId = acc.Id);
             insert titular;
             PartyRoleRelation hermano = new PartyRoleRelation(RoleName = 'Hermano', RelatedRoleName = 'Hermana',
                 RelationshipObjectName = 'Contact_Contact_Relationship', ShouldCreaInversRoleAuto = false);
@@ -637,5 +647,151 @@ private class PolicyControllerTest {
         for (ContactContactRelation r : rels) {
             System.assertEquals(r.ContactId == titular.Id ? 'Hermana' : 'Hermano', r.PartyRoleRelation.RoleName);
         }
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Arma el JSON de una póliza de auto leída del PDF: contratante con domicilio, vehículo,
+     * coberturas (una es una sección que no debe guardarse) y un beneficiario.
+     * @return JSON de la póliza
+     */
+    static String jsonPolizaPdf() {
+        return '{"numeroPoliza":"POL-PDF-1","titular":"MARIA LOPEZ PEREZ",'
+            + '"contratante":{"nombre":"MARIA LOPEZ PEREZ","rfc":"LOPM800101ABC","email":"maria@test.com",'
+            + '"telefono":"5551234567","direccion":{"calle":"AV REFORMA 100","colonia":"CENTRO","cp":"06000",'
+            + '"municipio":"CUAUHTEMOC","estado":"CDMX"}},'
+            + '"asegurado":{"nombre":"MARIA LOPEZ PEREZ"},"aseguradoNombre":"Cuenta Póliza Test",'
+            + '"bienAsegurado":{"tipo":"Vehículo","descripcion":"NISSAN VERSA 2024","atributos":['
+            + '{"campo":"Marca","valor":"NISSAN"},{"campo":"Modelo","valor":"2024"},{"campo":"Submarca","valor":"VERSA"},'
+            + '{"campo":"Año","valor":"2024"},{"campo":"Número de serie","valor":"3N1CN8AE0RK000001"},'
+            + '{"campo":"Número de motor","valor":"HR16123"},{"campo":"Placas","valor":"ABC123"},'
+            + '{"campo":"Uso","valor":"Particular"},{"campo":"Tipo de unidad","valor":"Sedán"}]},'
+            + '"coberturas":['
+            + '{"nombre":"Daños Materiales","sumaAsegurada":"VALOR COMERCIAL","deducible":"5 %","prima":"3500.50"},'
+            + '{"nombre":"Responsabilidad Civil","sumaAsegurada":"$3,000,000","deducible":"$5,000","prima":"800"},'
+            + '{"nombre":"TITULAR","sumaAsegurada":"","deducible":"","prima":""}],'
+            + '"beneficiarios":[{"nombre":"JUAN LOPEZ PEREZ","parentesco":"HERMANO","porcentaje":100,"tipo":"Muerte"}]}';
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida el guardado completo de los datos del PDF: cuenta, vehículo, bien de la póliza,
+     * participante asegurado, beneficiario, coberturas con suma/deducible/prima, transacción y renovación; y que
+     * reprocesar no duplique coberturas.
+     * @return void
+     */
+    @isTest
+    static void testGuardarDatosPolizaDesdePdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, jsonPolizaPdf());
+        Map<String, Object> otraVez = PolicyController.guardarDatosPolizaDesdePdf(policyId, null, jsonPolizaPdf());
+        Test.stopTest();
+
+        System.assertNotEquals(null, resumen);
+        List<InsurancePolicyCoverage> cobs = [
+            SELECT CoverageName, LimitAmount, DeductibleAmount, PremiumAmount, Description
+            FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+        ];
+        System.assertEquals(2, cobs.size(), 'Solo las coberturas reales, sin la sección TITULAR: ' + resumen);
+        for (InsurancePolicyCoverage c : cobs) {
+            if (c.CoverageName == 'Responsabilidad Civil') {
+                System.assertEquals(3000000, c.LimitAmount);
+                System.assertEquals(5000, c.DeductibleAmount);
+                System.assertEquals(800, c.PremiumAmount);
+            } else {
+                System.assert(c.Description.contains('Deducible: 5 %'), c.Description);
+            }
+        }
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId],
+            'Reprocesar no duplica coberturas: ' + otraVez);
+        System.assert([SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId] >= 1);
+
+        PolicyController.RegistrosPoliza reg = PolicyController.getRegistrosPoliza(policyId);
+        System.assertEquals(2, reg.coberturas.size(), 'La vista de la póliza muestra sus coberturas');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que guardarDatosPolizaDesdePdf exija la póliza y tolere un JSON vacío.
+     * @return void
+     */
+    @isTest
+    static void testGuardarDatosPolizaDesdePdf_validaciones() {
+        Boolean error = false;
+        try { PolicyController.guardarDatosPolizaDesdePdf(null, null, '{}'); }
+        catch (AuraHandledException e) { error = true; }
+        System.assert(error, 'Sin póliza debe avisar');
+
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, null);
+        System.assertNotEquals(null, resumen, 'Con datos vacíos se completa con el catálogo');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que el PDF se adjunte a la póliza una sola vez aunque se guarde dos veces.
+     * @return void
+     */
+    @isTest
+    static void testGuardarArchivoEnPoliza() {
+        Quote q = [SELECT Id FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        String base64 = EncodingUtil.base64Encode(Blob.valueOf('PDF DE POLIZA'));
+        Test.startTest();
+        Id doc1 = PolicyController.guardarArchivoEnPoliza(base64, 'poliza.pdf', policyId);
+        Id doc2 = PolicyController.guardarArchivoEnPoliza(base64, 'poliza.pdf', policyId);
+        Test.stopTest();
+        System.assertEquals(doc1, doc2, 'No duplica el archivo');
+        System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :policyId]);
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que se ligue el productor de la oportunidad y se llene la fecha de renovación.
+     * @return void
+     */
+    @isTest
+    static void testProducerYRenovacion() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Producer prod = new Producer(Name = 'Productor Póliza Test');
+        insert prod;
+        update new Opportunity(Id = q.OpportunityId, Producer__c = prod.Id);
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        Test.startTest();
+        Boolean ligado = PolicyController.vincularProducer(policyId, q.OpportunityId);
+        Boolean renovacion = PolicyController.llenarFechaRenovacion(policyId);
+        Test.stopTest();
+        System.assert(ligado, 'Debe ligar el productor');
+        System.assertEquals(prod.Id, [SELECT ProducerId FROM InsurancePolicy WHERE Id = :policyId].ProducerId);
+        System.assertNotEquals(null, renovacion);
+        System.assertEquals(false, PolicyController.vincularProducer(policyId, q.OpportunityId), 'Ya tiene productor');
+    }
+
+    /**
+     * @creation date: 11/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que getPolicyIdByQuote encuentre la póliza creada desde Crear Póliza solo por su
+     * oportunidad (sin cotización origen).
+     * @return void
+     */
+    @isTest
+    static void testGetPolicyIdByQuote_porOportunidad() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        InsurancePolicy pol = polizaValida(acc.Id, null, q.OpportunityId, 'POL-OPP-001');
+        System.assertEquals(pol.Id, PolicyController.getPolicyIdByQuote(null, q.OpportunityId));
     }
 }
