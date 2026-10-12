@@ -20,7 +20,10 @@ import vincularProducer from '@salesforce/apex/PolicyController.vincularProducer
 import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
+import datosBasePoliza from '@salesforce/apex/PolicyController.datosBasePoliza';
+import validarNumeroPoliza from '@salesforce/apex/PolizaNumeroUnico.validarNumeroPoliza';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
+import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 
 export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track policyId;
@@ -38,12 +41,22 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track participantes = [];
     @track bienes = [];
     @track transacciones = [];
+    @track policyHero = {};
+    // Etapa real de la oportunidad (API): define el aviso y el color de la cabecera.
+    oppStage = '';
+    // true cuando se cargó el PDF de la póliza: al guardar, la oportunidad pasa a Póliza.
+    _pdfCargado = false;
 
     _pdfJsLoaded = false;
     // PDF seleccionado que se adjuntará a la póliza (queda pendiente si la póliza aún no existe).
     _pdfPendiente = null;
     // Datos del PDF de póliza analizados por la IA (para crear los objetos hijos al guardar).
     _datosPoliza = null;
+    // La póliza aún no existe: se crea al subir el PDF (ya con su número real) con estos datos
+    // base de la oportunidad y la cotización aceptada.
+    @track esNueva = false;
+    _datosBase = null;
+    _basePintada = false;
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
 
     // Campos de fecha que se manejan como "solo fecha".
@@ -69,16 +82,37 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.opportunityId = pageRef.state.c__opportunityId;
         this.readOnly = pageRef.state.c__readonly === '1';
         this.loadPolicy();
-        if (this.readOnly) { this.loadResumen(); }
+        // Siempre se lee la oportunidad: si ya está en Póliza, Ganada o Perdida se fuerza
+        // el modo SOLO LECTURA aunque se haya llegado sin el parámetro c__readonly.
+        this.loadResumen();
     }
 
     // Lee las fechas de la póliza para mostrarlas SIN hora en la vista de solo lectura.
     @wire(getRecord, { recordId: '$policyId', fields: [
         EFFECTIVE_DATE, EXPIRATION_DATE, PAYMENT_DUE_DATE, CANCELLATION_EFF_DATE,
         SALE_DATE, PREVIOUS_RENEWAL_DATE, RENEWAL_DATE, PLANNED_RENEWAL_DATE
+    ], optionalFields: [
+        'InsurancePolicy.Name', 'InsurancePolicy.UniversalPolicyNumber', 'InsurancePolicy.Status',
+        'InsurancePolicy.GrossWrittenPremium', 'InsurancePolicy.PremiumFrequency',
+        'InsurancePolicy.Numero_Pagos__c'
     ] })
     wiredPolicyDates({ data }) {
         if (data) {
+            const f = (name) => {
+                const cell = data.fields && data.fields[name];
+                if (!cell) { return null; }
+                return cell.displayValue != null ? cell.displayValue : cell.value;
+            };
+            const prima = data.fields && data.fields.GrossWrittenPremium
+                ? data.fields.GrossWrittenPremium.value : null;
+            this.policyHero = {
+                nombre: f('Name') || 'Póliza',
+                numero: f('UniversalPolicyNumber') || 'Sin número',
+                estatus: f('Status') || '—',
+                prima: this.fmtCurrency(prima),
+                frecuencia: f('PremiumFrequency') || '—',
+                pagos: f('Numero_Pagos__c') || '—'
+            };
             this.policyDates = {
                 EffectiveDate: this.fmtDate(getFieldValue(data, EFFECTIVE_DATE)),
                 ExpirationDate: this.fmtDate(getFieldValue(data, EXPIRATION_DATE)),
@@ -92,27 +126,97 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
     }
 
-    renderedCallback() {
-        if (!this._pdfJsLoaded) {
-            this._pdfJsLoaded = true;
-            this.loadPdfJs();
+    connectedCallback() {
+        console.log(':::policyCreator::: Componente conectado');
+        this.isLoading = true;
+        this.loadPdfJs();
+    }
+
+	renderedCallback() {
+		if (!this.isPdfJsLoaded && !this.pdfJsError) {
+			this.loadPdfJs();
+		}
+	}
+
+	async loadPdfJs() {
+        try {
+            await this.loadPdfJsScript();
+            await this.setupWorker();
+            await this.testPdfJs();
+            
+            this.isPdfJsLoaded = true;
+            this.pdfJsError = false;
+            console.log(':::policyCreator::: ✅ PDF.js cargado exitosamente');
+        } catch (error) {
+            console.error(':::policyCreator::: ❌ Error cargando PDF.js:', JSON.stringify(error));
+            this.pdfJsError = true;
+            this.showToast('Error', 'No se pudo cargar PDF.js. Recarga la página.', 'error');
+        } finally {
+            this.isLoading = false;
         }
     }
 
-    async loadPdfJs() {
+    async loadPdfJsScript() {
         try {
-            await loadScript(this, PDFJS + '/pdf.js');
+            const mainScript = PDFJS + '/pdf.js';
+            await loadScript(this, mainScript);
+            
             if (typeof window.pdfjsLib === 'undefined') {
-                await loadScript(this, PDFJS + '/pdf.min.js');
+                throw new Error('pdfjsLib no se definió después de cargar el script');
             }
-            try {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
-            } catch (e) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+            console.log(':::policyCreator::: ✅ Script PDF.js cargado');
+        } catch (error) {
+            console.warn('⚠️ Falló versión principal, intentando versión min...');
+            const minScript = PDFJS + '/pdf.min.js';
+            await loadScript(this, minScript);
+            
+            if (typeof window.pdfjsLib === 'undefined') {
+                throw new Error('pdfjsLib no disponible en ninguna versión');
             }
-        } catch (e) {
-            // Si no carga, el botón de análisis avisará al usuario.
-            this._pdfJsLoaded = false;
+        }
+    }
+
+    async setupWorker() {
+        try {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + '/pdf.worker.js';
+        } catch (workerError) {
+            console.warn('⚠️ Error configurando worker:', workerError);
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+        }
+    }
+
+    async testPdfJs() {
+        try {
+            const pdfData = new Uint8Array([
+                0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25,
+                0xC3, 0xA4, 0xC3, 0xBC, 0xC3, 0xB6, 0xC3, 0x9F, 0x0A, 0x31,
+                0x20, 0x30, 0x20, 0x6F, 0x62, 0x6A, 0x0A, 0x3C, 0x3C, 0x2F,
+                0x54, 0x79, 0x70, 0x65, 0x2F, 0x43, 0x61, 0x74, 0x61, 0x6C,
+                0x6F, 0x67, 0x2F, 0x50, 0x61, 0x67, 0x65, 0x73, 0x20, 0x32,
+                0x20, 0x30, 0x20, 0x52, 0x3E, 0x3E, 0x0A, 0x65, 0x6E, 0x64, 0x6F, 0x62, 0x6A, 0x0A
+            ]);
+
+            const fontsUrl = fontsResource + '/';
+            
+            const loadingTask = window.pdfjsLib.getDocument({ 
+                data: pdfData,
+                isEvalSupported: false,   // ← Salesforce (LWS) bloquea eval()
+                useWorkerFetch: false,    // ← evita fetch bloqueado por CSP
+                standardFontDataUrl: fontsUrl,
+                disableFontFace: true     // ← evita cargar fuentes externas
+            });
+            const timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout probando PDF.js')), 5000)
+            );
+            
+            const pdf = await Promise.race([loadingTask.promise, timeout]);
+            if (pdf && pdf.destroy) {
+                await pdf.destroy();
+            }
+            
+            console.log(':::policyCreator::: ✅ PDF.js funciona correctamente');
+        } catch (testError) {
+            console.warn('⚠️ Test de PDF.js falló:', testError.message);
         }
     }
 
@@ -120,6 +224,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.loading = true;
         this.errorMsg = '';
         this.policyId = null;
+        this.esNueva = false;
+        this._datosBase = null;
+        this._basePintada = false;
         try {
             const id = await getPolicyIdByQuote({
                 quoteId: this.idOrNull(this.quoteId),
@@ -131,9 +238,16 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 try { await vincularProducer({ policyId: id, opportunityId: this.idOrNull(this.opportunityId) }); } catch (e) { /* no bloquea */ }
                 this.policyId = id;
                 if (this.readOnly) { this.loadRegistrosPoliza(); }
+            } else if (!this.readOnly) {
+                // Aún no hay póliza: se creará al subir el PDF, con los datos base precargados
+                // (de la oportunidad y la cotización, si se abrió desde una).
+                this._datosBase = await datosBasePoliza({
+                    opportunityId: this.idOrNull(this.opportunityId),
+                    quoteId: this.idOrNull(this.quoteId)
+                });
+                this.esNueva = true;
             } else {
-                this.errorMsg = 'No se encontró la póliza de esta oportunidad. '
-                    + 'Verifica que el flujo la haya creado al pasar a etapa Póliza.';
+                this.errorMsg = 'Esta oportunidad todavía no tiene póliza.';
             }
         } catch (e) {
             this.errorMsg = (e && e.body && e.body.message) || 'Error al cargar la póliza.';
@@ -145,11 +259,33 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     get hasPolicy() {
         return !!this.policyId;
     }
+    // Formulario visible: póliza existente o alta de una nueva (desde su oportunidad).
+    get mostrarFormulario() {
+        return !!this.policyId || this.esNueva;
+    }
     get isReadOnly() {
         return this.readOnly;
     }
     get isEditable() {
         return !this.readOnly;
+    }
+    // Nombre del agente (Producer) de la oportunidad, para el campo de solo lectura del formulario.
+    get agenteNombre() {
+        return (this.oppCard && this.oppCard.agente) || '—';
+    }
+    // Cotización de origen (la aceptada; si no hay, la primera) y oportunidad, como texto.
+    get cotizacionOrigen() {
+        const qs = this.quoteCards || [];
+        const q = qs.find((c) => c.id === this.quoteId) || qs.find((c) => c.aceptada) || qs[0];
+        return q ? `${q.numero} · ${q.aseguradora}` : '—';
+    }
+    get oportunidadOrigen() {
+        return (this.oppCard && this.oppCard.name) || '—';
+    }
+    get topbarSubtitle() {
+        return this.readOnly
+            ? 'Consulta de la póliza (solo lectura)'
+            : 'Carga el PDF de la póliza para emitirla';
     }
 
     get showOverlay() {
@@ -161,6 +297,20 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Al cargar el registro, toma los valores de fecha y detecta si son Fecha/Hora.
     handleLoad(event) {
+        // Póliza nueva: muestra los datos base (asegurado, aseguradora, producto, prima…) en el formulario.
+        if (!this.policyId && this._datosBase && !this._basePintada) {
+            this._basePintada = true;
+            this.template.querySelectorAll('lightning-input-field').forEach((f) => {
+                let v = this._datosBase[f.fieldName];
+                // Las fechas de póliza son Fecha/Hora en esta org.
+                if (this.POLICY_DATE_FIELDS.includes(f.fieldName) && /^\d{4}-\d{2}-\d{2}$/.test(v || '')) {
+                    v = v + 'T12:00:00.000Z';
+                }
+                if (v !== undefined && v !== null && (f.value === undefined || f.value === null || f.value === '')) {
+                    try { f.value = v; } catch (e) { /* campo de solo lectura */ }
+                }
+            });
+        }
         const recs = event && event.detail ? event.detail.records : null;
         const rec = recs && this.policyId ? recs[this.policyId] : null;
         if (!rec || !rec.fields) { return; }
@@ -195,10 +345,25 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // que no se muestran en el formulario (así no se pierde información).
     handleSubmit(event) {
         event.preventDefault();
+        const fields = this.armarCampos({ ...(event.detail ? event.detail.fields : {}) });
+        const form = this.template.querySelector('lightning-record-edit-form');
+        if (form) { form.submit(fields); }
+    }
+
+    // Arma los campos a guardar: lo capturado en pantalla, los datos de la IA que no se
+    // muestran, los datos base (solo al crear la póliza) y las fechas en el formato del org.
+    armarCampos(fields) {
+        // Al crear la póliza: los datos base de la oportunidad y la cotización completan lo vacío.
+        if (!this.policyId && this._datosBase) {
+            Object.keys(this._datosBase).forEach((k) => {
+                const v = fields[k];
+                if (v === undefined || v === null || v === '') { fields[k] = this._datosBase[k]; }
+            });
+            if (this._datosBase.SourceOpportunityId) { fields.SourceOpportunityId = this._datosBase.SourceOpportunityId; }
+        }
         // Lo capturado en pantalla manda. Los datos de la IA solo se agregan para campos
         // que NO están en el formulario; si el campo está presente (aunque el usuario lo
         // haya vaciado a propósito) se respeta lo que envía el formulario.
-        const fields = { ...(event.detail ? event.detail.fields : {}) };
         Object.keys(this.hiddenFields).forEach((k) => {
             if (!(k in fields)) {
                 fields[k] = this.hiddenFields[k];
@@ -217,8 +382,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.POLICY_DATE_FIELDS.forEach((f) => {
             const v = fields[f];
             if (typeof v === 'string' && soloFechaRegex.test(v)) {
-                const esFechaHora = this._dtFlags[f] === true
-                    || (this._dtFlags[f] === undefined && (f === 'EffectiveDate' || f === 'ExpirationDate'));
+                // Las fechas de póliza son Fecha/Hora en esta org: se agregan a menos que
+                // se haya detectado explícitamente que el campo es de tipo Fecha.
+                const esFechaHora = this._dtFlags[f] !== false;
                 if (esFechaHora) { fields[f] = v + 'T12:00:00.000Z'; }
             }
         });
@@ -232,15 +398,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             'TotalSumInsured', 'IsRenewedPolicy'
         ];
         NO_ESCRIBIBLES.forEach((f) => { delete fields[f]; });
-
-        const form = this.template.querySelector('lightning-record-edit-form');
-        if (form) { form.submit(fields); }
+        return fields;
     }
 
     async handleSuccess(event) {
         // Id de la póliza (nueva o existente).
         const savedId = (event && event.detail && event.detail.id) || this.policyId;
         this.policyId = savedId;
+        this.esNueva = false;
         // Ya se guardaron: se limpian para no reescribirlos en un guardado posterior.
         this.hiddenFields = {};
         // Refresca el registro para que la pantalla muestre lo guardado.
@@ -277,6 +442,20 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // No bloquea: la póliza ya quedó guardada.
             this.showToast('Aviso', msg, 'warning');
         }
+        // Sin PDF de la póliza la oportunidad sigue en emisión y el formulario editable.
+        if (!this._pdfCargado) { return; }
+        // Con el PDF cargado, la oportunidad pasa a etapa "Póliza" y ya no se puede modificar.
+        try {
+            if (this.opportunityId) {
+                await cambiarEtapaAPoliza({ opportunityId: this.opportunityId });
+            }
+            this._pdfCargado = false;
+            this.showToast('Póliza emitida', 'La oportunidad pasó a la etapa Póliza.', 'success');
+        } catch (e) {
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('La póliza se guardó, pero la etapa no cambió', msg, 'warning');
+            return;
+        }
         // Lleva a la vista completa de la póliza en modo lectura (resumen + coberturas,
         // participantes, bien y transacción).
         this.navegarAPoliza();
@@ -302,6 +481,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         const partes = [];
         if (r.coberturas) { partes.push(`${r.coberturas} cobertura(s)`); }
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
+        if (r.beneficiarios) { partes.push(`${r.beneficiarios} beneficiario(s)`); }
         if (r.cuenta) { partes.push('datos del cliente'); }
         if (r.vehiculo) { partes.push('vehículo'); }
         if (r.bien) { partes.push('bien asegurado'); }
@@ -362,16 +542,6 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
         this.analizando = true;
         try {
-            // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
-            // queda pendiente y se adjunta al guardarla (handleSuccess).
-            try {
-                const base64 = await this.readFileAsBase64(file);
-                this._pdfPendiente = { base64, nombre: file.name };
-                await this.guardarPdfEnPoliza();
-            } catch (fileErr) {
-                // No bloquea el análisis del PDF; se reintenta al guardar la póliza.
-            }
-
             const texto = await this.extractPdfText(file);
             if (!texto) {
                 this.showToast('Aviso', 'No se pudo leer texto del PDF (¿está escaneado?).', 'warning');
@@ -387,16 +557,66 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 this.showToast('Aviso', 'La IA respondió en un formato no válido. Intenta de nuevo.', 'warning');
                 return;
             }
+            // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
+            this.completarCoberturasDesdeTexto(datos, texto);
+            // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
+            datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
+            // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe, se
+            // avisa y NO se crea/actualiza la póliza ni se adjunta el PDF.
+            if (datos.numeroPoliza) {
+                const vigencia = datos.vigenciaDesde
+                    || (this._datosBase && this._datosBase.EffectiveDate) || null;
+                const repetida = await validarNumeroPoliza({
+                    numero: datos.numeroPoliza,
+                    vigenciaDesde: vigencia ? String(vigencia).substring(0, 10) : null,
+                    policyId: this.idOrNull(this.policyId)
+                });
+                if (repetida) {
+                    this.showToast('Póliza repetida', repetida, 'error');
+                    return;
+                }
+            }
+            // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
+            // queda pendiente y se adjunta al crearla (handleSuccess).
+            try {
+                const base64 = await this.readFileAsBase64(file);
+                this._pdfPendiente = { base64, nombre: file.name };
+                this._pdfCargado = true;
+                await this.guardarPdfEnPoliza();
+            } catch (fileErr) {
+                // No bloquea: se reintenta al guardar la póliza.
+            }
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
             this.fillForm(datos);
-            this.showToast('Listo', 'Datos de la póliza cargados. Revisa y guarda.', 'success');
+            // Una vez subido el PDF, se guarda automáticamente y se pasa a la vista de SOLO
+            // LECTURA: el usuario ya no puede modificar los valores de la póliza.
+            this.showToast('Listo', 'Datos de la póliza cargados. Guardando…', 'success');
+            this.guardarYcerrar();
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error al analizar el PDF.';
             this.showToast('Error', msg, 'error');
         } finally {
             this.analizando = false;
         }
+    }
+
+    // Guarda automáticamente la póliza tras subir el PDF y la deja en SOLO LECTURA.
+    // Envía el formulario (mismo flujo que "Guardar Póliza": handleSubmit -> handleSuccess
+    // -> navegarAPoliza). Espera un momento a que el formulario pinte los valores del PDF.
+    guardarYcerrar() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            const form = this.template.querySelector('lightning-record-edit-form');
+            if (!form) { return; }
+            // submit() desde código no dispara onsubmit: se arman aquí los mismos campos que
+            // en handleSubmit (pantalla + datos ocultos de la IA + datos base al crear).
+            const fields = {};
+            this.template.querySelectorAll('lightning-input-field').forEach((f) => {
+                if (f.fieldName && f.value !== undefined) { fields[f.fieldName] = f.value; }
+            });
+            form.submit(this.armarCampos(fields));
+        }, 400);
     }
 
     // Adjunta a la póliza el PDF pendiente (si hay uno y la póliza ya existe).
@@ -445,12 +665,141 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             for (let p = 1; p <= pdf.numPages; p++) {
                 const page = await pdf.getPage(p);
                 const content = await page.getTextContent();
-                text += content.items.map((it) => it.str).join(' ') + '\n';
+                text += this.textoPorRenglones(content.items) + '\n';
             }
             return text.trim();
         } catch (e) {
             return '';
         }
+    }
+
+    // Arma el texto de la página respetando los renglones: agrupa los fragmentos por su
+    // posición vertical y los ordena de izquierda a derecha. Antes todo se unía en una sola
+    // línea y la IA no sabía a qué cobertura pertenecía cada suma, deducible o prima.
+    textoPorRenglones(items) {
+        const tolerancia = 3;
+        const filas = [];
+        (items || []).forEach((it) => {
+            if (!it || typeof it.str !== 'string' || !it.str.trim() || !it.transform) { return; }
+            const x = it.transform[4];
+            const y = it.transform[5];
+            let fila = filas.find((f) => Math.abs(f.y - y) <= tolerancia);
+            if (!fila) {
+                fila = { y, partes: [] };
+                filas.push(fila);
+            }
+            fila.partes.push({ x, s: it.str.trim() });
+        });
+        filas.sort((a, b) => b.y - a.y);
+        return filas
+            .map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim())
+            .join('\n');
+    }
+
+    // Deja solo el número de PÓLIZA. Varias aseguradoras imprimen en el mismo renglón las
+    // columnas PÓLIZA / ENDOSO / INCISO (ej. "0971273390 000000 0001") y la IA las junta.
+    // Si el número trae varios bloques y el PDF tiene ese encabezado, o el segundo bloque es
+    // solo ceros (endoso 000000), se conserva únicamente el primer bloque.
+    limpiarNumeroPoliza(numero, texto) {
+        if (!numero) { return numero; }
+        const partes = String(numero).trim().split(/\s+/);
+        if (partes.length < 2) { return String(numero).trim(); }
+        const t = this.normCobertura(texto || '');
+        const conEndoso = /poliza\s+endoso/.test(t);
+        const endosoEnCeros = /^0+$/.test(partes[1]);
+        return (conEndoso || endosoEnCeros) ? partes[0] : String(numero).trim();
+    }
+
+    // Texto en minúsculas y sin acentos para ubicar el renglón de cada cobertura.
+    normCobertura(v) {
+        return (v || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9%$., ]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // Completa suma asegurada (límite), deducible y prima de cada cobertura leyendo su renglón
+    // en el texto del PDF. Solo llena lo que la IA dejó vacío. Funciona sin importar el orden de
+    // las columnas: el primer monto es el límite y el último (con centavos) la prima.
+    completarCoberturasDesdeTexto(datos, texto) {
+        if (!datos || !Array.isArray(datos.coberturas) || !texto) { return datos; }
+        const lineas = texto.split('\n').map((l) => this.normCobertura(l));
+        const MONTO = '\\$\\s?\\d[\\d,]*(?:\\.\\d+)?(?:\\s?(?:usd|mxn|dlls?))?';
+        const TEXTO_SUMA = /\b(amparad[ao]|valor comercial|valor convenido|valor factura|incluid[ao])\b/;
+        const PCT = /\d+(?:\.\d+)?\s?%/;
+        const vacio = (v) => v === null || v === undefined || v === '';
+        const aNumero = (s) => {
+            const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
+            return isNaN(n) ? null : n;
+        };
+        // Ubica el renglón de cada cobertura: primero por el nombre completo; si no, por sus
+        // palabras clave sin lo que va entre paréntesis ("RC en USA y Canada (Chubb)").
+        const ubicar = (c) => {
+            const nombre = this.normCobertura(c && c.nombre);
+            if (!nombre || nombre.length < 4) { return null; }
+            let idx = lineas.findIndex((l) => l.includes(nombre));
+            if (idx >= 0) { return { idx, exacto: true, nombre }; }
+            const sinParen = this.normCobertura(String(c.nombre).replace(/\([^)]*\)/g, ' '));
+            const claves = sinParen.split(' ').filter((t) => t.length >= 3);
+            if (claves.length < 2) { return null; }
+            idx = lineas.findIndex((l) => claves.every((t) => l.includes(t)));
+            return idx >= 0 ? { idx, exacto: false, nombre: sinParen } : null;
+        };
+        const ubicaciones = datos.coberturas.map(ubicar);
+        // Rango de renglones de la tabla principal (coberturas halladas por su nombre exacto).
+        const exactos = ubicaciones.filter((u) => u && u.exacto).map((u) => u.idx);
+        const hayTabla = exactos.length >= 3;
+        const desde = hayTabla ? Math.min(...exactos) - 2 : -1;
+        const hasta = hayTabla ? Math.max(...exactos) + 3 : -1;
+        const enTabla = (u) => u && u.idx >= desde && u.idx <= hasta;
+
+        // Coberturas de anexos/certificados de otra compañía (ej. "(Chubb)") que NO están en la
+        // tabla principal: se descartan para no duplicarlas (la tabla ya incluye esa cobertura).
+        datos.coberturas = datos.coberturas.filter((c, i) => {
+            const esAnexo = /\([^)]*\)/.test(String((c && c.nombre) || ''));
+            return !(hayTabla && esAnexo && !enTabla(ubicaciones[i]));
+        });
+        const ubicacionesFinales = datos.coberturas.map(ubicar);
+
+        datos.coberturas.forEach((c, i) => {
+            const u = ubicacionesFinales[i];
+            if (!u) { return; }
+            const linea = lineas[u.idx];
+            const resto = u.exacto ? linea.replace(u.nombre, ' ')
+                : u.nombre.split(' ').filter((t) => t.length >= 3).reduce((acc, t) => acc.replace(t, ' '), linea);
+            const montos = resto.match(new RegExp(MONTO, 'gi')) || [];
+            const mTexto = resto.match(TEXTO_SUMA);
+            let suma = mTexto ? mTexto[0] : null;
+            let prima = null;
+            if (montos.length >= 2) {
+                suma = suma || montos[0];
+                prima = montos[montos.length - 1];
+            } else if (montos.length === 1) {
+                // Un solo monto: con centavos es la prima ("$450.00"); sin centavos, el límite.
+                if (suma || /\.\d{2}/.test(montos[0])) { prima = montos[0]; } else { suma = montos[0]; }
+            }
+            // En la tabla principal de la póliza, lo impreso manda sobre lo que interpretó la IA;
+            // fuera de ella solo se llenan los datos que la IA dejó vacíos.
+            const manda = hayTabla && enTabla(u);
+            if (prima && (manda || vacio(c.prima))) { c.prima = aNumero(prima); }
+            if (suma && (manda || vacio(c.sumaAsegurada))) { c.sumaAsegurada = suma.toUpperCase().replace(/\s+/g, ' ').trim(); }
+            const mDed = resto.replace(new RegExp(MONTO, 'gi'), ' ').match(PCT);
+            if (mDed && (manda || vacio(c.deducible))) { c.deducible = mDed[0].replace(/\s?%/, ' %'); }
+        });
+        return datos;
+    }
+
+    // Descripción breve de la póliza: quita las frases que hablan de pagos, primas, recibos,
+    // vigencia o datos del cliente (el resumen de la IA a veces los incluye).
+    descripcionSinPagos(texto, plan) {
+        const NO = /(pago|prima|recibo|cobranza|importe|financiamiento|\$|mxn|vigencia|vence|rfc|domicilio|correo|tel[eé]fono|clabe|referencia)/i;
+        // El nombre del plan puede decir "15 PAGOS": no cuenta como dato de pago.
+        const sinPlan = (s) => (plan ? s.split(plan).join(' ') : s);
+        return (texto || '').toString()
+            .split(/(?<=[.;])\s+|\n+/)
+            .map((s) => s.trim())
+            .filter((s) => s && !NO.test(sinPlan(s)))
+            .join(' ')
+            .replace(/[.;,\s]+$/, '')
+            .trim();
     }
 
     // Prellena los campos del formulario con el JSON devuelto por la IA.
@@ -476,12 +825,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             if (version && !normTxt(modelo).includes(normTxt(version))) { partes.push(version); }
             descripcionAuto = partes.filter(Boolean).join(' ').trim();
         }
-        // Para los DEMÁS ramos: descripción BREVE (el bien asegurado), sin listar coberturas,
-        // montos ni cobranza (esos ya se guardan como registros/campos aparte).
-        let descripcionCorta = (bien.descripcion || d.descripcion || '').toString().trim();
-        if (d.plan && !normTxt(descripcionCorta).includes(normTxt(d.plan))) {
-            descripcionCorta = descripcionCorta ? `${descripcionCorta} (Plan: ${d.plan})` : `Plan: ${d.plan}`;
-        }
+        // Para los DEMÁS ramos: descripción BREVE (el bien asegurado) y el plan; sin coberturas,
+        // pagos, primas ni datos del cliente (esos ya se guardan como registros/campos aparte).
+        let descripcionCorta = this.descripcionSinPagos(bien.descripcion || d.descripcion, d.plan);
+        const conPlan = (base) => (d.plan && !normTxt(base).includes(normTxt(d.plan))
+            ? (base ? `${base} (Plan: ${d.plan})` : `Plan: ${d.plan}`)
+            : base);
+        descripcionCorta = conPlan(descripcionCorta);
         if (descripcionCorta.length > 255) { descripcionCorta = descripcionCorta.substring(0, 255); }
         // El plan/paquete no se guarda en PlanType (picklist); se conserva en la descripción.
         if (d.plan) { descripcion = (descripcion ? descripcion + '\n\n' : '') + 'Plan/Paquete: ' + d.plan; }
@@ -556,22 +906,33 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         // así que van dentro del mapeo normal. SaleDate y CancellationEffectiveDate NO se
         // llenan desde el PDF (son automáticas).
         const soloFecha = (v) => (v ? String(v).substring(0, 10) : null);
+        // Fechas de la póliza: en esta org son Fecha/Hora, así que se entregan en ISO 8601
+        // (con hora) para no romper el guardado. Si el campo fuera de tipo Fecha se deja
+        // solo AAAA-MM-DD (según lo detectado en _dtFlags al cargar el formulario).
+        const fechaPoliza = (campo, v) => {
+            const s = soloFecha(v);
+            if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s; }
+            return this._dtFlags[campo] === false ? s : (s + 'T12:00:00.000Z');
+        };
         const fechaPrimerVenc = cob.fechaVencimientoPrimerPago
             || (Array.isArray(cob.recibos) && cob.recibos[0] ? cob.recibos[0].fechaLimite : null);
 
         const map = {
-            EffectiveDate: soloFecha(d.vigenciaDesde),
-            ExpirationDate: soloFecha(d.vigenciaHasta),
-            PaymentDueDate: soloFecha(fechaPrimerVenc),
+            EffectiveDate: fechaPoliza('EffectiveDate', d.vigenciaDesde),
+            ExpirationDate: fechaPoliza('ExpirationDate', d.vigenciaHasta),
+            PaymentDueDate: fechaPoliza('PaymentDueDate', fechaPrimerVenc),
             // Datos generales.
             // NO se actualizan por análisis: Aseguradora__c, PolicyType, NameInsuredId,
             // ProductId, SourceQuoteId y la oportunidad origen (se conservan tal cual).
             // El número de póliza va en Name. Universal Policy Number NO se llena aquí:
             // solo aplica a pólizas colectivas/flotilla/grupal y se captura aparte.
             Name: d.numeroPoliza,
+            // El nombre de la póliza es el mismo número de póliza del PDF.
+            PolicyName: d.numeroPoliza,
             // PlanType es picklist y NO está en el formulario; NO se fuerza desde la IA
             // (un valor fuera del catálogo rompería el guardado). El plan queda en la descripción.
-            Status: this.normalizarEstatus(d.estatusPoliza),
+            // El estatus NO se toma del PDF: al crear/subir la póliza debe quedar en "Inicial".
+            Status: 'Inicial',
             CancellationReason: d.motivoCancelacion,
             // Primas (definición de negocio): GrossWrittenPremium = prima TOTAL anualizada,
             // PremiumAmount = prima NETA sin impuestos.
@@ -602,7 +963,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             IVA__c: cob.iva,
             Referencia_Pago__c: cob.referenciaPago,
             CLABE__c: cob.clabe,
-            PolicyDescription: esAuto ? (descripcionAuto || descripcionCorta) : descripcionCorta
+            PolicyDescription: esAuto && descripcionAuto ? conPlan(descripcionAuto).substring(0, 255) : descripcionCorta
         };
 
         const fields = this.template.querySelectorAll('lightning-input-field');
@@ -649,6 +1010,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         try {
             const detail = await getOpportunityDetails({ opportunityId: this.opportunityId });
             const o = (detail && detail.opportunity) || {};
+            this.oppStage = o.StageName || '';
+            if (!this.readOnly && this.isEtapaBloqueada(o.StageName)) {
+                this.readOnly = true;
+                if (this.policyId) { this.loadRegistrosPoliza(); }
+            }
             this.oppCard = {
                 name: o.Name || '—',
                 cuenta: o.Account && o.Account.Name ? o.Account.Name : '—',
@@ -684,18 +1050,26 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         try {
             const r = await getRegistrosPoliza({ policyId: this.policyId });
             const reg = r || {};
+            // Se muestra el texto tal cual la póliza (ej. "5 %", "AMPARADA") cuando existe;
+            // si no, el monto numérico. "—" solo cuando no aplica.
             this.coberturas = (reg.coberturas || []).map((c) => ({
                 id: c.id,
                 nombre: c.nombre || '—',
-                suma: this.fmtCurrency(c.suma),
-                deducible: c.deducible != null ? this.fmtCurrency(c.deducible) : '—',
-                prima: this.fmtCurrency(c.prima)
+                suma: c.suma != null ? this.fmtCurrency(c.suma) : (c.sumaTexto || '—'),
+                deducible: c.deducibleTexto || (c.deducible != null ? this.fmtCurrency(c.deducible) : '—'),
+                prima: c.prima != null ? this.fmtCurrency(c.prima) : '—'
             }));
             this.participantes = (reg.participantes || []).map((p) => ({
                 id: p.id,
                 nombre: p.nombre || '—',
-                rol: p.rol || '—',
-                relacion: p.relacion || '—'
+                // Role es selección múltiple ("Asegurado;Beneficiario").
+                rol: p.rol ? String(p.rol).split(';').join(' · ') : '—',
+                relacion: p.relacion || '—',
+                // Beneficiarios: "90 % · Por muerte"
+                detalleBeneficio: [
+                    p.porcentaje != null ? `${Number(p.porcentaje)} %` : null,
+                    p.tipoBeneficio
+                ].filter(Boolean).join(' · ')
             }));
             this.bienes = (reg.bienes || []).map((b) => ({
                 id: b.id,
@@ -724,6 +1098,49 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     get hasQuoteCards() {
         return this.quoteCards && this.quoteCards.length > 0;
+    }
+
+    // Póliza, Ganada o Perdida: la información ya no se puede modificar.
+    isEtapaBloqueada(stage) {
+        const s = (stage || '').toString().toLowerCase();
+        return /p[oó]liza/.test(s) || s === 'closed won' || s === 'closed lost';
+    }
+    get isGanada()  { return this.oppStage === 'Closed Won'; }
+    get isPerdida() { return this.oppStage === 'Closed Lost'; }
+    get heroClass() {
+        if (this.isGanada)  { return 'ro-hero ro-hero--won'; }
+        if (this.isPerdida) { return 'ro-hero ro-hero--lost'; }
+        return 'ro-hero ro-hero--poliza';
+    }
+    get heroEtapa() {
+        if (this.isGanada)  { return 'Ganada'; }
+        if (this.isPerdida) { return 'Perdida'; }
+        return 'Póliza emitida';
+    }
+    get heroIcon() {
+        if (this.isGanada)  { return 'utility:success'; }
+        if (this.isPerdida) { return 'utility:error'; }
+        return 'utility:lock';
+    }
+    get readOnlyMensaje() {
+        if (this.isGanada || this.isPerdida) {
+            return 'Oportunidad cerrada: la información se muestra en solo lectura.';
+        }
+        return 'El PDF de la póliza ya fue cargado: la información se muestra en solo lectura.';
+    }
+    get aseguradoraHero() {
+        const q = (this.quoteCards || []).find((c) => c.aceptada) || (this.quoteCards || [])[0];
+        return q ? q.aseguradora : '—';
+    }
+    get vigenciaHero() {
+        const d = this.policyDates || {};
+        return (d.EffectiveDate || '—') + '  →  ' + (d.ExpirationDate || '—');
+    }
+    get quoteCardsView() {
+        return (this.quoteCards || []).map((q) => ({
+            ...q,
+            cardClass: q.aceptada ? 'ro-quote-card ro-quote-card--accepted' : 'ro-quote-card'
+        }));
     }
 
     stageLabel(stage) {
