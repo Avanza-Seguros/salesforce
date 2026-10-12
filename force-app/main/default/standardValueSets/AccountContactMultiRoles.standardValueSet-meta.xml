@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Business User</fullName>
+        <default>false</default>
+        <label>Business User</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Decision Maker</fullName>
+        <default>false</default>
+        <label>Decision Maker</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Economic Buyer</fullName>
+        <default>false</default>
+        <label>Economic Buyer</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Economic Decision Maker</fullName>
+        <default>false</default>
+        <label>Economic Decision Maker</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Evaluator</fullName>
+        <default>false</default>
+        <label>Evaluator</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Executive Sponsor</fullName>
+        <default>false</default>
+        <label>Executive Sponsor</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Influencer</fullName>
+        <default>false</default>
+        <label>Influencer</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Technical Buyer</fullName>
+        <default>false</default>
+        <label>Technical Buyer</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Titular</fullName>
+        <default>false</default>
+        <label>Titular</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Cónyuge</fullName>
+        <default>false</default>
+        <label>Cónyuge</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Hijo(a)</fullName>
+        <default>false</default>
+        <label>Hijo(a)</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Padre / Madre</fullName>
+        <default>false</default>
+        <label>Padre / Madre</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Dependiente económico</fullName>
+        <default>false</default>
+        <label>Dependiente económico</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Otro familiar</fullName>
+        <default>false</default>
+        <label>Otro familiar</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Contratante</fullName>
+        <default>false</default>
+        <label>Contratante</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Asegurado</fullName>
+        <default>false</default>
+        <label>Asegurado</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Empleado</fullName>
+        <default>false</default>
+        <label>Empleado</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Other</fullName>
+        <default>false</default>
+        <label>Other</label>
+    </standardValue>
+</StandardValueSet>

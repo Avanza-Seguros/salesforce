@@ -3,14 +3,14 @@
  *   @version: 1.0
  *   @creation date: 02/07/2026
  *   @author: Sergio Uribe Toledo - Volestra
- *   @description: Controlador cacheable que expone al comparativo de IA las Quotes hijas de una Opportunity con sus campos custom y los ContentDocumentLinks del PDF comparativo. Las coberturas de cada cotización se obtienen del PRODUCTO de la Quote a través de ProductCoverageAssignment__c (nombre real en Coverage_Type__r.Name).
+ *   @description: Controlador cacheable que expone al comparativo de IA las Quotes hijas de una Opportunity con sus campos custom y los ContentDocumentLinks del PDF comparativo. Las coberturas de cada cotización se obtienen del PRODUCTO de la Quote a través de ProductCoverage (nombre real en CoverageType.Name).
  */
 public with sharing class OpportunityQuotesController {
 
 	/**
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Devuelve las Quotes hijas de una Opportunity con los campos custom usados por el comparativo de IA, envueltas en QuoteSummary y ordenadas por prima anual ascendente. Las coberturas se sacan del producto vía ProductCoverageAssignment__c.
+	 * @description: Devuelve las Quotes hijas de una Opportunity con los campos custom usados por el comparativo de IA, envueltas en QuoteSummary y ordenadas por prima anual ascendente. Las coberturas se sacan del producto vía ProductCoverage.
 	 * @param opportunityId: Id de la Opportunity de la que se obtienen las Quotes.
 	 * @return Lista de QuoteSummary con los datos de cada Quote.
 	 */
@@ -50,7 +50,7 @@ public with sharing class OpportunityQuotesController {
 		}
 
 		// Coberturas de cada cotización = las del PRODUCTO de la Quote, tomadas de
-		// ProductCoverageAssignment__c. El nombre real está en Coverage_Type__r.Name.
+		// ProductCoverage (catálogo que administra Productos y Coberturas).
 		Set<Id> productIds = new Set<Id>();
 		for (QuoteSummary s : out) {
 			if (s.productId != null) { productIds.add(s.productId); }
@@ -58,19 +58,19 @@ public with sharing class OpportunityQuotesController {
 
 		Map<Id, List<String>> covByProduct = new Map<Id, List<String>>();
 		if (!productIds.isEmpty()) {
-			for (ProductCoverageAssignment__c pca : [
-				SELECT Product__c, Coverage_Type__r.Name
-				FROM ProductCoverageAssignment__c
-				WHERE Product__c IN :productIds
-				ORDER BY Coverage_Type__r.Name
+			for (ProductCoverage pc : [
+				SELECT ProductId, CoverageType.Name
+				FROM ProductCoverage
+				WHERE ProductId IN :productIds
+				ORDER BY CoverageType.Name
 			]) {
-				if (pca.Coverage_Type__r == null || String.isBlank(pca.Coverage_Type__r.Name)) {
+				if (pc.CoverageType == null || String.isBlank(pc.CoverageType.Name)) {
 					continue;
 				}
-				if (!covByProduct.containsKey(pca.Product__c)) {
-					covByProduct.put(pca.Product__c, new List<String>());
+				if (!covByProduct.containsKey(pc.ProductId)) {
+					covByProduct.put(pc.ProductId, new List<String>());
 				}
-				covByProduct.get(pca.Product__c).add(pca.Coverage_Type__r.Name);
+				covByProduct.get(pc.ProductId).add(pc.CoverageType.Name);
 			}
 		}
 

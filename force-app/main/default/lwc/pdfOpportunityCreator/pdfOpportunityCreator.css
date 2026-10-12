@@ -15,7 +15,23 @@
   border: 2px dashed #B3CCFF; border-radius: 16px; background: #F5F9FF;
   padding: 1.75rem 1rem; text-align: center; transition: all 0.2s ease;
 }
-.pdf-dropzone:hover { border-color: var(--blue); background: #EEF4FF; }
+.pdf-dropzone { cursor: pointer; outline: none; }
+.pdf-dropzone:hover,
+.pdf-dropzone:focus-visible { border-color: var(--blue); background: #EEF4FF; }
+/* Resaltado mientras se arrastran archivos encima */
+.pdf-dropzone--over {
+  border-color: var(--blue); border-style: solid; background: #E3EDFF;
+  box-shadow: 0 0 0 4px rgba(0, 82, 204, 0.15);
+}
+.pdf-dropzone--disabled { opacity: 0.6; cursor: not-allowed; }
+/* Los elementos internos no interceptan el arrastre (evita parpadeo del resaltado) */
+.pdf-dropzone > * { pointer-events: none; }
+.pdf-dropzone__title { font-size: 0.95rem; font-weight: 700; color: #16325c; margin: 0 0 0.6rem; }
+.pdf-dropzone__btn {
+  display: inline-block; background: var(--blue); color: #ffffff; border: 2px solid var(--blue-dark);
+  border-radius: 10px; padding: 0.45rem 1.1rem; font-weight: 700; font-size: 0.85rem;
+}
+.pdf-file-input { display: none; }
 .pdf-dropzone__icon { --sds-c-icon-color-foreground-default: var(--blue); margin-bottom: 0.5rem; }
 .pdf-dropzone__hint { font-size: 0.8rem; color: #6B7280; margin-top: 0.5rem; }
 
