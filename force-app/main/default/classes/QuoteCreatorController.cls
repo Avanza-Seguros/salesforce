@@ -21,7 +21,7 @@ public with sharing class QuoteCreatorController {
 			return [
 				SELECT Id, Name, OpportunityId, Opportunity.Name, Aseguradora__r.Name,
 					   Opportunity.Ramo__c, Status, TotalPrice, Prima_Total__c, PrimaAnual__c, RatingDate,
-					   ExpirationDate, CreatedDate,
+					   ExpirationDate, CreatedDate, Vigencia_Inicio__c,
 					   (SELECT Id FROM Quotes_Coverages__r)
 				FROM Quote
 				ORDER BY CreatedDate DESC
@@ -45,7 +45,7 @@ public with sharing class QuoteCreatorController {
 				SELECT Id, Name, OpportunityId, Opportunity.Name, Aseguradora__r.Name,
 					   Opportunity.Ramo__c, Status, TotalPrice, RatingDate,
 					   ExpirationDate, CreatedDate, Ramos__c, Prima_Total__c, PrimaAnual__c, Frecuencia_de_prima__c,
-					   Aseguradora__c, Product__c, Product__r.Name, Description
+					   Vigencia_Inicio__c, Aseguradora__c, Product__c, Product__r.Name, Description
 				FROM Quote
 				WHERE Id = :quoteId
 			];
@@ -115,13 +115,28 @@ public with sharing class QuoteCreatorController {
 	@AuraEnabled(cacheable=true)
 	public static List<Quote_Coverage__c> getCoveragesByQuoteId(Id quoteId) {
 		if (quoteId == null) return new List<Quote_Coverage__c>();
-		return [
+		List<Quote_Coverage__c> covs = [
 			SELECT Id, Name, Quote__c, Product__c, Product_Coverage__c,
 				   Coverage_Name__c, Coverage_Code__c, Order__c
 			FROM Quote_Coverage__c
 			WHERE Quote__c = :quoteId
 			ORDER BY Order__c NULLS LAST, Coverage_Name__c
 		];
+		// Coberturas guardadas con el código del catálogo (PC-00001234) en lugar del nombre:
+		// se muestra el nombre real de su tipo de cobertura.
+		Set<Id> conCodigo = new Set<Id>();
+		for (Quote_Coverage__c c : covs) {
+			if (c.Product_Coverage__c != null && esCodigoCatalogo(c.Coverage_Name__c)) { conCodigo.add(c.Product_Coverage__c); }
+		}
+		if (!conCodigo.isEmpty()) {
+			Map<Id, String> nombres = new CoberturasCatalogo().nombresPorId(conCodigo);
+			for (Quote_Coverage__c c : covs) {
+				if (nombres.containsKey(c.Product_Coverage__c) && esCodigoCatalogo(c.Coverage_Name__c)) {
+					c.Coverage_Name__c = nombres.get(c.Product_Coverage__c);
+				}
+			}
+		}
+		return covs;
 	}
 
 	/**
@@ -134,7 +149,31 @@ public with sharing class QuoteCreatorController {
 	@AuraEnabled
 	public static void saveCoverages(List<Quote_Coverage__c> coverages) {
 		try {
-			upsert coverages;
+			if (coverages == null || coverages.isEmpty()) { return; }
+			// Las nuevas que la cotización ya tiene (las crea el flujo Coverages_QLI_Product al
+			// agregar la línea del producto) no se vuelven a insertar: se identifican por su
+			// registro del catálogo o, si no lo traen, por su nombre.
+			Set<Id> quoteIds = new Set<Id>();
+			for (Quote_Coverage__c c : coverages) { if (c.Id == null && c.Quote__c != null) { quoteIds.add(c.Quote__c); } }
+			Set<String> yaTiene = new Set<String>();
+			if (!quoteIds.isEmpty()) {
+				for (Quote_Coverage__c ex : [
+					SELECT Quote__c, Product_Coverage__c, Coverage_Name__c FROM Quote_Coverage__c WHERE Quote__c IN :quoteIds
+				]) {
+					if (ex.Product_Coverage__c != null) { yaTiene.add(ex.Quote__c + '|' + ex.Product_Coverage__c); }
+					if (String.isNotBlank(ex.Coverage_Name__c)) { yaTiene.add(ex.Quote__c + '|' + ex.Coverage_Name__c.toLowerCase()); }
+				}
+			}
+			List<Quote_Coverage__c> aGuardar = new List<Quote_Coverage__c>();
+			for (Quote_Coverage__c c : coverages) {
+				if (c.Id == null && (yaTiene.contains(c.Quote__c + '|' + c.Product_Coverage__c)
+						|| (String.isNotBlank(c.Coverage_Name__c) && yaTiene.contains(c.Quote__c + '|' + c.Coverage_Name__c.toLowerCase())))) {
+					continue;
+				}
+				aGuardar.add(c);
+			}
+			if (aGuardar.isEmpty()) { return; }
+			upsert aGuardar;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudieron guardar las coberturas: ' + detalleError(e));
 		}
@@ -215,7 +254,35 @@ public with sharing class QuoteCreatorController {
 		return new CoberturasCatalogo().porProducto(productId);
 	}
 
+	/**
+	 * @creation date: 12/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el texto es el código autonumérico del catálogo (PC-00001234) y no un nombre.
+	 * @param nombre: Nombre guardado de la cobertura
+	 * @return true si es un código del catálogo
+	 */
+	@TestVisible
+	private static Boolean esCodigoCatalogo(String nombre) {
+		return String.isBlank(nombre) || Pattern.matches('PC-\\d+', nombre.trim());
+	}
+
 	private without sharing class CoberturasCatalogo {
+		/**
+		 * @creation date: 12/10/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Obtiene el nombre del tipo de cobertura de cada registro del catálogo (sin compartir, para
+		 * que el nombre llegue aunque el usuario no vea el tipo de cobertura).
+		 * @param ids: Ids de ProductCoverage
+		 * @return Nombre de la cobertura por Id de ProductCoverage
+		 */
+		Map<Id, String> nombresPorId(Set<Id> ids) {
+			Map<Id, String> out = new Map<Id, String>();
+			for (ProductCoverage pc : [SELECT Id, CoverageType.Name FROM ProductCoverage WHERE Id IN :ids]) {
+				if (pc.CoverageType != null && String.isNotBlank(pc.CoverageType.Name)) { out.put(pc.Id, pc.CoverageType.Name); }
+			}
+			return out;
+		}
+
 		List<CoverageTemplateWrapper> porProducto(Id productId) {
 			List<CoverageTemplateWrapper> result = new List<CoverageTemplateWrapper>();
 			try {

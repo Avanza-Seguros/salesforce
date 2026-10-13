@@ -62,7 +62,7 @@
             <assignToReference>varQuoteCoverage.Coverage_Name__c</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Loop_Coverages.Name</elementReference>
+                <elementReference>frmNombreCobertura</elementReference>
             </value>
         </assignmentItems>
         <assignmentItems>
@@ -77,6 +77,12 @@
         </connector>
     </assignments>
     <environments>Default</environments>
+    <formulas>
+        <description>Nombre real de la cobertura (su tipo de cobertura); el Name del catálogo es un código (PC-…).</description>
+        <name>frmNombreCobertura</name>
+        <dataType>String</dataType>
+        <expression>LEFT(IF(ISBLANK({!Loop_Coverages.CoverageType.Name}), {!Loop_Coverages.Name}, {!Loop_Coverages.CoverageType.Name}), 255)</expression>
+    </formulas>
     <formulas>
         <name>frmNombreCoberturaCorto</name>
         <dataType>String</dataType>

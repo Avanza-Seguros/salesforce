@@ -572,4 +572,48 @@ private class OpportunityControllerTest {
         Opportunity o = [SELECT AccountId FROM Opportunity WHERE Id = :oppId];
         System.assert([SELECT COUNT() FROM Contact WHERE AccountId = :o.AccountId] >= 1, 'Debe crear el contacto de la empresa');
     }
+
+    /**
+     * @creation date: 12/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que al abrir una oportunidad de Vida se recupere su detalle guardado: subramo desde el
+     * resumen de la descripción (el último bloque) y asegurado principal y contratante desde los roles de contacto.
+     * @return void
+     */
+    @isTest
+    static void testDetalleRamoGuardadoVida() {
+        Map<String, Object> det = new Map<String, Object>{
+            'aseguradoPrincipal' => 'María López Pérez',
+            'contratante' => 'Pedro Ruiz Gómez',
+            'subramo' => 'Ahorro'
+        };
+        Map<String, Object> d = new Map<String, Object>{
+            'Name' => 'Opp Vida Detalle',
+            'tipoCliente' => 'Empresa',
+            'AccountName' => 'Contratante Vida Detalle SA',
+            'Type' => 'New_Business',
+            'Ramo__c' => 'Vida',
+            'Mercado__c' => 'Corporativo',
+            'Producer__c' => producerId(),
+            'CloseDate' => String.valueOf(Date.today().addDays(30)),
+            'AnnualRevenue' => 100,
+            'detalleRamo' => det
+        };
+        Id oppId = OpportunityController.saveOpportunity(JSON.serialize(d), true);
+
+        Test.startTest();
+        OpportunityController.OpportunityDetailWrapper w = OpportunityController.getOpportunityDetails(oppId);
+        Test.stopTest();
+
+        System.assertEquals('Ahorro', w.detalleRamo.get('subramo'), 'El subramo se lee del resumen guardado');
+        System.assertEquals('María López Pérez', w.detalleRamo.get('aseguradoPrincipal'));
+        System.assertEquals('Pedro Ruiz Gómez', w.detalleRamo.get('contratante'));
+
+        // Sin resumen: el asegurado y el contratante salen de los roles de contacto.
+        Opportunity sinResumen = new Opportunity(Id = oppId, Description = 'Sin detalle', Ramo__c = 'Vida');
+        sinResumen.Description = null;
+        Map<String, Object> soloRoles = OpportunityController.detalleRamoGuardado(sinResumen);
+        System.assert(soloRoles.containsKey('aseguradoPrincipal'), 'Asegurado desde el rol primario: ' + soloRoles);
+        System.assertEquals(0, OpportunityController.detalleRamoGuardado(null).size());
+    }
 }

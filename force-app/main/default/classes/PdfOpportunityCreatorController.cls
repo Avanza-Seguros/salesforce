@@ -1623,6 +1623,16 @@ public with sharing class PdfOpportunityCreatorController {
 		// Hereda las coberturas del PRODUCTO a cada cotización (igual que el alta manual),
 		// para que no queden en 0 y coincidan la lista y la comparativa.
 		try {
+			// Coberturas que ya tiene cada cotización (el flujo Coverages_QLI_Product las crea al
+			// agregar la línea del producto): no se vuelven a insertar.
+			Set<Id> nuevasIds = new Set<Id>();
+			for (Quote qq : toInsert) { if (qq.Id != null) { nuevasIds.add(qq.Id); } }
+			Set<String> yaTiene = new Set<String>();
+			for (Quote_Coverage__c ex : [
+				SELECT Quote__c, Product_Coverage__c FROM Quote_Coverage__c
+				WHERE Quote__c IN :nuevasIds AND Product_Coverage__c != null
+			]) { yaTiene.add(ex.Quote__c + '|' + ex.Product_Coverage__c); }
+
 			List<Quote_Coverage__c> covsToInsert = new List<Quote_Coverage__c>();
 			for (Integer i = 0; i < toInsert.size(); i++) {
 				Id qId = toInsert[i].Id;
@@ -1632,9 +1642,11 @@ public with sharing class PdfOpportunityCreatorController {
 				Integer orden = 0;
 				for (QuoteCreatorController.CoverageTemplateWrapper w : QuoteCreatorController.getCoveragesByProduct(pId)) {
 					orden++;
+					if (yaTiene.contains(qId + '|' + w.Id)) { continue; }
 					Quote_Coverage__c qc = new Quote_Coverage__c();
 					qc.Quote__c = qId;
 					qc.Product__c = pId;
+					qc.Product_Coverage__c = w.Id;
 					qc.Coverage_Name__c = w.coverageName;
 					qc.Coverage_Code__c = w.coverageCode;
 					qc.Order__c = (w.orderNum != null) ? w.orderNum : orden;

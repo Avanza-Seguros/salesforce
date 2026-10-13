@@ -1245,6 +1245,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // El vehículo NO está en la oportunidad: viene aparte en el wrapper,
                 // buscado por la cuenta de la oportunidad (Automovil__c.Cuenta__c).
                 if (detail.automovil) { opportunityData.automovil = detail.automovil; }
+                // Detalle del ramo guardado (Vida, Daños, Viajes…): llena "Detalles del seguro de …".
+                // Los campos de la oportunidad tienen prioridad sobre los del detalle.
+                if (detail.detalleRamo) { opportunityData = { ...detail.detalleRamo, ...opportunityData }; }
                 quotesData = detail.quotes || detail.Quotes || detail.relatedQuotes || [];
                 coverageCounts = detail.coverageCounts || detail.CoverageCounts || {};
                 coverageNamesByQuote = detail.coverageNamesByQuote
@@ -1483,6 +1486,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             totalFormatted: this.formatCurrency(totalAmount),
             expirationDateRaw,
             expirationFormatted: this.formatDate(expirationDateRaw),
+            // Fecha de cotización: la capturada (RatingDate) o, si no hay, cuando se creó la cotización.
+            fechaCotizacionFormatted: this.formatDate(q.RatingDate || (q.CreatedDate ? String(q.CreatedDate).substring(0, 10) : null)),
             vigenciaInicioRaw,
             coverageCount,
             coverageLabel: coverageCount === 1
@@ -3700,8 +3705,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const r = (ramo || this.opportunity.Ramo__c || '').toString().toUpperCase();
         const pick = (a, b) => (a !== undefined && a !== null && a !== '') ? a : b;
         if (r.includes('VIDA')) {
+            // Si la IA no trae el asegurado principal, en Vida normalmente es el propio cliente.
+            const o = this.opportunity || {};
+            const cliente = [o.clienteNombre, o.clienteApellidoPaterno, o.clienteApellidoMaterno]
+                .filter(Boolean).join(' ').trim() || o.AccountName || '';
             this.vida = { ...this.vida,
-                aseguradoPrincipal: pick(det.aseguradoPrincipal, this.vida.aseguradoPrincipal),
+                aseguradoPrincipal: pick(det.aseguradoPrincipal, pick(this.vida.aseguradoPrincipal, cliente)),
                 contratante:        pick(det.contratante, this.vida.contratante),
                 subramo:            pick(det.subramo, this.vida.subramo),
                 edadVida:           pick(det.edadVida, this.vida.edadVida),
@@ -4152,6 +4161,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageDetalle,
             expirationDateRaw: q.vigencia || this.sumarUnAnio(q.vigenciaInicio),
             expirationFormatted: this.formatDate(q.vigencia || this.sumarUnAnio(q.vigenciaInicio)),
+            fechaCotizacionFormatted: this.formatDate(q.fechaCotizacion || this.hoyISO()),
             vigenciaInicioRaw: q.vigenciaInicio || null,
             primasPorFrecuencia: q.primasPorFrecuencia || null,
             beneficiosOpcionales: q.beneficiosOpcionales || [],

@@ -47,6 +47,43 @@ const STATUS_ICONS = {
 
 const PAGE_SIZE = 12;
 
+// Conceptos para agrupar las coberturas en la cotización (se evalúan en orden; el primero que
+// coincide gana). Las palabras van en minúsculas y sin acentos.
+const GRUPOS_COBERTURA = [
+    { key: 'exencion', titulo: 'Exención de pago de primas', icono: 'utility:money',
+      descripcion: 'Si ocurre el evento, la aseguradora deja de cobrar las primas.',
+      palabras: ['exencion', 'pago de primas', 'pago de costo'] },
+    { key: 'vida', titulo: 'Beneficios en vida', icono: 'utility:like',
+      descripcion: 'Apoyos que se pagan en vida al asegurado.',
+      palabras: ['apoyo en vida', 'enfermedad terminal', 'enfermedades graves', 'cancer', 'supervivencia'] },
+    { key: 'accidentes', titulo: 'Accidentes', icono: 'utility:warning',
+      descripcion: 'Pagos adicionales cuando el evento es por accidente.',
+      palabras: ['accident', 'doble indemnizacion', 'triple indemnizacion'] },
+    { key: 'invalidez', titulo: 'Invalidez', icono: 'utility:user',
+      descripcion: 'Protección si el asegurado queda inválido total y permanentemente.',
+      palabras: ['invalidez', 'incapacidad'] },
+    { key: 'fallecimiento', titulo: 'Fallecimiento', icono: 'utility:heart',
+      descripcion: 'Suma asegurada para los beneficiarios.',
+      palabras: ['muerte', 'fallec', 'defuncion', 'basica', 'vida'] },
+    { key: 'asistencias', titulo: 'Asistencias y servicios', icono: 'utility:call',
+      descripcion: 'Servicios de apoyo incluidos.',
+      palabras: ['asistencia', 'servicio', 'orientacion', 'telemedicina', 'funerari'] },
+    { key: 'medicos', titulo: 'Gastos médicos', icono: 'utility:heart',
+      descripcion: 'Atención médica y hospitalaria.',
+      palabras: ['medic', 'hospital', 'maternidad', 'parto', 'dental', 'vision', 'emergencia'] },
+    { key: 'danos', titulo: 'Daños y robo', icono: 'utility:shield',
+      descripcion: 'Daños materiales y robo del bien asegurado.',
+      palabras: ['dano', 'robo', 'cristal', 'granizo', 'incendio', 'terremoto', 'inundacion'] },
+    { key: 'rc', titulo: 'Responsabilidad civil', icono: 'utility:people',
+      descripcion: 'Daños que el asegurado cause a terceros.',
+      palabras: ['responsabilidad', 'terceros'] },
+    { key: 'legal', titulo: 'Protección legal', icono: 'utility:knowledge_base',
+      descripcion: 'Defensa y gastos legales.',
+      palabras: ['legal', 'juridic', 'fianza'] },
+    { key: 'otras', titulo: 'Otras coberturas', icono: 'utility:shield',
+      descripcion: 'Coberturas adicionales del producto.', palabras: [] }
+];
+
 export default class QuoteCreator extends NavigationMixin(LightningElement) {
     @api recordId;
 
@@ -224,8 +261,10 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 OpportunityLabel: oppName,
                 StatusLabel: STATUS_LABELS[q.Status] || q.Status || 'Sin estado',
                 TotalPremiumFormatted: this.formatCurrency(totalPrice),
-                EffectiveDateFormatted: this.formatDate(q.EffectiveDate),
+                EffectiveDateFormatted: this.formatDate(q.Vigencia_Inicio__c),
                 ExpirationDateFormatted: this.formatDate(q.ExpirationDate),
+                FechaCotizacionFormatted: this.formatDate(q.RatingDate || q.CreatedDate),
+                hasVigencia: !!(q.Vigencia_Inicio__c || q.ExpirationDate),
                 CreatedDateFormatted: this.formatDate(q.CreatedDate),
                 statusIcon: STATUS_ICONS[q.Status] || 'utility:info',
                 statusBadgeClass: this.getStatusBadgeClass(q.Status, isExpired),
@@ -243,7 +282,56 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     // COBERTURAS — sólo nombres
     // ============================================================
     get hasCoverages()   { return this.coverages && this.coverages.length > 0; }
-    get coveragesCount() { return this.coverages.length; }
+    // Coberturas distintas (sin repetidos por nombre).
+    get coveragesCount() {
+        return this.coverageGroups.reduce((n, g) => n + g.count, 0);
+    }
+
+    /**
+     * Coberturas agrupadas por concepto para que el cliente entienda qué incluye la
+     * cotización: nombres limpios ("Cláusula adicional de…" se omite), sin repetidos,
+     * con la etiqueta "Sin costo" cuando aplica y sin códigos del catálogo (PC-…).
+     */
+    get coverageGroups() {
+        const grupos = new Map();
+        const vistos = new Set();
+        (this.coverages || []).forEach((c, idx) => {
+            const original = (c.Coverage_Name__c || c.Name || c.CoverageType?.Name || '').toString().trim();
+            if (!original || /^PC-\d+$/i.test(original)) { return; }
+            const sinCosto = /\(?\s*sin costo\s*\)?/i.test(original);
+            let nombre = original
+                .replace(/\(?\s*sin costo\s*\)?/ig, '')
+                .replace(/^cl[aá]usula adicional (de la |del |de )?/i, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+            const llave = this.normalizarTexto(nombre);
+            if (!llave || vistos.has(llave)) { return; }
+            vistos.add(llave);
+            const def = this.grupoDeCobertura(llave);
+            if (!grupos.has(def.key)) { grupos.set(def.key, { ...def, items: [] }); }
+            grupos.get(def.key).items.push({ key: `${def.key}-${idx}`, nombre, sinCosto, titulo: original });
+        });
+        return GRUPOS_COBERTURA
+            .filter(g => grupos.has(g.key))
+            .map(g => {
+                const grupo = grupos.get(g.key);
+                return { ...grupo, count: grupo.items.length,
+                    countLabel: grupo.items.length === 1 ? '1 cobertura' : `${grupo.items.length} coberturas` };
+            });
+    }
+
+    // Concepto al que pertenece una cobertura (por palabras clave; el primero que coincide).
+    grupoDeCobertura(llave) {
+        return GRUPOS_COBERTURA.find(g => g.palabras.some(w => llave.includes(w)))
+            || GRUPOS_COBERTURA[GRUPOS_COBERTURA.length - 1];
+    }
+
+    normalizarTexto(v) {
+        return (v || '').toString().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ').trim();
+    }
 
     /**
      * Lista lista para render. Solo necesita un nombre visible y una
@@ -349,8 +437,10 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 // En el form la "Prima Total" muestra la prima (Prima_Total__c /
                 // PrimaAnual__c); TotalPrice estándar es calculado.
                 TotalPrice: data.Prima_Total__c ?? data.PrimaAnual__c ?? data.TotalPrice ?? 0,
-                // La "Fecha Inicio" se guarda en RatingDate; al cargar se mapea de vuelta.
-                EffectiveDate: this.formatDateForInput(data.RatingDate) || data.EffectiveDate || '',
+                // Fecha de cotización (RatingDate) y vigencia del seguro (Vigencia_Inicio__c → ExpirationDate).
+                FechaCotizacion: this.formatDateForInput(data.RatingDate) || this.formatDateForInput(data.CreatedDate) || '',
+                EffectiveDate: this.formatDateForInput(data.Vigencia_Inicio__c) || '',
+                ExpirationDate: this.formatDateForInput(data.ExpirationDate) || '',
                 Frecuencia_de_prima__c: data.Frecuencia_de_prima__c || 'Mensual',
                 AseguradoraName: data.Aseguradora__r?.Name || data.AseguradoraName || '',
                 OpportunityName: data.OpportunityName || data.Opportunity?.Name || '',
@@ -711,7 +801,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 PrimaAnual__c: parseFloat(this.quote.TotalPrice) || 0,
                 Prima_Total__c: parseFloat(this.quote.TotalPrice) || 0,
                 Frecuencia_de_prima__c: this.quote.Frecuencia_de_prima__c || 'Mensual',
-                RatingDate: this.quote.EffectiveDate || hoy,
+                RatingDate: this.quote.FechaCotizacion || hoy,
+                Vigencia_Inicio__c: this.quote.EffectiveDate || null,
                 ExpirationDate: this.quote.ExpirationDate || null,
                 Description: this.quote.Description || null
             };
@@ -802,6 +893,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             Status: 'In Review',
             TotalPrice: 0,
             Frecuencia_de_prima__c: 'Mensual',
+            FechaCotizacion: this.formatDateForInput(today),
             EffectiveDate: this.formatDateForInput(today),
             ExpirationDate: this.formatDateForInput(oneYearLater),
             Description: ''

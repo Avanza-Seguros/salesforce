@@ -82,13 +82,16 @@ public with sharing class OpportunityController {
                 if (!autos.isEmpty()) { wrapper.automovil = autos[0]; }
             }
 
+			// Detalle del ramo guardado ("Detalles del seguro de …" del formulario).
+			wrapper.detalleRamo = detalleRamoGuardado(wrapper.opportunity);
+
 			// - QuoteLineItem    → línea con el PRODUCTO de la cotización
 			// - Quote_Coverage__c → COBERTURAS reales (objeto custom)
 			wrapper.quotes = [
 				SELECT Id, IsDeleted, Name, Pricebook2Id, ContactId, Contact.Name, QuoteNumber,
 					   IsSyncing, Tax, Status, ExpirationDate, Subtotal, TotalPrice, Email, AccountId,
 					   Account.Name, Product__c, Product__r.Name, Is_Selected__c,
-					   Prima_Total__c, PrimaAnual__c, Vigencia_Inicio__c,
+					   Prima_Total__c, PrimaAnual__c, Vigencia_Inicio__c, RatingDate, CreatedDate,
 					   Aseguradora__c, Aseguradora__r.Name, Price_Book__c,
 					   (SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice, TotalPrice
 						FROM QuoteLineItems)
@@ -109,14 +112,21 @@ public with sharing class OpportunityController {
 			// Las coberturas del producto se leen del objeto ProductCoverage (estandar),
 			// la MISMA fuente que usa el editor de cotizacion al seleccionar un producto,
 			// para que el numero de coberturas de la lista coincida con el del editor.
-			Map<Id, List<String>> coveragesByProduct = new CoberturasCatalogoBulk().porProductos(productIds);
+			CoberturasCatalogoBulk catalogo = new CoberturasCatalogoBulk();
+			Map<Id, List<String>> coveragesByProduct = catalogo.porProductos(productIds);
+			// Coberturas guardadas en cada cotización (lo mismo que muestra Crear Cotización); el
+			// catálogo del producto solo se usa si la cotización todavía no tiene coberturas.
+			Set<Id> quoteIds = new Set<Id>();
+			for (Quote q : wrapper.quotes) { quoteIds.add(q.Id); }
+			Map<Id, List<String>> coveragesByQuote = catalogo.porCotizaciones(quoteIds);
 
 			Map<Id, Integer> coverageCounts = new Map<Id, Integer>();
 			Map<Id, List<String>> coverageNamesByQuote = new Map<Id, List<String>>();
 			for (Quote q : wrapper.quotes) {
-				List<String> names = (q.Product__c != null && coveragesByProduct.containsKey(q.Product__c))
-					? coveragesByProduct.get(q.Product__c)
-					: new List<String>();
+				List<String> names = coveragesByQuote.containsKey(q.Id) ? coveragesByQuote.get(q.Id)
+					: ((q.Product__c != null && coveragesByProduct.containsKey(q.Product__c))
+						? coveragesByProduct.get(q.Product__c)
+						: new List<String>());
 				coverageNamesByQuote.put(q.Id, names);
 				coverageCounts.put(q.Id, names.size());
 			}
@@ -140,6 +150,7 @@ public with sharing class OpportunityController {
 		@AuraEnabled public Map<Id, Integer> coverageCounts;
 		@AuraEnabled public Map<Id, List<String>> coverageNamesByQuote;
 		@AuraEnabled public CustomerProperty automovil;   // vehículo (CustomerProperty) ligado a la cuenta
+		@AuraEnabled public Map<String, Object> detalleRamo; // detalle del ramo guardado (Vida, Daños, Viajes…)
 	}
 
 	/**
@@ -156,6 +167,44 @@ public with sharing class OpportunityController {
 		 * @param productIds: Ids de los productos
 		 * @return Nombres de cobertura por Id de producto
 		 */
+		/**
+		 * @creation date: 12/10/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Obtiene las coberturas guardadas en cada cotización (Quote_Coverage__c) sin repetidos
+		 * (ignora mayúsculas y espacios dobles). Si una se guardó con el código del catálogo (PC-…), usa el
+		 * nombre de su tipo de cobertura.
+		 * @param quoteIds: Ids de las cotizaciones
+		 * @return Nombres de cobertura por Id de cotización (solo las que tienen coberturas)
+		 */
+		Map<Id, List<String>> porCotizaciones(Set<Id> quoteIds) {
+			Map<Id, List<String>> out = new Map<Id, List<String>>();
+			if (quoteIds == null || quoteIds.isEmpty()) { return out; }
+			Map<Id, Set<String>> vistos = new Map<Id, Set<String>>();
+			for (Quote_Coverage__c c : [
+				SELECT Quote__c, Coverage_Name__c, Product_Coverage__r.CoverageType.Name
+				FROM Quote_Coverage__c WHERE Quote__c IN :quoteIds
+				ORDER BY Order__c NULLS LAST, Coverage_Name__c
+			]) {
+				String nombre = c.Coverage_Name__c;
+				if ((String.isBlank(nombre) || Pattern.matches('PC-\\d+', nombre.trim()))
+						&& c.Product_Coverage__r != null && c.Product_Coverage__r.CoverageType != null) {
+					nombre = c.Product_Coverage__r.CoverageType.Name;
+				}
+				if (String.isBlank(nombre)) { continue; }
+				nombre = nombre.normalizeSpace();
+				// Misma llave que usa Crear Cotización para no repetir: sin "(sin costo)", sin el prefijo
+				// "Cláusula adicional de…", sin acentos ni mayúsculas.
+				String llave = nombre.toLowerCase().replaceAll('\\(?\\s*sin costo\\s*\\)?', '')
+					.replaceAll('^cl[aá]usula adicional (de la |del |de )?', '')
+					.replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
+					.replace('ñ', 'n').normalizeSpace();
+				if (String.isBlank(llave)) { continue; }
+				if (!vistos.containsKey(c.Quote__c)) { vistos.put(c.Quote__c, new Set<String>()); out.put(c.Quote__c, new List<String>()); }
+				if (vistos.get(c.Quote__c).add(llave)) { out.get(c.Quote__c).add(nombre); }
+			}
+			return out;
+		}
+
 		Map<Id, List<String>> porProductos(Set<Id> productIds) {
 			Map<Id, List<String>> out = new Map<Id, List<String>>();
 			if (productIds == null || productIds.isEmpty()) { return out; }
@@ -1354,6 +1403,68 @@ public with sharing class OpportunityController {
 		}
 	}
 
+	// Etiquetas del resumen del ramo en la descripción de la oportunidad (campo del formulario -> texto).
+	private static final Map<String, String> ETIQUETAS_RAMO = new Map<String, String>{
+		'estado' => 'Estado', 'tipoEstructura' => 'Tipo de estructura', 'numAsegurados' => 'No. de asegurados',
+		'aseguradoPrincipal' => 'Asegurado principal', 'contratante' => 'Contratante', 'subramo' => 'Subramo',
+		'destino' => 'Destino', 'numPasajeros' => 'No. de pasajeros',
+		'giro' => 'Giro', 'actividad' => 'Actividad', 'ubicacion' => 'Ubicacion',
+		'valorInmueble' => 'Valor del inmueble', 'valorContenidos' => 'Valor de contenidos',
+		'tipoFianza' => 'Tipo de fianza', 'fiado' => 'Fiado', 'beneficiario' => 'Beneficiario', 'montoAfianzado' => 'Monto afianzado',
+		'tipoRC' => 'Tipo de RC', 'profesion' => 'Profesion', 'plan' => 'Plan', 'red' => 'Red medica'
+	};
+
+	/**
+	 * @creation date: 12/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Recupera el detalle del ramo guardado para mostrarlo al abrir la oportunidad: lee el último
+	 * bloque "Detalle del ramo" de la descripción (lo escribe buildRamoResumen al guardar) y, en Vida, completa el
+	 * asegurado principal y el contratante con los roles de contacto de la oportunidad.
+	 * @param opp: Oportunidad con Description y Ramo__c consultados
+	 * @return Campos del detalle del ramo (vacío si no hay)
+	 */
+	@TestVisible
+	private static Map<String, Object> detalleRamoGuardado(Opportunity opp) {
+		Map<String, Object> det = new Map<String, Object>();
+		if (opp == null) { return det; }
+		Map<String, String> porEtiqueta = new Map<String, String>();
+		for (String k : ETIQUETAS_RAMO.keySet()) { porEtiqueta.put(ETIQUETAS_RAMO.get(k).toLowerCase(), k); }
+
+		String texto = opp.Description == null ? '' : opp.Description;
+		Integer ini = texto.lastIndexOf('Detalle del ramo');
+		if (ini >= 0) {
+			List<String> lineas = texto.substring(ini).split('\n');
+			for (Integer i = 1; i < lineas.size(); i++) {
+				String l = lineas[i].trim();
+				if (!l.startsWith('\u2022')) { break; } // fin del bloque
+				l = l.substring(1).trim();
+				Integer dp = l.indexOf(':');
+				if (dp <= 0) { continue; }
+				String campo = porEtiqueta.get(l.substring(0, dp).trim().toLowerCase());
+				String valor = l.substring(dp + 1).trim();
+				if (campo != null && String.isNotBlank(valor)) { det.put(campo, valor); }
+			}
+		}
+
+		// Vida: el asegurado principal y el contratante se guardan como roles de contacto.
+		String ramo = opp.Ramo__c == null ? '' : opp.Ramo__c.toUpperCase();
+		if (ramo.contains('VIDA') && opp.Id != null
+				&& (!det.containsKey('aseguradoPrincipal') || !det.containsKey('contratante'))) {
+			for (OpportunityContactRole r : [
+				SELECT Contact.Name, IsPrimary, Role FROM OpportunityContactRole
+				WHERE OpportunityId = :opp.Id AND ContactId != null ORDER BY IsPrimary DESC, CreatedDate ASC
+			]) {
+				String rol = r.Role == null ? '' : r.Role.toLowerCase();
+				if (rol.contains('contratante') || rol.contains('decision') || rol.contains('economic')) {
+					if (!det.containsKey('contratante')) { det.put('contratante', r.Contact.Name); }
+				} else if (!det.containsKey('aseguradoPrincipal')) {
+					det.put('aseguradoPrincipal', r.Contact.Name);
+				}
+			}
+		}
+		return det;
+	}
+
 	/**
 	 * @creation date: 22/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -1364,15 +1475,7 @@ public with sharing class OpportunityController {
 	 */
 	private static String buildRamoResumen(String ramo, Map<String, Object> det) {
 		if (det == null || det.isEmpty()) { return null; }
-		Map<String, String> etiquetas = new Map<String, String>{
-			'estado' => 'Estado', 'tipoEstructura' => 'Tipo de estructura', 'numAsegurados' => 'No. de asegurados',
-			'aseguradoPrincipal' => 'Asegurado principal', 'contratante' => 'Contratante', 'subramo' => 'Subramo',
-			'destino' => 'Destino', 'numPasajeros' => 'No. de pasajeros',
-			'giro' => 'Giro', 'actividad' => 'Actividad', 'ubicacion' => 'Ubicacion',
-			'valorInmueble' => 'Valor del inmueble', 'valorContenidos' => 'Valor de contenidos',
-			'tipoFianza' => 'Tipo de fianza', 'fiado' => 'Fiado', 'beneficiario' => 'Beneficiario', 'montoAfianzado' => 'Monto afianzado',
-			'tipoRC' => 'Tipo de RC', 'profesion' => 'Profesion', 'plan' => 'Plan', 'red' => 'Red medica'
-		};
+		Map<String, String> etiquetas = ETIQUETAS_RAMO;
 		List<String> lineas = new List<String>();
 		for (String k : det.keySet()) {
 			Object v = det.get(k);

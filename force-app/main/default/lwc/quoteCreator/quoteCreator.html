@@ -165,6 +165,10 @@
 
                                             <div class="quote-dates">
                                                 <div class="date-item">
+                                                    <lightning-icon icon-name="utility:event" size="xx-small"></lightning-icon>
+                                                    <span>Cotizada: {quote.FechaCotizacionFormatted}</span>
+                                                </div>
+                                                <div class="date-item" if:true={quote.hasVigencia}>
                                                     <lightning-icon icon-name="utility:date_input" size="xx-small"></lightning-icon>
                                                     <span>Vigencia: {quote.EffectiveDateFormatted} - {quote.ExpirationDateFormatted}</span>
                                                 </div>
@@ -246,8 +250,8 @@
 
             <div class="content-container glass-effect unified-view">
 
-                <!-- SECCIÓN 1: INFORMACIÓN BÁSICA -->
-                <div class="unified-section">
+                <!-- SECCIÓN 1: INFORMACIÓN BÁSICA (mismo formato compacto que Crear Oportunidad) -->
+                <div class="unified-section info-basica">
                     <div class="section-header-compact">
                         <div class="section-icon">
                             <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
@@ -406,16 +410,33 @@
                                     </lightning-combobox>
                                 </div>
 
-                                <!-- Vigencia -->
+                                <!-- Fecha de cotización: el día en que se cotizó -->
                                 <div class="form-card">
                                     <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:event" size="x-small"></lightning-icon>
+                                        <h3>Fecha de cotización</h3>
+                                    </div>
+                                    <lightning-input
+                                        type="date"
+                                        label=""
+                                        value={quote.FechaCotizacion}
+                                        onchange={handleInputChange}
+                                        data-field="FechaCotizacion"
+                                        variant="label-hidden">
+                                    </lightning-input>
+                                    <p class="helper-text">Día en que se realizó la cotización.</p>
+                                </div>
+
+                                <!-- Vigencia del seguro cotizado -->
+                                <div class="form-card form-card-ancha">
+                                    <div class="form-card-header">
                                         <lightning-icon icon-name="utility:date_input" size="x-small"></lightning-icon>
-                                        <h3>Vigencia</h3>
+                                        <h3>Vigencia del seguro</h3>
                                     </div>
                                     <div class="date-range">
                                         <lightning-input
                                             type="date"
-                                            label="Fecha Inicio"
+                                            label="Desde"
                                             value={quote.EffectiveDate}
                                             onchange={handleInputChange}
                                             data-field="EffectiveDate"
@@ -423,7 +444,7 @@
                                         </lightning-input>
                                         <lightning-input
                                             type="date"
-                                            label="Fecha Fin"
+                                            label="Hasta"
                                             value={quote.ExpirationDate}
                                             onchange={handleInputChange}
                                             data-field="ExpirationDate"
@@ -501,11 +522,30 @@
 
                         <template if:false={isLoadingCoverages}>
                             <template if:true={hasCoverages}>
-                                <div class="coverages-chip-list">
-                                    <template for:each={displayCoverages} for:item="cov">
-                                        <div key={cov.uniqueKey} class="coverage-chip">
-                                            <lightning-icon icon-name="utility:shield" size="xx-small"></lightning-icon>
-                                            <span class="coverage-chip-name">{cov.displayName}</span>
+                                <div class="coverage-groups">
+                                    <template for:each={coverageGroups} for:item="grupo">
+                                        <div key={grupo.key} class="coverage-group">
+                                            <div class="coverage-group-header">
+                                                <span class="coverage-group-icon">
+                                                    <lightning-icon icon-name={grupo.icono} size="x-small" variant="inverse"></lightning-icon>
+                                                </span>
+                                                <div class="coverage-group-title">
+                                                    <h4>{grupo.titulo}</h4>
+                                                    <p>{grupo.descripcion}</p>
+                                                </div>
+                                                <span class="coverage-group-count">{grupo.count}</span>
+                                            </div>
+                                            <ul class="coverage-group-list">
+                                                <template for:each={grupo.items} for:item="item">
+                                                    <li key={item.key} title={item.titulo}>
+                                                        <lightning-icon icon-name="utility:success" size="xx-small" class="coverage-check"></lightning-icon>
+                                                        <span class="coverage-item-name">{item.nombre}</span>
+                                                        <template if:true={item.sinCosto}>
+                                                            <span class="coverage-free">Sin costo</span>
+                                                        </template>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                     </template>
                                 </div>
