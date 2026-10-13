@@ -1,0 +1,8 @@
+<apex:page renderAs="pdf"
+           applyHtmlTag="false"
+           showHeader="false"
+           sidebar="false"
+           standardStylesheets="false"
+           controller="FlotillaComparativoPdfController">
+  <apex:outputText value="{!htmlBody}" escape="false"/>
+</apex:page>

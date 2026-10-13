@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Categoria__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Categoría (GroupClass) a la que aplica la cobertura en una cotización colectiva. Vacío = aplica a todas.</description>
+    <externalId>false</externalId>
+    <label>Categoría</label>
+    <referenceTo>GroupClass</referenceTo>
+    <relationshipLabel>Coberturas de cotización</relationshipLabel>
+    <relationshipName>Coberturas_Cotizacion</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

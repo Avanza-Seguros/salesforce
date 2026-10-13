@@ -290,6 +290,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     // ===== Colectivas: asegurados del grupo (Rol de Contacto de Oportunidad) =====
     @track asegurados = [];
+    // Total de asegurados del censo colectivo (lo informa c-censo-colectivo).
+    censoTotal = 0;
+    // Cotizaciones de flotilla cargadas (lo informa c-flotilla-colectiva).
+    flotillaCotizaciones = 0;
     correoFlowOppId = null;
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
@@ -1602,11 +1606,53 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isColectiva() {
         return this.opportunity && this.opportunity.Tipo_Contratacion__c === 'Colectiva';
     }
-    // Muestra la lista de PERSONAS (asegurados/pasajeros) cuando la contratación es
-    // colectiva o el ramo cubre a varias personas (GMM, Viajes, Dental, Visión).
+    // Muestra la lista de PERSONAS (asegurados/pasajeros) cuando el ramo cubre a varias
+    // personas (GMM, Viajes, Dental, Visión). En contratación COLECTIVA los asegurados se
+    // manejan en el censo (c-censo-colectivo: GroupCensus / GroupCensusMember).
     get mostrarPersonas() {
-        return this.isColectiva || this.isRamoGMM || this.isRamoViajes
-            || this.isRamoDental || this.isRamoVision;
+        return !this.isColectiva && (this.isRamoGMM || this.isRamoViajes
+            || this.isRamoDental || this.isRamoVision);
+    }
+    get censoBadge() {
+        return this.censoTotal ? `${this.censoTotal} asegurados` : 'Sin censo';
+    }
+    handleCensoActualizado(event) {
+        this.censoTotal = (event.detail && event.detail.total) || 0;
+    }
+    // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se cargan las
+    // cotizaciones de cada aseguradora por inciso (c-flotilla-colectiva).
+    get isFlotilla() {
+        return this.isColectiva && this.isRamoAutomovil;
+    }
+    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos.
+    get mostrarDetalleRamo() {
+        return this.showCreateView && !this.isFlotilla;
+    }
+    get isCensoPersonas() {
+        return this.isColectiva && !this.isRamoAutomovil;
+    }
+    get flotillaBadge() {
+        return this.flotillaCotizaciones
+            ? `${this.flotillaCotizaciones} ${this.flotillaCotizaciones === 1 ? 'cotización' : 'cotizaciones'}`
+            : 'Sin cotizaciones';
+    }
+    handleFlotillaActualizada(event) {
+        this.flotillaCotizaciones = (event.detail && event.detail.cotizaciones) || 0;
+    }
+    // La cotización de flotilla también es un Quote: refresca solo la lista de cotizaciones
+    // (sin recargar el formulario para no perder cambios sin guardar).
+    async handleCotizacionFlotilla() {
+        const id = this.opportunity && this.opportunity.Id;
+        if (!id) { return; }
+        try {
+            const detail = await getOpportunityDetails({ opportunityId: id });
+            const quotesData = (detail && (detail.quotes || detail.Quotes)) || [];
+            const counts = (detail && detail.coverageCounts) || {};
+            const nombres = (detail && detail.coverageNamesByQuote) || {};
+            this.relatedQuotes = quotesData.map((q) => this.mapRelatedQuote(q, counts, nombres));
+        } catch (e) {
+            // La lista se actualizará al volver a abrir la oportunidad.
+        }
     }
     // Título/subtítulo de la sección de personas según el ramo.
     get personasTitulo() {

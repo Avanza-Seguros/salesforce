@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Vehiculo__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Vehículo (bien del cliente) asegurado en el inciso.</description>
+    <externalId>false</externalId>
+    <label>Vehículo</label>
+    <referenceTo>CustomerProperty</referenceTo>
+    <relationshipLabel>Incisos de flotilla</relationshipLabel>
+    <relationshipName>Incisos_Flotilla</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

@@ -686,7 +686,7 @@
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
                 <!-- ====================================================== -->
-                <div class="unified-section" if:true={showCreateView}>
+                <div class="unified-section" if:true={mostrarDetalleRamo}>
                     <div class="section-header-compact">
                         <div class="section-icon">
                             <lightning-icon icon-name="utility:product" size="small"></lightning-icon>
@@ -1114,6 +1114,45 @@
                                     Aún no hay asegurados. Agrégalos uno por uno o sube el censo en CSV.
                                 </div>
                             </template>
+                        </div>
+                    </div>
+                </template>
+                <!-- Censo de asegurados de la contratación COLECTIVA (GroupCensus) -->
+                <!-- Flotilla (Colectiva de Automóviles): cotizaciones por inciso de cada aseguradora -->
+                <template if:true={isFlotilla}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Flotilla</h2>
+                                <p class="section-subtitle">Cotizaciones por inciso de cada aseguradora y comparativo</p>
+                            </div>
+                            <div class="section-badge">{flotillaBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-flotilla-colectiva opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                onflotillaactualizada={handleFlotillaActualizada}
+                                oncotizacioncreada={handleCotizacionFlotilla}></c-flotilla-colectiva>
+                        </div>
+                    </div>
+                </template>
+                <template if:true={isCensoPersonas}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Censo de asegurados</h2>
+                                <p class="section-subtitle">Titulares, dependientes y categorías de la póliza colectiva</p>
+                            </div>
+                            <div class="section-badge">{censoBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-censo-colectivo opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                oncensoactualizado={handleCensoActualizado}></c-censo-colectivo>
                         </div>
                     </div>
                 </template>

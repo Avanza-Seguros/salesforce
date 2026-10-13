@@ -134,7 +134,7 @@ public with sharing class AseguradosController {
             // 4) OCR existentes de la oportunidad (para no duplicar).
             Map<Id, OpportunityContactRole> ocrPorContacto = new Map<Id, OpportunityContactRole>();
             for (OpportunityContactRole ex : [
-                SELECT Id, ContactId FROM OpportunityContactRole WHERE OpportunityId = :opportunityId
+                SELECT Id, ContactId, IsPrimary FROM OpportunityContactRole WHERE OpportunityId = :opportunityId
             ]) {
                 if (ex.ContactId != null) { ocrPorContacto.put(ex.ContactId, ex); }
             }
