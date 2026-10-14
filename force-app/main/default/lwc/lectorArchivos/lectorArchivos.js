@@ -492,3 +492,31 @@ export function buscarVigencia(filas) {
     }
     return { desde: desde || '', hasta: hasta || '' };
 }
+
+// Texto de una hoja para la IA: un renglón por fila con datos ("R12: celda | celda"), números con 2 decimales como
+// máximo y sin celdas vacías. Se corta en "maxCaracteres" (la IA recibe un bloque limitado).
+export function tablaATexto(filas, maxCaracteres) {
+    const lineas = [];
+    let largo = 0;
+    for (let i = 0; i < filas.length; i++) {
+        // Un número junto a una etiqueta de fecha ("Del: 46235") es una fecha de Excel: se escribe como dd/mm/aaaa.
+        let anterior = '';
+        const celdas = [];
+        (filas[i] || []).forEach((c) => {
+            let t;
+            if (typeof c === 'number') {
+                const f = /(^| )(del|al|desde|hasta|vigencia|fecha|inicio|fin|emision)( |$)/.test(fold(anterior)) ? fecha(c).iso : '';
+                t = f ? fechaVisible(f) : String(Math.round(c * 100) / 100);
+            } else {
+                t = String(c ?? '').replace(/\s+/g, ' ').trim();
+            }
+            if (t !== '') { celdas.push(t); anterior = t; }
+        });
+        if (!celdas.length) { continue; }
+        const linea = `R${i + 1}: ${celdas.join(' | ')}`;
+        if (maxCaracteres && largo + linea.length > maxCaracteres) { break; }
+        lineas.push(linea);
+        largo += linea.length + 1;
+    }
+    return lineas.join('\n');
+}

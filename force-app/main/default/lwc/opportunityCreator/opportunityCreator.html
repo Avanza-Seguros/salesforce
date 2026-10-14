@@ -1156,6 +1156,26 @@
                         </div>
                     </div>
                 </template>
+                <!-- Cotizaciones colectivas de personas (GMM, Vida, Accidentes): una por aseguradora y comparativo -->
+                <template if:true={isCensoPersonas}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Cotizaciones colectivas</h2>
+                                <p class="section-subtitle">Cotización de cada aseguradora por categoría, plan y primas, con comparativo</p>
+                            </div>
+                            <div class="section-badge">{colectivoBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                oncolectivoactualizado={handleColectivoActualizado}
+                                oncotizacioncreada={handleCotizacionFlotilla}></c-colectivo-personas>
+                        </div>
+                    </div>
+                </template>
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 4: COTIZACIONES RELACIONADAS                   -->
                 <!-- (sólo en modo edición — en modo creación no existen)   -->

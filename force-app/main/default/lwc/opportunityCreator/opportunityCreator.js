@@ -294,6 +294,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     censoTotal = 0;
     // Cotizaciones de flotilla cargadas (lo informa c-flotilla-colectiva).
     flotillaCotizaciones = 0;
+    // Cotizaciones colectivas de personas cargadas (lo informa c-colectivo-personas).
+    colectivoCotizaciones = 0;
     correoFlowOppId = null;
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
@@ -1643,6 +1645,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     handleFlotillaActualizada(event) {
         this.flotillaCotizaciones = (event.detail && event.detail.cotizaciones) || 0;
+    }
+    get colectivoBadge() {
+        return this.colectivoCotizaciones
+            ? `${this.colectivoCotizaciones} ${this.colectivoCotizaciones === 1 ? 'cotización' : 'cotizaciones'}`
+            : 'Sin cotizaciones';
+    }
+    handleColectivoActualizado(event) {
+        this.colectivoCotizaciones = (event.detail && event.detail.cotizaciones) || 0;
     }
     // La cotización de flotilla también es un Quote: refresca solo la lista de cotizaciones
     // (sin recargar el formulario para no perder cambios sin guardar).
