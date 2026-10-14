@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_1</activeVersionIdentifier>
+    <activeVersionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</activeVersionIdentifier>
     <developerName>Extractor_Flotilla_Auto</developerName>
     <masterLabel>Extractor Flotilla Auto</masterLabel>
     <overridable>false</overridable>
@@ -12,13 +12,15 @@ Reglas:
 - Ignora encabezados, totales, subtotales, notas, condiciones y números de página: en "incisos" solo van renglones de vehículos.
 - Respeta el orden y el número de inciso como aparecen.
 - Montos como número, sin símbolo de moneda ni comas de miles (ej. 15527.81). Deducibles como porcentaje numérico (5% o 0.05 -> 5).
-- "prima" es la prima TOTAL de ese inciso (no la de una sola cobertura). Si el inciso no trae prima propia, déjala en null.
+- Por inciso: "primaNeta" es la prima neta del vehículo (sin derechos ni IVA) y "prima" es su prima TOTAL (con derechos, recargo e IVA). Muchas aseguradoras solo dan una de las dos: llena la que venga y deja la otra en null. Si la columna solo dice "Prima Neta", va en "primaNeta"; si dice "Prima Total" o "Total", va en "prima". No las calcules.
+- De la póliza completa (resumen o "Formas de pago"): "primaNeta", "derechos" (derechos de póliza o gastos de expedición), "recargo" (recargo por pago fraccionado), "iva" y "primaTotal", tal como vienen impresos para la forma de pago indicada. Si no aparecen, null.
+- "marca" es la marca del vehículo cuando viene en su propia columna.
 - "valor" es el valor convenido, comercial o factura del vehículo (suma asegurada de daños materiales); "tipoValor" indica cuál (Convenido, Comercial, Factura).
 - "uso": como aparece (Normal, Particular, Carga, Servicio público...). "tipoVehiculo": Automóviles, Pick-up de carga, Camiones, Tractocamiones, Remolques, Autobuses o Motocicletas, según la descripción y el uso.
 - "paquete": Amplia, Limitada, RC u otro paquete como aparece.
 - Fechas en formato ISO "YYYY-MM-DD".
 Devuelve exactamente esta estructura:
-{ "aseguradora": "string o null", "vigenciaDesde": "YYYY-MM-DD o null", "vigenciaHasta": "YYYY-MM-DD o null", "formaPago": "string o null", "incisos": [ { "inciso": number o null, "serie": "string o null", "claveVehicular": "string o null", "descripcion": "string o null", "modelo": number o null, "placas": "string o null", "uso": "string o null", "tipoVehiculo": "string o null", "paquete": "string o null", "tipoValor": "string o null", "valor": number o null, "dedDM": number o null, "dedRT": number o null, "rc": number o null, "gm": number o null, "muerte": number o null, "prima": number o null } ] }
+{ "aseguradora": "string o null", "vigenciaDesde": "YYYY-MM-DD o null", "vigenciaHasta": "YYYY-MM-DD o null", "formaPago": "string o null", "primaNeta": number o null, "derechos": number o null, "recargo": number o null, "iva": number o null, "primaTotal": number o null, "incisos": [ { "inciso": number o null, "serie": "string o null", "claveVehicular": "string o null", "marca": "string o null", "descripcion": "string o null", "modelo": number o null, "placas": "string o null", "uso": "string o null", "tipoVehiculo": "string o null", "paquete": "string o null", "tipoValor": "string o null", "valor": number o null, "dedDM": number o null, "dedRT": number o null, "rc": number o null, "gm": number o null, "muerte": number o null, "primaNeta": number o null, "prima": number o null } ] }
 TEXTO DE LA COTIZACIÓN:
 {!$Input:TextoCotizacion}
 </content>
@@ -33,7 +35,7 @@ TEXTO DE LA COTIZACIÓN:
         <primaryModel>sfdc_ai__DefaultGPT5Mini</primaryModel>
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
-        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_1</versionIdentifier>
+        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>

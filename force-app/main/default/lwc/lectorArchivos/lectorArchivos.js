@@ -22,6 +22,31 @@ export function fold(v) {
         .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+// Caracteres de Windows-1252 (0x80-0x9F) que no coinciden con su código Unicode.
+const CP1252 = {
+    '\u20AC': 0x80, '\u201A': 0x82, '\u0192': 0x83, '\u201E': 0x84, '\u2026': 0x85, '\u2020': 0x86, '\u2021': 0x87,
+    '\u02C6': 0x88, '\u2030': 0x89, '\u0160': 0x8A, '\u2039': 0x8B, '\u0152': 0x8C, '\u017D': 0x8E, '\u2018': 0x91,
+    '\u2019': 0x92, '\u201C': 0x93, '\u201D': 0x94, '\u2022': 0x95, '\u2013': 0x96, '\u2014': 0x97, '\u02DC': 0x98,
+    '\u2122': 0x99, '\u0161': 0x9A, '\u203A': 0x9B, '\u0153': 0x9C, '\u017E': 0x9E, '\u0178': 0x9F
+};
+
+// Repara texto con acentos mal codificados (UTF-8 leído como Windows-1252/Latin-1), ej. "DAÃ‘OS" -> "DAÑOS".
+// Si el texto no es un caso así (o no se puede convertir), se regresa sin cambios.
+export function repararTexto(v) {
+    if (typeof v !== 'string' || !/[\u00C3\u00C2]./.test(v)) { return v; }
+    try {
+        const bytes = Uint8Array.from(v, (ch) => {
+            if (CP1252[ch] !== undefined) { return CP1252[ch]; }
+            const c = ch.charCodeAt(0);
+            if (c > 255) { throw new Error('no es Windows-1252'); }
+            return c;
+        });
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) {
+        return v;
+    }
+}
+
 export function tieneDatos(fila) {
     return (fila || []).some((c) => String(c ?? '').trim() !== '');
 }
@@ -40,7 +65,7 @@ export function fecha(v) {
     if (v === undefined || v === null || String(v).trim() === '') { return { iso: '' }; }
     const pad = (n) => String(n).padStart(2, '0');
     const armar = (a, m, d) => {
-        if (a < 100) { a += (a > (new Date().getFullYear() % 100) ? 1900 : 2000); }
+        if (a < 100) { a += (a > (new Date().getFullYear() % 100) + 10 ? 1900 : 2000); }
         const f = new Date(Date.UTC(a, m - 1, d));
         if (f.getUTCFullYear() !== a || f.getUTCMonth() !== m - 1 || f.getUTCDate() !== d || a < 1900 || a > 2100) { return null; }
         return `${a}-${pad(m)}-${pad(d)}`;
@@ -112,7 +137,7 @@ export async function abrirTabla(file) {
         return { hojas: x.hojas.map((h) => h.nombre), leerHoja: (nombre) => leerHojaXlsx(x, nombre) };
     }
     if (ext === 'csv' || ext === 'txt') {
-        const filas = leerCsv(decodificar(await file.arrayBuffer()));
+        const filas = leerCsv(decodificar(await file.arrayBuffer())).map((f) => f.map(repararTexto));
         return { hojas: [], leerHoja: async () => filas };
     }
     throw new Error('Formato no soportado. Usa Excel (.xlsx), CSV o PDF.');
@@ -232,7 +257,7 @@ async function leerHojaXlsx(x, nombre) {
             else if (tipo === 'b') { valor = valor === '1' ? 'VERDADERO' : 'FALSO'; }
             else if (tipo !== 'str' && tipo !== 'e' && valor !== '' && !isNaN(Number(valor))) { valor = Number(valor); }
             if (tipo === 'e') { valor = ''; }
-            fila[col] = valor;
+            fila[col] = repararTexto(valor);
         });
         const r = Number(row.getAttribute('r'));
         filas[r ? r - 1 : filas.length] = Array.from(fila, (c) => (c === undefined ? '' : c));
@@ -253,17 +278,46 @@ function filaArriba(filas, h) {
     return f.filter((c) => String(c ?? '').trim() !== '').length >= 2 ? f : [];
 }
 
+// Renglones debajo del encabezado que lo continúan (ej. "PRIMA" / "NETA", "RESPONSABILIDAD" / "CIVIL" /
+// "TERCEROS"): solo texto (sin números), con menos celdas que el encabezado y hasta 2 renglones.
+export function renglonesEncabezadoAbajo(filas, h) {
+    const llenas = (f) => (f || []).filter((c) => String(c ?? '').trim() !== '');
+    const enc = llenas(filas[h]).length;
+    let k = 0;
+    for (let r = h + 1; r <= h + 2 && r < filas.length - 1; r++) {
+        const celdas = llenas(filas[r]);
+        const soloTexto = celdas.every((c) => numero(c) === null || /[a-z]{2,}/i.test(String(c)));
+        if (!celdas.length || !soloTexto || celdas.length >= enc) { break; }
+        k++;
+    }
+    return k;
+}
+
+// Índice del primer renglón de datos (después del encabezado y sus continuaciones).
+export function inicioDatos(filas, h) {
+    return h + 1 + renglonesEncabezadoAbajo(filas, h);
+}
+
+function filasAbajo(filas, h) {
+    const k = renglonesEncabezadoAbajo(filas, h);
+    return filas.slice(h + 1, h + 1 + k);
+}
+
 // true si la columna trae sobre todo números en los primeros renglones de datos.
 function columnaNumerica(filas, h, col) {
-    const valores = filas.slice(h + 1, h + 40).map((f) => (f || [])[col]).filter((v) => String(v ?? '').trim() !== '').slice(0, 8);
+    const valores = filas.slice(inicioDatos(filas, h), inicioDatos(filas, h) + 40).map((f) => (f || [])[col]).filter((v) => String(v ?? '').trim() !== '').slice(0, 8);
     if (!valores.length) { return true; }
     return valores.filter((v) => numero(v) !== null && !/[a-z]{3,}/i.test(String(v))).length >= valores.length / 2;
 }
 
+// Etiquetas de una columna: sola, con lo de abajo (continuación) y con el renglón de arriba.
 function etiquetas(filas, h, col) {
     const solo = fold((filas[h] || [])[col]);
     const arriba = fold(filaArriba(filas, h)[col]);
-    return { solo, combinada: arriba && solo ? `${arriba} ${solo}` : solo };
+    const abajo = filasAbajo(filas, h).map((f) => fold((f || [])[col])).filter((x) => x).join(' ');
+    const conAbajo = [solo, abajo].filter((x) => x).join(' ');
+    const combinada = [arriba, solo, abajo].filter((x) => x).join(' ');
+    return { solo, conAbajo, combinada };
 }
 
 function puntaje(etiqueta, alias) {
@@ -291,15 +345,15 @@ export function detectarEncabezado(filas, campos) {
  * Cada campo tiene alias (encabezados conocidos) y opcionalmente "excluir" (palabras que descartan la columna).
  */
 export function mapeoAutomatico(filas, h, campos) {
-    const ancho = Math.max(...filas.slice(Math.max(0, h - 1), h + 1).map((f) => (f || []).length), 0);
+    const ancho = Math.max(...filas.slice(Math.max(0, h - 1), inicioDatos(filas, h)).map((f) => (f || []).length), 0);
     const candidatos = [];
     for (let col = 0; col < ancho; col++) {
-        const { solo, combinada } = etiquetas(filas, h, col);
-        if (!solo) { continue; }
+        const { solo, conAbajo, combinada } = etiquetas(filas, h, col);
+        if (!solo && !conAbajo) { continue; }
         campos.forEach((c) => {
             if ((c.excluir || []).some((x) => combinada.includes(x))) { return; }
             let mejor = 0;
-            c.alias.forEach((a) => { mejor = Math.max(mejor, puntaje(solo, a), puntaje(combinada, a)); });
+            c.alias.forEach((a) => { mejor = Math.max(mejor, puntaje(solo, a), puntaje(conAbajo, a), puntaje(combinada, a)); });
             // Un campo numérico (montos, deducibles) no debe tomar una columna de texto ("Amparado").
             if (mejor && c.tipo === 'numero' && !columnaNumerica(filas, h, col)) { mejor -= 80; }
             if (mejor > 0) { candidatos.push({ campo: c.key, col, puntos: mejor }); }
@@ -320,10 +374,12 @@ export function mapeoAutomatico(filas, h, campos) {
 export function opcionesColumnas(filas, h) {
     const enc = filas[h] || [];
     const arriba = filaArriba(filas, h);
+    const abajo = filasAbajo(filas, h);
     const ancho = Math.max(...filas.slice(0, 60).map((f) => (f || []).length), 0);
     const ops = [{ label: '— No usar —', value: '' }];
     for (let i = 0; i < ancho; i++) {
-        const t = [arriba[i], enc[i]].map((x) => String(x ?? '').trim()).filter((x) => x).join(' ');
+        const t = [arriba[i], enc[i], ...abajo.map((f) => (f || [])[i])]
+            .map((x) => String(x ?? '').trim()).filter((x) => x).join(' ');
         ops.push({ label: `${letraColumna(i)}: ${t || '(sin título)'}`, value: String(i) });
     }
     return ops;
@@ -413,4 +469,26 @@ export async function bloquesPdf(componente, file, maxCaracteres, alProgresar) {
     }
     if (actual.trim()) { bloques.push(actual); }
     return bloques;
+}
+
+// Vigencia de la póliza: etiquetas "Desde/Hasta" (o "Del/Al"), o una celda "Vigencia" con un rango de un año
+// ("15/09/26 - 15/09/27"). Un rango corto (ej. 30 días de validez de la cotización) no se toma como vigencia.
+export function buscarVigencia(filas) {
+    let desde = buscarFechaEtiquetada(filas, ['desde', 'vigencia desde', 'inicio de vigencia', 'inicio vigencia', 'del']);
+    let hasta = buscarFechaEtiquetada(filas, ['hasta', 'vigencia hasta', 'fin de vigencia', 'fin vigencia', 'al']);
+    if (desde && hasta) { return { desde, hasta }; }
+    const patron = /(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/g;
+    for (const f of filas) {
+        for (let c = 0; c < (f || []).length; c++) {
+            const t = String(f[c] ?? '');
+            if (!fold(t).includes('vigencia')) { continue; }
+            const texto = [t, ...(f.slice(c + 1, c + 6))].map((x) => String(x ?? '')).join(' ');
+            const fechas = (texto.match(patron) || []).map((x) => fecha(x).iso).filter((x) => x);
+            if (fechas.length >= 2) {
+                const dias = (new Date(fechas[1]) - new Date(fechas[0])) / 86400000;
+                if (dias >= 300 && dias <= 400) { return { desde: fechas[0], hasta: fechas[1] }; }
+            }
+        }
+    }
+    return { desde: desde || '', hasta: hasta || '' };
 }

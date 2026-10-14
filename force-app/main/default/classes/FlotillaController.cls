@@ -36,6 +36,7 @@ public with sharing class FlotillaController {
 		public Decimal gm;
 		public Decimal muerte;
 		public Decimal prima;
+		public Decimal primaNeta;
 		public Integer fila;
 	}
 
@@ -50,6 +51,11 @@ public with sharing class FlotillaController {
 		public String vigenciaHasta;
 		public String formaPago;
 		public String archivo;
+		public Decimal primaNeta;
+		public Decimal derechos;
+		public Decimal recargo;
+		public Decimal iva;
+		public Decimal primaTotal;
 		public List<IncisoEntrada> incisos;
 	}
 
@@ -81,10 +87,11 @@ public with sharing class FlotillaController {
 		for (Inciso_Flotilla__c i : [
 			SELECT Id, Cotizacion__c, Cotizacion__r.Name, Cotizacion__r.QuoteNumber, Cotizacion__r.Prima_Total__c,
 				Cotizacion__r.Aseguradora__r.Name, Cotizacion__r.Vigencia_Inicio__c, Cotizacion__r.ExpirationDate,
-				Cotizacion__r.Forma_de_pago__c, Cotizacion__r.CreatedDate,
+				Cotizacion__r.Forma_de_pago__c, Cotizacion__r.CreatedDate, Cotizacion__r.Prima_Neta__c,
+				Cotizacion__r.Derechos_Poliza__c, Cotizacion__r.Recargo_Fraccionado__c, Cotizacion__r.IVA__c,
 				Numero_Inciso__c, Serie__c, Clave_Vehicular__c, Descripcion__c, Modelo__c, Placas__c, Uso__c,
 				Tipo_Vehiculo__c, Paquete__c, Tipo_Valor__c, Valor__c, Deducible_DM__c, Deducible_RT__c,
-				Responsabilidad_Civil__c, Gastos_Medicos__c, Muerte_Conductor__c, Prima__c
+				Responsabilidad_Civil__c, Gastos_Medicos__c, Muerte_Conductor__c, Prima__c, Prima_Neta__c
 			FROM Inciso_Flotilla__c
 			WHERE Oportunidad__c = :opportunityId AND Cotizacion__c != null
 			ORDER BY Cotizacion__r.CreatedDate ASC, Numero_Inciso__c ASC NULLS LAST, Name ASC
@@ -101,6 +108,10 @@ public with sharing class FlotillaController {
 					'vigenciaDesde' => i.Cotizacion__r.Vigencia_Inicio__c,
 					'vigenciaHasta' => i.Cotizacion__r.ExpirationDate,
 					'formaPago' => i.Cotizacion__r.Forma_de_pago__c,
+					'primaNeta' => i.Cotizacion__r.Prima_Neta__c,
+					'derechos' => i.Cotizacion__r.Derechos_Poliza__c,
+					'recargo' => i.Cotizacion__r.Recargo_Fraccionado__c,
+					'iva' => i.Cotizacion__r.IVA__c,
 					'incisos' => new List<Object>()
 				};
 				porQuote.put(i.Cotizacion__c, q);
@@ -111,10 +122,49 @@ public with sharing class FlotillaController {
 				'tipoVehiculo' => i.Tipo_Vehiculo__c, 'paquete' => i.Paquete__c, 'tipoValor' => i.Tipo_Valor__c,
 				'valor' => i.Valor__c, 'dedDM' => i.Deducible_DM__c, 'dedRT' => i.Deducible_RT__c,
 				'rc' => i.Responsabilidad_Civil__c, 'gm' => i.Gastos_Medicos__c, 'muerte' => i.Muerte_Conductor__c,
-				'prima' => i.Prima__c
+				'prima' => i.Prima__c, 'primaNeta' => i.Prima_Neta__c
 			});
 		}
+		for (Map<String, Object> q : porQuote.values()) { asignarPrimaComparable(q); }
 		return porQuote.values();
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima comparable de cada inciso: su prima total, o la neta cuando la aseguradora solo da la
+	 *               total de la póliza; en ese caso se reparte la diferencia (derechos, recargo e IVA) en proporción a
+	 *               la prima de cada inciso, para que la suma coincida con la prima total y se compare igual entre
+	 *               aseguradoras. Marca 'prorrateo' = true en la cotización cuando se repartió.
+	 * @param q: cotización con sus incisos (de getFlotilla).
+	 */
+	@TestVisible
+	private static void asignarPrimaComparable(Map<String, Object> q) {
+		List<Object> incisos = (List<Object>) q.get('incisos');
+		Boolean todosConTotal = true;
+		for (Object o : incisos) { if (((Map<String, Object>) o).get('prima') == null) { todosConTotal = false; } }
+		Decimal suma = 0;
+		for (Object o : incisos) { suma += base((Map<String, Object>) o, todosConTotal); }
+		Decimal total = (Decimal) q.get('primaTotal');
+		Decimal factor = (total != null && total > 0 && suma > 0) ? total / suma : 1;
+		for (Object o : incisos) {
+			Map<String, Object> i = (Map<String, Object>) o;
+			i.put('primaComparable', (base(i, todosConTotal) * factor).setScale(2, System.RoundingMode.HALF_UP));
+		}
+		q.put('prorrateo', Math.abs(factor - 1) > 0.005);
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima base del inciso para el reparto: la total si todos los incisos la traen; si no, la neta.
+	 * @param i: inciso.
+	 * @param usarTotal: true si todos los incisos de la cotización traen prima total.
+	 * @return prima base (0 si no hay).
+	 */
+	private static Decimal base(Map<String, Object> i, Boolean usarTotal) {
+		Decimal v = (Decimal) (usarTotal ? i.get('prima') : (i.get('primaNeta') != null ? i.get('primaNeta') : i.get('prima')));
+		return v == null ? 0 : v;
 	}
 
 	/**
@@ -151,8 +201,21 @@ public with sharing class FlotillaController {
 
 		Savepoint sp = Database.setSavepoint();
 		try {
-			Decimal total = 0;
-			for (IncisoEntrada i : datos.incisos) { if (i.prima != null) { total += i.prima; } }
+			// Prima total: la del archivo; si no viene, la suma de los incisos (si todos traen total) o neta + derechos + recargo + IVA.
+			Decimal sumaTotal = 0;
+			Decimal sumaNeta = 0;
+			Boolean todosConTotal = true;
+			for (IncisoEntrada i : datos.incisos) {
+				if (i.prima != null) { sumaTotal += i.prima; } else { todosConTotal = false; }
+				if (i.primaNeta != null) { sumaNeta += i.primaNeta; }
+			}
+			Decimal neta = datos.primaNeta != null ? datos.primaNeta : (sumaNeta > 0 ? sumaNeta : null);
+			Decimal total = datos.primaTotal;
+			if (total == null && todosConTotal) { total = sumaTotal; }
+			if (total == null && neta != null) {
+				total = neta + nz(datos.derechos) + nz(datos.recargo) + nz(datos.iva);
+			}
+			if (total == null) { total = sumaTotal; }
 
 			Quote q = new Quote(OpportunityId = opp.Id, Status = 'In Review');
 			q.Name = ('Flotilla - ' + asegs[0].Name + ' (' + datos.incisos.size() + ' unidades)').left(255);
@@ -171,6 +234,10 @@ public with sharing class FlotillaController {
 			q.put('Frecuencia_de_prima__c', valorPicklist(Quote.Frecuencia_de_prima__c, frecuencia(datos.formaPago), 'Anual'));
 			q.put('PrimaAnual__c', total);
 			q.put('Prima_Total__c', total);
+			if (neta != null) { q.put('Prima_Neta__c', neta); }
+			if (datos.derechos != null) { q.put('Derechos_Poliza__c', datos.derechos); }
+			if (datos.recargo != null) { q.put('Recargo_Fraccionado__c', datos.recargo); }
+			if (datos.iva != null) { q.put('IVA__c', datos.iva); }
 			if (String.isNotBlank(datos.archivo)) { q.Description = ('Cotización de flotilla cargada de: ' + datos.archivo).left(32000); }
 			insert q;
 
@@ -200,6 +267,7 @@ public with sharing class FlotillaController {
 				i.Gastos_Medicos__c = e.gm;
 				i.Muerte_Conductor__c = e.muerte;
 				i.Prima__c = e.prima;
+				i.Prima_Neta__c = e.primaNeta;
 				incisos.add(i);
 				filas.add(e.fila);
 			}
@@ -462,6 +530,17 @@ public with sharing class FlotillaController {
 			if (pe.isActive() && pe.getValue() == valor) { return valor; }
 		}
 		return respaldo;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cero cuando el monto viene vacío.
+	 * @param v: monto.
+	 * @return el monto o 0.
+	 */
+	private static Decimal nz(Decimal v) {
+		return v == null ? 0 : v;
 	}
 
 	/**

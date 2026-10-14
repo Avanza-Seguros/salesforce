@@ -355,3 +355,16 @@
     align-items: center;
     gap: 0.5rem;
 }
+
+/* Montos de la póliza en la vista previa */
+.montos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.5rem 0.75rem;
+}
+
+.tarjeta-aviso {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #8c4b02;
+}

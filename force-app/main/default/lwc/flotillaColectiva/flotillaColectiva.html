@@ -33,7 +33,9 @@
                                     <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
                                 </div>
                                 <span class="tarjeta-prima">{t.primaTxt}</span>
-                                <span class="tarjeta-sub">{t.unidades} unidades · Valor asegurado {t.valorTxt}</span>
+                                <template if:true={t.desgloseTxt}><span class="tarjeta-sub">{t.desgloseTxt}</span></template>
+                                <span class="tarjeta-sub">{t.unidades} unidades<template if:true={t.valorTxt}> · Valor asegurado {t.valorTxt}</template></span>
+                                <template if:true={t.unidadesAviso}><span class="tarjeta-aviso">{t.unidadesAviso}</span></template>
                                 <template if:true={t.vigenciaTxt}><span class="tarjeta-sub">Vigencia {t.vigenciaTxt}</span></template>
                                 <template if:true={t.formaPago}><span class="tarjeta-sub">Forma de pago: {t.formaPago}</span></template>
                                 <span class="tarjeta-sub">Cotización {t.numero}</span>
@@ -205,9 +207,31 @@
                     </div>
                 </div>
 
+                <!-- Montos de la póliza: se proponen con la suma de los incisos; la prima total es la que se compara. -->
+                <div class="montos-grid slds-m-top_x-small">
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Prima neta" value={encabezado.primaNeta}
+                        data-campo="primaNeta" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Derechos / gastos de expedición" value={encabezado.derechos}
+                        data-campo="derechos" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Recargo por pago fraccionado" value={encabezado.recargo}
+                        data-campo="recargo" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="IVA" value={encabezado.iva}
+                        data-campo="iva" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Prima total" value={encabezado.primaTotal}
+                        data-campo="primaTotal" onchange={handleEncabezadoCotizacion}
+                        field-level-help="Si la dejas vacía se calcula: prima neta + derechos + recargo + IVA."></lightning-input>
+                </div>
+                <template if:true={avisoTotalSinIva}>
+                    <div class="censo-alerta">
+                        <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
+                        <span>La cotización solo trae prima neta. Captura derechos e IVA (o la prima total) para compararla igual que las demás aseguradoras.</span>
+                    </div>
+                </template>
+
                 <div class="censo-stats slds-m-top_small">
                     <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Incisos</span></div>
                     <div class="stat"><span class="stat-num">{primaVista}</span><span class="stat-lbl">Prima total</span></div>
+                    <div class="stat"><span class="stat-num">{netaVista}</span><span class="stat-lbl">Prima neta</span></div>
                     <div class="stat"><span class="stat-num">{valorVista}</span><span class="stat-lbl">Valor asegurado</span></div>
                     <div class="stat stat-aviso"><span class="stat-num">{conAviso}</span><span class="stat-lbl">Con aviso</span></div>
                     <div class="stat stat-error"><span class="stat-num">{conError}</span><span class="stat-lbl">Con error</span></div>
@@ -274,7 +298,7 @@
                                     <td class="num">{r.valorTxt}</td>
                                     <td>{r.dedTxt}</td>
                                     <td class="num">{r.rcTxt}</td>
-                                    <td class="num"><strong>{r.primaTxt}</strong></td>
+                                    <td class="num"><strong>{r.primaTxt}</strong><template if:true={r.primaSub}><div class="sub">{r.primaSub}</div></template></td>
                                     <td class="mensajes">{r.mensajes}</td>
                                 </tr>
                             </template>

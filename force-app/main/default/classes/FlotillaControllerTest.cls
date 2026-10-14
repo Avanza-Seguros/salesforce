@@ -148,6 +148,57 @@ private class FlotillaControllerTest {
 	}
 
 	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Desglose de primas: una aseguradora da solo la prima neta por vehículo y derechos/IVA de la póliza
+	 * (estilo Mapfre) y otra da la prima total por vehículo (estilo Chubb). La prima total de la cotización y la prima
+	 * comparable de cada vehículo quedan en la misma base, y el PDF muestra el desglose.
+	 * @return void
+	 */
+	@isTest
+	static void testPrimaNetaYTotal() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		Aseguradora__c qualitas = [SELECT Id FROM Aseguradora__c WHERE Name = 'Qualitas Flotilla Test'];
+		Aseguradora__c gnp = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Flotilla Test'];
+		// Solo prima neta por inciso; derechos e IVA a nivel póliza.
+		Id qNeta = FlotillaController.guardarCotizacionFlotilla(opp.Id, JSON.serialize(new Map<String, Object>{
+			'aseguradoraId' => gnp.Id, 'derechos' => 200, 'iva' => 352,
+			'incisos' => new List<Object>{
+				new Map<String, Object>{ 'fila' => 1, 'serie' => 'MR0EX32G9F0265961', 'descripcion' => 'TOYOTA HILUX', 'primaNeta' => 1000 },
+				new Map<String, Object>{ 'fila' => 2, 'descripcion' => 'NISSAN VERSA', 'primaNeta' => 1000 }
+			}
+		}));
+		// Prima total por inciso y total de la póliza explícita.
+		Id qTotal = FlotillaController.guardarCotizacionFlotilla(opp.Id, JSON.serialize(new Map<String, Object>{
+			'aseguradoraId' => qualitas.Id, 'primaNeta' => 1700, 'derechos' => 100, 'recargo' => 0, 'iva' => 288, 'primaTotal' => 2088,
+			'incisos' => new List<Object>{
+				new Map<String, Object>{ 'fila' => 1, 'serie' => 'MR0EX32G9F0265961', 'descripcion' => 'TOYOTA HILUX', 'primaNeta' => 1000, 'prima' => 1229 },
+				new Map<String, Object>{ 'fila' => 2, 'descripcion' => 'NISSAN VERSA', 'primaNeta' => 700, 'prima' => 859 }
+			}
+		}));
+		Test.startTest();
+		List<Map<String, Object>> flotilla = FlotillaController.getFlotilla(opp.Id);
+		String html = FlotillaComparativoPdfController.construirHtml(opp.Id);
+		Test.stopTest();
+
+		Quote neta = [SELECT Prima_Total__c, Prima_Neta__c, Derechos_Poliza__c, IVA__c FROM Quote WHERE Id = :qNeta];
+		System.assertEquals(2552, neta.Prima_Total__c, 'Total = neta (suma de incisos) + derechos + IVA');
+		System.assertEquals(2000, neta.Prima_Neta__c, 'Prima neta = suma de incisos');
+		Quote total = [SELECT Prima_Total__c, Prima_Neta__c, Recargo_Fraccionado__c FROM Quote WHERE Id = :qTotal];
+		System.assertEquals(2088, total.Prima_Total__c, 'Respeta la prima total del archivo');
+
+		for (Map<String, Object> q : flotilla) {
+			Decimal suma = 0;
+			for (Object o : (List<Object>) q.get('incisos')) { suma += (Decimal) ((Map<String, Object>) o).get('primaComparable'); }
+			System.assertEquals((Decimal) q.get('primaTotal'), suma, 'La prima comparable suma la prima total de ' + q.get('aseguradora'));
+			System.assertEquals(q.get('id') == qNeta, q.get('prorrateo'), 'Solo se reparte en la cotización que trae prima neta por vehículo');
+		}
+		System.assert(html.contains('Prima neta') && html.contains('Derechos / gastos de expedici'), 'El PDF muestra el desglose');
+		System.assert(html.contains('parte proporcional de derechos e IVA'), 'El PDF explica el reparto');
+		System.assert(html.indexOf('NISSAN VERSA') != html.lastIndexOf('NISSAN VERSA'), 'Los vehículos sin serie no se juntan entre aseguradoras');
+	}
+
+	/**
 	 * @creation date: 13/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Sin cotizaciones de flotilla no se genera el PDF; con una sola, la recomendación pide comparar.

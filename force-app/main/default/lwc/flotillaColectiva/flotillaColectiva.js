@@ -12,7 +12,7 @@ import LightningConfirm from 'lightning/confirm';
 import { NavigationMixin } from 'lightning/navigation';
 import {
     fold, tieneDatos, numero, fecha, fechaVisible, moneda, abrirTabla, detectarEncabezado,
-    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, buscarFechaEtiquetada, bloquesPdf
+    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, buscarVigencia, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
 import getFlotilla from '@salesforce/apex/FlotillaController.getFlotilla';
 import getAseguradoras from '@salesforce/apex/FlotillaController.getAseguradoras';
@@ -23,24 +23,34 @@ import generarComparativoPdf from '@salesforce/apex/FlotillaController.generarCo
 
 // Campos del inciso (la clave es la misma que devuelve la IA) y encabezados con que suelen venir.
 const CAMPOS = [
-    { key: 'inciso', label: 'Inciso', alias: ['inciso', 'no inciso', 'num inciso', 'no de inciso', 'numero de inciso', 'no', 'consecutivo'] },
+    { key: 'inciso', label: 'Inciso', alias: ['inciso', 'inc', 'no inciso', 'num inciso', 'no de inciso', 'numero de inciso', 'no', 'consecutivo'] },
     { key: 'serie', label: 'Serie (VIN)', alias: ['serie', 'series', 'no serie', 'no de serie', 'numero de serie', 'num serie', 'vin', 'niv'] },
-    { key: 'claveVehicular', label: 'Clave vehicular', alias: ['clave', 'clave amis', 'amis', 'clave vehicular', 'clave vehiculo', 'cve amis'] },
-    { key: 'descripcion', label: 'Descripción', excluir: ['equipo', 'adapt', 'cobertura'], alias: ['descripcion', 'descripcion ocupantes', 'descripcion del vehiculo', 'descripcion vehiculo', 'vehiculo', 'unidad', 'marca tipo', 'marca y tipo', 'marca submarca'] },
-    { key: 'modelo', label: 'Modelo (año)', tipo: 'numero', alias: ['modelo', 'ano', 'ano modelo', 'anio'] },
+    { key: 'claveVehicular', label: 'Clave vehicular', alias: ['clave', 'clave amis', 'amis', 'clave vehicular', 'clave vehiculo', 'cve amis', 'mtc'] },
+    { key: 'marca', label: 'Marca', alias: ['marca'] },
+    { key: 'descripcion', label: 'Descripción', excluir: ['equipo', 'adapt', 'cobertura'], alias: ['descripcion', 'descripcion ocupantes', 'descripcion del vehiculo', 'descripcion vehiculo', 'vehiculo', 'unidad', 'marca tipo', 'marca y tipo', 'marca submarca', 'submarca', 'version'] },
+    { key: 'modelo', label: 'Modelo (año)', tipo: 'numero', alias: ['modelo', 'mod', 'ano', 'ano modelo', 'anio'] },
     { key: 'placas', label: 'Placas', alias: ['placas', 'placa', 'matricula'] },
     { key: 'uso', label: 'Uso', alias: ['uso', 'tipo de uso', 'uso del vehiculo', 'servicio'] },
-    { key: 'tipoVehiculo', label: 'Tipo de vehículo', alias: ['tipo de vehiculo', 'tipo vehiculo', 'tipo de unidad', 'clase', 'categoria'] },
-    { key: 'paquete', label: 'Paquete', alias: ['cobertura', 'paquete', 'plan', 'tipo de cobertura', 'paquete de cobertura'] },
-    { key: 'tipoValor', label: 'Tipo de valor', alias: ['tipo de valor', 'tipo valor', 'valor'] },
-    { key: 'valor', label: 'Valor / suma asegurada', tipo: 'numero', alias: ['valor convenido', 'valor comercial', 'valor factura', 'suma asegurada', 'suma asegurada dm', 'valor vehiculo', 'sa dm', 'valor'] },
-    { key: 'dedDM', label: 'Deducible DM', tipo: 'numero', alias: ['dm', 'deducible dm', 'deducibles dm', 'ded dm', 'deducible danos materiales', 'danos materiales'] },
-    { key: 'dedRT', label: 'Deducible RT', tipo: 'numero', alias: ['rt', 'deducible rt', 'ded rt', 'deducible robo total', 'robo total'] },
-    { key: 'rc', label: 'Responsabilidad civil', tipo: 'numero', alias: ['sumaaseg rc', 'suma asegurada rc', 'sa rc', 'responsabilidad civil', 'rc', 'rc bienes y personas'] },
+    { key: 'tipoVehiculo', label: 'Tipo de vehículo', alias: ['tipo de vehiculo', 'tipo vehiculo', 'tipo de unidad', 'clase', 'categoria', 'tonelaje'] },
+    { key: 'paquete', label: 'Paquete', alias: ['cobertura', 'paquete', 'paq', 'plan', 'tipo de cobertura', 'paquete de cobertura'] },
+    { key: 'tipoValor', label: 'Tipo de valor', alias: ['tipo de valor', 'tipo valor', 'valor', 'suma aseg'] },
+    { key: 'valor', label: 'Valor / suma asegurada', tipo: 'numero', alias: ['valor convenido', 'valor comercial', 'valor factura', 'suma asegurada', 'suma asegurada dm', 'suma aseg', 'valor vehiculo', 'sa dm', 'valor'] },
+    { key: 'dedDM', label: 'Deducible DM', tipo: 'numero', alias: ['dm', 'deducible dm', 'deducibles dm', 'ded dm', 'deducible danos materiales', 'danos materiales ded', 'danos materiales'] },
+    { key: 'dedRT', label: 'Deducible RT', tipo: 'numero', alias: ['rt', 'deducible rt', 'ded rt', 'deducible robo total', 'robo total ded', 'robo total'] },
+    { key: 'rc', label: 'Responsabilidad civil', tipo: 'numero', alias: ['sumaaseg rc', 'suma asegurada rc', 'sa rc', 'responsabilidad civil por danos a terceros', 'responsabilidad civil', 'rc', 'rc bienes y personas'] },
     { key: 'gm', label: 'Gastos médicos', tipo: 'numero', alias: ['gm', 'gastos medicos', 'gastos medicos ocupantes', 'gmo', 'sa gm'] },
-    { key: 'muerte', label: 'Muerte del conductor', tipo: 'numero', alias: ['muerte acc', 'muerte del conductor', 'muerte conductor', 'muerte'] },
-    { key: 'prima', label: 'Prima del inciso', tipo: 'numero', alias: ['prima total', 'prima', 'total', 'prima anual', 'importe', 'prima neta'] }
+    { key: 'muerte', label: 'Muerte del conductor', tipo: 'numero', alias: ['muerte acc', 'muerte del conductor', 'muerte conductor', 'accidentes automovilisticos al conductor', 'muerte'] },
+    { key: 'primaNeta', label: 'Prima neta del inciso', tipo: 'numero', alias: ['prima neta', 'neta', 'pn', 'pn c desc'] },
+    { key: 'recargo', label: 'Recargo', tipo: 'numero', alias: ['rec', 'recargo', 'recargo por pago fraccionado', 'recargo fraccionado'] },
+    { key: 'derechos', label: 'Derechos / gastos de expedición', tipo: 'numero', alias: ['der pol', 'derechos', 'derecho de poliza', 'derechos de poliza', 'gastos de expedicion', 'gastos expedicion'] },
+    { key: 'iva', label: 'IVA', tipo: 'numero', alias: ['iva', 'i v a'] },
+    { key: 'prima', label: 'Prima total del inciso', tipo: 'numero', alias: ['prima total', 'total', 'prima', 'prima anual', 'importe', 'importe total'] }
 ];
+
+// Modelos de pick-up comunes (cuando la descripción no dice "pick up" ni el uso "carga").
+const PICKUPS = ['hilux', 'tacoma', 'tundra', 'np300', 'frontier', 'ranger', 'f 150', 'f150', 'lobo', 'saveiro', 'amarok', 'l200',
+    'ram 700', 'ram 1200', 'ram 1500', 'ram 2500', 'ram 4000', 'tornado', 's10', 'silverado', 'cheyenne', 'colorado', 'oroch', 'maverick',
+    'raptor', 'navara', 'bt 50', 'great wall', 'jac t8', 'poer'];
 
 // Palabras que no sirven para reconocer a la aseguradora en el texto del archivo.
 const GENERICAS = new Set(['seguros', 'seguro', 'compania', 'mexico', 'grupo', 'life', 'general', 'generales', 'de', 'cv', 'sa', 'del']);
@@ -53,7 +63,7 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     @track cotizaciones = [];
     @track mapeo = {};
     @track renglones = [];
-    @track encabezado = { aseguradoraId: '', vigenciaDesde: '', vigenciaHasta: '', formaPago: '' };
+    @track encabezado = this.encabezadoVacio();
     aseguradoras = [];
     paso = 'resumen';
     cargando = false;
@@ -114,8 +124,11 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     // Tarjetas de cada aseguradora (la de menor prima se resalta).
     get tarjetas() {
         const minimo = Math.min(...this.cotizaciones.map((q) => Number(q.primaTotal) || Infinity));
+        const maxUnidades = Math.max(...this.cotizaciones.map((q) => (q.incisos || []).length), 0);
         return this.cotizaciones.map((q) => {
             const incisos = q.incisos || [];
+            // Si no cotizó todo el parque vehicular, su prima no es comparable 1 a 1 con las demás.
+            const unidadesAviso = incisos.length < maxUnidades ? `Cotizó ${incisos.length} de ${maxUnidades} unidades` : '';
             const valor = incisos.reduce((s, i) => s + (Number(i.valor) || 0), 0);
             const mejor = this.cotizaciones.length > 1 && Number(q.primaTotal) === minimo;
             return {
@@ -123,7 +136,10 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
                 aseguradora: q.aseguradora,
                 numero: q.numero,
                 unidades: incisos.length,
+                unidadesAviso,
                 primaTxt: moneda(q.primaTotal) || '$0',
+                desgloseTxt: [q.primaNeta ? `Neta ${moneda(q.primaNeta)}` : '', q.derechos ? `Derechos ${moneda(q.derechos)}` : '',
+                    q.iva ? `IVA ${moneda(q.iva)}` : ''].filter((x) => x).join(' · '),
                 valorTxt: moneda(valor),
                 vigenciaTxt: q.vigenciaDesde ? `${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '',
                 formaPago: q.formaPago,
@@ -152,10 +168,13 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     filaComparativo(nombre, filtro, esTotal) {
         const celdas = this.cotizaciones.map((q) => {
             const inc = (q.incisos || []).filter(filtro);
-            return { id: q.id, unidades: inc.length, prima: inc.reduce((s, i) => s + (Number(i.prima) || 0), 0) };
+            return { id: q.id, unidades: inc.length, prima: inc.reduce((s, i) => s + this.primaComparable(i), 0) };
         });
         const conPrima = celdas.filter((c) => c.unidades && c.prima > 0);
-        const minimo = conPrima.length > 1 ? Math.min(...conPrima.map((c) => c.prima)) : null;
+        // Con distinto número de unidades entre aseguradoras, se compara la prima por unidad.
+        const porUnidad = new Set(conPrima.map((c) => c.unidades)).size > 1;
+        const valor = (c) => (porUnidad ? c.prima / c.unidades : c.prima);
+        const minimo = conPrima.length > 1 ? Math.min(...conPrima.map(valor)) : null;
         return {
             key: nombre,
             nombre,
@@ -163,8 +182,10 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             celdas: celdas.map((c) => ({
                 key: c.id,
                 texto: c.unidades ? moneda(c.prima) || '$0' : '—',
-                sub: c.unidades ? `${c.unidades} ${c.unidades === 1 ? 'unidad' : 'unidades'}` : '',
-                clase: 'num' + (minimo !== null && c.prima === minimo && c.unidades ? ' celda-mejor' : '')
+                sub: c.unidades
+                    ? `${c.unidades} ${c.unidades === 1 ? 'unidad' : 'unidades'}${porUnidad ? ` · ${moneda(c.prima / c.unidades)} c/u` : ''}`
+                    : '',
+                clase: 'num' + (minimo !== null && c.unidades && c.prima > 0 && valor(c) === minimo ? ' celda-mejor' : '')
             }))
         };
     }
@@ -172,12 +193,13 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     // Comparativo por vehículo: misma serie (o descripción + modelo) en cada aseguradora.
     get vehiculosComparativo() {
         const mapa = new Map();
-        this.cotizaciones.forEach((q, qi) => (q.incisos || []).forEach((i) => {
-            const k = i.serie ? 'S' + i.serie : 'D' + fold(i.descripcion) + '|' + (i.modelo || '');
+        this.cotizaciones.forEach((q, qi) => (q.incisos || []).forEach((i, n) => {
+            // Sin serie no se puede saber si es el mismo vehículo en otra aseguradora: va en su propio renglón.
+            const k = i.serie ? 'S' + i.serie : `N${qi}|${n}`;
             if (!mapa.has(k)) {
                 mapa.set(k, { key: k, descripcion: i.descripcion, serie: i.serie, modelo: i.modelo, tipo: i.tipoVehiculo, primas: [] });
             }
-            mapa.get(k).primas[qi] = Number(i.prima) || null;
+            mapa.get(k).primas[qi] = this.primaComparable(i) || null;
         }));
         return [...mapa.values()];
     }
@@ -196,6 +218,11 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
                 }))
             };
         });
+    }
+    // Prima del inciso comparable entre aseguradoras (calculada en el servidor con derechos e IVA proporcionales).
+    primaComparable(i) {
+        const v = i.primaComparable !== undefined && i.primaComparable !== null ? i.primaComparable : (i.prima !== null ? i.prima : i.primaNeta);
+        return Number(v) || 0;
     }
     get paginasComparativo() { return Math.max(1, Math.ceil(this.vehiculosComparativo.length / POR_PAGINA)); }
     get textoPaginaComparativo() { return `Página ${this.paginaComparativo} de ${this.paginasComparativo} · ${this.vehiculosComparativo.length} vehículos`; }
@@ -262,7 +289,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         if (!file) { return; }
         this.archivoNombre = file.name;
         this.errorMensaje = '';
-        this.encabezado = { aseguradoraId: '', vigenciaDesde: '', vigenciaHasta: '', formaPago: '' };
+        this.encabezado = this.encabezadoVacio();
+        this._filasOtrasHojas = [];
         this.cargando = true;
         this.progreso = 'Leyendo archivo…';
         try {
@@ -274,6 +302,10 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             this.hojas = this._tabla.hojas.map((h) => ({ label: h, value: h }));
             this.hojaActual = this.hojaConIncisos(this._tabla.hojas);
             this.filasCrudas = await this._tabla.leerHoja(this.hojaActual);
+            // Aseguradora y vigencia pueden venir en otra hoja (ej. "Resumen"): se revisan las primeras filas de todas.
+            for (const h of this._tabla.hojas) {
+                if (h !== this.hojaActual) { this._filasOtrasHojas.push(...(await this._tabla.leerHoja(h)).slice(0, 40)); }
+            }
             this.prepararMapeo();
         } catch (e) {
             this.toast('Flotilla', this.mensaje(e), 'error');
@@ -314,15 +346,22 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         this.paso = 'mapeo';
     }
 
-    // Aseguradora, vigencia y forma de pago a partir del texto del archivo.
+    // Encabezado vacío de la cotización: aseguradora, vigencia, forma de pago y montos de la póliza.
+    encabezadoVacio() {
+        return { aseguradoraId: '', vigenciaDesde: '', vigenciaHasta: '', formaPago: '', primaNeta: null, derechos: null, recargo: null, iva: null, primaTotal: null };
+    }
+
+    // Aseguradora, vigencia y forma de pago a partir del texto del archivo (todas sus hojas y el nombre del archivo).
     detectarEncabezadoCotizacion(filas) {
-        const texto = filas.slice(0, 15).map((f) => (f || []).join(' ')).join(' ');
+        const todas = [...(this._filasOtrasHojas || []), ...filas];
+        const texto = [this.archivoNombre, ...todas.slice(0, 200).map((f) => (f || []).join(' '))].join(' ');
         const enc = { ...this.encabezado };
         enc.aseguradoraId = enc.aseguradoraId || this.aseguradoraPorTexto(texto);
-        enc.vigenciaDesde = enc.vigenciaDesde || buscarFechaEtiquetada(filas, ['desde', 'vigencia desde', 'inicio de vigencia', 'inicio vigencia']);
-        enc.vigenciaHasta = enc.vigenciaHasta || buscarFechaEtiquetada(filas, ['hasta', 'vigencia hasta', 'fin de vigencia', 'fin vigencia']);
+        const vig = buscarVigencia(todas);
+        enc.vigenciaDesde = enc.vigenciaDesde || vig.desde;
+        enc.vigenciaHasta = enc.vigenciaHasta || vig.hasta;
         if (!enc.formaPago) {
-            const todo = fold(filas.map((f) => (f || []).join(' ')).join(' '));
+            const todo = fold(todas.map((f) => (f || []).join(' ')).join(' '));
             const formas = ['contado', 'semestral', 'trimestral', 'mensual', 'anual'];
             const f = formas.find((x) => todo.includes(x));
             enc.formaPago = f ? f.charAt(0).toUpperCase() + f.slice(1) : '';
@@ -345,13 +384,15 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     get opcionesColumnas() { return opcionesColumnas(this.filasCrudas, this.filaEncabezado); }
     get opcionesEncabezado() { return opcionesEncabezado(this.filasCrudas); }
     get filaEncabezadoValor() { return String(this.filaEncabezado); }
-    get filasDatos() { return this.filasCrudas.slice(this.filaEncabezado + 1).filter((f) => tieneDatos(f)).length; }
+    // Primer renglón de datos (después del encabezado y sus renglones de continuación).
+    get inicioDatos() { return inicioDatos(this.filasCrudas, this.filaEncabezado); }
+    get filasDatos() { return this.filasCrudas.slice(this.inicioDatos).filter((f) => tieneDatos(f)).length; }
     get textoEncabezado() {
         const hoja = this.hojaActual ? ` de la hoja "${this.hojaActual}"` : '';
         return `Encabezados en el renglón ${this.filaEncabezado + 1}${hoja}`;
     }
     get camposMapeo() {
-        const ejemplo = this.filasCrudas.slice(this.filaEncabezado + 1).find((f) => tieneDatos(f)) || [];
+        const ejemplo = this.filasCrudas.slice(this.inicioDatos).find((f) => tieneDatos(f)) || [];
         return CAMPOS.map((c) => {
             const col = this.mapeo[c.key];
             const v = col === undefined || col === '' ? '' : ejemplo[Number(col)];
@@ -390,9 +431,10 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             return;
         }
         const datos = [];
-        this.filasCrudas.slice(this.filaEncabezado + 1).forEach((f, i) => {
+        const ini = this.inicioDatos;
+        this.filasCrudas.slice(ini).forEach((f, i) => {
             if (!tieneDatos(f)) { return; }
-            const o = { fila: this.filaEncabezado + i + 2 };
+            const o = { fila: ini + i + 1 };
             Object.keys(m).forEach((k) => { o[k] = f[Number(m[k])]; });
             datos.push(o);
         });
@@ -427,9 +469,12 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             enc.vigenciaDesde = enc.vigenciaDesde || fecha(r.vigenciaDesde).iso;
             enc.vigenciaHasta = enc.vigenciaHasta || fecha(r.vigenciaHasta).iso;
             enc.formaPago = enc.formaPago || this.formaPagoNormalizada(r.formaPago);
+            ['primaNeta', 'derechos', 'recargo', 'iva', 'primaTotal'].forEach((k) => {
+                if (numero(r[k]) !== null) { enc[k] = numero(r[k]); }
+            });
             (r.incisos || []).forEach((x) => datos.push({ ...x, fila: datos.length + 1 }));
         }
-        if (!enc.aseguradoraId) { enc.aseguradoraId = this.aseguradoraPorTexto(bloques[0].substring(0, 3000)); }
+        if (!enc.aseguradoraId) { enc.aseguradoraId = this.aseguradoraPorTexto(this.archivoNombre + ' ' + bloques[0].substring(0, 3000)); }
         this.encabezado = enc;
         if (!datos.length) {
             throw new Error('La IA no encontró incisos en el PDF.');
@@ -445,7 +490,7 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         const renglones = datos
             .map((d) => this.normalizar(d))
             // Un inciso tiene serie, o descripción con prima/valor (descarta pies de página y notas).
-            .filter((r) => r.serie || (/[a-z]/i.test(r.descripcion) && (r.prima !== null || r.valor !== null)))
+            .filter((r) => r.serie || (/[a-z]/i.test(r.descripcion) && (r.prima !== null || r.primaNeta !== null || r.valor !== null)))
             .filter((r) => !/^(sub)?total(es)?\b/.test(fold(r.descripcion)));
         const series = {};
         renglones.forEach((r, i) => {
@@ -460,10 +505,11 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             } else {
                 r.avisos.push('Sin serie: no se ligará a un vehículo del cliente');
             }
-            if (r.prima === null) { r.avisos.push('Sin prima'); }
+            if (r.prima === null && r.primaNeta === null) { r.avisos.push('Sin prima'); }
             if (r.prima !== null && r.prima < 0) { r.errores.push('Prima negativa'); }
         });
         this.renglones = renglones;
+        this.sumarMontosIncisos();
         this.filtro = 'todos';
         this.pagina = 1;
         this.paso = 'vista';
@@ -482,6 +528,9 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         r.serie = txt(d.serie).replace(/\s/g, '').toUpperCase();
         r.claveVehicular = txt(d.claveVehicular).replace(/\.0+$/, '');
         r.descripcion = txt(d.descripcion);
+        // Si la marca viene en otra columna y la descripción no la trae, se antepone ("RAM 700" -> "CHRYSLER RAM 700").
+        const marca = txt(d.marca);
+        if (marca && !fold(r.descripcion).includes(fold(marca))) { r.descripcion = `${marca} ${r.descripcion}`.trim(); }
         r.modelo = entero(d.modelo);
         if (r.modelo !== null && (r.modelo < 1900 || r.modelo > 2100)) { r.modelo = null; }
         r.placas = txt(d.placas).replace(/\s/g, '').toUpperCase();
@@ -494,8 +543,12 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         r.rc = numero(d.rc);
         r.gm = numero(d.gm);
         r.muerte = numero(d.muerte);
-        r.prima = numero(d.prima);
-        if (r.prima !== null) { r.prima = Math.round(r.prima * 100) / 100; }
+        const dinero = (v) => { const n = numero(v); return n === null ? null : Math.round(n * 100) / 100; };
+        r.prima = dinero(d.prima);
+        r.primaNeta = dinero(d.primaNeta);
+        r.derechos = dinero(d.derechos);
+        r.recargo = dinero(d.recargo);
+        r.iva = dinero(d.iva);
         r.tipoVehiculo = this.tipoNormalizado(txt(d.tipoVehiculo)) || this.tipoVehiculo(r.descripcion, r.uso);
         return r;
     }
@@ -530,7 +583,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         if (/ (remolque|semirremolque|caja seca|plataforma|dolly) /.test(d)) { return 'Remolques'; }
         if (/ (autobus|microbus|midibus|minibus) /.test(d)) { return 'Autobuses'; }
         if (/ (camion|rabon|torton|thorton) /.test(d)) { return 'Camiones'; }
-        if (u.includes('carga') || / (pick up|pickup|chasis|doble cabina|cabina sencilla|estacas) /.test(d) || / cs /.test(d)) {
+        if (u.includes('carga') || / (pick up|pickup|chasis|doble cabina|cabina sencilla|estacas) /.test(d) || / cs /.test(d)
+            || PICKUPS.some((m) => d.includes(` ${m} `))) {
             return 'Pick-up de carga';
         }
         return 'Automóviles';
@@ -544,8 +598,37 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     get conError() { return this.renglones.filter((r) => r.errores.length).length; }
     get conAviso() { return this.renglones.filter((r) => !r.errores.length && r.avisos.length).length; }
     get hayErrores() { return this.conError > 0; }
-    get primaVista() { return moneda(this.validos.reduce((s, r) => s + (r.prima || 0), 0)) || '$0'; }
-    get valorVista() { return moneda(this.validos.reduce((s, r) => s + (r.valor || 0), 0)) || '$0'; }
+    // Montos de la póliza propuestos con la suma de los incisos (si el archivo los desglosa por inciso).
+    sumarMontosIncisos() {
+        const enc = { ...this.encabezado };
+        const suma = (k) => {
+            const con = this.validos.filter((r) => r[k] !== null && r[k] !== undefined);
+            return con.length ? Math.round(con.reduce((s, r) => s + r[k], 0) * 100) / 100 : null;
+        };
+        if (enc.primaNeta === null) { enc.primaNeta = suma('primaNeta'); }
+        if (enc.derechos === null) { enc.derechos = suma('derechos'); }
+        if (enc.recargo === null) { enc.recargo = suma('recargo'); }
+        if (enc.iva === null) { enc.iva = suma('iva'); }
+        // La prima total solo se toma de los incisos si TODOS la traen.
+        if (enc.primaTotal === null && this.validos.length && this.validos.every((r) => r.prima !== null)) { enc.primaTotal = suma('prima'); }
+        this.encabezado = enc;
+    }
+
+    // Prima total de la cotización: la capturada o, si no hay, neta + derechos + recargo + IVA.
+    get primaTotalCalculada() {
+        const e = this.encabezado;
+        if (numero(e.primaTotal) !== null) { return numero(e.primaTotal); }
+        if (numero(e.primaNeta) === null) { return null; }
+        return Math.round(['primaNeta', 'derechos', 'recargo', 'iva'].reduce((s, k) => s + (numero(e[k]) || 0), 0) * 100) / 100;
+    }
+    get primaVista() { return moneda(this.primaTotalCalculada) || '$0'; }
+    get netaVista() { return moneda(this.encabezado.primaNeta) || '—'; }
+    // Aviso cuando la prima total sale solo de la neta (sin IVA ni derechos): compararía contra totales de otras aseguradoras.
+    get avisoTotalSinIva() {
+        const e = this.encabezado;
+        return numero(e.primaTotal) === null && numero(e.primaNeta) !== null && numero(e.iva) === null;
+    }
+    get valorVista() { return moneda(this.validos.reduce((s, r) => s + (r.valor || 0), 0)) || '—'; }
     get sinGuardar() { return this.totalValidos === 0 || this.cargando || !this.encabezado.aseguradoraId; }
     get textoGuardar() { return `Guardar cotización (${this.totalValidos} incisos)`; }
     get faltaAseguradora() { return !this.encabezado.aseguradoraId; }
@@ -555,7 +638,7 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         this.validos.forEach((r) => {
             const c = mapa[r.tipoVehiculo] || (mapa[r.tipoVehiculo] = { key: r.tipoVehiculo, tipo: r.tipoVehiculo, unidades: 0, prima: 0, valor: 0 });
             c.unidades++;
-            c.prima += r.prima || 0;
+            c.prima += (r.prima !== null ? r.prima : r.primaNeta) || 0;
             c.valor += r.valor || 0;
         });
         return Object.values(mapa).map((c) => ({ ...c, primaTxt: moneda(c.prima) || '$0', valorTxt: moneda(c.valor) }));
@@ -567,7 +650,9 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     }
     handleEncabezadoCotizacion(event) {
         const campo = event.target.dataset.campo;
-        this.encabezado = { ...this.encabezado, [campo]: event.detail.value };
+        const montos = ['primaNeta', 'derechos', 'recargo', 'iva', 'primaTotal'];
+        const valor = montos.includes(campo) ? numero(event.detail.value) : event.detail.value;
+        this.encabezado = { ...this.encabezado, [campo]: valor };
     }
 
     get opcionesFiltro() {
@@ -598,7 +683,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             valorTxt: moneda(r.valor),
             dedTxt: [r.dedDM !== null ? `DM ${r.dedDM}%` : '', r.dedRT !== null ? `RT ${r.dedRT}%` : ''].filter((x) => x).join(' · '),
             rcTxt: moneda(r.rc),
-            primaTxt: moneda(r.prima),
+            primaTxt: r.prima !== null ? moneda(r.prima) : moneda(r.primaNeta),
+            primaSub: r.prima === null && r.primaNeta !== null ? 'neta' : '',
             mensajes: [...r.errores, ...r.avisos].join(' · '),
             claseFila: r.errores.length ? 'fila-error' : (r.avisos.length ? 'fila-aviso' : ''),
             icono: r.errores.length ? 'utility:error' : (r.avisos.length ? 'utility:warning' : 'utility:success'),
@@ -628,12 +714,17 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
                 vigenciaDesde: this.encabezado.vigenciaDesde || null,
                 vigenciaHasta: this.encabezado.vigenciaHasta || null,
                 formaPago: this.encabezado.formaPago || null,
+                primaNeta: numero(this.encabezado.primaNeta),
+                derechos: numero(this.encabezado.derechos),
+                recargo: numero(this.encabezado.recargo),
+                iva: numero(this.encabezado.iva),
+                primaTotal: this.primaTotalCalculada,
                 archivo: this.archivoNombre,
                 incisos: this.validos.map((r) => ({
                     fila: r.fila, inciso: r.inciso, serie: r.serie || null, claveVehicular: r.claveVehicular,
                     descripcion: r.descripcion, modelo: r.modelo, placas: r.placas || null, uso: r.uso,
                     tipoVehiculo: r.tipoVehiculo, paquete: r.paquete, tipoValor: r.tipoValor, valor: r.valor,
-                    dedDM: r.dedDM, dedRT: r.dedRT, rc: r.rc, gm: r.gm, muerte: r.muerte, prima: r.prima
+                    dedDM: r.dedDM, dedRT: r.dedRT, rc: r.rc, gm: r.gm, muerte: r.muerte, prima: r.prima, primaNeta: r.primaNeta
                 }))
             };
             await guardarCotizacionFlotilla({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });

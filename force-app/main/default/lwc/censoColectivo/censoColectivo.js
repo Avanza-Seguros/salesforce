@@ -11,7 +11,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import {
     fold, tieneDatos, numero, fecha, fechaVisible, moneda, abrirTabla, detectarEncabezado,
-    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, bloquesPdf
+    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
 import getCenso from '@salesforce/apex/CensoColectivoController.getCenso';
 import guardarCenso from '@salesforce/apex/CensoColectivoController.guardarCenso';
@@ -263,7 +263,7 @@ export default class CensoColectivo extends LightningElement {
         return opcionesColumnas(this.filasCrudas, this.filaEncabezado);
     }
     get camposMapeo() {
-        const ejemplo = this.filasCrudas.slice(this.filaEncabezado + 1).find((f) => this.tieneDatos(f)) || [];
+        const ejemplo = this.filasCrudas.slice(this.inicioDatos).find((f) => this.tieneDatos(f)) || [];
         return CAMPOS.map((c) => {
             const col = this.mapeo[c.key];
             const v = col === undefined || col === '' ? '' : ejemplo[Number(col)];
@@ -276,7 +276,9 @@ export default class CensoColectivo extends LightningElement {
             };
         });
     }
-    get filasDatos() { return this.filasCrudas.slice(this.filaEncabezado + 1).filter((f) => this.tieneDatos(f)).length; }
+    // Primer renglón de datos (después del encabezado y sus renglones de continuación).
+    get inicioDatos() { return inicioDatos(this.filasCrudas, this.filaEncabezado); }
+    get filasDatos() { return this.filasCrudas.slice(this.inicioDatos).filter((f) => this.tieneDatos(f)).length; }
     get textoEncabezado() { return `Encabezados en el renglón ${this.filaEncabezado + 1} · ${this.filasDatos} renglones de datos`; }
     get opcionesEncabezado() {
         return opcionesEncabezado(this.filasCrudas);
@@ -304,13 +306,14 @@ export default class CensoColectivo extends LightningElement {
             this.toast('Censo', 'Indica al menos la columna del nombre del asegurado.', 'warning');
             return;
         }
-        const datos = this.filasCrudas.slice(this.filaEncabezado + 1)
+        const ini = this.inicioDatos;
+        const datos = this.filasCrudas.slice(ini)
             .map((f, i) => {
-                const o = { fila: this.filaEncabezado + i + 2 };
+                const o = { fila: ini + i + 1 };
                 Object.keys(m).forEach((k) => { o[k] = f[Number(m[k])]; });
                 return o;
             })
-            .filter((o, i) => this.tieneDatos(this.filasCrudas[this.filaEncabezado + 1 + i]));
+            .filter((o, i) => this.tieneDatos(this.filasCrudas[ini + i]));
         this.validar(datos);
     }
 

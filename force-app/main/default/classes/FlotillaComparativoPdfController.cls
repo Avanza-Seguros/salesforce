@@ -70,7 +70,7 @@ public with sharing class FlotillaComparativoPdfController {
 			List<Object> incisos = (List<Object>) cot[c].get('incisos');
 			for (Object o : incisos) {
 				Map<String, Object> i = (Map<String, Object>) o;
-				Decimal prima = dec(i.get('prima'));
+				Decimal prima = primaDe(i);
 				total += prima;
 				valor += dec(i.get('valor'));
 				String tipo = String.isBlank((String) i.get('tipoVehiculo')) ? 'Sin tipo' : (String) i.get('tipoVehiculo');
@@ -81,7 +81,7 @@ public with sharing class FlotillaComparativoPdfController {
 				}
 				primaTipo.get(tipo)[c] += prima;
 				unidadesTipo.get(tipo)[c] += 1;
-				String k = llaveVehiculo(i);
+				String k = llaveVehiculo(i, c, vehiculos.size());
 				if (!primaVehiculo.containsKey(k)) {
 					vehiculos.add(k);
 					datosVehiculo.put(k, i);
@@ -121,9 +121,11 @@ public with sharing class FlotillaComparativoPdfController {
 			String txt = dif == 0 ? '—' : '+' + moneda(dif) + ' (+' + porcentaje(mejor == 0 ? 0 : dif / mejor * 100) + ')';
 			h += '<td style="' + TD_NUM + '">' + txt + '</td>';
 		}
-		h += '</tr>' + filaTexto('Unidades cotizadas', cot, unidades, null);
+		h += '</tr>' + filaMonto('Prima neta', cot, 'primaNeta') + filaMonto('Derechos / gastos de expedición', cot, 'derechos')
+			+ filaMonto('Recargo por pago fraccionado', cot, 'recargo') + filaMonto('IVA', cot, 'iva');
+		h += filaTexto('Unidades cotizadas', cot, unidades, null);
 		h += '<tr><th style="' + TH + '">Valor asegurado total</th>';
-		for (Integer c = 0; c < n; c++) { h += '<td style="' + TD_NUM + '">' + moneda(valores[c]) + '</td>'; }
+		for (Integer c = 0; c < n; c++) { h += '<td style="' + TD_NUM + '">' + (valores[c] == 0 ? '—' : moneda(valores[c])) + '</td>'; }
 		h += '</tr><tr><th style="' + TH + '">Prima promedio por unidad</th>';
 		for (Integer c = 0; c < n; c++) { h += '<td style="' + TD_NUM + '">' + (unidades[c] == 0 ? '—' : moneda(totales[c] / unidades[c])) + '</td>'; }
 		h += '</tr><tr><th style="' + TH + '">Forma de pago</th>';
@@ -141,12 +143,15 @@ public with sharing class FlotillaComparativoPdfController {
 		for (String t : tipos) {
 			List<Decimal> p = primaTipo.get(t);
 			Decimal min = minimoValido(p, unidadesTipo.get(t));
+			Boolean porUnidad = !mismasUnidades(unidadesTipo.get(t));
+			Decimal minUnidad = minimoPorUnidad(p, unidadesTipo.get(t));
 			h += '<tr><th style="' + TH + '">' + esc(t) + '</th>';
 			for (Integer c = 0; c < n; c++) {
 				Integer u = unidadesTipo.get(t)[c];
-				Boolean esMejor = n > 1 && u > 0 && p[c] == min;
+				Boolean esMejor = n > 1 && u > 0 && (porUnidad ? p[c] / u == minUnidad : p[c] == min);
 				h += '<td style="' + (esMejor ? TD_NUM_MEJOR : TD_NUM) + '">' + (u == 0 ? '—' : moneda(p[c])
-					+ '<br/><span style="font-size:9px;color:#667;font-weight:normal;">' + u + (u == 1 ? ' unidad' : ' unidades') + '</span>') + '</td>';
+					+ '<br/><span style="font-size:9px;color:#667;font-weight:normal;">' + u + (u == 1 ? ' unidad' : ' unidades')
+					+ (porUnidad ? ' &middot; ' + moneda(p[c] / u) + ' c/u' : '') + '</span>') + '</td>';
 			}
 			h += '</tr>';
 		}
@@ -168,7 +173,28 @@ public with sharing class FlotillaComparativoPdfController {
 		h += '<p style="font-size:9.5px;color:#667;margin:0;">Cuando una cobertura cambia según la unidad (por ejemplo, RC de pick-ups de carga vs. automóviles) se muestra el rango.</p>';
 
 		// ---------- Detalle por vehículo ----------
-		h += '<h3>Prima por vehículo</h3><table>';
+		List<String> prorrateadas = new List<String>();
+		for (Map<String, Object> q : cot) { if (q.get('prorrateo') == true) { prorrateadas.add(esc((String) q.get('aseguradora'))); } }
+		h += '<h3>Prima por vehículo</h3>';
+		if (!prorrateadas.isEmpty()) {
+			h += '<p style="font-size:9.5px;color:#667;margin:0 0 6px;">' + String.join(prorrateadas, ', ')
+				+ ' da la prima neta por vehículo: aquí se le suma la parte proporcional de derechos e IVA para compararla con la prima total de las demás.</p>';
+		}
+		List<String> sinSerie = new List<String>();
+		List<Boolean> conSerie = new List<Boolean>();
+		for (Map<String, Object> q : cot) {
+			Boolean todas = true;
+			for (Object o : (List<Object>) q.get('incisos')) {
+				if (String.isBlank((String) ((Map<String, Object>) o).get('serie'))) { todas = false; }
+			}
+			conSerie.add(todas);
+			if (!todas) { sinSerie.add(esc((String) q.get('aseguradora'))); }
+		}
+		if (!sinSerie.isEmpty() && n > 1) {
+			h += '<p style="font-size:9.5px;color:#667;margin:0 0 6px;">' + String.join(sinSerie, ', ')
+				+ ' no incluye el número de serie de todos los vehículos: esos vehículos se listan por separado y se marcan con "—" en las demás aseguradoras.</p>';
+		}
+		h += '<table>';
 		h += '<tr><th style="' + TH + 'width:3%;">#</th><th style="' + TH + '">Vehículo</th><th style="' + TH + 'width:11%;">Tipo</th>'
 			+ '<th style="' + TH + 'width:9%;text-align:right;">Valor</th>';
 		for (Integer c = 0; c < n; c++) { h += '<th style="' + TH + 'text-align:right;">' + esc((String) cot[c].get('aseguradora')) + '</th>'; }
@@ -186,10 +212,12 @@ public with sharing class FlotillaComparativoPdfController {
 			h += '<tr><td style="' + TD + '">' + num + '</td><td style="' + TD + '">' + esc(texto(v.get('descripcion'), ''))
 				+ '<br/><span style="font-size:9px;color:#667;">' + detalle + '</span></td>'
 				+ '<td style="' + TD + '">' + esc(texto(v.get('tipoVehiculo'), '')) + '</td>'
-				+ '<td style="' + TD_NUM + '">' + moneda(dec(v.get('valor'))) + '</td>';
+				+ '<td style="' + TD_NUM + '">' + (dec(v.get('valor')) == 0 ? '—' : moneda(dec(v.get('valor')))) + '</td>';
 			for (Integer c = 0; c < n; c++) {
 				Boolean esMejor = validos > 1 && p[c] != null && p[c] == min;
-				h += '<td style="' + (esMejor ? TD_NUM_MEJOR : TD_NUM) + '">' + (p[c] == null ? 'No cotizado' : moneda(p[c])) + '</td>';
+				// "No cotizado" solo si esa aseguradora trae series y el vehículo no está; si no, no se puede saber ("—").
+				String vacio = (k.startsWith('S') && conSerie[c]) ? 'No cotizado' : '—';
+				h += '<td style="' + (esMejor ? TD_NUM_MEJOR : TD_NUM) + '">' + (p[c] == null ? vacio : moneda(p[c])) + '</td>';
 			}
 			h += '</tr>';
 		}
@@ -322,11 +350,16 @@ public with sharing class FlotillaComparativoPdfController {
 		List<String> notas = new List<String>();
 		for (String t : tipos) {
 			List<Decimal> p = primaTipo.get(t);
-			Decimal min = minimoValido(p, unidadesTipo.get(t));
+			List<Integer> u = unidadesTipo.get(t);
+			Boolean porUnidad = !mismasUnidades(u);
+			Decimal min = porUnidad ? minimoPorUnidad(p, u) : minimoValido(p, u);
 			for (Integer c = 1; c < cot.size(); c++) {
-				if (unidadesTipo.get(t)[c] > 0 && p[c] == min && unidadesTipo.get(t)[0] > 0 && p[0] > min) {
+				if (u[c] == 0 || u[0] == 0) { continue; }
+				Decimal vc = porUnidad ? p[c] / u[c] : p[c];
+				Decimal v0 = porUnidad ? p[0] / u[0] : p[0];
+				if (vc == min && v0 > min) {
 					notas.add(esc((String) cot[c].get('aseguradora')) + ' es más económica en ' + esc(t.toLowerCase())
-						+ ' (' + moneda(p[c]) + ' vs. ' + moneda(p[0]) + ')');
+						+ ' (' + moneda(vc) + ' vs. ' + moneda(v0) + (porUnidad ? ' por unidad' : '') + ')');
 				}
 			}
 		}
@@ -370,21 +403,90 @@ public with sharing class FlotillaComparativoPdfController {
 	 */
 	private static Decimal totalDe(Map<String, Object> q) {
 		Decimal t = 0;
-		for (Object o : (List<Object>) q.get('incisos')) { t += dec(((Map<String, Object>) o).get('prima')); }
+		for (Object o : (List<Object>) q.get('incisos')) { t += primaDe((Map<String, Object>) o); }
 		return t;
 	}
 
 	/**
 	 * @creation date: 13/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Llave para comparar el mismo vehículo entre aseguradoras: serie o descripción + modelo.
+	 * @description: Llave para comparar el mismo vehículo entre aseguradoras: la serie. Sin serie no se puede saber si
+	 *               es el mismo vehículo de otra aseguradora, así que cada inciso va en su propio renglón.
 	 * @param i: inciso.
+	 * @param c: índice de la cotización.
+	 * @param n: consecutivo para incisos sin serie.
 	 * @return llave del vehículo.
 	 */
-	private static String llaveVehiculo(Map<String, Object> i) {
+	private static String llaveVehiculo(Map<String, Object> i, Integer c, Integer n) {
 		String serie = (String) i.get('serie');
 		if (String.isNotBlank(serie)) { return 'S' + serie.toUpperCase(); }
-		return 'D' + texto(i.get('descripcion'), '').toLowerCase().normalizeSpace() + '|' + texto(i.get('modelo'), '');
+		return 'N' + c + '|' + n;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima del inciso para comparar: la comparable (con derechos e IVA proporcionales) o, si no viene,
+	 *               la total o la neta del inciso.
+	 * @param i: inciso.
+	 * @return prima (0 si no hay).
+	 */
+	private static Decimal primaDe(Map<String, Object> i) {
+		if (i.get('primaComparable') != null) { return dec(i.get('primaComparable')); }
+		return i.get('prima') != null ? dec(i.get('prima')) : dec(i.get('primaNeta'));
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de un monto de la cotización (prima neta, derechos, recargo, IVA); se omite si ninguna
+	 *               aseguradora lo trae.
+	 * @param etiqueta: texto de la primera columna.
+	 * @param cot: cotizaciones.
+	 * @param campo: clave del monto en la cotización.
+	 * @return HTML del renglón o vacío.
+	 */
+	private static String filaMonto(String etiqueta, List<Map<String, Object>> cot, String campo) {
+		Boolean hay = false;
+		String h = '<tr><th style="' + TH + '">' + esc(etiqueta) + '</th>';
+		for (Map<String, Object> q : cot) {
+			Object v = q.get(campo);
+			hay = hay || v != null;
+			h += '<td style="' + TD_NUM + '">' + (v == null ? '—' : moneda(dec(v))) + '</td>';
+		}
+		return hay ? h + '</tr>' : '';
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: true si todas las aseguradoras que cotizaron ese tipo de vehículo lo hicieron con las mismas unidades.
+	 * @param u: unidades por cotización.
+	 * @return true si se puede comparar el total; false si hay que comparar por unidad.
+	 */
+	private static Boolean mismasUnidades(List<Integer> u) {
+		Integer ref = null;
+		for (Integer x : u) {
+			if (x == 0) { continue; }
+			if (ref == null) { ref = x; } else if (x != ref) { return false; }
+		}
+		return true;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima por unidad más baja entre las aseguradoras que sí cotizaron ese tipo de vehículo.
+	 * @param p: prima por cotización.
+	 * @param u: unidades por cotización.
+	 * @return prima por unidad mínima o null.
+	 */
+	private static Decimal minimoPorUnidad(List<Decimal> p, List<Integer> u) {
+		Decimal min = null;
+		for (Integer c = 0; c < p.size(); c++) {
+			if (u[c] > 0 && (min == null || p[c] / u[c] < min)) { min = p[c] / u[c]; }
+		}
+		return min;
 	}
 
 	/**
