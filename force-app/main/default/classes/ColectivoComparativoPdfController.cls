@@ -2,9 +2,9 @@
  * @creation date: 14/10/2026
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Controlador de la página ColectivoComparativoPdf (renderAs PDF). Arma el comparativo de cotizaciones
- *               colectivas de personas (GMM, Vida Grupo, Accidentes Personales) a partir de los Quote y
- *               Categoria_Colectiva__c de la oportunidad: primas, plan lado a lado, formas de pago, categorías,
- *               coberturas adicionales, distribución por edad y recomendación. Mismo estilo que los demás comparativos.
+ *               colectivas a partir de los Quote y Categoria_Colectiva__c de la oportunidad: primas, plan y coberturas
+ *               lado a lado, formas de pago, categorías (personas) o ubicaciones (Daños / Empresarial), coberturas
+ *               adicionales, distribución por edad, cuota al millar y recomendación. Mismo estilo que los demás comparativos.
  */
 public with sharing class ColectivoComparativoPdfController {
 
@@ -23,7 +23,8 @@ public with sharing class ColectivoComparativoPdfController {
 		'h2 { font-size: 18px; margin: 0 0 4px; } h3 { font-size: 13px; margin: 14px 0 6px; } ' +
 		'tr { page-break-inside: avoid; }</style>';
 	private static final Map<String, String> RAMOS = new Map<String, String>{
-		'GMM' => 'Gastos Médicos Mayores', 'Vida' => 'Vida Grupo', 'Accidentes Personales' => 'Accidentes Personales'
+		'GMM' => 'Gastos Médicos Mayores', 'Vida' => 'Vida Grupo', 'Accidentes Personales' => 'Accidentes Personales',
+		'Dental' => 'Dental', 'Vision' => 'Visión', 'Viajes' => 'Viajes', 'Danos' => 'Daños', 'Empresarial' => 'Paquete Empresarial'
 	};
 	// Parámetros del plan que se comparan lado a lado (clave de la categoría -> etiqueta).
 	private static final List<List<String>> PLAN = new List<List<String>>{
@@ -61,15 +62,26 @@ public with sharing class ColectivoComparativoPdfController {
 		Integer conIva = 0;
 		for (Map<String, Object> q : cot) { if (q.get('iva') != null) { conIva++; } }
 		Boolean sinIva = conIva > 0 && conIva < cot.size();
+		Boolean ubic = ColectivoController.esUbicaciones(opp.Ramo__c);
+		String unidad = ubic ? 'ubicaciones' : 'asegurados';
 		Map<Object, Decimal> base = new Map<Object, Decimal>();
 		Map<Object, Decimal> asegurados = new Map<Object, Decimal>();
+		Map<Object, Decimal> sumaTotal = new Map<Object, Decimal>();
+		Boolean haySuma = false;
 		for (Map<String, Object> q : cot) {
 			Decimal b = sinIva ? dec(q.get('primaNeta')) + dec(q.get('derechos')) : dec(q.get('primaTotal'));
 			if (b == 0) { b = dec(q.get('primaTotal')); }
 			base.put(q.get('id'), b);
 			Decimal a = 0;
-			for (Object o : (List<Object>) q.get('categorias')) { a += dec(((Map<String, Object>) o).get('asegurados')); }
-			asegurados.put(q.get('id'), a);
+			Decimal sa = 0;
+			List<Object> cats = (List<Object>) q.get('categorias');
+			for (Object o : cats) {
+				a += dec(((Map<String, Object>) o).get('asegurados'));
+				sa += dec(((Map<String, Object>) o).get('sumaAseguradaTotal'));
+			}
+			asegurados.put(q.get('id'), ubic ? cats.size() : a);
+			sumaTotal.put(q.get('id'), sa);
+			haySuma = haySuma || sa > 0;
 		}
 		cot = ordenar(cot, base);
 		Integer n = cot.size();
@@ -88,7 +100,10 @@ public with sharing class ColectivoComparativoPdfController {
 			+ (String.isNotBlank(cliente) && cliente != opp.Name ? esc(cliente) + ' &middot; ' : '')
 			+ esc(opp.Name) + (String.isNotBlank(vigencia) ? ' &middot; Vigencia ' + esc(vigencia) : '') + '</p>';
 		h += '<p style="font-size:11px;color:#b85b00;margin:0 0 12px;">' + n + (n == 1 ? ' aseguradora cotizada' : ' aseguradoras comparadas')
-			+ ' &middot; ' + maximo(asegurados.values()).intValue() + ' asegurados &middot; Cotizado por Avanza Seguro &middot; ' + fechaTxt(Date.today()) + '</p>';
+			+ ' &middot; ' + maximo(asegurados.values()).intValue() + ' '
+			+ (maximo(asegurados.values()) == 1 ? (ubic ? 'ubicaci&oacute;n' : 'asegurado') : unidad)
+			+ (haySuma ? ' &middot; ' + (ubic ? 'valor asegurado ' : 'suma asegurada ') + moneda(maximo(sumaTotal.values())) : '')
+			+ ' &middot; Cotizado por Avanza Seguro &middot; ' + fechaTxt(Date.today()) + '</p>';
 		if (sinIva) {
 			h += '<p style="font-size:10px;margin:0 0 8px;padding:6px 8px;background:#fff8ef;border:1px solid #f2d3a8;">'
 				+ 'Algunas aseguradoras no incluyen IVA en su cotización: la comparación se hace sobre <b>prima neta + derechos (sin IVA)</b> para todas.</p>';
@@ -110,27 +125,44 @@ public with sharing class ColectivoComparativoPdfController {
 		h += '</tr>' + filaMonto('Prima neta', cot, 'primaNeta', null) + filaMonto('Derechos / gastos de expedición', cot, 'derechos', null)
 			+ filaMonto('Recargo por pago fraccionado', cot, 'recargo', null) + filaMonto('IVA', cot, 'iva', 'No incluido')
 			+ filaMonto('Prima total', cot, 'primaTotal', null);
-		h += '<tr><th style="' + TH + '">Asegurados</th>';
+		h += '<tr><th style="' + TH + '">' + unidad.capitalize() + '</th>';
 		Decimal maxAseg = maximo(asegurados.values());
 		for (Map<String, Object> q : cot) {
 			Decimal a = asegurados.get(q.get('id'));
 			h += '<td style="' + (a != maxAseg ? TD_AVISO : TD_NUM) + '">' + a.intValue() + '</td>';
 		}
-		h += '</tr><tr><th style="' + TH + '">Prima promedio por asegurado</th>';
+		h += '</tr><tr><th style="' + TH + '">Prima promedio por ' + (ubic ? 'ubicación' : 'asegurado') + '</th>';
 		for (Map<String, Object> q : cot) {
 			Decimal a = asegurados.get(q.get('id'));
 			h += '<td style="' + TD_NUM + '">' + (a == 0 ? '—' : moneda(base.get(q.get('id')) / a)) + '</td>';
 		}
-		h += '</tr></table>';
+		h += '</tr>';
+		if (haySuma) {
+			// Cuota al millar: prima neta por cada $1,000 de suma asegurada (compara precio aunque las sumas difieran).
+			h += '<tr><th style="' + TH + '">' + (ubic ? 'Valor total asegurado' : 'Suma asegurada total') + '</th>';
+			for (Map<String, Object> q : cot) {
+				Decimal sa = sumaTotal.get(q.get('id'));
+				h += '<td style="' + TD_NUM + '">' + (sa > 0 ? moneda(sa) : '—') + '</td>';
+			}
+			h += '</tr><tr><th style="' + TH + '">Cuota al millar (prima neta)</th>';
+			for (Map<String, Object> q : cot) {
+				Decimal cuota = cuotaAlMillar(q, sumaTotal.get(q.get('id')));
+				h += '<td style="' + TD_NUM + '">' + (cuota == null ? '—' : String.valueOf(cuota.setScale(3, System.RoundingMode.HALF_UP)) + ' &permil;') + '</td>';
+			}
+			h += '</tr>';
+		}
+		h += '</table>';
 
 		// ---------- Plan ----------
-		h += '<h3>Plan cotizado</h3><table class="resumen">' + encabezado('Concepto', cot, base, mejor);
+		h += '<h3>' + (ubic ? 'Coberturas cotizadas' : 'Plan cotizado') + '</h3><table class="resumen">' + encabezado('Concepto', cot, base, mejor);
 		Set<String> distintos = new Set<String>();
-		for (List<String> p : PLAN) {
+		List<List<String>> filasPlan = ubic ? new List<List<String>>() : new List<List<String>>(PLAN);
+		filasPlan.addAll(conceptos(cot));
+		for (List<String> p : filasPlan) {
 			List<String> valores = new List<String>();
 			Boolean hay = false;
 			for (Map<String, Object> q : cot) {
-				String v = valorPlan(q, p[0]);
+				String v = p[0].startsWith('#') ? valorParametro(q, p[0].substring(1)) : valorPlan(q, p[0]);
 				valores.add(v);
 				hay = hay || String.isNotBlank(v);
 			}
@@ -181,7 +213,8 @@ public with sharing class ColectivoComparativoPdfController {
 		}
 
 		// ---------- Categorías ----------
-		h += '<h3>Categorías y asegurados</h3><table class="resumen">' + encabezado('Aseguradora', cot, base, mejor).replace('Aseguradora', 'Categoría');
+		h += '<h3>' + (ubic ? 'Ubicaciones' : 'Categorías y asegurados') + '</h3><table class="resumen">'
+			+ encabezado('Aseguradora', cot, base, mejor).replace('Aseguradora', ubic ? 'Ubicación' : 'Categoría');
 		List<String> nombres = new List<String>();
 		for (Map<String, Object> q : cot) {
 			for (Object o : (List<Object>) q.get('categorias')) {
@@ -195,8 +228,13 @@ public with sharing class ColectivoComparativoPdfController {
 				Map<String, Object> cat = null;
 				for (Object o : (List<Object>) q.get('categorias')) { if (texto(((Map<String, Object>) o).get('nombre')) == c) { cat = (Map<String, Object>) o; } }
 				if (cat == null) { h += '<td style="' + TD_NUM + '">—</td>'; continue; }
-				String sub = dec(cat.get('asegurados')).intValue() + ' asegurados'
-					+ (cat.get('hombres') != null || cat.get('mujeres') != null ? ' (' + dec(cat.get('hombres')).intValue() + ' H / ' + dec(cat.get('mujeres')).intValue() + ' M)' : '');
+				String sub = ubic
+					? esc(texto(cat.get('direccion'))) + (cat.get('sumaAseguradaTotal') != null ? (String.isBlank(texto(cat.get('direccion'))) ? '' : '<br/>')
+						+ 'Valor asegurado ' + moneda(dec(cat.get('sumaAseguradaTotal'))) : '')
+						+ (String.isNotBlank(texto(cat.get('plan'))) ? '<br/>Giro: ' + esc(texto(cat.get('plan'))) : '')
+					: dec(cat.get('asegurados')).intValue() + ' asegurados'
+						+ (cat.get('hombres') != null || cat.get('mujeres') != null ? ' (' + dec(cat.get('hombres')).intValue() + ' H / ' + dec(cat.get('mujeres')).intValue() + ' M)' : '')
+						+ (cat.get('sumaAseguradaTotal') != null ? ' &middot; SA ' + moneda(dec(cat.get('sumaAseguradaTotal'))) : '');
 				h += '<td style="' + TD_NUM + '">' + (cat.get('primaNeta') != null ? moneda(dec(cat.get('primaNeta'))) + ' neta<br/>' : '')
 					+ '<span style="font-size:9px;color:#667;">' + sub + '</span></td>';
 			}
@@ -227,9 +265,10 @@ public with sharing class ColectivoComparativoPdfController {
 		// ---------- Recomendación ----------
 		h += '<h3>Resumen y recomendación</h3>';
 		h += '<p style="margin:0;padding:10px;background:#f4f6f9;border:1px solid #e6e9ef;font-size:11px;">'
-			+ recomendacion(cot, base, asegurados, distintos, sinIva) + '</p>';
+			+ recomendacion(cot, base, asegurados, distintos, sinIva, unidad) + notaCuota(cot, asegurados, sumaTotal, unidad) + '</p>';
 		h += '<p style="font-size:9.5px;color:#667;margin:10px 0 0;">Documento informativo elaborado con las cotizaciones de cada aseguradora. '
-			+ 'Las primas pueden cambiar si la información de los asegurados (edad, sexo, parentesco) difiere de la cotizada; las '
+			+ (ubic ? 'Las primas pueden cambiar si los datos de las ubicaciones (construcción, giro, valores, protecciones) difieren de los cotizados; las '
+				: 'Las primas pueden cambiar si la información de los asegurados (edad, sexo, parentesco) difiere de la cotizada; las ')
 			+ 'condiciones finales se definen en la póliza y sus condiciones generales.</p>';
 		h += '</body></html>';
 		return h;
@@ -302,6 +341,135 @@ public with sharing class ColectivoComparativoPdfController {
 		}
 		if (unicos.isEmpty()) { return ''; }
 		return unicos.size() == 1 ? new List<String>(unicos)[0] : String.join(porCategoria, ' / ');
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Coberturas / condiciones de "parametros" de todas las cotizaciones, en el orden en que aparecen
+	 *               (se agrupan por nombre sin acentos ni mayúsculas). La clave lleva "#" para distinguirlas de los campos fijos.
+	 * @param cot: cotizaciones.
+	 * @return lista de {"#llave", etiqueta}.
+	 */
+	private static List<List<String>> conceptos(List<Map<String, Object>> cot) {
+		List<List<String>> res = new List<List<String>>();
+		Set<String> vistos = new Set<String>();
+		for (Map<String, Object> q : cot) {
+			for (Object o : (List<Object>) q.get('categorias')) {
+				List<Object> params = (List<Object>) ((Map<String, Object>) o).get('parametros');
+				for (Object p : params == null ? new List<Object>() : params) {
+					String concepto = texto(((Map<String, Object>) p).get('concepto'));
+					String llave = llaveConcepto(concepto);
+					if (String.isBlank(llave) || llave == 'cuotaalmillar' || vistos.contains(llave)) { continue; }
+					vistos.add(llave);
+					res.add(new List<String>{ '#' + llave, concepto });
+				}
+			}
+		}
+		return res;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de comparación de un concepto: minúsculas, sin acentos ni signos.
+	 * @param concepto: nombre de la cobertura.
+	 * @return llave.
+	 */
+	@TestVisible
+	private static String llaveConcepto(String concepto) {
+		if (String.isBlank(concepto)) { return ''; }
+		String t = concepto.toLowerCase();
+		Map<String, String> acentos = new Map<String, String>{ 'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n' };
+		for (String a : acentos.keySet()) { t = t.replace(a, acentos.get(a)); }
+		return t.replaceAll('[^a-z0-9]', '');
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Valor de una cobertura de "parametros" en una cotización: único, o "Categoría: valor" si cambia.
+	 * @param q: cotización.
+	 * @param llave: llave del concepto (llaveConcepto).
+	 * @return texto ('' si la aseguradora no la incluye).
+	 */
+	@TestVisible
+	private static String valorParametro(Map<String, Object> q, String llave) {
+		Set<String> unicos = new Set<String>();
+		List<String> porCategoria = new List<String>();
+		for (Object o : (List<Object>) q.get('categorias')) {
+			Map<String, Object> c = (Map<String, Object>) o;
+			List<Object> params = (List<Object>) c.get('parametros');
+			for (Object p : params == null ? new List<Object>() : params) {
+				Map<String, Object> pm = (Map<String, Object>) p;
+				if (llaveConcepto(texto(pm.get('concepto'))) != llave || String.isBlank(texto(pm.get('valor')))) { continue; }
+				unicos.add(texto(pm.get('valor')));
+				porCategoria.add(texto(c.get('nombre')) + ': ' + texto(pm.get('valor')));
+			}
+		}
+		if (unicos.isEmpty()) { return ''; }
+		// Un solo valor si aplica igual a todas las categorías; si solo algunas la tienen, se dice cuáles.
+		Boolean todas = porCategoria.size() >= ((List<Object>) q.get('categorias')).size();
+		return unicos.size() == 1 && todas ? new List<String>(unicos)[0] : String.join(porCategoria, ' / ');
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cuota al millar: prima neta (o la suma de las categorías) por cada $1,000 de suma asegurada.
+	 * @param q: cotización.
+	 * @param sumaAsegurada: suma asegurada total de la cotización.
+	 * @return cuota o null si no hay suma asegurada o prima.
+	 */
+	@TestVisible
+	private static Decimal cuotaAlMillar(Map<String, Object> q, Decimal sumaAsegurada) {
+		if (sumaAsegurada == null || sumaAsegurada <= 0) { return null; }
+		Decimal neta = dec(q.get('primaNeta'));
+		if (neta == 0) {
+			for (Object o : (List<Object>) q.get('categorias')) { neta += dec(((Map<String, Object>) o).get('primaNeta')); }
+		}
+		return neta == 0 ? null : neta / sumaAsegurada * 1000;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cuando las aseguradoras no cotizaron lo mismo (distinto número de asegurados / ubicaciones o suma
+	 *               asegurada distinta), la prima sola no basta: compara la cuota al millar (prima neta por cada $1,000
+	 *               asegurados) y dice quién asegura más barato por peso.
+	 * @param cot: cotizaciones en orden de prima.
+	 * @param tamano: asegurados o ubicaciones por cotización.
+	 * @param sumaTotal: suma asegurada total por cotización.
+	 * @param unidad: "asegurados" o "ubicaciones".
+	 * @return texto (vacío si no aplica).
+	 */
+	@TestVisible
+	private static String notaCuota(List<Map<String, Object>> cot, Map<Object, Decimal> tamano, Map<Object, Decimal> sumaTotal, String unidad) {
+		if (cot.size() < 2) { return ''; }
+		Decimal minSa;
+		Decimal maxSa = 0;
+		Map<String, Object> mejor;
+		Decimal mejorCuota;
+		for (Map<String, Object> q : cot) {
+			Decimal sa = sumaTotal.get(q.get('id'));
+			Decimal cuota = cuotaAlMillar(q, sa);
+			if (cuota == null) { return ''; }
+			minSa = minSa == null || sa < minSa ? sa : minSa;
+			maxSa = sa > maxSa ? sa : maxSa;
+			if (mejorCuota == null || cuota < mejorCuota) { mejorCuota = cuota; mejor = q; }
+		}
+		Boolean mismoTamano = maximo(tamano.values()) == minimo(tamano.values());
+		if (mismoTamano && (maxSa - minSa) <= maxSa * 0.01) { return ''; }
+		String txt = ' <b>Ojo:</b> ' + (mismoTamano ? 'las sumas aseguradas no son iguales' : 'no todas cotizaron ' + (unidad == 'ubicaciones' ? 'las mismas ubicaciones' : 'los mismos asegurados'))
+			+ ', así que compara también la cuota al millar (prima neta por cada $1,000 asegurados): ';
+		if (mejor == cot[0]) {
+			return txt + esc((String) mejor.get('aseguradora')) + ' también es la más barata por peso asegurado ('
+				+ mejorCuota.setScale(3, System.RoundingMode.HALF_UP) + ' &permil;).';
+		}
+		return txt + '<b style="color:#b85b00;">' + esc((String) mejor.get('aseguradora')) + '</b> cobra menos por cada peso asegurado ('
+			+ mejorCuota.setScale(3, System.RoundingMode.HALF_UP) + ' &permil; contra '
+			+ cuotaAlMillar(cot[0], sumaTotal.get(cot[0].get('id'))).setScale(3, System.RoundingMode.HALF_UP) + ' &permil; de '
+			+ esc((String) cot[0].get('aseguradora')) + ').';
 	}
 
 	/**
@@ -385,15 +553,16 @@ public with sharing class ColectivoComparativoPdfController {
 	 * @param asegurados: asegurados por cotización.
 	 * @param distintos: parámetros del plan que no coinciden entre aseguradoras.
 	 * @param sinIva: true si se comparó sin IVA.
+	 * @param unidad: "asegurados" o "ubicaciones".
 	 * @return HTML del texto.
 	 */
 	private static String recomendacion(List<Map<String, Object>> cot, Map<Object, Decimal> base, Map<Object, Decimal> asegurados,
-			Set<String> distintos, Boolean sinIva) {
+			Set<String> distintos, Boolean sinIva, String unidad) {
 		String mejor = esc((String) cot[0].get('aseguradora'));
 		Decimal b0 = base.get(cot[0].get('id'));
 		if (cot.size() == 1) {
 			return 'Se cotizó con ' + mejor + ': ' + moneda(b0) + ' por ' + asegurados.get(cot[0].get('id')).intValue()
-				+ ' asegurados. Agrega las cotizaciones de otras aseguradoras para compararlas.';
+				+ ' ' + unidad + '. Agrega las cotizaciones de otras aseguradoras para compararlas.';
 		}
 		Decimal b1 = base.get(cot[1].get('id'));
 		String txt = '<b style="color:#b85b00;">' + mejor + '</b> ofrece la menor prima' + (sinIva ? ' (neta + derechos, sin IVA)' : '')
@@ -401,11 +570,15 @@ public with sharing class ColectivoComparativoPdfController {
 			+ ' (' + porcentaje(b0 == 0 ? 0 : (b1 - b0) / b0 * 100) + ').';
 		Decimal max = maximo(asegurados.values());
 		if (asegurados.get(cot[0].get('id')) != max) {
-			txt += ' Ojo: ' + mejor + ' cotizó ' + asegurados.get(cot[0].get('id')).intValue() + ' de ' + max.intValue() + ' asegurados.';
+			txt += ' Ojo: ' + mejor + ' cotizó ' + asegurados.get(cot[0].get('id')).intValue() + ' de ' + max.intValue() + ' ' + unidad + '.';
 		}
 		if (!distintos.isEmpty()) {
-			txt += ' Los planes no son idénticos (' + esc(String.join(new List<String>(distintos), ', '))
-				+ '): revisa la sección "Plan cotizado" antes de decidir solo por precio.';
+			List<String> lista = new List<String>(distintos);
+			String cuales = lista.size() > 4
+				? String.join(new List<String>{ lista[0], lista[1], lista[2], lista[3] }, ', ') + ' y ' + (lista.size() - 4) + ' más'
+				: String.join(lista, ', ');
+			txt += ' Los planes no son idénticos (' + esc(cuales)
+				+ '): revisa el plan y las coberturas antes de decidir solo por precio.';
 		}
 		return txt;
 	}
@@ -433,6 +606,19 @@ public with sharing class ColectivoComparativoPdfController {
 			res.add(pendientes.remove(idx));
 		}
 		return res;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Valor mínimo de una lista de montos.
+	 * @param l: lista.
+	 * @return mínimo (0 si está vacía).
+	 */
+	private static Decimal minimo(List<Decimal> l) {
+		Decimal m;
+		for (Decimal x : l) { if (x != null && (m == null || x < m)) { m = x; } }
+		return m == null ? 0 : m;
 	}
 
 	/**

@@ -1,16 +1,21 @@
 /**
  * @creation date: 14/10/2026
  * @author: Sergio Uribe Toledo - Volestra
- * @description: Cotizaciones colectivas de PERSONAS (GMM, Vida Grupo, Accidentes Personales). Cada cotización de
- *               aseguradora (PDF o Excel, leída con IA en el LWC colectivoPersonas) se guarda como un Quote de la
- *               oportunidad con un Categoria_Colectiva__c por categoría (asegurados, prima, parámetros del plan,
- *               coberturas adicionales y tarifa por edad). Alimenta el comparativo en pantalla y en PDF.
+ * @description: Cotizaciones colectivas por aseguradora. Ramos de PERSONAS (GMM, Vida Grupo, Accidentes Personales,
+ *               Dental, Visión, Viajes): un Categoria_Colectiva__c por categoría (asegurados, prima, plan, coberturas y
+ *               tarifa por edad). Ramos de UBICACIONES (Daños, Empresarial): un Categoria_Colectiva__c por ubicación
+ *               (dirección, valor asegurado, prima y coberturas). Cada cotización (PDF o Excel, leída con IA en el LWC
+ *               colectivoPersonas) es un Quote de la oportunidad. Alimenta el comparativo en pantalla y en PDF.
  */
 public with sharing class ColectivoController {
 
 	// Prompt Template (Prompt Builder) que lee cotizaciones colectivas de personas y su variable de entrada.
 	private static final String PROMPT_TEMPLATE_API_NAME = 'Extractor_Colectivo_Personas';
+	// Prompt Template para cotizaciones de Daños / Empresarial con varias ubicaciones.
+	private static final String PROMPT_UBICACIONES_API_NAME = 'Extractor_Colectivo_Ubicaciones';
 	private static final String PROMPT_INPUT_PARAM = 'Input:TextoCotizacion';
+	// Ramos en los que cada renglón de la cotización es una ubicación (inmueble) y no un grupo de personas.
+	private static final Set<String> RAMOS_UBICACIONES = new Set<String>{ 'Danos', 'Empresarial' };
 
 	/**
 	 * @creation date: 14/10/2026
@@ -43,7 +48,17 @@ public with sharing class ColectivoController {
 	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Categoría (subgrupo) de la cotización.
+	 * @description: Cobertura o condición del plan (concepto y valor tal cual vienen en la cotización).
+	 */
+	public class Parametro {
+		public String concepto;
+		public String valor;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Categoría (subgrupo de personas) o ubicación de la cotización.
 	 */
 	public class CategoriaEntrada {
 		public String nombre;
@@ -53,6 +68,8 @@ public with sharing class ColectivoController {
 		public Decimal titulares;
 		public Decimal dependientes;
 		public Decimal primaNeta;
+		public Decimal sumaAseguradaTotal;
+		public String direccion;
 		public String plan;
 		public String sumaAsegurada;
 		public String deducible;
@@ -63,6 +80,7 @@ public with sharing class ColectivoController {
 		public String territorio;
 		public List<String> coberturasAdicionales;
 		public List<TarifaEdad> tarifaEdades;
+		public List<Parametro> parametros;
 	}
 
 	/**
@@ -104,7 +122,7 @@ public with sharing class ColectivoController {
 				Cotizacion__r.Ramos__c, Cotizacion__r.NumeroCotizacion__c, Cotizacion__r.CreatedDate,
 				Asegurados__c, Hombres__c, Mujeres__c, Titulares__c, Dependientes__c, Prima_Neta__c, Plan__c,
 				Suma_Asegurada__c, Deducible__c, Coaseguro__c, Tope_Coaseguro__c, Tabulador__c, Nivel_Hospitalario__c,
-				Territorio__c, Coberturas_Adicionales__c, Tarifa_Edades__c
+				Territorio__c, Coberturas_Adicionales__c, Tarifa_Edades__c, Parametros__c, Suma_Asegurada_Total__c, Direccion__c
 			FROM Categoria_Colectiva__c
 			WHERE Oportunidad__c = :opportunityId AND Cotizacion__c != null
 			ORDER BY Cotizacion__r.CreatedDate ASC, CreatedDate ASC, Name ASC
@@ -127,11 +145,12 @@ public with sharing class ColectivoController {
 			((List<Object>) q.get('categorias')).add(new Map<String, Object>{
 				'id' => c.Id, 'nombre' => c.Name, 'asegurados' => c.Asegurados__c, 'hombres' => c.Hombres__c,
 				'mujeres' => c.Mujeres__c, 'titulares' => c.Titulares__c, 'dependientes' => c.Dependientes__c,
-				'primaNeta' => c.Prima_Neta__c, 'plan' => c.Plan__c, 'sumaAsegurada' => c.Suma_Asegurada__c,
+				'primaNeta' => c.Prima_Neta__c, 'sumaAseguradaTotal' => c.Suma_Asegurada_Total__c, 'direccion' => c.Direccion__c,
+				'plan' => c.Plan__c, 'sumaAsegurada' => c.Suma_Asegurada__c,
 				'deducible' => c.Deducible__c, 'coaseguro' => c.Coaseguro__c, 'topeCoaseguro' => c.Tope_Coaseguro__c,
 				'tabulador' => c.Tabulador__c, 'nivelHospitalario' => c.Nivel_Hospitalario__c, 'territorio' => c.Territorio__c,
 				'coberturasAdicionales' => String.isBlank(c.Coberturas_Adicionales__c) ? new List<String>() : c.Coberturas_Adicionales__c.split('\n'),
-				'tarifaEdades' => jsonLista(c.Tarifa_Edades__c)
+				'tarifaEdades' => jsonLista(c.Tarifa_Edades__c), 'parametros' => jsonLista(c.Parametros__c)
 			});
 		}
 		return porQuote.values();
@@ -156,7 +175,7 @@ public with sharing class ColectivoController {
 			throw error('La cotización no tiene un formato válido: ' + e.getMessage());
 		}
 		if (datos.aseguradoraId == null) { throw error('Selecciona la aseguradora de la cotización.'); }
-		if (datos.categorias == null || datos.categorias.isEmpty()) { throw error('La cotización no tiene categorías ni asegurados.'); }
+		if (datos.categorias == null || datos.categorias.isEmpty()) { throw error('La cotización no tiene categorías, asegurados ni ubicaciones.'); }
 		List<Opportunity> opps = [SELECT Id, Name, Pricebook2Id, Ramo__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
 		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
 		Opportunity opp = opps[0];
@@ -178,7 +197,9 @@ public with sharing class ColectivoController {
 
 			String ramo = String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : 'GMM';
 			Quote q = new Quote(OpportunityId = opp.Id, Status = 'In Review');
-			q.Name = ('Colectivo ' + ramo + ' - ' + asegs[0].Name + ' (' + asegurados.intValue() + ' asegurados)').left(255);
+			String tamano = esUbicaciones(ramo) ? datos.categorias.size() + (datos.categorias.size() == 1 ? ' ubicación' : ' ubicaciones')
+				: asegurados.intValue() + ' asegurados';
+			q.Name = ('Colectivo ' + etiquetaRamo(ramo) + ' - ' + asegs[0].Name + ' (' + tamano + ')').left(255);
 			q.Pricebook2Id = opp.Pricebook2Id != null ? opp.Pricebook2Id : pricebookEstandar();
 			q.put('Aseguradora__c', asegs[0].Id);
 			Id producto = productoRamo(asegs[0].Id, ramo);
@@ -211,6 +232,8 @@ public with sharing class ColectivoController {
 				c.Titulares__c = e.titulares;
 				c.Dependientes__c = e.dependientes;
 				c.Prima_Neta__c = e.primaNeta;
+				c.Suma_Asegurada_Total__c = e.sumaAseguradaTotal;
+				setTexto(c, 'Direccion__c', e.direccion);
 				setTexto(c, 'Plan__c', e.plan);
 				setTexto(c, 'Suma_Asegurada__c', e.sumaAsegurada);
 				setTexto(c, 'Deducible__c', e.deducible);
@@ -223,6 +246,11 @@ public with sharing class ColectivoController {
 					c.Coberturas_Adicionales__c = String.join(e.coberturasAdicionales, '\n').left(32768);
 				}
 				if (e.tarifaEdades != null && !e.tarifaEdades.isEmpty()) { c.Tarifa_Edades__c = JSON.serialize(e.tarifaEdades, true); }
+				List<Parametro> params = new List<Parametro>();
+				for (Parametro pm : e.parametros == null ? new List<Parametro>() : e.parametros) {
+					if (pm != null && String.isNotBlank(pm.concepto) && String.isNotBlank(pm.valor)) { params.add(pm); }
+				}
+				if (!params.isEmpty()) { c.Parametros__c = JSON.serialize(params, true).left(32768); }
 				categorias.add(c);
 			}
 			insert categorias;
@@ -258,25 +286,29 @@ public with sharing class ColectivoController {
 	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Envía a Einstein (Prompt Template Extractor_Colectivo_Personas) el texto de la cotización (PDF, o
-	 *               Excel convertido a texto en el navegador) y devuelve el JSON con categorías, plan y primas.
+	 * @description: Envía a Einstein el texto de la cotización (PDF, o Excel convertido a texto en el navegador) y
+	 *               devuelve el JSON con categorías o ubicaciones, plan y primas. Usa Extractor_Colectivo_Ubicaciones
+	 *               en Daños / Empresarial y Extractor_Colectivo_Personas en los demás ramos.
 	 * @param textoCotizacion: texto de la cotización.
+	 * @param ramo: ramo de la oportunidad (guía para la IA; vacío = personas).
 	 * @return JSON de la cotización.
 	 */
 	@AuraEnabled(cacheable=false)
-	public static String analizarCotizacionColectiva(String textoCotizacion) {
+	public static String analizarCotizacionColectiva(String textoCotizacion, String ramo) {
 		if (String.isBlank(textoCotizacion)) { throw error('No se recibió texto de la cotización para analizar.'); }
 		if (Test.isRunningTest()) { return '{"categorias":[]}'; }
 		try {
+			String prompt = esUbicaciones(ramo) ? PROMPT_UBICACIONES_API_NAME : PROMPT_TEMPLATE_API_NAME;
+			String texto = (String.isNotBlank(ramo) ? 'RAMO DE LA OPORTUNIDAD: ' + etiquetaRamo(ramo) + '\n' : '') + textoCotizacion;
 			ConnectApi.WrappedValue wrapped = new ConnectApi.WrappedValue();
-			wrapped.value = textoCotizacion.length() > 60000 ? textoCotizacion.substring(0, 60000) : textoCotizacion;
+			wrapped.value = texto.length() > 60000 ? texto.substring(0, 60000) : texto;
 			ConnectApi.EinsteinPromptTemplateGenerationsInput genInput = new ConnectApi.EinsteinPromptTemplateGenerationsInput();
 			genInput.additionalConfig = new ConnectApi.EinsteinLlmAdditionalConfigInput();
 			genInput.additionalConfig.applicationName = 'PromptBuilderPreview';
 			genInput.isPreview = false;
 			genInput.inputParams = new Map<String, ConnectApi.WrappedValue>{ PROMPT_INPUT_PARAM => wrapped };
 			ConnectApi.EinsteinPromptTemplateGenerationsRepresentation gen =
-				ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(PROMPT_TEMPLATE_API_NAME, genInput);
+				ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(prompt, genInput);
 			if (gen != null && gen.generations != null && !gen.generations.isEmpty() && String.isNotBlank(gen.generations[0].text)) {
 				return limpiarJson(gen.generations[0].text);
 			}
@@ -339,9 +371,89 @@ public with sharing class ColectivoController {
 		}
 	}
 
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Resumen de las oportunidades para la lista de Crear Oportunidad: tamaño del grupo (asegurados del
+	 *               censo o de las cotizaciones, unidades de la flotilla o ubicaciones) y cotizaciones cargadas.
+	 * @param opportunityIds: oportunidades visibles en la lista.
+	 * @return mapa Id de oportunidad -> {asegurados, unidades, ubicaciones, cotizaciones}.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<Id, Map<String, Object>> getResumenOportunidades(List<Id> opportunityIds) {
+		Map<Id, Map<String, Object>> res = new Map<Id, Map<String, Object>>();
+		if (opportunityIds == null || opportunityIds.isEmpty()) { return res; }
+		Set<Id> ids = new Set<Id>(opportunityIds);
+		Map<Id, Integer> censo = new Map<Id, Integer>();
+		Map<Id, Integer> asegCotizacion = new Map<Id, Integer>();
+		for (Id i : ids) { res.put(i, new Map<String, Object>{ 'asegurados' => 0, 'unidades' => 0, 'ubicaciones' => 0, 'cotizaciones' => 0 }); }
+		for (AggregateResult ar : [SELECT OpportunityId o, COUNT(Id) n FROM Quote WHERE OpportunityId IN :ids GROUP BY OpportunityId]) {
+			res.get((Id) ar.get('o')).put('cotizaciones', (Integer) ar.get('n'));
+		}
+		// Censo (FSC): puede no estar disponible para el usuario; en ese caso se usa lo de las cotizaciones.
+		try {
+			for (AggregateResult ar : [
+				SELECT GroupCensus.Oportunidad__c o, COUNT(Id) n FROM GroupCensusMember
+				WHERE GroupCensus.Oportunidad__c IN :ids GROUP BY GroupCensus.Oportunidad__c
+			]) { censo.put((Id) ar.get('o'), (Integer) ar.get('n')); }
+		} catch (Exception e) {
+			System.debug(LoggingLevel.WARN, 'Censo no disponible para el resumen: ' + e.getMessage());
+		}
+		for (AggregateResult ar : [
+			SELECT Oportunidad__c o, Cotizacion__c q, COUNT(Id) n FROM Inciso_Flotilla__c
+			WHERE Oportunidad__c IN :ids AND Cotizacion__c != null GROUP BY Oportunidad__c, Cotizacion__c
+		]) {
+			Map<String, Object> m = res.get((Id) ar.get('o'));
+			m.put('unidades', Math.max((Integer) m.get('unidades'), (Integer) ar.get('n')));
+		}
+		for (AggregateResult ar : [
+			SELECT Oportunidad__c o, Cotizacion__c q, COUNT(Id) n, SUM(Asegurados__c) a FROM Categoria_Colectiva__c
+			WHERE Oportunidad__c IN :ids AND Cotizacion__c != null GROUP BY Oportunidad__c, Cotizacion__c
+		]) {
+			Id o = (Id) ar.get('o');
+			Decimal a = (Decimal) ar.get('a');
+			if (a != null && a > 0) {
+				asegCotizacion.put(o, Math.max(asegCotizacion.containsKey(o) ? asegCotizacion.get(o) : 0, a.intValue()));
+			} else {
+				Map<String, Object> m = res.get(o);
+				m.put('ubicaciones', Math.max((Integer) m.get('ubicaciones'), (Integer) ar.get('n')));
+			}
+		}
+		for (Id o : ids) {
+			Integer a = censo.containsKey(o) ? censo.get(o) : asegCotizacion.get(o);
+			if (a != null) { res.get(o).put('asegurados', a); }
+		}
+		return res;
+	}
+
 	// ============================================================
 	// Helpers
 	// ============================================================
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: true si en el ramo cada renglón de la cotización es una ubicación (Daños, Empresarial).
+	 * @param ramo: valor del picklist Ramo.
+	 * @return true para ramos de ubicaciones.
+	 */
+	public static Boolean esUbicaciones(String ramo) {
+		return String.isNotBlank(ramo) && RAMOS_UBICACIONES.contains(ramo);
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Etiqueta legible del ramo (Danos -> Daños, Vision -> Visión).
+	 * @param ramo: valor del picklist Ramo.
+	 * @return etiqueta.
+	 */
+	public static String etiquetaRamo(String ramo) {
+		if (ramo == 'Danos') { return 'Daños'; }
+		if (ramo == 'Vision') { return 'Visión'; }
+		if (ramo == 'Automoviles') { return 'Automóviles'; }
+		return ramo;
+	}
 
 	/**
 	 * @creation date: 14/10/2026
@@ -352,9 +464,9 @@ public with sharing class ColectivoController {
 	 * @return Id de Product2 o null.
 	 */
 	private static Id productoRamo(Id aseguradoraId, String ramo) {
-		Set<String> familias = new Set<String>{ ramo };
+		Set<String> familias = new Set<String>{ ramo, etiquetaRamo(ramo) };
 		if (ramo == 'GMM') { familias.add('Gastos Médicos Mayores'); }
-		if (ramo == 'Accidentes Personales') { familias.add('Personas'); }
+		if (ramo == 'Accidentes Personales' || ramo == 'Vida') { familias.add('Personas'); }
 		for (Product2 p : [
 			SELECT Id FROM Product2 WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family IN :familias ORDER BY Name LIMIT 1
 		]) { return p.Id; }

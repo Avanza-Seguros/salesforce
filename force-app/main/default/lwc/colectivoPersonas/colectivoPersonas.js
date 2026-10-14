@@ -1,10 +1,12 @@
 /**
  * @creation date: 14/10/2026
  * @author: Sergio Uribe Toledo - Volestra
- * @description: Cotizaciones colectivas de PERSONAS (GMM, Vida Grupo, Accidentes Personales). El agente sube la
- *               cotización de cada aseguradora (PDF, o Excel que se convierte a texto en el navegador); la IA extrae
- *               categorías, plan, primas, formas de pago y tarifa por edad; el agente revisa/corrige y se guarda con
- *               ColectivoController (Quote + Categoria_Colectiva__c). Muestra el comparativo y genera el PDF.
+ * @description: Cotizaciones colectivas por aseguradora. Ramos de PERSONAS (GMM, Vida Grupo, Accidentes Personales,
+ *               Dental, Visión, Viajes): categorías con asegurados, plan, coberturas y tarifa por edad. Ramos de
+ *               UBICACIONES (Daños, Empresarial): una fila por inmueble con dirección, valor asegurado, prima y coberturas.
+ *               El agente sube la cotización de cada aseguradora (PDF, o Excel que se convierte a texto en el navegador);
+ *               la IA la lee, el agente revisa/corrige y se guarda con ColectivoController (Quote + Categoria_Colectiva__c).
+ *               Muestra el comparativo (con cuota al millar cuando hay suma asegurada) y genera el PDF.
  */
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -28,9 +30,17 @@ const PLAN = [
     ['topeCoaseguro', 'Tope de coaseguro'], ['tabulador', 'Tabulador / círculo médico'], ['nivelHospitalario', 'Nivel hospitalario'],
     ['territorio', 'Territorio']
 ];
+// Ramos en los que cada renglón de la cotización es una ubicación (inmueble) y no un grupo de personas.
+const RAMOS_UBICACIONES = ['Danos', 'Empresarial'];
+// Valor de una cobertura (ya pasado por fold) que indica que no se incluye: "N/A", "No amparada", "Excluida", "-".
+const NO_AMPARADA = /^(n a|na|no amparad[ao]s?|no aplica|excluid[ao]s?|no incluid[ao]s?|)$/;
+// Coberturas que en GMM ya son campos fijos del plan.
+const CAMPOS_GMM = /^(plan|suma asegurada|deducible|coaseguro|tope|tabulador|nivel hospitalario|hospitales|territorio|cobertura territori)/;
 
 export default class ColectivoPersonas extends NavigationMixin(LightningElement) {
     @api readOnly = false;
+    // Valor del picklist Ramo de la oportunidad (GMM, Vida, Accidentes Personales, Danos, ...).
+    @api ramo;
 
     @track cotizaciones = [];
     @track vista = null;
@@ -75,6 +85,19 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     get enResumen() { return this.paso === 'resumen'; }
     get enVista() { return this.paso === 'vista'; }
     get hayCotizaciones() { return this.cotizaciones.length > 0; }
+    get esUbicaciones() { return RAMOS_UBICACIONES.includes(this.ramo); }
+    get esPersonas() { return !this.esUbicaciones; }
+    // GMM (o sin ramo) usa los campos fijos del plan (deducible, coaseguro...); los demás ramos, la lista de coberturas.
+    get esGmm() { return !this.ramo || this.ramo === 'GMM'; }
+    get unidad() { return this.esUbicaciones ? 'ubicaciones' : 'asegurados'; }
+    unidadDe(n) { return n === 1 ? (this.esUbicaciones ? 'ubicación' : 'asegurado') : this.unidad; }
+    get etiquetaRenglon() { return this.esUbicaciones ? 'Ubicación' : 'Categoría'; }
+    get tituloRenglones() { return this.esUbicaciones ? 'Ubicaciones' : 'Categorías'; }
+    get textoCarga() {
+        return this.esUbicaciones
+            ? 'PDF o Excel (.xlsx, .xlsm, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; revisas antes de guardar.'
+            : 'PDF o Excel (.xlsx, .xlsm, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; revisas antes de guardar.';
+    }
 
     // Si alguna aseguradora no incluye IVA, se compara prima neta + derechos para todas (como en el PDF).
     get compararSinIva() {
@@ -85,17 +108,47 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         const b = this.compararSinIva ? (Number(q.primaNeta) || 0) + (Number(q.derechos) || 0) : Number(q.primaTotal) || 0;
         return b || Number(q.primaTotal) || 0;
     }
+    // Tamaño del grupo: asegurados (personas) o número de ubicaciones.
     asegurados(q) {
+        if (this.esUbicaciones) { return (q.categorias || []).length; }
         return (q.categorias || []).reduce((s, c) => s + (Number(c.asegurados) || 0), 0);
+    }
+    sumaTotal(q) { return (q.categorias || []).reduce((s, c) => s + (Number(c.sumaAseguradaTotal) || 0), 0); }
+    // Prima neta por cada $1,000 de suma asegurada: compara precio aunque las sumas aseguradas difieran.
+    cuotaAlMillar(q) {
+        const sa = this.sumaTotal(q);
+        const neta = Number(q.primaNeta) || (q.categorias || []).reduce((s, c) => s + (Number(c.primaNeta) || 0), 0);
+        return sa > 0 && neta > 0 ? (neta / sa) * 1000 : null;
     }
     get ordenadas() {
         return [...this.cotizaciones].sort((a, b) => this.base(a) - this.base(b));
     }
     get etiquetaBase() { return this.compararSinIva ? 'Prima neta + derechos (sin IVA)' : 'Prima total anual'; }
 
+    // Si no cotizaron lo mismo (asegurados / ubicaciones o suma asegurada distintos), la que cobra menos por cada
+    // $1,000 asegurados; null si todas cotizaron igual o a alguna le falta la suma asegurada.
+    get mejorPorCuota() {
+        const lista = this.ordenadas;
+        if (lista.length < 2 || lista.some((q) => this.cuotaAlMillar(q) === null)) { return null; }
+        const tamanos = new Set(lista.map((q) => this.asegurados(q)));
+        const sumas = lista.map((q) => this.sumaTotal(q));
+        if (tamanos.size === 1 && Math.max(...sumas) - Math.min(...sumas) <= Math.max(...sumas) * 0.01) { return null; }
+        return lista.reduce((m, q) => (this.cuotaAlMillar(q) < this.cuotaAlMillar(m) ? q : m), lista[0]);
+    }
+    get notaCuota() {
+        const m = this.mejorPorCuota;
+        if (!m) { return ''; }
+        const lista = this.ordenadas;
+        const motivo = new Set(lista.map((q) => this.asegurados(q))).size > 1 ? `no todas cotizaron ${this.esUbicaciones ? 'las mismas ubicaciones' : 'los mismos asegurados'}` : 'las sumas aseguradas no son iguales';
+        return m.id === lista[0].id
+            ? `Ojo: ${motivo}. Por cada $1,000 asegurados, ${m.aseguradora} también es la más barata (${this.cuotaAlMillar(m).toFixed(3)} ‰).`
+            : `Ojo: ${motivo}. Por cada $1,000 asegurados, ${m.aseguradora} cobra menos (${this.cuotaAlMillar(m).toFixed(3)} ‰ contra ${this.cuotaAlMillar(lista[0]).toFixed(3)} ‰ de ${lista[0].aseguradora}).`;
+    }
+
     get tarjetas() {
         const lista = this.ordenadas;
         const mejor = lista.length ? this.base(lista[0]) : 0;
+        const porCuota = this.mejorPorCuota;
         const maxAseg = Math.max(...lista.map((q) => this.asegurados(q)), 0);
         return lista.map((q, i) => {
             const a = this.asegurados(q);
@@ -109,10 +162,15 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 difTxt: !esMejor && lista.length > 1 && mejor ? `+${moneda(b - mejor)} (+${Math.round(((b - mejor) / mejor) * 1000) / 10}%)` : '',
                 desgloseTxt: [q.primaNeta ? `Neta ${moneda(q.primaNeta)}` : '', q.derechos ? `Derechos ${moneda(q.derechos)}` : '',
                     q.iva ? `IVA ${moneda(q.iva)}` : 'Sin IVA', q.primaTotal ? `Total ${moneda(q.primaTotal)}` : ''].filter((x) => x).join(' · '),
-                aseguradosTxt: `${a} asegurados · ${a ? moneda(b / a) : '—'} por asegurado`,
-                aseguradosAviso: a < maxAseg ? `Cotizó ${a} de ${maxAseg} asegurados` : '',
+                aseguradosTxt: `${a} ${this.unidadDe(a)} · ${a ? moneda(b / a) : '—'} por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}`,
+                aseguradosAviso: a < maxAseg ? `Cotizó ${a} de ${maxAseg} ${this.unidad}` : '',
+                sumaTxt: this.sumaTotal(q) > 0
+                    ? `${this.esUbicaciones ? 'Valor asegurado' : 'Suma asegurada'} ${moneda(this.sumaTotal(q))}`
+                        + (this.cuotaAlMillar(q) !== null ? ` · cuota ${this.cuotaAlMillar(q).toFixed(3)} ‰` : '')
+                    : '',
                 vigenciaTxt: q.vigenciaDesde ? `${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '',
                 mejor: esMejor,
+                mejorCuota: !!porCuota && porCuota.id === q.id && !esMejor,
                 clase: esMejor ? 'tarjeta tarjeta_mejor' : 'tarjeta'
             };
         });
@@ -120,11 +178,23 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
 
     get columnas() { return this.ordenadas.map((q) => ({ id: q.id, aseguradora: q.aseguradora })); }
 
-    // Plan lado a lado: un renglón por parámetro; si cambia por categoría se muestra "Categoría: valor".
+    // Coberturas de "parametros" de todas las cotizaciones (agrupadas por nombre sin acentos), en orden de aparición.
+    get conceptos() {
+        const vistos = new Map();
+        this.ordenadas.forEach((q) => (q.categorias || []).forEach((c) => (c.parametros || []).forEach((pm) => {
+            const llave = fold(pm.concepto || '').replace(/[^a-z0-9]/g, '');
+            // La cuota al millar impresa no se repite: se calcula para todas en las tarjetas.
+            if (llave && llave !== 'cuotaalmillar' && !vistos.has(llave)) { vistos.set(llave, this.txt(pm.concepto)); }
+        })));
+        return [...vistos.entries()].map(([llave, etiqueta]) => [`#${llave}`, etiqueta]);
+    }
+
+    // Plan lado a lado: un renglón por parámetro o cobertura; si cambia por categoría se muestra "Categoría: valor".
     get filasPlan() {
         const lista = this.ordenadas;
-        return PLAN.map(([clave, etiqueta]) => {
-            const valores = lista.map((q) => this.valorPlan(q, clave));
+        // En ubicaciones el giro y el valor de cada inmueble ya están en la tabla de ubicaciones.
+        return [...(this.esUbicaciones ? [] : PLAN), ...this.conceptos].map(([clave, etiqueta]) => {
+            const valores = lista.map((q) => (clave.startsWith('#') ? this.valorParametro(q, clave.slice(1)) : this.valorPlan(q, clave)));
             const unicos = new Set(valores.filter((v) => v).map((v) => fold(v).replace(/\s/g, '')));
             return {
                 key: clave,
@@ -136,6 +206,43 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         }).filter((f) => f.hay);
     }
     get planDistinto() { return this.filasPlan.some((f) => f.distinto); }
+    get tituloPlan() { return this.esUbicaciones ? 'Coberturas cotizadas' : 'Plan cotizado'; }
+    valorParametro(q, llave) {
+        const pares = [];
+        (q.categorias || []).forEach((c) => (c.parametros || []).forEach((pm) => {
+            if (fold(pm.concepto || '').replace(/[^a-z0-9]/g, '') === llave && this.txt(pm.valor)) { pares.push([c.nombre, this.txt(pm.valor)]); }
+        }));
+        const unicos = [...new Set(pares.map((x) => x[1]))];
+        if (!unicos.length) { return ''; }
+        // Un solo valor si aplica igual a todas las categorías; si solo algunas la tienen, se dice cuáles.
+        const todas = pares.length >= (q.categorias || []).length;
+        return unicos.length === 1 && todas ? unicos[0] : pares.map(([n, v]) => `${n}: ${v}`).join(' / ');
+    }
+
+    // Ubicaciones lado a lado (Daños / Empresarial): prima y valor asegurado de cada inmueble por aseguradora.
+    get filasUbicaciones() {
+        if (!this.esUbicaciones) { return []; }
+        const lista = this.ordenadas;
+        const llave = (c) => fold(c.direccion || c.nombre || '').replace(/[^a-z0-9]/g, '').slice(0, 40);
+        const filas = [];
+        lista.forEach((q) => (q.categorias || []).forEach((c) => {
+            if (!filas.some((f) => f.llave === llave(c))) { filas.push({ llave: llave(c), nombre: c.nombre, direccion: c.direccion || '' }); }
+        }));
+        return filas.map((f) => ({
+            key: f.llave || f.nombre,
+            nombre: f.nombre,
+            direccion: f.direccion,
+            celdas: lista.map((q) => {
+                const c = (q.categorias || []).find((x) => llave(x) === f.llave);
+                return {
+                    key: q.id,
+                    texto: c ? moneda(c.primaNeta) || '—' : 'No cotizada',
+                    sub: c && c.sumaAseguradaTotal ? `Valor ${moneda(c.sumaAseguradaTotal)}` : ''
+                };
+            })
+        }));
+    }
+    get hayUbicaciones() { return this.filasUbicaciones.length > 0; }
     valorPlan(q, clave) {
         const cats = (q.categorias || []).filter((c) => c[clave]);
         const unicos = [...new Set(cats.map((c) => c[clave]))];
@@ -238,7 +345,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
             }
             this.progreso = 'Analizando la cotización con IA…';
-            const json = await analizarCotizacionColectiva({ textoCotizacion: texto.substring(0, 60000) });
+            const json = await analizarCotizacionColectiva({ textoCotizacion: texto.substring(0, 60000), ramo: this.ramo || null });
             const datos = this.parsearJsonIA(json);
             this.vista = this.normalizar(datos, vigencia, texto);
             this.paso = 'vista';
@@ -311,9 +418,14 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 asegurados = sumH + sumM;
             }
             if (asegurados === null && hombres !== null && mujeres !== null) { asegurados = hombres + mujeres; }
+            // Sin coberturas no amparadas ni, en GMM, las que repiten un campo fijo del plan (deducible, coaseguro...).
+            const parametros = (c.parametros || []).map((pm, j) => ({ key: `p${i}-${j}`, concepto: this.txt(pm && pm.concepto), valor: this.txt(pm && pm.valor) }))
+                .filter((pm) => pm.concepto && pm.valor && !NO_AMPARADA.test(fold(pm.valor))
+                    && !(this.esGmm && CAMPOS_GMM.test(fold(pm.concepto))));
             return {
-                key: `c${i}`, nombre: c.nombre || 'General', asegurados, hombres, mujeres,
+                key: `c${i}`, nombre: c.nombre || (this.esUbicaciones ? `Ubicación ${i + 1}` : 'General'), asegurados, hombres, mujeres,
                 titulares: numero(c.titulares), dependientes: numero(c.dependientes), primaNeta: numero(c.primaNeta),
+                sumaAseguradaTotal: numero(c.sumaAseguradaTotal), direccion: this.txt(c.direccion), parametros,
                 plan: this.txt(c.plan), sumaAsegurada: this.txt(c.sumaAsegurada), deducible: this.txt(c.deducible),
                 coaseguro: this.porcentajeTxt(c.coaseguro), topeCoaseguro: this.montoTxt(c.topeCoaseguro), tabulador: this.txt(c.tabulador),
                 nivelHospitalario: this.txt(c.nivelHospitalario), territorio: this.txt(c.territorio),
@@ -321,7 +433,9 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 tarifaEdades: tarifa
             };
         });
-        if (!categorias.length) { throw new Error('La IA no encontró categorías ni asegurados en la cotización.'); }
+        if (!categorias.length) {
+            throw new Error(this.esUbicaciones ? 'La IA no encontró ubicaciones en la cotización.' : 'La IA no encontró categorías ni asegurados en la cotización.');
+        }
 
         const sumaNeta = categorias.reduce((s, c) => s + (c.primaNeta || 0), 0);
         const primaNeta = numero(d.primaNeta) !== null ? numero(d.primaNeta) : (sumaNeta || null);
@@ -342,7 +456,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             iva: numero(d.iva),
             primaTotal: numero(d.primaTotal) !== null ? numero(d.primaTotal) : (anual && anual.primaTotal ? anual.primaTotal : null)
         };
-        if (encabezado.iva === null) { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
+        if (encabezado.iva === null && this.ramo !== 'Vida') { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
         return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.txt(d.contratante) };
     }
 
@@ -390,8 +504,15 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         return (this.vista ? this.vista.categorias : []).map((c) => ({
             ...c,
             tarifaTxt: c.tarifaEdades.length ? `${c.tarifaEdades.length} rangos de edad` : 'Sin tabla de edades',
-            coberturasTxt: c.coberturasAdicionales.join(' · ')
+            coberturasTxt: c.coberturasAdicionales.join(' · '),
+            parametrosTxt: c.parametros.map((pm) => `${pm.concepto}: ${pm.valor}`).join(' · '),
+            hayParametros: c.parametros.length > 0,
+            keyOtras: `o${c.key}`
         }));
+    }
+    get sumaVista() {
+        const t = (this.vista ? this.vista.categorias : []).reduce((s, c) => s + (Number(c.sumaAseguradaTotal) || 0), 0);
+        return t ? moneda(t) : '';
     }
     get formasPagoVista() {
         return (this.vista ? this.vista.formasPago : []).map((f) => ({
@@ -400,7 +521,11 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         }));
     }
     get hayFormasPagoVista() { return this.formasPagoVista.length > 0; }
-    get aseguradosVista() { return (this.vista ? this.vista.categorias : []).reduce((s, c) => s + (Number(c.asegurados) || 0), 0); }
+    get aseguradosVista() {
+        const cats = this.vista ? this.vista.categorias : [];
+        return this.esUbicaciones ? cats.length : cats.reduce((s, c) => s + (Number(c.asegurados) || 0), 0);
+    }
+    get etiquetaTamanoVista() { return this.esUbicaciones ? 'Ubicaciones' : 'Asegurados'; }
     get totalCalculado() {
         const e = this.enc;
         if (numero(e.primaTotal) !== null) { return numero(e.primaTotal); }
@@ -420,7 +545,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     handleCategoria(event) {
         const idx = Number(event.target.dataset.index);
         const campo = event.target.dataset.campo;
-        const numericos = ['asegurados', 'hombres', 'mujeres', 'primaNeta'];
+        const numericos = ['asegurados', 'hombres', 'mujeres', 'primaNeta', 'sumaAseguradaTotal'];
         const valor = numericos.includes(campo) ? numero(event.detail.value) : event.detail.value;
         const categorias = this.vista.categorias.map((c, i) => {
             if (i !== idx) { return c; }
@@ -448,12 +573,12 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 primaNeta: numero(e.primaNeta), derechos: numero(e.derechos), recargo: numero(e.recargo), iva: numero(e.iva),
                 primaTotal: this.totalCalculado, archivo: this.archivoNombre,
                 formasPago: this.vista.formasPago.map(({ key, ...f }) => f),
-                categorias: this.vista.categorias.map(({ key, tarifaEdades, ...c }) => ({
-                    ...c, tarifaEdades: tarifaEdades.map(({ key: k, ...t }) => t)
+                categorias: this.vista.categorias.map(({ key, tarifaEdades, parametros, ...c }) => ({
+                    ...c, tarifaEdades: tarifaEdades.map(({ key: k, ...t }) => t), parametros: parametros.map(({ key: k, ...pm }) => pm)
                 }))
             };
             await guardarCotizacionColectiva({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });
-            this.toast('Cotización colectiva', `Cotización guardada: ${this.aseguradosVista} asegurados.`, 'success');
+            this.toast('Cotización colectiva', `Cotización guardada: ${this.aseguradosVista} ${this.unidad}.`, 'success');
             this.cancelar();
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));

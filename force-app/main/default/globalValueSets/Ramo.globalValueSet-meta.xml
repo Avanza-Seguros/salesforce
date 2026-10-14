@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Automoviles</fullName>
+        <default>false</default>
+        <label>Automóviles</label>
+    </customValue>
+    <customValue>
+        <fullName>Danos</fullName>
+        <default>false</default>
+        <label>Daños</label>
+    </customValue>
+    <customValue>
+        <fullName>Dental</fullName>
+        <default>false</default>
+        <label>Dental</label>
+    </customValue>
+    <customValue>
+        <fullName>Empresarial</fullName>
+        <default>false</default>
+        <label>Empresarial</label>
+    </customValue>
+    <customValue>
+        <fullName>Fianzas</fullName>
+        <default>false</default>
+        <label>Fianzas</label>
+    </customValue>
+    <customValue>
+        <fullName>GMM</fullName>
+        <default>false</default>
+        <label>Gastos Médicos Mayores</label>
+    </customValue>
+    <customValue>
+        <fullName>RC</fullName>
+        <default>false</default>
+        <label>Responsabilidad Civil</label>
+    </customValue>
+    <customValue>
+        <fullName>Viajes</fullName>
+        <default>false</default>
+        <label>Viajes</label>
+    </customValue>
+    <customValue>
+        <fullName>Vida</fullName>
+        <default>false</default>
+        <label>Vida</label>
+    </customValue>
+    <customValue>
+        <fullName>Accidentes Personales</fullName>
+        <default>false</default>
+        <label>Accidentes Personales</label>
+    </customValue>
+    <customValue>
+        <fullName>Vision</fullName>
+        <default>false</default>
+        <label>Visión</label>
+    </customValue>
+    <masterLabel>Ramo</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

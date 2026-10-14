@@ -400,3 +400,9 @@
     gap: 0.25rem;
     margin-bottom: 0.5rem;
 }
+
+/* La que cobra menos por cada $1,000 asegurados cuando no cotizaron lo mismo */
+.chip-cuota {
+    font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px;
+    background: #EFE8FD; color: #4C1D95; white-space: nowrap;
+}

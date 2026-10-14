@@ -477,6 +477,40 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .opportunities-table tbody tr.status-won     td:first-child { box-shadow: inset 4px 0 0 #00875A; }
 .opportunities-table tbody tr.status-lost    td:first-child { box-shadow: inset 4px 0 0 #6B7280; }
 .opportunities-table tbody tr.status-overdue td:first-child { box-shadow: inset 4px 0 0 #DE350B; }
+/* Tipo de contratación: franja exterior (verde azulado = individual, morada = colectiva); la de estatus queda por dentro */
+.opportunities-table tbody tr.fila-individual td:first-child { border-left: 4px solid #0F9D8C; }
+.opportunities-table tbody tr.fila-colectiva  td:first-child { border-left: 4px solid #7C3AED; }
+.opportunities-table .opp-name { overflow: hidden; text-overflow: ellipsis; }
+.chip-tipo {
+    display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem;
+    padding: 0.1rem 0.55rem; border-radius: var(--border-radius-full);
+    font-size: 0.72rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.chip-individual { background: #E3F6F3; color: #0B5D53; }
+.chip-colectiva  { background: #EFE8FD; color: #4C1D95; }
+.chip-individual .chip-icono { --slds-c-icon-color-foreground-default: #0B5D53; --sds-c-icon-color-foreground-default: #0B5D53; }
+.chip-colectiva  .chip-icono { --slds-c-icon-color-foreground-default: #4C1D95; --sds-c-icon-color-foreground-default: #4C1D95; }
+.chip-sub { display: block; margin-top: 0.15rem; font-size: 0.7rem; font-weight: 500; color: #5B6472; }
+
+/* Segmentos Todas / Individuales / Colectivas */
+.segmentos {
+    display: inline-flex; gap: 0.25rem; padding: 0.25rem; margin: -1rem 0 1rem;
+    background: #EEF1F6; border-radius: var(--border-radius-md);
+}
+.segmento {
+    display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem;
+    border: 1px solid transparent; border-radius: var(--border-radius-sm); background: transparent;
+    font-size: 0.82rem; font-weight: 600; color: #4D5562; cursor: pointer; transition: var(--transition-fast);
+}
+.segmento:hover { background: #FFFFFF; }
+.segmento:focus-visible { outline: 2px solid #0052CC; outline-offset: 1px; }
+.segmento_activo { background: #FFFFFF; border-color: #D5DBE5; color: #001C3D; box-shadow: var(--shadow-xs); }
+.segmento-total {
+    min-width: 1.5rem; padding: 0 0.4rem; border-radius: var(--border-radius-full);
+    background: #E2E6EE; font-size: 0.72rem; text-align: center; color: #343B47;
+}
+.segmento_activo.segmento_individual .segmento-total { background: #E3F6F3; color: #0B5D53; }
+.segmento_activo.segmento_colectiva .segmento-total  { background: #EFE8FD; color: #4C1D95; }
 
 /* ----- PAGINACIÓN ----- */
 .pagination-bar {

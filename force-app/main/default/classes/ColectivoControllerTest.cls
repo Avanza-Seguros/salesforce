@@ -2,8 +2,8 @@
  * @creation date: 14/10/2026
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Pruebas unitarias de ColectivoController y ColectivoComparativoPdfController: alta de cotizaciones
- * colectivas de personas (Quote + categorías), consulta, comparativo (con y sin IVA), PDF, eliminación,
- * validaciones y lectura con IA.
+ * colectivas de personas (Quote + categorías) y de ubicaciones (Daños), consulta, comparativo (con y sin IVA,
+ * cuota al millar, coberturas por ramo), PDF, resumen para la lista, eliminación, validaciones y lectura con IA.
  */
 @isTest
 private class ColectivoControllerTest {
@@ -207,9 +207,9 @@ private class ColectivoControllerTest {
 	@isTest
 	static void testIaYHelpers() {
 		Test.startTest();
-		System.assertEquals('{"categorias":[]}', ColectivoController.analizarCotizacionColectiva('COTIZACION GMM COLECTIVO'));
+		System.assertEquals('{"categorias":[]}', ColectivoController.analizarCotizacionColectiva('COTIZACION GMM COLECTIVO', 'GMM'));
 		Boolean vacio = false;
-		try { ColectivoController.analizarCotizacionColectiva(' '); } catch (AuraHandledException e) { vacio = true; }
+		try { ColectivoController.analizarCotizacionColectiva(' ', 'Danos'); } catch (AuraHandledException e) { vacio = true; }
 		Test.stopTest();
 		System.assert(vacio, 'Texto vacío se rechaza');
 		System.assertEquals('Semestral', ColectivoController.frecuencia('SEMESTRAL'));
@@ -230,5 +230,146 @@ private class ColectivoControllerTest {
 		System.assertEquals(new List<String>{ '0-19', '15-19', '20-24', '80-84', 'Sin edad' },
 			ColectivoComparativoPdfController.ordenarRangos(new List<String>{ '20-24', 'Sin edad', '15-19', '80-84', '0-19' }),
 			'Rangos ordenados por edad inicial');
+		System.assert(ColectivoController.esUbicaciones('Danos') && ColectivoController.esUbicaciones('Empresarial'), 'Ramos de ubicaciones');
+		System.assert(!ColectivoController.esUbicaciones('Vida') && !ColectivoController.esUbicaciones(null), 'Ramos de personas');
+		System.assertEquals('Daños', ColectivoController.etiquetaRamo('Danos'));
+		System.assertEquals('Visión', ColectivoController.etiquetaRamo('Vision'));
+		System.assertEquals('Automóviles', ColectivoController.etiquetaRamo('Automoviles'));
+		System.assertEquals('perdidasorganicas', ColectivoComparativoPdfController.llaveConcepto('Pérdidas orgánicas'));
+		System.assertEquals('', ColectivoComparativoPdfController.llaveConcepto(null));
+		Map<String, Object> qv = new Map<String, Object>{ 'primaNeta' => null, 'categorias' => new List<Object>{
+			new Map<String, Object>{ 'nombre' => 'A', 'primaNeta' => 1500, 'parametros' => new List<Object>{
+				new Map<String, Object>{ 'concepto' => 'Fallecimiento', 'valor' => '$500,000' } } },
+			new Map<String, Object>{ 'nombre' => 'B', 'primaNeta' => 500, 'parametros' => new List<Object>{
+				new Map<String, Object>{ 'concepto' => 'FALLECIMIENTO', 'valor' => '$250,000' } } }
+		} };
+		System.assertEquals('A: $500,000 / B: $250,000', ColectivoComparativoPdfController.valorParametro(qv, 'fallecimiento'), 'Cobertura por categoría');
+		System.assertEquals('', ColectivoComparativoPdfController.valorParametro(qv, 'gastosfunerarios'), 'Sin la cobertura');
+		System.assertEquals(2, ColectivoComparativoPdfController.cuotaAlMillar(qv, 1000000), 'Neta de las categorías / SA x 1000');
+		System.assertEquals(null, ColectivoComparativoPdfController.cuotaAlMillar(qv, 0), 'Sin suma asegurada no hay cuota');
+		Map<String, Object> qa = new Map<String, Object>{ 'id' => 'A', 'aseguradora' => 'A', 'primaNeta' => 1000, 'categorias' => new List<Object>() };
+		Map<String, Object> qb = new Map<String, Object>{ 'id' => 'B', 'aseguradora' => 'B', 'primaNeta' => 1500, 'categorias' => new List<Object>() };
+		List<Map<String, Object>> par = new List<Map<String, Object>>{ qa, qb };
+		String nota = ColectivoComparativoPdfController.notaCuota(par, new Map<Object, Decimal>{ 'A' => 1, 'B' => 2 },
+			new Map<Object, Decimal>{ 'A' => 1000000, 'B' => 1000000 }, 'ubicaciones');
+		System.assert(nota.contains('mismas ubicaciones') && nota.contains('también es la más barata'), 'La más barata también por peso: ' + nota);
+		System.assertEquals('', ColectivoComparativoPdfController.notaCuota(par, new Map<Object, Decimal>{ 'A' => 1, 'B' => 1 },
+			new Map<Object, Decimal>{ 'A' => 1000000, 'B' => 1000000 }, 'ubicaciones'), 'Mismo tamaño y suma: sin nota');
+		System.assertEquals('', ColectivoComparativoPdfController.notaCuota(par, new Map<Object, Decimal>{ 'A' => 1, 'B' => 2 },
+			new Map<Object, Decimal>{ 'A' => 0, 'B' => 1000000 }, 'ubicaciones'), 'Sin suma asegurada en alguna: sin nota');
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Oportunidad colectiva del ramo indicado con la misma cuenta y agente del setup.
+	 * @param ramo: valor del picklist Ramo.
+	 * @return oportunidad insertada.
+	 */
+	static Opportunity oportunidad(String ramo) {
+		Opportunity base = [SELECT AccountId, StageName, CloseDate, Agente_Relacionado__c FROM Opportunity LIMIT 1];
+		Opportunity o = new Opportunity(Name = 'Opp ' + ramo + ' Colectivo Test', AccountId = base.AccountId, StageName = base.StageName,
+			CloseDate = base.CloseDate, Agente_Relacionado__c = base.Agente_Relacionado__c);
+		o.put('Ramo__c', ramo);
+		o.put('Tipo_Contratacion__c', 'Colectiva');
+		insert o;
+		return o;
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Vida Grupo: coberturas en "parametros", suma asegurada total y cuota al millar en el comparativo.
+	 * @return void
+	 */
+	@isTest
+	static void testVidaCuotaAlMillar() {
+		Opportunity opp = oportunidad('Vida');
+		Aseguradora__c gnp = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Colectivo Test'];
+		Aseguradora__c smnyl = [SELECT Id FROM Aseguradora__c WHERE Name = 'SMNYL Colectivo Test'];
+		List<Object> params = new List<Object>{
+			new Map<String, Object>{ 'concepto' => 'Fallecimiento', 'valor' => '24 meses de sueldo' },
+			new Map<String, Object>{ 'concepto' => 'Muerte accidental', 'valor' => 'Amparada' },
+			new Map<String, Object>{ 'concepto' => '', 'valor' => 'sin concepto' }
+		};
+		String c1 = JSON.serialize(new Map<String, Object>{ 'aseguradoraId' => gnp.Id, 'primaNeta' => 120000, 'primaTotal' => 120000,
+			'categorias' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'General', 'asegurados' => 120, 'primaNeta' => 120000,
+				'sumaAseguradaTotal' => 60000000, 'parametros' => params } } });
+		String c2 = JSON.serialize(new Map<String, Object>{ 'aseguradoraId' => smnyl.Id, 'primaNeta' => 150000, 'primaTotal' => 150000,
+			'categorias' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'General', 'asegurados' => 120, 'primaNeta' => 150000,
+				'sumaAseguradaTotal' => 90000000, 'parametros' => new List<Object>{
+					new Map<String, Object>{ 'concepto' => 'FALLECIMIENTO', 'valor' => 'Suma fija $500,000' } } } } });
+		Test.startTest();
+		Id q1 = ColectivoController.guardarCotizacionColectiva(opp.Id, c1);
+		ColectivoController.guardarCotizacionColectiva(opp.Id, c2);
+		String html = ColectivoComparativoPdfController.construirHtml(opp.Id);
+		Test.stopTest();
+		Categoria_Colectiva__c cat = [SELECT Parametros__c, Suma_Asegurada_Total__c FROM Categoria_Colectiva__c WHERE Cotizacion__c = :q1];
+		System.assertEquals(60000000, cat.Suma_Asegurada_Total__c, 'Suma asegurada total');
+		System.assert(cat.Parametros__c.contains('Fallecimiento') && !cat.Parametros__c.contains('sin concepto'), 'Solo coberturas con concepto y valor');
+		System.assert(html.contains('Vida Grupo'), 'Título del ramo');
+		System.assert(html.contains('Cuota al millar') && html.contains('2.000'), 'Cuota al millar de GNP: 120,000 / 60,000,000 x 1000');
+		System.assert(html.contains('Fallecimiento') && html.contains('24 meses de sueldo') && html.contains('Suma fija $500,000'),
+			'Coberturas lado a lado agrupadas por nombre');
+		System.assert(html.contains('Suma asegurada total'), 'Renglón de suma asegurada');
+		System.assert(html.contains('cobra menos por cada peso asegurado'),
+			'SMNYL es más cara pero asegura más: mejor cuota al millar (1.667 contra 2.000)');
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Daños: cada renglón es una ubicación (dirección y valor asegurado); el comparativo habla de ubicaciones.
+	 * @return void
+	 */
+	@isTest
+	static void testDanosUbicaciones() {
+		Opportunity opp = oportunidad('Danos');
+		Aseguradora__c gnp = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Colectivo Test'];
+		String c1 = JSON.serialize(new Map<String, Object>{ 'aseguradoraId' => gnp.Id, 'primaNeta' => 45000, 'derechos' => 800, 'iva' => 7328,
+			'categorias' => new List<Object>{
+				new Map<String, Object>{ 'nombre' => 'Planta Querétaro', 'direccion' => 'Av. 5 de Febrero 100, Querétaro', 'sumaAseguradaTotal' => 25000000,
+					'primaNeta' => 30000, 'parametros' => new List<Object>{
+						new Map<String, Object>{ 'concepto' => 'Incendio edificio', 'valor' => '$20,000,000 · Ded. 1%' } } },
+				new Map<String, Object>{ 'nombre' => 'Bodega CDMX', 'sumaAseguradaTotal' => 10000000, 'primaNeta' => 15000 }
+			} });
+		Test.startTest();
+		Id q = ColectivoController.guardarCotizacionColectiva(opp.Id, c1);
+		String html = ColectivoComparativoPdfController.construirHtml(opp.Id);
+		Map<Id, Map<String, Object>> res = ColectivoController.getResumenOportunidades(new List<Id>{ opp.Id });
+		Test.stopTest();
+		Quote qt = [SELECT Name, Prima_Total__c FROM Quote WHERE Id = :q];
+		System.assert(qt.Name.contains('2 ubicaciones') && qt.Name.contains('Daños'), 'Nombre con ubicaciones: ' + qt.Name);
+		System.assertEquals(45000 + 800 + 7328, qt.Prima_Total__c, 'Total calculado');
+		System.assertEquals('Av. 5 de Febrero 100, Querétaro',
+			[SELECT Direccion__c FROM Categoria_Colectiva__c WHERE Name = 'Planta Querétaro'].Direccion__c, 'Dirección');
+		System.assert(html.contains('Coberturas cotizadas') && html.contains('Ubicaciones') && html.contains('Valor asegurado'), 'Secciones de ubicaciones');
+		System.assert(html.contains('Incendio edificio'), 'Coberturas de la ubicación');
+		System.assert(html.contains('2 ubicaciones'), 'Tamaño en ubicaciones');
+		System.assertEquals(2, res.get(opp.Id).get('ubicaciones'), 'Resumen con ubicaciones');
+		System.assertEquals(1, res.get(opp.Id).get('cotizaciones'), 'Resumen con cotizaciones');
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Resumen para la lista: asegurados de las cotizaciones (sin censo) y conteo de cotizaciones; lista vacía.
+	 * @return void
+	 */
+	@isTest
+	static void testResumenOportunidades() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		Aseguradora__c gnp = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Colectivo Test'];
+		Aseguradora__c smnyl = [SELECT Id FROM Aseguradora__c WHERE Name = 'SMNYL Colectivo Test'];
+		ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionGnp(gnp.Id));
+		ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionSmnyl(smnyl.Id));
+		Test.startTest();
+		Map<Id, Map<String, Object>> res = ColectivoController.getResumenOportunidades(new List<Id>{ opp.Id });
+		Map<Id, Map<String, Object>> vacio = ColectivoController.getResumenOportunidades(new List<Id>());
+		Test.stopTest();
+		System.assertEquals(356, res.get(opp.Id).get('asegurados'), 'Mayor número de asegurados cotizados');
+		System.assertEquals(2, res.get(opp.Id).get('cotizaciones'), 'Dos cotizaciones');
+		System.assertEquals(0, res.get(opp.Id).get('unidades'), 'Sin flotilla');
+		System.assert(vacio.isEmpty(), 'Sin oportunidades no hay resumen');
 	}
 }

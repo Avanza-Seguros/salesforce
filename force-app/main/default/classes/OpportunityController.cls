@@ -33,6 +33,7 @@ public with sharing class OpportunityController {
 					Ramo__c,
 					Canal__c,
 					Mercado__c,
+					Tipo_Contratacion__c,
 					Account.Name,
 					Owner.Name,
 					CreatedDate

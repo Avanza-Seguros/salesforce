@@ -203,6 +203,21 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Categoria_Colectiva__c.Direccion__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Categoria_Colectiva__c.Parametros__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Categoria_Colectiva__c.Suma_Asegurada_Total__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Categoria_Colectiva__c.Hombres__c</field>
         <readable>true</readable>
     </fieldPermissions>

@@ -13,6 +13,7 @@ import MARCA_FIELD from '@salesforce/schema/Automovil__c.Marca__c';
 import QUOTE_OBJECT from '@salesforce/schema/Quote';
 import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
+import getResumenOportunidades from '@salesforce/apex/ColectivoController.getResumenOportunidades';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
 import getAccountById from '@salesforce/apex/OpportunityController.getAccountById';
@@ -206,6 +207,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track searchTerm = '';
     @track stageFilter = '';
     @track showOnlyOverdue = false;
+    // Segmento de la lista: 'todas' | 'individual' | 'colectiva'.
+    @track tipoFiltro = 'todas';
+    // Tamaño del grupo y cotizaciones de las oportunidades colectivas (lo calcula ColectivoController).
+    @track resumenColectivas = {};
     @track currentPage = 1;
     @track pageSize = PAGE_SIZE;
     @track opportunities = [];
@@ -531,6 +536,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isRamoRC()      { return this._ramoEs(['RESPONSABILIDAD'], RAMO_TYPES.RESPONSABILIDAD_CIVIL); }
     get isRamoDental()  { return this._ramoEs(['DENTAL'], RAMO_TYPES.DENTAL); }
     get isRamoVision()  { return this._ramoEs(['VISION', 'VISIÓN'], RAMO_TYPES.VISION); }
+    get isRamoAP()      { return this._ramoEs(['ACCIDENTES'], 'Accidentes Personales'); }
     get isRamoOtros() {
         return !this.isRamoAutomovil && !this.isRamoGMM && !this.isRamoVida &&
                !this.isRamoViajes && !this.isRamoDanos && !this.isRamoEmpresarial &&
@@ -958,6 +964,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     handleOverdueToggle(event) {
         this.showOnlyOverdue = event.target.checked;
+        this.currentPage = 1;
+    }
+    handleTipoFiltro(event) {
+        this.tipoFiltro = event.currentTarget.dataset.tipo || 'todas';
         this.currentPage = 1;
     }
     handleClickOutside(event) {
@@ -1635,8 +1645,23 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get mostrarDetalleRamo() {
         return this.showCreateView && !this.isFlotilla;
     }
+    // Censo de personas: colectivas de ramos que aseguran personas.
     get isCensoPersonas() {
-        return this.isColectiva && !this.isRamoAutomovil;
+        return this.isColectiva && (this.isRamoGMM || this.isRamoVida || this.isRamoAP
+            || this.isRamoDental || this.isRamoVision || this.isRamoViajes);
+    }
+    // Daños / Empresarial colectivo: la cotización ampara varias ubicaciones (inmuebles), no personas.
+    get isColectivoUbicaciones() {
+        return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
+    }
+    // Cotizaciones por aseguradora con comparativo (c-colectivo-personas). RC y Fianzas usan las cotizaciones normales.
+    get mostrarCotizacionesColectivas() {
+        return this.isCensoPersonas || this.isColectivoUbicaciones;
+    }
+    get colectivoSubtitulo() {
+        return this.isColectivoUbicaciones
+            ? 'Cotización de cada aseguradora por ubicación, coberturas y primas, con comparativo'
+            : 'Cotización de cada aseguradora por categoría, plan y primas, con comparativo';
     }
     get flotillaBadge() {
         return this.flotillaCotizaciones
@@ -2407,6 +2432,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.isLoading = true;
         try {
             this.opportunities = await getOpportunities();
+            this.cargarResumenColectivas();
         } catch (error) {
             this.showToast('Error', 'No se pudieron cargar las oportunidades', 'error');
             this.opportunities = [];
@@ -2454,7 +2480,74 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasQuotes()   { return this.uploadedQuotes && this.uploadedQuotes.length > 0; }
     get quotesCount() { return this.uploadedQuotes.length; }
 
+    // Tamaño del grupo (asegurados, unidades o ubicaciones) y cotizaciones de las colectivas; no bloquea la lista.
+    async cargarResumenColectivas() {
+        const ids = (this.opportunities || []).filter((o) => this.esColectivaOpp(o)).map((o) => o.Id);
+        if (!ids.length) { this.resumenColectivas = {}; return; }
+        try {
+            this.resumenColectivas = (await getResumenOportunidades({ opportunityIds: ids })) || {};
+        } catch (e) {
+            this.resumenColectivas = {};
+        }
+    }
+    esColectivaOpp(opp) { return opp && opp.Tipo_Contratacion__c === 'Colectiva'; }
+    // Chip de la lista: tipo de contratación y, en colectivas, tamaño del grupo según el ramo.
+    chipOportunidad(opp) {
+        const ramo = this.getRamoLabel(opp.Ramo__c);
+        if (!this.esColectivaOpp(opp)) {
+            return { clase: 'chip-tipo chip-individual', icono: 'utility:user', texto: `Individual${ramo ? ' · ' + ramo : ''}`, sub: '' };
+        }
+        const r = this.resumenColectivas[opp.Id] || {};
+        const n = (v, uno, varios) => `${v} ${v === 1 ? uno : varios}`;
+        let tamano = '';
+        let icono = 'utility:groups';
+        if (this.matchRamo(opp.Ramo__c, ['AUTOMOVIL', 'AUTO'])) {
+            icono = 'utility:travel_and_places';
+            tamano = r.unidades ? 'Flotilla · ' + n(r.unidades, 'unidad', 'unidades') : 'Flotilla';
+        } else if (this.matchRamo(opp.Ramo__c, ['DANOS', 'DAÑOS', 'EMPRESARIAL'])) {
+            icono = 'utility:location';
+            tamano = r.ubicaciones ? n(r.ubicaciones, 'ubicación', 'ubicaciones') : '';
+        } else {
+            tamano = r.asegurados ? n(r.asegurados, 'asegurado', 'asegurados') : '';
+        }
+        return {
+            clase: 'chip-tipo chip-colectiva',
+            icono,
+            texto: ['Colectiva', icono === 'utility:travel_and_places' ? '' : ramo, tamano].filter((x) => x).join(' · '),
+            sub: r.cotizaciones ? n(r.cotizaciones, 'cotización', 'cotizaciones') : 'Sin cotizaciones'
+        };
+    }
+    getRamoLabel(valor) {
+        const o = (this.quoteRamoOptions || []).find((x) => x.value === valor);
+        return o ? o.label : (valor || '');
+    }
+    // Segmentos con su contador (respetan búsqueda, etapa y vencidas; no el propio segmento).
+    get segmentosTipo() {
+        const base = this.filtrarOportunidades(false);
+        const col = base.filter((o) => this.esColectivaOpp(o)).length;
+        return [
+            { valor: 'todas', etiqueta: 'Todas', icono: 'utility:list', total: base.length },
+            { valor: 'individual', etiqueta: 'Individuales', icono: 'utility:user', total: base.length - col },
+            { valor: 'colectiva', etiqueta: 'Colectivas', icono: 'utility:groups', total: col }
+        ].map((s) => ({ ...s, clase: 'segmento' + (s.valor === this.tipoFiltro ? ' segmento_activo' : '') + ' segmento_' + s.valor,
+            presionado: s.valor === this.tipoFiltro ? 'true' : 'false' }));
+    }
+    get esSegmentoColectivas() { return this.tipoFiltro === 'colectiva'; }
+    // Indicadores del segmento Colectivas: personas aseguradas y unidades / ubicaciones en juego.
+    get totalAseguradosColectivas() {
+        return this.filteredOpportunities.reduce((s, o) => s + ((this.resumenColectivas[o.Id] || {}).asegurados || 0), 0).toLocaleString('es-MX');
+    }
+    get totalUnidadesColectivas() {
+        return this.filteredOpportunities.reduce((s, o) => {
+            const r = this.resumenColectivas[o.Id] || {};
+            return s + (r.unidades || 0) + (r.ubicaciones || 0);
+        }, 0).toLocaleString('es-MX');
+    }
+
     get filteredOpportunities() {
+        return this.filtrarOportunidades(true);
+    }
+    filtrarOportunidades(conTipo) {
         const term = (this.searchTerm || '').toLowerCase().trim();
         const stage = this.stageFilter;
         const today = new Date();
@@ -2469,6 +2562,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 if (!match) return false;
             }
             if (stage && opp.StageName !== stage) return false;
+            if (conTipo && this.tipoFiltro !== 'todas'
+                && (this.tipoFiltro === 'colectiva') !== this.esColectivaOpp(opp)) return false;
             if (this.showOnlyOverdue) {
                 if (this.isClosedStage(opp.StageName)) return false;
                 if (!opp.CloseDate) return false;
@@ -2560,6 +2655,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const stageLabel = this.getStageLabel(opp.StageName);
             const stageIcon  = stage?.icon || 'utility:steps';
             const probability = stage?.probability ?? 0;
+            const chip = this.chipOportunidad(opp);
+            const esColectiva = this.esColectivaOpp(opp);
             return {
                 ...opp,
                 // Sobreescribimos Account/Owner con las versiones seguras
@@ -2585,7 +2682,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 isClosed,
                 isPoliza: this.isPolizaStage(opp.StageName),
                 isPolizaView: this.isPolizaStage(opp.StageName) || isClosed,
-                typeLabel: this.getTypeLabel(opp.Type)
+                typeLabel: this.getTypeLabel(opp.Type),
+                filaClase: `${statusClass} ${esColectiva ? 'fila-colectiva' : 'fila-individual'}`,
+                chipClase: chip.clase,
+                chipIcono: chip.icono,
+                chipTexto: chip.texto,
+                chipSub: chip.sub
             };
         });
     }

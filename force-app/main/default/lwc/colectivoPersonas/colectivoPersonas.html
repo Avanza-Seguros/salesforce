@@ -31,11 +31,13 @@
                                 <div class="tarjeta-encabezado">
                                     <strong>{t.aseguradora}</strong>
                                     <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
+                                    <template if:true={t.mejorCuota}><span class="chip-cuota">Mejor cuota al millar</span></template>
                                 </div>
                                 <span class="tarjeta-prima">{t.baseTxt}</span>
                                 <template if:true={t.difTxt}><span class="tarjeta-sub">{t.difTxt} vs. la mejor</span></template>
                                 <span class="tarjeta-sub">{t.desgloseTxt}</span>
                                 <span class="tarjeta-sub">{t.aseguradosTxt}</span>
+                                <template if:true={t.sumaTxt}><span class="tarjeta-sub">{t.sumaTxt}</span></template>
                                 <template if:true={t.aseguradosAviso}><span class="tarjeta-aviso">{t.aseguradosAviso}</span></template>
                                 <template if:true={t.vigenciaTxt}><span class="tarjeta-sub">Vigencia {t.vigenciaTxt}</span></template>
                                 <span class="tarjeta-sub">Cotización {t.numero}</span>
@@ -56,6 +58,13 @@
                             onclick={handleComparativoPdf}></lightning-button>
                     </div>
 
+                    <template if:true={notaCuota}>
+                        <div class="censo-alerta">
+                            <lightning-icon icon-name="utility:info" variant="warning" size="x-small"></lightning-icon>
+                            <span>{notaCuota}</span>
+                        </div>
+                    </template>
+
                     <template if:true={planDistinto}>
                         <div class="censo-alerta">
                             <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
@@ -67,7 +76,7 @@
                         <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
                             <thead>
                                 <tr class="slds-line-height_reset">
-                                    <th scope="col">Plan cotizado</th>
+                                    <th scope="col">{tituloPlan}</th>
                                     <template for:each={columnas} for:item="c">
                                         <th key={c.id} scope="col" class="num">{c.aseguradora}</th>
                                     </template>
@@ -98,6 +107,38 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <template if:true={hayUbicaciones}>
+                        <h3 class="subtitulo">Ubicaciones</h3>
+                        <div class="censo-scroll">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col">Ubicación (prima neta)</th>
+                                        <template for:each={columnas} for:item="c">
+                                            <th key={c.id} scope="col" class="num">{c.aseguradora}</th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={filasUbicaciones} for:item="f">
+                                        <tr key={f.key}>
+                                            <td>
+                                                <div class="nombre">{f.nombre}</div>
+                                                <div class="sub">{f.direccion}</div>
+                                            </td>
+                                            <template for:each={f.celdas} for:item="c">
+                                                <td key={c.key} class="num">
+                                                    <div class="nombre">{c.texto}</div>
+                                                    <div class="sub">{c.sub}</div>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
                 </template>
 
                 <template if:false={hayCotizaciones}>
@@ -111,7 +152,7 @@
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
                             <strong>Agregar cotización de aseguradora</strong>
-                            <span>PDF o Excel (.xlsx, .xlsm, CSV). La IA lee categorías, plan, primas, formas de pago y la tabla de edades; revisas antes de guardar.</span>
+                            <span>{textoCarga}</span>
                         </div>
                         <div class="censo-carga-acciones">
                             <lightning-input type="file" label="Archivo de la cotización" variant="label-hidden"
@@ -169,10 +210,14 @@
                 </div>
 
                 <div class="censo-stats slds-m-top_small">
-                    <div class="stat"><span class="stat-num">{aseguradosVista}</span><span class="stat-lbl">Asegurados</span></div>
+                    <div class="stat"><span class="stat-num">{aseguradosVista}</span><span class="stat-lbl">{etiquetaTamanoVista}</span></div>
+                    <template if:true={sumaVista}>
+                        <div class="stat"><span class="stat-num">{sumaVista}</span><span class="stat-lbl">Suma asegurada total</span></div>
+                    </template>
                     <div class="stat"><span class="stat-num">{totalVista}</span><span class="stat-lbl">Prima total</span></div>
                 </div>
 
+                <template if:true={esGmm}>
                 <h3 class="subtitulo">Categorías</h3>
                 <div class="censo-scroll">
                     <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla tabla-edicion">
@@ -212,10 +257,63 @@
                         </tbody>
                     </table>
                 </div>
+                </template>
+
+                <template if:false={esGmm}>
+                    <h3 class="subtitulo">{tituloRenglones}</h3>
+                    <div class="censo-scroll">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla tabla-edicion">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col">{etiquetaRenglon}</th>
+                                    <template if:true={esPersonas}>
+                                        <th scope="col">Hombres</th>
+                                        <th scope="col">Mujeres</th>
+                                        <th scope="col">Asegurados</th>
+                                    </template>
+                                    <template if:true={esUbicaciones}>
+                                        <th scope="col">Dirección</th>
+                                    </template>
+                                    <th scope="col">Suma asegurada total</th>
+                                    <th scope="col">Prima neta</th>
+                                    <th scope="col">Coberturas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={categoriasVista} for:item="c" for:index="i">
+                                    <tr key={c.key}>
+                                        <td><lightning-input variant="label-hidden" label={etiquetaRenglon} value={c.nombre} data-index={i} data-campo="nombre" onchange={handleCategoria}></lightning-input></td>
+                                        <template if:true={esPersonas}>
+                                            <td><lightning-input type="number" variant="label-hidden" label="Hombres" value={c.hombres} data-index={i} data-campo="hombres" onchange={handleCategoria}></lightning-input></td>
+                                            <td><lightning-input type="number" variant="label-hidden" label="Mujeres" value={c.mujeres} data-index={i} data-campo="mujeres" onchange={handleCategoria}></lightning-input></td>
+                                            <td><lightning-input type="number" variant="label-hidden" label="Asegurados" value={c.asegurados} data-index={i} data-campo="asegurados" onchange={handleCategoria}></lightning-input></td>
+                                        </template>
+                                        <template if:true={esUbicaciones}>
+                                            <td><lightning-input variant="label-hidden" label="Dirección" value={c.direccion} data-index={i} data-campo="direccion" onchange={handleCategoria}></lightning-input></td>
+                                        </template>
+                                        <td><lightning-input type="number" formatter="currency" step="0.01" variant="label-hidden" label="Suma asegurada total" value={c.sumaAseguradaTotal} data-index={i} data-campo="sumaAseguradaTotal" onchange={handleCategoria}></lightning-input></td>
+                                        <td><lightning-input type="number" formatter="currency" step="0.01" variant="label-hidden" label="Prima neta" value={c.primaNeta} data-index={i} data-campo="primaNeta" onchange={handleCategoria}></lightning-input></td>
+                                        <td class="mensajes">
+                                            <template if:true={c.hayParametros}><div class="sub">{c.parametrosTxt}</div></template>
+                                            <template if:false={c.hayParametros}><div class="sub">Sin coberturas detalladas</div></template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
 
                 <template for:each={categoriasVista} for:item="c">
                     <template if:true={c.coberturasTxt}>
                         <p key={c.key} class="nota"><strong>Coberturas adicionales ({c.nombre}):</strong> {c.coberturasTxt}</p>
+                    </template>
+                </template>
+                <template if:true={esGmm}>
+                    <template for:each={categoriasVista} for:item="c">
+                        <template if:true={c.hayParametros}>
+                            <p key={c.keyOtras} class="nota"><strong>Otras condiciones ({c.nombre}):</strong> {c.parametrosTxt}</p>
+                        </template>
                     </template>
                 </template>
 
