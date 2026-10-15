@@ -185,6 +185,8 @@ const CONCEPTOS_POR_RAMO = {
 
 // Marca del comparativo armado con las cotizaciones de la oportunidad (no es el de la IA) cuando se guarda en Descripcion__c.
 const MARCA_COMPARATIVO_CALCULADO = '<!--comparativo-calculado-->';
+// Comparativo colectivo / de flotilla que guarda Apex en Descripcion__c (lo muestra "Análisis IA").
+const MARCA_COMPARATIVO_COLECTIVO = '<!--comparativo-colectivo-->';
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -4172,7 +4174,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasComparativoHtml() {
         const html = this.comparativoHtml || '';
         // El comparativo calculado que se guarda en la oportunidad no es de la IA: en pantalla se vuelve a armar en vivo.
-        return !!html.trim() && !html.includes(MARCA_COMPARATIVO_CALCULADO) && this.comparativoHtmlCoincide;
+        return !!html.trim() && !html.includes(MARCA_COMPARATIVO_CALCULADO) && !html.includes(MARCA_COMPARATIVO_COLECTIVO)
+            && this.comparativoHtmlCoincide;
     }
     get comparativoHtmlCoincide() {
         const actuales = (this.relatedQuotes || []).filter((q) => q && q.totalAmount > 0);
@@ -4186,6 +4189,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // HTML del comparativo a guardar en la oportunidad: el de la IA si sigue vigente; si no, el de las cotizaciones actuales.
     comparativoHtmlParaGuardar() {
+        // Colectivas y flotillas: el comparativo lo mantiene Apex al guardar o eliminar cotizaciones (null = no se toca).
+        if (this.mostrarCotizacionesColectivas || this.isFlotilla) { return null; }
         if (this.hasComparativoHtml) { return this.comparativoHtml; }
         const calculado = this.buildComparativoHtmlCompleto();
         return calculado ? MARCA_COMPARATIVO_CALCULADO + calculado : null;

@@ -158,6 +158,9 @@ private class ColectivoControllerTest {
 		Aseguradora__c smnyl = [SELECT Id FROM Aseguradora__c WHERE Name = 'SMNYL Colectivo Test'];
 		Id q1 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionGnp(gnp.Id));
 		Id q2 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionSmnyl(smnyl.Id));
+		String guardado = [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id].Descripcion__c;
+		System.assert(guardado != null && guardado.startsWith(ColectivoController.MARCA_COMPARATIVO) && !guardado.contains('<body>'),
+			'El comparativo vigente queda en la oportunidad para Análisis IA');
 		Test.startTest();
 		ColectivoController.eliminarCotizacionColectiva(q1);
 		ColectivoController.eliminarCotizacionColectiva(null);
@@ -168,6 +171,17 @@ private class ColectivoControllerTest {
 		System.assert(html.contains('Agrega las cotizaciones de otras aseguradoras'), 'Con una sola invita a comparar');
 		ColectivoController.eliminarCotizacionColectiva(q2);
 		System.assertEquals('', ColectivoComparativoPdfController.construirHtml(opp.Id), 'Sin cotizaciones no hay HTML');
+		System.assertEquals(null, [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id].Descripcion__c,
+			'Sin cotizaciones se quita el comparativo colectivo');
+		update new Opportunity(Id = opp.Id, Descripcion__c = '<p>Comparativo de la IA</p>');
+		ColectivoController.guardarComparativoEnOportunidad(opp.Id, '');
+		System.assertEquals('<p>Comparativo de la IA</p>', [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id].Descripcion__c,
+			'No borra un comparativo que no es colectivo');
+		String frag = ColectivoController.aFragmento('<html><head><style>x</style></head><body><h2>T</h2><table class="resumen"><tr><td>1</td></tr></table></body></html>');
+		System.assert(frag.contains('<h2 style=') && frag.contains('<table style=') && !frag.contains('<style>'), 'Fragmento con estilos en línea: ' + frag);
+		System.assertEquals('<h3>A</h3>x<h3>C</h3>z', ColectivoController.quitarSeccion('<h3>A</h3>x<h3>B</h3>y<h3>C</h3>z', 'B'), 'Quita la sección intermedia');
+		System.assertEquals('<h3>A</h3>x', ColectivoController.quitarSeccion('<h3>A</h3>x<h3>B</h3>y', 'B'), 'Quita la última sección');
+		System.assertEquals('<h3>A</h3>x', ColectivoController.quitarSeccion('<h3>A</h3>x', 'B'), 'Sin la sección no cambia');
 		Boolean rechazado = false;
 		try { ColectivoController.generarComparativoPdf(opp.Id); } catch (AuraHandledException e) { rechazado = true; }
 		System.assert(rechazado, 'Sin cotizaciones no se genera el PDF');

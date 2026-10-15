@@ -277,6 +277,8 @@ public with sharing class FlotillaController {
 				Integer idx = de.getDmlIndex(0);
 				throw error((idx != null && idx < filas.size() ? 'Fila ' + filas[idx] + ': ' : '') + de.getDmlMessage(0));
 			}
+			// El mismo comparativo del PDF queda en la oportunidad para "Análisis IA".
+			ColectivoController.guardarComparativoEnOportunidad(opportunityId, FlotillaComparativoPdfController.construirHtml(opportunityId));
 			return q.Id;
 		} catch (AuraHandledException ahe) {
 			Database.rollback(sp);
@@ -297,10 +299,15 @@ public with sharing class FlotillaController {
 	@AuraEnabled(cacheable=false)
 	public static void eliminarCotizacionFlotilla(Id quoteId) {
 		if (quoteId == null) { return; }
+		Id oppId;
+		for (Quote q : [SELECT OpportunityId FROM Quote WHERE Id = :quoteId LIMIT 1]) { oppId = q.OpportunityId; }
 		Savepoint sp = Database.setSavepoint();
 		try {
 			delete [SELECT Id FROM Inciso_Flotilla__c WHERE Cotizacion__c = :quoteId];
 			delete [SELECT Id FROM Quote WHERE Id = :quoteId];
+			if (oppId != null) {
+				ColectivoController.guardarComparativoEnOportunidad(oppId, FlotillaComparativoPdfController.construirHtml(oppId));
+			}
 		} catch (Exception e) {
 			Database.rollback(sp);
 			throw error('No se pudo eliminar la cotización: ' + e.getMessage());
@@ -394,6 +401,7 @@ public with sharing class FlotillaController {
 				}
 			}
 			if (!links.isEmpty()) { insert links; }
+			ColectivoController.guardarComparativoEnOportunidad(opportunityId, FlotillaComparativoPdfController.construirHtml(opportunityId));
 			return docId;
 		} catch (Exception e) {
 			throw error('No se pudo generar el PDF del comparativo: ' + e.getMessage());

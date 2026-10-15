@@ -14,6 +14,12 @@ public with sharing class ColectivoController {
 	// Prompt Template para cotizaciones de Daños / Empresarial con varias ubicaciones.
 	private static final String PROMPT_UBICACIONES_API_NAME = 'Extractor_Colectivo_Ubicaciones';
 	private static final String PROMPT_INPUT_PARAM = 'Input:TextoCotizacion';
+	// Marca del comparativo colectivo / de flotilla guardado en Opportunity.Descripcion__c (lo muestra "Análisis IA").
+	public static final String MARCA_COMPARATIVO = '<!--comparativo-colectivo-->';
+	// Secciones de detalle que se omiten (en este orden) si el comparativo no cabe en Descripcion__c.
+	private static final List<String> SECCIONES_DETALLE = new List<String>{
+		'Prima por vehículo', 'Distribución por edad', 'Coberturas adicionales', 'Coberturas y deducibles'
+	};
 	// Ramos en los que cada renglón de la cotización es una ubicación (inmueble) y no un grupo de personas.
 	private static final Set<String> RAMOS_UBICACIONES = new Set<String>{ 'Danos', 'Empresarial' };
 
@@ -254,6 +260,7 @@ public with sharing class ColectivoController {
 				categorias.add(c);
 			}
 			insert categorias;
+			actualizarComparativo(opp.Id);
 			return q.Id;
 		} catch (AuraHandledException ahe) {
 			Database.rollback(sp);
@@ -273,10 +280,13 @@ public with sharing class ColectivoController {
 	@AuraEnabled(cacheable=false)
 	public static void eliminarCotizacionColectiva(Id quoteId) {
 		if (quoteId == null) { return; }
+		Id oppId;
+		for (Quote q : [SELECT OpportunityId FROM Quote WHERE Id = :quoteId LIMIT 1]) { oppId = q.OpportunityId; }
 		Savepoint sp = Database.setSavepoint();
 		try {
 			delete [SELECT Id FROM Categoria_Colectiva__c WHERE Cotizacion__c = :quoteId];
 			delete [SELECT Id FROM Quote WHERE Id = :quoteId];
+			if (oppId != null) { actualizarComparativo(oppId); }
 		} catch (Exception e) {
 			Database.rollback(sp);
 			throw error('No se pudo eliminar la cotización: ' + e.getMessage());
@@ -365,6 +375,7 @@ public with sharing class ColectivoController {
 				if (!ligados.contains(d)) { links.add(new ContentDocumentLink(ContentDocumentId = docId, LinkedEntityId = d, ShareType = 'V', Visibility = 'AllUsers')); }
 			}
 			if (!links.isEmpty()) { insert links; }
+			actualizarComparativo(opportunityId);
 			return docId;
 		} catch (Exception e) {
 			throw error('No se pudo generar el PDF del comparativo: ' + e.getMessage());
@@ -424,6 +435,99 @@ public with sharing class ColectivoController {
 			if (a != null) { res.get(o).put('asegurados', a); }
 		}
 		return res;
+	}
+
+	// ============================================================
+	// Comparativo en la oportunidad (para el componente "Análisis IA")
+	// ============================================================
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda en la oportunidad el comparativo colectivo vigente (el mismo del PDF) para que "Análisis IA"
+	 *               muestre exactamente lo mismo que Crear Oportunidad. Si ya no hay cotizaciones lo quita.
+	 * @param opportunityId: oportunidad colectiva.
+	 * @return void
+	 */
+	private static void actualizarComparativo(Id opportunityId) {
+		guardarComparativoEnOportunidad(opportunityId, ColectivoComparativoPdfController.construirHtml(opportunityId));
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Escribe el comparativo (HTML del PDF adaptado a la página) en Opportunity.Descripcion__c. Sin
+	 *               comparativo, borra solo uno colectivo / de flotilla anterior (no toca el de la IA de una individual).
+	 *               Si no cabe en el campo se conserva el anterior. Nunca interrumpe el guardado de la cotización.
+	 * @param opportunityId: oportunidad.
+	 * @param html: HTML completo del comparativo ('' si no hay cotizaciones).
+	 * @return void
+	 */
+	public static void guardarComparativoEnOportunidad(Id opportunityId, String html) {
+		if (opportunityId == null) { return; }
+		try {
+			List<Opportunity> opps = [SELECT Id, Descripcion__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+			if (opps.isEmpty()) { return; }
+			String fragmento = String.isBlank(html) ? null : aFragmento(html);
+			// Si no cabe (ej. flotillas grandes), se quitan los detalles más pesados; el detalle completo queda en el PDF.
+			Integer maximo = Opportunity.Descripcion__c.getDescribe().getLength();
+			String recortado = html;
+			for (String seccion : SECCIONES_DETALLE) {
+				if (fragmento == null || fragmento.length() <= maximo) { break; }
+				recortado = quitarSeccion(recortado, seccion);
+				fragmento = aFragmento(recortado.replace('<h3>Resumen y recomendaci',
+					'<p style="font-size:10px;color:#667;margin:8px 0;">El detalle completo (' + seccion.toLowerCase()
+					+ ' y demás) está en el comparativo en PDF.</p><h3>Resumen y recomendaci'));
+			}
+			if (fragmento == null) {
+				if (opps[0].Descripcion__c != null && opps[0].Descripcion__c.contains(MARCA_COMPARATIVO)) {
+					update new Opportunity(Id = opportunityId, Descripcion__c = null);
+				}
+				return;
+			}
+			if (fragmento.length() > maximo) { return; }
+			update new Opportunity(Id = opportunityId, Descripcion__c = fragmento);
+		} catch (Exception e) {
+			System.debug(LoggingLevel.WARN, 'No se pudo guardar el comparativo en la oportunidad: ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Quita del HTML la sección con ese título (desde su <h3> hasta el siguiente <h3>).
+	 * @param html: HTML del comparativo.
+	 * @param titulo: título de la sección.
+	 * @return HTML sin la sección (igual si no la tiene).
+	 */
+	@TestVisible
+	private static String quitarSeccion(String html, String titulo) {
+		Integer ini = html.indexOf('<h3>' + titulo + '</h3>');
+		if (ini < 0) { return html; }
+		Integer fin = html.indexOf('<h3>', ini + 4);
+		return fin < 0 ? html.left(ini) : html.left(ini) + html.substring(fin);
+	}
+
+	/**
+	 * @creation date: 14/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte el HTML del PDF (documento con estilos por clase) en un fragmento con estilos en línea
+	 *               que se puede mostrar dentro de una página de Lightning.
+	 * @param html: documento HTML del comparativo.
+	 * @return fragmento con la marca MARCA_COMPARATIVO.
+	 */
+	@TestVisible
+	private static String aFragmento(String html) {
+		String cuerpo = html;
+		Integer ini = cuerpo.indexOf('<body>');
+		Integer fin = cuerpo.lastIndexOf('</body>');
+		if (ini >= 0 && fin > ini) { cuerpo = cuerpo.substring(ini + 6, fin); }
+		String tabla = '<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">';
+		cuerpo = cuerpo.replace('<table class="resumen">', tabla).replace('<table>', tabla)
+			.replace('<h2>', '<h2 style="font-size:18px;margin:0 0 4px;color:#1c2433;">')
+			.replace('<h3>', '<h3 style="font-size:13px;margin:14px 0 6px;color:#1c2433;">');
+		return MARCA_COMPARATIVO + '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1c2433;overflow-x:auto;">'
+			+ cuerpo + '</div>';
 	}
 
 	// ============================================================
