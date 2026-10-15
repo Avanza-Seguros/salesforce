@@ -33,6 +33,7 @@ const CAMPOS = [
     { key: 'sueldoMensual', label: 'Sueldo mensual', tipo: 'numero', alias: ['sueldo mensual', 'salario mensual', 'sueldo', 'salario', 'sueldo base'] },
     { key: 'sueldoAnual', label: 'Sueldo anual', tipo: 'numero', alias: ['sueldo anual', 'salario anual', 'ingreso anual'] },
     { key: 'sumaAsegurada', label: 'Suma asegurada', tipo: 'numero', alias: ['suma asegurada', 'sa', 's a', 'suma aseg'] },
+    { key: 'prima', label: 'Prima', tipo: 'numero', alias: ['prima', 'prima neta', 'prima anual', 'prima total', 'costo', 'prima individual'] },
     { key: 'certificado', label: 'Certificado', alias: ['certificado', 'no certificado', 'num certificado', 'numero de certificado', 'cert', 'no de certificado'] },
     { key: 'fechaAlta', label: 'Fecha de alta', tipo: 'fecha', alias: ['fecha de alta', 'fecha alta', 'alta', 'fecha de ingreso', 'fecha ingreso', 'antiguedad', 'fecha de antiguedad'] },
     { key: 'numEmpleado', label: 'Núm. de empleado', alias: ['numero de empleado', 'no empleado', 'num empleado', 'no de empleado', 'nomina', 'no nomina', 'id empleado', 'clave empleado', 'clave'] },
@@ -119,7 +120,8 @@ export default class CensoColectivo extends LightningElement {
             total: (c.titulares || 0) + (c.dependientes || 0),
             edadTxt: c.edadPromedio === null || c.edadPromedio === undefined ? '—' : c.edadPromedio + ' años',
             sueldoTxt: this.moneda(c.sueldoTotal),
-            sumaTxt: this.moneda(c.sumaAseguradaTotal)
+            sumaTxt: this.moneda(c.sumaAseguradaTotal),
+            primaTxt: this.moneda(c.primaTotal)
         }));
     }
     get verAseguradosLabel() { return this.verAsegurados ? 'Ocultar asegurados' : 'Ver asegurados'; }
@@ -137,7 +139,8 @@ export default class CensoColectivo extends LightningElement {
             fechaTxt: this.fechaVisible(m.fechaNacimiento),
             edadTxt: m.edad === null || m.edad === undefined ? '' : m.edad,
             sueldoTxt: this.moneda(m.sueldoAnual),
-            sumaTxt: this.moneda(m.sumaAsegurada)
+            sumaTxt: this.moneda(m.sumaAsegurada),
+            primaTxt: this.moneda(m.prima)
         }));
     }
     get paginasCenso() { return Math.max(1, Math.ceil(((this.censo && this.censo.miembros) || []).length / POR_PAGINA)); }
@@ -454,6 +457,7 @@ export default class CensoColectivo extends LightningElement {
         const anual = this.numero(d.sueldoAnual);
         r.sueldoAnual = anual !== null ? anual : (mensual !== null ? Math.round(mensual * 12 * 100) / 100 : null);
         r.sumaAsegurada = this.numero(d.sumaAsegurada);
+        r.prima = this.numero(d.prima);
         r.certificado = txt(d.certificado).replace(/\.0+$/, '');
         r.numEmpleado = txt(d.numEmpleado).replace(/\.0+$/, '');
         r.rfc = txt(d.rfc).toUpperCase();
@@ -496,18 +500,20 @@ export default class CensoColectivo extends LightningElement {
         const mapa = {};
         this.validos.forEach((r) => {
             const k = r.categoria || 'Sin categoría';
-            const c = mapa[k] || (mapa[k] = { key: k, nombre: k, titulares: 0, dependientes: 0, edades: 0, n: 0, sueldo: 0, suma: 0 });
+            const c = mapa[k] || (mapa[k] = { key: k, nombre: k, titulares: 0, dependientes: 0, edades: 0, n: 0, sueldo: 0, suma: 0, prima: 0 });
             if (r.esTitular) { c.titulares++; } else { c.dependientes++; }
             if (r.edad !== null) { c.edades += r.edad; c.n++; }
             c.sueldo += r.sueldoAnual || 0;
             c.suma += r.sumaAsegurada || 0;
+            c.prima += r.prima || 0;
         });
         return Object.values(mapa).map((c) => ({
             ...c,
             total: c.titulares + c.dependientes,
             edadTxt: c.n ? (Math.round((c.edades / c.n) * 10) / 10) + ' años' : '—',
             sueldoTxt: this.moneda(c.sueldo),
-            sumaTxt: this.moneda(c.suma)
+            sumaTxt: this.moneda(c.suma),
+            primaTxt: this.moneda(c.prima)
         }));
     }
 
@@ -539,6 +545,7 @@ export default class CensoColectivo extends LightningElement {
             certificado: r.certificado,
             sueldoTxt: this.moneda(r.sueldoAnual),
             sumaTxt: this.moneda(r.sumaAsegurada),
+            primaTxt: this.moneda(r.prima),
             mensajes: [...r.errores, ...r.avisos].join(' · '),
             claseFila: (r.errores.length ? 'fila-error' : (r.avisos.length ? 'fila-aviso' : '')) + (r.esTitular ? '' : ' fila-dependiente'),
             icono: r.errores.length ? 'utility:error' : (r.avisos.length ? 'utility:warning' : 'utility:success'),
@@ -601,6 +608,7 @@ export default class CensoColectivo extends LightningElement {
                     categoria: r.categoria,
                     sueldoAnual: r.sueldoAnual,
                     sumaAsegurada: r.sumaAsegurada,
+                    prima: r.prima,
                     certificado: r.certificado,
                     fechaAlta: r.fechaAlta || null,
                     numEmpleado: r.numEmpleado,

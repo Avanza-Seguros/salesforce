@@ -47,7 +47,7 @@ private class CensoColectivoControllerTest {
 		return JSON.serialize(new List<Object>{
 			new Map<String, Object>{ 'fila' => 2, 'nombre' => 'Juan', 'apellidos' => 'Pérez García', 'fechaNacimiento' => '1980-05-10',
 				'sexo' => 'Hombre', 'parentesco' => 'Titular', 'categoria' => 'DIRECCION', 'sueldoAnual' => 600000,
-				'sumaAsegurada' => 1000000, 'certificado' => '001', 'numEmpleado' => 'E-1', 'rfc' => 'pega800510abc',
+				'sumaAsegurada' => 1000000, 'prima' => 4634.07, 'certificado' => '001', 'numEmpleado' => 'E-1', 'rfc' => 'pega800510abc',
 				'email' => 'juan@test.com', 'telefono' => '5551234567', 'fechaAlta' => '2020-01-15' },
 			new Map<String, Object>{ 'fila' => 3, 'nombreCompleto' => 'María López Ruiz', 'fechaNacimiento' => '1982-08-15',
 				'sexo' => 'Mujer', 'parentesco' => 'Cónyuge', 'titularIndex' => 0, 'certificado' => '001', 'fechaAlta' => '2020-01-15' },
@@ -236,9 +236,10 @@ private class CensoColectivoControllerTest {
 			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Mar%'];
 		System.assertNotEquals(null, conyuge.RelatedInsPolicyParticipantId, 'Dependiente ligado a su titular');
 		System.assertEquals('001', conyuge.ParticipantCode, 'Certificado');
-		InsurancePolicyParticipant titular = [SELECT ParticipantCode, RelatedInsPolicyParticipantId FROM InsurancePolicyParticipant
+		InsurancePolicyParticipant titular = [SELECT Id, ParticipantCode, RelatedInsPolicyParticipantId FROM InsurancePolicyParticipant
 			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Juan%'];
 		System.assertEquals('001', titular.ParticipantCode, 'Certificado del titular');
+		System.assertEquals(4634.07, [SELECT TermPremiumAmount FROM InsurancePolicyParticipant WHERE Id = :titular.Id].TermPremiumAmount, 'Prima del asegurado');
 		System.assertEquals(null, titular.RelatedInsPolicyParticipantId, 'El titular no depende de nadie');
 		System.assertEquals(new List<String>{ 'Mujer', 'Esposa' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
 		System.assertEquals(new List<String>{ 'Hijo' }, CensoColectivoController.parentescoPoliza('Secundario', 'Hombre'));

@@ -43,6 +43,7 @@ public with sharing class CensoColectivoController {
 		public String categoria;
 		public Decimal sueldoAnual;
 		public Decimal sumaAsegurada;
+		public Decimal prima;
 		public String certificado;
 		public String fechaAlta;
 		public String numEmpleado;
@@ -77,7 +78,7 @@ public with sharing class CensoColectivoController {
 		List<GroupCensusMember> miembros = [
 			SELECT Id, Name, Birthdate, Gender, GroupClass.Name, AssociationWithPrimaryMbr,
 				PrimaryGroupCensusMember.Name, AnnualEligibleSalary, SourceSystemIdentifier,
-				Certificado__c, RFC__c, Edad__c, Suma_Asegurada__c, JoinDate
+				Certificado__c, RFC__c, Edad__c, Suma_Asegurada__c, Prima__c, JoinDate
 			FROM GroupCensusMember
 			WHERE GroupCensusId = :censo.Id
 			ORDER BY CreatedDate ASC, Id ASC
@@ -98,7 +99,7 @@ public with sharing class CensoColectivoController {
 			Map<String, Object> c = porCategoria.get(cat);
 			if (c == null) {
 				c = new Map<String, Object>{ 'nombre' => cat, 'titulares' => 0, 'dependientes' => 0,
-					'sumaEdades' => 0, 'sueldoTotal' => 0.0, 'sumaAseguradaTotal' => 0.0 };
+					'sumaEdades' => 0, 'sueldoTotal' => 0.0, 'sumaAseguradaTotal' => 0.0, 'primaTotal' => 0.0 };
 				porCategoria.put(cat, c);
 				edadesContadas.put(cat, 0);
 			}
@@ -109,6 +110,7 @@ public with sharing class CensoColectivoController {
 			}
 			if (m.AnnualEligibleSalary != null) { c.put('sueldoTotal', (Decimal) c.get('sueldoTotal') + m.AnnualEligibleSalary); }
 			if (m.Suma_Asegurada__c != null) { c.put('sumaAseguradaTotal', (Decimal) c.get('sumaAseguradaTotal') + m.Suma_Asegurada__c); }
+			if (m.Prima__c != null) { c.put('primaTotal', (Decimal) c.get('primaTotal') + m.Prima__c); }
 
 			if (vista.size() < MAX_MIEMBROS_VISTA) {
 				vista.add(new Map<String, Object>{
@@ -116,7 +118,7 @@ public with sharing class CensoColectivoController {
 					'titular' => esTitular ? null : (m.PrimaryGroupCensusMember != null ? m.PrimaryGroupCensusMember.Name : null),
 					'categoria' => cat, 'fechaNacimiento' => m.Birthdate, 'edad' => edad, 'sexo' => m.Gender,
 					'certificado' => m.Certificado__c, 'numEmpleado' => m.SourceSystemIdentifier,
-					'sueldoAnual' => m.AnnualEligibleSalary, 'sumaAsegurada' => m.Suma_Asegurada__c,
+					'sueldoAnual' => m.AnnualEligibleSalary, 'sumaAsegurada' => m.Suma_Asegurada__c, 'prima' => m.Prima__c,
 					'fechaAlta' => m.JoinDate, 'rfc' => m.RFC__c
 				});
 			}
@@ -405,6 +407,7 @@ public with sharing class CensoColectivoController {
 		if (e.edad != null && e.edad >= 0 && e.edad < 130) { m.Edad__c = e.edad.round(System.RoundingMode.DOWN); }
 		if (e.sueldoAnual != null) { m.AnnualEligibleSalary = e.sueldoAnual; }
 		if (e.sumaAsegurada != null) { m.Suma_Asegurada__c = e.sumaAsegurada; }
+		if (e.prima != null) { m.Prima__c = e.prima; }
 		setPicklist(m, 'Gender', e.sexo);
 		// FSC: el titular va SIN parentesco (si lo trae, exige un titular); el dependiente lleva ambos campos.
 		if (e.titularIndex != null) {
@@ -643,7 +646,7 @@ public with sharing class CensoColectivoController {
 		if (opportunityId == null || policyId == null) { return 0; }
 		List<GroupCensusMember> miembros = [
 			SELECT Id, FirstName, LastName, Name, Gender, RelationshipToPrimaryMember, PrimaryGroupCensusMemberId,
-				GroupClassId, JoinDate, Certificado__c, ContactId
+				GroupClassId, JoinDate, Certificado__c, ContactId, Prima__c
 			FROM GroupCensusMember
 			WHERE GroupCensus.Oportunidad__c = :opportunityId
 			ORDER BY PrimaryGroupCensusMemberId NULLS FIRST, Certificado__c, Name
@@ -797,6 +800,8 @@ public with sharing class CensoColectivoController {
 		if (m.GroupClassId != null) { try { p.put('GroupClassId', m.GroupClassId); } catch (Exception e) { System.debug(LoggingLevel.FINE, e.getMessage()); } }
 		if (m.ContactId != null) { p.PrimaryParticipantContactId = m.ContactId; }
 		if (m.JoinDate != null) { p.EffectiveFromDate = m.JoinDate; }
+		// Prima individual del asegurado (del listado de la aseguradora) como prima del periodo del participante.
+		if (m.Prima__c != null) { p.TermPremiumAmount = m.Prima__c; }
 		p.IsActiveParticipant = true;
 		return p;
 	}
