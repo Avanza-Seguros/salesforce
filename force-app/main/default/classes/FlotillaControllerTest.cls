@@ -306,4 +306,48 @@ private class FlotillaControllerTest {
 		System.assertEquals('{"incisos":[]}', FlotillaController.limpiarJson('nada'));
 		System.assertEquals('{"incisos":[]}', FlotillaController.limpiarJson(null));
 	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Coberturas lado a lado con las de cada cotización (Quote_Coverage__c): agrupa nombres equivalentes,
+	 *               toma el valor de la cobertura o de los incisos, marca "No incluida" y omite la que repite el producto.
+	 * @return void
+	 */
+	@isTest
+	static void testCoberturasComparadas() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		Aseguradora__c q = [SELECT Id FROM Aseguradora__c WHERE Name = 'Qualitas Flotilla Test'];
+		Aseguradora__c g = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Flotilla Test'];
+		Id q1 = FlotillaController.guardarCotizacionFlotilla(opp.Id, cotizacion(q.Id, 1));
+		Id q2 = FlotillaController.guardarCotizacionFlotilla(opp.Id, cotizacion(g.Id, 1.1));
+		insert new List<Quote_Coverage__c>{
+			new Quote_Coverage__c(Quote__c = q1, Name = 'Daños Materiales', Coverage_Name__c = 'Daños Materiales'),
+			new Quote_Coverage__c(Quote__c = q1, Name = 'Gastos Médicos Ocupantes', Coverage_Name__c = 'Gastos Médicos Ocupantes'),
+			new Quote_Coverage__c(Quote__c = q1, Name = 'Asistencia Legal Cds *', Coverage_Name__c = 'Asistencia Legal Cds *', Sum_Insured__c = 50000),
+			new Quote_Coverage__c(Quote__c = q1, Name = 'Auto Flotilla', Coverage_Name__c = 'Auto Flotilla'),
+			new Quote_Coverage__c(Quote__c = q2, Name = 'Gastos Médicos a Ocupantes', Coverage_Name__c = 'Gastos Médicos a Ocupantes', Deductible__c = 5)
+		};
+		Test.startTest();
+		List<Map<String, Object>> filas = FlotillaController.getCoberturasFlotilla(opp.Id);
+		String html = FlotillaComparativoPdfController.construirHtml(opp.Id);
+		Test.stopTest();
+		Map<String, Map<String, String>> porEtiqueta = new Map<String, Map<String, String>>();
+		for (Map<String, Object> f : filas) { porEtiqueta.put((String) f.get('etiqueta'), (Map<String, String>) f.get('valores')); }
+		System.assert(porEtiqueta.containsKey('Paquete'), 'Paquete de los incisos: ' + porEtiqueta.keySet());
+		System.assert(porEtiqueta.containsKey('Gastos Médicos Ocupantes') && !porEtiqueta.containsKey('Gastos Médicos a Ocupantes'),
+			'Nombres equivalentes en un solo renglón: ' + porEtiqueta.keySet());
+		System.assertEquals('Ded. 5%', porEtiqueta.get('Gastos Médicos Ocupantes').get(String.valueOf(q2)), 'Valor de la cobertura');
+		System.assertEquals('$50,000', porEtiqueta.get('Asistencia Legal Cds').get(String.valueOf(q1)), 'Suma asegurada de la cobertura');
+		System.assertEquals('No incluida', porEtiqueta.get('Asistencia Legal Cds').get(String.valueOf(q2)), 'La otra aseguradora no la tiene');
+		System.assert(porEtiqueta.containsKey('Daños Materiales'), 'Cobertura de la cotización');
+		System.assert(!porEtiqueta.containsKey('Auto Flotilla'), 'Se omite la que repite el nombre del producto');
+		System.assert(html.contains('Coberturas y deducibles') && html.contains('Asistencia Legal Cds'), 'El PDF usa las coberturas reales');
+		System.assertEquals('gastos medicos ocupantes', FlotillaController.normalizarCobertura('Gastos Médicos a Ocupantes'));
+		System.assertEquals('rc', FlotillaController.conceptoInciso('responsabilidad civil danos terceros'));
+		System.assertEquals('muerte', FlotillaController.conceptoInciso('accidentes automovilisticos conductor'));
+		System.assertEquals('dedRT', FlotillaController.conceptoInciso('robo total'));
+		System.assertEquals(null, FlotillaController.conceptoInciso('asistencia vial'));
+		System.assertEquals('', FlotillaController.normalizarCobertura(null));
+	}
 }

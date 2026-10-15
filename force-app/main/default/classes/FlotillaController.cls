@@ -125,8 +125,272 @@ public with sharing class FlotillaController {
 				'prima' => i.Prima__c, 'primaNeta' => i.Prima_Neta__c
 			});
 		}
+		// Producto y coberturas de cada cotización (Quote_Coverage__c) para comparar las coberturas reales.
+		if (!porQuote.isEmpty()) {
+			for (Quote qt : [SELECT Id, Product__r.Name FROM Quote WHERE Id IN :porQuote.keySet()]) {
+				porQuote.get(qt.Id).put('producto', qt.Product__r != null ? qt.Product__r.Name : null);
+				porQuote.get(qt.Id).put('coberturas', new List<Object>());
+			}
+			for (Quote_Coverage__c c : [
+				SELECT Quote__c, Name, Coverage_Name__c, Sum_Insured__c, Deductible__c, Limit__c, Coinsurance__c
+				FROM Quote_Coverage__c
+				WHERE Quote__c IN :porQuote.keySet()
+				ORDER BY Quote__c, Order__c ASC NULLS LAST, Name ASC
+				LIMIT 5000
+			]) {
+				((List<Object>) porQuote.get(c.Quote__c).get('coberturas')).add(new Map<String, Object>{
+					'nombre' => String.isNotBlank(c.Coverage_Name__c) ? c.Coverage_Name__c : c.Name,
+					'suma' => c.Sum_Insured__c, 'deducible' => c.Deductible__c, 'limite' => c.Limit__c, 'coaseguro' => c.Coinsurance__c
+				});
+			}
+		}
 		for (Map<String, Object> q : porQuote.values()) { asignarPrimaComparable(q); }
 		return porQuote.values();
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Coberturas de las cotizaciones de flotilla de la oportunidad, lado a lado (para el comparativo en
+	 *               pantalla; el PDF y "Análisis IA" usan la misma lógica).
+	 * @param opportunityId: oportunidad colectiva de Auto.
+	 * @return renglones {key, etiqueta, valores: {quoteId: texto}, distinto}.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Map<String, Object>> getCoberturasFlotilla(Id opportunityId) {
+		return coberturasComparadas(getFlotilla(opportunityId));
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Arma las coberturas lado a lado con lo que trae cada cotización, sin renglones fijos:
+	 *               1) paquete y tipo de valor si los incisos los traen; 2) las coberturas de cada cotización
+	 *               (Quote_Coverage__c), agrupando nombres equivalentes entre aseguradoras y omitiendo la que solo
+	 *               repite el nombre del producto; el valor es la suma / límite / deducible de la cobertura o, si no lo
+	 *               trae, el dato de los incisos (deducible de daños materiales y robo, RC, gastos médicos, muerte del
+	 *               conductor); si no hay valor, "Amparada"; si la aseguradora no la tiene, "No incluida";
+	 *               3) datos de los incisos que no tienen cobertura registrada. Primero las que tienen todas.
+	 * @param cot: cotizaciones de getFlotilla.
+	 * @return renglones {key, etiqueta, valores: {quoteId: texto}, distinto}.
+	 */
+	public static List<Map<String, Object>> coberturasComparadas(List<Map<String, Object>> cot) {
+		List<String> llaves = new List<String>();
+		Map<String, String> etiquetas = new Map<String, String>();
+		Map<String, Map<String, String>> valores = new Map<String, Map<String, String>>();
+		// 1) Paquete y tipo de valor (texto de los incisos).
+		for (String campo : new List<String>{ 'paquete', 'tipoValor' }) {
+			Map<String, String> v = new Map<String, String>();
+			for (Map<String, Object> q : cot) {
+				String t = textosInciso(q, campo);
+				if (String.isNotBlank(t)) { v.put(String.valueOf(q.get('id')), t); }
+			}
+			if (!v.isEmpty()) {
+				llaves.add('#' + campo);
+				etiquetas.put('#' + campo, campo == 'paquete' ? 'Paquete' : 'Tipo de valor');
+				valores.put('#' + campo, v);
+			}
+		}
+		// 2) Coberturas de cada cotización.
+		for (Map<String, Object> q : cot) {
+			String qid = String.valueOf(q.get('id'));
+			String producto = normalizarCobertura((String) q.get('producto'));
+			List<Object> cobs = (List<Object>) q.get('coberturas');
+			for (Object o : cobs == null ? new List<Object>() : cobs) {
+				Map<String, Object> c = (Map<String, Object>) o;
+				String nombre = String.valueOf(c.get('nombre') == null ? '' : c.get('nombre')).replace('*', ' ').normalizeSpace();
+				String k = normalizarCobertura(nombre);
+				// Sin nombre, o es el mismo producto / paquete (ej. "Auto Amplio MAPFRE" en "Seguro de Auto Amplio MAPFRE").
+				if (String.isBlank(k) || (String.isNotBlank(producto) && producto.contains(k))) { continue; }
+				if (!valores.containsKey(k)) {
+					llaves.add(k);
+					etiquetas.put(k, nombre);
+					valores.put(k, new Map<String, String>());
+				}
+				String v = valorCobertura(c);
+				if (String.isBlank(v)) { v = valorInciso(q, conceptoInciso(k)); }
+				valores.get(k).put(qid, String.isBlank(v) ? 'Amparada' : v);
+			}
+		}
+		// 3) Datos de los incisos que ninguna cobertura registrada recoge.
+		for (String concepto : ETIQUETAS_INCISO.keySet()) {
+			String k;
+			for (String l : llaves) { if (conceptoInciso(l) == concepto) { k = l; break; } }
+			for (Map<String, Object> q : cot) {
+				String v = valorInciso(q, concepto);
+				if (String.isBlank(v)) { continue; }
+				if (k == null) {
+					k = '#' + concepto;
+					llaves.add(k);
+					etiquetas.put(k, ETIQUETAS_INCISO.get(concepto));
+					valores.put(k, new Map<String, String>());
+				}
+				String qid = String.valueOf(q.get('id'));
+				if (!valores.get(k).containsKey(qid)) { valores.get(k).put(qid, v); }
+			}
+		}
+		// Renglones: paquete / tipo de valor, luego las coberturas que tienen todas y al final las parciales.
+		List<Map<String, Object>> completas = new List<Map<String, Object>>();
+		List<Map<String, Object>> parciales = new List<Map<String, Object>>();
+		for (String k : llaves) {
+			Map<String, String> v = valores.get(k);
+			Map<String, String> celdas = new Map<String, String>();
+			Set<String> distintos = new Set<String>();
+			for (Map<String, Object> q : cot) {
+				String qid = String.valueOf(q.get('id'));
+				String t = v.containsKey(qid) ? v.get(qid) : 'No incluida';
+				celdas.put(qid, t);
+				distintos.add(t.toUpperCase().deleteWhitespace().replace('.', ''));
+			}
+			Map<String, Object> r = new Map<String, Object>{
+				'key' => k, 'etiqueta' => etiquetas.get(k), 'valores' => celdas, 'distinto' => cot.size() > 1 && distintos.size() > 1
+			};
+			if (k.startsWith('#paquete') || k.startsWith('#tipoValor') || v.size() == cot.size()) { completas.add(r); } else { parciales.add(r); }
+		}
+		completas.addAll(parciales);
+		return completas;
+	}
+
+	// Datos de los incisos que equivalen a una cobertura (campo del inciso -> nombre si ninguna cobertura lo recoge).
+	private static final Map<String, String> ETIQUETAS_INCISO = new Map<String, String>{
+		'dedDM' => 'Daños materiales', 'dedRT' => 'Robo total', 'rc' => 'Responsabilidad civil',
+		'gm' => 'Gastos médicos ocupantes', 'muerte' => 'Muerte del conductor'
+	};
+	// Palabras que no ayudan a reconocer la misma cobertura entre aseguradoras.
+	private static final Set<String> PALABRAS_VACIAS = new Set<String>{
+		'a', 'al', 'de', 'del', 'en', 'por', 'la', 'el', 'los', 'las', 'y', 'para', 'con', 'cds'
+	};
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Nombre de cobertura normalizado (minúsculas, sin acentos, signos ni palabras vacías) para reconocer
+	 *               la misma cobertura con nombres distintos (ej. "Gastos Médicos a Ocupantes" = "Gastos Médicos Ocupantes").
+	 * @param nombre: nombre de la cobertura o del producto.
+	 * @return llave normalizada ('' si viene vacío).
+	 */
+	@TestVisible
+	private static String normalizarCobertura(String nombre) {
+		if (String.isBlank(nombre)) { return ''; }
+		String t = nombre.toLowerCase();
+		Map<String, String> acentos = new Map<String, String>{ 'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n' };
+		for (String a : acentos.keySet()) { t = t.replace(a, acentos.get(a)); }
+		List<String> palabras = new List<String>();
+		for (String p : t.replaceAll('[^a-z0-9]+', ' ').trim().split(' ')) {
+			if (String.isNotBlank(p) && !PALABRAS_VACIAS.contains(p)) { palabras.add(p); }
+		}
+		return String.join(palabras, ' ');
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Dato del inciso que corresponde a la cobertura (por su nombre normalizado).
+	 * @param k: nombre normalizado de la cobertura.
+	 * @return campo del inciso (dedDM, dedRT, rc, gm, muerte) o null.
+	 */
+	@TestVisible
+	private static String conceptoInciso(String k) {
+		if (String.isBlank(k)) { return null; }
+		String t = k.removeStart('#');
+		if (ETIQUETAS_INCISO.containsKey(t)) { return t; }
+		if (t.contains('danos materiales')) { return 'dedDM'; }
+		if (t.contains('robo total')) { return 'dedRT'; }
+		if (t.contains('gastos medicos')) { return 'gm'; }
+		if (t.contains('conductor') || t.contains('muerte')) { return 'muerte'; }
+		if (t.startsWith('responsabilidad civil') && (t.contains('terceros') || t == 'responsabilidad civil')) { return 'rc'; }
+		return null;
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Suma asegurada, límite, deducible y coaseguro de la cobertura de la cotización.
+	 * @param c: cobertura {suma, limite, deducible, coaseguro}.
+	 * @return texto ('' si no trae ninguno).
+	 */
+	private static String valorCobertura(Map<String, Object> c) {
+		List<String> partes = new List<String>();
+		if (c.get('suma') != null && (Decimal) c.get('suma') > 0) { partes.add(montoTxt((Decimal) c.get('suma'))); }
+		if (c.get('limite') != null && (Decimal) c.get('limite') > 0) { partes.add('Límite ' + montoTxt((Decimal) c.get('limite'))); }
+		if (c.get('deducible') != null && (Decimal) c.get('deducible') > 0) { partes.add('Ded. ' + pctTxt((Decimal) c.get('deducible'))); }
+		if (c.get('coaseguro') != null && (Decimal) c.get('coaseguro') > 0) { partes.add('Coas. ' + pctTxt((Decimal) c.get('coaseguro'))); }
+		return String.join(partes, ' · ');
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Dato de los incisos para una cobertura: deducible (porcentaje) o suma asegurada; si cambia según la
+	 *               unidad se da el rango.
+	 * @param q: cotización con incisos.
+	 * @param campo: dedDM, dedRT, rc, gm o muerte (null = sin dato).
+	 * @return texto ('' si ningún inciso lo trae).
+	 */
+	private static String valorInciso(Map<String, Object> q, String campo) {
+		if (campo == null) { return ''; }
+		Boolean esPct = campo == 'dedDM' || campo == 'dedRT';
+		Decimal min;
+		Decimal max;
+		for (Object o : (List<Object>) q.get('incisos')) {
+			Object v = ((Map<String, Object>) o).get(campo);
+			if (v == null) { continue; }
+			Decimal d = v instanceof Decimal ? (Decimal) v : null;
+			if (d == null || d == 0) { continue; }
+			min = min == null || d < min ? d : min;
+			max = max == null || d > max ? d : max;
+		}
+		if (min == null) { return ''; }
+		String a = esPct ? pctTxt(min) : montoTxt(min);
+		String b = esPct ? pctTxt(max) : montoTxt(max);
+		return (esPct ? 'Ded. ' : '') + (min == max ? a : a + ' – ' + b);
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Textos distintos de un campo de los incisos (paquete, tipo de valor), en mayúsculas.
+	 * @param q: cotización con incisos.
+	 * @param campo: campo del inciso.
+	 * @return textos unidos con " / " ('' si ninguno).
+	 */
+	private static String textosInciso(Map<String, Object> q, String campo) {
+		Set<String> textos = new Set<String>();
+		for (Object o : (List<Object>) q.get('incisos')) {
+			Object v = ((Map<String, Object>) o).get(campo);
+			if (v != null && String.isNotBlank(String.valueOf(v))) { textos.add(String.valueOf(v).trim().toUpperCase()); }
+		}
+		return String.join(new List<String>(textos), ' / ');
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Monto "$1,234,567" sin decimales.
+	 * @param d: monto.
+	 * @return texto.
+	 */
+	private static String montoTxt(Decimal d) {
+		Long n = d.setScale(0, System.RoundingMode.HALF_UP).longValue();
+		String s = String.valueOf(Math.abs(n));
+		String out = '';
+		while (s.length() > 3) {
+			out = ',' + s.right(3) + out;
+			s = s.left(s.length() - 3);
+		}
+		return (n < 0 ? '-$' : '$') + s + out;
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Porcentaje con hasta dos decimales ("5%", "2.5%").
+	 * @param d: porcentaje.
+	 * @return texto.
+	 */
+	private static String pctTxt(Decimal d) {
+		Decimal r = d.setScale(2, System.RoundingMode.HALF_UP).stripTrailingZeros();
+		return r.toPlainString() + '%';
 	}
 
 	/**

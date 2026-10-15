@@ -91,6 +91,19 @@
                                         </template>
                                     </tr>
                                 </template>
+                                <template if:true={hayCoberturasDoc}>
+                                    <tr>
+                                        <td class="doc-cell doc-cell-seccion" colspan={columnasTotal}>Coberturas y deducibles</td>
+                                    </tr>
+                                    <template for:each={coberturasDoc} for:item="f">
+                                        <tr key={f.key}>
+                                            <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{f.etiqueta}</span></td>
+                                            <template for:each={f.celdas} for:item="c">
+                                                <td key={c.key} class={c.clase}>{c.texto}</td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </template>
                             </tbody>
                         </table>
 

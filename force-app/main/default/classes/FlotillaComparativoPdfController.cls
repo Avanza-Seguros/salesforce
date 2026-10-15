@@ -160,16 +160,24 @@ public with sharing class FlotillaComparativoPdfController {
 		h += '</tr></table>';
 
 		// ---------- Coberturas y deducibles ----------
-		h += '<h3>Coberturas y deducibles</h3><table class="resumen">';
-		h += encabezadoAseguradoras('Cobertura', cot, totales, mejor);
-		h += filaCobertura('Paquete', cot, 'paquete', false, false);
-		h += filaCobertura('Tipo de valor', cot, 'tipoValor', false, false);
-		h += filaCobertura('Deducible daños materiales', cot, 'dedDM', false, true);
-		h += filaCobertura('Deducible robo total', cot, 'dedRT', false, true);
-		h += filaCobertura('Responsabilidad civil', cot, 'rc', true, false);
-		h += filaCobertura('Gastos médicos ocupantes', cot, 'gm', true, false);
-		h += filaCobertura('Muerte del conductor', cot, 'muerte', true, false);
-		h += '</table>';
+		// Las coberturas que trae cada cotización (nada fijo); el valor sale de la cobertura o de los incisos.
+		List<Map<String, Object>> coberturas = FlotillaController.coberturasComparadas(cot);
+		if (!coberturas.isEmpty()) {
+			h += '<h3>Coberturas y deducibles</h3><table class="resumen">';
+			h += encabezadoAseguradoras('Cobertura', cot, totales, mejor);
+			for (Map<String, Object> r : coberturas) {
+				Map<String, String> v = (Map<String, String>) r.get('valores');
+				h += '<tr><th style="' + TH + '">' + esc((String) r.get('etiqueta')) + '</th>';
+				for (Map<String, Object> q : cot) {
+					String t = v.get(String.valueOf(q.get('id')));
+					Boolean no = t == 'No incluida';
+					h += '<td style="' + (no ? TD_NUM + 'color:#9aa0ac;font-style:italic;' : (r.get('distinto') == true ? TD_NUM + 'background:#fff8ef;' : TD_NUM))
+						+ '">' + esc(t) + '</td>';
+				}
+				h += '</tr>';
+			}
+			h += '</table>';
+		}
 		h += '<p style="font-size:9.5px;color:#667;margin:0;">Cuando una cobertura cambia según la unidad (por ejemplo, RC de pick-ups de carga vs. automóviles) se muestra el rango.</p>';
 
 		// ---------- Detalle por vehículo ----------
@@ -271,55 +279,6 @@ public with sharing class FlotillaComparativoPdfController {
 		String h = '<tr><th style="' + TH + '">' + esc(etiqueta) + '</th>';
 		for (Integer c = 0; c < cot.size(); c++) { h += '<td style="' + TD_NUM + '">' + valores[c] + (sufijo == null ? '' : sufijo) + '</td>'; }
 		return h + '</tr>';
-	}
-
-	/**
-	 * @creation date: 13/10/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Renglón de una cobertura: valor único, rango (montos/porcentajes) o lista de textos por aseguradora. Se omite si ninguna lo trae.
-	 * @param etiqueta: nombre de la cobertura.
-	 * @param cot: cotizaciones.
-	 * @param campo: clave del inciso (paquete, dedDM, rc...).
-	 * @param esMonto: true si es monto en pesos.
-	 * @param esPct: true si es porcentaje.
-	 * @return HTML del renglón o vacío.
-	 */
-	private static String filaCobertura(String etiqueta, List<Map<String, Object>> cot, String campo, Boolean esMonto, Boolean esPct) {
-		String h = '<tr><th style="' + TH + '">' + esc(etiqueta) + '</th>';
-		Boolean hayDato = false;
-		String celdas = '';
-		for (Map<String, Object> q : cot) {
-			Decimal min = null;
-			Decimal max = null;
-			Set<String> textos = new Set<String>();
-			for (Object o : (List<Object>) q.get('incisos')) {
-				Object v = ((Map<String, Object>) o).get(campo);
-				if (v == null || String.valueOf(v).trim() == '') { continue; }
-				if (esMonto || esPct) {
-					Decimal d = dec(v);
-					if (d == 0) { continue; }
-					min = min == null || d < min ? d : min;
-					max = max == null || d > max ? d : max;
-				} else {
-					textos.add(String.valueOf(v).trim().toUpperCase());
-				}
-			}
-			String txt;
-			if (esMonto || esPct) {
-				if (min == null) { txt = '—'; }
-				else {
-					String a = esPct ? porcentaje(min) : moneda(min);
-					String b = esPct ? porcentaje(max) : moneda(max);
-					txt = min == max ? a : a + ' – ' + b;
-					hayDato = true;
-				}
-			} else {
-				txt = textos.isEmpty() ? '—' : String.join(new List<String>(textos), ' / ');
-				hayDato = hayDato || !textos.isEmpty();
-			}
-			celdas += '<td style="' + TD_NUM + '">' + esc(txt) + '</td>';
-		}
-		return hayDato ? h + celdas + '</tr>' : '';
 	}
 
 	/**

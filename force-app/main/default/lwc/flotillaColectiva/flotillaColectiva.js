@@ -15,6 +15,7 @@ import {
     mapeoAutomatico, opcionesColumnas, opcionesEncabezado, buscarVigencia, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
 import getFlotilla from '@salesforce/apex/FlotillaController.getFlotilla';
+import getCoberturasFlotilla from '@salesforce/apex/FlotillaController.getCoberturasFlotilla';
 import getAseguradoras from '@salesforce/apex/FlotillaController.getAseguradoras';
 import guardarCotizacionFlotilla from '@salesforce/apex/FlotillaController.guardarCotizacionFlotilla';
 import eliminarCotizacionFlotilla from '@salesforce/apex/FlotillaController.eliminarCotizacionFlotilla';
@@ -64,6 +65,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     @api modo = 'completo';
 
     @track cotizaciones = [];
+    // Coberturas de las cotizaciones lado a lado (las que trae cada una; mismas reglas que el PDF).
+    @track coberturas = [];
     @track mapeo = {};
     @track renglones = [];
     @track encabezado = this.encabezadoVacio();
@@ -116,6 +119,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         this.cargando = true;
         try {
             this.cotizaciones = (await getFlotilla({ opportunityId: this._opportunityId })) || [];
+            this.coberturas = this.verComparativo && this.cotizaciones.length
+                ? (await getCoberturasFlotilla({ opportunityId: this._opportunityId })) || [] : [];
             this.paginaComparativo = 1;
             this.dispatchEvent(new CustomEvent('flotillaactualizada', { detail: { cotizaciones: this.cotizaciones.length } }));
         } catch (e) {
@@ -260,6 +265,19 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         agrega('num', 'Cotización', '', lista.map((q, i) => this.celdaDoc(cols, i, q.numero)));
         return filas;
     }
+    get hayCoberturasDoc() { return this.coberturas.length > 0; }
+    get coberturasDoc() {
+        const cols = this.columnasDoc;
+        return this.coberturas.map((f) => ({
+            key: f.key,
+            etiqueta: f.etiqueta,
+            celdas: this.cotizaciones.map((q, i) => {
+                const t = (f.valores || {})[q.id] || 'No incluida';
+                return this.celdaDoc(cols, i, t === 'No incluida' ? '' : t, '', f.distinto && t !== 'No incluida' ? 'doc-cell-aviso' : '');
+            }).map((c) => (c.texto === '—' ? { ...c, texto: 'No incluida' } : c))
+        }));
+    }
+
     // Detalle por tipo de vehículo o por vehículo con el estilo del documento (la mejor de cada renglón en verde).
     get comparativoTiposDoc() {
         const cols = this.columnasDoc;
