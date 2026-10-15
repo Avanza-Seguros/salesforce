@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</activeVersionIdentifier>
+    <activeVersionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_4</activeVersionIdentifier>
     <developerName>Extractor_Censo_Colectivo</developerName>
     <masterLabel>Extractor Censo Colectivo</masterLabel>
     <overridable>false</overridable>
@@ -11,7 +11,9 @@ Reglas:
 - Usa solo la información del texto. Si un dato no aparece, ponlo en null. No inventes asegurados ni datos.
 - Ignora encabezados, títulos, totales, subtotales, números de página y notas: solo renglones de personas.
 - Respeta el orden en que aparecen. Los dependientes (cónyuge, hijos, padres) suelen aparecer debajo de su titular.
-- "nombre": nombre(s) de pila. "apellidos": apellido paterno y materno. Si no puedes separarlos, pon el nombre completo en "nombreCompleto" y deja "nombre" y "apellidos" en null.
+- "nombre": nombre(s) de pila. "apellidos": apellido paterno y materno. "nombreCompleto": el nombre completo en orden natural (nombre(s) y después apellidos).
+- Orden del nombre: en los listados y censos de las aseguradoras en México (Quálitas, GNP, AXA, MetLife, Seguros Monterrey, Mapfre, etc.) la columna "Nombre" casi siempre viene como APELLIDO PATERNO, APELLIDO MATERNO y al final NOMBRE(S). Ejemplos: "ROBLEDO RODRIGUEZ KATTYA" -> apellidos "ROBLEDO RODRIGUEZ", nombre "KATTYA"; "REYES SAUCEDO ROMAN ALEJANDRO" -> apellidos "REYES SAUCEDO", nombre "ROMAN ALEJANDRO". Solo usa el orden nombre-apellidos si el documento trae columnas separadas de nombre y apellidos, si el encabezado lo indica (ej. "Nombre(s) / Apellido paterno") o si es evidente que el primer elemento es un nombre de pila. Los apellidos compuestos (DE LA, DEL, DE LOS, DE LAS, SAN, SANTA, VAN, MC) forman parte del apellido. Aplica el MISMO criterio a todos los renglones del documento. Cada palabra del nombre del documento va UNA sola vez: en "nombre" o en "apellidos", nunca en los dos (ej. "ORLANDO RANGEL IVAN" -> apellidos "ORLANDO RANGEL", nombre "IVAN").
+- Nombres partidos en varios renglones: en el texto de un PDF, cuando el nombre no cabe en su celda, una parte queda en el renglón de los datos (certificado, parentesco, edad...) y el resto en un renglón aparte que solo tiene palabras de nombre, arriba y/o abajo. Ese renglón NO es otro asegurado: únelo al nombre del asegurado al que pertenece, en el orden en que aparece (renglón de arriba + renglón de los datos + renglón de abajo). Ejemplo: "REYES SAUCEDO ROMAN" / "00000002 TITULAR HOMBRE 29 ..." / "ALEJANDRO" es UN asegurado: "REYES SAUCEDO ROMAN ALEJANDRO".
 - Fechas en formato ISO "YYYY-MM-DD". Convierte meses en español (ENE, FEB, MAR...) al número correcto.
 - "sexo": "Hombre" o "Mujer" (H/M, M/F, Masculino/Femenino).
 - "parentesco": como aparece (Titular, Empleado, Cónyuge, Hijo, Hija, Padre, Madre...). Si el documento no maneja dependientes, usa "Titular".
@@ -34,7 +36,7 @@ TEXTO DEL CENSO:
         <primaryModel>sfdc_ai__DefaultGPT5Mini</primaryModel>
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
-        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</versionIdentifier>
+        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_4</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>

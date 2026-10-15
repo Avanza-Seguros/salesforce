@@ -246,5 +246,19 @@ private class CensoColectivoControllerTest {
 		System.assertEquals(new List<String>{ 'Suegro' }, CensoColectivoController.parentescoPoliza('Suegro', null));
 		System.assertEquals(new List<String>{ 'Padre' }, CensoColectivoController.parentescoPoliza('Padre', 'Masculino'));
 		System.assertEquals(new List<String>(), CensoColectivoController.parentescoPoliza(null, null));
+		System.assertEquals('IVAN', CensoColectivoController.sinPalabraRepetida('IVAN ORLANDO', 'ORLANDO RANGEL'), 'Quita la palabra repetida');
+		System.assertEquals('ROMAN ALEJANDRO', CensoColectivoController.sinPalabraRepetida('ROMAN ALEJANDRO', 'REYES SAUCEDO'), 'Sin repetición no cambia');
+		System.assertEquals('ORLANDO', CensoColectivoController.sinPalabraRepetida('ORLANDO', 'ORLANDO RANGEL'), 'Un solo nombre no se toca');
+		System.assertEquals(null, CensoColectivoController.sinPalabraRepetida(null, 'X'));
+		String texto = 'Nombre Certificado Parentesco\nROBLEDO RODRIGUEZ KATTYA 00000001 TITULAR MUJER 47\n'
+			+ 'REYES SAUCEDO ROMAN\n00000002 TITULAR HOMBRE 29\nALEJANDRO\n'
+			+ 'UTRILLA ACEVEDO BRAULIO\n00000003 TITULAR HOMBRE 35\nRODRIGO\n'
+			+ 'SANCHEZ MONTOYA 00000009 TITULAR MUJER 26\nNAOMI MONSERRAT\nMEDINA PEREZ LUIS ANGEL 00000010 TITULAR HOMBRE 26';
+		List<String> unidos = CensoColectivoController.unirNombresPartidos(texto).split('\n');
+		System.assertEquals(6, unidos.size(), 'Un renglón por asegurado más el encabezado: ' + unidos);
+		System.assertEquals('REYES SAUCEDO ROMAN ALEJANDRO 00000002 TITULAR HOMBRE 29', unidos[2], 'Nombre de arriba + de abajo');
+		System.assertEquals('UTRILLA ACEVEDO BRAULIO RODRIGO 00000003 TITULAR HOMBRE 35', unidos[3], 'Siguiente asegurado partido');
+		System.assertEquals('SANCHEZ MONTOYA NAOMI MONSERRAT 00000009 TITULAR MUJER 26', unidos[4], 'Pedazo de abajo al final del nombre');
+		System.assertEquals('ROBLEDO RODRIGUEZ KATTYA 00000001 TITULAR MUJER 47', unidos[1], 'Renglón completo sin cambios');
 	}
 }

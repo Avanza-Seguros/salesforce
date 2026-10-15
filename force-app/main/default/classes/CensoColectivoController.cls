@@ -261,8 +261,10 @@ public with sharing class CensoColectivoController {
 		if (String.isBlank(textoCenso)) { throw error('No se recibió texto del censo para analizar.'); }
 		if (Test.isRunningTest()) { return '{"asegurados":[]}'; }
 		try {
+			// Los nombres que en el PDF ocupan dos renglones se unen antes de la IA (si no, los toma como otros asegurados).
+			String texto = unirNombresPartidos(textoCenso);
 			ConnectApi.WrappedValue wrapped = new ConnectApi.WrappedValue();
-			wrapped.value = textoCenso.length() > 60000 ? textoCenso.substring(0, 60000) : textoCenso;
+			wrapped.value = texto.length() > 60000 ? texto.substring(0, 60000) : texto;
 			ConnectApi.EinsteinPromptTemplateGenerationsInput genInput = new ConnectApi.EinsteinPromptTemplateGenerationsInput();
 			genInput.additionalConfig = new ConnectApi.EinsteinLlmAdditionalConfigInput();
 			genInput.additionalConfig.applicationName = 'PromptBuilderPreview';
@@ -371,12 +373,17 @@ public with sharing class CensoColectivoController {
 	 */
 	private static GroupCensusMember miembro(MiembroEntrada e, Id censoId, Map<String, Id> categorias) {
 		GroupCensusMember m = new GroupCensusMember(GroupCensusId = censoId);
-		String completo = String.isNotBlank(e.nombreCompleto)
-			? e.nombreCompleto.normalizeSpace()
-			: ((e.nombre == null ? '' : e.nombre) + ' ' + (e.apellidos == null ? '' : e.apellidos)).normalizeSpace();
+		String nombre = e.nombre == null ? null : e.nombre.normalizeSpace();
+		String apellidos = e.apellidos == null ? null : e.apellidos.normalizeSpace();
+		nombre = sinPalabraRepetida(nombre, apellidos);
+		// Con nombre y apellidos separados, el nombre completo se arma en orden natural (el de la IA puede venir revuelto
+		// cuando el nombre se partió en dos renglones del PDF); si no, se usa el nombre completo tal cual.
+		String completo = String.isNotBlank(nombre) && String.isNotBlank(apellidos)
+			? nombre + ' ' + apellidos
+			: (String.isNotBlank(e.nombreCompleto)
+				? e.nombreCompleto.normalizeSpace()
+				: ((nombre == null ? '' : nombre) + ' ' + (apellidos == null ? '' : apellidos)).normalizeSpace());
 		if (String.isBlank(completo)) { throw error('Fila ' + e.fila + ': el asegurado no tiene nombre.'); }
-		String nombre = e.nombre;
-		String apellidos = e.apellidos;
 		if (String.isBlank(nombre) && String.isBlank(apellidos)) {
 			List<String> partes = completo.split(' ');
 			if (partes.size() == 1) {
@@ -679,6 +686,96 @@ public with sharing class CensoColectivoController {
 		}
 		if (!dependientes.isEmpty()) { insert dependientes; }
 		return porTitular.size() + dependientes.size();
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Une los nombres que en el texto del PDF quedaron partidos en varios renglones. Cuando el nombre no
+	 *               cabe en su celda, el renglón de datos (certificado, parentesco, edad...) queda sin nombre o con el
+	 *               nombre incompleto, y el resto queda en renglones que solo tienen palabras de nombre:
+	 *               - renglón de datos que empieza con un número (sin nombre): toma el renglón de nombre de arriba y el
+	 *                 de abajo ("REYES SAUCEDO ROMAN" / "00000002 TITULAR ..." / "ALEJANDRO");
+	 *               - renglón de nombre suelto debajo de un renglón de datos que sí trae nombre: se agrega al final de
+	 *                 ese nombre, antes de los datos.
+	 * @param texto: texto del censo, un renglón por línea.
+	 * @return texto con un renglón por asegurado.
+	 */
+	@TestVisible
+	private static String unirNombresPartidos(String texto) {
+		if (String.isBlank(texto)) { return texto; }
+		List<String> r = texto.replace('\r', '').split('\n');
+		Integer n = r.size();
+		List<String> nuevo = new List<String>(r);
+		Set<Integer> quitados = new Set<Integer>();
+		// 1) Renglones de datos sin nombre: nombre = renglón de arriba + renglón de abajo.
+		for (Integer i = 0; i < n; i++) {
+			if (!esDatosSinNombre(r[i])) { continue; }
+			String antes = (i > 0 && !quitados.contains(i - 1) && esSoloNombre(r[i - 1])) ? r[i - 1].trim() : null;
+			String despues = (i + 1 < n && esSoloNombre(r[i + 1]) && !esDatosSinNombre(i + 2 < n ? r[i + 2] : '')) ? r[i + 1].trim() : null;
+			if (antes == null && despues == null) { continue; }
+			nuevo[i] = ((antes == null ? '' : antes) + ' ' + (despues == null ? '' : despues) + ' ' + r[i].trim()).normalizeSpace();
+			if (antes != null) { quitados.add(i - 1); }
+			if (despues != null) { quitados.add(i + 1); }
+		}
+		// 2) Pedazo de nombre debajo de un renglón de datos que sí trae nombre: va al final del nombre.
+		for (Integer i = 1; i < n; i++) {
+			if (quitados.contains(i) || !esSoloNombre(r[i]) || quitados.contains(i - 1)) { continue; }
+			String previo = nuevo[i - 1].trim();
+			if (!Pattern.matches('^[A-ZÁÉÍÓÚÑÜ .\'-]+\\s\\d{3,}.*', previo) || esDatosSinNombre(r[i - 1])) { continue; }
+			Matcher m = Pattern.compile('\\s(?=\\S*\\d)').matcher(previo);
+			if (!m.find()) { continue; }
+			nuevo[i - 1] = previo.substring(0, m.start()) + ' ' + r[i].trim() + previo.substring(m.start());
+			quitados.add(i);
+		}
+		List<String> salida = new List<String>();
+		for (Integer i = 0; i < n; i++) { if (!quitados.contains(i)) { salida.add(nuevo[i]); } }
+		return String.join(salida, '\n');
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón que solo tiene palabras (sin números ni signos de datos): posible pedazo de un nombre.
+	 * @param renglon: texto.
+	 * @return true si parece pedazo de nombre.
+	 */
+	private static Boolean esSoloNombre(String renglon) {
+		if (String.isBlank(renglon)) { return false; }
+		String t = renglon.trim();
+		return t.length() <= 60 && Pattern.matches('^[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ .\'-]*$', t);
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de datos de un asegurado que empieza con un número (certificado, consecutivo): no trae nombre.
+	 * @param renglon: texto.
+	 * @return true si es un renglón de datos sin nombre.
+	 */
+	private static Boolean esDatosSinNombre(String renglon) {
+		return String.isNotBlank(renglon) && Pattern.matches('^\\d{3,}\\s+\\S+.*', renglon.trim());
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Quita del nombre la última palabra cuando es la misma con la que empiezan los apellidos (la IA a
+	 *               veces la repite al separar "ORLANDO RANGEL IVAN" en nombre "IVAN ORLANDO" y apellidos "ORLANDO RANGEL").
+	 * @param nombre: nombre(s) de pila.
+	 * @param apellidos: apellidos.
+	 * @return nombre sin la palabra repetida.
+	 */
+	@TestVisible
+	private static String sinPalabraRepetida(String nombre, String apellidos) {
+		if (String.isBlank(nombre) || String.isBlank(apellidos)) { return nombre; }
+		List<String> n = nombre.split(' ');
+		List<String> a = apellidos.split(' ');
+		if (n.size() > 1 && n[n.size() - 1].equalsIgnoreCase(a[0])) {
+			n.remove(n.size() - 1);
+			return String.join(n, ' ');
+		}
+		return nombre;
 	}
 
 	/**
