@@ -183,6 +183,9 @@ const CONCEPTOS_POR_RAMO = {
     rc: CONCEPTOS_RC
 };
 
+// Marca del comparativo armado con las cotizaciones de la oportunidad (no es el de la IA) cuando se guarda en Descripcion__c.
+const MARCA_COMPARATIVO_CALCULADO = '<!--comparativo-calculado-->';
+
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
     // === Wires y picklists ===
@@ -3720,7 +3723,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // y luego se liga a InsurancePolicy.ProducerId.
                 Producer__c: this.opportunity.Agente__c || null,
                 isNewContacto: this.isNewContacto,
-                Descripcion__c: this.comparativoHtml || null,
+                Descripcion__c: this.comparativoHtmlParaGuardar(),
                 detalleRamo: this.getActiveRamoDetail(),
                 vehiculo: this.automovil
             };
@@ -3962,9 +3965,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         // Si se usó la IA, se guarda ÚNICAMENTE el comparativo que ella regresó.
         // Solo cuando no hay comparativo de IA se arma la matriz completa como respaldo.
-        const htmlComparativo = this.hasComparativoHtml
-            ? this.comparativoHtml
-            : (this.buildComparativoHtmlCompleto() || this.comparativoHtml);
+        const htmlComparativo = this.comparativoHtmlParaGuardar();
         if (htmlComparativo) {
             try {
                 // 1) Guarda el comparativo en la oportunidad (dato committed) y
@@ -4165,8 +4166,29 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasPdfQuotes() {
         return this.uploadedQuotes && this.uploadedQuotes.length > 0;
     }
+    // Comparativo de la IA (el que regresó al leer los PDFs, guardado en Descripcion__c). Solo se usa mientras
+    // corresponda a las cotizaciones actuales; si después se agregan, quitan o cambian cotizaciones, el comparativo
+    // se arma con las cotizaciones de la oportunidad (nada queda fijo).
     get hasComparativoHtml() {
-        return !!(this.comparativoHtml && this.comparativoHtml.trim());
+        const html = this.comparativoHtml || '';
+        // El comparativo calculado que se guarda en la oportunidad no es de la IA: en pantalla se vuelve a armar en vivo.
+        return !!html.trim() && !html.includes(MARCA_COMPARATIVO_CALCULADO) && this.comparativoHtmlCoincide;
+    }
+    get comparativoHtmlCoincide() {
+        const actuales = (this.relatedQuotes || []).filter((q) => q && q.totalAmount > 0);
+        if (!actuales.length) { return true; }   // vista previa de PDFs: el comparativo es de esas mismas cotizaciones
+        const texto = String(this.comparativoHtml || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
+        // Mismo número de aseguradoras/cotizaciones comparadas...
+        const n = texto.match(/(\d+)\s+(?:aseguradoras?|cotizaciones?)\s+comparad[ao]s/i);
+        if (n && Number(n[1]) !== actuales.length) { return false; }
+        // ...y la prima total de cada cotización actual aparece en el comparativo.
+        return actuales.every((q) => texto.includes(Math.round(Number(q.totalAmount)).toLocaleString('en-US')));
+    }
+    // HTML del comparativo a guardar en la oportunidad: el de la IA si sigue vigente; si no, el de las cotizaciones actuales.
+    comparativoHtmlParaGuardar() {
+        if (this.hasComparativoHtml) { return this.comparativoHtml; }
+        const calculado = this.buildComparativoHtmlCompleto();
+        return calculado ? MARCA_COMPARATIVO_CALCULADO + calculado : null;
     }
     // El comparativo "armado" (KPIs + tabla) solo se muestra si NO hay el
     // comparativo de la IA; con IA se ve igual que la pestaña "Comparativo IA".
