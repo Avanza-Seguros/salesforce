@@ -1204,8 +1204,8 @@
                         </div>
                         <div class="form-container">
                             <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
-                                oncolectivoactualizado={handleColectivoActualizado}
-                                oncotizacioncreada={handleCotizacionFlotilla}></c-colectivo-personas>
+                                modo="carga" oncolectivoactualizado={handleColectivoActualizado}
+                                oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
                         </div>
                     </div>
                 </template>
@@ -1440,8 +1440,26 @@
                     <!-- ====================================================== -->
                     <!-- SECCIÓN 4.B: COMPARATIVA DE COTIZACIONES               -->
                     <!-- Sólo se muestra si hay 2 o más cotizaciones            -->
+                    <!-- En colectivas (personas / ubicaciones) muestra el      -->
+                    <!-- comparativo colectivo en lugar del general.            -->
                     <!-- ====================================================== -->
-                    <template if:true={hasQuoteComparison}>
+                    <template if:true={mostrarComparativaColectiva}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">{comparativaColectivaSubtitulo}</p>
+                                </div>
+                                <div class="section-badge compare-badge">{colectivoBadge}</div>
+                            </div>
+                            <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
+                                modo="comparativo" oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
+                        </div>
+                    </template>
+                    <template if:true={mostrarComparativaGeneral}>
                         <div class="unified-section comparison-section">
                             <div class="section-header-compact">
                                 <div class="section-icon compare-icon">

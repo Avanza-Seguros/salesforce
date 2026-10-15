@@ -554,3 +554,6 @@
     .comparison-kpis { grid-template-columns: 1fr; }
     .doc-head h1 { font-size: 20px; }
 }
+
+/* Sección de carga (sin el documento del comparativo) */
+.cotizaciones-cargadas { margin-top: 0; }

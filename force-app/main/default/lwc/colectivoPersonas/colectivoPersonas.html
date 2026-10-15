@@ -25,6 +25,7 @@
             <!-- ====================== COMPARATIVO ====================== -->
             <template if:true={enResumen}>
                 <template if:true={hayCotizaciones}>
+                    <template if:true={verComparativo}>
                     <!-- Indicadores (mismo estilo que la Comparativa de Cotizaciones) -->
                     <div class="comparison-kpis">
                         <template for:each={kpis} for:item="k">
@@ -153,8 +154,11 @@
                             <h2>Recomendación</h2>
                             <div class="doc-bottom">{recomendacion}</div>
                         </div>
+                    </div>
+                    </template>
 
-                        <div class="doc-recs">
+                    <template if:true={verCarga}>
+                        <div class="doc-recs cotizaciones-cargadas">
                             <h2>Cotizaciones cargadas</h2>
                             <div class="doc-twocol">
                                 <template for:each={tarjetas} for:item="t">
@@ -177,17 +181,19 @@
                                 </template>
                             </div>
                         </div>
-                    </div>
+                    </template>
                 </template>
 
                 <template if:false={hayCotizaciones}>
+                    <template if:true={verCarga}>
                     <div class="censo-vacio">
                         <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
                         <p>Aún no hay cotizaciones. Sube la cotización de cada aseguradora (PDF o Excel) para compararlas.</p>
                     </div>
+                    </template>
                 </template>
 
-                <template if:true={puedeEditar}>
+                <template if:true={puedeCargar}>
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
                             <strong>Agregar cotización de aseguradora</strong>

@@ -46,6 +46,9 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     @api readOnly = false;
     // Valor del picklist Ramo de la oportunidad (GMM, Vida, Accidentes Personales, Danos, ...).
     @api ramo;
+    // 'carga': subir y administrar cotizaciones; 'comparativo': solo el comparativo (en la sección Comparativa de
+    // Cotizaciones de Crear Oportunidad); 'completo' (por omisión): ambos.
+    @api modo = 'completo';
 
     @track cotizaciones = [];
     @track vista = null;
@@ -64,6 +67,14 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this._opportunityId = v;
         if (cambio && v) { this.cargar(); }
     }
+
+    // Vuelve a leer las cotizaciones (Crear Oportunidad lo llama cuando la otra sección guarda o elimina una).
+    @api
+    refrescar() { return this.cargar(); }
+
+    get verComparativo() { return this.modo !== 'carga'; }
+    get verCarga() { return this.modo !== 'comparativo'; }
+    get puedeCargar() { return this.puedeEditar && this.verCarga; }
 
     async connectedCallback() {
         try { this.aseguradoras = await getAseguradoras(); } catch (e) { this.aseguradoras = []; }
