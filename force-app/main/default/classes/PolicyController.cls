@@ -519,9 +519,9 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 17/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Crea los participantes de la póliza (InsurancePolicyParticipant): en colectivas copia los
-	 * asegurados capturados como roles de contacto de la oportunidad; en individuales usa la persona de la cuenta
-	 * asegurada.
+	 * @description: Crea los participantes de la póliza (InsurancePolicyParticipant): en colectivas copia el censo
+	 * de asegurados (titulares y dependientes) y los capturados como roles de contacto de la oportunidad; en
+	 * individuales usa la persona de la cuenta asegurada.
 	 * @param policyId: Id de la InsurancePolicy
 	 * @param opportunityId: Id de la oportunidad origen
 	 * @return Número de participantes creados
@@ -538,8 +538,11 @@ public with sharing class PolicyController {
 		Id oppId = opportunityId != null ? opportunityId : pol.SourceOpportunityId;
 
 		Integer creados = 0;
-		// 1) Colectiva: asegurados desde OCR (no rompe si falla o si no hay).
+		// 1) Colectiva: asegurados del censo (GroupCensusMember) y, si los hay, los capturados como roles de contacto.
+		//    No rompe la emisión si falla o si no hay.
 		if (oppId != null) {
+			try { creados += CensoColectivoController.copiarCensoAPoliza(oppId, policyId); }
+			catch (Exception e) { System.debug(LoggingLevel.WARN, 'No se pudo copiar el censo a la póliza: ' + e.getMessage()); }
 			try { creados += AseguradosController.copiarAseguradosAPoliza(oppId, policyId); }
 			catch (Exception ignore) {}
 		}

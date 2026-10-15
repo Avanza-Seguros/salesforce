@@ -205,4 +205,46 @@ private class CensoColectivoControllerTest {
 		System.assertEquals('Cónyuge', CensoColectivoController.parentescoVisible('Spouse', false));
 		System.assertEquals('Otro', CensoColectivoController.parentescoVisible('Other', false));
 	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Al emitir la póliza el censo pasa a participantes: titulares, dependientes ligados a su titular con
+	 *               su parentesco, certificado y categoría; sin duplicar si se vuelve a copiar.
+	 * @return void
+	 */
+	@isTest
+	static void testCopiarCensoAPoliza() {
+		Opportunity opp = [SELECT Id, AccountId FROM Opportunity LIMIT 1];
+		CensoColectivoController.guardarCenso(opp.Id, censoJson(), true);
+		InsurancePolicy pol = new InsurancePolicy(Name = 'POL-CENSO-1', NameInsuredId = opp.AccountId, SourceOpportunityId = opp.Id,
+			Status = 'Inicial', PremiumAmount = 1200, PaymentDueDate = Date.today().addDays(30), EffectiveDate = Datetime.now(),
+			ExpirationDate = Datetime.now().addDays(365));
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { pol.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert pol;
+		Test.startTest();
+		Integer creados = CensoColectivoController.copiarCensoAPoliza(opp.Id, pol.Id);
+		Integer otraVez = CensoColectivoController.copiarCensoAPoliza(opp.Id, pol.Id);
+		Integer vacio = CensoColectivoController.copiarCensoAPoliza(null, pol.Id);
+		Test.stopTest();
+		System.assertEquals(4, creados, 'Un participante por asegurado del censo');
+		System.assertEquals(0, otraVez, 'No duplica al volver a copiar');
+		System.assertEquals(0, vacio, 'Sin oportunidad no copia');
+		InsurancePolicyParticipant conyuge = [SELECT RelationshipToInsured, RelatedInsPolicyParticipantId, ParticipantCode
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Mar%'];
+		System.assertNotEquals(null, conyuge.RelatedInsPolicyParticipantId, 'Dependiente ligado a su titular');
+		System.assertEquals('001', conyuge.ParticipantCode, 'Certificado');
+		InsurancePolicyParticipant titular = [SELECT ParticipantCode, RelatedInsPolicyParticipantId FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Juan%'];
+		System.assertEquals('001', titular.ParticipantCode, 'Certificado del titular');
+		System.assertEquals(null, titular.RelatedInsPolicyParticipantId, 'El titular no depende de nadie');
+		System.assertEquals(new List<String>{ 'Mujer', 'Esposa' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
+		System.assertEquals(new List<String>{ 'Hijo' }, CensoColectivoController.parentescoPoliza('Secundario', 'Hombre'));
+		System.assertEquals(new List<String>{ 'Hija' }, CensoColectivoController.parentescoPoliza('Child', 'Femenino'));
+		System.assertEquals(new List<String>{ 'Suegro' }, CensoColectivoController.parentescoPoliza('Suegro', null));
+		System.assertEquals(new List<String>{ 'Padre' }, CensoColectivoController.parentescoPoliza('Padre', 'Masculino'));
+		System.assertEquals(new List<String>(), CensoColectivoController.parentescoPoliza(null, null));
+	}
 }

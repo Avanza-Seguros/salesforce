@@ -619,4 +619,140 @@ public with sharing class CensoColectivoController {
 		e.setMessage(msg);
 		return e;
 	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Copia el censo de la oportunidad colectiva a la póliza: un participante (InsurancePolicyParticipant)
+	 *               por asegurado. Titulares con rol "Asegurado"; dependientes con rol "Miembro familiar", ligados a su
+	 *               titular y con el parentesco según el censo y el sexo (Cónyuge -> Mujer/Marido, hijo -> Hijo/Hija).
+	 *               Lleva certificado, categoría (subgrupo), fecha de alta y el contacto si el asegurado lo tiene.
+	 *               No duplica: omite asegurados que ya están en la póliza (mismo certificado y nombre).
+	 * @param opportunityId: oportunidad colectiva con censo.
+	 * @param policyId: póliza emitida.
+	 * @return número de participantes creados.
+	 */
+	public static Integer copiarCensoAPoliza(Id opportunityId, Id policyId) {
+		if (opportunityId == null || policyId == null) { return 0; }
+		List<GroupCensusMember> miembros = [
+			SELECT Id, FirstName, LastName, Name, Gender, RelationshipToPrimaryMember, PrimaryGroupCensusMemberId,
+				GroupClassId, JoinDate, Certificado__c, ContactId
+			FROM GroupCensusMember
+			WHERE GroupCensus.Oportunidad__c = :opportunityId
+			ORDER BY PrimaryGroupCensusMemberId NULLS FIRST, Certificado__c, Name
+			LIMIT 10000
+		];
+		if (miembros.isEmpty()) { return 0; }
+
+		Set<String> yaEstan = new Set<String>();
+		for (InsurancePolicyParticipant p : [
+			SELECT ParticipantName, ParticipantCode FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) { yaEstan.add(llaveParticipante(p.ParticipantCode, p.ParticipantName)); }
+
+		String rolTitular = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(), new List<String>{ 'Asegurado', 'Insured' });
+		String rolDependiente = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(),
+			new List<String>{ 'Miembro familiar', 'Asegurado', 'Insured' });
+
+		// 1) Titulares (los dependientes se ligan a ellos).
+		Map<Id, InsurancePolicyParticipant> porTitular = new Map<Id, InsurancePolicyParticipant>();
+		for (GroupCensusMember m : miembros) {
+			if (m.PrimaryGroupCensusMemberId != null) { continue; }
+			InsurancePolicyParticipant p = participante(m, policyId, rolTitular);
+			if (yaEstan.contains(llaveParticipante(p.ParticipantCode, p.ParticipantName))) { continue; }
+			porTitular.put(m.Id, p);
+		}
+		if (!porTitular.isEmpty()) { insert porTitular.values(); }
+
+		// 2) Dependientes con su parentesco y ligados al participante de su titular.
+		Schema.DescribeFieldResult relacion = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
+		List<InsurancePolicyParticipant> dependientes = new List<InsurancePolicyParticipant>();
+		for (GroupCensusMember m : miembros) {
+			if (m.PrimaryGroupCensusMemberId == null) { continue; }
+			InsurancePolicyParticipant p = participante(m, policyId, rolDependiente);
+			if (yaEstan.contains(llaveParticipante(p.ParticipantCode, p.ParticipantName))) { continue; }
+			if (porTitular.containsKey(m.PrimaryGroupCensusMemberId)) {
+				p.RelatedInsPolicyParticipantId = porTitular.get(m.PrimaryGroupCensusMemberId).Id;
+			}
+			String rel = valorPicklist(relacion, parentescoPoliza(m.RelationshipToPrimaryMember, m.Gender));
+			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
+			dependientes.add(p);
+		}
+		if (!dependientes.isEmpty()) { insert dependientes; }
+		return porTitular.size() + dependientes.size();
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Participante de la póliza con los datos del asegurado del censo.
+	 * @param m: asegurado del censo.
+	 * @param policyId: póliza.
+	 * @param rol: rol del participante.
+	 * @return participante sin insertar.
+	 */
+	private static InsurancePolicyParticipant participante(GroupCensusMember m, Id policyId, String rol) {
+		InsurancePolicyParticipant p = new InsurancePolicyParticipant(InsurancePolicyId = policyId);
+		String nombre = String.isNotBlank(m.Name) ? m.Name : ((m.FirstName == null ? '' : m.FirstName + ' ') + m.LastName);
+		p.ParticipantName = nombre.normalizeSpace().left(255);
+		if (String.isNotBlank(rol)) { p.Role = rol; }
+		if (String.isNotBlank(m.Certificado__c)) { p.ParticipantCode = m.Certificado__c.left(255); }
+		// Categoría (subgrupo): el campo existe en versiones recientes de la API; si no está disponible se omite.
+		if (m.GroupClassId != null) { try { p.put('GroupClassId', m.GroupClassId); } catch (Exception e) { System.debug(LoggingLevel.FINE, e.getMessage()); } }
+		if (m.ContactId != null) { p.PrimaryParticipantContactId = m.ContactId; }
+		if (m.JoinDate != null) { p.EffectiveFromDate = m.JoinDate; }
+		p.IsActiveParticipant = true;
+		return p;
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Parentesco con el titular para la póliza a partir del parentesco del censo y el sexo.
+	 * @param censo: valor de RelationshipToPrimaryMember (Cónyuge, Secundario/hijo, Suegro...).
+	 * @param sexo: Hombre / Mujer.
+	 * @return valores candidatos del picklist RelationshipToInsured, en orden de preferencia.
+	 */
+	@TestVisible
+	private static List<String> parentescoPoliza(String censo, String sexo) {
+		String r = censo == null ? '' : censo.toLowerCase();
+		Boolean mujer = sexo != null && (sexo.toLowerCase().startsWith('m') && !sexo.toLowerCase().startsWith('mas') || sexo.toLowerCase().startsWith('f'));
+		if (r.contains('nyuge') || r.contains('spouse') || r.contains('esposa') || r.contains('esposo')) {
+			return mujer ? new List<String>{ 'Mujer', 'Esposa' } : new List<String>{ 'Marido', 'Esposo' };
+		}
+		if (r.contains('secundario') || r.contains('child') || r.contains('hij')) {
+			return mujer ? new List<String>{ 'Hija' } : new List<String>{ 'Hijo' };
+		}
+		if (r.contains('suegr')) { return mujer ? new List<String>{ 'Suegra' } : new List<String>{ 'Suegro' }; }
+		if (r.contains('padre') || r.contains('madre') || r.contains('parent')) { return mujer ? new List<String>{ 'Madre' } : new List<String>{ 'Padre' }; }
+		return new List<String>();
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Primer valor activo del picklist que coincida (sin importar mayúsculas) con los candidatos.
+	 * @param campo: describe del picklist.
+	 * @param candidatos: valores en orden de preferencia.
+	 * @return valor del picklist o null.
+	 */
+	private static String valorPicklist(Schema.DescribeFieldResult campo, List<String> candidatos) {
+		for (String c : candidatos) {
+			for (Schema.PicklistEntry pe : campo.getPicklistValues()) {
+				if (pe.isActive() && (pe.getValue().equalsIgnoreCase(c) || pe.getLabel().equalsIgnoreCase(c))) { return pe.getValue(); }
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave para no duplicar participantes: certificado + nombre en mayúsculas.
+	 * @param certificado: certificado.
+	 * @param nombre: nombre del asegurado.
+	 * @return llave.
+	 */
+	private static String llaveParticipante(String certificado, String nombre) {
+		return (certificado == null ? '' : certificado.trim()) + '|' + (nombre == null ? '' : nombre.normalizeSpace().toUpperCase());
+	}
 }
