@@ -32,6 +32,11 @@ const PLAN = [
 ];
 // Ramos en los que cada renglón de la cotización es una ubicación (inmueble) y no un grupo de personas.
 const RAMOS_UBICACIONES = ['Danos', 'Empresarial'];
+// Nombre del ramo para el título del comparativo.
+const RAMOS_ETIQUETA = {
+    GMM: 'Gastos Médicos Mayores', Vida: 'Vida Grupo', 'Accidentes Personales': 'Accidentes Personales', Dental: 'Dental',
+    Vision: 'Visión', Viajes: 'Viajes', Danos: 'Daños', Empresarial: 'Paquete Empresarial'
+};
 // Valor de una cobertura (ya pasado por fold) que indica que no se incluye: "N/A", "No amparada", "Excluida", "-".
 const NO_AMPARADA = /^(n a|na|no amparad[ao]s?|no aplica|excluid[ao]s?|no incluid[ao]s?|)$/;
 // Coberturas que en GMM ya son campos fijos del plan.
@@ -171,7 +176,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 vigenciaTxt: q.vigenciaDesde ? `${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '',
                 mejor: esMejor,
                 mejorCuota: !!porCuota && porCuota.id === q.id && !esMejor,
-                clase: esMejor ? 'tarjeta tarjeta_mejor' : 'tarjeta'
+                clase: esMejor ? 'tarjeta tarjeta_mejor' : 'tarjeta',
+                claseDoc: esMejor ? 'doc-card doc-card-win' : 'doc-card'
             };
         });
     }
@@ -270,6 +276,153 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         }));
     }
     get hayFormasPago() { return this.filasFormasPago.length > 0; }
+
+    // ============================================================
+    // Documento del comparativo (mismo estilo que "Comparativa de Cotizaciones" de Crear Oportunidad)
+    // ============================================================
+    // Columnas de la tabla (concepto + una por aseguradora), para los renglones de sección.
+    get columnasTotal() { return this.cotizaciones.length + 1; }
+    get ramoEtiqueta() { return RAMOS_ETIQUETA[this.ramo] || this.ramo || 'Gastos Médicos Mayores'; }
+    get docTitulo() { return `Comparativo de Seguro Colectivo de ${this.ramoEtiqueta}`; }
+    get docSubtitulo() {
+        const q = this.ordenadas.find((x) => x.vigenciaDesde);
+        return q ? `Vigencia ${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '';
+    }
+    get docTag() {
+        const n = this.cotizaciones.length;
+        const max = Math.max(...this.cotizaciones.map((q) => this.asegurados(q)), 0);
+        return `${n} ${n === 1 ? 'aseguradora cotizada' : 'aseguradoras comparadas'} · ${max} ${this.unidadDe(max)} · Cotizado por Avanza Seguro`;
+    }
+
+    // Indicadores: mejor y peor prima, promedio, ahorro y la mejor cuota al millar (o prima por asegurado / ubicación).
+    get kpis() {
+        const lista = this.ordenadas;
+        if (!lista.length) { return []; }
+        const bases = lista.map((q) => this.base(q));
+        const min = bases[0];
+        const max = Math.max(...bases);
+        const peor = lista[bases.indexOf(max)];
+        const prom = bases.reduce((s, b) => s + b, 0) / bases.length;
+        const res = [
+            { key: 'mejor', clase: 'kpi-card kpi-best-price', icono: 'utility:currency', etiqueta: 'Mejor precio', valor: moneda(min), detalle: lista[0].aseguradora },
+            { key: 'alto', clase: 'kpi-card kpi-highest-price', icono: 'utility:up', etiqueta: 'Precio más alto', valor: moneda(max), detalle: peor.aseguradora },
+            { key: 'prom', clase: 'kpi-card kpi-average', icono: 'utility:chart', etiqueta: 'Prima promedio', valor: moneda(prom),
+                detalle: `${lista.length} ${lista.length === 1 ? 'cotización' : 'cotizaciones'}` },
+            { key: 'ahorro', clase: 'kpi-card kpi-savings', icono: 'utility:success', etiqueta: 'Ahorro potencial', valor: moneda(max - min) || '$0',
+                detalle: `${max ? Math.round(((max - min) / max) * 1000) / 10 : 0}% vs. más alto` }
+        ];
+        const conCuota = lista.filter((q) => this.cuotaAlMillar(q) !== null);
+        if (conCuota.length) {
+            const m = conCuota.reduce((a, q) => (this.cuotaAlMillar(q) < this.cuotaAlMillar(a) ? q : a), conCuota[0]);
+            res.push({ key: 'cuota', clase: 'kpi-card kpi-coverage', icono: 'utility:percent', etiqueta: 'Mejor cuota al millar',
+                valor: `${this.cuotaAlMillar(m).toFixed(3)} ‰`, detalle: m.aseguradora });
+        } else {
+            const porUnidad = lista.filter((q) => this.asegurados(q) > 0);
+            if (porUnidad.length) {
+                const m = porUnidad.reduce((a, q) => (this.base(q) / this.asegurados(q) < this.base(a) / this.asegurados(a) ? q : a), porUnidad[0]);
+                res.push({ key: 'unidad', clase: 'kpi-card kpi-coverage', icono: this.esUbicaciones ? 'utility:location' : 'utility:groups',
+                    etiqueta: `Menor prima por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}`, valor: moneda(this.base(m) / this.asegurados(m)),
+                    detalle: m.aseguradora });
+            }
+        }
+        return res;
+    }
+
+    // Columnas del documento: la de mejor prima resaltada en naranja; la de mejor cuota al millar lleva su etiqueta.
+    get columnasDoc() {
+        const lista = this.ordenadas;
+        const porCuota = this.mejorPorCuota;
+        return lista.map((q, i) => {
+            const mejor = lista.length > 1 && i === 0;
+            const badges = [mejor ? 'Mejor prima' : '', porCuota && porCuota.id === q.id && !mejor ? 'Mejor cuota al millar' : ''].filter((x) => x);
+            return { id: q.id, aseguradora: q.aseguradora, badge: badges.join(' · '), hayBadge: badges.length > 0,
+                headerClass: 'doc-th' + (mejor ? ' doc-th-rec' : ''), bodyClass: 'doc-cell' + (mejor ? ' doc-cell-hl' : '') };
+        });
+    }
+    celdaDoc(columnas, i, texto, sub, aviso) {
+        const vacio = !texto || texto === '—';
+        return { key: columnas[i].id, texto: vacio ? '—' : texto, sub: sub || '', haySub: !!sub,
+            clase: columnas[i].bodyClass + (aviso ? ' doc-cell-aviso' : '') + (vacio ? ' doc-cell-no' : '') };
+    }
+    get precioDoc() {
+        const lista = this.ordenadas;
+        const cols = this.columnasDoc;
+        const mejor = lista.length ? this.base(lista[0]) : 0;
+        return lista.map((q, i) => {
+            const b = this.base(q);
+            const dif = i > 0 && mejor ? `+${moneda(b - mejor)} (+${Math.round(((b - mejor) / mejor) * 1000) / 10}%) vs. la mejor` : '';
+            return this.celdaDoc(cols, i, moneda(b), dif);
+        });
+    }
+    // Renglones de montos, tamaño del grupo, suma asegurada y datos de la cotización (se omiten los que ninguna trae).
+    get filasResumenDoc() {
+        const lista = this.ordenadas;
+        const cols = this.columnasDoc;
+        const maxAseg = Math.max(...lista.map((q) => this.asegurados(q)), 0);
+        const monto = (k, vacio) => lista.map((q, i) => {
+            const v = q[k];
+            const hay = v !== null && v !== undefined && v !== '';
+            return this.celdaDoc(cols, i, hay ? moneda(v) || '$0' : vacio || '', '', !hay && !!vacio);
+        });
+        const filas = [];
+        const agrega = (key, etiqueta, desc, celdas) => {
+            if (celdas.some((c) => c.texto !== '—' && c.texto !== 'No incluido')) { filas.push({ key, etiqueta, desc, hayDesc: !!desc, celdas }); }
+        };
+        agrega('neta', 'Prima neta', '', monto('primaNeta'));
+        agrega('der', 'Derechos / gastos de expedición', '', monto('derechos'));
+        agrega('rec', 'Recargo por pago fraccionado', '', monto('recargo'));
+        agrega('iva', 'IVA', '', monto('iva', this.compararSinIva ? 'No incluido' : ''));
+        agrega('total', 'Prima total', '', monto('primaTotal'));
+        agrega('tam', this.esUbicaciones ? 'Ubicaciones cotizadas' : 'Asegurados cotizados', '',
+            lista.map((q, i) => this.celdaDoc(cols, i, String(this.asegurados(q)), this.asegurados(q) < maxAseg ? `de ${maxAseg}` : '', this.asegurados(q) < maxAseg)));
+        agrega('prom', `Prima por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}`, '',
+            lista.map((q, i) => this.celdaDoc(cols, i, this.asegurados(q) ? moneda(this.base(q) / this.asegurados(q)) : '')));
+        agrega('sa', this.esUbicaciones ? 'Valor total asegurado' : 'Suma asegurada total', '',
+            lista.map((q, i) => this.celdaDoc(cols, i, this.sumaTotal(q) > 0 ? moneda(this.sumaTotal(q)) : '')));
+        agrega('cuota', 'Cuota al millar', 'Prima neta por cada $1,000 asegurados',
+            lista.map((q, i) => this.celdaDoc(cols, i, this.cuotaAlMillar(q) !== null ? `${this.cuotaAlMillar(q).toFixed(3)} ‰` : '')));
+        agrega('vig', 'Vigencia (inicio – fin)', '',
+            lista.map((q, i) => this.celdaDoc(cols, i, q.vigenciaDesde ? `${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '')));
+        agrega('num', 'Número de cotización', '', lista.map((q, i) => this.celdaDoc(cols, i, q.numeroCotizacion || q.numero)));
+        return filas;
+    }
+    get filasPlanDoc() {
+        const cols = this.columnasDoc;
+        return this.filasPlan.map((f) => ({ ...f, celdas: f.celdas.map((c, i) => this.celdaDoc(cols, i, c.texto, '', f.distinto)) }));
+    }
+    get filasFormasPagoDoc() {
+        const cols = this.columnasDoc;
+        return this.filasFormasPago.map((f) => ({ ...f, celdas: f.celdas.map((c, i) => this.celdaDoc(cols, i, c.texto, c.sub)) }));
+    }
+    get filasUbicacionesDoc() {
+        const cols = this.columnasDoc;
+        return this.filasUbicaciones.map((f) => ({ ...f, hayDireccion: !!f.direccion,
+            celdas: f.celdas.map((c, i) => this.celdaDoc(cols, i, c.texto === 'No cotizada' ? 'No cotizada' : c.texto, c.sub, c.texto === 'No cotizada')) }));
+    }
+    // Recomendación en palabras: la de menor prima, cuánto ahorra, y los "ojo" (tamaño, plan distinto, cuota al millar).
+    get recomendacion() {
+        const lista = this.ordenadas;
+        if (!lista.length) { return ''; }
+        const b0 = this.base(lista[0]);
+        if (lista.length === 1) {
+            return `Se cotizó con ${lista[0].aseguradora}: ${moneda(b0)} por ${this.asegurados(lista[0])} ${this.unidadDe(this.asegurados(lista[0]))}. `
+                + 'Agrega las cotizaciones de otras aseguradoras para compararlas.';
+        }
+        const b1 = this.base(lista[1]);
+        const partes = [`${lista[0].aseguradora} ofrece la menor prima${this.compararSinIva ? ' (neta + derechos, sin IVA)' : ''}: ${moneda(b0)}, `
+            + `${moneda(b1 - b0)} menos que ${lista[1].aseguradora} (${b0 ? Math.round(((b1 - b0) / b0) * 1000) / 10 : 0}%).`];
+        const maxAseg = Math.max(...lista.map((q) => this.asegurados(q)));
+        if (this.asegurados(lista[0]) < maxAseg) {
+            partes.push(`Ojo: ${lista[0].aseguradora} cotizó ${this.asegurados(lista[0])} de ${maxAseg} ${this.unidad}.`);
+        }
+        const distintas = this.filasPlan.filter((f) => f.distinto).map((f) => f.etiqueta.toLowerCase());
+        if (distintas.length) {
+            const cuales = distintas.length > 4 ? `${distintas.slice(0, 4).join(', ')} y ${distintas.length - 4} más` : distintas.join(', ');
+            partes.push(`Los planes no son idénticos (${cuales}): revisa el plan y las coberturas antes de decidir solo por precio.`);
+        }
+        if (this.notaCuota) { partes.push(this.notaCuota.replace(/^Ojo: /, 'Además, ')); }
+        return partes.join(' ');
+    }
 
     async handleEliminar(event) {
         const id = event.currentTarget.dataset.id;

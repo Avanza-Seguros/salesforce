@@ -25,80 +25,116 @@
             <!-- ====================== COMPARATIVO ====================== -->
             <template if:true={enResumen}>
                 <template if:true={hayCotizaciones}>
-                    <div class="tarjetas">
-                        <template for:each={tarjetas} for:item="t">
-                            <div key={t.id} class={t.clase}>
-                                <div class="tarjeta-encabezado">
-                                    <strong>{t.aseguradora}</strong>
-                                    <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
-                                    <template if:true={t.mejorCuota}><span class="chip-cuota">Mejor cuota al millar</span></template>
+                    <!-- Indicadores (mismo estilo que la Comparativa de Cotizaciones) -->
+                    <div class="comparison-kpis">
+                        <template for:each={kpis} for:item="k">
+                            <div key={k.key} class={k.clase}>
+                                <div class="kpi-icon">
+                                    <lightning-icon icon-name={k.icono} size="small"></lightning-icon>
                                 </div>
-                                <span class="tarjeta-prima">{t.baseTxt}</span>
-                                <template if:true={t.difTxt}><span class="tarjeta-sub">{t.difTxt} vs. la mejor</span></template>
-                                <span class="tarjeta-sub">{t.desgloseTxt}</span>
-                                <span class="tarjeta-sub">{t.aseguradosTxt}</span>
-                                <template if:true={t.sumaTxt}><span class="tarjeta-sub">{t.sumaTxt}</span></template>
-                                <template if:true={t.aseguradosAviso}><span class="tarjeta-aviso">{t.aseguradosAviso}</span></template>
-                                <template if:true={t.vigenciaTxt}><span class="tarjeta-sub">Vigencia {t.vigenciaTxt}</span></template>
-                                <span class="tarjeta-sub">Cotización {t.numero}</span>
-                                <template if:true={puedeEditar}>
-                                    <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Eliminar cotización"
-                                        class="tarjeta-borrar" data-id={t.id} onclick={handleEliminar}></lightning-button-icon>
-                                </template>
+                                <div class="kpi-content">
+                                    <span class="kpi-label">{k.etiqueta}</span>
+                                    <span class="kpi-value">{k.valor}</span>
+                                    <span class="kpi-detail">{k.detalle}</span>
+                                </div>
                             </div>
                         </template>
                     </div>
 
-                    <div class="comparativo-encabezado">
-                        <div>
-                            <strong>Comparativo de aseguradoras</strong>
-                            <p class="nota">Las aseguradoras se ordenan por {etiquetaBase}.</p>
+                    <!-- Documento del comparativo -->
+                    <div class="comparativo-doc">
+                        <div class="doc-head">
+                            <div class="doc-head-fila">
+                                <div>
+                                    <h1>{docTitulo}</h1>
+                                    <template if:true={docSubtitulo}><p>{docSubtitulo}</p></template>
+                                    <span class="doc-tag">{docTag}</span>
+                                </div>
+                                <lightning-button label="Generar comparativo PDF" icon-name="utility:pdf_ext" variant="neutral"
+                                    class="doc-boton" onclick={handleComparativoPdf}></lightning-button>
+                            </div>
                         </div>
-                        <lightning-button label="Generar comparativo PDF" icon-name="utility:pdf_ext" variant="brand"
-                            onclick={handleComparativoPdf}></lightning-button>
-                    </div>
 
-                    <template if:true={notaCuota}>
-                        <div class="censo-alerta">
-                            <lightning-icon icon-name="utility:info" variant="warning" size="x-small"></lightning-icon>
-                            <span>{notaCuota}</span>
-                        </div>
-                    </template>
-
-                    <template if:true={planDistinto}>
-                        <div class="censo-alerta">
-                            <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
-                            <span>Los planes no son idénticos (los valores en amarillo cambian entre aseguradoras): compara también las condiciones, no solo el precio.</span>
-                        </div>
-                    </template>
-
-                    <div class="censo-scroll">
-                        <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                        <table class="doc-table">
                             <thead>
-                                <tr class="slds-line-height_reset">
-                                    <th scope="col">{tituloPlan}</th>
-                                    <template for:each={columnas} for:item="c">
-                                        <th key={c.id} scope="col" class="num">{c.aseguradora}</th>
+                                <tr>
+                                    <th class="doc-th doc-th-lbl">Concepto</th>
+                                    <template for:each={columnasDoc} for:item="col">
+                                        <th key={col.id} class={col.headerClass}>
+                                            {col.aseguradora}
+                                            <template if:true={col.hayBadge}><span class="doc-rec-badge">{col.badge}</span></template>
+                                        </th>
                                     </template>
                                 </tr>
                             </thead>
                             <tbody>
-                                <template for:each={filasPlan} for:item="f">
+                                <tr class="doc-row-price">
+                                    <td class="doc-cell doc-cell-lbl doc-cell-lbl-price"><span class="doc-cn">{etiquetaBase}</span></td>
+                                    <template for:each={precioDoc} for:item="c">
+                                        <td key={c.key} class={c.clase}>
+                                            <strong>{c.texto}</strong>
+                                            <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
+                                        </td>
+                                    </template>
+                                </tr>
+                                <template for:each={filasResumenDoc} for:item="f">
                                     <tr key={f.key}>
-                                        <td><strong>{f.etiqueta}</strong></td>
+                                        <td class="doc-cell doc-cell-lbl">
+                                            <span class="doc-cn">{f.etiqueta}</span>
+                                            <template if:true={f.hayDesc}><span class="doc-cd">{f.desc}</span></template>
+                                        </td>
+                                        <template for:each={f.celdas} for:item="c">
+                                            <td key={c.key} class={c.clase}>
+                                                {c.texto}
+                                                <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+
+                                <tr class="doc-row-seccion">
+                                    <td class="doc-cell doc-cell-seccion" colspan={columnasTotal}>{tituloPlan}</td>
+                                </tr>
+                                <template for:each={filasPlanDoc} for:item="f">
+                                    <tr key={f.key}>
+                                        <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{f.etiqueta}</span></td>
                                         <template for:each={f.celdas} for:item="c">
                                             <td key={c.key} class={c.clase}>{c.texto}</td>
                                         </template>
                                     </tr>
                                 </template>
+
                                 <template if:true={hayFormasPago}>
-                                    <template for:each={filasFormasPago} for:item="f">
+                                    <tr class="doc-row-seccion">
+                                        <td class="doc-cell doc-cell-seccion" colspan={columnasTotal}>Formas de pago (total anual)</td>
+                                    </tr>
+                                    <template for:each={filasFormasPagoDoc} for:item="f">
                                         <tr key={f.key}>
-                                            <td><strong>Pago {f.forma}</strong></td>
+                                            <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Pago {f.forma}</span></td>
                                             <template for:each={f.celdas} for:item="c">
-                                                <td key={c.key} class="num">
-                                                    <div class="nombre">{c.texto}</div>
-                                                    <div class="sub">{c.sub}</div>
+                                                <td key={c.key} class={c.clase}>
+                                                    {c.texto}
+                                                    <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </template>
+
+                                <template if:true={hayUbicaciones}>
+                                    <tr class="doc-row-seccion">
+                                        <td class="doc-cell doc-cell-seccion" colspan={columnasTotal}>Ubicaciones (prima neta)</td>
+                                    </tr>
+                                    <template for:each={filasUbicacionesDoc} for:item="f">
+                                        <tr key={f.key}>
+                                            <td class="doc-cell doc-cell-lbl">
+                                                <span class="doc-cn">{f.nombre}</span>
+                                                <template if:true={f.hayDireccion}><span class="doc-cd">{f.direccion}</span></template>
+                                            </td>
+                                            <template for:each={f.celdas} for:item="c">
+                                                <td key={c.key} class={c.clase}>
+                                                    {c.texto}
+                                                    <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
                                                 </td>
                                             </template>
                                         </tr>
@@ -106,39 +142,42 @@
                                 </template>
                             </tbody>
                         </table>
-                    </div>
 
-                    <template if:true={hayUbicaciones}>
-                        <h3 class="subtitulo">Ubicaciones</h3>
-                        <div class="censo-scroll">
-                            <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
-                                <thead>
-                                    <tr class="slds-line-height_reset">
-                                        <th scope="col">Ubicación (prima neta)</th>
-                                        <template for:each={columnas} for:item="c">
-                                            <th key={c.id} scope="col" class="num">{c.aseguradora}</th>
-                                        </template>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template for:each={filasUbicaciones} for:item="f">
-                                        <tr key={f.key}>
-                                            <td>
-                                                <div class="nombre">{f.nombre}</div>
-                                                <div class="sub">{f.direccion}</div>
-                                            </td>
-                                            <template for:each={f.celdas} for:item="c">
-                                                <td key={c.key} class="num">
-                                                    <div class="nombre">{c.texto}</div>
-                                                    <div class="sub">{c.sub}</div>
-                                                </td>
-                                            </template>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
+                        <p class="doc-note">
+                            La columna resaltada en naranja es la de menor prima ({etiquetaBase}). Los valores en amarillo cambian entre
+                            aseguradoras: compara también las condiciones, no solo el precio. Documento informativo; las condiciones finales
+                            se definen en cada póliza.
+                        </p>
+
+                        <div class="doc-decide">
+                            <h2>Recomendación</h2>
+                            <div class="doc-bottom">{recomendacion}</div>
                         </div>
-                    </template>
+
+                        <div class="doc-recs">
+                            <h2>Cotizaciones cargadas</h2>
+                            <div class="doc-twocol">
+                                <template for:each={tarjetas} for:item="t">
+                                    <div key={t.id} class={t.claseDoc}>
+                                        <div class="doc-card-encabezado">
+                                            <h3>{t.aseguradora}</h3>
+                                            <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
+                                            <template if:true={t.mejorCuota}><span class="chip-cuota">Mejor cuota al millar</span></template>
+                                            <template if:true={puedeEditar}>
+                                                <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Eliminar cotización"
+                                                    class="tarjeta-borrar" data-id={t.id} onclick={handleEliminar}></lightning-button-icon>
+                                            </template>
+                                        </div>
+                                        <p><strong>{t.baseTxt}</strong> · {t.desgloseTxt}</p>
+                                        <p>{t.aseguradosTxt}</p>
+                                        <template if:true={t.sumaTxt}><p>{t.sumaTxt}</p></template>
+                                        <template if:true={t.aseguradosAviso}><p class="tarjeta-aviso">{t.aseguradosAviso}</p></template>
+                                        <p class="doc-card-sub">Cotización {t.numero}<template if:true={t.vigenciaTxt}> · Vigencia {t.vigenciaTxt}</template></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
                 </template>
 
                 <template if:false={hayCotizaciones}>
