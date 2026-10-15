@@ -59,6 +59,9 @@ const BLOQUE_PDF = 12000;
 
 export default class FlotillaColectiva extends NavigationMixin(LightningElement) {
     @api readOnly = false;
+    // 'carga': subir y administrar cotizaciones; 'comparativo': solo el comparativo (en la sección Comparativa de
+    // Cotizaciones de Crear Oportunidad); 'completo' (por omisión): ambos.
+    @api modo = 'completo';
 
     @track cotizaciones = [];
     @track mapeo = {};
@@ -88,6 +91,14 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         this._opportunityId = v;
         if (cambio && v) { this.cargarFlotilla(); }
     }
+
+    // Vuelve a leer las cotizaciones (Crear Oportunidad lo llama cuando la otra sección guarda o elimina una).
+    @api
+    refrescar() { return this.cargarFlotilla(); }
+
+    get verComparativo() { return this.modo !== 'carga'; }
+    get verCarga() { return this.modo !== 'comparativo'; }
+    get puedeCargar() { return this.puedeEditar && this.verCarga; }
 
     async connectedCallback() {
         try {
@@ -144,9 +155,139 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
                 vigenciaTxt: q.vigenciaDesde ? `${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '',
                 formaPago: q.formaPago,
                 mejor,
-                clase: mejor ? 'tarjeta tarjeta_mejor' : 'tarjeta'
+                clase: mejor ? 'tarjeta tarjeta_mejor' : 'tarjeta',
+                claseDoc: mejor ? 'doc-card doc-card-win' : 'doc-card'
             };
         });
+    }
+
+    // ============================================================
+    // Documento del comparativo (mismo estilo que "Comparativa de Cotizaciones" de Crear Oportunidad)
+    // ============================================================
+    unidadesDe(q) { return (q.incisos || []).length; }
+    valorDe(q) { return (q.incisos || []).reduce((s, i) => s + (Number(i.valor) || 0), 0); }
+    get maxUnidades() { return Math.max(...this.cotizaciones.map((q) => this.unidadesDe(q)), 0); }
+    get mismasUnidades() { return new Set(this.cotizaciones.map((q) => this.unidadesDe(q))).size <= 1; }
+    // La de menor prima total y la de menor prima por unidad (cuentan distinto si no cotizaron el mismo número de unidades).
+    get mejorTotal() {
+        const l = this.cotizaciones.filter((q) => Number(q.primaTotal) > 0);
+        return l.length > 1 ? l.reduce((a, q) => (Number(q.primaTotal) < Number(a.primaTotal) ? q : a), l[0]) : null;
+    }
+    get mejorPorUnidad() {
+        const l = this.cotizaciones.filter((q) => Number(q.primaTotal) > 0 && this.unidadesDe(q) > 0);
+        return l.length > 1 ? l.reduce((a, q) => (q.primaTotal / this.unidadesDe(q) < a.primaTotal / this.unidadesDe(a) ? q : a), l[0]) : null;
+    }
+    get columnasTotal() { return this.cotizaciones.length + 1; }
+    get docTitulo() { return 'Comparativo de Flotilla de Automóviles'; }
+    get docSubtitulo() {
+        const q = this.cotizaciones.find((x) => x.vigenciaDesde);
+        return q ? `Vigencia ${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '';
+    }
+    get docTag() {
+        const n = this.cotizaciones.length;
+        return `${n} ${n === 1 ? 'aseguradora cotizada' : 'aseguradoras comparadas'} · ${this.maxUnidades} ${this.maxUnidades === 1 ? 'unidad' : 'unidades'} · Cotizado por Avanza Seguro`;
+    }
+    get kpis() {
+        const l = this.cotizaciones.filter((q) => Number(q.primaTotal) > 0);
+        if (!l.length) { return []; }
+        const totales = l.map((q) => Number(q.primaTotal));
+        const min = Math.min(...totales);
+        const max = Math.max(...totales);
+        const res = [
+            { key: 'mejor', clase: 'kpi-card kpi-best-price', icono: 'utility:currency', etiqueta: 'Mejor precio', valor: moneda(min), detalle: l[totales.indexOf(min)].aseguradora },
+            { key: 'alto', clase: 'kpi-card kpi-highest-price', icono: 'utility:up', etiqueta: 'Precio más alto', valor: moneda(max), detalle: l[totales.indexOf(max)].aseguradora },
+            { key: 'prom', clase: 'kpi-card kpi-average', icono: 'utility:chart', etiqueta: 'Prima promedio',
+                valor: moneda(totales.reduce((s, t) => s + t, 0) / totales.length), detalle: `${l.length} ${l.length === 1 ? 'cotización' : 'cotizaciones'}` },
+            { key: 'ahorro', clase: 'kpi-card kpi-savings', icono: 'utility:success', etiqueta: 'Ahorro potencial', valor: moneda(max - min) || '$0',
+                detalle: `${max ? Math.round(((max - min) / max) * 1000) / 10 : 0}% vs. más alto` }
+        ];
+        const pu = l.filter((q) => this.unidadesDe(q) > 0);
+        if (pu.length) {
+            const m = pu.reduce((a, q) => (q.primaTotal / this.unidadesDe(q) < a.primaTotal / this.unidadesDe(a) ? q : a), pu[0]);
+            res.push({ key: 'unidad', clase: 'kpi-card kpi-coverage', icono: 'utility:travel_and_places', etiqueta: 'Menor prima por unidad',
+                valor: moneda(m.primaTotal / this.unidadesDe(m)), detalle: m.aseguradora });
+        }
+        return res;
+    }
+    // Columnas: la recomendada en naranja (menor prima; si no cotizaron las mismas unidades, menor prima por unidad).
+    get columnasDoc() {
+        const recomendada = this.mismasUnidades ? this.mejorTotal : this.mejorPorUnidad;
+        const total = this.mejorTotal;
+        const unidad = this.mejorPorUnidad;
+        return this.cotizaciones.map((q) => {
+            const rec = !!recomendada && recomendada.id === q.id;
+            const badges = [total && total.id === q.id ? 'Mejor prima' : '',
+                !this.mismasUnidades && unidad && unidad.id === q.id ? 'Menor prima por unidad' : ''].filter((x) => x);
+            return { id: q.id, aseguradora: q.aseguradora, badge: badges.join(' · '), hayBadge: badges.length > 0,
+                headerClass: 'doc-th' + (rec ? ' doc-th-rec' : ''), bodyClass: 'doc-cell' + (rec ? ' doc-cell-hl' : '') };
+        });
+    }
+    celdaDoc(columnas, i, texto, sub, extra) {
+        const vacio = !texto || texto === '—';
+        return { key: columnas[i].id, texto: vacio ? '—' : texto, sub: sub || '', haySub: !!sub,
+            clase: columnas[i].bodyClass + (extra ? ' ' + extra : '') + (vacio ? ' doc-cell-no' : '') };
+    }
+    get precioDoc() {
+        const cols = this.columnasDoc;
+        const min = this.mejorTotal ? Number(this.mejorTotal.primaTotal) : 0;
+        return this.cotizaciones.map((q, i) => {
+            const t = Number(q.primaTotal) || 0;
+            const dif = min && t > min ? `+${moneda(t - min)} (+${Math.round(((t - min) / min) * 1000) / 10}%) vs. la mejor` : '';
+            return this.celdaDoc(cols, i, moneda(t), dif);
+        });
+    }
+    get filasResumenDoc() {
+        const cols = this.columnasDoc;
+        const lista = this.cotizaciones;
+        const max = this.maxUnidades;
+        const filas = [];
+        const agrega = (key, etiqueta, desc, celdas) => {
+            if (celdas.some((c) => c.texto !== '—')) { filas.push({ key, etiqueta, desc, hayDesc: !!desc, celdas }); }
+        };
+        const monto = (k) => lista.map((q, i) => this.celdaDoc(cols, i, q[k] !== null && q[k] !== undefined ? moneda(q[k]) || '$0' : ''));
+        agrega('neta', 'Prima neta', '', monto('primaNeta'));
+        agrega('der', 'Derechos de póliza', '', monto('derechos'));
+        agrega('rec', 'Recargo por pago fraccionado', '', monto('recargo'));
+        agrega('iva', 'IVA', '', monto('iva'));
+        agrega('uni', 'Unidades cotizadas', '', lista.map((q, i) => this.celdaDoc(cols, i, String(this.unidadesDe(q)),
+            this.unidadesDe(q) < max ? `de ${max}` : '', this.unidadesDe(q) < max ? 'doc-cell-aviso' : '')));
+        agrega('pu', 'Prima por unidad', 'Prima total entre unidades cotizadas', lista.map((q, i) => this.celdaDoc(cols, i,
+            this.unidadesDe(q) ? moneda(Number(q.primaTotal) / this.unidadesDe(q)) : '')));
+        agrega('valor', 'Valor asegurado de las unidades', '', lista.map((q, i) => this.celdaDoc(cols, i, this.valorDe(q) ? moneda(this.valorDe(q)) : '')));
+        agrega('vig', 'Vigencia (inicio – fin)', '', lista.map((q, i) => this.celdaDoc(cols, i,
+            q.vigenciaDesde ? `${fechaVisible(q.vigenciaDesde)} – ${fechaVisible(q.vigenciaHasta)}` : '')));
+        agrega('fp', 'Forma de pago', '', lista.map((q, i) => this.celdaDoc(cols, i, q.formaPago)));
+        agrega('num', 'Cotización', '', lista.map((q, i) => this.celdaDoc(cols, i, q.numero)));
+        return filas;
+    }
+    // Detalle por tipo de vehículo o por vehículo con el estilo del documento (la mejor de cada renglón en verde).
+    get comparativoTiposDoc() {
+        const cols = this.columnasDoc;
+        return this.comparativoTipos.map((f) => ({ ...f, esTotal: f.clase === 'fila-total',
+            celdas: f.celdas.map((c, i) => this.celdaDoc(cols, i, c.texto, c.sub, c.clase.includes('celda-mejor') ? 'doc-cell-verde' : '')) }));
+    }
+    get filasVehiculosDoc() {
+        const cols = this.columnasDoc;
+        return this.filasVehiculos.map((v) => ({ ...v,
+            celdas: v.celdas.map((c, i) => this.celdaDoc(cols, i, c.texto, '', c.clase.includes('celda-mejor') ? 'doc-cell-verde' : '')) }));
+    }
+    get recomendacion() {
+        const l = this.cotizaciones;
+        if (!l.length) { return ''; }
+        if (l.length === 1) {
+            return `Se cotizó con ${l[0].aseguradora}: ${moneda(l[0].primaTotal)} por ${this.unidadesDe(l[0])} unidades. Agrega las cotizaciones de otras aseguradoras para compararlas.`;
+        }
+        const orden = [...l].sort((a, b) => Number(a.primaTotal) - Number(b.primaTotal));
+        const [a, b] = orden;
+        const partes = [`${a.aseguradora} ofrece la menor prima total: ${moneda(a.primaTotal)}, ${moneda(b.primaTotal - a.primaTotal)} menos que ${b.aseguradora}`
+            + ` (${a.primaTotal ? Math.round(((b.primaTotal - a.primaTotal) / a.primaTotal) * 1000) / 10 : 0}%).`];
+        if (!this.mismasUnidades) {
+            const faltan = l.filter((q) => this.unidadesDe(q) < this.maxUnidades).map((q) => `${q.aseguradora} cotizó ${this.unidadesDe(q)} de ${this.maxUnidades}`);
+            partes.push(`Ojo: no todas cotizaron las mismas unidades (${faltan.join('; ')}), así que la comparación justa es la prima por unidad`
+                + (this.mejorPorUnidad ? `: ${this.mejorPorUnidad.aseguradora} es la más barata por unidad (${moneda(this.mejorPorUnidad.primaTotal / this.unidadesDe(this.mejorPorUnidad))}).` : '.'));
+        }
+        partes.push('Revisa en el detalle por tipo de vehículo o por vehículo las coberturas, deducibles y la prima de cada unidad antes de decidir.');
+        return partes.join(' ');
     }
 
     get columnasComparativo() {

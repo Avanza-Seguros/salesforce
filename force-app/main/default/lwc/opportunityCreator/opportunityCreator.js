@@ -1684,18 +1684,24 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get mostrarComparativaColectiva() {
         return this.mostrarCotizacionesColectivas && this.colectivoCotizaciones > 0;
     }
+    // Flotilla: su comparativo (por tipo de vehículo y por vehículo) ocupa la sección Comparativa de Cotizaciones.
+    get mostrarComparativaFlotilla() {
+        return this.isFlotilla && this.flotillaCotizaciones > 0;
+    }
+    // Un solo comparativo por oportunidad: el general solo en individuales.
     get mostrarComparativaGeneral() {
-        return this.hasQuoteComparison && !this.mostrarCotizacionesColectivas;
+        return this.hasQuoteComparison && !this.mostrarCotizacionesColectivas && !this.isFlotilla;
     }
     get comparativaColectivaSubtitulo() {
         return this.isColectivoUbicaciones
             ? 'Compara prima, coberturas, ubicaciones y cuota al millar para elegir la mejor opción'
             : 'Compara prima, plan, asegurados y formas de pago para elegir la mejor opción';
     }
-    // Una cotización colectiva se guardó o eliminó: refresca la lista de cotizaciones y las dos secciones colectivas.
+    // Una cotización colectiva o de flotilla se guardó o eliminó: refresca la lista de cotizaciones y las dos
+    // secciones (carga y comparativo).
     handleCotizacionColectiva() {
         this.handleCotizacionFlotilla();
-        this.template.querySelectorAll('c-colectivo-personas').forEach((c) => c.refrescar());
+        this.template.querySelectorAll('c-colectivo-personas, c-flotilla-colectiva').forEach((c) => c.refrescar());
     }
     // La cotización de flotilla también es un Quote: refresca solo la lista de cotizaciones
     // (sin recargar el formulario para no perder cambios sin guardar).

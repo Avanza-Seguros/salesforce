@@ -1166,8 +1166,8 @@
                         </div>
                         <div class="form-container">
                             <c-flotilla-colectiva opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
-                                onflotillaactualizada={handleFlotillaActualizada}
-                                oncotizacioncreada={handleCotizacionFlotilla}></c-flotilla-colectiva>
+                                modo="carga" onflotillaactualizada={handleFlotillaActualizada}
+                                oncotizacioncreada={handleCotizacionColectiva}></c-flotilla-colectiva>
                         </div>
                     </div>
                 </template>
@@ -1457,6 +1457,22 @@
                             </div>
                             <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
                                 modo="comparativo" oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
+                        </div>
+                    </template>
+                    <template if:true={mostrarComparativaFlotilla}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">Compara prima, unidades y prima por vehículo para elegir la mejor opción</p>
+                                </div>
+                                <div class="section-badge compare-badge">{flotillaBadge}</div>
+                            </div>
+                            <c-flotilla-colectiva opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                modo="comparativo" oncotizacioncreada={handleCotizacionColectiva}></c-flotilla-colectiva>
                         </div>
                     </template>
                     <template if:true={mostrarComparativaGeneral}>
