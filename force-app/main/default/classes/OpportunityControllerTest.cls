@@ -616,4 +616,21 @@ private class OpportunityControllerTest {
         System.assert(soloRoles.containsKey('aseguradoPrincipal'), 'Asegurado desde el rol primario: ' + soloRoles);
         System.assertEquals(0, OpportunityController.detalleRamoGuardado(null).size());
     }
+
+    /**
+     * @creation date: 15/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida el tipo de cliente de una cuenta: empresa sin razón social sigue siendo Empresa y una
+     *               persona capturada como empresa se muestra como Persona.
+     */
+    @isTest
+    static void testTipoDeCuenta() {
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Publicidad y Creatividad Viva', false));
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Grupo Industrial Monterrey', false));
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Avanza SA de CV', false));
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('ABEL PEREZ QUIJANO', false));
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('María de la Luz Núñez', false));
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('Cualquier Nombre', true));
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Avanza', false));
+    }
 }
