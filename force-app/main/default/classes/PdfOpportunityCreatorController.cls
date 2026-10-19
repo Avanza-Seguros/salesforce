@@ -2055,7 +2055,7 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Devuelve, por cotizacion, sus datos mas la lista de productos disponibles (de esa
-	 * aseguradora y ramo; si no hay, todos los de la aseguradora) para que el usuario elija en el LWC,
+	 * aseguradora y ramo; si no hay, la lista va vacía) para que el usuario elija en el LWC,
 	 * ademas de un producto sugerido.
 	 * @param quotesJson: JSON (lista) con las cotizaciones a preparar.
 	 * @return lista de mapas con datos de cada cotizacion y sus productos disponibles.
@@ -2138,7 +2138,8 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @creation date: 28/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Obtiene los productos activos de la aseguradora que aplican al ramo de forma tolerante (acentos,
-	 * mayúsculas y variantes). Incluye los productos sin ramo; si ninguno coincide, devuelve todos.
+	 * mayúsculas, variantes y ramos equivalentes). Incluye los productos sin ramo. Si ninguno coincide devuelve la
+	 * lista vacía: no se ofrecen productos de otro ramo (ej. productos de Vida en una cotización de Daños).
 	 * @param aseguradoraId: Id de la Aseguradora__c
 	 * @param ramo: Ramo de la cotización
 	 * @return Productos encontrados
@@ -2151,7 +2152,7 @@ public with sharing class PdfOpportunityCreatorController {
 		for (Product2 p : todos) {
 			if (ramoCoincide(p.Family, ramo)) { prods.add(p); }
 		}
-		return prods.isEmpty() ? todos : prods;
+		return prods;
 	}
 
 	/**
@@ -2202,6 +2203,17 @@ public with sharing class PdfOpportunityCreatorController {
 		return out;
 	}
 
+	// Ramos equivalentes (normalizados con foldRamo): nombre del ramo o de la familia del producto -> grupo.
+	private static final Map<String, String> GRUPO_RAMO = new Map<String, String>{
+		'danos' => 'danos', 'hogar' => 'danos', 'casahabitacion' => 'danos',
+		'gmm' => 'gmm', 'gastosmedicosmayores' => 'gmm', 'gastosmedicos' => 'gmm', 'salud' => 'gmm',
+		'rc' => 'rc', 'responsabilidadcivil' => 'rc', 'profesionistas' => 'rc',
+		'viaje' => 'viajes', 'viajes' => 'viajes',
+		'auto' => 'autos', 'autos' => 'autos', 'automoviles' => 'autos',
+		'ap' => 'ap', 'accidentespersonales' => 'ap',
+		'vision' => 'vision', 'dental' => 'dental'
+	};
+
 	/**
 	 * @creation date: 28/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -2211,12 +2223,15 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @param ramo: Ramo de la cotización
 	 * @return true si coinciden
 	 */
+	@TestVisible
 	private static Boolean ramoCoincide(String family, String ramo) {
 		if (String.isBlank(family)) { return true; }   // sin ramo asignado: disponible
 		String f = foldRamo(family);
 		String r = foldRamo(ramo);
 		if (String.isBlank(r) || f == r) { return true; }
 		if (f.startsWith(r) || r.startsWith(f)) { return true; }
+		String gf = GRUPO_RAMO.get(f);
+		if (gf != null && gf == GRUPO_RAMO.get(r)) { return true; }
 		Integer n = Math.min(4, Math.min(f.length(), r.length()));
 		return n >= 3 && f.substring(0, n) == r.substring(0, n);
 	}
