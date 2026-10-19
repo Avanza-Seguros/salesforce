@@ -2539,7 +2539,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     esColectivaOpp(opp) { return opp && opp.Tipo_Contratacion__c === 'Colectiva'; }
     // Chip de la lista: tipo de contratación y, en colectivas, tamaño del grupo según el ramo.
     chipOportunidad(opp) {
-        const ramo = this.getRamoLabel(opp.Ramo__c);
+        const ramo = opp.Ramo__c ? this.getRamoLabel(opp.Ramo__c) : '';
         if (!this.esColectivaOpp(opp)) {
             return { clase: 'chip-tipo chip-individual', icono: 'utility:user', texto: `Individual${ramo ? ' · ' + ramo : ''}`, sub: '' };
         }
@@ -2562,10 +2562,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             texto: ['Colectiva', icono === 'utility:travel_and_places' ? '' : ramo, tamano].filter((x) => x).join(' · '),
             sub: r.cotizaciones ? n(r.cotizaciones, 'cotización', 'cotizaciones') : 'Sin cotizaciones'
         };
-    }
-    getRamoLabel(valor) {
-        const o = (this.quoteRamoOptions || []).find((x) => x.value === valor);
-        return o ? o.label : (valor || '');
     }
     // Segmentos con su contador (respetan búsqueda, etapa y vencidas; no el propio segmento).
     get segmentosTipo() {
@@ -2705,6 +2701,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const esColectiva = this.esColectivaOpp(opp);
             return {
                 ...opp,
+                ramoLabel: opp.Ramo__c ? this.getRamoLabel(opp.Ramo__c) : '',
                 // Sobreescribimos Account/Owner con las versiones seguras
                 Account: safeAccount,
                 Owner: safeOwner,
@@ -3457,8 +3454,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (v.includes('semestr')) return 'Semestral';
         return 'Anual';
     }
+    // Etiqueta del ramo: primero la del picklist Ramo de la Oportunidad (Danos -> Daños, GMM -> Gastos Médicos
+    // Mayores); si el valor no está en el picklist (ej. el que trae la IA), una equivalencia conocida.
     getRamoLabel(ramo) {
         if (!ramo) return 'Desconocido';
+        const op = (this.ramoPicklistValues || []).find((x) => x.value === ramo);
+        if (op) return op.label;
         const labels = {
             'AUTOMOVIL': 'Automóvil', 'AUTOMOVILES': 'Automóvil', 'AUTO': 'Automóvil',
             'GASTOS_MEDICOS': 'Gastos Médicos', 'GMM': 'Gastos Médicos',
