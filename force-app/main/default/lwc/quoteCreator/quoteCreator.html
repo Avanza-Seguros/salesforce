@@ -362,7 +362,7 @@
                                         <h3>Ramo</h3>
                                     </div>
                                     <template if:true={quote.Ramo__c}>
-                                        <div class="readonly-field">{quote.Ramo__c}</div>
+                                        <div class="readonly-field">{ramoLabel}</div>
                                         <p class="helper-text">Heredado de la oportunidad seleccionada</p>
                                     </template>
                                     <template if:false={quote.Ramo__c}>

@@ -6,6 +6,8 @@ import { getPicklistValues, getObjectInfo } from 'lightning/uiObjectInfoApi';
 import QUOTE_OBJECT from '@salesforce/schema/Quote';
 import STATUS_FIELD from '@salesforce/schema/Quote.Status';
 import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
+import OPPORTUNITY_OBJECT from '@salesforce/schema/Opportunity';
+import OPP_RAMO_FIELD from '@salesforce/schema/Opportunity.Ramo__c';
 
 import getQuotes from '@salesforce/apex/QuoteCreatorController.getQuotes';
 import getQuoteById from '@salesforce/apex/QuoteCreatorController.getQuoteById';
@@ -115,6 +117,9 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
     objectInfo = { data: null, error: null };
     @track statusPicklistValues = [];
     @track frecuenciaPicklistValues = [];
+    oppObjectInfo = { data: null, error: null };
+    // Etiquetas del picklist Ramo (valor API -> etiqueta), ej. Danos -> Daños, GMM -> Gastos Médicos Mayores.
+    @track ramoLabels = {};
 
     // Timers debounce
     _opportunitySearchTimer = null;
@@ -156,6 +161,27 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             }));
         }
     }
+    @wire(getObjectInfo, { objectApiName: OPPORTUNITY_OBJECT })
+    wiredOppObjectInfo(result) { this.oppObjectInfo = result; }
+
+    @wire(getPicklistValues, { recordTypeId: '$oppObjectInfo.data.defaultRecordTypeId', fieldApiName: OPP_RAMO_FIELD })
+    wiredRamoPicklistValues({ data }) {
+        if (data) {
+            const m = {};
+            data.values.forEach(i => { m[i.value] = i.label; });
+            this.ramoLabels = m;
+        }
+    }
+
+    // Etiqueta del ramo para mostrar (el campo guarda el valor API).
+    etiquetaRamo(ramo) {
+        if (!ramo) { return ramo; }
+        return (this.ramoLabels && this.ramoLabels[ramo]) || ramo;
+    }
+    get ramoLabel() {
+        return this.etiquetaRamo(this.quote.Ramo__c);
+    }
+
     @wire(getPicklistValues, { recordTypeId: '$objectInfo.data.defaultRecordTypeId', fieldApiName: FRECUENCIA_FIELD })
     wiredFrecuenciaPicklistValues({ data }) {
         if (data) this.frecuenciaPicklistValues = data.values.map(i => ({ label: i.label, value: i.value }));
@@ -213,7 +239,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                     (q.OpportunityName || q.Opportunity?.Name || '').toLowerCase().includes(term) ||
                     (q.Status || '').toLowerCase().includes(term) ||
                     aseguradoraName.toLowerCase().includes(term) ||
-                    ramoName.toLowerCase().includes(term);
+                    ramoName.toLowerCase().includes(term) ||
+                    String(this.etiquetaRamo(ramoName) || '').toLowerCase().includes(term);
                 if (!match) return false;
             }
             return true;
@@ -257,7 +284,7 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             return {
                 ...q,
                 AseguradoraLabel: aseguradoraName,
-                RamoLabel: ramoName,
+                RamoLabel: this.etiquetaRamo(ramoName),
                 OpportunityLabel: oppName,
                 StatusLabel: STATUS_LABELS[q.Status] || q.Status || 'Sin estado',
                 TotalPremiumFormatted: this.formatCurrency(totalPrice),
