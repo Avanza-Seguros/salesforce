@@ -3779,6 +3779,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
                 await this.guardarArchivosPdf(savedId);
                 this.viewMode = VIEW_MODES.EDIT;
+                // Mismo paso: se crean las cotizaciones revisadas (si todas tienen producto).
+                await this.crearCotizacionesAlGuardar();
             } else {
                 setTimeout(() => this.handleBackToList(), 1000);
             }
@@ -4447,8 +4449,30 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this._comparativoDirty = true;
     }
 
-    showToast(title, message, variant) {
-        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    showToast(title, message, variant, mode) {
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant, mode: mode || 'dismissible' }));
+    }
+
+    // Al guardar una oportunidad que viene de PDFs, crea de una vez las cotizaciones seleccionadas. Si a alguna le
+    // falta el producto, no crea ninguna: avisa (aviso fijo) y lleva a "Revisar y editar cotizaciones".
+    async crearCotizacionesAlGuardar() {
+        if (!this.hasEditableQuotes) { return; }
+        const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
+        if (!seleccionadas.length) { return; }
+        const sinProd = seleccionadas.filter(q => !q.productId);
+        if (sinProd.length) {
+            this.showToast('Falta un paso: crear las cotizaciones',
+                `La oportunidad se guardó, pero las cotizaciones aún no se crean. Elige el producto de: ${sinProd.map(q => q.plan || q.compania).join(', ')} y presiona "Aceptar y crear cotizaciones".`,
+                'warning', 'sticky');
+            // Espera a que se pinte la vista de edición y lleva a la sección.
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => {
+                const sec = this.template.querySelector('.edit-quotes-section');
+                if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            }, 400);
+            return;
+        }
+        await this.handleCrearCotizaciones();
     }
 
     addMoreQuotes() {
