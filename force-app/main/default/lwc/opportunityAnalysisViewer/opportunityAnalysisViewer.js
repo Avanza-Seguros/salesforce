@@ -7,6 +7,9 @@ import getQuotesByOpportunity from "@salesforce/apex/OpportunityQuotesController
 import getComparativoLinks from "@salesforce/apex/OpportunityQuotesController.getComparativoLinks";
 
 const RESUMEN_EJEC_TITLE = "RESUMEN EJECUTIVO";
+// Marca del comparativo colectivo / de flotilla que guarda ColectivoController en Descripcion__c (el mismo del PDF
+// y de Crear Oportunidad).
+const MARCA_COMPARATIVO_COLECTIVO = "<!--comparativo-colectivo-->";
 const COMPARATIVO_TITLE = "COMPARATIVO";
 
 const DATA_ICONS = {
@@ -178,8 +181,17 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
     });
   }
 
+  // Colectivas y flotillas: el comparativo ya trae primas, plan y coberturas por aseguradora; las tarjetas genéricas
+  // (deducibles de auto, cristales...) no aplican y se ocultan para mostrar lo mismo que Crear Oportunidad.
+  get esComparativoColectivo() {
+    return (this.comparativoHtml || "").includes(MARCA_COMPARATIVO_COLECTIVO);
+  }
+  get tituloComparativo() {
+    return this.esComparativoColectivo ? "Comparativo de aseguradoras" : "Comparativo (IA)";
+  }
+
   get hasQuotes() {
-    return this.quoteTiles.length > 0;
+    return !this.esComparativoColectivo && this.quoteTiles.length > 0;
   }
 
   // Matriz comparativa (cobertura × aseguradora) construida con las coberturas

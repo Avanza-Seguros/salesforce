@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Oportunidad__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Oportunidad colectiva a la que pertenece el censo.</description>
+    <externalId>false</externalId>
+    <label>Oportunidad</label>
+    <referenceTo>Opportunity</referenceTo>
+    <relationshipLabel>Censos colectivos</relationshipLabel>
+    <relationshipName>Censos_Colectivos</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

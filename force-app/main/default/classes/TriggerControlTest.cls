@@ -6,7 +6,8 @@ private class TriggerControlTest {
         // Crear datos de prueba
         Account testAccount = new Account(
             Name = 'Test Account',
-            Phone = '1234567890'
+            Phone = '1234567890',
+            AnnualRevenue = 100
         );
         insert testAccount;
 

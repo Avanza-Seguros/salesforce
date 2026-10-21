@@ -13,6 +13,7 @@ import MARCA_FIELD from '@salesforce/schema/Automovil__c.Marca__c';
 import QUOTE_OBJECT from '@salesforce/schema/Quote';
 import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
+import getResumenOportunidades from '@salesforce/apex/ColectivoController.getResumenOportunidades';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
 import getAccountById from '@salesforce/apex/OpportunityController.getAccountById';
@@ -132,6 +133,11 @@ const CONCEPTOS_GMM = [
     { concepto: 'Asistencias',                        patrones: ['asistencia', 'telemedicina', 'medico a domicilio', 'check up', 'chequeo'] }
 ];
 
+// Palabras que indican que el nombre de una cuenta es una razón social y no una persona
+// (raíces: se comparan con el inicio de cada palabra). Mismas listas que OpportunityController.
+const RAICES_EMPRESA = ['PUBLICIDAD', 'CREATIV', 'GRUPO', 'SERVICIO', 'COMERCIAL', 'CONSULTOR', 'CONSTRUC', 'INMOBILIARI', 'DISTRIBUI', 'CORPORATIV', 'INDUSTRIA', 'TRANSPORTE', 'SOLUCION', 'TECNOLOG', 'ASOCIADOS', 'HOTEL', 'RESTAURA', 'CLINICA', 'HOSPITAL', 'COLEGIO', 'ESCUELA', 'INSTITUTO', 'FUNDACION', 'AGENCIA', 'TALLER', 'FARMACIA', 'LABORATORIO', 'IMPORTADORA', 'EXPORTADORA', 'LOGISTIC', 'SISTEMAS', 'INGENIERIA', 'ARQUITECT', 'DESARROLL', 'PRODUCCION', 'PRODUCTOS', 'MARKETING', 'DISENO', 'ESTUDIO', 'CENTRO', 'ALIMENTOS', 'AUTOMOTRIZ', 'MOTORS', 'SEGUROS', 'FINANCIER', 'INVERSION', 'CAPITAL', 'PROMOTORA', 'ADMINISTRA', 'OPERADORA', 'CONSORCIO', 'EMPRESA', 'NEGOCIO', 'COMPANIA', 'HERMANOS', 'ASOCIACION', 'SOCIEDAD', 'COOPERATIVA', 'UNIVERSIDAD', 'ACADEMIA', 'TIENDA', 'ABARROTES', 'PANADERIA', 'MUEBLE', 'FERRETER', 'PAPELER', 'GASOLINER', 'AGRICOLA', 'GANADER', 'MINERA', 'ENERGIA', 'TEXTIL', 'IMPRENTA', 'EDITORIAL', 'GLOBAL', 'INTERNACIONAL', 'NACIONAL', 'MEXICANA', 'SERVICES', 'STUDIO', 'GROUP', 'CONSULTING', 'SOLUTIONS', 'COMUNICACION', 'EVENTOS', 'VIAJES', 'TURISMO', 'BIENES', 'RAICES', 'PROYECTOS', 'EQUIPOS', 'MAQUINARIA', 'SUMINISTROS', 'COMERCIO', 'MERCADO', 'ESTETICA', 'SPA', 'GIMNASIO', 'DESPACHO', 'BUFETE', 'NOTARIA', 'CONTADORES', 'ABOGADOS', 'MEDICOS', 'DENTAL'];
+const PALABRAS_EMPRESA_CORTAS = ['CIA', 'HNOS', 'CLUB', 'Y', 'E', '&', 'AND', 'INC', 'LLC', 'LTD', 'CO'];
+
 // Daños / Hogar / Empresarial / Transporte.
 const CONCEPTOS_DANOS = [
     { concepto: 'Fenómenos Hidrometeorológicos',      patrones: ['hidrometeorolog', 'huracan', 'inundacion', 'granizo', 'tormenta', 'fhm'] },
@@ -182,6 +188,11 @@ const CONCEPTOS_POR_RAMO = {
     rc: CONCEPTOS_RC
 };
 
+// Marca del comparativo armado con las cotizaciones de la oportunidad (no es el de la IA) cuando se guarda en Descripcion__c.
+const MARCA_COMPARATIVO_CALCULADO = '<!--comparativo-calculado-->';
+// Comparativo colectivo / de flotilla que guarda Apex en Descripcion__c (lo muestra "Análisis IA").
+const MARCA_COMPARATIVO_COLECTIVO = '<!--comparativo-colectivo-->';
+
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
     // === Wires y picklists ===
@@ -206,6 +217,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track searchTerm = '';
     @track stageFilter = '';
     @track showOnlyOverdue = false;
+    // Segmento de la lista: 'todas' | 'individual' | 'colectiva'.
+    @track tipoFiltro = 'todas';
+    // Tamaño del grupo y cotizaciones de las oportunidades colectivas (lo calcula ColectivoController).
+    @track resumenColectivas = {};
     @track currentPage = 1;
     @track pageSize = PAGE_SIZE;
     @track opportunities = [];
@@ -290,6 +305,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     // ===== Colectivas: asegurados del grupo (Rol de Contacto de Oportunidad) =====
     @track asegurados = [];
+    // Total de asegurados del censo colectivo (lo informa c-censo-colectivo).
+    censoTotal = 0;
+    // Cotizaciones de flotilla cargadas (lo informa c-flotilla-colectiva).
+    flotillaCotizaciones = 0;
+    // Cotizaciones colectivas de personas cargadas (lo informa c-colectivo-personas).
+    colectivoCotizaciones = 0;
     correoFlowOppId = null;
 
     // (Antes había un overlay/modal para el comparativo; ahora se renderiza
@@ -369,10 +390,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 seleccionada: true
             }));
             // Fecha de cierre sugerida = hoy + 45 días (si no hay una puesta).
-            if (!this.opportunity.CloseDate) {
-                const dt = new Date(); dt.setDate(dt.getDate() + 45);
-                this.opportunity = { ...this.opportunity, CloseDate: dt.toISOString().slice(0, 10) };
-            }
+            this.aplicarFechaCierreSugerida();
         } catch (e) {
             this.editableQuotes = [];
         }
@@ -525,6 +543,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isRamoRC()      { return this._ramoEs(['RESPONSABILIDAD'], RAMO_TYPES.RESPONSABILIDAD_CIVIL); }
     get isRamoDental()  { return this._ramoEs(['DENTAL'], RAMO_TYPES.DENTAL); }
     get isRamoVision()  { return this._ramoEs(['VISION', 'VISIÓN'], RAMO_TYPES.VISION); }
+    get isRamoAP()      { return this._ramoEs(['ACCIDENTES'], 'Accidentes Personales'); }
     get isRamoOtros() {
         return !this.isRamoAutomovil && !this.isRamoGMM && !this.isRamoVida &&
                !this.isRamoViajes && !this.isRamoDanos && !this.isRamoEmpresarial &&
@@ -954,6 +973,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.showOnlyOverdue = event.target.checked;
         this.currentPage = 1;
     }
+    handleTipoFiltro(event) {
+        this.tipoFiltro = event.currentTarget.dataset.tipo || 'todas';
+        this.currentPage = 1;
+    }
     handleClickOutside(event) {
         const insideLookup = event && event.target && event.target.closest
             && event.target.closest('.lookup-container');
@@ -1056,12 +1079,27 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
     }
 
-    // Tipo de cuenta determinado por el NOMBRE: una cuenta persona es Persona; una cuenta
-    // marcada como empresa pero con nombre de persona (sin razón social) también se trata
-    // como Persona (corrige cuentas de personas mal marcadas como Empresa, ej. "Abel Perez").
+    // Tipo de cuenta (misma regla que el Apex, para que la búsqueda y el formulario coincidan):
+    // una cuenta persona es Persona; una cuenta empresa es Empresa, salvo que su nombre sea
+    // claramente de una persona (corrige personas mal marcadas como Empresa, ej. "Abel Perez Quijano";
+    // "Publicidad y Creatividad Viva" sigue siendo Empresa).
     tipoDeCuenta(nombre, isPersonAccount) {
         if (isPersonAccount) { return 'Persona'; }
-        return this.pareceEmpresaNombre(nombre) ? 'Empresa' : 'Persona';
+        if (this.pareceEmpresaNombre(nombre)) { return 'Empresa'; }
+        return this.pareceNombrePersona(nombre) ? 'Persona' : 'Empresa';
+    }
+
+    // Nombre de persona: de 2 a 6 palabras, solo letras, sin conectores de razón social (Y, E, &)
+    // ni palabras de giro o negocio (Publicidad, Grupo, Servicios, Consultores...).
+    pareceNombrePersona(nombre) {
+        if (!nombre) { return false; }
+        const n = String(nombre).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+        const palabras = n.split(' ').filter(Boolean);
+        if (palabras.length < 2 || palabras.length > 6) { return false; }
+        if (palabras.some(p => !/^[A-Z'-]+$/.test(p))) { return false; }
+        if (palabras.some(p => PALABRAS_EMPRESA_CORTAS.includes(p))) { return false; }
+        return !palabras.some(p => RAICES_EMPRESA.some(r => p.startsWith(r)));
     }
 
     // Determina si un nombre corresponde a una EMPRESA (razón social) o a una PERSONA.
@@ -1241,6 +1279,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // El vehículo NO está en la oportunidad: viene aparte en el wrapper,
                 // buscado por la cuenta de la oportunidad (Automovil__c.Cuenta__c).
                 if (detail.automovil) { opportunityData.automovil = detail.automovil; }
+                // Detalle del ramo guardado (Vida, Daños, Viajes…): llena "Detalles del seguro de …".
+                // Los campos de la oportunidad tienen prioridad sobre los del detalle.
+                if (detail.detalleRamo) { opportunityData = { ...detail.detalleRamo, ...opportunityData }; }
                 quotesData = detail.quotes || detail.Quotes || detail.relatedQuotes || [];
                 coverageCounts = detail.coverageCounts || detail.CoverageCounts || {};
                 coverageNamesByQuote = detail.coverageNamesByQuote
@@ -1479,6 +1520,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             totalFormatted: this.formatCurrency(totalAmount),
             expirationDateRaw,
             expirationFormatted: this.formatDate(expirationDateRaw),
+            // Fecha de cotización: la capturada (RatingDate) o, si no hay, cuando se creó la cotización.
+            fechaCotizacionFormatted: this.formatDate(q.RatingDate || (q.CreatedDate ? String(q.CreatedDate).substring(0, 10) : null)),
             vigenciaInicioRaw,
             coverageCount,
             coverageLabel: coverageCount === 1
@@ -1602,11 +1645,100 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isColectiva() {
         return this.opportunity && this.opportunity.Tipo_Contratacion__c === 'Colectiva';
     }
-    // Muestra la lista de PERSONAS (asegurados/pasajeros) cuando la contratación es
-    // colectiva o el ramo cubre a varias personas (GMM, Viajes, Dental, Visión).
+    // Muestra la lista de PERSONAS (asegurados/pasajeros) cuando el ramo cubre a varias
+    // personas (GMM, Viajes, Dental, Visión). En contratación COLECTIVA los asegurados se
+    // manejan en el censo (c-censo-colectivo: GroupCensus / GroupCensusMember).
     get mostrarPersonas() {
-        return this.isColectiva || this.isRamoGMM || this.isRamoViajes
-            || this.isRamoDental || this.isRamoVision;
+        return !this.isColectiva && (this.isRamoGMM || this.isRamoViajes
+            || this.isRamoDental || this.isRamoVision);
+    }
+    get censoBadge() {
+        return this.censoTotal ? `${this.censoTotal} asegurados` : 'Sin censo';
+    }
+    handleCensoActualizado(event) {
+        this.censoTotal = (event.detail && event.detail.total) || 0;
+    }
+    // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se cargan las
+    // cotizaciones de cada aseguradora por inciso (c-flotilla-colectiva).
+    get isFlotilla() {
+        return this.isColectiva && this.isRamoAutomovil;
+    }
+    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos.
+    get mostrarDetalleRamo() {
+        return this.showCreateView && !this.isFlotilla;
+    }
+    // Censo de personas: colectivas de ramos que aseguran personas.
+    get isCensoPersonas() {
+        return this.isColectiva && (this.isRamoGMM || this.isRamoVida || this.isRamoAP
+            || this.isRamoDental || this.isRamoVision || this.isRamoViajes);
+    }
+    // Daños / Empresarial colectivo: la cotización ampara varias ubicaciones (inmuebles), no personas.
+    get isColectivoUbicaciones() {
+        return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
+    }
+    // Cotizaciones por aseguradora con comparativo (c-colectivo-personas). RC y Fianzas usan las cotizaciones normales.
+    get mostrarCotizacionesColectivas() {
+        return this.isCensoPersonas || this.isColectivoUbicaciones;
+    }
+    get colectivoSubtitulo() {
+        return this.isColectivoUbicaciones
+            ? 'Cotización de cada aseguradora por ubicación, coberturas y primas, con comparativo'
+            : 'Cotización de cada aseguradora por categoría, plan y primas, con comparativo';
+    }
+    get flotillaBadge() {
+        return this.flotillaCotizaciones
+            ? `${this.flotillaCotizaciones} ${this.flotillaCotizaciones === 1 ? 'cotización' : 'cotizaciones'}`
+            : 'Sin cotizaciones';
+    }
+    handleFlotillaActualizada(event) {
+        this.flotillaCotizaciones = (event.detail && event.detail.cotizaciones) || 0;
+    }
+    get colectivoBadge() {
+        return this.colectivoCotizaciones
+            ? `${this.colectivoCotizaciones} ${this.colectivoCotizaciones === 1 ? 'cotización' : 'cotizaciones'}`
+            : 'Sin cotizaciones';
+    }
+    handleColectivoActualizado(event) {
+        this.colectivoCotizaciones = (event.detail && event.detail.cotizaciones) || 0;
+    }
+    // Colectivas: un solo comparativo. La sección "Comparativa de Cotizaciones" muestra el colectivo (primas,
+    // plan/coberturas, cuota al millar, recomendación y PDF) en lugar del general; la carga queda en "Cotizaciones colectivas".
+    get mostrarComparativaColectiva() {
+        return this.mostrarCotizacionesColectivas && this.colectivoCotizaciones > 0;
+    }
+    // Flotilla: su comparativo (por tipo de vehículo y por vehículo) ocupa la sección Comparativa de Cotizaciones.
+    get mostrarComparativaFlotilla() {
+        return this.isFlotilla && this.flotillaCotizaciones > 0;
+    }
+    // Un solo comparativo por oportunidad: el general solo en individuales.
+    get mostrarComparativaGeneral() {
+        return this.hasQuoteComparison && !this.mostrarCotizacionesColectivas && !this.isFlotilla;
+    }
+    get comparativaColectivaSubtitulo() {
+        return this.isColectivoUbicaciones
+            ? 'Compara prima, coberturas, ubicaciones y cuota al millar para elegir la mejor opción'
+            : 'Compara prima, plan, asegurados y formas de pago para elegir la mejor opción';
+    }
+    // Una cotización colectiva o de flotilla se guardó o eliminó: refresca la lista de cotizaciones y las dos
+    // secciones (carga y comparativo).
+    handleCotizacionColectiva() {
+        this.handleCotizacionFlotilla();
+        this.template.querySelectorAll('c-colectivo-personas, c-flotilla-colectiva').forEach((c) => c.refrescar());
+    }
+    // La cotización de flotilla también es un Quote: refresca solo la lista de cotizaciones
+    // (sin recargar el formulario para no perder cambios sin guardar).
+    async handleCotizacionFlotilla() {
+        const id = this.opportunity && this.opportunity.Id;
+        if (!id) { return; }
+        try {
+            const detail = await getOpportunityDetails({ opportunityId: id });
+            const quotesData = (detail && (detail.quotes || detail.Quotes)) || [];
+            const counts = (detail && detail.coverageCounts) || {};
+            const nombres = (detail && detail.coverageNamesByQuote) || {};
+            this.relatedQuotes = quotesData.map((q) => this.mapRelatedQuote(q, counts, nombres));
+        } catch (e) {
+            // La lista se actualizará al volver a abrir la oportunidad.
+        }
     }
     // Título/subtítulo de la sección de personas según el ramo.
     get personasTitulo() {
@@ -2346,6 +2478,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.isLoading = true;
         try {
             this.opportunities = await getOpportunities();
+            this.cargarResumenColectivas();
         } catch (error) {
             this.showToast('Error', 'No se pudieron cargar las oportunidades', 'error');
             this.opportunities = [];
@@ -2393,7 +2526,70 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasQuotes()   { return this.uploadedQuotes && this.uploadedQuotes.length > 0; }
     get quotesCount() { return this.uploadedQuotes.length; }
 
+    // Tamaño del grupo (asegurados, unidades o ubicaciones) y cotizaciones de las colectivas; no bloquea la lista.
+    async cargarResumenColectivas() {
+        const ids = (this.opportunities || []).filter((o) => this.esColectivaOpp(o)).map((o) => o.Id);
+        if (!ids.length) { this.resumenColectivas = {}; return; }
+        try {
+            this.resumenColectivas = (await getResumenOportunidades({ opportunityIds: ids })) || {};
+        } catch (e) {
+            this.resumenColectivas = {};
+        }
+    }
+    esColectivaOpp(opp) { return opp && opp.Tipo_Contratacion__c === 'Colectiva'; }
+    // Chip de la lista: tipo de contratación y, en colectivas, tamaño del grupo según el ramo.
+    chipOportunidad(opp) {
+        const ramo = opp.Ramo__c ? this.getRamoLabel(opp.Ramo__c) : '';
+        if (!this.esColectivaOpp(opp)) {
+            return { clase: 'chip-tipo chip-individual', icono: 'utility:user', texto: `Individual${ramo ? ' · ' + ramo : ''}`, sub: '' };
+        }
+        const r = this.resumenColectivas[opp.Id] || {};
+        const n = (v, uno, varios) => `${v} ${v === 1 ? uno : varios}`;
+        let tamano = '';
+        let icono = 'utility:groups';
+        if (this.matchRamo(opp.Ramo__c, ['AUTOMOVIL', 'AUTO'])) {
+            icono = 'utility:travel_and_places';
+            tamano = r.unidades ? 'Flotilla · ' + n(r.unidades, 'unidad', 'unidades') : 'Flotilla';
+        } else if (this.matchRamo(opp.Ramo__c, ['DANOS', 'DAÑOS', 'EMPRESARIAL'])) {
+            icono = 'utility:location';
+            tamano = r.ubicaciones ? n(r.ubicaciones, 'ubicación', 'ubicaciones') : '';
+        } else {
+            tamano = r.asegurados ? n(r.asegurados, 'asegurado', 'asegurados') : '';
+        }
+        return {
+            clase: 'chip-tipo chip-colectiva',
+            icono,
+            texto: ['Colectiva', icono === 'utility:travel_and_places' ? '' : ramo, tamano].filter((x) => x).join(' · '),
+            sub: r.cotizaciones ? n(r.cotizaciones, 'cotización', 'cotizaciones') : 'Sin cotizaciones'
+        };
+    }
+    // Segmentos con su contador (respetan búsqueda, etapa y vencidas; no el propio segmento).
+    get segmentosTipo() {
+        const base = this.filtrarOportunidades(false);
+        const col = base.filter((o) => this.esColectivaOpp(o)).length;
+        return [
+            { valor: 'todas', etiqueta: 'Todas', icono: 'utility:list', total: base.length },
+            { valor: 'individual', etiqueta: 'Individuales', icono: 'utility:user', total: base.length - col },
+            { valor: 'colectiva', etiqueta: 'Colectivas', icono: 'utility:groups', total: col }
+        ].map((s) => ({ ...s, clase: 'segmento' + (s.valor === this.tipoFiltro ? ' segmento_activo' : '') + ' segmento_' + s.valor,
+            presionado: s.valor === this.tipoFiltro ? 'true' : 'false' }));
+    }
+    get esSegmentoColectivas() { return this.tipoFiltro === 'colectiva'; }
+    // Indicadores del segmento Colectivas: personas aseguradas y unidades / ubicaciones en juego.
+    get totalAseguradosColectivas() {
+        return this.filteredOpportunities.reduce((s, o) => s + ((this.resumenColectivas[o.Id] || {}).asegurados || 0), 0).toLocaleString('es-MX');
+    }
+    get totalUnidadesColectivas() {
+        return this.filteredOpportunities.reduce((s, o) => {
+            const r = this.resumenColectivas[o.Id] || {};
+            return s + (r.unidades || 0) + (r.ubicaciones || 0);
+        }, 0).toLocaleString('es-MX');
+    }
+
     get filteredOpportunities() {
+        return this.filtrarOportunidades(true);
+    }
+    filtrarOportunidades(conTipo) {
         const term = (this.searchTerm || '').toLowerCase().trim();
         const stage = this.stageFilter;
         const today = new Date();
@@ -2408,6 +2604,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 if (!match) return false;
             }
             if (stage && opp.StageName !== stage) return false;
+            if (conTipo && this.tipoFiltro !== 'todas'
+                && (this.tipoFiltro === 'colectiva') !== this.esColectivaOpp(opp)) return false;
             if (this.showOnlyOverdue) {
                 if (this.isClosedStage(opp.StageName)) return false;
                 if (!opp.CloseDate) return false;
@@ -2499,8 +2697,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             const stageLabel = this.getStageLabel(opp.StageName);
             const stageIcon  = stage?.icon || 'utility:steps';
             const probability = stage?.probability ?? 0;
+            const chip = this.chipOportunidad(opp);
+            const esColectiva = this.esColectivaOpp(opp);
             return {
                 ...opp,
+                ramoLabel: opp.Ramo__c ? this.getRamoLabel(opp.Ramo__c) : '',
                 // Sobreescribimos Account/Owner con las versiones seguras
                 Account: safeAccount,
                 Owner: safeOwner,
@@ -2524,7 +2725,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 isClosed,
                 isPoliza: this.isPolizaStage(opp.StageName),
                 isPolizaView: this.isPolizaStage(opp.StageName) || isClosed,
-                typeLabel: this.getTypeLabel(opp.Type)
+                typeLabel: this.getTypeLabel(opp.Type),
+                filaClase: `${statusClass} ${esColectiva ? 'fila-colectiva' : 'fila-individual'}`,
+                chipClase: chip.clase,
+                chipIcono: chip.icono,
+                chipTexto: chip.texto,
+                chipSub: chip.sub
             };
         });
     }
@@ -2619,7 +2825,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     // Fecha de hoy en formato ISO (YYYY-MM-DD).
     hoyISO() {
-        return new Date().toISOString().slice(0, 10);
+        return this.fechaLocalISO(0);
     }
 
     // Repara acentos del comparativo cuando llegan como el par hex de un escape Unicode
@@ -3248,8 +3454,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (v.includes('semestr')) return 'Semestral';
         return 'Anual';
     }
+    // Etiqueta del ramo: primero la del picklist Ramo de la Oportunidad (Danos -> Daños, GMM -> Gastos Médicos
+    // Mayores); si el valor no está en el picklist (ej. el que trae la IA), una equivalencia conocida.
     getRamoLabel(ramo) {
         if (!ramo) return 'Desconocido';
+        const op = (this.ramoPicklistValues || []).find((x) => x.value === ramo);
+        if (op) return op.label;
         const labels = {
             'AUTOMOVIL': 'Automóvil', 'AUTOMOVILES': 'Automóvil', 'AUTO': 'Automóvil',
             'GASTOS_MEDICOS': 'Gastos Médicos', 'GMM': 'Gastos Médicos',
@@ -3533,7 +3743,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // y luego se liga a InsurancePolicy.ProducerId.
                 Producer__c: this.opportunity.Agente__c || null,
                 isNewContacto: this.isNewContacto,
-                Descripcion__c: this.comparativoHtml || null,
+                Descripcion__c: this.comparativoHtmlParaGuardar(),
                 detalleRamo: this.getActiveRamoDetail(),
                 vehiculo: this.automovil
             };
@@ -3569,6 +3779,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
                 await this.guardarArchivosPdf(savedId);
                 this.viewMode = VIEW_MODES.EDIT;
+                // Mismo paso: se crean las cotizaciones revisadas (si todas tienen producto).
+                await this.crearCotizacionesAlGuardar();
             } else {
                 setTimeout(() => this.handleBackToList(), 1000);
             }
@@ -3639,6 +3851,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleCreateNew() {
         this.resetWizard();
         this.setDefaultAgente();
+        // Oportunidad manual: fecha de cierre = hoy + 45 días (se puede cambiar).
+        this.aplicarFechaCierreSugerida();
         this.viewMode = VIEW_MODES.CREATE;
     }
     // NUEVO - abre la vista de carga de PDFs
@@ -3654,8 +3868,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const r = (ramo || this.opportunity.Ramo__c || '').toString().toUpperCase();
         const pick = (a, b) => (a !== undefined && a !== null && a !== '') ? a : b;
         if (r.includes('VIDA')) {
+            // Si la IA no trae el asegurado principal, en Vida normalmente es el propio cliente.
+            const o = this.opportunity || {};
+            const cliente = [o.clienteNombre, o.clienteApellidoPaterno, o.clienteApellidoMaterno]
+                .filter(Boolean).join(' ').trim() || o.AccountName || '';
             this.vida = { ...this.vida,
-                aseguradoPrincipal: pick(det.aseguradoPrincipal, this.vida.aseguradoPrincipal),
+                aseguradoPrincipal: pick(det.aseguradoPrincipal, pick(this.vida.aseguradoPrincipal, cliente)),
                 contratante:        pick(det.contratante, this.vida.contratante),
                 subramo:            pick(det.subramo, this.vida.subramo),
                 edadVida:           pick(det.edadVida, this.vida.edadVida),
@@ -3691,8 +3909,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Pone la fecha de cierre sugerida: hoy + 45 días. No pisa una fecha ya puesta.
     aplicarFechaCierreSugerida() {
         if (this.opportunity.CloseDate) { return; }
-        const dt = new Date(); dt.setDate(dt.getDate() + 45);
-        this.opportunity = { ...this.opportunity, CloseDate: dt.toISOString().slice(0, 10) };
+        this.opportunity = { ...this.opportunity, CloseDate: this.fechaLocalISO(45) };
+    }
+
+    // Fecha local (no UTC) dentro de N días en formato YYYY-MM-DD; en la noche, toISOString daría el día siguiente.
+    fechaLocalISO(dias) {
+        const dt = new Date();
+        dt.setDate(dt.getDate() + (dias || 0));
+        const dos = v => String(v).padStart(2, '0');
+        return `${dt.getFullYear()}-${dos(dt.getMonth() + 1)}-${dos(dt.getDate())}`;
     }
 
     // NUEVO - el componente de PDFs terminó de extraer y ya llenó el formulario.
@@ -3771,9 +3996,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         // Si se usó la IA, se guarda ÚNICAMENTE el comparativo que ella regresó.
         // Solo cuando no hay comparativo de IA se arma la matriz completa como respaldo.
-        const htmlComparativo = this.hasComparativoHtml
-            ? this.comparativoHtml
-            : (this.buildComparativoHtmlCompleto() || this.comparativoHtml);
+        const htmlComparativo = this.comparativoHtmlParaGuardar();
         if (htmlComparativo) {
             try {
                 // 1) Guarda el comparativo en la oportunidad (dato committed) y
@@ -3974,8 +4197,32 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get hasPdfQuotes() {
         return this.uploadedQuotes && this.uploadedQuotes.length > 0;
     }
+    // Comparativo de la IA (el que regresó al leer los PDFs, guardado en Descripcion__c). Solo se usa mientras
+    // corresponda a las cotizaciones actuales; si después se agregan, quitan o cambian cotizaciones, el comparativo
+    // se arma con las cotizaciones de la oportunidad (nada queda fijo).
     get hasComparativoHtml() {
-        return !!(this.comparativoHtml && this.comparativoHtml.trim());
+        const html = this.comparativoHtml || '';
+        // El comparativo calculado que se guarda en la oportunidad no es de la IA: en pantalla se vuelve a armar en vivo.
+        return !!html.trim() && !html.includes(MARCA_COMPARATIVO_CALCULADO) && !html.includes(MARCA_COMPARATIVO_COLECTIVO)
+            && this.comparativoHtmlCoincide;
+    }
+    get comparativoHtmlCoincide() {
+        const actuales = (this.relatedQuotes || []).filter((q) => q && q.totalAmount > 0);
+        if (!actuales.length) { return true; }   // vista previa de PDFs: el comparativo es de esas mismas cotizaciones
+        const texto = String(this.comparativoHtml || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
+        // Mismo número de aseguradoras/cotizaciones comparadas...
+        const n = texto.match(/(\d+)\s+(?:aseguradoras?|cotizaciones?)\s+comparad[ao]s/i);
+        if (n && Number(n[1]) !== actuales.length) { return false; }
+        // ...y la prima total de cada cotización actual aparece en el comparativo.
+        return actuales.every((q) => texto.includes(Math.round(Number(q.totalAmount)).toLocaleString('en-US')));
+    }
+    // HTML del comparativo a guardar en la oportunidad: el de la IA si sigue vigente; si no, el de las cotizaciones actuales.
+    comparativoHtmlParaGuardar() {
+        // Colectivas y flotillas: el comparativo lo mantiene Apex al guardar o eliminar cotizaciones (null = no se toca).
+        if (this.mostrarCotizacionesColectivas || this.isFlotilla) { return null; }
+        if (this.hasComparativoHtml) { return this.comparativoHtml; }
+        const calculado = this.buildComparativoHtmlCompleto();
+        return calculado ? MARCA_COMPARATIVO_CALCULADO + calculado : null;
     }
     // El comparativo "armado" (KPIs + tabla) solo se muestra si NO hay el
     // comparativo de la IA; con IA se ve igual que la pestaña "Comparativo IA".
@@ -4106,6 +4353,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             coverageDetalle,
             expirationDateRaw: q.vigencia || this.sumarUnAnio(q.vigenciaInicio),
             expirationFormatted: this.formatDate(q.vigencia || this.sumarUnAnio(q.vigenciaInicio)),
+            fechaCotizacionFormatted: this.formatDate(q.fechaCotizacion || this.hoyISO()),
             vigenciaInicioRaw: q.vigenciaInicio || null,
             primasPorFrecuencia: q.primasPorFrecuencia || null,
             beneficiosOpcionales: q.beneficiosOpcionales || [],
@@ -4201,8 +4449,30 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this._comparativoDirty = true;
     }
 
-    showToast(title, message, variant) {
-        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    showToast(title, message, variant, mode) {
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant, mode: mode || 'dismissible' }));
+    }
+
+    // Al guardar una oportunidad que viene de PDFs, crea de una vez las cotizaciones seleccionadas. Si a alguna le
+    // falta el producto, no crea ninguna: avisa (aviso fijo) y lleva a "Revisar y editar cotizaciones".
+    async crearCotizacionesAlGuardar() {
+        if (!this.hasEditableQuotes) { return; }
+        const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
+        if (!seleccionadas.length) { return; }
+        const sinProd = seleccionadas.filter(q => !q.productId);
+        if (sinProd.length) {
+            this.showToast('Falta un paso: crear las cotizaciones',
+                `La oportunidad se guardó, pero las cotizaciones aún no se crean. Elige el producto de: ${sinProd.map(q => q.plan || q.compania).join(', ')} y presiona "Aceptar y crear cotizaciones".`,
+                'warning', 'sticky');
+            // Espera a que se pinte la vista de edición y lleva a la sección.
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => {
+                const sec = this.template.querySelector('.edit-quotes-section');
+                if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            }, 400);
+            return;
+        }
+        await this.handleCrearCotizaciones();
     }
 
     addMoreQuotes() {

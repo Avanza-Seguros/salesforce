@@ -1,0 +1,414 @@
+<template>
+    <div class="censo">
+        <template if:true={cargando}>
+            <div class="censo-cargando">
+                <lightning-spinner alternative-text="Procesando" size="small"></lightning-spinner>
+                <p class="censo-progreso">{progreso}</p>
+            </div>
+        </template>
+
+        <template if:true={errorMensaje}>
+            <div class="censo-error" role="alert">
+                <lightning-icon icon-name="utility:error" variant="error" size="x-small"></lightning-icon>
+                <span>{errorMensaje}</span>
+            </div>
+        </template>
+
+        <template if:true={sinOportunidad}>
+            <div class="censo-vacio">
+                <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                <p>Guarda la oportunidad (con la empresa contratante como cliente) para cargar las cotizaciones de la flotilla.</p>
+            </div>
+        </template>
+
+        <template if:false={sinOportunidad}>
+            <!-- ====================== COMPARATIVO ====================== -->
+            <template if:true={enResumen}>
+                <template if:true={hayCotizaciones}>
+                    <template if:true={verComparativo}>
+                    <!-- Indicadores (mismo estilo que la Comparativa de Cotizaciones) -->
+                    <div class="comparison-kpis">
+                        <template for:each={kpis} for:item="k">
+                            <div key={k.key} class={k.clase}>
+                                <div class="kpi-icon">
+                                    <lightning-icon icon-name={k.icono} size="small"></lightning-icon>
+                                </div>
+                                <div class="kpi-content">
+                                    <span class="kpi-label">{k.etiqueta}</span>
+                                    <span class="kpi-value">{k.valor}</span>
+                                    <span class="kpi-detail">{k.detalle}</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="comparativo-doc">
+                        <div class="doc-head">
+                            <div class="doc-head-fila">
+                                <div>
+                                    <h1>{docTitulo}</h1>
+                                    <template if:true={docSubtitulo}><p>{docSubtitulo}</p></template>
+                                    <span class="doc-tag">{docTag}</span>
+                                </div>
+                                <lightning-button label="Generar comparativo PDF" icon-name="utility:pdf_ext" variant="neutral"
+                                    onclick={handleComparativoPdf}></lightning-button>
+                            </div>
+                        </div>
+
+                        <table class="doc-table">
+                            <thead>
+                                <tr>
+                                    <th class="doc-th doc-th-lbl">Concepto</th>
+                                    <template for:each={columnasDoc} for:item="col">
+                                        <th key={col.id} class={col.headerClass}>
+                                            {col.aseguradora}
+                                            <template if:true={col.hayBadge}><span class="doc-rec-badge">{col.badge}</span></template>
+                                        </th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="doc-row-price">
+                                    <td class="doc-cell doc-cell-lbl doc-cell-lbl-price"><span class="doc-cn">Prima total anual</span></td>
+                                    <template for:each={precioDoc} for:item="c">
+                                        <td key={c.key} class={c.clase}>
+                                            <strong>{c.texto}</strong>
+                                            <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
+                                        </td>
+                                    </template>
+                                </tr>
+                                <template for:each={filasResumenDoc} for:item="f">
+                                    <tr key={f.key}>
+                                        <td class="doc-cell doc-cell-lbl">
+                                            <span class="doc-cn">{f.etiqueta}</span>
+                                            <template if:true={f.hayDesc}><span class="doc-cd">{f.desc}</span></template>
+                                        </td>
+                                        <template for:each={f.celdas} for:item="c">
+                                            <td key={c.key} class={c.clase}>
+                                                {c.texto}
+                                                <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                                <template if:true={hayCoberturasDoc}>
+                                    <tr>
+                                        <td class="doc-cell doc-cell-seccion" colspan={columnasTotal}>Coberturas y deducibles</td>
+                                    </tr>
+                                    <template for:each={coberturasDoc} for:item="f">
+                                        <tr key={f.key}>
+                                            <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{f.etiqueta}</span></td>
+                                            <template for:each={f.celdas} for:item="c">
+                                                <td key={c.key} class={c.clase}>{c.texto}</td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </template>
+                            </tbody>
+                        </table>
+
+                        <div class="doc-detalle-encabezado">
+                            <h2>Detalle de la flotilla</h2>
+                            <lightning-radio-group label="Ver" variant="label-hidden" type="button" options={opcionesVistaComparativo}
+                                value={vistaComparativo} onchange={handleVistaComparativo}></lightning-radio-group>
+                        </div>
+                        <template if:true={comparativoPorTipo}>
+                            <table class="doc-table">
+                                <thead>
+                                    <tr>
+                                        <th class="doc-th doc-th-lbl">Tipo de vehículo</th>
+                                        <template for:each={columnasDoc} for:item="col">
+                                            <th key={col.id} class={col.headerClass}>{col.aseguradora}</th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={comparativoTiposDoc} for:item="f">
+                                        <tr key={f.key} class={f.clase}>
+                                            <td class="doc-cell doc-cell-lbl"><span class="doc-cn">{f.nombre}</span></td>
+                                            <template for:each={f.celdas} for:item="c">
+                                                <td key={c.key} class={c.clase}>
+                                                    {c.texto}
+                                                    <template if:true={c.haySub}><span class="doc-sub">{c.sub}</span></template>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </template>
+                        <template if:false={comparativoPorTipo}>
+                            <table class="doc-table">
+                                <thead>
+                                    <tr>
+                                        <th class="doc-th doc-th-lbl">Vehículo</th>
+                                        <template for:each={columnasDoc} for:item="col">
+                                            <th key={col.id} class={col.headerClass}>{col.aseguradora}</th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={filasVehiculosDoc} for:item="v">
+                                        <tr key={v.key}>
+                                            <td class="doc-cell doc-cell-lbl">
+                                                <span class="doc-cn">{v.num}. {v.descripcion}</span>
+                                                <span class="doc-cd">{v.tipo} · {v.modelo} · {v.serie}</span>
+                                            </td>
+                                            <template for:each={v.celdas} for:item="c">
+                                                <td key={c.key} class={c.clase}>{c.texto}</td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                            <div class="censo-paginacion">
+                                <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anteriorComparativo} disabled={sinAnteriorComparativo}></lightning-button-icon>
+                                <span>{textoPaginaComparativo}</span>
+                                <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguienteComparativo} disabled={sinSiguienteComparativo}></lightning-button-icon>
+                            </div>
+                        </template>
+
+                        <p class="doc-note">
+                            La columna resaltada en naranja es la recomendada por precio (si no cotizaron las mismas unidades, por prima por unidad).
+                            En el detalle, el verde marca la prima más baja de cada renglón. Documento informativo; las condiciones finales se definen en cada póliza.
+                        </p>
+
+                        <div class="doc-decide">
+                            <h2>Recomendación</h2>
+                            <div class="doc-bottom">{recomendacion}</div>
+                        </div>
+                    </div>
+                    </template>
+
+                    <template if:true={verCarga}>
+                        <div class="doc-recs cotizaciones-cargadas">
+                            <h2>Cotizaciones cargadas</h2>
+                            <div class="doc-twocol">
+                                <template for:each={tarjetas} for:item="t">
+                                    <div key={t.id} class={t.claseDoc}>
+                                        <div class="doc-card-encabezado">
+                                            <h3>{t.aseguradora}</h3>
+                                            <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
+                                            <template if:true={puedeEditar}>
+                                                <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Eliminar cotización"
+                                                    class="tarjeta-borrar" data-id={t.id} onclick={handleEliminar}></lightning-button-icon>
+                                            </template>
+                                        </div>
+                                        <p><strong>{t.primaTxt}</strong><template if:true={t.desgloseTxt}> · {t.desgloseTxt}</template></p>
+                                        <p>{t.unidades} unidades<template if:true={t.valorTxt}> · Valor asegurado {t.valorTxt}</template></p>
+                                        <template if:true={t.unidadesAviso}><p class="tarjeta-aviso">{t.unidadesAviso}</p></template>
+                                        <p class="doc-card-sub">Cotización {t.numero}<template if:true={t.vigenciaTxt}> · Vigencia {t.vigenciaTxt}</template><template if:true={t.formaPago}> · {t.formaPago}</template></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+
+                <template if:false={hayCotizaciones}>
+                    <template if:true={verCarga}>
+                    <div class="censo-vacio">
+                        <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
+                        <p>Aún no hay cotizaciones de flotilla. Sube la cotización de cada aseguradora (Excel o PDF) para compararlas.</p>
+                    </div>
+                    </template>
+                </template>
+
+                <template if:true={puedeCargar}>
+                    <div class="censo-carga">
+                        <div class="censo-carga-texto">
+                            <strong>Agregar cotización de aseguradora</strong>
+                            <span>Excel (.xlsx) o CSV con el detalle por inciso, o PDF (la IA lee los incisos). Si es .xlsb o .xls, guárdalo como .xlsx.</span>
+                        </div>
+                        <div class="censo-carga-acciones">
+                            <lightning-input type="file" label="Archivo de la cotización" variant="label-hidden"
+                                accept=".xlsx,.xlsm,.xls,.xlsb,.csv,.txt,.pdf" onchange={handleArchivo}></lightning-input>
+                        </div>
+                    </div>
+                </template>
+            </template>
+
+            <!-- ====================== MAPEO DE COLUMNAS ====================== -->
+            <template if:true={enMapeo}>
+                <div class="paso-titulo">
+                    <span class="paso-num">1</span>
+                    <div>
+                        <strong>Revisa las columnas de {archivoNombre}</strong>
+                        <p>{textoEncabezado} · {filasDatos} renglones. Las columnas se detectaron automáticamente; corrige las que no coincidan.</p>
+                    </div>
+                </div>
+                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                    <template if:true={hayVariasHojas}>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-combobox label="Hoja con el detalle por inciso" value={hojaActual} options={hojas} onchange={handleHoja}></lightning-combobox>
+                        </div>
+                    </template>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                        <lightning-combobox label="Renglón de encabezados" value={filaEncabezadoValor}
+                            options={opcionesEncabezado} onchange={handleEncabezado}></lightning-combobox>
+                    </div>
+                </div>
+                <div class="mapeo-grid">
+                    <template for:each={camposMapeo} for:item="c">
+                        <div key={c.key} class={c.clase}>
+                            <lightning-combobox label={c.label} value={c.value} options={opcionesColumnas}
+                                data-campo={c.key} onchange={handleMapeo} dropdown-alignment="auto"></lightning-combobox>
+                            <span class="ejemplo">{c.ejemplo}</span>
+                        </div>
+                    </template>
+                </div>
+                <div class="censo-acciones derecha">
+                    <lightning-button label="Cancelar" onclick={cancelar}></lightning-button>
+                    <lightning-button label="Continuar" variant="brand" icon-name="utility:forward" icon-position="right" onclick={aplicarMapeo}></lightning-button>
+                </div>
+            </template>
+
+            <!-- ====================== VISTA PREVIA ====================== -->
+            <template if:true={enVista}>
+                <div class="paso-titulo">
+                    <span class="paso-num">2</span>
+                    <div>
+                        <strong>Vista previa de {archivoNombre}</strong>
+                        <p>Confirma la aseguradora y revisa los incisos antes de guardar.</p>
+                    </div>
+                </div>
+
+                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                        <lightning-combobox label="Aseguradora" required value={encabezado.aseguradoraId} options={opcionesAseguradora}
+                            data-campo="aseguradoraId" onchange={handleEncabezadoCotizacion} placeholder="Selecciona la aseguradora"></lightning-combobox>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-6">
+                        <lightning-input type="date" label="Vigencia desde" value={encabezado.vigenciaDesde}
+                            data-campo="vigenciaDesde" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-6">
+                        <lightning-input type="date" label="Vigencia hasta" value={encabezado.vigenciaHasta}
+                            data-campo="vigenciaHasta" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                        <lightning-combobox label="Forma de pago" value={encabezado.formaPago} options={opcionesFormaPago}
+                            data-campo="formaPago" onchange={handleEncabezadoCotizacion} placeholder="Selecciona"></lightning-combobox>
+                    </div>
+                </div>
+
+                <!-- Montos de la póliza: se proponen con la suma de los incisos; la prima total es la que se compara. -->
+                <div class="montos-grid slds-m-top_x-small">
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Prima neta" value={encabezado.primaNeta}
+                        data-campo="primaNeta" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Derechos / gastos de expedición" value={encabezado.derechos}
+                        data-campo="derechos" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Recargo por pago fraccionado" value={encabezado.recargo}
+                        data-campo="recargo" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="IVA" value={encabezado.iva}
+                        data-campo="iva" onchange={handleEncabezadoCotizacion}></lightning-input>
+                    <lightning-input type="number" formatter="currency" step="0.01" label="Prima total" value={encabezado.primaTotal}
+                        data-campo="primaTotal" onchange={handleEncabezadoCotizacion}
+                        field-level-help="Si la dejas vacía se calcula: prima neta + derechos + recargo + IVA."></lightning-input>
+                </div>
+                <template if:true={avisoTotalSinIva}>
+                    <div class="censo-alerta">
+                        <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
+                        <span>La cotización solo trae prima neta. Captura derechos e IVA (o la prima total) para compararla igual que las demás aseguradoras.</span>
+                    </div>
+                </template>
+
+                <div class="censo-stats slds-m-top_small">
+                    <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Incisos</span></div>
+                    <div class="stat"><span class="stat-num">{primaVista}</span><span class="stat-lbl">Prima total</span></div>
+                    <div class="stat"><span class="stat-num">{netaVista}</span><span class="stat-lbl">Prima neta</span></div>
+                    <div class="stat"><span class="stat-num">{valorVista}</span><span class="stat-lbl">Valor asegurado</span></div>
+                    <div class="stat stat-aviso"><span class="stat-num">{conAviso}</span><span class="stat-lbl">Con aviso</span></div>
+                    <div class="stat stat-error"><span class="stat-num">{conError}</span><span class="stat-lbl">Con error</span></div>
+                </div>
+
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th scope="col">Tipo de vehículo</th>
+                            <th scope="col" class="num">Unidades</th>
+                            <th scope="col" class="num">Prima</th>
+                            <th scope="col" class="num">Valor asegurado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={resumenVista} for:item="c">
+                            <tr key={c.key}>
+                                <td><span class="chip-categoria">{c.tipo}</span></td>
+                                <td class="num">{c.unidades}</td>
+                                <td class="num"><strong>{c.primaTxt}</strong></td>
+                                <td class="num">{c.valorTxt}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="slds-grid slds-wrap slds-gutters_x-small slds-m-top_small">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                        <lightning-combobox label="Mostrar" value={filtro} options={opcionesFiltro} onchange={handleFiltro}></lightning-combobox>
+                    </div>
+                </div>
+
+                <div class="censo-scroll">
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col"></th>
+                                <th scope="col">Fila</th>
+                                <th scope="col">Inciso</th>
+                                <th scope="col">Vehículo</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Uso</th>
+                                <th scope="col">Paquete</th>
+                                <th scope="col" class="num">Valor</th>
+                                <th scope="col">Deducibles</th>
+                                <th scope="col" class="num">RC</th>
+                                <th scope="col" class="num">Prima</th>
+                                <th scope="col">Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={renglonesVista} for:item="r">
+                                <tr key={r.key} class={r.claseFila}>
+                                    <td><lightning-icon icon-name={r.icono} variant={r.variante} size="xx-small"></lightning-icon></td>
+                                    <td>{r.fila}</td>
+                                    <td>{r.inciso}</td>
+                                    <td>
+                                        <div class="nombre">{r.descripcion}</div>
+                                        <div class="sub">{r.modelo} · {r.serie}</div>
+                                    </td>
+                                    <td>{r.tipo}</td>
+                                    <td>{r.uso}</td>
+                                    <td>{r.paquete}</td>
+                                    <td class="num">{r.valorTxt}</td>
+                                    <td>{r.dedTxt}</td>
+                                    <td class="num">{r.rcTxt}</td>
+                                    <td class="num"><strong>{r.primaTxt}</strong><template if:true={r.primaSub}><div class="sub">{r.primaSub}</div></template></td>
+                                    <td class="mensajes">{r.mensajes}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="censo-paginacion">
+                    <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anterior} disabled={sinAnterior}></lightning-button-icon>
+                    <span>{textoPagina}</span>
+                    <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguiente} disabled={sinSiguiente}></lightning-button-icon>
+                </div>
+
+                <template if:true={faltaAseguradora}>
+                    <div class="censo-alerta">
+                        <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
+                        <span>Selecciona la aseguradora de la cotización para poder guardarla.</span>
+                    </div>
+                </template>
+
+                <div class="censo-acciones derecha">
+                    <lightning-button label="Cancelar" onclick={cancelar}></lightning-button>
+                    <lightning-button label="Cambiar columnas" onclick={volverAMapeo}></lightning-button>
+                    <lightning-button label={textoGuardar} variant="brand" icon-name="utility:save" onclick={guardar} disabled={sinGuardar}></lightning-button>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

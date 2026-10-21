@@ -617,4 +617,30 @@ private class PdfOpportunityCreatorControllerTest {
         Map<String, Object> vacio = PdfOpportunityCreatorController.analyzeQuotes(new List<String>(), new List<String>());
         System.assertNotEquals(null, vacio);
     }
+
+    /**
+     * @creation date: 19/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que los productos se filtren por ramo con equivalencias y sin ofrecer productos de otro ramo.
+     */
+    @isTest
+    static void testProductosSoloDelRamo() {
+        System.assert(PdfOpportunityCreatorController.ramoCoincide('Hogar', 'Danos'), 'Hogar es Daños');
+        System.assert(PdfOpportunityCreatorController.ramoCoincide('Daños', 'Danos'), 'Con y sin acento');
+        System.assert(PdfOpportunityCreatorController.ramoCoincide('Gastos Médicos Mayores', 'GMM'), 'GMM');
+        System.assert(PdfOpportunityCreatorController.ramoCoincide(null, 'Danos'), 'Producto sin ramo aplica');
+        System.assert(!PdfOpportunityCreatorController.ramoCoincide('Vida', 'Danos'), 'Vida no es Daños');
+        Aseguradora__c aseg = new Aseguradora__c(Name = 'Aseg Ramo Test');
+        insert aseg;
+        insert new List<Product2>{
+            new Product2(Name = 'Vida Test', Family = 'Vida', IsActive = true, Aseguradora__c = aseg.Id),
+            new Product2(Name = 'GMM Test', Family = 'GMM', IsActive = true, Aseguradora__c = aseg.Id)
+        };
+        Test.startTest();
+        List<Map<String, Object>> danos = PdfOpportunityCreatorController.getProductosPorAseguradoraRamo(aseg.Id, 'Danos');
+        List<Map<String, Object>> vida = PdfOpportunityCreatorController.getProductosPorAseguradoraRamo(aseg.Id, 'Vida');
+        Test.stopTest();
+        System.assertEquals(0, danos.size(), 'Sin productos de Daños no ofrece los de otro ramo');
+        System.assertEquals(1, vida.size());
+    }
 }

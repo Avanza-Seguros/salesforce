@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Cotizaciones de flotilla (Auto colectivo): carga por aseguradora y comparativo por tipo de vehículo e inciso.</description>
+</LightningComponentBundle>

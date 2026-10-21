@@ -341,4 +341,43 @@ private class QuoteCreatorControllerTest {
         System.assert(vacio.isEmpty(), 'Con id nulo debe regresar lista vacía');
         System.assertNotEquals(null, plantillas, 'Debe ejecutar la consulta de coberturas plantilla');
     }
+
+    /**
+     * @creation date: 12/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que las coberturas guardadas con el código del catálogo (PC-…) se muestren con el nombre
+     * real de su tipo de cobertura, y que al guardar no se dupliquen las que la cotización ya tiene.
+     * @return void
+     */
+    @isTest
+    static void testCoberturasConCodigoYSinDuplicar() {
+        Quote q = [SELECT Id, Product__c FROM Quote LIMIT 1];
+        CoverageType ct = new CoverageType(Name = 'Fallecimiento Real');
+        insert ct;
+        ProductCoverage pc = new ProductCoverage(ProductId = q.Product__c, CoverageTypeId = ct.Id, IsCovered = true);
+        insert pc;
+        insert new Quote_Coverage__c(Quote__c = q.Id, Product__c = q.Product__c, Product_Coverage__c = pc.Id,
+            Coverage_Name__c = 'PC-00009999', Order__c = 2);
+
+        Test.startTest();
+        List<Quote_Coverage__c> covs = QuoteCreatorController.getCoveragesByQuoteId(q.Id);
+        Integer antes = [SELECT COUNT() FROM Quote_Coverage__c WHERE Quote__c = :q.Id];
+        // La misma cobertura del catálogo (sin Id) y una por nombre repetido: no se insertan.
+        QuoteCreatorController.saveCoverages(new List<Quote_Coverage__c>{
+            new Quote_Coverage__c(Quote__c = q.Id, Product__c = q.Product__c, Product_Coverage__c = pc.Id, Coverage_Name__c = 'Fallecimiento Real'),
+            new Quote_Coverage__c(Quote__c = q.Id, Coverage_Name__c = 'COBERTURA TEST'),
+            new Quote_Coverage__c(Quote__c = q.Id, Coverage_Name__c = 'Cobertura Nueva')
+        });
+        QuoteCreatorController.saveCoverages(new List<Quote_Coverage__c>());
+        Test.stopTest();
+
+        Boolean conNombreReal = false;
+        for (Quote_Coverage__c c : covs) {
+            if (c.Product_Coverage__c == pc.Id) { conNombreReal = c.Coverage_Name__c == 'Fallecimiento Real'; }
+        }
+        System.assert(conNombreReal, 'Debe mostrar el nombre real en lugar del código PC-');
+        System.assertEquals(antes + 1, [SELECT COUNT() FROM Quote_Coverage__c WHERE Quote__c = :q.Id], 'Solo se agrega la cobertura nueva');
+        System.assert(QuoteCreatorController.esCodigoCatalogo('PC-00007522'));
+        System.assert(!QuoteCreatorController.esCodigoCatalogo('Muerte Accidental'));
+    }
 }

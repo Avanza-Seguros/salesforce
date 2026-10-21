@@ -107,7 +107,9 @@ public with sharing class OpportunityQuotesController {
 			String title = link.ContentDocument != null
 				? link.ContentDocument.Title
 				: null;
-			if (String.isNotBlank(title) && title.startsWith('Comparativo_')) {
+			// Comparativo de cotizaciones individuales (Comparativo_...) y el colectivo / de flotilla (Comparativo colectivo - ...).
+			if (String.isNotBlank(title) && (title.startsWith('Comparativo_') || title.startsWith('Comparativo colectivo')
+					|| title.startsWith('Comparativo flotilla'))) {
 				ComparativoLink c = new ComparativoLink();
 				c.contentDocumentId = link.ContentDocumentId;
 				c.title = title;

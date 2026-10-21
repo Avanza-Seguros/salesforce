@@ -49,6 +49,22 @@
                                     <span class="stat-value">{totalOpportunitiesAmount}</span>
                                 </div>
                             </div>
+                            <template if:true={esSegmentoColectivas}>
+                                <div class="stat-item">
+                                    <lightning-icon icon-name="utility:groups" size="small" class="stat-icon"></lightning-icon>
+                                    <div class="stat-text">
+                                        <span class="stat-label">Asegurados</span>
+                                        <span class="stat-value">{totalAseguradosColectivas}</span>
+                                    </div>
+                                </div>
+                                <div class="stat-item">
+                                    <lightning-icon icon-name="utility:location" size="small" class="stat-icon"></lightning-icon>
+                                    <div class="stat-text">
+                                        <span class="stat-label">Unidades / ubicaciones</span>
+                                        <span class="stat-value">{totalUnidadesColectivas}</span>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </template>
                     <template if:true={showCreateView}>
@@ -133,6 +149,16 @@
                         </button>
                     </div>
                 </div>
+                <!-- Segmentos: individuales / colectivas -->
+                <div class="segmentos" role="group" aria-label="Tipo de contratación">
+                    <template for:each={segmentosTipo} for:item="seg">
+                        <button key={seg.valor} class={seg.clase} data-tipo={seg.valor} onclick={handleTipoFiltro} aria-pressed={seg.presionado}>
+                            <lightning-icon icon-name={seg.icono} size="xx-small" class="segmento-icono"></lightning-icon>
+                            <span>{seg.etiqueta}</span>
+                            <span class="segmento-total">{seg.total}</span>
+                        </button>
+                    </template>
+                </div>
                 <!-- Listado -->
                 <div class="opportunities-list-container">
                     <template if:true={isLoading}>
@@ -161,8 +187,15 @@
                                     </thead>
                                     <tbody>
                                         <template for:each={processedOpportunities} for:item="opp">
-                                            <tr key={opp.Id} class={opp.statusClass}>
-                                                <td class="opp-name-cell" title={opp.Name}>{opp.Name}</td>
+                                            <tr key={opp.Id} class={opp.filaClase}>
+                                                <td class="opp-name-cell" title={opp.Name}>
+                                                    <div class="opp-name">{opp.Name}</div>
+                                                    <span class={opp.chipClase}>
+                                                        <lightning-icon icon-name={opp.chipIcono} size="xx-small" class="chip-icono"></lightning-icon>
+                                                        <span>{opp.chipTexto}</span>
+                                                    </span>
+                                                    <template if:true={opp.chipSub}><span class="chip-sub">{opp.chipSub}</span></template>
+                                                </td>
                                                 <td>{opp.Account.Name}</td>
                                                 <td>
                                                     <span class="stage-badge">
@@ -170,7 +203,7 @@
                                                         <span>{opp.stageLabel}</span>
                                                     </span>
                                                 </td>
-                                                <td>{opp.Ramo__c}</td>
+                                                <td>{opp.ramoLabel}</td>
                                                 <td>{opp.typeLabel}</td>
                                                 <td>{opp.Canal__c}</td>
                                                 <td class="amount-cell">{opp.amountFormatted}</td>
@@ -686,7 +719,7 @@
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 3: INFORMACIÓN ESPECÍFICA DEL RAMO             -->
                 <!-- ====================================================== -->
-                <div class="unified-section" if:true={showCreateView}>
+                <div class="unified-section" if:true={mostrarDetalleRamo}>
                     <div class="section-header-compact">
                         <div class="section-icon">
                             <lightning-icon icon-name="utility:product" size="small"></lightning-icon>
@@ -1117,6 +1150,65 @@
                         </div>
                     </div>
                 </template>
+                <!-- Censo de asegurados de la contratación COLECTIVA (GroupCensus) -->
+                <!-- Flotilla (Colectiva de Automóviles): cotizaciones por inciso de cada aseguradora -->
+                <template if:true={isFlotilla}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Flotilla</h2>
+                                <p class="section-subtitle">Cotizaciones por inciso de cada aseguradora y comparativo</p>
+                            </div>
+                            <div class="section-badge">{flotillaBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-flotilla-colectiva opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                modo="carga" onflotillaactualizada={handleFlotillaActualizada}
+                                oncotizacioncreada={handleCotizacionColectiva}></c-flotilla-colectiva>
+                        </div>
+                    </div>
+                </template>
+                <template if:true={isCensoPersonas}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Censo de asegurados</h2>
+                                <p class="section-subtitle">Titulares, dependientes y categorías de la póliza colectiva</p>
+                            </div>
+                            <div class="section-badge">{censoBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-censo-colectivo opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                oncensoactualizado={handleCensoActualizado}></c-censo-colectivo>
+                        </div>
+                    </div>
+                </template>
+                <!-- Cotizaciones colectivas (personas: GMM, Vida, AP, Dental, Visión, Viajes; ubicaciones: Daños, Empresarial): una por aseguradora y comparativo -->
+                <template if:true={mostrarCotizacionesColectivas}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Cotizaciones colectivas</h2>
+                                <p class="section-subtitle">{colectivoSubtitulo}</p>
+                            </div>
+                            <div class="section-badge">{colectivoBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
+                                modo="carga" oncolectivoactualizado={handleColectivoActualizado}
+                                oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
+                        </div>
+                    </div>
+                </template>
                 <!-- ====================================================== -->
                 <!-- SECCIÓN 4: COTIZACIONES RELACIONADAS                   -->
                 <!-- (sólo en modo edición — en modo creación no existen)   -->
@@ -1205,7 +1297,7 @@
                                                     <lightning-badge label={q.statusLabel} class={q.statusBadgeClass}></lightning-badge>
                                                 </td>
                                                 <td class="amount-cell">{q.totalFormatted}</td>
-                                                <td>{q.expirationFormatted}</td>
+                                                <td>{q.fechaCotizacionFormatted}</td>
                                                 <td>
                                                     <button class="icon-btn" onclick={handleViewQuote} data-id={q.Id} title="Ver cotización">
                                                         <lightning-icon icon-name="utility:preview" size="xx-small"></lightning-icon>
@@ -1348,8 +1440,42 @@
                     <!-- ====================================================== -->
                     <!-- SECCIÓN 4.B: COMPARATIVA DE COTIZACIONES               -->
                     <!-- Sólo se muestra si hay 2 o más cotizaciones            -->
+                    <!-- En colectivas (personas / ubicaciones) muestra el      -->
+                    <!-- comparativo colectivo en lugar del general.            -->
                     <!-- ====================================================== -->
-                    <template if:true={hasQuoteComparison}>
+                    <template if:true={mostrarComparativaColectiva}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">{comparativaColectivaSubtitulo}</p>
+                                </div>
+                                <div class="section-badge compare-badge">{colectivoBadge}</div>
+                            </div>
+                            <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
+                                modo="comparativo" oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
+                        </div>
+                    </template>
+                    <template if:true={mostrarComparativaFlotilla}>
+                        <div class="unified-section comparison-section">
+                            <div class="section-header-compact">
+                                <div class="section-icon compare-icon">
+                                    <lightning-icon icon-name="utility:comparison" size="small"></lightning-icon>
+                                </div>
+                                <div class="section-title-group">
+                                    <h2 class="section-title">Comparativa de Cotizaciones</h2>
+                                    <p class="section-subtitle">Compara prima, unidades y prima por vehículo para elegir la mejor opción</p>
+                                </div>
+                                <div class="section-badge compare-badge">{flotillaBadge}</div>
+                            </div>
+                            <c-flotilla-colectiva opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                modo="comparativo" oncotizacioncreada={handleCotizacionColectiva}></c-flotilla-colectiva>
+                        </div>
+                    </template>
+                    <template if:true={mostrarComparativaGeneral}>
                         <div class="unified-section comparison-section">
                             <div class="section-header-compact">
                                 <div class="section-icon compare-icon">
