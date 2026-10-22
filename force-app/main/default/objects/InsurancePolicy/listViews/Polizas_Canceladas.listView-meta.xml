@@ -5,6 +5,7 @@
     <columns>Aseguradora__c</columns>
     <columns>carrierPolicyStatusRaw__c</columns>
     <columns>NameInsured</columns>
+    <columns>insuredPhone__c</columns>
     <columns>PremiumFrequency</columns>
     <columns>EffectiveDate</columns>
     <columns>ExpirationDate</columns>
