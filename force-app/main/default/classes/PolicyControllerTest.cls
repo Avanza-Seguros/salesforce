@@ -30,14 +30,15 @@ private class PolicyControllerTest {
      */
     @testSetup
     static void setup() {
-        Account acc = new Account(Name = 'Cuenta Póliza Test');
+        Account acc = new Account(Name = 'Cuenta Póliza Test', AnnualRevenue = 100);
         insert acc;
 
         Opportunity opp = new Opportunity(
             Name = 'Opp Póliza Test',
             StageName = activeStage(),
             CloseDate = Date.today().addDays(30),
-            AccountId = acc.Id
+            AccountId = acc.Id,
+            Ramo__c = 'Vida'
         );
         insert opp;
 

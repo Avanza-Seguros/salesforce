@@ -260,7 +260,7 @@ private class PdfOpportunityCreatorControllerTest {
         insert acc;
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Dup', StageName = activeStage(),
-            CloseDate = Date.today().addDays(15), AccountId = acc.Id
+            CloseDate = Date.today().addDays(15), AccountId = acc.Id, Ramo__c = 'Vida'
         );
         insert opp;
 
@@ -432,7 +432,7 @@ private class PdfOpportunityCreatorControllerTest {
      * @return Oportunidad creada
      */
     static Opportunity oportunidadConCatalogo() {
-        Account acc = new Account(Name = 'Cliente Cotizaciones PDF');
+        Account acc = new Account(Name = 'Cliente Cotizaciones PDF', AnnualRevenue = 100);
         insert acc;
         Opportunity opp = new Opportunity(Name = 'Opp Cotizaciones PDF', StageName = activeStage(),
             CloseDate = Date.today().addDays(30), AccountId = acc.Id, Ramo__c = 'Vida');

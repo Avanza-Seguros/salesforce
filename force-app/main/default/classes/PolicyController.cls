@@ -1389,7 +1389,9 @@ public with sharing class PolicyController {
 
 		String nombre = ('Familia ' + titular.Name.normalizeSpace()).left(80);
 		Account cuenta = new Account(Name = nombre);
-		Schema.RecordTypeInfo rt = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
+		// Cuenta del hogar: tipo general (no empresa), así no le aplican las reglas de cuentas empresariales.
+		Map<String, Schema.RecordTypeInfo> rts = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+		Schema.RecordTypeInfo rt = rts.containsKey('Default_Account') ? rts.get('Default_Account') : rts.get('Business_Account');
 		if (rt != null) { cuenta.RecordTypeId = rt.getRecordTypeId(); }
 		insert cuenta;
 		SObject g = nuevoRegistro('PartyRelationshipGroup');

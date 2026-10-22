@@ -92,6 +92,8 @@ public with sharing class PdfOpportunityCreatorController {
 				StageName = defaultStageName(),
 				CloseDate = Date.today().addMonths(1)
 			);
+			// Ramo obligatorio en la oportunidad: el borrador lleva el de omisión hasta que la IA lo detecte.
+			applyOpportunityDefaults(draft);
 			insert draft;
 
 			List<ContentVersion> versions = new List<ContentVersion>();
