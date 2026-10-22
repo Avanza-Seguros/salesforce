@@ -12,7 +12,9 @@
  *                 activas con el mismo numero). Puede lanzarse manualmente sobre
  *                 cualquier registro en estado Normalizado sin requerir reenvio desde
  *                 integracion. Encadena a InboundInstallmentCandidateQueueable para
- *                 la resolucion de cuota candidata.
+ *                 la resolucion de cuota candidata. El cobro de una poliza cancelada
+ *                 no se encadena: queda en Revision Manual con su conciliacion en
+ *                 revision, para que una persona lo apruebe o lo rechace.
  */
 public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	private static final String STATUS_NORMALIZED = 'Normalizado';
@@ -152,6 +154,7 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 			}
 		}
 		Set<Id> heldForReview = new Set<Id>();
+		Set<Id> heldOnCancelledPolicy = new Set<Id>();
 		Set<Id> handleSourced = CarrierDataSourceService.handleSourcedPolicies(
 			statusByPolicy.keySet()
 		);
@@ -196,6 +199,7 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 					rec.manualReviewRequired__c = true;
 					rec.manualReviewReason__c = REVIEW_REASON_CANCELLED_POLICY;
 					heldForReview.add(p.Id);
+					heldOnCancelledPolicy.add(p.Id);
 					CobranzaLog.info(
 							CobranzaLog.STAGE_POLIZA_CANDIDATA,
 							CobranzaLog.EVENT_PAYMENT_ON_CANCELLED_POLICY,
@@ -218,6 +222,25 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 		}
 
 		update toUpdate;
+
+		// El cobro de una poliza cancelada no sigue el circuito, pero necesita su conciliacion en
+		// revision: es donde la persona lo aprueba (eligiendo la cuota) o lo rechaza.
+		if (!heldOnCancelledPolicy.isEmpty()) {
+			try {
+				PaymentReconciliationQueueable.upsertReconciliations(
+					heldOnCancelledPolicy
+				);
+			} catch (Exception e) {
+				for (Id inboundId : heldOnCancelledPolicy) {
+					CobranzaLog.error(
+							CobranzaLog.STAGE_POLIZA_CANDIDATA,
+							CobranzaLog.EVENT_RECONCILIATION_BUILD_FAILED,
+							e
+						)
+						.onInbound(inboundId);
+				}
+			}
+		}
 
 		Set<Id> allIds = new Set<Id>();
 		for (InboundInsurancePayment__c rec : toUpdate) {

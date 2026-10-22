@@ -29,7 +29,12 @@ public with sharing class PaymentReconciliationManualService {
 	private static final String INBOUND_STATUS_REJECTED = 'Rechazado';
 	private static final String INBOUND_STATUS_NORMALIZED = 'Normalizado';
 	private static final String INBOUND_REJECTION_REASON_BUSINESS = 'Rechazado por negocio';
-	private static final String PLAN_STATUS_ACTIVE = 'Activo';
+	// Planes cuyas cuotas abiertas se pueden elegir al aprobar. Un plan Cancelado conserva abiertas
+	// las cuotas que vencian antes de la cancelacion: un pago tardio de la poliza puede saldarlas.
+	private static final Set<String> PLAN_STATUSES_WITH_PAYABLE_INSTALLMENTS = new Set<String>{
+		'Activo',
+		'Cancelado'
+	};
 	private static final String RECEIPT_STATUS_REVERSED = 'Reversado';
 
 	private static final Set<String> CLOSED_STATUSES = new Set<String>{
@@ -467,8 +472,10 @@ public with sharing class PaymentReconciliationManualService {
 	 * @creation date: 18/07/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Devuelve las cuotas abiertas (Pendiente/Vencido, sin recibo vinculado)
-	 *               de los planes activos de una poliza, para que el analista elija la
-	 *               cuota final en la UI de aprobacion.
+	 *               de los planes activos o cancelados de una poliza, para que el analista
+	 *               elija la cuota final en la UI de aprobacion. Las de un plan cancelado son
+	 *               las que vencian antes de la cancelacion (las posteriores ya estan
+	 *               canceladas).
 	 * @param policyId: Id de la InsurancePolicy seleccionada.
 	 * @return Lista de PaymentPlanInstallment__c elegibles ordenadas por secuencia.
 	 */
@@ -491,7 +498,7 @@ public with sharing class PaymentReconciliationManualService {
 			FROM PaymentPlanInstallment__c
 			WHERE
 				paymentPlan__r.insurancePolicy__c = :policyId
-				AND paymentPlan__r.planStatus__c = :PLAN_STATUS_ACTIVE
+				AND paymentPlan__r.planStatus__c IN :PLAN_STATUSES_WITH_PAYABLE_INSTALLMENTS
 				AND installmentStatus__c IN :OPEN_INSTALLMENT_STATUSES
 				AND matchedReceipt__c = NULL
 			ORDER BY sequenceNumber__c

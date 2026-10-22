@@ -77,6 +77,43 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 			)
 		);
 
+		Set<Id> reconciledReconciliationIds = upsertReconciliations(
+			inboundPaymentIds
+		);
+
+		CobranzaLog.markStage(inboundPaymentIds, CobranzaLog.STAGE_CONCILIACION);
+
+		if (!reconciledReconciliationIds.isEmpty()) {
+			try {
+				System.enqueueJob(
+					new PolicyPaymentReceiptQueueable(reconciledReconciliationIds)
+				);
+			} catch (System.AsyncException e) {
+				CobranzaLog.chainBreak(
+					CobranzaLog.STAGE_CONCILIACION,
+					e,
+					'PolicyPaymentReceiptQueueable',
+					reconciledReconciliationIds
+				);
+			}
+		}
+
+		AppLogger.flush();
+	}
+
+	/**
+	 * @creation date: 21/10/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Crea o actualiza la PaymentReconciliation__c de cada inbound con su ultimo
+	 *               resultado, respetando las resueltas manualmente. Lo usa este job y tambien
+	 *               el eslabon de la poliza candidata para los cobros de polizas canceladas, que
+	 *               no siguen el circuito pero necesitan su conciliacion para que una persona
+	 *               pueda aprobarlos o rechazarlos.
+	 * @param inboundPaymentIds: IDs de InboundInsurancePayment__c ya evaluados.
+	 * @return IDs de las conciliaciones que quedaron en Conciliado.
+	 */
+	public static Set<Id> upsertReconciliations(Set<Id> inboundPaymentIds) {
+		Set<Id> reconciledReconciliationIds = new Set<Id>();
 		List<InboundInsurancePayment__c> payments = [
 			SELECT
 				Id,
@@ -95,7 +132,7 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 		];
 
 		if (payments.isEmpty()) {
-			return;
+			return reconciledReconciliationIds;
 		}
 
 		Map<Id, PaymentReconciliation__c> existingByInbound = new Map<Id, PaymentReconciliation__c>();
@@ -128,7 +165,6 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 		List<PaymentReconciliation__c> toInsert = new List<PaymentReconciliation__c>();
 		List<PaymentReconciliation__c> toUpdate = new List<PaymentReconciliation__c>();
 		List<PaymentReconciliation__c> reconciledNewRecs = new List<PaymentReconciliation__c>();
-		Set<Id> reconciledReconciliationIds = new Set<Id>();
 
 		for (InboundInsurancePayment__c p : payments) {
 			try {
@@ -182,28 +218,10 @@ public with sharing class PaymentReconciliationQueueable implements Queueable {
 			update toUpdate;
 		}
 
-		CobranzaLog.markStage(inboundPaymentIds, CobranzaLog.STAGE_CONCILIACION);
-
 		for (PaymentReconciliation__c rec : reconciledNewRecs) {
 			reconciledReconciliationIds.add(rec.Id);
 		}
-
-		if (!reconciledReconciliationIds.isEmpty()) {
-			try {
-				System.enqueueJob(
-					new PolicyPaymentReceiptQueueable(reconciledReconciliationIds)
-				);
-			} catch (System.AsyncException e) {
-				CobranzaLog.chainBreak(
-					CobranzaLog.STAGE_CONCILIACION,
-					e,
-					'PolicyPaymentReceiptQueueable',
-					reconciledReconciliationIds
-				);
-			}
-		}
-
-		AppLogger.flush();
+		return reconciledReconciliationIds;
 	}
 
 	/**

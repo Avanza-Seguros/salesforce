@@ -97,6 +97,126 @@ private class InboundReconciliationRulesQueueableTest {
 	}
 
 	@IsTest
+	static void classifiesExactWhenThePaymentNamesItsReceiptAndTheAmountMatches() {
+		Id policyId = createPolicy('POL-RR-011');
+		PaymentPlanInstallment__c inst = createInstallmentForPolicy(
+			policyId,
+			3,
+			Date.today().addDays(30),
+			400
+		);
+		// Sin vencimiento ni numero de cuota: el recibo basta.
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-RR-011',
+			policyId,
+			inst.Id,
+			'RECIBO_EXACTO',
+			null,
+			null,
+			400
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundReconciliationRulesQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = queryResult(inbound.Id);
+		Assert.areEqual(
+			'EXACT_POLICY_AND_SEQUENCE',
+			inbound.reconciliationMethod__c
+		);
+		Assert.areEqual('Match Exacto', inbound.reconciliationResult__c);
+	}
+
+	@IsTest
+	static void aReceiptMatchWithAnotherAmountFollowsTheUsualRules() {
+		Id policyId = createPolicy('POL-RR-012');
+		PaymentPlanInstallment__c inst = createInstallmentForPolicy(
+			policyId,
+			1,
+			Date.today().addDays(30),
+			400
+		);
+		InboundInsurancePayment__c inbound = createNormalizedInbound(
+			'EXT-RR-012',
+			policyId,
+			inst.Id,
+			'RECIBO_EXACTO',
+			null,
+			null,
+			100
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundReconciliationRulesQueueable(new Set<Id>{ inbound.Id })
+		);
+		Test.stopTest();
+
+		inbound = queryResult(inbound.Id);
+		Assert.areEqual(
+			'POLICY_ONLY',
+			inbound.reconciliationMethod__c,
+			'Un importe distinto puede ser un pago parcial: lo revisa una persona'
+		);
+		Assert.areEqual('Match Probable', inbound.reconciliationResult__c);
+	}
+
+	@IsTest
+	static void theSequenceComparesTheCarrierInstallmentNumber() {
+		Id policyId = createPolicy('POL-RR-013');
+		PaymentPlanInstallment__c inst = createInstallmentForPolicy(
+			policyId,
+			5,
+			Date.today().addDays(30),
+			400
+		);
+		update new PaymentPlanInstallment__c(
+			Id = inst.Id,
+			carrierInstallmentNumber__c = 2
+		);
+		InboundInsurancePayment__c conTotal = createNormalizedInbound(
+			'EXT-RR-013A',
+			policyId,
+			inst.Id,
+			'UNICO_GANADOR',
+			'02/12',
+			null,
+			999
+		);
+		InboundInsurancePayment__c ordenCorrido = createNormalizedInbound(
+			'EXT-RR-013B',
+			policyId,
+			inst.Id,
+			'UNICO_GANADOR',
+			'5',
+			null,
+			999
+		);
+
+		Test.startTest();
+		System.enqueueJob(
+			new InboundReconciliationRulesQueueable(
+				new Set<Id>{ conTotal.Id, ordenCorrido.Id }
+			)
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			'EXACT_POLICY_AND_SEQUENCE',
+			queryResult(conTotal.Id).reconciliationMethod__c,
+			'"02/12" es la cuota 2 de la aseguradora'
+		);
+		Assert.areEqual(
+			'POLICY_ONLY',
+			queryResult(ordenCorrido.Id).reconciliationMethod__c,
+			'El orden corrido ya no cuenta cuando la cuota tiene su numero de la aseguradora'
+		);
+	}
+
+	@IsTest
 	static void classifiesPolicyDateAmountWhenDateAndAmountMatch() {
 		Id policyId = createPolicy('POL-RR-004');
 		Date dueDate = Date.today().addDays(30);

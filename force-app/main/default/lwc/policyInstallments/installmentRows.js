@@ -11,7 +11,8 @@
  * por un dato de la aseguradora, pero su mora se muestra igual, para que alguien la revise.
  */
 
-const EMISSION_ENDORSEMENT = "000000";
+// La emisión original llega como endoso vacío o en ceros ("0", "000000"), según la fuente.
+const EMISSION_ENDORSEMENT = /^0+$/;
 const CLOSED_STATUSES = ["Cancelado", "Condonado"];
 
 /** Etiqueta de la cuota: el número que le da la aseguradora y, si viene de un endoso, cuál. */
@@ -23,7 +24,7 @@ function labelFor(origin, live) {
 	}
 	const endorsement = origin.carrierEndorsementNumber__c;
 	const suffix =
-		endorsement && endorsement !== EMISSION_ENDORSEMENT
+		endorsement && !EMISSION_ENDORSEMENT.test(endorsement.trim())
 			? ` · Endoso ${endorsement}`
 			: "";
 	return `Cuota ${origin.carrierInstallmentNumber__c}${suffix}`;
