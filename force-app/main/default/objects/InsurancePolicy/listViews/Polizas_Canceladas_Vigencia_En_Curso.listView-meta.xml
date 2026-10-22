@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Canceladas_Vigencia_En_Curso</fullName>
+    <columns>Name</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>NameInsured</columns>
+    <columns>insuredPhone__c</columns>
+    <columns>carrierPolicyStatusRaw__c</columns>
+    <columns>EffectiveDate</columns>
+    <columns>ExpirationDate</columns>
+    <columns>CancellationDate</columns>
+    <columns>PremiumAmount</columns>
+    <columns>insuredAssetDescription__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status</field>
+        <operation>equals</operation>
+        <value>Cancelado</value>
+    </filters>
+    <filters>
+        <field>ExpirationDate</field>
+        <operation>greaterThan</operation>
+        <value>TODAY</value>
+    </filters>
+    <label>Canceladas con vigencia en curso</label>
+    <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
+</ListView>

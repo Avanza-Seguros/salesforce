@@ -363,6 +363,11 @@
         <members>PaymentPlan__c.handleLookupKey__c</members>
         <members>PaymentReconciliation__c.handleLookupKey__c</members>
         <members>PolicyPaymentReceipt__c.handleLookupKey__c</members>
+        <members>PaymentPlanInstallment__c.policyNumber__c</members>
+        <members>PaymentPlanInstallment__c.carrierName__c</members>
+        <members>PaymentPlanInstallment__c.insuredPhone__c</members>
+        <members>PaymentPlanInstallment__c.policyStatus__c</members>
+        <members>InsurancePolicy.insuredPhone__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -427,7 +432,6 @@
     <types>
         <members>Bloquear_Closed_Won_Sin_Pago_Reconocido</members>
         <members>Cerrada_Ganada_Automatico</members>
-        <members>Update_Status_Insurance_Policy</members>
         <name>Flow</name>
     </types>
     <types>
@@ -461,6 +465,9 @@
         <members>InboundPolicyUpdate__c.Todas</members>
         <members>InsurancePolicy.Polizas_Sin_Reportar</members>
         <members>InsurancePolicy.Polizas_Vigentes_Estado_Especial</members>
+        <members>PaymentPlanInstallment__c.Cartera_Vencida</members>
+        <members>InsurancePolicy.Polizas_Pagos_Vencidos</members>
+        <members>InsurancePolicy.Polizas_Canceladas_Vigencia_En_Curso</members>
         <name>ListView</name>
     </types>
     <types>
@@ -469,6 +476,7 @@
         <members>PaymentReconciliation__c</members>
         <members>PolicyPaymentReceipt__c</members>
         <members>InboundPolicyUpdate__c</members>
+        <members>PaymentPlanInstallment__c</members>
         <name>CustomTab</name>
     </types>
     <types>

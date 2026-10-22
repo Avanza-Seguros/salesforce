@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>policyNumber__c</fullName>
+    <description
+	>Numero de la poliza, traido desde la poliza a traves del plan de pago. Existe porque las vistas de lista sobre cuotas no pueden alcanzar campos de la poliza ni de la cuenta; al ser formula no se mantiene ni ocupa espacio.</description>
+    <formula>paymentPlan__r.insurancePolicy__r.Name</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Póliza</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
