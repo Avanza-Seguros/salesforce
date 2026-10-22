@@ -6,7 +6,8 @@
  *   @description: Verifica que el estado operativo de la poliza refleja lo que comunica la
  *                 aseguradora: la cancelacion manda, la rehabilitacion la devuelve a vigente, un
  *                 "vigente" sobre una vigencia terminada la deja vencida, las cuotas y el plan
- *                 siguen a la poliza, un cobro de una poliza cancelada queda para revision y
+ *                 siguen a la poliza, un cobro de una poliza cancelada queda para revision (y si
+ *                 una persona lo aprueba gana la oportunidad sin revivir la poliza) y
  *                 aplicarlo dos veces no cambia nada.
  */
 @IsTest
@@ -313,6 +314,124 @@ private class PolicyStatusFromCarrierTest {
 				WHERE eventCode__c = :CobranzaLog.EVENT_PAYMENT_ON_CANCELLED_POLICY
 			]
 		);
+
+		List<PaymentReconciliation__c> conciliaciones = [
+			SELECT
+				reconciliationStatus__c,
+				insurancePolicy__c,
+				paymentPlanInstallment__c
+			FROM PaymentReconciliation__c
+			WHERE inboundPayment__c = :pago.Id
+		];
+		Assert.areEqual(
+			1,
+			conciliaciones.size(),
+			'Tiene su conciliacion: es donde una persona lo aprueba o lo rechaza'
+		);
+		Assert.areEqual(
+			'Requiere revision',
+			conciliaciones[0].reconciliationStatus__c
+		);
+		Assert.areEqual(e.policyId, conciliaciones[0].insurancePolicy__c);
+		Assert.isNull(
+			conciliaciones[0].paymentPlanInstallment__c,
+			'La cuota la elige la persona al aprobar'
+		);
+	}
+
+	/**
+	 * @description: Si la persona aprueba el pago tardio de una poliza que la aseguradora cancelo
+	 *               antes de su primer pago, la cuota se concilia y la oportunidad se gana, pero la
+	 *               poliza sigue cancelada hasta que la aseguradora la rehabilite.
+	 */
+	@IsTest
+	static void approvingALatePaymentWinsTheOpportunityButKeepsThePolicyCancelled() {
+		Escenario e = nuevoEscenario('Inicial');
+		Opportunity opp = nuevaOportunidad();
+		update new InsurancePolicy(Id = e.policyId, SourceOpportunityId = opp.Id);
+		comunicar(
+			e,
+			'Cancelado',
+			'Cancelada',
+			CANCELLED_ON,
+			DateTime.newInstanceGmt(2026, 9, 16, 16, 0, 0)
+		);
+		InboundInsurancePayment__c pago = new InboundInsurancePayment__c(
+			externalPaymentId__c = 'QUALITAS_R43902',
+			inboundStatus__c = 'Revision Manual',
+			manualReviewRequired__c = true,
+			sourcePolicyNumber__c = POLICY_NUMBER,
+			sourceCarrierCode__c = 'QUALITAS',
+			sourceReceiptNumber__c = 'R43902',
+			sourceAmount__c = 300,
+			sourcePaymentDate__c = Date.today(),
+			sourceDueDate__c = CANCELLED_ON.addMonths(-1),
+			receivedAt__c = System.now(),
+			candidatePolicy__c = e.policyId
+		);
+		insert pago;
+		PaymentReconciliationQueueable.upsertReconciliations(
+			new Set<Id>{ pago.Id }
+		);
+		Id conciliacion = [
+			SELECT Id
+			FROM PaymentReconciliation__c
+			WHERE inboundPayment__c = :pago.Id
+		]
+		.Id;
+		Id cuotaAnterior = cuotasPorSecuencia(e.policyId).get(1).Id;
+		List<PaymentPlanInstallment__c> elegibles = PaymentReconciliationManualService.getOpenInstallments(
+			e.policyId
+		);
+		Assert.areEqual(
+			1,
+			elegibles.size(),
+			'La pantalla ofrece solo la cuota que vencia antes de la cancelacion'
+		);
+		Assert.areEqual(cuotaAnterior, elegibles[0].Id);
+
+		Test.startTest();
+		PaymentReconciliationManualService.approve(
+			conciliacion,
+			e.policyId,
+			cuotaAnterior,
+			'Pago tardio del cliente'
+		);
+		Test.stopTest();
+
+		Assert.areEqual(
+			'Closed Won',
+			[SELECT StageName FROM Opportunity WHERE Id = :opp.Id].StageName,
+			'El primer pago reconocido gana la oportunidad'
+		);
+		Assert.areEqual(
+			'Cancelado',
+			poliza(e.policyId).Status,
+			'Solo la aseguradora devuelve la poliza a Vigente'
+		);
+		PaymentReconciliation__c aprobada = [
+			SELECT reconciliationStatus__c, paymentPlanInstallment__c
+			FROM PaymentReconciliation__c
+			WHERE Id = :conciliacion
+		];
+		Assert.areEqual('Conciliado', aprobada.reconciliationStatus__c);
+		Assert.areEqual(cuotaAnterior, aprobada.paymentPlanInstallment__c);
+		Assert.areEqual(
+			'Cancelado',
+			[SELECT planStatus__c FROM PaymentPlan__c WHERE Id = :e.planId]
+			.planStatus__c,
+			'El plan sigue cancelado'
+		);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM PolicyPaymentReceipt__c
+				WHERE
+					insurancePolicy__c = :e.policyId
+					AND receiptStatus__c = 'Reconocido'
+			]
+		);
 	}
 
 	/**
@@ -322,15 +441,7 @@ private class PolicyStatusFromCarrierTest {
 	@IsTest
 	static void closingTheOpportunityDoesNotRevivePolicy() {
 		Escenario e = nuevoEscenario('Inicial');
-		Opportunity opp = new Opportunity(
-			Name = 'OPP-439',
-			AccountId = CollectionsTestDataFactory.getDefaultInsuredAccountId(),
-			StageName = 'Póliza',
-			CloseDate = Date.today().addMonths(1),
-			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
-			Ramo__c = 'Automoviles'
-		);
-		insert opp;
+		Opportunity opp = nuevaOportunidad();
 		update new InsurancePolicy(Id = e.policyId, SourceOpportunityId = opp.Id);
 		comunicar(
 			e,
@@ -486,6 +597,19 @@ private class PolicyStatusFromCarrierTest {
 		};
 		insert cuotas;
 		return e;
+	}
+
+	private static Opportunity nuevaOportunidad() {
+		Opportunity opp = new Opportunity(
+			Name = 'OPP-439',
+			AccountId = CollectionsTestDataFactory.getDefaultInsuredAccountId(),
+			StageName = 'Póliza',
+			CloseDate = Date.today().addMonths(1),
+			Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
+			Ramo__c = 'Automoviles'
+		);
+		insert opp;
+		return opp;
 	}
 
 	private static PaymentPlanInstallment__c cuota(

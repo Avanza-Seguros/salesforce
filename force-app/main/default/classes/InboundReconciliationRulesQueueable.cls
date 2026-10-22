@@ -19,6 +19,7 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 	private static final String REASON_TIE = 'EMPATE';
 	private static final String REASON_NO_INSTALLMENTS = 'SIN_CUOTAS';
 	private static final String REASON_MULTIPLE_PLANS = 'PLANES_MULTIPLES';
+	private static final String REASON_EXACT_RECEIPT = 'RECIBO_EXACTO';
 
 	// Sin poliza hay dos desenlaces muy distintos que antes caian los dos en Sin
 	// Match: que el numero no exista, y que exista en varias vigencias sin que la fecha
@@ -201,6 +202,18 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 			? installmentsById.get(payment.candidateInstallment__c)
 			: null;
 
+		// El pago trae el recibo de la cuota: la cuota es esa, sin adivinar (KAN-442 CA4). Si el
+		// importe no cuadra puede ser un pago parcial o de mas, y sigue las reglas de siempre.
+		if (
+			inst != null &&
+			REASON_EXACT_RECEIPT.equals(payment.installmentMatchReason__c) &&
+			amountMatches(payment, inst)
+		) {
+			rec.reconciliationMethod__c = METHOD_EXACT_POLICY_AND_SEQUENCE;
+			rec.reconciliationResult__c = RESULT_EXACT_MATCH;
+			return;
+		}
+
 		if (inst != null && sequenceMatches(payment, inst)) {
 			rec.reconciliationMethod__c = METHOD_EXACT_POLICY_AND_SEQUENCE;
 			rec.reconciliationResult__c = RESULT_EXACT_MATCH;
@@ -230,32 +243,30 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 	/**
 	 * @creation date: 19/05/2026
 	 * @author: Javier Torres - Volestra
-	 * @description: Evalua si el numero de secuencia del inbound coincide exactamente
-	 *               con el sequenceNumber__c de la cuota candidata. Convierte el
-	 *               campo texto a Decimal para la comparacion. Retorna false ante
-	 *               cualquier valor nulo o error de conversion.
+	 * @description: Evalua si el numero de cuota del inbound coincide con el de la cuota
+	 *               candidata, igual que la puntuacion del eslabon de cuota (KAN-442 CA5):
+	 *               la cuota que guarda su numero de la aseguradora se compara con el que
+	 *               trae el pago ("NN" o "NN/TT"); la que no lo tiene, con su orden dentro
+	 *               del plan y solo contra un numero simple.
 	 * @param payment: Registro inbound con sourceInstallmentNumber__c a evaluar.
-	 * @param inst: Cuota candidata con sequenceNumber__c a comparar.
-	 * @return true si los numeros de secuencia coinciden exactamente.
+	 * @param inst: Cuota candidata con carrierInstallmentNumber__c y sequenceNumber__c.
+	 * @return true si los numeros de cuota coinciden exactamente.
 	 */
 	private static Boolean sequenceMatches(
 		InboundInsurancePayment__c payment,
 		PaymentPlanInstallment__c inst
 	) {
-		if (
-			payment.sourceInstallmentNumber__c == null ||
-			inst.sequenceNumber__c == null
-		) {
-			return false;
-		}
-		try {
-			return Decimal.valueOf(payment.sourceInstallmentNumber__c.trim()) ==
-				inst.sequenceNumber__c;
-		} catch (Exception e) {
-			// Numero de cuota no numerico: condicion de dato esperada, no un fallo. La
-			// advertencia ya se emitio en el eslabon de cuota candidata, una vez por pago.
-			return false;
-		}
+		Decimal paymentNumber = inst.carrierInstallmentNumber__c != null
+			? InboundInstallmentCandidateQueueable.installmentNumberIn(
+					payment.sourceInstallmentNumber__c
+			  )
+			: InboundInstallmentCandidateQueueable.plainNumberIn(
+					payment.sourceInstallmentNumber__c
+			  );
+		Decimal installmentNumber = inst.carrierInstallmentNumber__c != null
+			? inst.carrierInstallmentNumber__c
+			: inst.sequenceNumber__c;
+		return paymentNumber != null && paymentNumber == installmentNumber;
 	}
 
 	/**
@@ -311,7 +322,12 @@ public with sharing class InboundReconciliationRulesQueueable implements Queueab
 		}
 		return new Map<Id, PaymentPlanInstallment__c>(
 			[
-				SELECT Id, sequenceNumber__c, dueDate__c, expectedAmount__c
+				SELECT
+					Id,
+					sequenceNumber__c,
+					carrierInstallmentNumber__c,
+					dueDate__c,
+					expectedAmount__c
 				FROM PaymentPlanInstallment__c
 				WHERE Id IN :ids
 			]
