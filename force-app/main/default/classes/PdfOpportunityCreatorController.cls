@@ -969,6 +969,10 @@ public with sharing class PdfOpportunityCreatorController {
 		String ramoIa = mapRamoToFormValue(stringOf(comparison.get('ramo')));
 		String ramoForm = ramoIa;
 
+		// Si la IA no da una aseguradora reconocible (vacía, "Desconocida" o el nombre del archivo), se toma del
+		// nombre del archivo (ej. "... - CONTINENTAL.pdf" -> Continental Assist).
+		Map<String, String> renombradas = aseguradoraDesdeArchivo(aseguradorasRaw, fileNames);
+
 		// Validación contra el catálogo: se busca el PRODUCTO de cada cotización por su plan y
 		// su aseguradora. Si se encuentra, el ramo del producto (Family) manda sobre el que
 		// dedujo la IA (p. ej. "IMAGINA SER 65" → Vida, aunque el PDF mencione gmm@...).
@@ -1021,6 +1025,7 @@ public with sharing class PdfOpportunityCreatorController {
 				ganadora = stringOf(((Map<String, Object>) gs[0]).get('nombre'));
 			}
 		}
+		if (renombradas.containsKey(ganadora)) { ganadora = renombradas.get(ganadora); }
 		// Marcamos la cotización ganadora dentro de la lista.
 		if (String.isNotBlank(ganadora)) {
 			for (Map<String, Object> qq : quotes) {
@@ -1064,6 +1069,50 @@ public with sharing class PdfOpportunityCreatorController {
 			'aviso' => stringOf(comparison.get('aviso')),
 			'comparativo_html' => htmlComparativo
 		};
+	}
+
+	/**
+	 * @creation date: 22/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Corrige el nombre de la aseguradora de cada cotización cuando la IA no da uno del catálogo
+	 * (vacío, "Desconocida") o pone el nombre del archivo: lo busca en el nombre del archivo de origen (o en el
+	 * único archivo cargado) y usa el nombre de la Aseguradora__c encontrada.
+	 * @param aseguradorasRaw: cotizaciones devueltas por la IA (se modifican en el lugar)
+	 * @param fileNames: archivos cargados
+	 * @return mapa nombre-original a nombre-corregido
+	 */
+	@TestVisible
+	private static Map<String, String> aseguradoraDesdeArchivo(List<Object> aseguradorasRaw, List<String> fileNames) {
+		Map<String, String> renombradas = new Map<String, String>();
+		if (aseguradorasRaw == null || aseguradorasRaw.isEmpty()) { return renombradas; }
+		String unico = (fileNames != null && fileNames.size() == 1) ? fileNames[0] : null;
+		Set<String> nombres = new Set<String>();
+		for (Object a : aseguradorasRaw) {
+			if (!(a instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) a;
+			nombres.add(stringOf(m.get('nombre')));
+			String archivo = coalesceStr(stringOf(m.get('archivo_origen')), unico);
+			if (String.isNotBlank(archivo)) { nombres.add(archivo.replaceAll('(?i)\\.pdf$', '')); }
+		}
+		nombres.remove('');
+		nombres.remove(null);
+		Map<String, Id> porNombre = resolveAseguradoraByName(nombres);
+		Map<Id, String> nombreCatalogo = new Map<Id, String>();
+		for (Aseguradora__c a : [SELECT Id, Name FROM Aseguradora__c WHERE Id IN :porNombre.values()]) { nombreCatalogo.put(a.Id, a.Name); }
+		for (Object a : aseguradorasRaw) {
+			if (!(a instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) a;
+			String nombre = stringOf(m.get('nombre'));
+			String archivo = coalesceStr(stringOf(m.get('archivo_origen')), unico);
+			String base = String.isBlank(archivo) ? '' : archivo.replaceAll('(?i)\\.pdf$', '');
+			Boolean esArchivo = String.isNotBlank(base) && texto(nombre) == texto(base);
+			if (String.isNotBlank(nombre) && porNombre.containsKey(nombre) && !esArchivo) { continue; }
+			Id asegId = porNombre.get(base);
+			if (asegId == null) { continue; }
+			m.put('nombre', nombreCatalogo.get(asegId));
+			if (String.isNotBlank(nombre)) { renombradas.put(nombre, nombreCatalogo.get(asegId)); }
+		}
+		return renombradas;
 	}
 
 	// ============================================================

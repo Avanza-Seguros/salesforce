@@ -372,6 +372,28 @@ private class PdfOpportunityCreatorControllerTest {
     }
 
     /**
+     * @creation date: 22/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que la aseguradora se tome del nombre del archivo cuando la IA no la reconoce.
+     * @return void
+     */
+    @isTest
+    static void testAseguradoraDesdeArchivo() {
+        insert new Aseguradora__c(Name = 'Continental Assist');
+        List<Object> raw = new List<Object>{
+            new Map<String, Object>{ 'nombre' => 'Desconocida', 'plan' => 'Total' },
+            new Map<String, Object>{ 'nombre' => 'OCTAVIO PEREZ - CONTINENTAL', 'plan' => 'Maximus' },
+            new Map<String, Object>{ 'nombre' => '', 'plan' => 'Supreme' }
+        };
+        Map<String, String> ren = PdfOpportunityCreatorController.aseguradoraDesdeArchivo(raw,
+            new List<String>{ 'OCTAVIO PEREZ - CONTINENTAL.pdf' });
+        for (Object o : raw) {
+            System.assertEquals('Continental Assist', ((Map<String, Object>) o).get('nombre'), 'Aseguradora tomada del archivo');
+        }
+        System.assertEquals('Continental Assist', ren.get('Desconocida'), 'Se informa el cambio de nombre');
+    }
+
+    /**
      * @creation date: 30/09/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que mejorProductoPorPlan elija el producto que coincide con el plan.
