@@ -1073,20 +1073,21 @@ public with sharing class PdfOpportunityCreatorController {
 	/**
 	 * @creation date: 30/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Arma la llave para detectar cotizaciones repetidas que devuelve la IA: archivo de origen, o
-	 * nombre + número de cotización, o nombre + plan + prima.
+	 * @description: Arma la llave para detectar cotizaciones repetidas que devuelve la IA: archivo de origen + plan +
+	 * prima (un mismo PDF puede traer varios planes, ej. Continental Total/Maximus/Supreme), o nombre + número de
+	 * cotización, o nombre + plan + prima.
 	 * @param a: Cotización (aseguradora) devuelta por la IA
 	 * @return Llave de comparación
 	 */
 	@TestVisible
 	private static String llaveCotizacion(Map<String, Object> a) {
+		String plan = texto(a.get('plan')).replaceAll('\\([^)]*\\)', ' ').replaceAll('\\s+', ' ').trim();
+		String prima = texto(a.get('prima_total')) + '/' + texto(a.get('prima_anual'));
 		String archivo = texto(a.get('archivo_origen'));
-		if (String.isNotBlank(archivo)) { return 'archivo|' + archivo; }
+		if (String.isNotBlank(archivo)) { return 'archivo|' + archivo + '|' + plan + '|' + prima; }
 		String nombre = texto(a.get('nombre'));
 		String numero = texto(a.get('no_cotizacion'));
 		if (String.isNotBlank(numero)) { return 'numero|' + nombre + '|' + numero; }
-		String plan = texto(a.get('plan')).replaceAll('\\([^)]*\\)', ' ').replaceAll('\\s+', ' ').trim();
-		String prima = texto(a.get('prima_total')) + '/' + texto(a.get('prima_anual'));
 		return 'plan|' + nombre + '|' + plan + '|' + prima;
 	}
 
@@ -1151,7 +1152,10 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('compania', stringOf(m.get('nombre')));
 		q.put('plan', stringOf(m.get('plan')));
 		q.put('ramo', ramoForm);
-		q.put('primaTotal', asDecimal(m.get('prima_anual')));
+		// Prima de contado; si la IA solo llenó prima_total (ej. "Precio Total" en Viajes), se usa esa.
+		Decimal primaContado = asDecimal(m.get('prima_anual'));
+		if (primaContado == null || primaContado == 0) { primaContado = asDecimal(m.get('prima_total')); }
+		q.put('primaTotal', primaContado);
 		q.put('moneda', coalesceStr(stringOf(m.get('moneda')), 'MXN'));
 		// Fin de vigencia: si la IA no lo trae, se calcula como inicio + 1 año.
 		String vigIniTxt = stringOf(m.get('vigencia_inicio'));

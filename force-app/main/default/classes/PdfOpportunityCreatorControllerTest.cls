@@ -357,6 +357,18 @@ private class PdfOpportunityCreatorControllerTest {
             PdfOpportunityCreatorController.llaveCotizacion(d), '"(dup)" debe detectarse como repetida');
         System.assertNotEquals(PdfOpportunityCreatorController.llaveCotizacion(a),
             PdfOpportunityCreatorController.llaveCotizacion(c), 'Planes distintos no son duplicados');
+
+        // Un mismo PDF con varios planes (ej. Continental Total / Maximus): son cotizaciones distintas.
+        Map<String, Object> e = new Map<String, Object>{
+            'nombre' => 'Continental Assist', 'plan' => 'Total',
+            'archivo_origen' => 'OCTAVIO - CONTINENTAL.pdf', 'prima_total' => 86.40
+        };
+        Map<String, Object> f = new Map<String, Object>{
+            'nombre' => 'Continental Assist', 'plan' => 'Maximus',
+            'archivo_origen' => 'OCTAVIO - CONTINENTAL.pdf', 'prima_total' => 105.60
+        };
+        System.assertNotEquals(PdfOpportunityCreatorController.llaveCotizacion(e),
+            PdfOpportunityCreatorController.llaveCotizacion(f), 'Planes del mismo PDF no son duplicados');
     }
 
     /**
