@@ -268,12 +268,27 @@ public with sharing class PdfOpportunityCreatorController {
 		if (start < 0 || last < start) {
 			return new Map<String, Object>();
 		}
+		String desdeInicio = payload.substring(start);
 		payload = payload.substring(start, last + 1);
 		try {
 			return (Map<String, Object>) JSON.deserializeUntyped(payload);
 		} catch (Exception e) {
-			return new Map<String, Object>();
+			System.debug('IA::: JSON inválido (' + raw.length() + ' caracteres): se rescatan las cotizaciones. ' + e.getMessage());
 		}
+		// Respuesta larga que llegó cortada o con el HTML mal escapado: se descarta desde el comparativo (o desde la
+		// recomendación) hacia el final y se conserva lo anterior, que trae las cotizaciones.
+		for (String campo : new List<String>{ '"comparativo_html"', '"glosario"', '"recomendacion"' }) {
+			Integer corte = desdeInicio.indexOf(campo);
+			if (corte < 0) { continue; }
+			String parcial = desdeInicio.substring(0, corte).trim();
+			if (parcial.endsWith(',')) { parcial = parcial.substring(0, parcial.length() - 1); }
+			try {
+				return (Map<String, Object>) JSON.deserializeUntyped(parcial + '}');
+			} catch (Exception e2) {
+				System.debug('IA::: sin rescate cortando en ' + campo);
+			}
+		}
+		return new Map<String, Object>();
 	}
 
 	/**

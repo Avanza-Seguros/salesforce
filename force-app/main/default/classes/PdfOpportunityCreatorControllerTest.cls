@@ -192,6 +192,11 @@ private class PdfOpportunityCreatorControllerTest {
         System.assert(!PdfOpportunityCreatorController.parseFullComparisonJson('```json\n{"a":1}\n```').isEmpty());
         System.assert(PdfOpportunityCreatorController.parseFullComparisonJson('sin json').isEmpty());
         System.assert(PdfOpportunityCreatorController.parseFullComparisonJson('').isEmpty());
+        // Respuesta cortada a media tabla HTML: se rescatan las cotizaciones.
+        Map<String, Object> cortada = PdfOpportunityCreatorController.parseFullComparisonJson(
+            '{"ramo":"Viajes","aseguradoras":[{"nombre":"Continental Assist","plan":"Total"}],"glosario":[],'
+            + '"comparativo_html":"<html><table><tr><td class="x">{Total}');
+        System.assertEquals(1, ((List<Object>) cortada.get('aseguradoras')).size(), 'Cotizaciones rescatadas');
 
         System.assertEquals('', PdfOpportunityCreatorController.sharedFilenamePrefix(new List<String>{ 'abc.pdf', 'xyz.pdf' }));
         System.assertEquals('auto', PdfOpportunityCreatorController.sharedFilenamePrefix(new List<String>{ 'auto-hdi.pdf', 'auto-gnp.pdf' }));

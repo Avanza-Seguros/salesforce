@@ -288,8 +288,10 @@ export default class PdfOpportunityCreator extends LightningElement {
 			console.log(':::pdfOpportunityCreator::: ✅ Respuesta de Apex:', JSON.stringify(res));
 			const quotes = (res && res.quotes) || [];
 			if (quotes.length === 0) {
-				throw new Error(
-					"No se pudieron leer cotizaciones de los PDFs. Revisa que tengan texto seleccionable."
+				// Si la IA respondió, el PDF sí tenía texto: la respuesta no se pudo leer y conviene reintentar.
+				throw new Error(res && res.fuente === "einstein"
+					? "La IA no devolvió cotizaciones legibles esta vez. Intenta analizar de nuevo."
+					: "No se pudieron leer cotizaciones de los PDFs. Revisa que tengan texto seleccionable."
 				);
 			}
 
