@@ -2236,11 +2236,13 @@ public with sharing class PdfOpportunityCreatorController {
 	 */
 	private static Id productoMasParecido(List<Product2> prods, String plan) {
 		if (prods == null || prods.isEmpty()) { return null; }
-		if (String.isBlank(plan)) { return prods[0].Id; }
+		// Sin plan solo se sugiere si no hay de dónde escoger.
+		if (String.isBlank(plan)) { return prods.size() == 1 ? prods[0].Id : null; }
 		Set<String> planToks = tokensDe(plan);
+		planToks.removeAll(PALABRAS_GENERICAS_PLAN);
 		String planFold = foldRamo(plan);
-		Id mejor = prods[0].Id;
-		Integer mejorScore = -1;
+		Id mejor = null;
+		Integer mejorScore = 0;
 		for (Product2 p : prods) {
 			Set<String> pt = tokensDe(p.Name);
 			Integer score = 0;
@@ -2250,8 +2252,13 @@ public with sharing class PdfOpportunityCreatorController {
 				&& (pn.contains(planFold) || planFold.contains(pn))) { score += 2; }
 			if (score > mejorScore) { mejorScore = score; mejor = p.Id; }
 		}
+		// Si ninguna palabra del plan coincide, no se preselecciona nada: el usuario elige el producto (o lo da de alta).
 		return mejor;
 	}
+
+	// Palabras que no distinguen un plan de otro ("Plan Total" no se parece a "Plan Essential" por decir "Plan").
+	private static final Set<String> PALABRAS_GENERICAS_PLAN = new Set<String>{
+		'plan', 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'para', 'en', 'seguro', 'poliza' };
 
 	/**
 	 * @creation date: 29/09/2026

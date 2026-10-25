@@ -583,13 +583,16 @@ private class PdfOpportunityCreatorControllerTest {
         oportunidadConCatalogo();
         Product2 prod = [SELECT Id, Aseguradora__c FROM Product2 WHERE Name = 'IMAGINA SER 65'];
         List<Object> quotes = new List<Object>{
-            new Map<String, Object>{ 'id' => 'q1', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Imagina Ser 65 - 15 pagos' }
+            new Map<String, Object>{ 'id' => 'q1', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Imagina Ser 65 - 15 pagos' },
+            // Plan que no existe en el catálogo: no se preselecciona ningún producto.
+            new Map<String, Object>{ 'id' => 'q2', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Plan Inexistente Zeta' }
         };
         Test.startTest();
         List<Map<String, Object>> res = PdfOpportunityCreatorController.prepararCotizaciones(JSON.serialize(quotes));
         Test.stopTest();
         System.assertEquals(prod.Aseguradora__c, res[0].get('aseguradoraId'), 'SMNYL = Seguros Monterrey NYL');
         System.assertEquals(prod.Id, res[0].get('productoSugeridoId'), 'Sugiere el producto que coincide con el plan');
+        System.assertEquals(null, res[1].get('productoSugeridoId'), 'Sin coincidencia no se sugiere producto');
     }
 
     /**

@@ -4220,6 +4220,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     comparativoHtmlParaGuardar() {
         // Colectivas y flotillas: el comparativo lo mantiene Apex al guardar o eliminar cotizaciones (null = no se toca).
         if (this.mostrarCotizacionesColectivas || this.isFlotilla) { return null; }
+        // Con una sola cotización no hay nada que comparar: no se guarda comparativo.
+        if ((this.uploadedQuotes || []).length < 2) { return null; }
         if (this.hasComparativoHtml) { return this.comparativoHtml; }
         const calculado = this.buildComparativoHtmlCompleto();
         return calculado ? MARCA_COMPARATIVO_CALCULADO + calculado : null;

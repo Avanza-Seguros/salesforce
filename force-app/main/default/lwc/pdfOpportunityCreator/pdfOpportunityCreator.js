@@ -6,7 +6,8 @@ import fontsResource from "@salesforce/resourceUrl/fuentes_pdf";
 import analyzeQuotes from "@salesforce/apex/PdfOpportunityCreatorController.analyzeQuotes";
 
 const MAX_SIZE = 4500000; // ~4.5 MB por archivo: límite práctico para enviar base64/texto a Apex
-const MIN_FILES = 2;
+// Con 1 PDF se crea la oportunidad con esa cotización; con 2 o más, además se comparan.
+const MIN_FILES = 1;
 const MIN_PREFIX_LENGTH = 3;
 
 export default class PdfOpportunityCreator extends LightningElement {
@@ -141,7 +142,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 		return this.files.map((f) => ({ name: f.name }));
 	}
 	get sharedPrefix() {
-		if (!this.hasFiles || this.files.length < MIN_FILES) {
+		// El prefijo común solo tiene sentido con 2 o más archivos.
+		if (!this.hasFiles || this.files.length < 2) {
 			return "";
 		}
 		return computeSharedPrefix(this.files.map((f) => f.name));
@@ -248,10 +250,10 @@ export default class PdfOpportunityCreator extends LightningElement {
 		this.files = accepted;
 
 		if (this.files.length > 0 && this.files.length < MIN_FILES) {
-			this.prefixWarning = `Sube al menos ${MIN_FILES} PDFs para comparar cotizaciones.`;
+			this.prefixWarning = `Sube al menos ${MIN_FILES} PDF.`;
 			return;
 		}
-		if (this.files.length >= MIN_FILES && !this.sharedPrefix) {
+		if (this.files.length >= 2 && !this.sharedPrefix) {
 			// Aviso informativo (no bloquea): conviene que los PDFs sean del mismo cliente.
 			this.prefixWarning =
 				"Nota: los PDFs no comparten un prefijo común en el nombre. Verifica que sean del mismo cliente antes de continuar.";
@@ -265,7 +267,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 		if (!this.hasFiles || this.files.length < MIN_FILES) {
 			this.showToast(
 				"Faltan archivos",
-				`Sube al menos ${MIN_FILES} PDFs para continuar.`,
+				`Sube al menos ${MIN_FILES} PDF para continuar.`,
 				"error"
 			);
 			return;
