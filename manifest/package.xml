@@ -354,6 +354,7 @@
         <members>InsurancePolicy.ExpirationDate</members>
         <members>InsurancePolicy.PremiumAmount</members>
         <members>InsurancePolicy.Status</members>
+        <members>InsurancePolicy.carrierProductName__c</members>
         <members>InsurancePolicy.dataOrigin__c</members>
         <members>InsurancePolicy.deducedData__c</members>
         <members>InsurancePolicy.handleLookupKey__c</members>

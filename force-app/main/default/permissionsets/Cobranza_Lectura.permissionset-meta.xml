@@ -6,6 +6,11 @@
     <label>Cobranza: ver póliza y cuotas</label>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InsurancePolicy.carrierProductName__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InsurancePolicy.dataOrigin__c</field>
         <readable>true</readable>
     </fieldPermissions>
