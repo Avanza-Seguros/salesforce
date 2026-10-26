@@ -572,6 +572,30 @@ private class PdfOpportunityCreatorControllerTest {
     }
 
     /**
+     * @creation date: 25/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que volver a subir un PDF con el mismo nombre, o regenerar el comparativo, no duplique
+     * archivos en la oportunidad.
+     * @return void
+     */
+    @isTest
+    static void testArchivosNoSeDuplican() {
+        Opportunity opp = oportunidadConCatalogo();
+        String base64 = EncodingUtil.base64Encode(Blob.valueOf('PDF COTIZACION'));
+        PdfOpportunityCreatorController.actualizarComparativoOpp(opp.Id, '<html><body>Comparativo</body></html>');
+        Test.startTest();
+        Id doc1 = PdfOpportunityCreatorController.guardarArchivoEnOportunidad(opp.Id, 'GNP.pdf', base64);
+        Id doc2 = PdfOpportunityCreatorController.guardarArchivoEnOportunidad(opp.Id, 'GNP.pdf', base64);
+        Id cmp1 = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, 'Cliente');
+        Id cmp2 = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, 'Cliente');
+        Test.stopTest();
+        System.assertEquals(doc1, doc2, 'El mismo PDF no se vuelve a subir');
+        System.assertEquals(cmp1, cmp2, 'El comparativo se guarda como nueva versión del mismo archivo');
+        System.assertEquals(2, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :opp.Id],
+            'Solo un PDF de cotización y un comparativo');
+    }
+
+    /**
      * @creation date: 11/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que prepararCotizaciones resuelva la aseguradora por siglas, liste sus productos y

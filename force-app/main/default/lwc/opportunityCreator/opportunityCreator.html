@@ -1419,6 +1419,11 @@
                                                 <template if:true={q.sinProductos}>
                                                     <p class="eq-warn">No hay productos de esta aseguradora/ramo. Elige otro o da uno de alta.</p>
                                                 </template>
+                                                <button class="eq-refresh" data-index={idx} onclick={handleRecargarProductos}
+                                                    title="Si diste de alta el producto en otra pestaña, vuelve a consultar la lista">
+                                                    <lightning-icon icon-name="utility:refresh" size="xx-small"></lightning-icon>
+                                                    Actualizar lista de productos
+                                                </button>
                                             </div>
                                             <div class="eq-row">
                                                 <lightning-input label="Plan" value={q.plan}

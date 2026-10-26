@@ -437,21 +437,32 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         );
     }
 
-    async handleCrearCotizaciones() {
+    // soloConProducto: crea las que ya tienen producto y deja las demás pendientes (al guardar).
+    async handleCrearCotizaciones(soloConProducto) {
         if (!this.opportunity.Id || !this.hasEditableQuotes) { return; }
+        const parcial = soloConProducto === true;
         // Solo se crean las cotizaciones seleccionadas.
-        const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
+        let seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
         if (!seleccionadas.length) {
             this.showToast('Sin selección', 'Marca al menos una cotización para agregarla.', 'warning');
             return;
         }
         // Validar que cada cotización seleccionada tenga producto
         const sinProd = seleccionadas.filter(q => !q.productId);
-        if (sinProd.length) {
+        if (sinProd.length && !parcial) {
             this.showToast('Falta producto',
-                `Selecciona el producto de: ${sinProd.map(q => q.compania).join(', ')}`, 'warning');
+                `Selecciona el producto de: ${sinProd.map(q => q.plan || q.compania).join(', ')}`, 'warning');
             return;
         }
+        if (parcial) {
+            seleccionadas = seleccionadas.filter(q => q.productId);
+            if (!seleccionadas.length) { return; }
+        }
+        // Las que no se crean ahora (sin marcar o sin producto) se conservan para crearlas después
+        // sin volver a cargar los PDFs.
+        const idsCrear = new Set(seleccionadas.map(q => q.id));
+        const pendientesEditables = this.editableQuotes.filter(q => !idsCrear.has(q.id));
+        const pendientesOrigen = (this.uploadedQuotes || []).filter(u => !idsCrear.has(u.id));
         this.isSaving = true; this.isLoading = true;
         try {
             // Coberturas y notas del PDF de cada cotización: con ellas Apex llena la suma
@@ -495,6 +506,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.addQuotesMode = false;
             this.pdfAnalyzing = false;
             await this.openOpportunityInEditMode(this.opportunity.Id);
+            // Recargar la oportunidad limpia el formulario: se restauran las pendientes.
+            if (pendientesEditables.length) {
+                this.uploadedQuotes = pendientesOrigen;
+                this.editableQuotes = pendientesEditables;
+                const faltan = pendientesEditables.filter(q => !q.productId);
+                if (faltan.length) {
+                    this.showToast('Cotizaciones pendientes',
+                        `Falta elegir el producto de: ${faltan.map(q => q.plan || q.compania).join(', ')}. ` +
+                        'Siguen en "Revisar y editar cotizaciones"; no necesitas volver a cargar el PDF.',
+                        'warning', 'sticky');
+                    this.irASeccionCotizaciones();
+                }
+            }
             // Se conserva el comparativo que regresa la IA (Descripcion__c recuperado al
             // recargar). Solo si la oportunidad NO tiene comparativo de IA se reconstruye
             // la matriz comparativa como respaldo.
@@ -4499,26 +4523,48 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.dispatchEvent(new ShowToastEvent({ title, message, variant, mode: mode || 'dismissible' }));
     }
 
-    // Al guardar una oportunidad que viene de PDFs, crea de una vez las cotizaciones seleccionadas. Si a alguna le
-    // falta el producto, no crea ninguna: avisa (aviso fijo) y lleva a "Revisar y editar cotizaciones".
+    // Al guardar una oportunidad que viene de PDFs, crea de una vez las cotizaciones seleccionadas que ya tienen
+    // producto. Las que no lo tienen quedan pendientes en "Revisar y editar cotizaciones" (sin recargar el PDF).
     async crearCotizacionesAlGuardar() {
         if (!this.hasEditableQuotes) { return; }
         const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
         if (!seleccionadas.length) { return; }
         const sinProd = seleccionadas.filter(q => !q.productId);
-        if (sinProd.length) {
+        if (sinProd.length === seleccionadas.length) {
             this.showToast('Falta un paso: crear las cotizaciones',
                 `La oportunidad se guardó, pero las cotizaciones aún no se crean. Elige el producto de: ${sinProd.map(q => q.plan || q.compania).join(', ')} y presiona "Aceptar y crear cotizaciones".`,
                 'warning', 'sticky');
-            // Espera a que se pinte la vista de edición y lleva a la sección.
-            // eslint-disable-next-line @lwc/lwc/no-async-operation
-            setTimeout(() => {
-                const sec = this.template.querySelector('.edit-quotes-section');
-                if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-            }, 400);
+            this.irASeccionCotizaciones();
             return;
         }
-        await this.handleCrearCotizaciones();
+        await this.handleCrearCotizaciones(true);
+    }
+
+    // Espera a que se pinte la vista de edición y lleva a "Revisar y editar cotizaciones".
+    irASeccionCotizaciones() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            const sec = this.template.querySelector('.edit-quotes-section');
+            if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }, 400);
+    }
+
+    // Vuelve a consultar los productos de la tarjeta (ej. después de dar de alta uno en otra pestaña).
+    async handleRecargarProductos(event) {
+        const idx = parseInt(event.currentTarget.dataset.index, 10);
+        const q = this.editableQuotes[idx];
+        if (!q || !q.aseguradoraId) { return; }
+        let productos = [];
+        try {
+            productos = await getProductosPorAseguradoraRamo({ aseguradoraId: q.aseguradoraId, ramo: q.ramo });
+        } catch (e) { productos = []; }
+        productos = productos || [];
+        const sigue = productos.some(p => p.value === q.productId);
+        this.editableQuotes = this.editableQuotes.map((it, i) =>
+            i === idx
+                ? { ...it, productos, productId: sigue ? it.productId : (productos.length === 1 ? productos[0].value : null), sinProductos: !productos.length }
+                : it);
+        this.showToast('Productos', `Se encontraron ${productos.length} producto(s) para ${q.compania}.`, 'info');
     }
 
     addMoreQuotes() {

@@ -1163,6 +1163,12 @@ lightning-combobox {
 .edit-quote-card__body { display: flex; flex-direction: column; gap: 0.75rem; }
 .eq-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .eq-warn { color: #B3260A; font-size: 0.78rem; margin: 0.3rem 0 0 0; }
+.eq-refresh {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    background: none; border: none; padding: 0; margin-top: 0.35rem;
+    color: #0B5CAB; font-size: 0.78rem; cursor: pointer;
+}
+.eq-refresh:hover { text-decoration: underline; }
 .edit-quotes-footer { margin-top: 1.25rem; display: flex; justify-content: flex-end; }
 .edit-quotes-accept { background: #00875A !important; border-color: #006B47 !important; min-width: 240px; }
 .edit-quotes-accept:hover { background: #006B47 !important; }

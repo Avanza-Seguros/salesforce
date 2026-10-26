@@ -507,6 +507,9 @@ public with sharing class PdfOpportunityCreatorController {
 			throw new AuraHandledException('Faltan datos para guardar el archivo.');
 		}
 		try {
+			// Si la oportunidad ya tiene un archivo con ese nombre (ej. se volvió a cargar el PDF), no se duplica.
+			Id existente = documentoDeOportunidad(opportunityId, fileName);
+			if (existente != null) { return existente; }
 			ContentVersion cv = new ContentVersion(
 				Title = fileName,
 				PathOnClient = fileName,
@@ -590,22 +593,27 @@ public with sharing class PdfOpportunityCreatorController {
 				pdfBlob = pr.getContentAsPDF();
 			}
 
+			// Si ya existe el comparativo en la oportunidad se guarda como nueva versión del mismo archivo.
+			Id existente = documentoDeOportunidad(opportunityId, filename);
 			ContentVersion cv = new ContentVersion(
 				Title = filename,
 				PathOnClient = filename,
 				VersionData = pdfBlob,
 				Origin = 'H'
 			);
+			if (existente != null) { cv.ContentDocumentId = existente; }
 			insert cv;
 			ContentVersion stored = [
 				SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
 			];
-			insert new ContentDocumentLink(
-				ContentDocumentId = stored.ContentDocumentId,
-				LinkedEntityId = opportunityId,
-				ShareType = 'V',
-				Visibility = 'AllUsers'
-			);
+			if (existente == null) {
+				insert new ContentDocumentLink(
+					ContentDocumentId = stored.ContentDocumentId,
+					LinkedEntityId = opportunityId,
+					ShareType = 'V',
+					Visibility = 'AllUsers'
+				);
+			}
 			// El mismo archivo queda también en cada cotización.
 			vincularComparativoACotizaciones(opportunityId, stored.ContentDocumentId);
 			return stored.ContentDocumentId;
@@ -1748,6 +1756,24 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @return void
 	 */
 	@TestVisible
+	/**
+	 * @creation date: 25/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca un archivo ligado a la oportunidad con el mismo nombre, para no duplicarlo.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param titulo: Nombre del archivo
+	 * @return Id del ContentDocument existente; null si no hay
+	 */
+	private static Id documentoDeOportunidad(Id opportunityId, String titulo) {
+		if (opportunityId == null || String.isBlank(titulo)) { return null; }
+		for (ContentDocumentLink l : [
+			SELECT ContentDocumentId FROM ContentDocumentLink
+			WHERE LinkedEntityId = :opportunityId AND ContentDocument.Title = :titulo
+			ORDER BY ContentDocument.CreatedDate DESC LIMIT 1
+		]) { return l.ContentDocumentId; }
+		return null;
+	}
+
 	private static void vincularComparativoACotizaciones(Id opportunityId, Id documentId) {
 		if (opportunityId == null) { return; }
 		Id docId = documentId;
