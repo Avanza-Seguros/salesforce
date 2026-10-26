@@ -739,6 +739,39 @@ private class PolicyControllerTest {
     }
 
     /**
+     * @creation date: 26/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que una póliza que no es de autos (Mascotas) también cree su CustomerProperty con el
+     * bien asegurado y lo ligue al Insurance Policy Asset, sin duplicarlo al reprocesar.
+     * @return void
+     */
+    @isTest
+    static void testBienAseguradoSinVehiculo() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        String datos = '{"ramo":"Mascotas","bienAsegurado":{"tipo":"Mascota","descripcion":"Perro BENITO",'
+            + '"atributos":[{"campo":"Nombre de la mascota","valor":"BENITO"},{"campo":"Raza","valor":"SHIH TZU"}]}}';
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, null, datos);
+        Test.stopTest();
+
+        List<CustomerProperty> bienes = [
+            SELECT Id, Description FROM CustomerProperty WHERE SourceSystemIdentifier = :String.valueOf(policyId)
+        ];
+        System.assertEquals(1, bienes.size(), 'Se crea un solo bien para la póliza: ' + resumen);
+        System.assert(bienes[0].Description.contains('Raza: SHIH TZU'), bienes[0].Description);
+        List<InsurancePolicyAsset> ipas = [
+            SELECT CustomerPropertyId, AssetName FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId
+        ];
+        System.assertEquals(1, ipas.size());
+        System.assertEquals(bienes[0].Id, ipas[0].CustomerPropertyId, 'El bien de la póliza queda ligado');
+        System.assertEquals('Perro BENITO', ipas[0].AssetName);
+    }
+
+    /**
      * @creation date: 11/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que guardarDatosPolizaDesdePdf exija la póliza y tolere un JSON vacío.

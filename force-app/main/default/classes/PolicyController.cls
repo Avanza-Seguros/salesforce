@@ -212,6 +212,21 @@ public with sharing class PolicyController {
 	 */
 	@AuraEnabled
 	public static Id crearVinculoBien(Id policyId) {
+		return crearVinculoBien(policyId, null);
+	}
+
+	/**
+	 * @creation date: 26/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea el vínculo póliza–bien ligando el CustomerProperty indicado. Si no se indica, en Autos
+	 * usa el vehículo más reciente del asegurado y en los demás ramos el bien creado para esta póliza; si no
+	 * existe, lo crea (Insurance Policy Asset siempre necesita un CustomerProperty). Si el vínculo ya existe sin
+	 * bien, se le asigna. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param customerPropertyId: Id del CustomerProperty a ligar (opcional)
+	 * @return Id del InsurancePolicyAsset creado o existente; null si no hay bien que ligar
+	 */
+	private static Id crearVinculoBien(Id policyId, Id customerPropertyId) {
 		if (policyId == null) {
 			throw new AuraHandledException('No se recibió la póliza para vincular el bien.');
 		}
@@ -225,35 +240,53 @@ public with sharing class PolicyController {
 				LIMIT 1
 			];
 
-			// 2) Si ya existe el vínculo, no duplicar (idempotente).
-			List<InsurancePolicyAsset> existentes = [
-				SELECT Id FROM InsurancePolicyAsset
-				WHERE InsurancePolicyId = :policyId
-				LIMIT 1
-			];
-			if (!existentes.isEmpty()) { return existentes[0].Id; }
-
-			// 3) Cuenta del asegurado (por la oportunidad origen o por NameInsured).
+			// 2) Cuenta del asegurado (por la oportunidad origen o por NameInsured).
 			Id accountId = resolverCuentaDePoliza(pol);
-
-			// 3.1) Bien del cliente (CustomerProperty) del asegurado, si existe.
-			//      Es el objeto donde hoy se guarda el vehículo/bien.
-			CustomerProperty bienCliente = null;
-			if (accountId != null) {
-				for (CustomerProperty cp : [
-					SELECT Id, Name FROM CustomerProperty
-					WHERE PrimaryOwnerId = :accountId
-					ORDER BY LastModifiedDate DESC LIMIT 1
-				]) { bienCliente = cp; }
-			}
 			Schema.DescribeFieldResult cpField = InsurancePolicyAsset.CustomerPropertyId.getDescribe();
+			Boolean aceptaCp = campoAcepta(cpField, CustomerProperty.SObjectType);
 
-			// 4) Bien a ligar. Si hay CustomerProperty y el campo lo acepta, se usa ese
-			//    (no se crea Asset). Si no, se reúsa/crea un Asset como respaldo.
-			// Para ramos que NO son de autos (GMM, Vida, Daños) no se liga un vehículo,
-			// aunque la cuenta tenga uno de otra póliza. Si el ramo viene vacío, se permite.
+			// 3) Bien del cliente (CustomerProperty) a ligar.
+			// Para ramos que NO son de autos (GMM, Vida, Daños, Mascotas) no se liga un vehículo de otra
+			// póliza: se usa el bien de esta póliza o se crea uno. Si el ramo viene vacío, se permite el vehículo.
 			Boolean ramoNoAuto = String.isNotBlank(pol.Ramo__c) && !normKey(pol.Ramo__c).contains('auto');
-			Boolean usarCustomerProperty = (!ramoNoAuto && bienCliente != null && campoAcepta(cpField, CustomerProperty.SObjectType));
+			CustomerProperty bienCliente = null;
+			if (customerPropertyId != null) {
+				for (CustomerProperty cp : [SELECT Id, Name, Description FROM CustomerProperty WHERE Id = :customerPropertyId]) {
+					bienCliente = cp;
+				}
+			} else if (accountId != null && aceptaCp) {
+				if (!ramoNoAuto) {
+					for (CustomerProperty cp : [
+						SELECT Id, Name, Description FROM CustomerProperty
+						WHERE PrimaryOwnerId = :accountId AND (Vin != null OR Make != null OR ModelName != null)
+						ORDER BY LastModifiedDate DESC LIMIT 1
+					]) { bienCliente = cp; }
+				}
+				if (bienCliente == null) {
+					Id cpId = guardarBienGenerico(pol, accountId, null);
+					bienCliente = [SELECT Id, Name, Description FROM CustomerProperty WHERE Id = :cpId];
+				}
+			}
+
+			// 4) Si ya existe el vínculo, no duplicar (idempotente); solo se le liga el bien si no lo tiene.
+			List<InsurancePolicyAsset> existentes = [
+				SELECT Id, CustomerPropertyId FROM InsurancePolicyAsset
+				WHERE InsurancePolicyId = :policyId
+				ORDER BY CreatedDate ASC LIMIT 1
+			];
+			if (!existentes.isEmpty()) {
+				InsurancePolicyAsset ex = existentes[0];
+				if (ex.CustomerPropertyId == null && bienCliente != null && aceptaCp) {
+					ex.CustomerPropertyId = bienCliente.Id;
+					if (String.isNotBlank(bienCliente.Description)) { ex.AssetName = bienCliente.Description.split('\n')[0].trim().left(255); }
+					update ex;
+				}
+				return ex.Id;
+			}
+
+			// 5) Bien a ligar. Si hay CustomerProperty y el campo lo acepta, se usa ese
+			//    (no se crea Asset). Si no, se reúsa/crea un Asset como respaldo.
+			Boolean usarCustomerProperty = (bienCliente != null && aceptaCp);
 			Id assetId = null;
 			String assetName = null;
 			if (!usarCustomerProperty) {
@@ -281,8 +314,10 @@ public with sharing class PolicyController {
 				}
 			}
 
-			// 5) Crear el vínculo póliza-bien.
-			String nombreVinculo = (bienCliente != null && String.isNotBlank(bienCliente.Name))
+			// 6) Crear el vínculo póliza-bien.
+			String nombreVinculo = (bienCliente != null && String.isNotBlank(bienCliente.Description))
+				? bienCliente.Description.split('\n')[0].trim()
+				: (bienCliente != null && String.isNotBlank(bienCliente.Name))
 				? bienCliente.Name
 				: (String.isNotBlank(assetName)
 					? assetName
@@ -295,7 +330,7 @@ public with sharing class PolicyController {
 			// CustomerPropertyId puede apuntar a CustomerProperty o a Asset según el org.
 			// Se prioriza el CustomerProperty del cliente (donde vive el vehículo/bien);
 			// si el campo no lo acepta o no hay bien, se usa el Asset como respaldo.
-			if (bienCliente != null && campoAcepta(cpField, CustomerProperty.SObjectType)) {
+			if (bienCliente != null && aceptaCp) {
 				ipa.CustomerPropertyId = bienCliente.Id;
 			} else if (assetId != null && campoAcepta(cpField, Asset.SObjectType)) {
 				ipa.CustomerPropertyId = assetId;
@@ -953,12 +988,14 @@ public with sharing class PolicyController {
 		try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
 		catch (Exception e) { resumen.put('cuentaError', msgLimpio(e)); }
 
-		// 1) Vehículo (CustomerProperty) con los datos reales del PDF.
-		try { guardarVehiculoDesdePdf(accountId, d); resumen.put('vehiculo', 1); }
+		// 1) Bien del cliente (CustomerProperty) con los datos reales del PDF: el vehículo en Autos o el bien
+		//    asegurado (mascota, inmueble, persona...) en los demás ramos.
+		Id customerPropertyId = null;
+		try { customerPropertyId = guardarBienDesdePdf(policyId, accountId, d); resumen.put('vehiculo', 1); }
 		catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
 
 		// 2) Bien de póliza (liga el CustomerProperty a la póliza).
-		try { crearVinculoBien(policyId); resumen.put('bien', 1); }
+		try { crearVinculoBien(policyId, customerPropertyId); resumen.put('bien', 1); }
 		catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
 
 		// 3) Participante = la PERSONA asegurada del PDF (ej. Rosa Margarita), como Contacto
@@ -1840,16 +1877,19 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 18/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Crea o actualiza el CustomerProperty (vehículo) del asegurado con los datos del PDF.
+	 * @description: Crea o actualiza el CustomerProperty del asegurado con los datos del PDF: el vehículo si el
+	 * PDF trae datos de auto; si no, el bien asegurado de la póliza (cualquier ramo).
+	 * @param policyId: Id de la InsurancePolicy
 	 * @param accountId: Id de la cuenta del asegurado
 	 * @param d: Datos del PDF
-	 * @return void
+	 * @return Id del CustomerProperty; null si no hay cuenta
 	 */
-	private static void guardarVehiculoDesdePdf(Id accountId, Map<String, Object> d) {
-		if (accountId == null) { return; }
+	private static Id guardarBienDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
+		if (accountId == null) { return null; }
 		Object bienO = d.get('bienAsegurado');
-		if (!(bienO instanceof Map<String, Object>)) { return; }
-		Map<String, Object> bien = (Map<String, Object>) bienO;
+		Map<String, Object> bien = (bienO instanceof Map<String, Object>)
+			? (Map<String, Object>) bienO
+			: new Map<String, Object>();
 		Map<String, String> a = new Map<String, String>();
 		if (bien.get('atributos') instanceof List<Object>) {
 			for (Object o : (List<Object>) bien.get('atributos')) {
@@ -1869,9 +1909,12 @@ public with sharing class PolicyController {
 		Decimal anioD = parseMonto(a.get('ano'));
 		if (anioD == null && modeloEsAnio) { anioD = parseMonto(modeloRaw); }
 		Integer anio = (anioD != null) ? anioD.intValue() : null;
-		// Sin identificadores de vehículo no se crea CustomerProperty. Evita que ramos
-		// sin auto (GMM, Vida, Daños) generen un vehículo vacío o incorrecto.
-		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo) && anio == null) { return; }
+		// Sin identificadores de vehículo no se crea un vehículo: ramos sin auto (GMM, Vida, Daños, Mascotas)
+		// guardan su bien asegurado en un CustomerProperty propio de la póliza.
+		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo) && anio == null) {
+			InsurancePolicy pol = [SELECT Id, Name, Ramo__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+			return guardarBienGenerico(pol, accountId, bien);
+		}
 		// Mismo auto = no duplicar: busca por VIN y, si no, por Marca+Modelo+Año
 		// (el identificador puede diferir entre la cotización y la póliza).
 		CustomerProperty cp = null;
@@ -1899,6 +1942,57 @@ public with sharing class PolicyController {
 		if (String.isNotBlank(a.get('uso')))             { try { cp.put('Uso__c', a.get('uso').left(40)); } catch (Exception ignore) {} }
 		if (String.isNotBlank(a.get('tipo de unidad')))  { try { cp.put('TipoVehiculo__c', a.get('tipo de unidad').left(40)); } catch (Exception ignore) {} }
 		upsert cp;
+		return cp.Id;
+	}
+
+	/**
+	 * @creation date: 26/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea o actualiza el CustomerProperty del bien asegurado de una póliza que no es de autos
+	 * (mascota, inmueble, persona...). Se identifica por la póliza (SourceSystemIdentifier) para no duplicarlo.
+	 * La descripción lleva el bien y sus atributos del PDF; si no hay, "Bien asegurado - <ramo>".
+	 * @param pol: Póliza (Id, Name, Ramo__c)
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param bien: Objeto "bienAsegurado" del PDF (opcional)
+	 * @return Id del CustomerProperty
+	 */
+	private static Id guardarBienGenerico(InsurancePolicy pol, Id accountId, Map<String, Object> bien) {
+		String clave = String.valueOf(pol.Id);
+		CustomerProperty cp = null;
+		for (CustomerProperty c : [
+			SELECT Id FROM CustomerProperty
+			WHERE PrimaryOwnerId = :accountId AND SourceSystemIdentifier = :clave LIMIT 1
+		]) { cp = c; }
+		if (cp == null) {
+			cp = new CustomerProperty(PrimaryOwnerId = accountId, SourceSystemIdentifier = clave);
+		}
+		cp.SourceSystem = ('Póliza ' + pol.Name).left(255);
+
+		String texto = bien != null ? strOf(bien.get('descripcion')) : null;
+		List<String> lineas = new List<String>();
+		String domicilio = null;
+		if (bien != null && bien.get('atributos') instanceof List<Object>) {
+			for (Object o : (List<Object>) bien.get('atributos')) {
+				if (!(o instanceof Map<String, Object>)) { continue; }
+				Map<String, Object> mm = (Map<String, Object>) o;
+				String campo = strOf(mm.get('campo'));
+				String valor = strOf(mm.get('valor'));
+				if (String.isBlank(campo) || String.isBlank(valor)) { continue; }
+				lineas.add(campo + ': ' + valor);
+				String k = normKey(campo);
+				if (domicilio == null && (k.contains('domicilio') || k.contains('direccion') || k.contains('ubicacion'))) {
+					domicilio = valor;
+				}
+			}
+		}
+		if (String.isBlank(texto)) {
+			texto = String.isNotBlank(pol.Ramo__c) ? ('Bien asegurado - ' + pol.Ramo__c) : 'Bien asegurado';
+		}
+		if (!lineas.isEmpty()) { texto += '\n' + String.join(lineas, '\n'); }
+		cp.Description = texto.left(32000);
+		if (String.isNotBlank(domicilio)) { cp.Street = domicilio.left(255); }
+		upsert cp;
+		return cp.Id;
 	}
 
 	/**
