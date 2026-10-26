@@ -7,6 +7,10 @@
     <picklistValues>
         <picklist>Family</picklist>
         <values>
+            <fullName>Mascotas</fullName>
+            <default>false</default>
+        </values>
+        
             <fullName>Accidentes Personales</fullName>
             <default>false</default>
         </values>

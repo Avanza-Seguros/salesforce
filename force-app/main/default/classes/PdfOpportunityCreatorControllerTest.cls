@@ -648,7 +648,8 @@ private class PdfOpportunityCreatorControllerTest {
         Map<String, String> ramos = new Map<String, String>{
             'Viajes Internacional' => 'Viajes', 'Daños a casa' => 'Danos', 'Paquete Empresarial' => 'Empresarial',
             'Fianzas' => 'Fianzas', 'Plan Dental' => 'Dental', 'Visión' => 'Vision', 'Responsabilidad civil' => 'RC',
-            'Gastos Médicos' => 'GMM', 'Otro ramo' => 'Otro ramo'
+            'Gastos Médicos' => 'GMM', 'Otro ramo' => 'Otro ramo', 'Mascotas' => 'Mascotas',
+            'Gastos médicos veterinarios' => 'Mascotas'
         };
         for (String r : ramos.keySet()) {
             System.assertEquals(ramos.get(r), PdfOpportunityCreatorController.mapRamoToFormValue(r), r);

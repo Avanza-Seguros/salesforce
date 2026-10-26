@@ -1475,6 +1475,10 @@
     <picklistValues>
         <picklist>Ramo__c</picklist>
         <values>
+            <fullName>Mascotas</fullName>
+            <default>false</default>
+        </values>
+        
             <fullName>Accidentes</fullName>
             <default>false</default>
         </values>

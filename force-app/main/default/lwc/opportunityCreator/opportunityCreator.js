@@ -60,6 +60,7 @@ const RAMO_TYPES = {
     FIANZAS: 'Fianzas',
     DENTAL: 'Dental',
     VISION: 'Vision',
+    MASCOTAS: 'Mascotas',
     RESPONSABILIDAD_CIVIL: 'RC'
 };
 // Etapas: API value (Salesforce) -> etiqueta visible (UX) + metadatos
@@ -3707,6 +3708,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!ramoDetectado) return null;
         const u = ramoDetectado.toUpperCase();
         const mapping = {
+            // Primero: una póliza de mascota también menciona gastos médicos (veterinarios).
+            'MASCOTA': RAMO_TYPES.MASCOTAS, 'VETERINAR': RAMO_TYPES.MASCOTAS,
             'AUTOMOVIL': RAMO_TYPES.AUTOMOVIL, 'AUTO': RAMO_TYPES.AUTOMOVIL,
             'VEHICULO': RAMO_TYPES.AUTOMOVIL, 'CARRO': RAMO_TYPES.AUTOMOVIL,
             'VIAJE': RAMO_TYPES.VIAJE, 'TRAVEL': RAMO_TYPES.VIAJE, 'VIAJES': RAMO_TYPES.VIAJE,
@@ -3714,7 +3717,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             'GASTOS MEDICOS': RAMO_TYPES.GASTOS_MEDICOS, 'MEDICO': RAMO_TYPES.GASTOS_MEDICOS,
             'VIDA': RAMO_TYPES.VIDA, 'LIFE': RAMO_TYPES.VIDA,
             'DANOS': RAMO_TYPES.DANOS, 'DAÑOS': RAMO_TYPES.DANOS,
-            'HOGAR': RAMO_TYPES.DANOS, 'MASCOTAS': RAMO_TYPES.DANOS,
+            'HOGAR': RAMO_TYPES.DANOS,
             'RESPONSABILIDAD CIVIL': RAMO_TYPES.RESPONSABILIDAD_CIVIL, 'RC': RAMO_TYPES.RESPONSABILIDAD_CIVIL,
             'EMPRESARIAL': RAMO_TYPES.EMPRESARIAL, 'BUSINESS': RAMO_TYPES.EMPRESARIAL,
             'FIANZAS': RAMO_TYPES.FIANZAS, 'DENTAL': RAMO_TYPES.DENTAL, 'VISION': RAMO_TYPES.VISION

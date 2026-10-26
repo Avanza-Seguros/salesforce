@@ -1453,7 +1453,7 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Traduce el ramo que devuelve la IA al valor exacto del picklist Ramo__c del LWC
-	 * (Automoviles, GMM, Vida, Viajes, Danos, Empresarial, Fianzas, Dental, Vision, RC).
+	 * (Automoviles, GMM, Vida, Viajes, Danos, Empresarial, Fianzas, Dental, Vision, RC, Mascotas).
 	 * @param ramo: ramo tal como lo devuelve la IA.
 	 * @return valor del picklist correspondiente, o el ramo original si no hay coincidencia.
 	 */
@@ -1463,6 +1463,8 @@ public with sharing class PdfOpportunityCreatorController {
 			return '';
 		}
 		String u = ramo.toUpperCase();
+		// Antes que GMM/Vida: una póliza de mascota menciona gastos médicos veterinarios.
+		if (u.contains('MASCOTA') || u.contains('VETERINAR')) return 'Mascotas';
 		if (u.contains('AUTO')) return 'Automoviles';
 		if (u.contains('GMM') || u.contains('MEDIC') || u.contains('MÉDIC')) return 'GMM';
 		if (u.contains('VIDA')) return 'Vida';
@@ -2314,7 +2316,8 @@ public with sharing class PdfOpportunityCreatorController {
 		'viaje' => 'viajes', 'viajes' => 'viajes',
 		'auto' => 'autos', 'autos' => 'autos', 'automoviles' => 'autos',
 		'ap' => 'ap', 'accidentespersonales' => 'ap',
-		'vision' => 'vision', 'dental' => 'dental'
+		'vision' => 'vision', 'dental' => 'dental',
+		'mascota' => 'mascotas', 'mascotas' => 'mascotas'
 	};
 
 	/**

@@ -10,6 +10,11 @@
         <valueSetDefinition>
             <sorted>true</sorted>
             <value>
+                <fullName>Mascotas</fullName>
+                <default>false</default>
+                <label>Mascotas</label>
+            </value>
+            <value>
                 <fullName>Accidentes Personales</fullName>
                 <default>false</default>
                 <label>Accidentes Personales</label>
