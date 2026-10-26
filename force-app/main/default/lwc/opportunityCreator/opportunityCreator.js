@@ -354,6 +354,38 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.opportunity.tipoCliente === 'Persona';
     }
 
+    // true cuando la oportunidad se llenó desde cotizaciones PDF (activa el aviso
+    // de datos del asegurado que no venían en ellas).
+    datosClienteDesdePdf = false;
+
+    // Datos del asegurado que siguen vacíos (se recalcula al capturar).
+    get datosAseguradoFaltantes() {
+        const o = this.opportunity || {};
+        const vacio = (v) => !String(v || '').trim();
+        const faltan = [];
+        if (this.isPersonAccount) {
+            if (vacio(o.clienteNombre) || vacio(o.clienteApellidoPaterno)) { faltan.push('nombre completo'); }
+        } else if (vacio(o.clienteNombre)) {
+            faltan.push('razón social');
+        }
+        if (vacio(o.clienteRFC))       { faltan.push('RFC'); }
+        if (vacio(o.clienteEmail))     { faltan.push('correo'); }
+        if (vacio(o.clienteTelefono))  { faltan.push('teléfono'); }
+        if (vacio(o.clienteCP))        { faltan.push('código postal'); }
+        if (vacio(o.clienteDireccion)) { faltan.push('dirección'); }
+        return faltan;
+    }
+
+    get avisoDatosAsegurado() {
+        if (!this.datosClienteDesdePdf || this.addQuotesMode) { return ''; }
+        // Si se eligió una cuenta existente, sus datos ya están en Salesforce.
+        if (this.opportunity.AccountId && !this.isNewAccount) { return ''; }
+        const faltan = this.datosAseguradoFaltantes;
+        if (!faltan.length) { return ''; }
+        return `Las cotizaciones no traen estos datos del asegurado: ${faltan.join(', ')}. ` +
+            'Captúralos a mano, ya que no vienen en los PDFs.';
+    }
+
     get hasVehiculoResults() {
         return this.vehiculoResults && this.vehiculoResults.length > 0;
     }
@@ -4070,6 +4102,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         this.setDefaultAgente(d);
         this.loadEditableQuotes();
+        this.datosClienteDesdePdf = true;
 
         this.showToast(
             'La IA ya lo llenó',
@@ -4078,6 +4111,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 : `Listo, sin capturar a mano: ${n} cotizaciones leídas. Solo revisa y guarda.`,
             'success'
         );
+
+        // Aviso aparte si los PDFs no traían datos del asegurado.
+        const faltan = this.datosAseguradoFaltantes;
+        if (faltan.length) {
+            this.showToast(
+                'Faltan datos del asegurado',
+                `Las cotizaciones no traen: ${faltan.join(', ')}. Captúralos en "Información del Cliente".`,
+                'warning'
+            );
+        }
     }
 
     // El AGENTE (Producer) se toma del NOMBRE DEL ARCHIVO de las cotizaciones
@@ -4449,6 +4492,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.isNewContacto = false;
         this.comparativoHtml = '';
         this._comparativoDirty = true;
+        this.datosClienteDesdePdf = false;
     }
 
     showToast(title, message, variant, mode) {

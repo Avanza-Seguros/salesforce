@@ -977,6 +977,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     color: #6B4A00; font-size: 0.9rem;
 }
 .readonly-banner strong { color: #4A3500; }
+.datos-asegurado-banner { margin: 0 1rem 1rem; }
 .readonly-banner lightning-icon {
     --slds-c-icon-color-foreground-default: #B65C00;
     --sds-c-icon-color-foreground-default: #B65C00;

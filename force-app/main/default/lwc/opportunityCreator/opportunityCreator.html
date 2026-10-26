@@ -594,6 +594,13 @@
                         </div>
                         <div class="section-badge">Opcional</div>
                     </div>
+                    <!-- Aviso: datos del asegurado que no venían en las cotizaciones PDF -->
+                    <template if:true={avisoDatosAsegurado}>
+                        <div class="readonly-banner datos-asegurado-banner">
+                            <lightning-icon icon-name="utility:warning" size="x-small"></lightning-icon>
+                            <span>{avisoDatosAsegurado}</span>
+                        </div>
+                    </template>
                     <div class="form-container">
                         <div class="form-grid two-columns">
                             <div class="form-column">
