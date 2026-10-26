@@ -751,7 +751,10 @@ private class PolicyControllerTest {
         Account acc = [SELECT Id FROM Account LIMIT 1];
         Id policyId = tryCreatePolicy(q.Id, acc.Id);
         String datos = '{"ramo":"Mascotas","bienAsegurado":{"tipo":"Mascota","descripcion":"Perro BENITO",'
-            + '"atributos":[{"campo":"Nombre de la mascota","valor":"BENITO"},{"campo":"Raza","valor":"SHIH TZU"}]}}';
+            + '"atributos":[{"campo":"Nombre de la mascota","valor":"BENITO"},{"campo":"Raza","valor":"SHIH TZU"}]},'
+            + '"coberturas":[{"nombre":"Gastos médicos veterinarios","sumaAsegurada":"$35,000.00","deducible":"10.00 %"},'
+            + '{"nombre":"Franquicia","sumaAsegurada":"$500.00"},{"nombre":"Asistencias"},'
+            + '{"nombre":"Servicio de esterilización","sumaAsegurada":"Sin costo","deducible":"Amparada"}]}';
 
         Test.startTest();
         Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
@@ -769,6 +772,18 @@ private class PolicyControllerTest {
         System.assertEquals(1, ipas.size());
         System.assertEquals(bienes[0].Id, ipas[0].CustomerPropertyId, 'El bien de la póliza queda ligado');
         System.assertEquals('Perro BENITO', ipas[0].AssetName);
+
+        // La franquicia va en la cobertura anterior y el encabezado "Asistencias" no es cobertura.
+        Map<String, InsurancePolicyCoverage> cobs = new Map<String, InsurancePolicyCoverage>();
+        for (InsurancePolicyCoverage c : [
+            SELECT CoverageName, LimitAmount, Description FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+        ]) { cobs.put(c.CoverageName, c); }
+        System.assertEquals(2, cobs.size(), String.valueOf(cobs.keySet()));
+        InsurancePolicyCoverage gmv = cobs.get('Gastos médicos veterinarios');
+        System.assertEquals(35000, gmv.LimitAmount);
+        System.assert(gmv.Description.contains('Franquicia: $500.00'), gmv.Description);
+        System.assertEquals(1, gmv.Description.countMatches('Franquicia'), 'Reprocesar no repite la franquicia');
+        System.assertEquals(null, cobs.get('Servicio de esterilización').LimitAmount, '"Sin costo" no es un monto');
     }
 
     /**

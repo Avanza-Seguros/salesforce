@@ -1026,7 +1026,10 @@ public with sharing class PolicyController {
 		//    coberturas del CATÁLOGO del producto.
 		try {
 			Integer nc = crearCoberturasDesdePdf(policyId, d);
-			if (nc == 0) { nc = crearCoberturasPoliza(policyId); }
+			// Al reprocesar, si la póliza ya tiene coberturas no se agregan las del catálogo.
+			if (nc == 0 && [SELECT COUNT() FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId] == 0) {
+				nc = crearCoberturasPoliza(policyId);
+			}
 			resumen.put('coberturas', nc);
 		}
 		catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
@@ -2025,6 +2028,7 @@ public with sharing class PolicyController {
 		for (InsurancePolicyAsset x : [SELECT Id FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 1]) { assetId = x.Id; }
 
 		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		InsurancePolicyCoverage anterior = null;
 		for (Object o : (List<Object>) covsO) {
 			if (!(o instanceof Map<String, Object>)) { continue; }
 			Map<String, Object> m = (Map<String, Object>) o;
@@ -2039,6 +2043,21 @@ public with sharing class PolicyController {
 			Decimal prima = parseMonto(strOf(m.get('prima')));
 			String descCob = descripcionCobertura(suma == null ? sumaTxt : null, ded);
 
+			// Renglón de condición (ej. "Franquicia $500" bajo Gastos médicos veterinarios): no es una
+			// cobertura, se agrega a la descripción de la cobertura anterior.
+			if (esCondicionDeCobertura(nombre)) {
+				String valor = String.isNotBlank(sumaTxt) ? sumaTxt : ded;
+				if (anterior != null && String.isNotBlank(valor)) {
+					String extra = nombre.trim() + ': ' + valor;
+					String actual = anterior.Description == null ? '' : anterior.Description;
+					if (!actual.containsIgnoreCase(extra)) {
+						anterior.Description = (String.isBlank(actual) ? extra : actual + ' | ' + extra).left(255);
+						if (anterior.Id != null) { porActualizar.put(anterior.Id, anterior); }
+					}
+				}
+				continue;
+			}
+
 			InsurancePolicyCoverage ex = existentes.get(nombre.toLowerCase());
 			if (ex != null) {
 				Boolean cambio = false;
@@ -2047,6 +2066,7 @@ public with sharing class PolicyController {
 				if (ex.PremiumAmount == null && prima != null)       { ex.PremiumAmount = prima; cambio = true; }
 				if (String.isNotBlank(descCob) && ex.Description != descCob) { ex.Description = descCob; cambio = true; }
 				if (cambio) { porActualizar.put(ex.Id, ex); }
+				anterior = ex;
 				continue;
 			}
 			if (ya.contains(nombre.toLowerCase())) { continue; }
@@ -2062,6 +2082,7 @@ public with sharing class PolicyController {
 			if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
 			ya.add(nombre.toLowerCase());
 			nuevas.add(c);
+			anterior = c;
 		}
 		if (!nuevas.isEmpty()) { insert nuevas; }
 		if (!porActualizar.isEmpty()) { update porActualizar.values(); }
@@ -2133,9 +2154,24 @@ public with sharing class PolicyController {
 			'titular', 'contratante', 'asegurado', 'asegurada', 'asegurado titular',
 			'beneficiario', 'beneficiarios', 'conductor', 'conductor habitual',
 			'propietario', 'dependiente', 'dependientes', 'contratante/asegurado',
-			'datos del asegurado', 'datos del contratante'
+			'datos del asegurado', 'datos del contratante',
+			'coberturas', 'asistencias', 'asistencia', 'coberturas y asistencias', 'coberturas adicionales'
 		};
 		return roles.contains(k);
+	}
+
+	/**
+	 * @creation date: 26/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el renglón es una condición de la cobertura anterior (Franquicia, Coaseguro, Tope de
+	 * coaseguro, Copago) y no una cobertura propia.
+	 * @param nombre: Nombre de la supuesta cobertura
+	 * @return true si es una condición
+	 */
+	@TestVisible
+	private static Boolean esCondicionDeCobertura(String nombre) {
+		String k = normKey(nombre).replaceAll('\\s+', ' ').trim();
+		return Pattern.matches('(franquicia|coaseguro|tope de coaseguro|copago)( .{0,20})?', k);
 	}
 
 	/**
