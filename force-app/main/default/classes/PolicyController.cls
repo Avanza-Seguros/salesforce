@@ -168,7 +168,7 @@ public with sharing class PolicyController {
 				ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(PROMPT_TEMPLATE_API_NAME, genInput);
 
 			if (gen != null && gen.generations != null && !gen.generations.isEmpty() && String.isNotBlank(gen.generations[0].text)) {
-				return cleanJson(gen.generations[0].text);
+				return completarNumeroPoliza(cleanJson(gen.generations[0].text), texto);
 			}
 			throw new AuraHandledException('La IA no devolvió información de la póliza.');
 		} catch (AuraHandledException ahe) {
@@ -177,6 +177,57 @@ public with sharing class PolicyController {
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al analizar la póliza: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Si la IA no devolvió el número de póliza, lo toma del texto del PDF por su etiqueta
+	 * ("Póliza", "Código de Voucher", "Certificado", "Folio"…). Sin número no se puede crear la póliza.
+	 * @param jsonIa: JSON devuelto por la IA
+	 * @param texto: Texto del PDF
+	 * @return JSON con el número de póliza completado (o igual si no se encontró)
+	 */
+	@TestVisible
+	private static String completarNumeroPoliza(String jsonIa, String texto) {
+		Map<String, Object> d;
+		try {
+			d = (Map<String, Object>) JSON.deserializeUntyped(jsonIa);
+		} catch (Exception e) {
+			return jsonIa;
+		}
+		if (d == null || String.isNotBlank(strOf(d.get('numeroPoliza')))) { return jsonIa; }
+		String numero = numeroPolizaDesdeTexto(texto);
+		if (String.isBlank(numero)) { return jsonIa; }
+		d.put('numeroPoliza', numero);
+		return JSON.serialize(d);
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca el número de póliza por su etiqueta, en el mismo renglón o en el siguiente
+	 * (ej. "Código de Voucher" / "CA-Z7B2GBN-MX"). El valor debe traer al menos un dígito.
+	 * @param texto: Texto del PDF
+	 * @return Número encontrado; null si no hay
+	 */
+	@TestVisible
+	private static String numeroPolizaDesdeTexto(String texto) {
+		if (String.isBlank(texto)) { return null; }
+		String etiqueta = '(?i)^.*?(p[oó]liza|c[oó]digo de voucher|voucher|certificado|folio)'
+			+ '(\\s+(no\\.?|n[uú]m\\.?|n[uú]mero))?\\s*[:#.]?\\s*';
+		String valor = '([A-Z0-9][A-Z0-9\\-/]{3,}[A-Z0-9])';
+		List<String> lineas = texto.split('\\r?\\n');
+		for (Integer i = 0; i < lineas.size(); i++) {
+			String l = lineas[i].trim();
+			Matcher m = Pattern.compile(etiqueta + valor + '\\b.*$').matcher(l);
+			if (m.matches() && m.group(4).containsAny('0123456789')) { return m.group(4); }
+			if (Pattern.matches(etiqueta, l) && i + 1 < lineas.size()) {
+				String sig = lineas[i + 1].trim().split('\\s+')[0];
+				if (Pattern.matches(valor, sig) && sig.containsAny('0123456789')) { return sig; }
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -1694,7 +1745,8 @@ public with sharing class PolicyController {
 		// RFC/correo/teléfono: solo si pertenecen a ESTA persona (el contratante ES la persona).
 		Boolean datosDeLaPersona = (per != null && nombre.equalsIgnoreCase(strOf(per.get('nombre'))));
 		String rfc = datosDeLaPersona ? strOf(per.get('rfc')) : null;
-		String email = datosDeLaPersona ? strOf(per.get('email')) : null;
+		// Algunos PDF separan el correo con espacios ("nombre @ gmail . com").
+		String email = datosDeLaPersona && per.get('email') != null ? strOf(per.get('email')).deleteWhitespace() : null;
 		String tel = datosDeLaPersona ? strOf(per.get('telefono')) : null;
 
 		// Busca el contacto bajo la cuenta comparando el nombre de forma TOLERANTE
@@ -2041,7 +2093,10 @@ public with sharing class PolicyController {
 			Decimal suma = parseMonto(sumaTxt);
 			Decimal dedMonto = esMontoSimple(ded) ? parseMonto(ded) : null;
 			Decimal prima = parseMonto(strOf(m.get('prima')));
-			String descCob = descripcionCobertura(suma == null ? sumaTxt : null, ded);
+			// El texto de la suma se conserva si no es un solo monto en pesos ("USD 5.000 / USD 30.000").
+			Boolean sumaConDetalle = suma == null
+				|| Pattern.compile('(?i)/|usd|dls|dlls|eur|udi').matcher(sumaTxt).find();
+			String descCob = descripcionCobertura(sumaConDetalle ? sumaTxt : null, ded);
 
 			// Renglón de condición (ej. "Franquicia $500" bajo Gastos médicos veterinarios): no es una
 			// cobertura, se agrega a la descripción de la cobertura anterior.
@@ -2200,16 +2255,21 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 18/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Extrae el primer número de un texto ("$3,000,000", "150000 USD" → 150000).
+	 * @description: Extrae el primer número de un texto ("$3,000,000", "150000 USD" → 150000). También acepta el
+	 * punto como separador de miles ("USD 5.000" → 5000, "1.496,52" → 1496.52).
 	 * @param v: Texto con el monto
 	 * @return Monto; null si no hay número
 	 */
+	@TestVisible
 	private static Decimal parseMonto(String v) {
 		if (String.isBlank(v)) { return null; }
 		Matcher mt = Pattern.compile('[0-9][0-9,]*(\\.[0-9]+)?').matcher(v);
-		if (mt.find()) {
-			try { return Decimal.valueOf(mt.group().replace(',', '')); } catch (Exception e) {}
+		if (!mt.find()) { return null; }
+		Matcher miles = Pattern.compile('[0-9]{1,3}(\\.[0-9]{3})+(,[0-9]{1,2})?(?![0-9.,])').matcher(v);
+		if (miles.find() && miles.start() == mt.start()) {
+			try { return Decimal.valueOf(miles.group().replace('.', '').replace(',', '.')); } catch (Exception e) {}
 		}
+		try { return Decimal.valueOf(mt.group().replace(',', '')); } catch (Exception e) {}
 		return null;
 	}
 

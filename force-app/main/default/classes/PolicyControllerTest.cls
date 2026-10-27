@@ -864,4 +864,28 @@ private class PolicyControllerTest {
         InsurancePolicy pol = polizaValida(acc.Id, null, q.OpportunityId, 'POL-OPP-001');
         System.assertEquals(pol.Id, PolicyController.getPolicyIdByQuote(null, q.OpportunityId));
     }
+
+    /**
+     * @creation date: 27/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que, si la IA no trae el número de póliza, se tome del PDF por su etiqueta (voucher de
+     * asistencia en viaje, en el renglón siguiente; o "Póliza No." en el mismo renglón).
+     * @return void
+     */
+    @isTest
+    static void testNumeroPolizaDesdeTexto() {
+        String voucher = 'Código de Voucher\nCA-Z7B2GBN-MX\nGuarda este código para cualquier consulta';
+        String js = PolicyController.completarNumeroPoliza('{"numeroPoliza": null, "primaTotal": 81.2}', voucher);
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(js);
+        System.assertEquals('CA-Z7B2GBN-MX', d.get('numeroPoliza'));
+        System.assertEquals(81.2, (Decimal) d.get('primaTotal'));
+        System.assertEquals('0971273390', PolicyController.numeroPolizaDesdeTexto('Datos\nPóliza No.: 0971273390 vigente'));
+        System.assertEquals(null, PolicyController.numeroPolizaDesdeTexto('Fechas de vigencia de tu póliza\nGuarda este código'));
+        System.assertEquals(5000, PolicyController.parseMonto('USD 5.000 / USD 30.000'));
+        System.assertEquals(1496.52, PolicyController.parseMonto('MXN $1.496,52'));
+        System.assertEquals(35000, PolicyController.parseMonto('$35,000.00'));
+        System.assertEquals(10, PolicyController.parseMonto('10.00 %'));
+        String conNumero = '{"numeroPoliza":"ABC123"}';
+        System.assertEquals(conNumero, PolicyController.completarNumeroPoliza(conNumero, voucher));
+    }
 }
