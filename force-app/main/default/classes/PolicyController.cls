@@ -1132,7 +1132,8 @@ public with sharing class PolicyController {
 		// actualiza ESE registro con ambos roles en lugar de crear otro.
 		Map<String, InsurancePolicyParticipant> porNombre = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT Id, ParticipantName, ParticipantCode, Role, RelationshipToInsured, BeneficiarySharePercentage
+			SELECT Id, ParticipantName, ParticipantCode, Role, RelationshipToInsured, BeneficiarySharePercentage,
+				FechaNacimiento__c, Identificacion__c
 			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
 		]) {
 			ya.add(llaveBeneficiario(p.ParticipantName, p.ParticipantCode));
@@ -1155,6 +1156,9 @@ public with sharing class PolicyController {
 			if (String.isBlank(nombre) || esElMismo(nombre)) { continue; }
 			String codigo = codigoBeneficio(strOf(b.get('tipo')));
 			String llave = llaveBeneficiario(nombre, codigo);
+			InsurancePolicyParticipant ex = porNombre.get(llaveBeneficiario(nombre, null));
+			// Si ya existe, se completan su fecha de nacimiento e identificación.
+			if (ex != null && aplicarDatosPersona(ex, b, null)) { actualizados.put(ex.Id, ex); }
 			if (ya.contains(llave)) { continue; }
 			ya.add(llave);
 			Decimal pct = parseMonto(strOf(b.get('porcentaje')));
@@ -1162,7 +1166,6 @@ public with sharing class PolicyController {
 
 			// Ya es participante (ej. el asegurado) y aún no tiene un beneficio asignado:
 			// se le agrega el rol Beneficiario (Role es selección múltiple) en el MISMO registro.
-			InsurancePolicyParticipant ex = porNombre.get(llaveBeneficiario(nombre, null));
 			if (ex != null && String.isBlank(ex.ParticipantCode)) {
 				ex.Role = agregarRol(ex.Role, rolBen);
 				ex.ParticipantCode = codigo;
@@ -1183,11 +1186,60 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
 			try { p.IsActiveParticipant = true; } catch (Exception ignore) {}
 			try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+			aplicarDatosPersona(p, b, null);
 			nuevos.add(p);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
 		if (!actualizados.isEmpty()) { update actualizados.values(); }
 		return nuevos.size() + actualizados.size();
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Completa la fecha de nacimiento y la identificación del participante con los datos de la persona
+	 * en el PDF. Solo llena lo vacío: no sobrescribe lo ya capturado.
+	 * @param p: Participante a completar
+	 * @param persona: Datos de la persona en el PDF ("fechaNacimiento", "identificacion"); puede ser null
+	 * @param identificacionRespaldo: Identificación a usar si la persona no trae una (ej. RFC del contratante)
+	 * @return true si se cambió algún dato
+	 */
+	@TestVisible
+	private static Boolean aplicarDatosPersona(InsurancePolicyParticipant p, Map<String, Object> persona, String identificacionRespaldo) {
+		Boolean cambio = false;
+		Date fecha = persona == null ? null : parseFecha(strOf(persona.get('fechaNacimiento')));
+		if (fecha != null && p.FechaNacimiento__c == null) { p.FechaNacimiento__c = fecha; cambio = true; }
+		String ident = persona == null ? null : strOf(persona.get('identificacion'));
+		if (String.isBlank(ident) && persona != null) { ident = strOf(persona.get('rfc')); }
+		if (String.isBlank(ident)) { ident = identificacionRespaldo; }
+		if (String.isNotBlank(ident) && String.isBlank(p.Identificacion__c)) {
+			p.Identificacion__c = ident.deleteWhitespace().toUpperCase().left(50);
+			cambio = true;
+		}
+		return cambio;
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte una fecha del PDF a Date: "AAAA-MM-DD" o "DD/MM/AAAA" (también con guiones).
+	 * @param v: Fecha en texto
+	 * @return Fecha; null si no es válida
+	 */
+	@TestVisible
+	private static Date parseFecha(String v) {
+		if (String.isBlank(v)) { return null; }
+		try {
+			Matcher iso = Pattern.compile('(\\d{4})-(\\d{1,2})-(\\d{1,2})').matcher(v);
+			if (iso.find()) {
+				return Date.newInstance(Integer.valueOf(iso.group(1)), Integer.valueOf(iso.group(2)), Integer.valueOf(iso.group(3)));
+			}
+			Matcher mx = Pattern.compile('(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})').matcher(v);
+			if (mx.find()) {
+				return Date.newInstance(Integer.valueOf(mx.group(3)), Integer.valueOf(mx.group(2)), Integer.valueOf(mx.group(1)));
+			}
+		} catch (Exception e) {}
+		return null;
 	}
 
 	/**
@@ -1786,8 +1838,24 @@ public with sharing class PolicyController {
 			contactId = c.Id;
 		}
 
-		// Evita duplicar el participante: por contacto o por el mismo nombre.
-		if (polizaTieneParticipante(policyId, contactId, nombre)) { return 0; }
+		// Fecha de nacimiento e identificación: de "asegurado" si es esta persona; si no, el RFC del contratante.
+		Map<String, Object> persona = (aseg != null && nombre.equalsIgnoreCase(strOf(aseg.get('nombre')))) ? aseg : null;
+
+		// Evita duplicar el participante: por contacto o por el mismo nombre. Si ya existe, solo se
+		// completan sus datos.
+		if (polizaTieneParticipante(policyId, contactId, nombre)) {
+			String nom = normKey(nombre).replaceAll('\\s+', ' ');
+			for (InsurancePolicyParticipant ex : [
+				SELECT Id, PrimaryParticipantContactId, ParticipantName, FechaNacimiento__c, Identificacion__c
+				FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+			]) {
+				Boolean mismo = (contactId != null && ex.PrimaryParticipantContactId == contactId)
+					|| normKey(ex.ParticipantName == null ? '' : ex.ParticipantName).replaceAll('\\s+', ' ') == nom;
+				if (mismo && aplicarDatosPersona(ex, persona, rfc)) { update ex; }
+				if (mismo) { break; }
+			}
+			return 0;
+		}
 
 		InsurancePolicyParticipant part = new InsurancePolicyParticipant();
 		part.InsurancePolicyId = policyId;
@@ -1799,6 +1867,7 @@ public with sharing class PolicyController {
 		try { part.EffectiveDate = Date.today(); } catch (Exception ignore) {}
 		// Completa Cuenta, Producto y detalle de prima desde la póliza.
 		aplicarDatosParticipante(part, policyId, accountId);
+		aplicarDatosPersona(part, persona, rfc);
 		insert part;
 		return 1;
 	}
@@ -1817,7 +1886,10 @@ public with sharing class PolicyController {
 	@TestVisible
 	private static Integer crearAseguradosAdicionalesDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
 		Object lista = d.get('aseguradosAdicionales');
-		if (!(lista instanceof List<Object>) || ((List<Object>) lista).isEmpty()) { return 0; }
+		Map<String, Object> aseg = (d.get('asegurado') instanceof Map<String, Object>)
+			? (Map<String, Object>) d.get('asegurado') : null;
+		Boolean hayLista = (lista instanceof List<Object>) && !((List<Object>) lista).isEmpty();
+		if (!hayLista && aseg == null) { return 0; }
 		InsurancePolicy pol = [
 			SELECT Id, ProductId, NameInsuredId, SourceOpportunityId
 			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
@@ -1829,18 +1901,29 @@ public with sharing class PolicyController {
 		Schema.DescribeFieldResult relDesc = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
 
 		Set<String> ya = new Set<String>{ titular };
+		Map<String, InsurancePolicyParticipant> existentes = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT ParticipantName FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+			SELECT Id, ParticipantName, FechaNacimiento__c, Identificacion__c
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
 		]) {
-			ya.add(normKey(p.ParticipantName).normalizeSpace());
+			String k = normKey(p.ParticipantName).normalizeSpace();
+			ya.add(k);
+			if (!existentes.containsKey(k)) { existentes.put(k, p); }
 		}
 		List<InsurancePolicyParticipant> nuevos = new List<InsurancePolicyParticipant>();
-		for (Object o : (List<Object>) lista) {
+		Map<Id, InsurancePolicyParticipant> actualizados = new Map<Id, InsurancePolicyParticipant>();
+		// El titular ya es participante: se completan su fecha de nacimiento e identificación.
+		InsurancePolicyParticipant exTitular = existentes.get(titular);
+		if (exTitular != null && aplicarDatosPersona(exTitular, aseg, null)) { actualizados.put(exTitular.Id, exTitular); }
+		for (Object o : hayLista ? (List<Object>) lista : new List<Object>()) {
 			if (!(o instanceof Map<String, Object>)) { continue; }
 			Map<String, Object> a = (Map<String, Object>) o;
 			String nombre = strOf(a.get('nombre'));
 			if (String.isBlank(nombre) || esElMismo(nombre)) { continue; }
 			nombre = nombre.normalizeSpace();
+			// Ya es participante: solo se completan su fecha de nacimiento e identificación.
+			InsurancePolicyParticipant ex = existentes.get(normKey(nombre));
+			if (ex != null && aplicarDatosPersona(ex, a, null)) { actualizados.put(ex.Id, ex); }
 			if (!ya.add(normKey(nombre))) { continue; }
 			InsurancePolicyParticipant p = new InsurancePolicyParticipant();
 			p.InsurancePolicyId = policyId;
@@ -1852,9 +1935,11 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
 			try { p.IsActiveParticipant = true; } catch (Exception ignore) {}
 			try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+			aplicarDatosPersona(p, a, null);
 			nuevos.add(p);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
+		if (!actualizados.isEmpty()) { update actualizados.values(); }
 		return nuevos.size();
 	}
 
@@ -2126,8 +2211,8 @@ public with sharing class PolicyController {
 			FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
 		]) {
 			if (String.isNotBlank(c.CoverageName)) {
-				ya.add(c.CoverageName.toLowerCase());
-				existentes.put(c.CoverageName.toLowerCase(), c);
+				ya.add(llaveCobertura(c.CoverageName));
+				existentes.put(llaveCobertura(c.CoverageName), c);
 			}
 		}
 		Map<Id, InsurancePolicyCoverage> porActualizar = new Map<Id, InsurancePolicyCoverage>();
@@ -2170,7 +2255,7 @@ public with sharing class PolicyController {
 				continue;
 			}
 
-			InsurancePolicyCoverage ex = existentes.get(nombre.toLowerCase());
+			InsurancePolicyCoverage ex = existentes.get(llaveCobertura(nombre));
 			if (ex != null) {
 				Boolean cambio = false;
 				if (ex.LimitAmount == null && suma != null)         { ex.LimitAmount = suma; cambio = true; }
@@ -2181,7 +2266,7 @@ public with sharing class PolicyController {
 				anterior = ex;
 				continue;
 			}
-			if (ya.contains(nombre.toLowerCase())) { continue; }
+			if (ya.contains(llaveCobertura(nombre))) { continue; }
 			InsurancePolicyCoverage c = new InsurancePolicyCoverage();
 			c.InsurancePolicyId = policyId;
 			c.CoverageName = nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
@@ -2192,13 +2277,24 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
 			if (assetId != null)       { c.InsurancePolicyAssetId = assetId; }
 			if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
-			ya.add(nombre.toLowerCase());
+			ya.add(llaveCobertura(nombre));
 			nuevas.add(c);
 			anterior = c;
 		}
 		if (!nuevas.isEmpty()) { insert nuevas; }
 		if (!porActualizar.isEmpty()) { update porActualizar.values(); }
 		return nuevas.size();
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave para comparar coberturas: sin acentos, espacios ni signos ("Fianza legal" = "fi anza legal").
+	 * @param nombre: Nombre de la cobertura
+	 * @return Llave de comparación
+	 */
+	private static String llaveCobertura(String nombre) {
+		return normKey(nombre).replaceAll('[^a-z0-9]', '');
 	}
 
 	/**

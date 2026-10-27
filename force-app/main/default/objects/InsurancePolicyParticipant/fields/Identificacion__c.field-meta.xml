@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Identificacion__c</fullName>
+    <description>Identificación del participante tomada del PDF de la póliza (pasaporte, RFC o CURP).</description>
+    <externalId>false</externalId>
+    <label>Identificación</label>
+    <length>50</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

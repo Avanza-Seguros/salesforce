@@ -798,9 +798,16 @@ private class PolicyControllerTest {
         Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
         Account acc = [SELECT Id FROM Account LIMIT 1];
         Id policyId = tryCreatePolicy(q.Id, acc.Id);
-        String datos = '{"titular":"Andrea Fernanda Bale Ramirez","aseguradosAdicionales":['
+        // El titular ya es participante (lo crea el paso del asegurado principal).
+        insert new InsurancePolicyParticipant(InsurancePolicyId = policyId, PrimaryParticipantAccountId = acc.Id,
+            ParticipantName = 'Andrea Fernanda Bale Ramirez',
+            Role = InsurancePolicyParticipant.Role.getDescribe().getPicklistValues()[0].getValue());
+        String datos = '{"titular":"Andrea Fernanda Bale Ramirez",'
+            + '"asegurado":{"nombre":"Andrea Fernanda Bale Ramirez","fechaNacimiento":"25/07/1992","identificacion":"6379623"},'
+            + '"aseguradosAdicionales":['
             + '{"nombre":"Andrea Fernanda Bale Ramirez"},'
-            + '{"nombre":"Gabriel Guadalupe  Reyes De Santiago","parentesco":"TITULAR 2"}]}';
+            + '{"nombre":"Gabriel Guadalupe  Reyes De Santiago","parentesco":"TITULAR 2",'
+            + '"fechaNacimiento":"1991-09-27","identificacion":"0379 8496"}]}';
         Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(datos);
 
         Test.startTest();
@@ -811,11 +818,29 @@ private class PolicyControllerTest {
         System.assertEquals(1, n1, 'Solo se agrega el segundo titular');
         System.assertEquals(0, n2, 'Reprocesar no lo duplica');
         List<InsurancePolicyParticipant> ps = [
-            SELECT ParticipantName, PrimaryParticipantAccountId FROM InsurancePolicyParticipant
+            SELECT ParticipantName, PrimaryParticipantAccountId, FechaNacimiento__c, Identificacion__c
+            FROM InsurancePolicyParticipant
             WHERE InsurancePolicyId = :policyId AND ParticipantName = 'Gabriel Guadalupe Reyes De Santiago'
         ];
         System.assertEquals(1, ps.size());
         System.assertEquals(acc.Id, ps[0].PrimaryParticipantAccountId);
+        System.assertEquals(Date.newInstance(1991, 9, 27), ps[0].FechaNacimiento__c);
+        System.assertEquals('03798496', ps[0].Identificacion__c);
+        InsurancePolicyParticipant tit = [
+            SELECT FechaNacimiento__c, Identificacion__c FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :policyId AND ParticipantName = 'Andrea Fernanda Bale Ramirez'
+        ];
+        System.assertEquals(Date.newInstance(1992, 7, 25), tit.FechaNacimiento__c, 'Se completan los datos del titular');
+        System.assertEquals('6379623', tit.Identificacion__c);
+
+        // Fechas del PDF en ambos formatos; lo ya capturado no se sobrescribe.
+        System.assertEquals(Date.newInstance(1992, 7, 25), PolicyController.parseFecha('25/07/1992'));
+        System.assertEquals(null, PolicyController.parseFecha('sin fecha'));
+        InsurancePolicyParticipant p = new InsurancePolicyParticipant(Identificacion__c = 'PREVIA');
+        Map<String, Object> persona = new Map<String, Object>{ 'fechaNacimiento' => '1990-01-02', 'identificacion' => 'X1' };
+        System.assert(PolicyController.aplicarDatosPersona(p, persona, null));
+        System.assertEquals('PREVIA', p.Identificacion__c);
+        System.assertEquals(Date.newInstance(1990, 1, 2), p.FechaNacimiento__c);
     }
 
     /**
