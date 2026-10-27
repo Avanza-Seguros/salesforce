@@ -390,6 +390,23 @@
                                         <p class="helper-text">{productHelperText}</p>
                                     </template>
                                 </div>
+
+                                <!-- Plan cotizado -->
+                                <div class="form-card">
+                                    <div class="form-card-header">
+                                        <lightning-icon icon-name="utility:layers" size="x-small"></lightning-icon>
+                                        <h3>Plan</h3>
+                                    </div>
+                                    <lightning-input
+                                        label=""
+                                        value={quote.Plan__c}
+                                        onchange={handleInputChange}
+                                        data-field="Plan__c"
+                                        variant="label-hidden"
+                                        max-length="100"
+                                        placeholder="Ej: BÁSICO, PLUS, AMPLIA">
+                                    </lightning-input>
+                                </div>
                             </div>
 
                             <div class="form-column">

@@ -1630,6 +1630,7 @@ public with sharing class PdfOpportunityCreatorController {
 			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
+			if (String.isNotBlank(plan)) { q.Plan__c = plan.left(100); }
 			// Resumen de coberturas del PDF en los campos de la Quote (suma, tipo de valor,
 			// deducibles, RC, gastos médicos…) que muestran las "Cotizaciones comparadas".
 			try { aplicarResumenCoberturas(q, m.get('coberturas'), stringOf(m.get('notas'))); }

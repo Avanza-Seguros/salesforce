@@ -1556,10 +1556,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 productName = qli[0].Product2?.Name || '';
             }
         }
-        // Plan: viene embebido en el nombre de la cotización con el formato
-        // "Compañía - Plan" (así se crea al generarla). Se toma lo que va después de " - ".
-        let plan = '';
-        if (typeof q.Name === 'string') {
+        // Plan: el campo Plan__c (cotización manual o PDF). En las cotizaciones anteriores
+        // viene en el nombre "Compañía - Plan": se toma lo que va después de " - ".
+        let plan = q.Plan__c || '';
+        if (!plan && typeof q.Name === 'string') {
             const idx = q.Name.indexOf(' - ');
             if (idx >= 0) { plan = q.Name.substring(idx + 3).trim(); }
         }

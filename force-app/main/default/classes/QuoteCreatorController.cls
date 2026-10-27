@@ -45,7 +45,7 @@ public with sharing class QuoteCreatorController {
 				SELECT Id, Name, OpportunityId, Opportunity.Name, Aseguradora__r.Name,
 					   Opportunity.Ramo__c, Status, TotalPrice, RatingDate,
 					   ExpirationDate, CreatedDate, Ramos__c, Prima_Total__c, PrimaAnual__c, Frecuencia_de_prima__c,
-					   Vigencia_Inicio__c, Aseguradora__c, Product__c, Product__r.Name, Description
+					   Vigencia_Inicio__c, Aseguradora__c, Product__c, Product__r.Name, Description, Plan__c
 				FROM Quote
 				WHERE Id = :quoteId
 			];
