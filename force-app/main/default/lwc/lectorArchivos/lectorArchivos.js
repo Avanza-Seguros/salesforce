@@ -125,15 +125,22 @@ function indiceColumna(ref) {
 
 /**
  * Abre un archivo de tabla. Devuelve { hojas: [nombres], leerHoja(nombre) -> filas[][] }.
- * Formatos binarios antiguos (.xls, .xlsb) no se pueden leer en el navegador: se pide guardarlos como .xlsx.
+ * Excel .xlsx/.xlsm y .xls (Excel 97-2003). Las hojas ocultas (cálculos, catálogos) no se listan, salvo que
+ * todas lo estén. El formato .xlsb no se puede leer en el navegador: se pide guardarlo como .xlsx.
  */
 export async function abrirTabla(file) {
     const ext = file.name.toLowerCase().split('.').pop();
-    if (ext === 'xls' || ext === 'xlsb') {
-        throw new Error(`El formato .${ext} de Excel no se puede leer aquí. Ábrelo en Excel y usa "Guardar como" → Libro de Excel (.xlsx) o CSV.`);
+    if (ext === 'xlsb') {
+        throw new Error('El formato .xlsb de Excel no se puede leer aquí. Ábrelo en Excel y usa "Guardar como" → Libro de Excel (.xlsx) o CSV.');
+    }
+    const visibles = (hojas) => (hojas.some((h) => !h.oculta) ? hojas.filter((h) => !h.oculta) : hojas);
+    if (ext === 'xls') {
+        const hojas = visibles(leerXls(await file.arrayBuffer()));
+        return { hojas: hojas.map((h) => h.nombre), leerHoja: async (nombre) => (hojas.find((h) => h.nombre === nombre) || hojas[0]).filas };
     }
     if (ext === 'xlsx' || ext === 'xlsm') {
         const x = await abrirXlsx(await file.arrayBuffer());
+        x.hojas = visibles(x.hojas);
         return { hojas: x.hojas.map((h) => h.nombre), leerHoja: (nombre) => leerHojaXlsx(x, nombre) };
     }
     if (ext === 'csv' || ext === 'txt') {
@@ -229,6 +236,7 @@ async function abrirXlsx(buffer) {
     });
     const hojas = tags(xml(await leer('xl/workbook.xml')), 'sheet').map((s) => ({
         nombre: s.getAttribute('name'),
+        oculta: /hidden/i.test(s.getAttribute('state') || ''),
         ruta: rels[s.getAttribute('r:id') || s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')]
     })).filter((h) => h.ruta);
     if (!hojas.length && entradas['xl/worksheets/sheet1.xml']) { hojas.push({ nombre: 'Hoja 1', ruta: 'xl/worksheets/sheet1.xml' }); }
@@ -264,6 +272,182 @@ async function leerHojaXlsx(x, nombre) {
     });
     return Array.from(filas, (f) => f || []);
 }
+
+// ---------- Excel 97-2003 (.xls) ----------
+// INICIO-XLS (bloque que también se prueba fuera de Salesforce)
+
+// Contenido de un flujo del contenedor OLE (Compound File) por nombre ("Workbook" o "Book"), o null.
+function flujoOle(u8, nombres) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    if (u8.length < 512 || dv.getUint32(0, true) !== 0xe011cfd0 || dv.getUint32(4, true) !== 0xe11ab1a1) { return null; }
+    const tamSector = 1 << dv.getUint16(30, true);
+    const tamMini = 1 << dv.getUint16(32, true);
+    const corteMini = dv.getUint32(56, true);
+    const sector = (s) => 512 + s * tamSector;
+    // Sectores de la FAT: 109 en el encabezado y el resto en la cadena DIFAT.
+    const sectoresFat = [];
+    for (let i = 0; i < 109; i++) { const s = dv.getUint32(76 + i * 4, true); if (s < 0xfffffffa) { sectoresFat.push(s); } }
+    let difat = dv.getUint32(68, true);
+    for (let n = dv.getUint32(72, true); n > 0 && difat < 0xfffffffa; n--) {
+        for (let i = 0; i < tamSector / 4 - 1; i++) { const s = dv.getUint32(sector(difat) + i * 4, true); if (s < 0xfffffffa) { sectoresFat.push(s); } }
+        difat = dv.getUint32(sector(difat) + tamSector - 4, true);
+    }
+    const fat = [];
+    sectoresFat.forEach((s) => { for (let i = 0; i < tamSector / 4; i++) { fat.push(dv.getUint32(sector(s) + i * 4, true)); } });
+    const cadena = (inicio, tabla) => {
+        const lista = [];
+        for (let s = inicio; s < 0xfffffffa && lista.length <= tabla.length; s = tabla[s]) { lista.push(s); }
+        return lista;
+    };
+    const leerCadena = (inicio, tam) => {
+        const out = new Uint8Array(cadena(inicio, fat).length * tamSector);
+        cadena(inicio, fat).forEach((s, i) => out.set(u8.subarray(sector(s), sector(s) + tamSector), i * tamSector));
+        return out.subarray(0, tam);
+    };
+    const dir = leerCadena(dv.getUint32(48, true), Infinity);
+    const entradas = [];
+    for (let p = 0; p + 128 <= dir.length; p += 128) {
+        const d = new DataView(dir.buffer, dir.byteOffset + p, 128);
+        const largo = d.getUint16(64, true);
+        let nombre = '';
+        for (let i = 0; i < largo / 2 - 1; i++) { nombre += String.fromCharCode(d.getUint16(i * 2, true)); }
+        entradas.push({ nombre, tipo: d.getUint8(66), inicio: d.getUint32(116, true), tam: d.getUint32(120, true) });
+    }
+    const e = entradas.find((x) => x.tipo === 2 && nombres.includes(x.nombre));
+    if (!e) { return null; }
+    if (e.tam >= corteMini) { return leerCadena(e.inicio, e.tam); }
+    // Flujo chico: vive en el mini flujo de la entrada raíz y se encadena con la mini FAT.
+    const raiz = entradas.find((x) => x.tipo === 5);
+    const mini = leerCadena(raiz.inicio, raiz.tam);
+    const miniFat = [];
+    const bytesMiniFat = leerCadena(dv.getUint32(60, true), dv.getUint32(64, true) * tamSector);
+    for (let i = 0; i + 4 <= bytesMiniFat.length; i += 4) { miniFat.push(new DataView(bytesMiniFat.buffer, bytesMiniFat.byteOffset + i, 4).getUint32(0, true)); }
+    const out = new Uint8Array(cadena(e.inicio, miniFat).length * tamMini);
+    cadena(e.inicio, miniFat).forEach((s, i) => out.set(mini.subarray(s * tamMini, (s + 1) * tamMini), i * tamMini));
+    return out.subarray(0, e.tam);
+}
+
+// Número RK de Excel (entero o flotante comprimido, opcionalmente /100).
+function numeroRk(rk) {
+    let v;
+    if (rk & 2) {
+        v = rk >> 2;
+    } else {
+        const b = new DataView(new ArrayBuffer(8));
+        b.setUint32(4, rk & 0xfffffffc, true);
+        v = b.getFloat64(0, true);
+    }
+    return rk & 1 ? v / 100 : v;
+}
+
+/**
+ * Lee un libro .xls (BIFF8). Devuelve [{ nombre, oculta, filas[][] }] con texto y números (fórmulas con su
+ * último valor calculado). Los libros protegidos con contraseña no se pueden leer.
+ */
+export function leerXls(buffer) {
+    const u8 = new Uint8Array(buffer);
+    const wb = flujoOle(u8, ['Workbook', 'Book']);
+    if (!wb) { throw new Error('El archivo no es un Excel .xls válido. Ábrelo en Excel y guárdalo como .xlsx.'); }
+    const dv = new DataView(wb.buffer, wb.byteOffset, wb.byteLength);
+    // Registros: [tipo, inicio de datos, largo].
+    const registros = [];
+    for (let p = 0; p + 4 <= wb.length;) {
+        const tipo = dv.getUint16(p, true);
+        const largo = dv.getUint16(p + 2, true);
+        registros.push([tipo, p + 4, largo]);
+        p += 4 + largo;
+    }
+    const latin = new TextDecoder('windows-1252');
+    const texto16 = new TextDecoder('utf-16le');
+    // Cadena Unicode que puede continuar en registros CONTINUE: cada continuación dentro de los caracteres
+    // empieza con un byte de opciones que dice si siguen en 1 o 2 bytes.
+    const lector = (partes) => {
+        let i = 0;
+        let p = partes.length ? partes[0][0] : 0;
+        const fin = () => partes[i][0] + partes[i][1];
+        const avanzarSiAcabo = () => { while (i < partes.length - 1 && p >= fin()) { i++; p = partes[i][0]; } };
+        const u8b = () => { avanzarSiAcabo(); return wb[p++]; };
+        const u16 = () => { avanzarSiAcabo(); const v = dv.getUint16(p, true); p += 2; return v; };
+        const u32 = () => { avanzarSiAcabo(); const v = dv.getUint32(p, true); p += 4; return v; };
+        const saltar = (n) => { while (n > 0) { avanzarSiAcabo(); const k = Math.min(n, fin() - p); p += k; n -= k; if (k <= 0) { break; } } };
+        const cadena = (cch, opciones) => {
+            let doble = opciones & 1;
+            const ricos = opciones & 8 ? u16() : 0;
+            const ext = opciones & 4 ? u32() : 0;
+            let s = '';
+            while (cch > 0) {
+                if (p >= fin() && i < partes.length - 1) { i++; p = partes[i][0]; doble = wb[p++] & 1; }
+                const disponibles = Math.floor((fin() - p) / (doble ? 2 : 1));
+                const k = Math.min(cch, Math.max(disponibles, 0));
+                if (k <= 0) { break; }
+                s += (doble ? texto16 : latin).decode(wb.subarray(p, p + k * (doble ? 2 : 1)));
+                p += k * (doble ? 2 : 1);
+                cch -= k;
+            }
+            saltar(ricos * 4 + ext);
+            return s;
+        };
+        return { u8: u8b, u16, u32, cadena, fin: () => i >= partes.length - 1 && p >= fin() };
+    };
+    const larga = (partes) => { const l = lector(partes); const cch = l.u16(); return l.cadena(cch, l.u8()); };
+
+    const hojas = [];
+    const sst = [];
+    for (let k = 0; k < registros.length; k++) {
+        const [tipo, ini, largo] = registros[k];
+        if (tipo === 0x002f) { throw new Error('El Excel está protegido con contraseña. Quítale la protección o guárdalo como .xlsx.'); }
+        if (tipo === 0x0085) {
+            const l = lector([[ini + 6, largo - 6]]);
+            hojas.push({ pos: dv.getUint32(ini, true), oculta: wb[ini + 4] !== 0, esHoja: wb[ini + 5] === 0, nombre: l.cadena(l.u8(), l.u8()), filas: [] });
+        } else if (tipo === 0x00fc) {
+            const partes = [[ini + 8, largo - 8]];
+            while (k + 1 < registros.length && registros[k + 1][0] === 0x003c) { k++; partes.push([registros[k][1], registros[k][2]]); }
+            const l = lector(partes);
+            const total = dv.getUint32(ini + 4, true);
+            for (let n = 0; n < total && !l.fin(); n++) { const cch = l.u16(); sst.push(l.cadena(cch, l.u8())); }
+        }
+    }
+    hojas.forEach((h) => {
+        const k0 = registros.findIndex((r) => r[1] - 4 === h.pos);
+        if (k0 < 0 || !h.esHoja) { return; }
+        const poner = (fila, col, valor) => {
+            const f = h.filas[fila] || (h.filas[fila] = []);
+            f[col] = typeof valor === 'string' ? repararTexto(valor) : valor;
+        };
+        let formulaPendiente = null;
+        for (let k = k0 + 1; k < registros.length; k++) {
+            const [tipo, ini, largo] = registros[k];
+            if (tipo === 0x000a) { break; }
+            const fila = dv.getUint16(ini, true);
+            const col = dv.getUint16(ini + 2, true);
+            if (tipo === 0x00fd) { poner(fila, col, sst[dv.getUint32(ini + 6, true)] ?? ''); }
+            else if (tipo === 0x0203) { poner(fila, col, dv.getFloat64(ini + 6, true)); }
+            else if (tipo === 0x027e) { poner(fila, col, numeroRk(dv.getUint32(ini + 6, true))); }
+            else if (tipo === 0x00bd) {
+                const ultima = dv.getUint16(ini + largo - 2, true);
+                for (let c = col; c <= ultima; c++) { poner(fila, c, numeroRk(dv.getUint32(ini + 4 + (c - col) * 6 + 2, true))); }
+            } else if (tipo === 0x0204 || tipo === 0x00d6) {
+                poner(fila, col, larga([[ini + 6, largo - 6]]));
+            } else if (tipo === 0x0205) {
+                if (wb[ini + 7] === 0) { poner(fila, col, wb[ini + 6] ? 'VERDADERO' : 'FALSO'); }
+            } else if (tipo === 0x0006) {
+                // Resultado guardado de la fórmula: número, o texto en el registro STRING que sigue.
+                if (dv.getUint16(ini + 12, true) !== 0xffff) { poner(fila, col, dv.getFloat64(ini + 6, true)); }
+                else if (wb[ini + 6] === 0) { formulaPendiente = [fila, col]; }
+                else if (wb[ini + 6] === 1) { poner(fila, col, wb[ini + 8] ? 'VERDADERO' : 'FALSO'); }
+            } else if (tipo === 0x0207 && formulaPendiente) {
+                const partes = [[ini, largo]];
+                while (k + 1 < registros.length && registros[k + 1][0] === 0x003c) { k++; partes.push([registros[k][1], registros[k][2]]); }
+                poner(formulaPendiente[0], formulaPendiente[1], larga(partes));
+                formulaPendiente = null;
+            }
+        }
+        h.filas = Array.from(h.filas, (f) => Array.from(f || [], (c) => (c === undefined ? '' : c)));
+    });
+    if (!hojas.length) { throw new Error('El Excel no tiene hojas.'); }
+    return hojas.filter((h) => h.esHoja).map(({ nombre, oculta, filas }) => ({ nombre, oculta, filas }));
+}
+// FIN-XLS
 
 // ============================================================
 // Encabezados y mapeo de columnas
@@ -451,24 +635,83 @@ function textoPorRenglones(items) {
  * alProgresar(mensaje) informa el avance.
  */
 export async function bloquesPdf(componente, file, maxCaracteres, alProgresar) {
+    const bloques = [];
+    let actual = '';
+    (await paginasPdf(componente, file, alProgresar)).forEach((texto) => {
+        if (actual && (actual.length + texto.length) > maxCaracteres) { bloques.push(actual); actual = ''; }
+        actual += texto + '\n';
+    });
+    if (actual.trim()) { bloques.push(actual); }
+    return bloques;
+}
+
+/**
+ * Texto de cada página del PDF (un renglón por línea). alProgresar(mensaje) informa el avance.
+ */
+export async function paginasPdf(componente, file, alProgresar) {
     await cargarPdfJs(componente);
     const pdf = await window.pdfjsLib.getDocument({
         data: new Uint8Array(await file.arrayBuffer()),
         isEvalSupported: false, useWorkerFetch: false,
         standardFontDataUrl: fontsResource + '/', disableFontFace: true
     }).promise;
-    const bloques = [];
-    let actual = '';
+    const paginas = [];
     for (let p = 1; p <= pdf.numPages; p++) {
         if (alProgresar) { alProgresar(`Leyendo página ${p} de ${pdf.numPages}…`); }
         const page = await pdf.getPage(p);
         const content = await page.getTextContent();
-        const texto = textoPorRenglones(content.items);
-        if (actual && (actual.length + texto.length) > maxCaracteres) { bloques.push(actual); actual = ''; }
-        actual += texto + '\n';
+        paginas.push(textoPorRenglones(content.items));
+        page.cleanup();
     }
+    pdf.destroy();
+    return paginas;
+}
+
+// Página con algún monto ("$1,500.00", "1,234.56").
+const MONTO = /\$\s?\d|\d,\d{3}(\.\d{2})?\b|\d\.\d{2}\b/;
+
+/**
+ * Bloques de un PDF largo (pólizas o cotizaciones de cientos de páginas) para mandarlos a la IA por partes.
+ * Se quitan las páginas sin montos (condiciones generales), los párrafos largos sin cifras, el folio
+ * "Página n de m" y los renglones de encabezado que se repiten en muchas páginas o en la página anterior;
+ * al empezar cada bloque se conservan, para que cada parte traiga su propio encabezado (póliza, inciso,
+ * domicilio). Los títulos de columnas que van justo arriba de un renglón con montos (ej. "Prima Neta ... Prima
+ * Total") se conservan siempre. Cada página va marcada con "[Página n]". Devuelve hasta "maxBloques" bloques
+ * de "maxCaracteres".
+ */
+export function bloquesCompactos(paginas, maxCaracteres, maxBloques) {
+    // Sin el folio de página y con los montos pegados separados ("$4,242.21$3,157.08" -> "$4,242.21 $3,157.08").
+    const limpia = (l) => l.replace(/\s*P[aá]gina \d+ de \d+\s*$/i, '').replace(/(\d)\$/g, '$1 $').replace(/\s+/g, ' ').trim();
+    const renglones = paginas.map((p) => String(p || '').split('\n').map(limpia).filter((l) => l));
+    const veces = new Map();
+    renglones.forEach((ls) => new Set(ls).forEach((l) => veces.set(l, (veces.get(l) || 0) + 1)));
+    const repetido = Math.max(3, paginas.length * 0.2);
+    const bloques = [];
+    let actual = '';
+    let vistos = new Set();
+    let anterior = new Set();
+    renglones.forEach((ls, i) => {
+        const deAntes = anterior;
+        anterior = new Set(ls);
+        if (!ls.some((l) => MONTO.test(l))) { return; }
+        const armar = () => ls.filter((l, j) => {
+            const titulosDeMontos = !/\d/.test(l) && MONTO.test(ls[j + 1] || '');
+            if (l.length > 60 && !/\d/.test(l) && !titulosDeMontos) { return false; }
+            if (vistos.has(l) && !titulosDeMontos && (deAntes.has(l) || veces.get(l) >= repetido)) { return false; }
+            vistos.add(l);
+            return true;
+        }).join('\n');
+        let texto = armar();
+        if (actual && actual.length + texto.length > maxCaracteres) {
+            bloques.push(actual);
+            actual = '';
+            vistos = new Set();
+            texto = armar();
+        }
+        if (texto) { actual += `[Página ${i + 1}]\n${texto}\n`; }
+    });
     if (actual.trim()) { bloques.push(actual); }
-    return bloques;
+    return bloques.slice(0, maxBloques || bloques.length);
 }
 
 // Vigencia de la póliza: etiquetas "Desde/Hasta" (o "Del/Al"), o una celda "Vigencia" con un rango de un año

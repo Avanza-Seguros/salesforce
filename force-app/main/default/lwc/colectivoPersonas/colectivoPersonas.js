@@ -12,7 +12,7 @@ import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { NavigationMixin } from 'lightning/navigation';
-import { fold, numero, fecha, fechaVisible, moneda, abrirTabla, bloquesPdf, tablaATexto, buscarVigencia } from 'c/lectorArchivos';
+import { fold, numero, fecha, fechaVisible, moneda, abrirTabla, paginasPdf, bloquesCompactos, tablaATexto, buscarVigencia } from 'c/lectorArchivos';
 import getAseguradoras from '@salesforce/apex/FlotillaController.getAseguradoras';
 import getCotizacionesColectivas from '@salesforce/apex/ColectivoController.getCotizacionesColectivas';
 import guardarCotizacionColectiva from '@salesforce/apex/ColectivoController.guardarCotizacionColectiva';
@@ -22,8 +22,10 @@ import generarComparativoPdf from '@salesforce/apex/ColectivoController.generarC
 
 // Palabras que no sirven para reconocer a la aseguradora en el texto.
 const GENERICAS = new Set(['seguros', 'seguro', 'compania', 'mexico', 'grupo', 'life', 'general', 'generales', 'de', 'cv', 'sa', 'del', 'corporativos']);
-// Texto máximo que se manda a la IA (una sola llamada: la cotización se lee completa).
+// Texto máximo que se manda a la IA en cada llamada. Un PDF más largo (pólizas o cotizaciones de cientos de páginas)
+// se compacta y se lee por partes, hasta MAX_PARTES.
 const MAX_TEXTO = 55000;
+const MAX_PARTES = 8;
 // Parámetros del plan que se comparan (clave en la categoría -> etiqueta).
 const PLAN = [
     ['plan', 'Plan'], ['sumaAsegurada', 'Suma asegurada'], ['deducible', 'Deducible'], ['coaseguro', 'Coaseguro'],
@@ -111,8 +113,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     get tituloRenglones() { return this.esUbicaciones ? 'Ubicaciones' : 'Categorías'; }
     get textoCarga() {
         return this.esUbicaciones
-            ? 'PDF o Excel (.xlsx, .xlsm, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; revisas antes de guardar.'
-            : 'PDF o Excel (.xlsx, .xlsm, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; revisas antes de guardar.';
+            ? 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; revisas antes de guardar.'
+            : 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; revisas antes de guardar.';
     }
 
     // Si alguna aseguradora no incluye IVA, se compara prima neta + derechos para todas (como en el PDF).
@@ -484,10 +486,15 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.progreso = 'Leyendo archivo…';
         try {
             let texto;
+            let partes = null;
             let vigencia = { desde: '', hasta: '' };
             if (file.name.toLowerCase().endsWith('.pdf')) {
-                const bloques = await bloquesPdf(this, file, MAX_TEXTO, (m) => { this.progreso = m; });
-                texto = bloques.join('\n');
+                const paginas = await paginasPdf(this, file, (m) => { this.progreso = m; });
+                texto = paginas.join('\n');
+                if (texto.length > MAX_TEXTO) {
+                    partes = bloquesCompactos(paginas, MAX_TEXTO);
+                    texto = partes.join('\n');
+                }
             } else {
                 const tabla = await abrirTabla(file);
                 const hojas = tabla.hojas.length ? tabla.hojas : [''];
@@ -508,10 +515,31 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             if (!texto || texto.trim().length < 50) {
                 throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
             }
-            this.progreso = 'Analizando la cotización con IA…';
-            const json = await analizarCotizacionColectiva({ textoCotizacion: texto.substring(0, 60000), ramo: this.ramo || null });
-            const datos = this.parsearJsonIA(json);
+            let datos;
+            const avisosLectura = [];
+            if (partes && partes.length > 1) {
+                if (partes.length > MAX_PARTES) {
+                    avisosLectura.push(`El documento es muy largo: se leyeron sus primeras ${MAX_PARTES} de ${partes.length} partes. `
+                        + `Revisa que estén todas las ${this.esUbicaciones ? 'ubicaciones' : 'categorías'}.`);
+                    partes = partes.slice(0, MAX_PARTES);
+                }
+                const resultados = [];
+                for (let i = 0; i < partes.length; i++) {
+                    this.progreso = `Analizando la cotización con IA (parte ${i + 1} de ${partes.length})…`;
+                    // eslint-disable-next-line no-await-in-loop
+                    const json = await analizarCotizacionColectiva({
+                        textoCotizacion: `PARTE ${i + 1} DE ${partes.length}\n${partes[i]}`.substring(0, 60000), ramo: this.ramo || null
+                    });
+                    resultados.push(this.parsearJsonIA(json));
+                }
+                datos = this.unirPartes(resultados);
+            } else {
+                this.progreso = 'Analizando la cotización con IA…';
+                const json = await analizarCotizacionColectiva({ textoCotizacion: (partes ? partes[0] : texto).substring(0, 60000), ramo: this.ramo || null });
+                datos = this.parsearJsonIA(json);
+            }
             this.vista = this.normalizar(datos, vigencia, texto);
+            this.vista.avisos.unshift(...avisosLectura);
             this.paso = 'vista';
         } catch (e) {
             this.toast('Cotización colectiva', this.mensaje(e), 'error');
@@ -528,7 +556,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         } catch (e) {
             // Valor de propiedad o elemento de lista: se repite hasta que no quede ninguna operación.
             const patron = /([:[,]\s*)(-?\d+(?:\.\d+)?(?:\s*[-+*/]\s*\d+(?:\.\d+)?)+)(\s*[,}\]])/g;
-            let limpio = String(texto);
+            // Un monto con signo de interrogación ("192665?") es un dato dudoso: queda en null.
+            let limpio = String(texto).replace(/-?\d+(?:\.\d+)?\?(?=\s*[,}\]])/g, 'null');
             let antes;
             do {
                 antes = limpio;
@@ -552,10 +581,57 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         return Math.round(total * 100) / 100;
     }
 
-    // Revisa y completa lo que devolvió la IA (asegurados contra la tabla de edades, formas de pago, coaseguro).
+    // Une lo que devolvió la IA para cada parte de un documento largo: los datos generales se toman de la primera
+    // parte que los trae (los montos de la póliza, todos de la misma parte: la del resumen) y las categorías o
+    // ubicaciones repetidas en el corte entre partes (mismo nombre) se juntan.
+    unirPartes(resultados) {
+        const d = { formasPago: [], categorias: [] };
+        const vacio = (v) => v === undefined || v === null || v === '';
+        const escalares = ['aseguradora', 'ramo', 'contratante', 'numeroCotizacion', 'vigenciaDesde', 'vigenciaHasta', 'formaPago', 'asegurados'];
+        const montos = ['primaNeta', 'derechos', 'recargo', 'iva', 'primaTotal'];
+        const llave = (c) => fold(c.nombre).replace(/[^a-z0-9]/g, '');
+        resultados.forEach((r) => {
+            escalares.forEach((k) => { if (vacio(d[k]) && !vacio(r[k])) { d[k] = r[k]; } });
+            if (montos.every((k) => vacio(d[k])) && (numero(r.primaNeta) || numero(r.primaTotal))) { montos.forEach((k) => { d[k] = r[k]; }); }
+            if (!d.formasPago.length && (r.formasPago || []).some((f) => numero(f.primaTotal) !== null)) { d.formasPago = r.formasPago; }
+            (r.categorias || []).forEach((c) => {
+                const igual = llave(c) && d.categorias.find((o) => llave(o) === llave(c)
+                    && (!o.direccion || !c.direccion || fold(o.direccion).substring(0, 15) === fold(c.direccion).substring(0, 15)));
+                if (!igual) { d.categorias.push({ ...c }); return; }
+                Object.keys(c).forEach((k) => { if (vacio(igual[k]) && !vacio(c[k]) && !Array.isArray(c[k])) { igual[k] = c[k]; } });
+                const conceptos = new Set((igual.parametros || []).map((pm) => fold(pm && pm.concepto)));
+                igual.parametros = [...(igual.parametros || []), ...(c.parametros || []).filter((pm) => pm && !conceptos.has(fold(pm.concepto)))];
+                igual.coberturasAdicionales = [...new Set([...(igual.coberturasAdicionales || []), ...(c.coberturasAdicionales || [])])];
+                if (!(igual.tarifaEdades || []).length) { igual.tarifaEdades = c.tarifaEdades || []; }
+                if (!(igual.formasPago || []).length) { igual.formasPago = c.formasPago || []; }
+            });
+        });
+        return d;
+    }
+
+    // Revisa y completa lo que devolvió la IA (asegurados contra la tabla de edades, totales por categoría, formas de pago, coaseguro).
     normalizar(d, vigencia, texto) {
         const avisos = [];
-        const categorias = (d.categorias || []).map((c, i) => {
+        const cats = d.categorias || [];
+        const redondear = (n) => Math.round(n * 100) / 100;
+        // Prima neta o asegurados de TODA la póliza que la IA puso en una categoría (ej. "PRIMA NETA TOTAL" en la hoja del
+        // primer subgrupo): a esa categoría le corresponde el total menos lo de las demás.
+        const corregidos = {};
+        if (cats.length > 1) {
+            ['primaNeta', 'asegurados'].forEach((k) => {
+                const total = numero(d[k]);
+                if (!total) { return; }
+                cats.forEach((c, i) => {
+                    const otras = cats.reduce((s, o, j) => s + (j === i ? 0 : numero(o[k]) || 0), 0);
+                    if (numero(c[k]) !== null && Math.abs(numero(c[k]) - total) <= total * 0.001 && otras > 0 && otras < total) {
+                        corregidos[`${i}.${k}`] = redondear(total - otras);
+                    }
+                });
+            });
+        }
+        let giro = '';
+        const categorias = cats.map((c, i) => {
+            const nombre = this.txt(c.nombre).replace(/^inciso\s*:?\s*/i, 'Inciso ') || (this.esUbicaciones ? `Ubicación ${i + 1}` : 'General');
             const tarifa = (c.tarifaEdades || []).map((t, j) => {
                 const h = numero(t.hombres) || 0;
                 const m = numero(t.mujeres) || 0;
@@ -568,29 +644,42 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 }
                 return { key: `t${i}-${j}`, rango: String(t.rango || ''), hombres: h, mujeres: m,
                     primaHombre: numero(t.primaHombre), primaMujer: numero(t.primaMujer),
-                    primaTotal: total === null ? null : Math.round(total * 100) / 100 };
+                    primaTotal: total === null ? null : redondear(total) };
             }).filter((t) => t.hombres || t.mujeres);
             let hombres = numero(c.hombres);
             let mujeres = numero(c.mujeres);
-            let asegurados = numero(c.asegurados);
+            let asegurados = corregidos[`${i}.asegurados`] ?? numero(c.asegurados);
             const sumH = tarifa.reduce((s, t) => s + t.hombres, 0);
             const sumM = tarifa.reduce((s, t) => s + t.mujeres, 0);
-            if (tarifa.length && (sumH !== hombres || sumM !== mujeres || sumH + sumM !== asegurados)) {
-                avisos.push(`${c.nombre || 'Categoría'}: asegurados ajustados con la tabla de edades (${sumH} H / ${sumM} M).`);
+            // La tabla de edades manda si cuadra con los asegurados impresos de la categoría (o si no vienen); si no
+            // cuadra, se conservan los impresos y se avisa para revisar.
+            if (tarifa.length && (asegurados === null || sumH + sumM === asegurados)) {
+                if (sumH !== hombres || sumM !== mujeres) {
+                    avisos.push(`${nombre}: hombres y mujeres tomados de la tabla de edades (${sumH} H / ${sumM} M).`);
+                }
                 hombres = sumH;
                 mujeres = sumM;
                 asegurados = sumH + sumM;
+            } else if (tarifa.length) {
+                avisos.push(`${nombre}: la tabla de edades suma ${sumH + sumM} asegurados (${sumH} H / ${sumM} M) y la cotización indica ${asegurados}. Revisa la categoría.`);
+                if (hombres === null || mujeres === null || hombres + mujeres !== asegurados) { hombres = null; mujeres = null; }
             }
             if (asegurados === null && hombres !== null && mujeres !== null) { asegurados = hombres + mujeres; }
             // Sin coberturas no amparadas ni, en GMM, las que repiten un campo fijo del plan (deducible, coaseguro...).
             const parametros = (c.parametros || []).map((pm, j) => ({ key: `p${i}-${j}`, concepto: this.txt(pm && pm.concepto), valor: this.txt(pm && pm.valor) }))
                 .filter((pm) => pm.concepto && pm.valor && !NO_AMPARADA.test(fold(pm.valor))
                     && !(this.esGmm && CAMPOS_GMM.test(fold(pm.concepto))));
+            // En ubicaciones el giro suele venir solo en la primera de varias seguidas: las siguientes lo heredan.
+            let plan = this.txt(c.plan);
+            if (this.esUbicaciones) {
+                plan = plan.replace(/^giro\s*:?\s*/i, '').replace(/\.$/, '') || giro;
+                giro = plan;
+            }
             return {
-                key: `c${i}`, nombre: c.nombre || (this.esUbicaciones ? `Ubicación ${i + 1}` : 'General'), asegurados, hombres, mujeres,
-                titulares: numero(c.titulares), dependientes: numero(c.dependientes), primaNeta: numero(c.primaNeta),
+                key: `c${i}`, nombre, asegurados, hombres, mujeres,
+                titulares: numero(c.titulares), dependientes: numero(c.dependientes), primaNeta: corregidos[`${i}.primaNeta`] ?? numero(c.primaNeta),
                 sumaAseguradaTotal: numero(c.sumaAseguradaTotal), direccion: this.txt(c.direccion), parametros,
-                plan: this.txt(c.plan), sumaAsegurada: this.txt(c.sumaAsegurada), deducible: this.txt(c.deducible),
+                plan, sumaAsegurada: this.txt(c.sumaAsegurada), deducible: this.txt(c.deducible),
                 coaseguro: this.porcentajeTxt(c.coaseguro), topeCoaseguro: this.montoTxt(c.topeCoaseguro), tabulador: this.txt(c.tabulador),
                 nivelHospitalario: this.txt(c.nivelHospitalario), territorio: this.txt(c.territorio),
                 coberturasAdicionales: (c.coberturasAdicionales || []).map((x) => this.txt(x)).filter((x) => x),
@@ -602,12 +691,22 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         }
 
         const sumaNeta = categorias.reduce((s, c) => s + (c.primaNeta || 0), 0);
-        const primaNeta = numero(d.primaNeta) !== null ? numero(d.primaNeta) : (sumaNeta || null);
+        const primaNeta = numero(d.primaNeta) !== null ? numero(d.primaNeta) : (sumaNeta ? redondear(sumaNeta) : null);
         if (numero(d.primaNeta) !== null && sumaNeta && Math.abs(sumaNeta - primaNeta) / primaNeta > 0.01) {
-            avisos.push(`La suma de la prima neta de las categorías (${moneda(sumaNeta)}) no coincide con la prima neta total (${moneda(primaNeta)}).`);
+            avisos.push(`La suma de la prima neta de las ${this.esUbicaciones ? 'ubicaciones' : 'categorías'} (${moneda(sumaNeta)}) no coincide con la prima neta total (${moneda(primaNeta)}).`);
         }
-        const formasPago = this.normalizarFormasPago(d.formasPago || [], numero(d.primaTotal));
+        // Cuando cada categoría trae sus propios gastos, IVA, prima total y formas de pago (una página por categoría),
+        // los de la póliza son la suma de las categorías.
+        const sumaCategorias = (k) => {
+            const v = cats.map((c) => numero(c[k])).filter((x) => x !== null);
+            return v.length ? redondear(v.reduce((s, x) => s + x, 0)) : null;
+        };
+        const deCategoria = cats.filter((c) => (c.formasPago || []).length);
+        const formasPago = deCategoria.length > 1 || (!(d.formasPago || []).length && deCategoria.length)
+            ? this.sumarFormasPago(deCategoria.map((c) => this.normalizarFormasPago(c.formasPago, numero(c.primaTotal))))
+            : this.normalizarFormasPago(d.formasPago || [], numero(d.primaTotal));
         const anual = formasPago.find((f) => /anual|contado/i.test(f.forma));
+        const totalPoliza = numero(d.primaTotal) ?? sumaCategorias('primaTotal');
         const encabezado = {
             aseguradoraId: this.aseguradoraPorTexto(`${d.aseguradora || ''} ${this.archivoNombre} ${texto.substring(0, 2000)}`),
             numeroCotizacion: this.txt(d.numeroCotizacion),
@@ -615,19 +714,28 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             vigenciaHasta: fecha(d.vigenciaHasta).iso || vigencia.hasta || '',
             formaPago: this.capitalizar(d.formaPago) || 'Anual',
             primaNeta,
-            derechos: numero(d.derechos),
-            recargo: numero(d.recargo),
-            iva: numero(d.iva),
-            primaTotal: numero(d.primaTotal) !== null ? numero(d.primaTotal) : (anual && anual.primaTotal ? anual.primaTotal : null)
+            derechos: numero(d.derechos) ?? sumaCategorias('derechos'),
+            recargo: numero(d.recargo) ?? sumaCategorias('recargo'),
+            iva: numero(d.iva) ?? sumaCategorias('iva'),
+            primaTotal: totalPoliza !== null ? totalPoliza : (anual && anual.primaTotal ? anual.primaTotal : null)
         };
+        // IVA que no se pudo asociar a su columna: la diferencia entre la prima total y la suma de los demás montos,
+        // solo si equivale al 16% de esa suma.
+        if (encabezado.iva === null && encabezado.primaTotal && encabezado.primaNeta) {
+            const base = encabezado.primaNeta + (encabezado.derechos || 0) + (encabezado.recargo || 0);
+            const dif = redondear(encabezado.primaTotal - base);
+            if (dif > 0 && Math.abs(dif - base * 0.16) <= Math.max(1, base * 0.0005)) { encabezado.iva = dif; }
+        }
         if (encabezado.iva === null && this.ramo !== 'Vida') { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
         return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.txt(d.contratante) };
     }
 
     // Total anual de cada forma de pago: primer pago + subsecuentes; si la aseguradora solo da el importe de cada pago, ese × número de pagos.
+    // "Pago único" y "Contado" son la forma Anual; un recargo escrito como fracción (0.04) es 4%.
     normalizarFormasPago(lista, totalAnual) {
-        const anualFp = lista.find((f) => /anual|contado/i.test(f.forma || ''));
+        const anualFp = lista.find((f) => /anual|contado|unico/i.test(fold(f.forma)));
         const anual = totalAnual || (anualFp ? numero(anualFp.primaTotal) : null);
+        const vistas = new Set();
         return lista.map((f, i) => {
             const n = numero(f.numeroPagos) || 1;
             let total = numero(f.primaTotal);
@@ -639,9 +747,30 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 primer = primer !== null ? primer : total;
                 total = total * n;
             }
-            return { key: `f${i}`, forma: this.capitalizar(f.forma), recargoPct: numero(f.recargoPct), numeroPagos: n,
+            let pct = numero(f.recargoPct);
+            if (pct !== null && pct > 0 && pct < 1) { pct = Math.round(pct * 10000) / 100; }
+            const forma = /^(pago unico|contado|de contado|anual.*)$/.test(fold(f.forma)) ? 'Anual' : this.capitalizar(f.forma);
+            return { key: `f${i}`, forma, recargoPct: pct, numeroPagos: n,
                 primaTotal: total === null ? null : Math.round(total * 100) / 100, primerPago: primer, pagoSubsecuente: sub };
-        }).filter((f) => f.forma);
+        }).filter((f) => {
+            if (!f.forma || vistas.has(f.forma)) { return false; }
+            vistas.add(f.forma);
+            return true;
+        });
+    }
+
+    // Formas de pago de la póliza a partir de las de cada categoría: se suman los importes de la misma forma.
+    sumarFormasPago(listas) {
+        const porForma = new Map();
+        const suma = (a, b) => (a === null && b === null ? null : Math.round(((a || 0) + (b || 0)) * 100) / 100);
+        listas.flat().forEach((f) => {
+            const o = porForma.get(f.forma);
+            if (!o) { porForma.set(f.forma, { ...f }); return; }
+            o.primaTotal = suma(o.primaTotal, f.primaTotal);
+            o.primerPago = suma(o.primerPago, f.primerPago);
+            o.pagoSubsecuente = suma(o.pagoSubsecuente, f.pagoSubsecuente);
+        });
+        return [...porForma.values()].map((f, i) => ({ ...f, key: `f${i}` }));
     }
 
     aseguradoraPorTexto(texto) {
