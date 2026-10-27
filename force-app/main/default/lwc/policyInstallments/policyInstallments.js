@@ -66,6 +66,18 @@ const COLUMNS = [
 			alignment: "right",
 			class: { fieldName: "overdueClass" }
 		}
+	},
+	{
+		label: "Inicio vigencia",
+		fieldName: "periodStartDate__c",
+		type: "date-local",
+		initialWidth: 130
+	},
+	{
+		label: "Fin vigencia",
+		fieldName: "periodEndDate__c",
+		type: "date-local",
+		initialWidth: 120
 	}
 ];
 

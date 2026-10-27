@@ -195,6 +195,101 @@ describe("buildRows", () => {
 		expect(totals.expected).toBe(2906.55);
 	});
 
+	it("si un recibo no trae número de la aseguradora, todas se numeran con la secuencia del plan", () => {
+		// Afirme: el primer recibo llega sin serie y el segundo como "1/1"; los dos decían "Cuota 1".
+		const sinSerie = cuota({ Id: "h1", carrierReceiptNumber__c: "21786960" });
+		const conSerie = cuota({
+			Id: "h2",
+			sequenceNumber__c: 2,
+			carrierReceiptNumber__c: "22941868",
+			carrierInstallmentNumber__c: 1
+		});
+
+		const { rows } = buildRows([sinSerie, conSerie]);
+
+		expect(rows.map((r) => r.sequenceLabel)).toEqual(["Cuota 1", "Cuota 2"]);
+	});
+
+	it("si la aseguradora repite el número en documentos distintos, se numera con la secuencia del plan", () => {
+		// HDI: dos recibos "1/1" sin endoso que los distinga.
+		const primero = cuota({ Id: "i1", carrierInstallmentNumber__c: 1 });
+		const segundo = cuota({
+			Id: "i2",
+			sequenceNumber__c: 2,
+			carrierInstallmentNumber__c: 1
+		});
+		// Un endoso conserva su indicación aunque se numere con la secuencia.
+		const endoso = cuota({
+			Id: "i3",
+			sequenceNumber__c: 3,
+			carrierInstallmentNumber__c: 1,
+			carrierEndorsementNumber__c: "196001080"
+		});
+
+		const { rows } = buildRows([primero, segundo, endoso]);
+
+		expect(rows.map((r) => r.sequenceLabel)).toEqual([
+			"Cuota 1",
+			"Cuota 2",
+			"Cuota 3 · Endoso 196001080"
+		]);
+	});
+
+	it("las estimadas siguen la secuencia del plan detrás de la cuota con recibo", () => {
+		const conRecibo = cuota({
+			Id: "j1",
+			carrierReceiptNumber__c: "D-33799046",
+			carrierInstallmentNumber__c: 1
+		});
+		const estimada = cuota({
+			Id: "j2",
+			sequenceNumber__c: 2,
+			isEstimated__c: true
+		});
+
+		const { rows } = buildRows([conRecibo, estimada]);
+
+		expect(rows.map((r) => r.sequenceLabel)).toEqual([
+			"Cuota 1",
+			"Cuota 2 · Estimada"
+		]);
+	});
+
+	it("cada fila lleva el periodo de su recibo, también los reemplazados", () => {
+		const cancelado = cuota({
+			Id: "k1",
+			installmentStatus__c: "Cancelado",
+			periodStartDate__c: "2026-06-19",
+			periodEndDate__c: "2026-06-19"
+		});
+		const vivo = cuota({
+			Id: "k2",
+			replacesInstallment__c: "k1",
+			periodStartDate__c: "2026-06-19",
+			periodEndDate__c: "2026-09-19"
+		});
+
+		const { rows } = buildRows([cancelado, vivo]);
+
+		expect(rows[0].periodStartDate__c).toBe("2026-06-19");
+		expect(rows[0].periodEndDate__c).toBe("2026-09-19");
+		expect(rows[0]._children[0].periodEndDate__c).toBe("2026-06-19");
+	});
+
+	it("una estimada cancelada no se muestra ni cuenta", () => {
+		const real = cuota({ Id: "l1", carrierReceiptNumber__c: "80009593552" });
+		const estimadaCancelada = cuota({
+			Id: "l2",
+			isEstimated__c: true,
+			installmentStatus__c: "Cancelado"
+		});
+
+		const { rows, totals } = buildRows([real, estimadaCancelada]);
+
+		expect(rows.map((r) => r.Id)).toEqual(["l1"]);
+		expect(totals.count).toBe(1);
+	});
+
 	it("sin cuotas no falla", () => {
 		expect(buildRows(null)).toEqual({
 			rows: [],

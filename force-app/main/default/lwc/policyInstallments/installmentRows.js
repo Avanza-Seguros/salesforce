@@ -15,19 +15,39 @@
 const EMISSION_ENDORSEMENT = /^0+$/;
 const CLOSED_STATUSES = ["Cancelado", "Condonado"];
 
-/** Etiqueta de la cuota: el número que le da la aseguradora y, si viene de un endoso, cuál. */
-function labelFor(origin, live) {
-	if (!origin.carrierInstallmentNumber__c) {
-		return live.sequenceNumber__c
-			? `Cuota ${live.sequenceNumber__c}`
-			: live.Name;
+function endorsementOf(record) {
+	const endorsement = record.carrierEndorsementNumber__c;
+	return endorsement && !EMISSION_ENDORSEMENT.test(endorsement.trim())
+		? endorsement
+		: null;
+}
+
+/**
+ * La numeración de la aseguradora solo sirve si distingue a cada cuota viva: numera por documento (la
+ * emisión y cada endoso empiezan en 1, y hay fuentes que no la mandan), así que con huecos o repetidos
+ * dos cuotas distintas saldrían como "Cuota 1". En ese caso se numera con la secuencia del plan.
+ */
+function carrierNumberingIsUsable(origins) {
+	const keys = origins.map(
+		(origin) =>
+			`${origin.carrierInstallmentNumber__c}|${endorsementOf(origin) || ""}`
+	);
+	return (
+		origins.every((origin) => !!origin.carrierInstallmentNumber__c) &&
+		new Set(keys).size === keys.length
+	);
+}
+
+/** Etiqueta de la cuota: su número y, si viene de un endoso, cuál. */
+function labelFor(origin, live, useCarrierNumber) {
+	const endorsement = endorsementOf(origin);
+	const suffix = endorsement ? ` · Endoso ${endorsement}` : "";
+	if (useCarrierNumber && origin.carrierInstallmentNumber__c) {
+		return `Cuota ${origin.carrierInstallmentNumber__c}${suffix}`;
 	}
-	const endorsement = origin.carrierEndorsementNumber__c;
-	const suffix =
-		endorsement && !EMISSION_ENDORSEMENT.test(endorsement.trim())
-			? ` · Endoso ${endorsement}`
-			: "";
-	return `Cuota ${origin.carrierInstallmentNumber__c}${suffix}`;
+	return live.sequenceNumber__c
+		? `Cuota ${live.sequenceNumber__c}${suffix}`
+		: live.Name;
 }
 
 /** Clase de color del estado: verde si está pagada, gris si ya no se debe, rojo si venció. */
@@ -84,9 +104,18 @@ export function buildRows(records) {
 		count: 0
 	};
 
-	list
+	// Una estimada cancelada la sustituyó su recibo real (o ya no hacía falta): nunca existió en la
+	// aseguradora y mostrarla duplicaría la cuota.
+	const entries = list
 		.filter((record) => !replaced.has(record.Id))
-		.forEach((live) => {
+		.filter(
+			(record) =>
+				!(
+					record.isEstimated__c &&
+					CLOSED_STATUSES.includes(record.installmentStatus__c)
+				)
+		)
+		.map((live) => {
 			// Cadena de recibos reemplazados, del más reciente al más antiguo.
 			const chain = [];
 			let previous = byId.get(live.replacesInstallment__c);
@@ -97,36 +126,47 @@ export function buildRows(records) {
 			// El número de cuota de la aseguradora es el de la emisión original: una reexpedición
 			// vuelve a empezar en 1 y mostrarlo confundiría.
 			const origin = chain.length ? chain[chain.length - 1] : live;
-
-			const row = baseRow(live);
-			row.sequenceLabel =
-				labelFor(origin, live) + (live.isEstimated__c ? " · Estimada" : "");
-			if (chain.length) {
-				row.replacedLabel =
-					chain.length === 1
-						? "1 recibo reemplazado"
-						: `${chain.length} recibos reemplazados`;
-				row._children = chain.map((old) => {
-					const child = baseRow(old);
-					child.sequenceLabel = `Recibo ${old.carrierReceiptNumber__c || old.Name}`;
-					child.statusClass = "slds-text-color_weak";
-					child.overdueClass = "slds-text-color_weak";
-					child.daysOverdue = null;
-					return child;
-				});
-			}
-			rows.push(row);
-
-			totals.count += 1;
-			if (!CLOSED_STATUSES.includes(live.installmentStatus__c)) {
-				totals.expected += live.expectedAmount__c || 0;
-				totals.matched += live.matchedAmount__c || 0;
-				totals.outstanding += live.outstandingAmount__c || 0;
-				if (live.isEstimated__c) {
-					totals.estimated += live.expectedAmount__c || 0;
-				}
-			}
+			return { live, chain, origin };
 		});
+	const useCarrierNumber = carrierNumberingIsUsable(
+		entries
+			.filter(
+				({ live }) => !CLOSED_STATUSES.includes(live.installmentStatus__c)
+			)
+			.map(({ origin }) => origin)
+	);
+
+	entries.forEach(({ live, chain, origin }) => {
+		const row = baseRow(live);
+		row.sequenceLabel =
+			labelFor(origin, live, useCarrierNumber) +
+			(live.isEstimated__c ? " · Estimada" : "");
+		if (chain.length) {
+			row.replacedLabel =
+				chain.length === 1
+					? "1 recibo reemplazado"
+					: `${chain.length} recibos reemplazados`;
+			row._children = chain.map((old) => {
+				const child = baseRow(old);
+				child.sequenceLabel = `Recibo ${old.carrierReceiptNumber__c || old.Name}`;
+				child.statusClass = "slds-text-color_weak";
+				child.overdueClass = "slds-text-color_weak";
+				child.daysOverdue = null;
+				return child;
+			});
+		}
+		rows.push(row);
+
+		totals.count += 1;
+		if (!CLOSED_STATUSES.includes(live.installmentStatus__c)) {
+			totals.expected += live.expectedAmount__c || 0;
+			totals.matched += live.matchedAmount__c || 0;
+			totals.outstanding += live.outstandingAmount__c || 0;
+			if (live.isEstimated__c) {
+				totals.estimated += live.expectedAmount__c || 0;
+			}
+		}
+	});
 
 	return { rows, totals };
 }

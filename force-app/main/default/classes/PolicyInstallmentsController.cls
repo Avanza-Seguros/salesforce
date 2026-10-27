@@ -33,6 +33,8 @@ public with sharing class PolicyInstallmentsController {
 				Name,
 				sequenceNumber__c,
 				dueDate__c,
+				periodStartDate__c,
+				periodEndDate__c,
 				expectedAmount__c,
 				matchedAmount__c,
 				outstandingAmount__c,
