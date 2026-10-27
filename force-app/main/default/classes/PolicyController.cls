@@ -1060,6 +1060,8 @@ public with sharing class PolicyController {
 				Integer yaHay = [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId];
 				if (yaHay == 0) { n = crearParticipantesPoliza(policyId, oppId); }
 			}
+			// Los demás asegurados del PDF (otro titular, cónyuge, dependientes).
+			n += crearAseguradosAdicionalesDesdePdf(policyId, accountId, d);
 			resumen.put('asegurados', n);
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
@@ -1799,6 +1801,61 @@ public with sharing class PolicyController {
 		aplicarDatosParticipante(part, policyId, accountId);
 		insert part;
 		return 1;
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea como participantes (rol Asegurado) a las demás personas aseguradas del PDF
+	 * ("aseguradosAdicionales": otro titular, cónyuge, dependientes), con su parentesco. No repite al titular ni a
+	 * quien ya es participante. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta principal
+	 * @param d: Datos del PDF
+	 * @return Número de participantes creados
+	 */
+	@TestVisible
+	private static Integer crearAseguradosAdicionalesDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
+		Object lista = d.get('aseguradosAdicionales');
+		if (!(lista instanceof List<Object>) || ((List<Object>) lista).isEmpty()) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, ProductId, NameInsuredId, SourceOpportunityId
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		Id acc = accountId != null ? accountId : resolverCuentaDePoliza(pol);
+		String titular = normKey(nombreTitular(d)).normalizeSpace();
+		String rol = pickPicklist(InsurancePolicyParticipant.Role.getDescribe(),
+			new List<String>{ 'Insured', 'Covered Party', 'Named Insured', 'Asegurado', 'Insured Party', 'Covered' });
+		Schema.DescribeFieldResult relDesc = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
+
+		Set<String> ya = new Set<String>{ titular };
+		for (InsurancePolicyParticipant p : [
+			SELECT ParticipantName FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) {
+			ya.add(normKey(p.ParticipantName).normalizeSpace());
+		}
+		List<InsurancePolicyParticipant> nuevos = new List<InsurancePolicyParticipant>();
+		for (Object o : (List<Object>) lista) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> a = (Map<String, Object>) o;
+			String nombre = strOf(a.get('nombre'));
+			if (String.isBlank(nombre) || esElMismo(nombre)) { continue; }
+			nombre = nombre.normalizeSpace();
+			if (!ya.add(normKey(nombre))) { continue; }
+			InsurancePolicyParticipant p = new InsurancePolicyParticipant();
+			p.InsurancePolicyId = policyId;
+			p.ParticipantName = nombre.left(255);
+			if (String.isNotBlank(rol)) { p.Role = rol; }
+			String rel = parentescoPicklist(relDesc, strOf(a.get('parentesco')));
+			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
+			if (acc != null) { p.PrimaryParticipantAccountId = acc; }
+			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
+			try { p.IsActiveParticipant = true; } catch (Exception ignore) {}
+			try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+			nuevos.add(p);
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+		return nuevos.size();
 	}
 
 	/**

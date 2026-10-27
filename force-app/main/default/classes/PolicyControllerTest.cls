@@ -787,6 +787,38 @@ private class PolicyControllerTest {
     }
 
     /**
+     * @creation date: 27/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que cada asegurado adicional del PDF (ej. el segundo titular de un voucher de viaje) se
+     * cree como participante, sin repetir al titular ni duplicarse al reprocesar.
+     * @return void
+     */
+    @isTest
+    static void testAseguradosAdicionales() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        String datos = '{"titular":"Andrea Fernanda Bale Ramirez","aseguradosAdicionales":['
+            + '{"nombre":"Andrea Fernanda Bale Ramirez"},'
+            + '{"nombre":"Gabriel Guadalupe  Reyes De Santiago","parentesco":"TITULAR 2"}]}';
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(datos);
+
+        Test.startTest();
+        Integer n1 = PolicyController.crearAseguradosAdicionalesDesdePdf(policyId, acc.Id, d);
+        Integer n2 = PolicyController.crearAseguradosAdicionalesDesdePdf(policyId, acc.Id, d);
+        Test.stopTest();
+
+        System.assertEquals(1, n1, 'Solo se agrega el segundo titular');
+        System.assertEquals(0, n2, 'Reprocesar no lo duplica');
+        List<InsurancePolicyParticipant> ps = [
+            SELECT ParticipantName, PrimaryParticipantAccountId FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :policyId AND ParticipantName = 'Gabriel Guadalupe Reyes De Santiago'
+        ];
+        System.assertEquals(1, ps.size());
+        System.assertEquals(acc.Id, ps[0].PrimaryParticipantAccountId);
+    }
+
+    /**
      * @creation date: 11/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que guardarDatosPolizaDesdePdf exija la póliza y tolere un JSON vacío.
