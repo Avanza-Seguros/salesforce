@@ -5,7 +5,7 @@
  *               Dental, Visión, Viajes): categorías con asegurados, plan, coberturas y tarifa por edad. Ramos de
  *               UBICACIONES (Daños, Empresarial): una fila por inmueble con dirección, valor asegurado, prima y coberturas.
  *               El agente sube la cotización de cada aseguradora (PDF, o Excel que se convierte a texto en el navegador);
- *               la IA la lee, el agente revisa/corrige y se guarda con ColectivoController (Quote + Categoria_Colectiva__c).
+ *               la IA la lee y se guarda sola (el agente solo revisa las que quedan incompletas) con ColectivoController (Quote + Categoria_Colectiva__c).
  *               Muestra el comparativo (con cuota al millar cuando hay suma asegurada) y genera el PDF.
  */
 import { LightningElement, api, track } from 'lwc';
@@ -113,8 +113,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     get tituloRenglones() { return this.esUbicaciones ? 'Ubicaciones' : 'Categorías'; }
     get textoCarga() {
         return this.esUbicaciones
-            ? 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; revisas antes de guardar.'
-            : 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; revisas antes de guardar.';
+            ? 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; la cotización se crea sola (si falta la aseguradora, la revisas). Puedes subir varias a la vez.'
+            : 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; la cotización se crea sola (si falta la aseguradora, la revisas). Puedes subir varias a la vez.';
     }
 
     // Si alguna aseguradora no incluye IVA, se compara prima neta + derechos para todas (como en el PDF).
@@ -476,76 +476,131 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     // ============================================================
     // Lectura del archivo (siempre con IA)
     // ============================================================
+    // Se pueden subir varias cotizaciones a la vez: cada una se lee con la IA y se guarda sola, como las cotizaciones
+    // de PDF individuales. Solo quedan para revisión las que no se pudieron completar (sin aseguradora o sin
+    // asegurados/ubicaciones).
     async handleArchivo(event) {
-        const file = event.target.files && event.target.files[0];
+        const archivos = Array.from(event.target.files || []);
         event.target.value = null;
-        if (!file) { return; }
-        this.archivoNombre = file.name;
+        if (!archivos.length) { return; }
         this.errorMensaje = '';
         this.cargando = true;
-        this.progreso = 'Leyendo archivo…';
+        const creadas = [];
+        const conAvisos = [];
+        const pendientes = [];
+        const fallas = [];
         try {
-            let texto;
-            let partes = null;
-            let vigencia = { desde: '', hasta: '' };
-            if (file.name.toLowerCase().endsWith('.pdf')) {
-                const paginas = await paginasPdf(this, file, (m) => { this.progreso = m; });
-                texto = paginas.join('\n');
-                if (texto.length > MAX_TEXTO) {
-                    partes = bloquesCompactos(paginas, MAX_TEXTO);
-                    texto = partes.join('\n');
-                }
-            } else {
-                const tabla = await abrirTabla(file);
-                const hojas = tabla.hojas.length ? tabla.hojas : [''];
-                const leidas = [];
-                for (const h of hojas) { leidas.push({ h, filas: await tabla.leerHoja(h) }); }
-                // La hoja con más números (la de primas) va primero; las demás se agregan si caben.
-                const numeros = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'number').length, 0);
-                leidas.sort((a, b) => numeros(b.filas) - numeros(a.filas));
-                const partes = [];
-                let largo = 0;
-                leidas.forEach(({ h, filas }) => {
-                    const t = tablaATexto(filas, MAX_TEXTO - largo);
-                    if (t && largo + t.length < MAX_TEXTO) { partes.push((h ? `=== HOJA ${h} ===\n` : '') + t); largo += t.length; }
-                });
-                texto = partes.join('\n');
-                vigencia = buscarVigencia(leidas.flatMap((x) => x.filas.slice(0, 60)));
-            }
-            if (!texto || texto.trim().length < 50) {
-                throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
-            }
-            let datos;
-            const avisosLectura = [];
-            if (partes && partes.length > 1) {
-                if (partes.length > MAX_PARTES) {
-                    avisosLectura.push(`El documento es muy largo: se leyeron sus primeras ${MAX_PARTES} de ${partes.length} partes. `
-                        + `Revisa que estén todas las ${this.esUbicaciones ? 'ubicaciones' : 'categorías'}.`);
-                    partes = partes.slice(0, MAX_PARTES);
-                }
-                const resultados = [];
-                for (let i = 0; i < partes.length; i++) {
-                    this.progreso = `Analizando la cotización con IA (parte ${i + 1} de ${partes.length})…`;
+            for (let i = 0; i < archivos.length; i++) {
+                const file = archivos[i];
+                this.archivoNombre = file.name;
+                this._prefijo = archivos.length > 1 ? `(${i + 1} de ${archivos.length}) ${file.name}: ` : '';
+                try {
                     // eslint-disable-next-line no-await-in-loop
-                    const json = await analizarCotizacionColectiva({
-                        textoCotizacion: `PARTE ${i + 1} DE ${partes.length}\n${partes[i]}`.substring(0, 60000), ramo: this.ramo || null
-                    });
-                    resultados.push(this.parsearJsonIA(json));
+                    const vista = await this.leerCotizacion(file);
+                    if (this.completa(vista)) {
+                        this.avance('Guardando cotización…');
+                        // eslint-disable-next-line no-await-in-loop
+                        await this.guardarVista(vista);
+                        creadas.push(`${file.name} (${this.tamanoDe(vista)} ${this.unidad})`);
+                        if (vista.avisos.length) { conAvisos.push(`${file.name}: ${vista.avisos.join(' ')}`); }
+                    } else {
+                        pendientes.push(vista);
+                    }
+                } catch (e) {
+                    fallas.push(`${file.name}: ${this.mensaje(e)}`);
                 }
-                datos = this.unirPartes(resultados);
-            } else {
-                this.progreso = 'Analizando la cotización con IA…';
-                const json = await analizarCotizacionColectiva({ textoCotizacion: (partes ? partes[0] : texto).substring(0, 60000), ramo: this.ramo || null });
-                datos = this.parsearJsonIA(json);
             }
-            this.vista = this.normalizar(datos, vigencia, texto);
-            this.vista.avisos.unshift(...avisosLectura);
-            this.paso = 'vista';
-        } catch (e) {
-            this.toast('Cotización colectiva', this.mensaje(e), 'error');
         } finally {
+            this._prefijo = '';
             this.cargando = false;
             this.progreso = '';
+        }
+        if (creadas.length) {
+            this.toast('Cotización colectiva', `Cotización creada: ${creadas.join(', ')}.`, 'success');
+            await this.cargar();
+            this.dispatchEvent(new CustomEvent('cotizacioncreada'));
+        }
+        if (conAvisos.length) { this.toast('Revisa la cotización creada', conAvisos.join(' | '), 'warning', 'sticky'); }
+        if (fallas.length) { this.toast('Cotización colectiva', fallas.join(' | '), 'error', 'sticky'); }
+        this._pendientes = pendientes;
+        this.siguientePendiente();
+    }
+
+    avance(m) { this.progreso = (this._prefijo || '') + m; }
+
+    // Lee el archivo (PDF por partes si es muy largo, o Excel) y lo pasa por la IA; regresa la vista de la cotización.
+    async leerCotizacion(file) {
+        this.avance('Leyendo archivo…');
+        let texto;
+        let partes = null;
+        let vigencia = { desde: '', hasta: '' };
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+            const paginas = await paginasPdf(this, file, (m) => this.avance(m));
+            texto = paginas.join('\n');
+            if (texto.length > MAX_TEXTO) {
+                partes = bloquesCompactos(paginas, MAX_TEXTO);
+                texto = partes.join('\n');
+            }
+        } else {
+            const tabla = await abrirTabla(file);
+            const hojas = tabla.hojas.length ? tabla.hojas : [''];
+            const leidas = [];
+            for (const h of hojas) { leidas.push({ h, filas: await tabla.leerHoja(h) }); }
+            // La hoja con más números (la de primas) va primero; las demás se agregan si caben.
+            const numeros = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'number').length, 0);
+            leidas.sort((a, b) => numeros(b.filas) - numeros(a.filas));
+            const partes = [];
+            let largo = 0;
+            leidas.forEach(({ h, filas }) => {
+                const t = tablaATexto(filas, MAX_TEXTO - largo);
+                if (t && largo + t.length < MAX_TEXTO) { partes.push((h ? `=== HOJA ${h} ===\n` : '') + t); largo += t.length; }
+            });
+            texto = partes.join('\n');
+            vigencia = buscarVigencia(leidas.flatMap((x) => x.filas.slice(0, 60)));
+        }
+        if (!texto || texto.trim().length < 50) {
+            throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
+        }
+        let datos;
+        const avisosLectura = [];
+        if (partes && partes.length > 1) {
+            if (partes.length > MAX_PARTES) {
+                avisosLectura.push(`El documento es muy largo: se leyeron sus primeras ${MAX_PARTES} de ${partes.length} partes. `
+                    + `Revisa que estén todas las ${this.esUbicaciones ? 'ubicaciones' : 'categorías'}.`);
+                partes = partes.slice(0, MAX_PARTES);
+            }
+            const resultados = [];
+            for (let i = 0; i < partes.length; i++) {
+                this.avance(`Analizando la cotización con IA (parte ${i + 1} de ${partes.length})…`);
+                // eslint-disable-next-line no-await-in-loop
+                const json = await analizarCotizacionColectiva({
+                    textoCotizacion: `PARTE ${i + 1} DE ${partes.length}\n${partes[i]}`.substring(0, 60000), ramo: this.ramo || null
+                });
+                resultados.push(this.parsearJsonIA(json));
+            }
+            datos = this.unirPartes(resultados);
+        } else {
+            this.avance('Analizando la cotización con IA…');
+            const json = await analizarCotizacionColectiva({ textoCotizacion: (partes ? partes[0] : texto).substring(0, 60000), ramo: this.ramo || null });
+            datos = this.parsearJsonIA(json);
+        }
+        const vista = this.normalizar(datos, vigencia, texto);
+        vista.avisos.unshift(...avisosLectura);
+        vista.archivo = file.name;
+        return vista;
+    }
+
+    // Lista para crearse sin revisión: trae aseguradora y asegurados (o ubicaciones).
+    completa(vista) { return !!vista.encabezado.aseguradoraId && this.tamanoDe(vista) > 0; }
+
+    // Muestra para revisión la siguiente cotización que no se pudo crear sola.
+    siguientePendiente() {
+        const vista = (this._pendientes || []).shift();
+        this.vista = vista || null;
+        this.paso = vista ? 'vista' : 'resumen';
+        if (vista) {
+            this.archivoNombre = vista.archivo;
+            this.toast('Cotización colectiva', `Falta la aseguradora o los ${this.unidad} de ${vista.archivo}: revísala y guárdala.`, 'warning');
         }
     }
 
@@ -814,13 +869,14 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         }));
     }
     get hayFormasPagoVista() { return this.formasPagoVista.length > 0; }
-    get aseguradosVista() {
-        const cats = this.vista ? this.vista.categorias : [];
+    get aseguradosVista() { return this.vista ? this.tamanoDe(this.vista) : 0; }
+    tamanoDe(vista) {
+        const cats = vista.categorias;
         return this.esUbicaciones ? cats.length : cats.reduce((s, c) => s + (Number(c.asegurados) || 0), 0);
     }
     get etiquetaTamanoVista() { return this.esUbicaciones ? 'Ubicaciones' : 'Asegurados'; }
-    get totalCalculado() {
-        const e = this.enc;
+    get totalCalculado() { return this.totalDe(this.enc); }
+    totalDe(e) {
         if (numero(e.primaTotal) !== null) { return numero(e.primaTotal); }
         if (numero(e.primaNeta) === null) { return null; }
         return ['primaNeta', 'derechos', 'recargo', 'iva'].reduce((s, k) => s + (numero(e[k]) || 0), 0);
@@ -849,38 +905,42 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.vista = { ...this.vista, categorias };
     }
 
+    // Descarta la cotización en revisión y pasa a la siguiente pendiente, si hay.
     cancelar() {
         this.errorMensaje = '';
-        this.vista = null;
-        this.paso = 'resumen';
+        this.siguientePendiente();
     }
 
     async guardar() {
-        const e = this.enc;
         this.cargando = true;
         this.progreso = 'Guardando cotización…';
         try {
-            const datos = {
-                aseguradoraId: e.aseguradoraId, numeroCotizacion: e.numeroCotizacion || null,
-                vigenciaDesde: e.vigenciaDesde || null, vigenciaHasta: e.vigenciaHasta || null, formaPago: e.formaPago || null,
-                primaNeta: numero(e.primaNeta), derechos: numero(e.derechos), recargo: numero(e.recargo), iva: numero(e.iva),
-                primaTotal: this.totalCalculado, archivo: this.archivoNombre,
-                formasPago: this.vista.formasPago.map(({ key, ...f }) => f),
-                categorias: this.vista.categorias.map(({ key, tarifaEdades, parametros, ...c }) => ({
-                    ...c, tarifaEdades: tarifaEdades.map(({ key: k, ...t }) => t), parametros: parametros.map(({ key: k, ...pm }) => pm)
-                }))
-            };
-            await guardarCotizacionColectiva({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });
+            await this.guardarVista(this.vista);
             this.toast('Cotización colectiva', `Cotización guardada: ${this.aseguradosVista} ${this.unidad}.`, 'success');
-            this.cancelar();
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
+            this.siguientePendiente();
         } catch (err) {
             this.toast('Cotización colectiva', this.mensaje(err), 'error');
         } finally {
             this.cargando = false;
             this.progreso = '';
         }
+    }
+
+    guardarVista(vista) {
+        const e = vista.encabezado;
+        const datos = {
+            aseguradoraId: e.aseguradoraId, numeroCotizacion: e.numeroCotizacion || null,
+            vigenciaDesde: e.vigenciaDesde || null, vigenciaHasta: e.vigenciaHasta || null, formaPago: e.formaPago || null,
+            primaNeta: numero(e.primaNeta), derechos: numero(e.derechos), recargo: numero(e.recargo), iva: numero(e.iva),
+            primaTotal: this.totalDe(e), archivo: vista.archivo,
+            formasPago: vista.formasPago.map(({ key, ...f }) => f),
+            categorias: vista.categorias.map(({ key, tarifaEdades, parametros, ...c }) => ({
+                ...c, tarifaEdades: tarifaEdades.map(({ key: k, ...t }) => t), parametros: parametros.map(({ key: k, ...pm }) => pm)
+            }))
+        };
+        return guardarCotizacionColectiva({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });
     }
 
     // ============================================================
@@ -911,8 +971,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     mensaje(e) {
         return (e && e.body && e.body.message) || (e && e.message) || 'Ocurrió un error inesperado.';
     }
-    toast(title, message, variant) {
+    toast(title, message, variant, mode) {
         this.errorMensaje = variant === 'error' ? message : '';
-        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant, mode: mode || 'dismissible' }));
     }
 }

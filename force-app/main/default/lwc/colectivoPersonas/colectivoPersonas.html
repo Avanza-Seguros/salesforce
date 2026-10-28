@@ -196,12 +196,12 @@
                 <template if:true={puedeCargar}>
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
-                            <strong>Agregar cotización de aseguradora</strong>
+                            <strong>Agregar cotizaciones de aseguradoras</strong>
                             <span>{textoCarga}</span>
                         </div>
                         <div class="censo-carga-acciones">
                             <lightning-input type="file" label="Archivo de la cotización" variant="label-hidden"
-                                accept=".pdf,.xlsx,.xlsm,.xls,.xlsb,.csv,.txt" onchange={handleArchivo}></lightning-input>
+                                accept=".pdf,.xlsx,.xlsm,.xls,.xlsb,.csv,.txt" multiple onchange={handleArchivo}></lightning-input>
                         </div>
                     </div>
                 </template>
@@ -213,7 +213,7 @@
                     <span class="paso-num">1</span>
                     <div>
                         <strong>Revisa la cotización de {archivoNombre}</strong>
-                        <p>La IA leyó el documento; corrige lo que haga falta antes de guardar.</p>
+                        <p>No se pudo crear sola: completa lo que falta y guárdala.</p>
                     </div>
                 </div>
 
