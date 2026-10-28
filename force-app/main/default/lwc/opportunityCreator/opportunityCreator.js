@@ -4141,11 +4141,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Cuenta: la que ya exista en Salesforce con el contratante o con el nombre de los archivos (HAND CLOUD en
         // "23102026_PROPUESTA HAND CLOUD_GMG-17588_0.pdf"); si ninguna existe, se crea con el primer nombre.
         const candidatos = [contratante, ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
-        const existente = await this.cuentaExistente(candidatos);
-        const cliente = existente || candidatos[0] || '';
+        const cuentaSf = await this.cuentaExistente(candidatos);
+        const cliente = cuentaSf || candidatos[0] || '';
         const tipoNegocio = (resumen.find((x) => x.tipoNegocio) || {}).tipoNegocio || '';
         const tipoOportunidad = tipoNegocio === 'Reexpedicion' ? 'Reissue'
-            : tipoNegocio === 'Renovacion' ? (existente ? 'Internal_Renewal' : 'External_Renewal')
+            : tipoNegocio === 'Renovacion' ? (cuentaSf ? 'Internal_Renewal' : 'External_Renewal')
                 : tipoNegocio === 'Nuevo' ? 'New_Business' : this.opportunity.Type;
         const primas = resumen.map((x) => x.primaNeta || x.primaTotal).filter((v) => v > 0);
         const prima = primas.length ? Math.min(...primas) : null;
