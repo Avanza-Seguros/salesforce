@@ -1854,6 +1854,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleTipoContratacionChange(event) {
         const value = event.detail.value;
         this.opportunity = { ...this.opportunity, Tipo_Contratacion__c: value };
+        // Una contratación colectiva es de una empresa: Mercado Corporativo.
+        if (value === 'Colectiva') {
+            this.opportunity = { ...this.opportunity, Mercado__c: 'Corporativo' };
+            this.syncContactoConMercado();
+        }
         if (value === 'Colectiva' && this.opportunity.Id) {
             this.cargarAsegurados(this.opportunity.Id);
         }
@@ -2877,6 +2882,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     // Mercado según el tipo de cliente: Persona → Individual; Empresa → Corporativo.
     mercadoPorTipo(tipoCliente) {
+        if (this.isColectiva) { return 'Corporativo'; }
         return tipoCliente === 'Persona' ? 'Individual' : 'Corporativo';
     }
 
@@ -4108,6 +4114,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.opportunity = {
                 ...this.opportunity,
                 Tipo_Contratacion__c: 'Colectiva',
+                Mercado__c: 'Corporativo',
                 Ramo__c: this.opportunity.Ramo__c || RAMO_TYPES.GASTOS_MEDICOS
             };
             this.viewMode = VIEW_MODES.CREATE;
@@ -4131,26 +4138,68 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this._colectivoPorCrear = r.vistas;
         const resumen = r.resumen || [];
         const contratante = (resumen.find((x) => x.contratante) || {}).contratante || '';
+        // Cuenta: la que ya exista en Salesforce con el contratante o con el nombre de los archivos (HAND CLOUD en
+        // "23102026_PROPUESTA HAND CLOUD_GMG-17588_0.pdf"); si ninguna existe, se crea con el primer nombre.
+        const candidatos = [contratante, ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
+        const existente = await this.cuentaExistente(candidatos);
+        const cliente = existente || candidatos[0] || '';
+        const tipoNegocio = (resumen.find((x) => x.tipoNegocio) || {}).tipoNegocio || '';
+        const tipoOportunidad = tipoNegocio === 'Reexpedicion' ? 'Reissue'
+            : tipoNegocio === 'Renovacion' ? (existente ? 'Internal_Renewal' : 'External_Renewal')
+                : tipoNegocio === 'Nuevo' ? 'New_Business' : this.opportunity.Type;
         const primas = resumen.map((x) => x.primaNeta || x.primaTotal).filter((v) => v > 0);
         const prima = primas.length ? Math.min(...primas) : null;
         this.opportunity = {
             ...this.opportunity,
             Ramo__c: r.ramo || this.opportunity.Ramo__c,
-            Name: this.opportunity.Name || contratante.substring(0, 80),
+            Name: this.opportunity.Name || cliente.substring(0, 80),
+            Type: tipoOportunidad,
             Prima_Neta__c: prima || this.opportunity.Prima_Neta__c,
             Prima_neta__c: prima || this.opportunity.Prima_neta__c,
             Description: this.opportunity.Description || 'Cotizaciones colectivas leídas por la IA: ' + resumen.map((x) =>
                 `${x.aseguradora || x.archivo} ${this.formatCurrency(x.primaTotal || x.primaNeta || 0)} (${x.tamano})`).join(' · ')
         };
-        if (contratante && !this.opportunity.AccountId) {
-            this.opportunity = { ...this.opportunity, AccountName: contratante };
-            this.resolveAccountByName(contratante);
+        if (cliente && !this.opportunity.AccountId) {
+            this.opportunity = { ...this.opportunity, AccountName: cliente };
+            await this.resolveAccountByName(cliente);
+            this.opportunity = { ...this.opportunity, Mercado__c: 'Corporativo' };
+            this.syncContactoConMercado();
         }
         this.aplicarFechaCierreSugerida();
         this.setDefaultAgente({ archivos: files.map((f) => ({ nombre: f.name })) });
         this.showToast('La IA ya lo llenó',
             `Se leyeron ${resumen.length} cotización(es) colectiva(s). Revisa los datos de la oportunidad y guarda: al guardar se crean las cotizaciones.`,
             'success');
+    }
+
+    // Nombre del cliente en el nombre del archivo: quita fechas, folios y palabras de cotización
+    // ("PR_GMM_HAND CLOUD_2026_RHC_v2.xlsm" -> "HAND CLOUD").
+    clienteDesdeArchivo(nombre) {
+        const ruido = /^(propuesta|cotizacion|cotizaciones|poliza|renovacion|tarifa|tar|pr|nn|gmm|gmg|gm|vida|ap|danos|colectivo|colectiva|rhc|cp|cre|v\d+|final|de|del|la|el)$/i;
+        const partes = String(nombre || '').replace(/\.[^.]+$/, '').split(/[_\-–]+/)
+            .map((seg) => seg.split(/\s+/).filter((w) => w && !/\d/.test(w) && !ruido.test(w)).join(' '))
+            .filter((seg) => seg.length >= 3);
+        return partes.sort((a, b) => b.length - a.length)[0] || '';
+    }
+
+    // Primer candidato que ya existe como cuenta (mismo nombre, sin importar acentos ni mayúsculas, o que uno contenga
+    // al otro); regresa el nombre de la cuenta o ''.
+    async cuentaExistente(candidatos) {
+        const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        for (const c of candidatos) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                const res = (await searchAccounts({ searchTerm: c })) || [];
+                const n = norm(c);
+                const cuenta = res.find((a) => norm(a.Name) === n)
+                    || res.find((a) => ` ${norm(a.Name)} `.includes(` ${n} `) || ` ${n} `.includes(` ${norm(a.Name)} `));
+                if (cuenta) { return cuenta.Name; }
+            } catch (e) {
+                // Sigue con el siguiente nombre.
+            }
+        }
+        return '';
     }
 
     // Espera a que se pinte el cambio de vista (para encontrar los componentes hijos).

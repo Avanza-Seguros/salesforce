@@ -517,7 +517,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             resumen: vistas.map((v) => ({
                 archivo: v.archivo, contratante: v.contratante, aseguradora: nombre(v.encabezado.aseguradoraId) || v.aseguradoraTexto,
                 primaNeta: numero(v.encabezado.primaNeta), primaTotal: this.totalDe(v.encabezado), tamano: this.tamanoDe(v),
-                vigenciaDesde: v.encabezado.vigenciaDesde, vigenciaHasta: v.encabezado.vigenciaHasta
+                vigenciaDesde: v.encabezado.vigenciaDesde, vigenciaHasta: v.encabezado.vigenciaHasta, tipoNegocio: v.tipoNegocio
             }))
         }));
     }
@@ -664,7 +664,24 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         const vista = this.normalizar(datos, vigencia, texto);
         vista.avisos.unshift(...avisosLectura);
         vista.archivo = file.name;
+        vista.tipoNegocio = this.tipoNegocioPorTexto(texto);
         return vista;
+    }
+
+    // La IA a veces toma como contratante el nombre de la categoría ("EXP GLOBAL CAT. EMPLEADOS (CONTRATANTE) OPCION 1"):
+    // ese texto no es una empresa y se descarta.
+    contratanteValido(v) {
+        const t = this.txt(v);
+        return /\bcat\b|categ|\bopcion\b|exp global|\(contratante\)|subgrupo|empleados|directivos/.test(fold(t)) ? '' : t;
+    }
+
+    // Tipo de negocio del encabezado de la cotización: 'Renovacion', 'Reexpedicion' o 'Nuevo' ('' si no lo dice).
+    tipoNegocioPorTexto(texto) {
+        const t = fold(texto.substring(0, 4000)).replace(/inicio vs renovacion/g, '');
+        if (/\bre ?expedicion\b|\brexpedicion\b/.test(t)) { return 'Reexpedicion'; }
+        if (/\brenovacion\b/.test(t)) { return 'Renovacion'; }
+        if (/\bnueva\b|\bnuevo\b|negocio nuevo/.test(t)) { return 'Nuevo'; }
+        return '';
     }
 
     ramoPorTexto(texto) {
@@ -870,7 +887,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             if (dif > 0 && Math.abs(dif - base * 0.16) <= Math.max(1, base * 0.0005)) { encabezado.iva = dif; }
         }
         if (encabezado.iva === null && this.ramo !== 'Vida') { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
-        return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.txt(d.contratante) };
+        return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.contratanteValido(d.contratante) };
     }
 
     // Total anual de cada forma de pago: primer pago + subsecuentes; si la aseguradora solo da el importe de cada pago, ese × número de pagos.
