@@ -3,22 +3,29 @@
     <!-- Paso de carga -->
     <template lwc:if={showUploadStep}>
       <p class="pdf-intro">
-        Deja de capturar a mano. Sube una o más cotizaciones en PDF del mismo cliente y la IA
+        Deja de capturar a mano. Sube una o más cotizaciones del mismo cliente y la IA
         las lee y llena la oportunidad por ti en segundos; si son varias, también compara las aseguradoras.
+        Las cotizaciones colectivas pueden venir en PDF o Excel.
       </p>
-      <p class="pdf-steps">1) Sube los PDFs &middot; 2) Revisa &middot; 3) Confirma</p>
+      <p class="pdf-steps">1) Sube los archivos &middot; 2) Revisa &middot; 3) Confirma</p>
+
+      <div class="pdf-tipo" role="group" aria-label="Tipo de contratación">
+        <span class="pdf-tipo__label">Tipo de contratación:</span>
+        <button class={claseIndividual} data-tipo="Individual" onclick={handleTipo} disabled={isProcessing}>Individual</button>
+        <button class={claseColectiva} data-tipo="Colectiva" onclick={handleTipo} disabled={isProcessing}>Colectiva</button>
+      </div>
 
       <!-- Todo el recuadro recibe los PDFs arrastrados y abre el selector al hacer clic. -->
       <div class={dropzoneClass} role="button" tabindex="0"
-        aria-label="Arrastra tus PDFs aquí o haz clic para seleccionarlos"
+        aria-label="Arrastra tus archivos aquí o haz clic para seleccionarlos"
         onclick={handleDropzoneClick} onkeydown={handleDropzoneKey}
         ondragenter={handleDragOver} ondragover={handleDragOver}
         ondragleave={handleDragLeave} ondrop={handleDrop}>
         <lightning-icon icon-name="utility:upload" size="large" class="pdf-dropzone__icon"></lightning-icon>
-        <p class="pdf-dropzone__title">Arrastra tus PDFs a cualquier parte de este recuadro</p>
-        <span class="pdf-dropzone__btn">Seleccionar PDFs</span>
-        <p class="pdf-dropzone__hint">Formato PDF · máx. ~4.5 MB · nombres con prefijo común</p>
-        <input type="file" class="pdf-file-input" accept="application/pdf,.pdf" multiple
+        <p class="pdf-dropzone__title">Arrastra tus archivos a cualquier parte de este recuadro</p>
+        <span class="pdf-dropzone__btn">Seleccionar archivos</span>
+        <p class="pdf-dropzone__hint">Individual: PDF máx. ~4.5 MB · Colectiva: PDF o Excel (.xlsx, .xlsm, .xls, .csv) · nombres con prefijo común</p>
+        <input type="file" class="pdf-file-input" accept="application/pdf,.pdf,.xlsx,.xlsm,.xls,.xlsb,.csv" multiple
           onchange={handleFileChange} disabled={isProcessing} />
       </div>
 
@@ -26,7 +33,7 @@
         <div class="pdf-files">
           <template for:each={fileList} for:item="f">
             <div key={f.name} class="pdf-file">
-              <lightning-icon icon-name="doctype:pdf" size="small" class="slds-m-right_x-small"></lightning-icon>
+              <lightning-icon icon-name={f.icono} size="small" class="slds-m-right_x-small"></lightning-icon>
               <span class="pdf-file__name" title={f.name}>{f.name}</span>
             </div>
           </template>
@@ -42,7 +49,7 @@
       <div class="pdf-actions">
         <button class="pdf-btn" onclick={handleContinue} disabled={continueDisabled}>
           <lightning-icon icon-name="utility:einstein" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-          Leer PDFs y llenar por mí
+          {textoBoton}
         </button>
       </div>
     </template>
@@ -85,7 +92,7 @@
         <p>{doneMessage}</p>
       </div>
       <div class="pdf-actions">
-        <button class="pdf-btn pdf-btn--secondary" onclick={handleReset}>Procesar otros PDFs</button>
+        <button class="pdf-btn pdf-btn--secondary" onclick={handleReset}>Procesar otros archivos</button>
       </div>
     </template>
   </div>

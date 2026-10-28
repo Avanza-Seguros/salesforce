@@ -1210,7 +1210,7 @@
                             <div class="section-badge">{colectivoBadge}</div>
                         </div>
                         <div class="form-container">
-                            <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
+                            <c-colectivo-personas data-carga="true" opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
                                 modo="carga" oncolectivoactualizado={handleColectivoActualizado}
                                 oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
                         </div>
@@ -1270,6 +1270,7 @@
                                     onanalysisstart={handlePdfAnalyzing}
                                     onanalysisdone={handlePdfAnalyzingDone}
                                     onpdfdataextracted={handlePDFDataExtracted}
+                                    oncolectivoarchivos={handleColectivoArchivos}
                                     onanalysiscomplete={handlePdfAnalysisComplete}>
                                 </c-pdf-opportunity-creator>
                             </div>
@@ -1941,6 +1942,7 @@
             <div class="content-container glass-effect unified-view pdf-view-container">
                 <c-pdf-opportunity-creator
                     onpdfdataextracted={handlePDFDataExtracted}
+                    oncolectivoarchivos={handleColectivoArchivos}
                     onanalysiscomplete={handlePdfAnalysisComplete}>
                 </c-pdf-opportunity-creator>
             </div>

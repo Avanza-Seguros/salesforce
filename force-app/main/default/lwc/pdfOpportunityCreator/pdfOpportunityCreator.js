@@ -4,11 +4,17 @@ import { loadScript } from "lightning/platformResourceLoader";
 import PDFJS from "@salesforce/resourceUrl/pdfjs";
 import fontsResource from "@salesforce/resourceUrl/fuentes_pdf";
 import analyzeQuotes from "@salesforce/apex/PdfOpportunityCreatorController.analyzeQuotes";
+import { fold } from "c/lectorArchivos";
 
 const MAX_SIZE = 4500000; // ~4.5 MB por archivo: límite práctico para enviar base64/texto a Apex
 // Con 1 PDF se crea la oportunidad con esa cotización; con 2 o más, además se comparan.
 const MIN_FILES = 1;
 const MIN_PREFIX_LENGTH = 3;
+// Cotizaciones colectivas: Excel o PDF (sin el límite de 4.5 MB: se leen en el navegador, por partes si son largos).
+const EXCEL = /\.(xlsx|xlsm|xls|xlsb|csv)$/i;
+const MAX_SIZE_COLECTIVA = 40000000;
+// Texto de una cotización o póliza colectiva (ya pasado por fold).
+const TEXTO_COLECTIVO = /colectiv|subgrupo|\bgmg\b|vida grupo|seguro de grupo|poliza de grupo/;
 
 export default class PdfOpportunityCreator extends LightningElement {
 
@@ -22,6 +28,11 @@ export default class PdfOpportunityCreator extends LightningElement {
 	statusMessage = "";
 	error = "";
 	prefixWarning = "";
+	// Individual: cotizaciones de una persona (se comparan y llenan la oportunidad). Colectiva: cotizaciones de grupo
+	// (GMM, Vida, Daños por ubicaciones...) que lee c-colectivo-personas. Un Excel o un PDF de grupo la elige solo.
+	tipo = "Individual";
+	_tipoManual = false;
+	colectivoEnviado = false;
 
 	// Resumen tras enviar los datos al formulario del padre.
 	done = false;
@@ -139,7 +150,15 @@ export default class PdfOpportunityCreator extends LightningElement {
 		return this.files && this.files.length > 0;
 	}
 	get fileList() {
-		return this.files.map((f) => ({ name: f.name }));
+		return this.files.map((f) => ({ name: f.name, icono: EXCEL.test(f.name) ? "doctype:excel" : "doctype:pdf" }));
+	}
+	get esColectiva() { return this.tipo === "Colectiva"; }
+	get claseIndividual() { return this.esColectiva ? "pdf-tipo__btn" : "pdf-tipo__btn pdf-tipo__btn--activo"; }
+	get claseColectiva() { return this.esColectiva ? "pdf-tipo__btn pdf-tipo__btn--activo" : "pdf-tipo__btn"; }
+	get textoBoton() { return this.esColectiva ? "Leer cotizaciones colectivas y llenar por mí" : "Leer PDFs y llenar por mí"; }
+	handleTipo(event) {
+		this.tipo = event.currentTarget.dataset.tipo;
+		this._tipoManual = true;
 	}
 	get sharedPrefix() {
 		// El prefijo común solo tiene sentido con 2 o más archivos.
@@ -160,6 +179,9 @@ export default class PdfOpportunityCreator extends LightningElement {
 		return false;
 	}
 	get doneMessage() {
+		if (this.colectivoEnviado) {
+			return `Se enviaron ${this.extractedCount} archivo(s) como cotización colectiva: la IA los lee en "Cotizaciones colectivas" y se crean al guardar la oportunidad.`;
+		}
 		const c = this.clienteDetectado || "el cliente";
 		return `Se extrajeron ${this.extractedCount} cotización(es) para ${c}. Revisa los datos en el formulario y guarda la oportunidad.`;
 	}
@@ -226,21 +248,23 @@ export default class PdfOpportunityCreator extends LightningElement {
 		}
 		const accepted = [];
 		for (const f of selected) {
+			const esExcel = EXCEL.test(f.name);
 			if (
+				!esExcel &&
 				f.type !== "application/pdf" &&
 				!f.name.toLowerCase().endsWith(".pdf")
 			) {
 				this.showToast(
 					"Archivo no válido",
-					`"${f.name}" no es un PDF y fue descartado.`,
+					`"${f.name}" no es PDF ni Excel y fue descartado.`,
 					"warning"
 				);
 				continue;
 			}
-			if (f.size > MAX_SIZE) {
+			if (f.size > MAX_SIZE_COLECTIVA) {
 				this.showToast(
 					"Archivo muy grande",
-					`"${f.name}" supera ~4.5 MB y fue descartado.`,
+					`"${f.name}" supera 40 MB y fue descartado.`,
 					"warning"
 				);
 				continue;
@@ -248,6 +272,10 @@ export default class PdfOpportunityCreator extends LightningElement {
 			accepted.push(f);
 		}
 		this.files = accepted;
+		// Un Excel o un PDF de más de 4.5 MB solo puede ser cotización colectiva.
+		if (!this._tipoManual && accepted.some((f) => EXCEL.test(f.name) || f.size > MAX_SIZE)) {
+			this.tipo = "Colectiva";
+		}
 
 		if (this.files.length > 0 && this.files.length < MIN_FILES) {
 			this.prefixWarning = `Sube al menos ${MIN_FILES} PDF.`;
@@ -273,6 +301,19 @@ export default class PdfOpportunityCreator extends LightningElement {
 			return;
 		}
 		// El prefijo común ya no es obligatorio; solo se avisa (la IA valida el cliente/vehículo).
+		if (this.esColectiva) {
+			await this.continuarColectiva();
+			return;
+		}
+		const grandes = this.files.filter((f) => EXCEL.test(f.name) || f.size > MAX_SIZE);
+		if (grandes.length) {
+			this.showToast(
+				"Cotización individual",
+				`${grandes.map((f) => f.name).join(", ")}: en individual solo se leen PDFs de hasta ~4.5 MB. Si es cotización colectiva, elige "Colectiva".`,
+				"warning"
+			);
+			return;
+		}
 
 		this.isProcessing = true;
 		this.error = "";
@@ -284,6 +325,13 @@ export default class PdfOpportunityCreator extends LightningElement {
 			const pdfTexts = await Promise.all(
 				this.files.map((f) => this.extractPdfText(f))
 			);
+
+			// PDF de una cotización o póliza de grupo: se va al flujo colectivo (salvo que se haya elegido Individual).
+			if (!this._tipoManual && pdfTexts.some((t) => TEXTO_COLECTIVO.test(fold((t || "").substring(0, 20000))))) {
+				this.tipo = "Colectiva";
+				await this.continuarColectiva();
+				return;
+			}
 
 			this.statusMessage = "Analizando cotizaciones con IA…";
 			const res = await analyzeQuotes({ fileNames, pdfTexts });
@@ -324,6 +372,23 @@ export default class PdfOpportunityCreator extends LightningElement {
 			this.statusMessage = "";
 			// Avisa al padre que terminó el análisis (para ocultar el spinner).
 			this.dispatchEvent(new CustomEvent("analysisdone"));
+		}
+	}
+
+	// Cotizaciones colectivas: Crear Oportunidad las pasa a c-colectivo-personas, que las lee con la IA y las crea al
+	// guardar la oportunidad. Los archivos de hasta ~4.5 MB también se adjuntan a la oportunidad.
+	async continuarColectiva() {
+		this.isProcessing = true;
+		this.statusMessage = "Preparando las cotizaciones colectivas…";
+		try {
+			const archivos = await this.filesToBase64(MAX_SIZE);
+			this.extractedCount = this.files.length;
+			this.colectivoEnviado = true;
+			this.done = true;
+			this.dispatchEvent(new CustomEvent("colectivoarchivos", { detail: { files: [...this.files], archivos } }));
+		} finally {
+			this.isProcessing = false;
+			this.statusMessage = "";
 		}
 	}
 
@@ -420,6 +485,9 @@ export default class PdfOpportunityCreator extends LightningElement {
 		this.error = "";
 		this.prefixWarning = "";
 		this.done = false;
+		this.colectivoEnviado = false;
+		this.tipo = "Individual";
+		this._tipoManual = false;
 		this.extractedCount = 0;
 		this.clienteDetectado = "";
 		this.ramoDetectado = "";
@@ -433,9 +501,10 @@ export default class PdfOpportunityCreator extends LightningElement {
 	// o si pdf.js falla en este entorno). Tiene un timeout para no dejar el spinner
 	// girando si pdf.js se cuelga (caso del "fake worker" en Lightning Web Security).
 	// Lee todos los PDFs cargados y los devuelve como [{nombre, base64}].
-	async filesToBase64() {
+	async filesToBase64(maxBytes) {
 		const out = [];
 		for (const f of this.files) {
+			if (maxBytes && f.size > maxBytes) { continue; }
 			try {
 				const base64 = await this.readFileAsBase64(f);
 				out.push({ nombre: f.name, base64 });

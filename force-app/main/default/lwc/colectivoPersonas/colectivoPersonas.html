@@ -17,7 +17,8 @@
         <template if:true={sinOportunidad}>
             <div class="censo-vacio">
                 <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
-                <p>Guarda la oportunidad para cargar las cotizaciones de las aseguradoras.</p>
+                <p lwc:if={porCrearTxt}>{porCrearTxt}</p>
+                <p lwc:else>Guarda la oportunidad para cargar las cotizaciones de las aseguradoras.</p>
             </div>
         </template>
 

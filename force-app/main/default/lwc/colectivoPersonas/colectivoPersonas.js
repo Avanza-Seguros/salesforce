@@ -39,6 +39,13 @@ const RAMOS_ETIQUETA = {
     GMM: 'Gastos Médicos Mayores', Vida: 'Vida Grupo', 'Accidentes Personales': 'Accidentes Personales', Dental: 'Dental',
     Vision: 'Visión', Viajes: 'Viajes', Danos: 'Daños', Empresarial: 'Paquete Empresarial'
 };
+// Palabras que identifican el ramo en el texto de la cotización (ya pasado por fold): gana el que más aparece.
+const RAMOS_TEXTO = [
+    ['GMM', /gastos medicos|\bgmm\b|\bgmg\b|hospitaliz|coaseguro|maternidad/g], ['Vida', /\bvida\b/g],
+    ['Accidentes Personales', /accidentes personales/g], ['Dental', /\bdental\b/g], ['Vision', /\bvision\b|\blentes\b/g],
+    ['Viajes', /\bviajes?\b|asistencia en viaje/g], ['Danos', /\bincendio\b|\bdanos\b|ubicacion|terremoto|\bedificio|contenidos/g],
+    ['Empresarial', /paquete empresarial|\bempresarial\b|\bpyme\b/g]
+];
 // Valor de una cobertura (ya pasado por fold) que indica que no se incluye: "N/A", "No amparada", "Excluida", "-".
 const NO_AMPARADA = /^(n a|na|no amparad[ao]s?|no aplica|excluid[ao]s?|no incluid[ao]s?|)$/;
 // Coberturas que en GMM ya son campos fijos del plan.
@@ -46,8 +53,11 @@ const CAMPOS_GMM = /^(plan|suma asegurada|deducible|coaseguro|tope|tabulador|niv
 
 export default class ColectivoPersonas extends NavigationMixin(LightningElement) {
     @api readOnly = false;
-    // Valor del picklist Ramo de la oportunidad (GMM, Vida, Accidentes Personales, Danos, ...).
-    @api ramo;
+    // Valor del picklist Ramo de la oportunidad (GMM, Vida, Accidentes Personales, Danos, ...). Al leer cotizaciones
+    // desde "Crear desde PDFs" el ramo se detecta del texto del primer archivo.
+    @api
+    get ramo() { return this._ramo; }
+    set ramo(v) { this._ramo = v; }
     // 'carga': subir y administrar cotizaciones; 'comparativo': solo el comparativo (en la sección Comparativa de
     // Cotizaciones de Crear Oportunidad); 'completo' (por omisión): ambos.
     @api modo = 'completo';
@@ -483,11 +493,53 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         const archivos = Array.from(event.target.files || []);
         event.target.value = null;
         if (!archivos.length) { return; }
+        const { vistas, fallas } = await this.leerArchivos(archivos);
+        if (fallas.length) { this.toast('Cotización colectiva', fallas.join(' | '), 'error', 'sticky'); }
+        await this.crearVistas(vistas);
+    }
+
+    // "Crear desde PDFs" de Crear Oportunidad: lee las cotizaciones antes de que exista la oportunidad (detecta el
+    // ramo) y regresa lo leído; al guardar la oportunidad, Crear Oportunidad llama a crearCotizaciones.
+    @api
+    async analizarArchivos(archivos) {
+        if (!this.aseguradoras.length) {
+            try { this.aseguradoras = await getAseguradoras(); } catch (e) { this.aseguradoras = []; }
+        }
+        this._detectarRamo = true;
+        const { vistas, fallas } = await this.leerArchivos(archivos);
+        this._detectarRamo = false;
+        this._porCrear = vistas.length;
+        const nombre = (id) => ((this.aseguradoras || []).find((a) => a.id === id) || {}).nombre || '';
+        return JSON.parse(JSON.stringify({
+            ramo: this._ramo,
+            fallas,
+            vistas,
+            resumen: vistas.map((v) => ({
+                archivo: v.archivo, contratante: v.contratante, aseguradora: nombre(v.encabezado.aseguradoraId) || v.aseguradoraTexto,
+                primaNeta: numero(v.encabezado.primaNeta), primaTotal: this.totalDe(v.encabezado), tamano: this.tamanoDe(v),
+                vigenciaDesde: v.encabezado.vigenciaDesde, vigenciaHasta: v.encabezado.vigenciaHasta
+            }))
+        }));
+    }
+
+    // Crea las cotizaciones leídas con analizarArchivos en la oportunidad ya guardada.
+    @api
+    async crearCotizaciones(vistas, opportunityId) {
+        if (opportunityId) { this._opportunityId = opportunityId; }
+        this._porCrear = 0;
+        await this.crearVistas(JSON.parse(JSON.stringify(vistas || [])));
+    }
+
+    get porCrearTxt() {
+        return this._porCrear
+            ? `Se leyeron ${this._porCrear} ${this._porCrear === 1 ? 'cotización' : 'cotizaciones'}: se crearán al guardar la oportunidad.`
+            : '';
+    }
+
+    async leerArchivos(archivos) {
         this.errorMensaje = '';
         this.cargando = true;
-        const creadas = [];
-        const conAvisos = [];
-        const pendientes = [];
+        const vistas = [];
         const fallas = [];
         try {
             for (let i = 0; i < archivos.length; i++) {
@@ -496,18 +548,39 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 this._prefijo = archivos.length > 1 ? `(${i + 1} de ${archivos.length}) ${file.name}: ` : '';
                 try {
                     // eslint-disable-next-line no-await-in-loop
-                    const vista = await this.leerCotizacion(file);
-                    if (this.completa(vista)) {
-                        this.avance('Guardando cotización…');
-                        // eslint-disable-next-line no-await-in-loop
-                        await this.guardarVista(vista);
-                        creadas.push(`${file.name} (${this.tamanoDe(vista)} ${this.unidad})`);
-                        if (vista.avisos.length) { conAvisos.push(`${file.name}: ${vista.avisos.join(' ')}`); }
-                    } else {
-                        pendientes.push(vista);
-                    }
+                    vistas.push(await this.leerCotizacion(file));
                 } catch (e) {
                     fallas.push(`${file.name}: ${this.mensaje(e)}`);
+                }
+            }
+        } finally {
+            this._prefijo = '';
+            this.cargando = false;
+            this.progreso = '';
+        }
+        return { vistas, fallas };
+    }
+
+    // Guarda las cotizaciones completas; las que no traen aseguradora o asegurados quedan para revisión.
+    async crearVistas(vistas) {
+        const creadas = [];
+        const conAvisos = [];
+        const pendientes = [];
+        const fallas = [];
+        this.cargando = true;
+        try {
+            for (let i = 0; i < vistas.length; i++) {
+                const vista = vistas[i];
+                if (!this.completa(vista)) { pendientes.push(vista); continue; }
+                this._prefijo = vistas.length > 1 ? `(${i + 1} de ${vistas.length}) ` : '';
+                this.avance('Guardando cotización…');
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await this.guardarVista(vista);
+                    creadas.push(`${vista.archivo} (${this.tamanoDe(vista)} ${this.unidad})`);
+                    if (vista.avisos.length) { conAvisos.push(`${vista.archivo}: ${vista.avisos.join(' ')}`); }
+                } catch (e) {
+                    fallas.push(`${vista.archivo}: ${this.mensaje(e)}`);
                 }
             }
         } finally {
@@ -561,6 +634,10 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         if (!texto || texto.trim().length < 50) {
             throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
         }
+        if (this._detectarRamo) {
+            this._ramo = this.ramoPorTexto(texto) || this._ramo;
+            this._detectarRamo = false;
+        }
         let datos;
         const avisosLectura = [];
         if (partes && partes.length > 1) {
@@ -588,6 +665,17 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         vista.avisos.unshift(...avisosLectura);
         vista.archivo = file.name;
         return vista;
+    }
+
+    ramoPorTexto(texto) {
+        const t = fold(texto.substring(0, 30000));
+        let mejor = '';
+        let veces = 0;
+        RAMOS_TEXTO.forEach(([ramo, re]) => {
+            const n = (t.match(re) || []).length;
+            if (n > veces) { veces = n; mejor = ramo; }
+        });
+        return mejor;
     }
 
     // Lista para crearse sin revisión: trae aseguradora y asegurados (o ubicaciones).

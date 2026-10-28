@@ -3833,7 +3833,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 'success');
             await this.loadOpportunities();
 
-            if (this.hasPdfQuotes && savedId) {
+            if (this._colectivoPorCrear && savedId) {
+                // Cotizaciones colectivas leídas en "Crear desde PDFs": se crean ya con la oportunidad guardada.
+                const vistas = this._colectivoPorCrear;
+                this._colectivoPorCrear = null;
+                await this.guardarArchivosPdf(savedId);
+                this.viewMode = VIEW_MODES.EDIT;
+                await this.esperarRender();
+                const comp = this.template.querySelector('c-colectivo-personas[data-carga]');
+                if (comp) { await comp.crearCotizaciones(vistas, savedId); }
+            } else if (this.hasPdfQuotes && savedId) {
                 // Venimos del flujo de PDFs: guardamos los PDFs y el comparativo (como PDF)
                 // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
                 await this.guardarArchivosPdf(savedId);
@@ -4075,6 +4084,79 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (subidos > 0 || htmlComparativo) {
             this.showToast('Archivos', 'Se guardaron los PDFs y el comparativo en la oportunidad.', 'success');
         }
+    }
+
+    // "Crear desde PDFs" con cotizaciones colectivas (PDF o Excel): c-colectivo-personas las lee con la IA (detecta el
+    // ramo) y con eso se llena la oportunidad; al guardarla se crean las cotizaciones. En una oportunidad ya guardada
+    // ("Agregar cotizaciones desde PDF") se crean en ese momento.
+    async handleColectivoArchivos(event) {
+        const { files, archivos } = (event && event.detail) || {};
+        if (!files || !files.length) { return; }
+        const existente = !!this.opportunity.Id;
+        if (existente && !this.mostrarCotizacionesColectivas) {
+            this.showToast('Cotización colectiva',
+                'Esta oportunidad no es colectiva de personas o ubicaciones: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
+                'warning', 'sticky');
+            return;
+        }
+        if (existente) {
+            this.handleCancelAddPdf();
+        } else {
+            this._colectivoPorCrear = null;
+            this.pdfArchivos = archivos || [];
+            // Ramo provisional para mostrar la sección de cotizaciones colectivas; el real se detecta al leer.
+            this.opportunity = {
+                ...this.opportunity,
+                Tipo_Contratacion__c: 'Colectiva',
+                Ramo__c: this.opportunity.Ramo__c || RAMO_TYPES.GASTOS_MEDICOS
+            };
+            this.viewMode = VIEW_MODES.CREATE;
+        }
+        await this.esperarRender();
+        const comp = this.template.querySelector('c-colectivo-personas[data-carga]');
+        if (!comp) {
+            this.showToast('Cotización colectiva', 'No se encontró la sección de cotizaciones colectivas.', 'error');
+            return;
+        }
+        comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const r = await comp.analizarArchivos(files);
+        if (r.fallas.length) { this.showToast('No se pudieron leer', r.fallas.join(' | '), 'error', 'sticky'); }
+        if (!r.vistas.length) { return; }
+        if (existente) {
+            await comp.crearCotizaciones(r.vistas, this.opportunity.Id);
+            this.pdfArchivos = archivos || [];
+            await this.guardarArchivosPdf(this.opportunity.Id);
+            return;
+        }
+        this._colectivoPorCrear = r.vistas;
+        const resumen = r.resumen || [];
+        const contratante = (resumen.find((x) => x.contratante) || {}).contratante || '';
+        const primas = resumen.map((x) => x.primaNeta || x.primaTotal).filter((v) => v > 0);
+        const prima = primas.length ? Math.min(...primas) : null;
+        this.opportunity = {
+            ...this.opportunity,
+            Ramo__c: r.ramo || this.opportunity.Ramo__c,
+            Name: this.opportunity.Name || contratante.substring(0, 80),
+            Prima_Neta__c: prima || this.opportunity.Prima_Neta__c,
+            Prima_neta__c: prima || this.opportunity.Prima_neta__c,
+            Description: this.opportunity.Description || 'Cotizaciones colectivas leídas por la IA: ' + resumen.map((x) =>
+                `${x.aseguradora || x.archivo} ${this.formatCurrency(x.primaTotal || x.primaNeta || 0)} (${x.tamano})`).join(' · ')
+        };
+        if (contratante && !this.opportunity.AccountId) {
+            this.opportunity = { ...this.opportunity, AccountName: contratante };
+            this.resolveAccountByName(contratante);
+        }
+        this.aplicarFechaCierreSugerida();
+        this.setDefaultAgente({ archivos: files.map((f) => ({ nombre: f.name })) });
+        this.showToast('La IA ya lo llenó',
+            `Se leyeron ${resumen.length} cotización(es) colectiva(s). Revisa los datos de la oportunidad y guarda: al guardar se crean las cotizaciones.`,
+            'success');
+    }
+
+    // Espera a que se pinte el cambio de vista (para encontrar los componentes hijos).
+    esperarRender() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        return new Promise((resolve) => setTimeout(resolve, 0));
     }
 
     handlePdfAnalysisComplete(event) {
@@ -4504,6 +4586,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.transporte = this.getDefaultTransporte();
         this.asegurados = [];
         this.uploadedQuotes = [];
+        this._colectivoPorCrear = null;
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
         this.selectedQuoteRamo = '';
