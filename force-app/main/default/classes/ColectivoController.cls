@@ -530,6 +530,24 @@ public with sharing class ColectivoController {
 			+ cuerpo + '</div>';
 	}
 
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: true si la cuenta ya tiene una póliza del ramo: la oportunidad colectiva es una renovación aunque
+	 *               las cotizaciones de las otras aseguradoras digan "Nueva".
+	 * @param accountId: cuenta del cliente.
+	 * @param ramo: valor del picklist Ramo (vacío = cualquier ramo).
+	 * @return true si hay al menos una póliza.
+	 */
+	@AuraEnabled
+	public static Boolean tienePolizaDelRamo(Id accountId, String ramo) {
+		if (accountId == null) { return false; }
+		if (String.isBlank(ramo)) {
+			return [SELECT COUNT() FROM InsurancePolicy WHERE NameInsuredId = :accountId] > 0;
+		}
+		return [SELECT COUNT() FROM InsurancePolicy WHERE NameInsuredId = :accountId AND Ramo__c = :ramo] > 0;
+	}
+
 	// ============================================================
 	// Helpers
 	// ============================================================

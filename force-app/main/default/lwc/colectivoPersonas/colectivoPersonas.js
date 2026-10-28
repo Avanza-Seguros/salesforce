@@ -676,11 +676,14 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     }
 
     // Tipo de negocio del encabezado de la cotización: 'Renovacion', 'Reexpedicion' o 'Nuevo' ('' si no lo dice).
+    // Solo cuenta si la palabra abre un renglón o una celda ("RENOVACION COTIZACIÓN DE GASTOS MEDICOS", "R9: Nueva");
+    // frases como "A partir de la 1° Renovación", "(INICIO vs RENOVACION)" o "miembros de nuevo ingreso" no.
     tipoNegocioPorTexto(texto) {
-        const t = fold(texto.substring(0, 4000)).replace(/inicio vs renovacion/g, '');
-        if (/\bre ?expedicion\b|\brexpedicion\b/.test(t)) { return 'Reexpedicion'; }
-        if (/\brenovacion\b/.test(t)) { return 'Renovacion'; }
-        if (/\bnueva\b|\bnuevo\b|negocio nuevo/.test(t)) { return 'Nuevo'; }
+        const celdas = texto.substring(0, 4000).split(/\n|\|/).map((c) => fold(c).replace(/^r\d+ /, ''));
+        const es = (re) => celdas.some((c) => re.test(c));
+        if (es(/^(tipo de (negocio|movimiento|poliza) )?(re ?expedicion|rexpedicion)\b/)) { return 'Reexpedicion'; }
+        if (es(/^(tipo de (negocio|movimiento|poliza) )?renovacion\b/)) { return 'Renovacion'; }
+        if (es(/^(tipo de (negocio|movimiento|poliza) )?(nueva|nuevo|negocio nuevo|nuevo negocio|inicial|poliza nueva)$/)) { return 'Nuevo'; }
         return '';
     }
 

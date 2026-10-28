@@ -14,6 +14,7 @@ import QUOTE_OBJECT from '@salesforce/schema/Quote';
 import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getResumenOportunidades from '@salesforce/apex/ColectivoController.getResumenOportunidades';
+import tienePolizaDelRamo from '@salesforce/apex/ColectivoController.tienePolizaDelRamo';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
 import getAccountById from '@salesforce/apex/OpportunityController.getAccountById';
@@ -4143,7 +4144,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const candidatos = [contratante, ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
         const cuentaSf = await this.cuentaExistente(candidatos);
         const cliente = cuentaSf || candidatos[0] || '';
-        const tipoNegocio = (resumen.find((x) => x.tipoNegocio) || {}).tipoNegocio || '';
+        // Tipo de negocio: si alguna cotización dice Reexpedición o Renovación, gana sobre "Nueva" (las aseguradoras
+        // que no tienen hoy la póliza cotizan como nueva). Si el cliente ya tiene una póliza del ramo con nosotros,
+        // es renovación interna aunque las cotizaciones digan "Nueva".
+        const tipos = resumen.map((x) => x.tipoNegocio);
+        let tipoNegocio = ['Reexpedicion', 'Renovacion', 'Nuevo'].find((t) => tipos.includes(t)) || '';
+        let conPoliza = false;
+        if (this._cuentaColectivaId && tipoNegocio !== 'Reexpedicion') {
+            try {
+                conPoliza = await tienePolizaDelRamo({ accountId: this._cuentaColectivaId, ramo: r.ramo || this.opportunity.Ramo__c });
+            } catch (e) {
+                conPoliza = false;
+            }
+            if (conPoliza) { tipoNegocio = 'Renovacion'; }
+        }
         const tipoOportunidad = tipoNegocio === 'Reexpedicion' ? 'Reissue'
             : tipoNegocio === 'Renovacion' ? (cuentaSf ? 'Internal_Renewal' : 'External_Renewal')
                 : tipoNegocio === 'Nuevo' ? 'New_Business' : this.opportunity.Type;
@@ -4185,6 +4199,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Primer candidato que ya existe como cuenta (mismo nombre, sin importar acentos ni mayúsculas, o que uno contenga
     // al otro); regresa el nombre de la cuenta o ''.
     async cuentaExistente(candidatos) {
+        this._cuentaColectivaId = null;
         const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
         for (const c of candidatos) {
@@ -4194,7 +4209,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 const n = norm(c);
                 const cuenta = res.find((a) => norm(a.Name) === n)
                     || res.find((a) => ` ${norm(a.Name)} `.includes(` ${n} `) || ` ${n} `.includes(` ${norm(a.Name)} `));
-                if (cuenta) { return cuenta.Name; }
+                if (cuenta) {
+                    this._cuentaColectivaId = cuenta.Id;
+                    return cuenta.Name;
+                }
             } catch (e) {
                 // Sigue con el siguiente nombre.
             }

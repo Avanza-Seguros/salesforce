@@ -646,49 +646,87 @@ public with sharing class CensoColectivoController {
 		if (opportunityId == null || policyId == null) { return 0; }
 		List<GroupCensusMember> miembros = [
 			SELECT Id, FirstName, LastName, Name, Gender, RelationshipToPrimaryMember, PrimaryGroupCensusMemberId,
-				GroupClassId, JoinDate, Certificado__c, ContactId, Prima__c
+				PrimaryGroupCensusMember.JoinDate, GroupClassId, JoinDate, Birthdate, Certificado__c, RFC__c, ContactId, Prima__c
 			FROM GroupCensusMember
 			WHERE GroupCensus.Oportunidad__c = :opportunityId
 			ORDER BY PrimaryGroupCensusMemberId NULLS FIRST, Certificado__c, Name
 			LIMIT 10000
 		];
 		if (miembros.isEmpty()) { return 0; }
+		InsurancePolicy pol = [SELECT EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
 
-		Set<String> yaEstan = new Set<String>();
+		// Participantes que ya están en la póliza (mismo certificado y nombre): no se duplican, solo se completan.
+		Map<String, InsurancePolicyParticipant> yaEstan = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT ParticipantName, ParticipantCode FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
-		]) { yaEstan.add(llaveParticipante(p.ParticipantCode, p.ParticipantName)); }
+			SELECT Id, ParticipantName, ParticipantCode, RelationshipToInsured, RelatedInsPolicyParticipantId,
+				EffectiveFromDate, EffectiveToDate, EffectiveDate, ExpirationDate, FechaNacimiento__c, Identificacion__c
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) { yaEstan.put(llaveParticipante(p.ParticipantCode, p.ParticipantName), p); }
 
 		String rolTitular = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(), new List<String>{ 'Asegurado', 'Insured' });
 		String rolDependiente = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(),
 			new List<String>{ 'Miembro familiar', 'Asegurado', 'Insured' });
+		Map<Id, InsurancePolicyParticipant> completar = new Map<Id, InsurancePolicyParticipant>();
 
 		// 1) Titulares (los dependientes se ligan a ellos).
 		Map<Id, InsurancePolicyParticipant> porTitular = new Map<Id, InsurancePolicyParticipant>();
+		List<InsurancePolicyParticipant> titulares = new List<InsurancePolicyParticipant>();
 		for (GroupCensusMember m : miembros) {
 			if (m.PrimaryGroupCensusMemberId != null) { continue; }
-			InsurancePolicyParticipant p = participante(m, policyId, rolTitular);
-			if (yaEstan.contains(llaveParticipante(p.ParticipantCode, p.ParticipantName))) { continue; }
+			InsurancePolicyParticipant p = participante(m, policyId, rolTitular, pol);
+			InsurancePolicyParticipant existe = yaEstan.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+			if (existe != null) {
+				porTitular.put(m.Id, existe);
+				if (completarDatos(existe, p)) { completar.put(existe.Id, existe); }
+				continue;
+			}
 			porTitular.put(m.Id, p);
+			titulares.add(p);
 		}
-		if (!porTitular.isEmpty()) { insert porTitular.values(); }
+		if (!titulares.isEmpty()) { insert titulares; }
 
 		// 2) Dependientes con su parentesco y ligados al participante de su titular.
 		Schema.DescribeFieldResult relacion = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
 		List<InsurancePolicyParticipant> dependientes = new List<InsurancePolicyParticipant>();
 		for (GroupCensusMember m : miembros) {
 			if (m.PrimaryGroupCensusMemberId == null) { continue; }
-			InsurancePolicyParticipant p = participante(m, policyId, rolDependiente);
-			if (yaEstan.contains(llaveParticipante(p.ParticipantCode, p.ParticipantName))) { continue; }
+			InsurancePolicyParticipant p = participante(m, policyId, rolDependiente, pol);
 			if (porTitular.containsKey(m.PrimaryGroupCensusMemberId)) {
 				p.RelatedInsPolicyParticipantId = porTitular.get(m.PrimaryGroupCensusMemberId).Id;
 			}
 			String rel = valorPicklist(relacion, parentescoPoliza(m.RelationshipToPrimaryMember, m.Gender));
 			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
+			InsurancePolicyParticipant existe = yaEstan.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+			if (existe != null) {
+				if (completarDatos(existe, p)) { completar.put(existe.Id, existe); }
+				continue;
+			}
 			dependientes.add(p);
 		}
 		if (!dependientes.isEmpty()) { insert dependientes; }
-		return porTitular.size() + dependientes.size();
+		if (!completar.isEmpty()) { update completar.values(); }
+		return titulares.size() + dependientes.size();
+	}
+
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena en un participante que ya estaba en la póliza los datos que le falten (fechas, fecha de
+	 *               nacimiento, identificación, parentesco y titular); no cambia lo que ya tiene.
+	 * @param existe: participante guardado.
+	 * @param nuevo: participante armado desde el censo.
+	 * @return true si se llenó algún dato.
+	 */
+	private static Boolean completarDatos(InsurancePolicyParticipant existe, InsurancePolicyParticipant nuevo) {
+		Boolean cambio = false;
+		for (String campo : new List<String>{ 'EffectiveFromDate', 'EffectiveToDate', 'EffectiveDate', 'ExpirationDate',
+				'FechaNacimiento__c', 'Identificacion__c', 'RelationshipToInsured', 'RelatedInsPolicyParticipantId' }) {
+			if (existe.get(campo) == null && nuevo.get(campo) != null) {
+				existe.put(campo, nuevo.get(campo));
+				cambio = true;
+			}
+		}
+		return cambio;
 	}
 
 	/**
@@ -790,7 +828,7 @@ public with sharing class CensoColectivoController {
 	 * @param rol: rol del participante.
 	 * @return participante sin insertar.
 	 */
-	private static InsurancePolicyParticipant participante(GroupCensusMember m, Id policyId, String rol) {
+	private static InsurancePolicyParticipant participante(GroupCensusMember m, Id policyId, String rol, InsurancePolicy pol) {
 		InsurancePolicyParticipant p = new InsurancePolicyParticipant(InsurancePolicyId = policyId);
 		String nombre = String.isNotBlank(m.Name) ? m.Name : ((m.FirstName == null ? '' : m.FirstName + ' ') + m.LastName);
 		p.ParticipantName = nombre.normalizeSpace().left(255);
@@ -799,7 +837,21 @@ public with sharing class CensoColectivoController {
 		// Categoría (subgrupo): el campo existe en versiones recientes de la API; si no está disponible se omite.
 		if (m.GroupClassId != null) { try { p.put('GroupClassId', m.GroupClassId); } catch (Exception e) { System.debug(LoggingLevel.FINE, e.getMessage()); } }
 		if (m.ContactId != null) { p.PrimaryParticipantContactId = m.ContactId; }
-		if (m.JoinDate != null) { p.EffectiveFromDate = m.JoinDate; }
+		// Vigencia del asegurado: desde su fecha de alta (el dependiente toma la de su titular; sin alta, el inicio de
+		// la póliza) hasta el fin de vigencia de la póliza.
+		Date alta = m.JoinDate != null ? m.JoinDate
+			: (m.PrimaryGroupCensusMember != null && m.PrimaryGroupCensusMember.JoinDate != null ? m.PrimaryGroupCensusMember.JoinDate
+				: (pol != null && pol.EffectiveDate != null ? pol.EffectiveDate.date() : null));
+		if (alta != null) {
+			p.EffectiveFromDate = alta;
+			p.EffectiveDate = Datetime.newInstance(alta, Time.newInstance(12, 0, 0, 0));
+		}
+		if (pol != null && pol.ExpirationDate != null) {
+			p.EffectiveToDate = pol.ExpirationDate.date();
+			p.ExpirationDate = pol.ExpirationDate;
+		}
+		if (m.Birthdate != null) { p.FechaNacimiento__c = m.Birthdate; }
+		if (String.isNotBlank(m.RFC__c)) { p.Identificacion__c = m.RFC__c.left(50); }
 		// Prima individual del asegurado (del listado de la aseguradora) como prima del periodo del participante.
 		if (m.Prima__c != null) { p.TermPremiumAmount = m.Prima__c; }
 		p.IsActiveParticipant = true;

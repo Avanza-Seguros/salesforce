@@ -230,6 +230,10 @@ private class ColectivoControllerTest {
 		System.assertEquals('Trimestral', ColectivoController.frecuencia('trimestral'));
 		System.assertEquals('Mensual', ColectivoController.frecuencia('Mensual'));
 		System.assertEquals('Anual', ColectivoController.frecuencia('Contado'));
+		Id cuenta = [SELECT Id FROM Account LIMIT 1].Id;
+		System.assertEquals(false, ColectivoController.tienePolizaDelRamo(null, 'GMM'), 'Sin cuenta no hay póliza');
+		System.assertEquals(false, ColectivoController.tienePolizaDelRamo(cuenta, ''), 'La cuenta de prueba no tiene pólizas');
+		System.assertEquals(false, ColectivoController.tienePolizaDelRamo(cuenta, 'GMM'), 'Ni del ramo');
 		System.assertEquals(null, ColectivoController.fecha('01/08/2026'));
 		System.assertEquals('{"a":1}', ColectivoController.limpiarJson('```json {"a":1} ```'));
 		System.assertEquals('{"categorias":[]}', ColectivoController.limpiarJson(null));
