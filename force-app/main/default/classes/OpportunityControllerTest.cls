@@ -633,4 +633,14 @@ private class OpportunityControllerTest {
         System.assertEquals('Persona', OpportunityController.tipoDeCuenta('Cualquier Nombre', true));
         System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Avanza', false));
     }
+
+    @isTest
+    static void testContactoDeCuenta() {
+        Account acc = new Account(Name = 'Empresa Sin Contactos Prueba');
+        insert acc;
+        System.assertEquals(null, OpportunityController.contactoDeCuenta(acc.Id), 'Sin contactos no hay contacto');
+        Contact c = new Contact(AccountId = acc.Id, LastName = 'Contacto Prueba');
+        insert c;
+        System.assertEquals(c.Id, OpportunityController.contactoDeCuenta(acc.Id), 'Toma el contacto de la cuenta');
+    }
 }

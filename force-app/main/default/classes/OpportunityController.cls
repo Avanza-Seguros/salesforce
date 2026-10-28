@@ -939,6 +939,9 @@ public with sharing class OpportunityController {
 			if (nuevoContactoId == null) { nuevoContactoId = crearContactoIndividual(d, accountId); }
 			if (nuevoContactoId == null) { nuevoContactoId = crearContacto(d, accountId); }
 			opp.Contacto__c = nuevoContactoId;
+		} else if (accountId != null && opp.Contacto__c == null) {
+			// Sin contacto elegido: se toma el de la cuenta.
+			opp.Contacto__c = contactoDeCuenta(accountId);
 		}
 
 		// Comparativo (HTML). Si excede el tamaño del campo no se guarda aquí (un HTML recortado
@@ -1363,6 +1366,24 @@ public with sharing class OpportunityController {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Contacto de la cuenta: el de la cuenta persona o, en una cuenta de negocio, el primero que se dio
+	 *               de alta.
+	 * @param accountId: Id de la cuenta
+	 * @return Id del contacto; null si la cuenta no tiene contactos
+	 */
+	@TestVisible
+	private static Id contactoDeCuenta(Id accountId) {
+		Id personContact = getPersonContactId(accountId);
+		if (personContact != null) { return personContact; }
+		for (Contact c : [SELECT Id FROM Contact WHERE AccountId = :accountId ORDER BY CreatedDate ASC LIMIT 1]) {
+			return c.Id;
+		}
+		return null;
 	}
 
 	/**

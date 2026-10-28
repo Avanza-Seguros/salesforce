@@ -3781,12 +3781,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!this.opportunity.AccountId && !this.isNewAccount) {
                 errores.push('Selecciona una cuenta o elige "Crear cuenta nueva"');
             }
-            // Contacto: el formato de página lo exige y sin él no se puede cambiar la etapa. En Individual y en
-            // cuenta nueva el Apex lo crea; con una cuenta existente se busca o se crea con "Crear contacto nuevo".
-            if (!this.isMercadoIndividual && !this.isNewAccount && !this.opportunity.Contacto__c
-                && !(this.isNewContacto && (this.opportunity.ContactoName || '').trim())) {
-                errores.push('Contacto (búscalo o escribe su nombre y elige "Crear contacto nuevo")');
-            }
             if (this.isNewAccount) {
                 let newAccName = this.opportunity.AccountName;
                 if (!newAccName) {

@@ -40,7 +40,7 @@
                 <field>Agente__c</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Required</behavior>
+                <behavior>Edit</behavior>
                 <field>Contacto__c</field>
             </layoutItems>
         </layoutColumns>
