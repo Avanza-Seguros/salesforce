@@ -931,7 +931,12 @@ public with sharing class OpportunityController {
 		} else if (accountId != null && (createdNewAccount || isNewContacto)) {
 			// Cuenta de negocio recién creada (o alta manual de contacto): se crea el
 			// Contacto con los datos del cliente y se liga a la oportunidad.
-			nuevoContactoId = crearContactoIndividual(d, accountId);
+			// Con "Crear contacto nuevo" se usa el nombre escrito en el buscador, no el del cliente (que en una
+			// empresa es la razón social).
+			if (isNewContacto && String.isNotBlank(getStr(d, 'ContactoName'))) {
+				nuevoContactoId = crearContactoDeNombre(getStr(d, 'ContactoName'), accountId);
+			}
+			if (nuevoContactoId == null) { nuevoContactoId = crearContactoIndividual(d, accountId); }
 			if (nuevoContactoId == null) { nuevoContactoId = crearContacto(d, accountId); }
 			opp.Contacto__c = nuevoContactoId;
 		}
