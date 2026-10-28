@@ -241,6 +241,12 @@ private class CensoColectivoControllerTest {
 		System.assertEquals('001', titular.ParticipantCode, 'Certificado del titular');
 		System.assertEquals(4634.07, [SELECT TermPremiumAmount FROM InsurancePolicyParticipant WHERE Id = :titular.Id].TermPremiumAmount, 'Prima del asegurado');
 		System.assertEquals(null, titular.RelatedInsPolicyParticipantId, 'El titular no depende de nadie');
+		Id contactoTitular = [SELECT PrimaryParticipantContactId FROM InsurancePolicyParticipant WHERE Id = :titular.Id].PrimaryParticipantContactId;
+		System.assertNotEquals(null, contactoTitular, 'El titular queda ligado a un contacto');
+		System.assertEquals(opp.AccountId, [SELECT AccountId FROM Contact WHERE Id = :contactoTitular].AccountId, 'Contacto de la empresa');
+		System.assertEquals(null, [SELECT PrimaryParticipantContactId FROM InsurancePolicyParticipant WHERE Id = :conyuge.Id].PrimaryParticipantContactId,
+			'El dependiente no lleva contacto');
+		Integer contactos = [SELECT COUNT() FROM Contact WHERE AccountId = :opp.AccountId];
 		InsurancePolicyParticipant fechas = [SELECT EffectiveFromDate, EffectiveToDate, ExpirationDate FROM InsurancePolicyParticipant
 			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Mar%'];
 		System.assertNotEquals(null, fechas.EffectiveFromDate, 'El dependiente tiene fecha de alta');
@@ -250,6 +256,7 @@ private class CensoColectivoControllerTest {
 		CensoColectivoController.copiarCensoAPoliza(opp.Id, pol.Id);
 		System.assertNotEquals(null, [SELECT EffectiveToDate FROM InsurancePolicyParticipant WHERE Id = :titular.Id].EffectiveToDate,
 			'Completa las fechas que faltan');
+		System.assertEquals(contactos, [SELECT COUNT() FROM Contact WHERE AccountId = :opp.AccountId], 'No duplica contactos');
 		System.assertEquals(new List<String>{ 'Mujer', 'Esposa' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
 		System.assertEquals(new List<String>{ 'Hijo' }, CensoColectivoController.parentescoPoliza('Secundario', 'Hombre'));
 		System.assertEquals(new List<String>{ 'Hija' }, CensoColectivoController.parentescoPoliza('Child', 'Femenino'));
