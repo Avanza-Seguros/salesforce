@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Polizas_Pagos_Vencidos</fullName>
+    <columns>Name</columns>
+    <columns>Aseguradora__c</columns>
+    <columns>NameInsured</columns>
+    <columns>insuredPhone__c</columns>
+    <columns>Status</columns>
+    <columns>collectionNextDueDate__c</columns>
+    <columns>PremiumFrequency</columns>
+    <columns>PremiumAmount</columns>
+    <columns>insuredAssetDescription__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>collectionPaymentStatus__c</field>
+        <operation>equals</operation>
+        <value>Vencido</value>
+    </filters>
+    <filters>
+        <field>Status</field>
+        <operation>notEqual</operation>
+        <value>Cancelado</value>
+    </filters>
+    <label>Pólizas con pagos vencidos</label>
+    <language>es</language>
+    <sharedTo>
+        <allInternalUsers />
+    </sharedTo>
+</ListView>

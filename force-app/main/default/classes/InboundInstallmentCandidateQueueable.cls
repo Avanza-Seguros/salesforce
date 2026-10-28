@@ -555,7 +555,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @param raw: Numero de cuota tal como llega.
 	 * @return El numero, o null.
 	 */
-	private static Decimal installmentNumberIn(String raw) {
+	public static Decimal installmentNumberIn(String raw) {
 		if (String.isBlank(raw)) {
 			return null;
 		}
@@ -577,7 +577,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @param raw: Numero de cuota tal como llega.
 	 * @return El numero, o null.
 	 */
-	private static Decimal plainNumberIn(String raw) {
+	public static Decimal plainNumberIn(String raw) {
 		if (String.isBlank(raw)) {
 			return null;
 		}

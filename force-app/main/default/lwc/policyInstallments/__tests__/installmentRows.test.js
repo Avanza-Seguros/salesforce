@@ -105,6 +105,26 @@ describe("buildRows", () => {
 		expect(rows[0]._children).toBeUndefined();
 	});
 
+	it("la emisión original no se marca como endoso, venga en '0' o en '000000'", () => {
+		const corta = cuota({
+			Id: "e1",
+			carrierReceiptNumber__c: "0000010001",
+			carrierEndorsementNumber__c: "0",
+			carrierInstallmentNumber__c: 1
+		});
+		const larga = cuota({
+			Id: "e2",
+			sequenceNumber__c: 2,
+			carrierReceiptNumber__c: "0000010002",
+			carrierEndorsementNumber__c: "000000",
+			carrierInstallmentNumber__c: 2
+		});
+
+		const { rows } = buildRows([corta, larga]);
+
+		expect(rows.map((r) => r.sequenceLabel)).toEqual(["Cuota 1", "Cuota 2"]);
+	});
+
 	it("lo que ya no se debe no suma en los totales", () => {
 		const pagada = cuota({
 			Id: "d1",
