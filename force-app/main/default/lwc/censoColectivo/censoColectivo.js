@@ -22,20 +22,20 @@ import analizarCensoPdf from '@salesforce/apex/CensoColectivoController.analizar
 const CAMPOS = [
     { key: 'nombreCompleto', label: 'Nombre completo', alias: ['nombre completo', 'nombre del asegurado', 'nombre asegurado', 'asegurado', 'nombre y apellidos', 'nombre del empleado', 'empleado', 'nombre completo del asegurado'] },
     { key: 'nombre', label: 'Nombre(s)', alias: ['nombre', 'nombres', 'nombre s', 'primer nombre'] },
-    { key: 'apellidoPaterno', label: 'Apellido paterno', alias: ['apellido paterno', 'paterno', 'ap paterno', 'primer apellido', 'a paterno'] },
-    { key: 'apellidoMaterno', label: 'Apellido materno', alias: ['apellido materno', 'materno', 'ap materno', 'segundo apellido', 'a materno'] },
+    { key: 'apellidoPaterno', label: 'Apellido paterno', alias: ['apellido paterno', 'paterno', 'ap paterno', 'primer apellido', 'a paterno', 'patern'] },
+    { key: 'apellidoMaterno', label: 'Apellido materno', alias: ['apellido materno', 'materno', 'ap materno', 'segundo apellido', 'a materno', 'matern'] },
     { key: 'apellidos', label: 'Apellidos', alias: ['apellidos', 'apellido'] },
-    { key: 'fechaNacimiento', label: 'Fecha de nacimiento', tipo: 'fecha', alias: ['fecha de nacimiento', 'fecha nacimiento', 'f nacimiento', 'nacimiento', 'fec nac', 'f nac', 'fecha nac', 'fnac'] },
+    { key: 'fechaNacimiento', label: 'Fecha de nacimiento', tipo: 'fecha', alias: ['fecha de nacimiento', 'fecha nacimiento', 'f nacimiento', 'nacimiento', 'fec nac', 'f nac', 'fecha nac', 'fnac', 'fnacim', 'fecnac'] },
     { key: 'edad', label: 'Edad', tipo: 'numero', alias: ['edad', 'edad actual', 'edad alcanzada'] },
     { key: 'sexo', label: 'Sexo', alias: ['sexo', 'genero', 'sex'] },
     { key: 'parentesco', label: 'Parentesco', alias: ['parentesco', 'tipo de asegurado', 'tipo asegurado', 'relacion', 'dependencia', 'tipo de dependiente'] },
-    { key: 'categoria', label: 'Categoría', alias: ['categoria', 'grupo', 'clase', 'nivel', 'grupo asegurado', 'subgrupo', 'regla'] },
+    { key: 'categoria', label: 'Categoría', alias: ['categoria', 'grupo', 'clase', 'nivel', 'grupo asegurado', 'subgrupo', 'regla', 'catego'] },
     { key: 'sueldoMensual', label: 'Sueldo mensual', tipo: 'numero', alias: ['sueldo mensual', 'salario mensual', 'sueldo', 'salario', 'sueldo base'] },
     { key: 'sueldoAnual', label: 'Sueldo anual', tipo: 'numero', alias: ['sueldo anual', 'salario anual', 'ingreso anual'] },
-    { key: 'sumaAsegurada', label: 'Suma asegurada', tipo: 'numero', alias: ['suma asegurada', 'sa', 's a', 'suma aseg'] },
+    { key: 'sumaAsegurada', label: 'Suma asegurada', tipo: 'numero', alias: ['suma asegurada', 'sa', 's a', 'suma aseg', 'int sa'] },
     { key: 'prima', label: 'Prima', tipo: 'numero', alias: ['prima', 'prima neta', 'prima anual', 'prima total', 'costo', 'prima individual'] },
-    { key: 'certificado', label: 'Certificado', alias: ['certificado', 'no certificado', 'num certificado', 'numero de certificado', 'cert', 'no de certificado'] },
-    { key: 'fechaAlta', label: 'Fecha de alta', tipo: 'fecha', alias: ['fecha de alta', 'fecha alta', 'alta', 'fecha de ingreso', 'fecha ingreso', 'antiguedad', 'fecha de antiguedad'] },
+    { key: 'certificado', label: 'Certificado', alias: ['certificado', 'no certificado', 'num certificado', 'numero de certificado', 'cert', 'no de certificado', 'certif'] },
+    { key: 'fechaAlta', label: 'Fecha de alta', tipo: 'fecha', alias: ['fecha de alta', 'fecha alta', 'alta', 'fecha de ingreso', 'fecha ingreso', 'antiguedad', 'fecha de antiguedad', 'fingpo'] },
     { key: 'numEmpleado', label: 'Núm. de empleado', alias: ['numero de empleado', 'no empleado', 'num empleado', 'no de empleado', 'nomina', 'no nomina', 'id empleado', 'clave empleado', 'clave'] },
     { key: 'rfc', label: 'RFC', alias: ['rfc'] },
     { key: 'email', label: 'Correo', alias: ['email', 'correo', 'correo electronico', 'e mail', 'mail'] },
@@ -360,6 +360,7 @@ export default class CensoColectivo extends LightningElement {
     validar(datos) {
         // "M" es Mujer salvo que el archivo use M/F (Masculino/Femenino).
         const usaMF = datos.some((d) => ['f', 'femenino', 'fem'].includes(this.fold(d.sexo)));
+        this._sexo12 = this.sexoPorCodigo(datos);
         const renglones = datos
             .map((d) => this.normalizar(d, usaMF))
             .filter((r) => r.nombreCompleto || r.parentescoOriginal || r.fechaNacimiento)
@@ -443,11 +444,13 @@ export default class CensoColectivo extends LightningElement {
         const s = this.fold(d.sexo);
         if (['h', 'hombre', 'masculino', 'masc', 'male', 'varon'].includes(s) || (s === 'm' && usaMF)) { r.sexo = 'Hombre'; }
         else if (['mujer', 'f', 'femenino', 'fem', 'female'].includes(s) || (s === 'm' && !usaMF)) { r.sexo = 'Mujer'; }
+        else if (this._sexo12 && this._sexo12[s]) { r.sexo = this._sexo12[s]; }
         else { r.sexo = ''; }
 
         r.parentescoOriginal = txt(d.parentesco);
         const p = this.fold(d.parentesco);
-        const encontrado = PARENTESCOS.find((x) => x.claves.includes(p) || x.claves.some((k) => k.length > 3 && p.startsWith(k)));
+        const encontrado = this.parentescoPorCodigo(p)
+            || PARENTESCOS.find((x) => x.claves.includes(p) || x.claves.some((k) => k.length > 3 && p.startsWith(k)));
         r.parentesco = !p ? 'Titular' : (encontrado ? encontrado.valor : 'Otro');
         if (p && !encontrado) { r.avisos.push(`Parentesco "${r.parentescoOriginal}" se guardará como Otro`); }
         r.esTitular = r.parentesco === 'Titular';
@@ -464,6 +467,30 @@ export default class CensoColectivo extends LightningElement {
         r.email = txt(d.email);
         r.telefono = txt(d.telefono).replace(/\.0+$/, '');
         return r;
+    }
+
+    // Parentesco en código de aseguradora ("01" titular, "02" cónyuge, "03" en adelante hijos).
+    parentescoPorCodigo(p) {
+        if (!/^\d{1,2}$/.test(p)) { return null; }
+        const n = Number(p);
+        const valor = n <= 1 ? 'Titular' : (n === 2 ? 'Cónyuge' : 'Hijo(a)');
+        return PARENTESCOS.find((x) => x.valor === valor);
+    }
+
+    // Sexo en código 1/2: cada aseguradora lo usa distinto, así que se deduce de los nombres del archivo
+    // (los que terminan en "a" suelen ser mujeres y en "o" hombres). Regresa { '1': ..., '2': ... } o null.
+    sexoPorCodigo(datos) {
+        const votos = { 1: 0, 2: 0 };
+        let codigos = 0;
+        datos.forEach((d) => {
+            const s = this.fold(d.sexo);
+            if (s !== '1' && s !== '2') { return; }
+            codigos++;
+            const nombre = this.fold(d.nombre || d.nombreCompleto).split(' ')[0] || '';
+            if (/a$/.test(nombre)) { votos[s]++; } else if (/o$/.test(nombre)) { votos[s]--; }
+        });
+        if (!codigos || votos[1] === votos[2]) { return null; }
+        return votos[1] > votos[2] ? { 1: 'Mujer', 2: 'Hombre' } : { 1: 'Hombre', 2: 'Mujer' };
     }
 
     fecha(v) {
