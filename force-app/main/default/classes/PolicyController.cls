@@ -2158,11 +2158,14 @@ public with sharing class PolicyController {
 	 * @creation date: 29/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Póliza de Daños con varias ubicaciones (un inciso por ubicación): un CustomerProperty por
-	 * domicilio distinto del cliente (si ya existe uno con el mismo domicilio se reúsa) y un InsurancePolicyAsset
-	 * que lo liga a la póliza. Es idempotente.
+	 * domicilio distinto del cliente (si ya existe uno con el mismo domicilio se reúsa) con todos los datos del PDF
+	 * (domicilio desglosado, pisos, sótano, cajones, techo, giro, suma asegurada y en la descripción el resto) y un
+	 * InsurancePolicyAsset que lo liga a la póliza con la prima del inciso. Es idempotente.
 	 * @param policyId: Id de la InsurancePolicy
 	 * @param accountId: Id de la cuenta del asegurado
-	 * @param ubicaciones: lista de {direccion, giro, inciso} leída del PDF
+	 * @param ubicaciones: lista leída del PDF: {direccion, inciso, giro, techos, muros, entrepisos, pisosAltos,
+	 *        sotanos, constaDe, cajones, zonaTev, zonaFh, sustanciasExplosivas, sustanciasInflamables,
+	 *        sumaAsegurada, primaNeta, primaTotal}
 	 * @return Número de ubicaciones ligadas a la póliza
 	 */
 	@TestVisible
@@ -2175,15 +2178,16 @@ public with sharing class PolicyController {
 		Map<String, Map<String, Object>> porDireccion = new Map<String, Map<String, Object>>();
 		for (Object o : ubicaciones) {
 			if (!(o instanceof Map<String, Object>)) { continue; }
-			Map<String, Object> u = (Map<String, Object>) o;
+			Map<String, Object> u = new Map<String, Object>((Map<String, Object>) o);
 			String dir = strOf(u.get('direccion'));
 			if (String.isBlank(dir)) { continue; }
-			String k = llaveDireccion(dir);
+			u.put('direccion', dir.normalizeSpace());
+			Map<String, String> partes = partirDireccion(dir);
+			u.put('partes', partes);
+			String k = llaveUbicacion(partes.get('calle'), partes.get('colonia'), partes.get('cp'));
 			Map<String, Object> ya = porDireccion.get(k);
 			if (ya == null) {
-				porDireccion.put(k, new Map<String, Object>{
-					'direccion' => dir.normalizeSpace(), 'giro' => strOf(u.get('giro')), 'inciso' => strOf(u.get('inciso'))
-				});
+				porDireccion.put(k, u);
 			} else if (String.isNotBlank(strOf(u.get('inciso')))) {
 				String inc = strOf(ya.get('inciso'));
 				ya.put('inciso', String.isBlank(inc) ? strOf(u.get('inciso')) : inc + ', ' + strOf(u.get('inciso')));
@@ -2194,25 +2198,18 @@ public with sharing class PolicyController {
 		// Bienes del cliente que ya tienen ese domicilio.
 		Map<String, CustomerProperty> existentes = new Map<String, CustomerProperty>();
 		for (CustomerProperty c : [
-			SELECT Id, Street, Description FROM CustomerProperty
+			SELECT Id, Street, PostalCode FROM CustomerProperty
 			WHERE PrimaryOwnerId = :accountId AND Street != null
 			ORDER BY CreatedDate ASC LIMIT 5000
 		]) {
-			String k = llaveDireccion(c.Street);
+			String k = llaveUbicacion(c.Street, null, c.PostalCode);
 			if (!existentes.containsKey(k)) { existentes.put(k, c); }
 		}
 		Map<String, CustomerProperty> porLlave = new Map<String, CustomerProperty>();
 		for (String k : porDireccion.keySet()) {
-			Map<String, Object> u = porDireccion.get(k);
 			CustomerProperty cp = existentes.get(k);
-			if (cp == null) {
-				cp = new CustomerProperty(PrimaryOwnerId = accountId, Street = strOf(u.get('direccion')).left(255));
-				cp.SourceSystem = ('Póliza ' + pol.Name).left(255);
-			}
-			if (String.isBlank(cp.Description)) {
-				String giro = strOf(u.get('giro'));
-				cp.Description = ('Ubicación' + (String.isNotBlank(giro) ? ' - ' + giro : '') + '\n' + strOf(u.get('direccion'))).left(32000);
-			}
+			if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
+			llenarUbicacion(cp, porDireccion.get(k), pol.Name);
 			porLlave.put(k, cp);
 		}
 		upsert porLlave.values();
@@ -2234,6 +2231,8 @@ public with sharing class PolicyController {
 			);
 			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+			Decimal prima = parseMonto(strOf(u.get('primaTotal')));
+			if (prima != null) { ipa.StandardPremiumAmount = prima; }
 			nuevos.add(ipa);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
@@ -2243,12 +2242,152 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 29/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Llave de un domicilio para compararlo: minúsculas, sin acentos, espacios ni signos.
+	 * @description: Llena el CustomerProperty de una ubicación de Daños con los datos del PDF: domicilio (calle y
+	 * colonia, ciudad, estado, C.P., México), pisos (altos + planta baja), sótano, cajones, techo, uso comercial,
+	 * giro, suma asegurada (valor) y en la descripción todos los datos del inmueble y la prima del inciso.
+	 * @param cp: CustomerProperty nuevo o existente
+	 * @param u: datos de la ubicación (con 'partes' = domicilio desglosado)
+	 * @param poliza: número de la póliza (origen del dato)
+	 * @return void
+	 */
+	private static void llenarUbicacion(CustomerProperty cp, Map<String, Object> u, String poliza) {
+		Map<String, String> partes = (Map<String, String>) u.get('partes');
+		String calle = partes.get('calle');
+		String colonia = partes.get('colonia');
+		cp.Street = (calle + (String.isNotBlank(colonia) ? '\n' + colonia : '')).left(255);
+		if (String.isNotBlank(partes.get('municipio'))) { cp.City = partes.get('municipio').left(40); }
+		if (String.isNotBlank(partes.get('cp'))) { cp.PostalCode = partes.get('cp'); }
+		String pais = pickPicklist(CustomerProperty.CountryCode.getDescribe(), new List<String>{ 'MX' });
+		String estado = estadoMexico(partes.get('estado'));
+		if (pais != null) {
+			cp.CountryCode = pais;
+			String codigo = estado == null ? null : pickPicklist(CustomerProperty.StateCode.getDescribe(), new List<String>{ estado });
+			if (codigo != null) { cp.StateCode = codigo; }
+		} else {
+			cp.Country = 'México';
+			if (String.isNotBlank(partes.get('estado'))) { cp.State = partes.get('estado').left(80); }
+		}
+		Decimal pisos = parseMonto(strOf(u.get('pisosAltos')));
+		if (pisos != null) { cp.FloorCount = pisos.intValue() + 1; }
+		Decimal sotanos = parseMonto(strOf(u.get('sotanos')));
+		if (sotanos != null) { cp.IsBasementIncluded = sotanos > 0; }
+		Decimal cajones = parseMonto(strOf(u.get('cajones')));
+		if (cajones != null) { cp.GarageSpaceCount = cajones.intValue(); }
+		String techos = normKey(strOf(u.get('techos')));
+		String techo = techos.contains('lamina') || techos.contains('metal') ? 'Tejado metálico'
+			: techos.contains('teja') ? 'Tejas de arcilla y hormigón' : null;
+		if (techo != null) {
+			String valor = pickPicklist(CustomerProperty.RoofType.getDescribe(), new List<String>{ techo });
+			if (valor != null) { cp.RoofType = valor; }
+		}
+		String uso = pickPicklist(CustomerProperty.PrimaryUse.getDescribe(), new List<String>{ 'Compañía', 'Company', 'Trabajo' });
+		if (uso != null) { cp.PrimaryUse = uso; }
+		String giro = strOf(u.get('giro'));
+		if (String.isNotBlank(giro)) { cp.Uso__c = giro.left(40); }
+		Decimal suma = parseMonto(strOf(u.get('sumaAsegurada')));
+		if (suma != null) { cp.FairMarketValue = suma; }
+		cp.SourceSystem = ('Póliza ' + poliza).left(255);
+
+		List<String> lineas = new List<String>{ 'Ubicación' + (String.isNotBlank(giro) ? ' - ' + giro : '') };
+		Map<String, String> etiquetas = new Map<String, String>{
+			'inciso' => 'Inciso', 'direccion' => 'Domicilio', 'giro' => 'Giro', 'constaDe' => 'Consta de',
+			'techos' => 'Techos', 'muros' => 'Muros', 'entrepisos' => 'Entrepisos', 'pisosAltos' => 'Pisos altos',
+			'sotanos' => 'Sótanos', 'cajones' => 'Cajones', 'zonaTev' => 'Zona TEV', 'zonaFh' => 'Zona FH',
+			'sustanciasExplosivas' => 'Sustancias explosivas', 'sustanciasInflamables' => 'Sustancias inflamables'
+		};
+		for (String k : etiquetas.keySet()) {
+			String v = strOf(u.get(k));
+			if (String.isNotBlank(v)) { lineas.add(etiquetas.get(k) + ': ' + v); }
+		}
+		Map<String, String> montos = new Map<String, String>{
+			'sumaAsegurada' => 'Suma asegurada', 'primaNeta' => 'Prima neta del inciso', 'primaTotal' => 'Prima total del inciso'
+		};
+		for (String k : montos.keySet()) {
+			Decimal v = parseMonto(strOf(u.get(k)));
+			if (v != null) { lineas.add(montos.get(k) + ': $' + v.setScale(2).format()); }
+		}
+		lineas.add('Póliza: ' + poliza);
+		cp.Description = String.join(lineas, '\n').left(32000);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Desglosa un domicilio mexicano "CALLE 1 Int. 2, COLONIA, C.P. 62370, MUNICIPIO, CIUDAD, ESTADO":
+	 * lo anterior al C.P. es calle y colonia (el último tramo); lo posterior, municipio (el primero) y estado (el
+	 * último). Sin C.P. todo queda como calle.
 	 * @param dir: domicilio
+	 * @return mapa con calle, colonia, cp, municipio y estado
+	 */
+	@TestVisible
+	private static Map<String, String> partirDireccion(String dir) {
+		Map<String, String> r = new Map<String, String>{ 'calle' => strOf(dir).normalizeSpace() };
+		List<String> partes = new List<String>();
+		for (String p : strOf(dir).split(',')) {
+			if (String.isNotBlank(p)) { partes.add(p.normalizeSpace()); }
+		}
+		Integer iCp = -1;
+		for (Integer i = 0; i < partes.size(); i++) {
+			Matcher m = Pattern.compile('(?i)^C\\.?\\s*P\\.?\\s*(\\d{5})$').matcher(partes[i]);
+			if (m.find()) { iCp = i; r.put('cp', m.group(1)); break; }
+		}
+		if (iCp < 0) { return r; }
+		List<String> antes = new List<String>();
+		for (Integer i = 0; i < iCp; i++) { antes.add(partes[i]); }
+		if (antes.size() >= 2) { r.put('colonia', antes.remove(antes.size() - 1)); }
+		r.put('calle', String.join(antes, ', '));
+		List<String> despues = new List<String>();
+		for (Integer i = iCp + 1; i < partes.size(); i++) { despues.add(partes[i]); }
+		if (!despues.isEmpty()) {
+			r.put('estado', despues[despues.size() - 1]);
+			if (despues.size() >= 2) { r.put('municipio', despues[0]); }
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Código del estado de México (picklist de estados de Salesforce) por su nombre, con variantes
+	 * ("CIUDAD DE MÉXICO" -> DF, "ESTADO DE MEXICO" -> ME, "COAHUILA DE ZARAGOZA" -> CO).
+	 * @param estado: nombre del estado
+	 * @return código o null si no se reconoce
+	 */
+	@TestVisible
+	private static String estadoMexico(String estado) {
+		String e = normKey(estado).replaceAll('[^a-z ]', ' ').normalizeSpace();
+		if (String.isBlank(e)) { return null; }
+		Map<String, String> codigos = new Map<String, String>{
+			'aguascalientes' => 'AG', 'baja california sur' => 'BS', 'baja california' => 'BC', 'campeche' => 'CM',
+			'chiapas' => 'CS', 'chihuahua' => 'CH', 'coahuila' => 'CO', 'colima' => 'CL', 'durango' => 'DG',
+			'ciudad de mexico' => 'DF', 'cdmx' => 'DF', 'distrito federal' => 'DF', 'guanajuato' => 'GT',
+			'guerrero' => 'GR', 'hidalgo' => 'HG', 'jalisco' => 'JA', 'estado de mexico' => 'ME', 'edo de mexico' => 'ME',
+			'edomex' => 'ME', 'mexico' => 'ME', 'michoacan' => 'MI', 'morelos' => 'MO', 'nayarit' => 'NA',
+			'nuevo leon' => 'NL', 'oaxaca' => 'OA', 'puebla' => 'PB', 'queretaro' => 'QE', 'quintana roo' => 'QR',
+			'san luis potosi' => 'SL', 'sinaloa' => 'SI', 'sonora' => 'SO', 'tabasco' => 'TB', 'tamaulipas' => 'TM',
+			'tlaxcala' => 'TL', 'veracruz' => 'VE', 'yucatan' => 'YU', 'zacatecas' => 'ZA'
+		};
+		if (codigos.containsKey(e)) { return codigos.get(e); }
+		// "COAHUILA DE ZARAGOZA", "MICHOACAN DE OCAMPO", "VERACRUZ DE IGNACIO DE LA LLAVE": el nombre más largo que abre.
+		String mejor = null;
+		for (String nombre : codigos.keySet()) {
+			if (e.startsWith(nombre + ' ') && (mejor == null || nombre.length() > mejor.length())) { mejor = nombre; }
+		}
+		return mejor == null ? null : codigos.get(mejor);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de una ubicación para compararla: calle y colonia sin acentos, espacios ni signos, más el C.P.
+	 * @param calle: calle (o calle y colonia juntas)
+	 * @param colonia: colonia (opcional)
+	 * @param cp: código postal (opcional)
 	 * @return llave
 	 */
-	private static String llaveDireccion(String dir) {
-		return normKey(dir).replaceAll('[^a-z0-9]', '');
+	private static String llaveUbicacion(String calle, String colonia, String cp) {
+		String texto = (calle == null ? '' : calle) + (colonia == null ? '' : colonia);
+		return normKey(texto).replaceAll('[^a-z0-9]', '') + '|' + (cp == null ? '' : cp.trim());
 	}
 
 	/**

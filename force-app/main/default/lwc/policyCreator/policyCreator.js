@@ -698,12 +698,28 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             .join('\n');
     }
 
-    // Ubicaciones de una póliza de Daños (ej. HDI "PÓLIZA MAESTRA": un inciso por ubicación): domicilio, giro e
-    // incisos de cada domicilio distinto, leídos del texto completo (la IA solo recibe una parte). Sin ubicaciones, [].
+    // Ubicaciones de una póliza de Daños (ej. HDI "PÓLIZA MAESTRA": un inciso por ubicación), leídas del texto completo
+    // (la IA solo recibe una parte): domicilio, incisos, datos del inmueble ("Información de la Empresa": techos, muros,
+    // pisos, sótanos, cajones, zonas, giro...), suma asegurada de contenidos y prima del inciso. Sin ubicaciones, [].
     ubicacionesDesdeTexto(texto) {
         const t = String(texto || '');
         const etiqueta = /(?:Domicilio de la Empresa|Domicilio del Riesgo|Ubicaci[oó]n del Riesgo|Ubicaci[oó]n Asegurada)\s*:\s*/gi;
         const fin = /\n\s*(?:Informaci[oó]n de la Empresa|Muros|Consta de|Entrepisos|Giro|Techos|Sustancias|Pisos|Cliente|No\. P[oó]liza|Datos|Tipo de|BIENES)\b/i;
+        // Datos del inmueble: el valor llega hasta la siguiente etiqueta del renglón ("Muros: TABIQUE Entrepisos: NO APLICA").
+        const CAMPOS = {
+            techos: 'Techos', muros: 'Muros', entrepisos: 'Entrepisos', pisosAltos: 'Pisos Altos', sotanos: 'S[oó]tanos',
+            constaDe: 'Consta de', sustanciasExplosivas: 'Sustancias Explosivas', sustanciasInflamables: 'Sustancias Inflamables',
+            cajones: 'Cajones', zonaTev: 'Zona TEV', zonaFh: 'Zona FH', giro: 'Giro'
+        };
+        const numero = /^\d+$/;
+        const VALIDOS = {
+            pisosAltos: numero, sotanos: numero, cajones: numero, constaDe: /^[A-ZÁÉÍÓÚÑ][^:]*[A-Za-zÁÉÍÓÚÑ]$/i,
+            sustanciasExplosivas: /^[\d.,]+\s*(kg|%)?$/i, sustanciasInflamables: /^[\d.,]+\s*(kg|%)?$/i, zonaTev: /^[A-Z0-9]{1,4}$/i,
+            zonaFh: /^[A-Z0-9]{1,4}$/i
+        };
+        const siguiente = `(?=\\s+(?:${Object.values(CAMPOS).join('|')}|Porcentaje Multicl[aá]usula|Informaci[oó]n de la Empresa)\\s*:|\\n|$)`;
+        const monto = (v) => (v ? Number(String(v).replace(/[$,\s]/g, '')) : null);
+        const conIncisos = /Inciso:\s*\d+/i.test(t);
         const porDireccion = new Map();
         let m;
         while ((m = etiqueta.exec(t)) !== null) {
@@ -713,17 +729,54 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             const direccion = (corte >= 0 ? resto.substring(0, corte) : resto.split('\n').slice(0, 2).join(' '))
                 .replace(/\s+/g, ' ').replace(/[,\s]+$/, '').trim();
             if (direccion.length < 10) { continue; }
-            // El inciso es el último "Inciso: n" antes del domicilio; el giro, el primero después.
+            // El inciso es el último "Inciso: n" antes del domicilio.
             const incisos = [...t.substring(Math.max(0, m.index - 1500), m.index).matchAll(/Inciso:\s*(\d+)/gi)];
             const inciso = incisos.length ? incisos[incisos.length - 1][1] : '';
-            const giro = (t.substring(ini, ini + 1500).match(/Giro:\s*([^\n]+)/i) || [])[1] || '';
             // La misma dirección (repetida en cada página del inciso o en otro inciso) es una sola ubicación.
             const llave = direccion.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
-            const u = porDireccion.get(llave) || { direccion, giro: giro.trim(), incisos: [] };
+            const u = porDireccion.get(llave) || { direccion, incisos: [] };
             if (inciso && !u.incisos.includes(inciso)) { u.incisos.push(inciso); }
             porDireccion.set(llave, u);
+            // En una póliza por incisos, los datos solo se toman de las páginas del inciso (no de la maestra).
+            if (conIncisos && !inciso) { continue; }
+            const datos = t.substring(ini, ini + 1500).split(/BIENES Y RIESGOS|SECCI[OÓ]N/i)[0];
+            Object.keys(CAMPOS).forEach((k) => {
+                if (u[k]) { return; }
+                const v = ((datos.match(new RegExp(`${CAMPOS[k]}\\s*:\\s*(.*?)${siguiente}`, 'i')) || [])[1] || '').trim();
+                // A veces el PDF desordena el renglón ("PLANTA BAJA Sustancias Explosivas: Consta de: 0.00KG"): solo se
+                // acepta un valor con la forma esperada.
+                if (VALIDOS[k] ? VALIDOS[k].test(v) : v && !v.includes(':')) { u[k] = v; }
+            });
+            if (!u.constaDe) {
+                const c = datos.match(/\n\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ,]+?)\s+Sustancias Explosivas/);
+                if (c) { u.constaDe = c[1].trim(); }
+            }
+            // Páginas del inciso: hasta que empieza otro inciso.
+            let ventana = t.substring(ini, ini + 15000);
+            const otro = [...ventana.matchAll(/Inciso:\s*(\d+)/gi)].find((x) => inciso && x[1] !== inciso);
+            if (otro) { ventana = ventana.substring(0, otro.index); }
+            if (u.sumaAsegurada == null) {
+                const s = ventana.match(/Todo Riesgo Incendio (?:Contenidos|Edificio)\s*\$\s*([\d,]+\.\d{2})/i);
+                if (s) { u.sumaAsegurada = monto(s[1]); }
+            }
+            if (u.primaNeta == null) {
+                // Renglón de montos bajo "Prima Neta ... Prima Total". Las columnas pueden venir desordenadas: el total es
+                // el mayor, el IVA el que equivale al 16% de la base (total / 1.16) y la prima neta el mayor de los demás.
+                const p = ventana.match(/Prima Neta[^\n]*Prima Total[^\n]*\n([^\n]+)/i);
+                const montos = p ? (p[1].match(/\$\s*[\d,]+\.\d{2}/g) || []).map(monto) : [];
+                if (montos.length >= 2) {
+                    const total = Math.max(...montos);
+                    const resto = [...montos];
+                    resto.splice(resto.indexOf(total), 1);
+                    const ivaEsperado = total * 0.16 / 1.16;
+                    const iva = resto.find((x) => Math.abs(x - ivaEsperado) <= Math.max(1, ivaEsperado * 0.01));
+                    if (iva !== undefined) { resto.splice(resto.indexOf(iva), 1); }
+                    u.primaTotal = total;
+                    u.primaNeta = Math.max(...resto);
+                }
+            }
         }
-        return [...porDireccion.values()].map((u) => ({ direccion: u.direccion, giro: u.giro, inciso: u.incisos.join(', ') }));
+        return [...porDireccion.values()].map(({ incisos, ...u }) => ({ ...u, inciso: incisos.join(', ') }));
     }
 
     // Deja solo el número de PÓLIZA. Varias aseguradoras imprimen en el mismo renglón las

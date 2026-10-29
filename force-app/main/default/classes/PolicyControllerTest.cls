@@ -963,9 +963,14 @@ private class PolicyControllerTest {
         String datos = JSON.serialize(new Map<String, Object>{
             'aseguradosAdicionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'GRAN PRO BAMBOO REUDY' } },
             'ubicaciones' => new List<Object>{
-                new Map<String, Object>{ 'direccion' => 'AV. VALLARTA 3959, ZAPOPAN, JALISCO', 'giro' => 'MUEBLERIA', 'inciso' => '1' },
-                new Map<String, Object>{ 'direccion' => 'Av Vallarta 3959 Zapopan Jalisco', 'giro' => 'MUEBLERIA', 'inciso' => '2' },
-                new Map<String, Object>{ 'direccion' => 'CALLE 3 300, MERIDA, YUCATAN', 'giro' => 'BODEGA', 'inciso' => '3' }
+                new Map<String, Object>{ 'direccion' => 'AV. VALLARTA 3959 Int. 17, DON BOSCO VALLARTA, C.P. 45049, ZAPOPAN, ZAPOPAN, JALISCO',
+                    'giro' => 'MUEBLERÍA BODEGA Y TIENDA', 'inciso' => '1', 'techos' => 'LAMINAS METALICAS', 'muros' => 'TABIQUE',
+                    'pisosAltos' => '1', 'sotanos' => '0', 'cajones' => '2', 'zonaTev' => 'B', 'zonaFh' => 'C',
+                    'sumaAsegurada' => 450000, 'primaNeta' => 3894.73, 'primaTotal' => 5561.89 },
+                new Map<String, Object>{ 'direccion' => 'Av. Vallarta 3959 Int. 17, Don Bosco Vallarta, C.P. 45049, Zapopan, Zapopan, Jalisco',
+                    'giro' => 'MUEBLERÍA BODEGA Y TIENDA', 'inciso' => '2' },
+                new Map<String, Object>{ 'direccion' => 'AV. CANAL 1512, DR ALFONSO ORTIZ TIRADO, C.P. 09020, IZTAPALAPA, IZTAPALAPA, CIUDAD DE MÉXICO',
+                    'giro' => 'BODEGA', 'inciso' => '3', 'sotanos' => '1' }
             }
         });
 
@@ -981,5 +986,27 @@ private class PolicyControllerTest {
         System.assert(bienes[0].AssetName.startsWith('Inciso 1, 2'), bienes[0].AssetName);
         System.assertEquals(0, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND ParticipantName = 'GRAN PRO BAMBOO REUDY'],
             'Los asegurados adicionales de Daños no son participantes');
+
+        CustomerProperty cp = [
+            SELECT Street, City, PostalCode, CountryCode, StateCode, FloorCount, IsBasementIncluded, GarageSpaceCount,
+                RoofType, Uso__c, FairMarketValue, Description
+            FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND PostalCode = '45049'
+        ];
+        System.assertEquals('AV. VALLARTA 3959 Int. 17\nDON BOSCO VALLARTA', cp.Street);
+        System.assertEquals('ZAPOPAN', cp.City);
+        System.assertEquals('MX', cp.CountryCode);
+        System.assertEquals('JA', cp.StateCode);
+        System.assertEquals(2, cp.FloorCount, 'Un piso alto + planta baja');
+        System.assertEquals(false, cp.IsBasementIncluded);
+        System.assertEquals(2, cp.GarageSpaceCount);
+        System.assertEquals('Tejado metálico', cp.RoofType);
+        System.assertEquals('MUEBLERÍA BODEGA Y TIENDA', cp.Uso__c);
+        System.assertEquals(450000, cp.FairMarketValue);
+        System.assert(cp.Description.contains('Muros: TABIQUE') && cp.Description.contains('Zona TEV: B'), cp.Description);
+        CustomerProperty cdmx = [SELECT StateCode, IsBasementIncluded FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND PostalCode = '09020'];
+        System.assertEquals('DF', cdmx.StateCode);
+        System.assertEquals(true, cdmx.IsBasementIncluded);
+        System.assertEquals(5561.89, [SELECT StandardPremiumAmount FROM InsurancePolicyAsset WHERE CustomerPropertyId != null
+            AND InsurancePolicyId = :policyId AND AssetName LIKE 'Inciso 1%'].StandardPremiumAmount);
     }
 }
