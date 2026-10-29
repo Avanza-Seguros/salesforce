@@ -1721,9 +1721,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isFlotilla() {
         return this.isColectiva && this.isRamoAutomovil;
     }
-    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos.
+    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos. En Vida y Daños
+    // colectivos tampoco (asegurado principal / subramo): de la colectiva solo importan las primas.
     get mostrarDetalleRamo() {
-        return this.showCreateView && !this.isFlotilla;
+        return this.showCreateView && !this.isFlotilla
+            && !(this.isColectiva && (this.isRamoVida || this.isRamoDanos));
     }
     // Censo de personas: colectivas de ramos que aseguran personas.
     get isCensoPersonas() {

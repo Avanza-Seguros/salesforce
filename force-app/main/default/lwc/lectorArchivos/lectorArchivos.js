@@ -647,8 +647,9 @@ export async function bloquesPdf(componente, file, maxCaracteres, alProgresar) {
 
 /**
  * Texto de cada página del PDF (un renglón por línea). alProgresar(mensaje) informa el avance.
+ * limitePaginas(textoPagina1), opcional: cuántas páginas leer según la primera (null = todas).
  */
-export async function paginasPdf(componente, file, alProgresar) {
+export async function paginasPdf(componente, file, alProgresar, limitePaginas) {
     await cargarPdfJs(componente);
     const pdf = await window.pdfjsLib.getDocument({
         data: new Uint8Array(await file.arrayBuffer()),
@@ -656,12 +657,17 @@ export async function paginasPdf(componente, file, alProgresar) {
         standardFontDataUrl: fontsResource + '/', disableFontFace: true
     }).promise;
     const paginas = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-        if (alProgresar) { alProgresar(`Leyendo página ${p} de ${pdf.numPages}…`); }
+    let total = pdf.numPages;
+    for (let p = 1; p <= total; p++) {
+        if (alProgresar) { alProgresar(`Leyendo página ${p} de ${total}…`); }
         const page = await pdf.getPage(p);
         const content = await page.getTextContent();
         paginas.push(textoPorRenglones(content.items));
         page.cleanup();
+        if (p === 1 && limitePaginas) {
+            const limite = limitePaginas(paginas[0]);
+            if (limite > 0 && limite < total) { total = limite; }
+        }
     }
     pdf.destroy();
     return paginas;

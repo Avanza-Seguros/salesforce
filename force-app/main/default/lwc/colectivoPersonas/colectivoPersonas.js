@@ -612,7 +612,12 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         let partes = null;
         let vigencia = { desde: '', hasta: '' };
         if (file.name.toLowerCase().endsWith('.pdf')) {
-            const paginas = await paginasPdf(this, file, (m) => this.avance(m));
+            let paginas = await paginasPdf(this, file, (m) => this.avance(m), (p1) => this.paginasMaestra(p1));
+            // En la maestra, después del total ya viene la primera ubicación con su propia prima: se corta ahí.
+            if (this.paginasMaestra(paginas[0])) {
+                const conTotal = paginas.findIndex((p) => /prima total/i.test(p) && /\$\s?[\d,]+\.\d{2}/.test(p));
+                if (conTotal >= 0) { paginas = paginas.slice(0, conTotal + 1); }
+            }
             texto = paginas.join('\n');
             if (texto.length > MAX_TEXTO) {
                 partes = bloquesCompactos(paginas, MAX_TEXTO);
@@ -670,6 +675,15 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         vista.archivo = file.name;
         vista.tipoNegocio = this.tipoNegocioPorTexto(texto);
         return vista;
+    }
+
+    // Cotización maestra (HDI "COTIZACIÓN MAESTRA DE SEGURO DE DAÑOS"): sus primeras páginas ("Página 1 de 20") traen el
+    // total de todas las ubicaciones; lo demás son las cotizaciones de cada ubicación, que no se leen.
+    paginasMaestra(pagina1) {
+        const t = fold(pagina1 || '');
+        if (!/cotizacion maestra/.test(t)) { return null; }
+        const m = t.match(/pagina 1 de (\d+)/);
+        return m ? Number(m[1]) : null;
     }
 
     // La IA a veces toma como contratante el nombre de la categoría ("EXP GLOBAL CAT. EMPLEADOS (CONTRATANTE) OPCION 1"):
