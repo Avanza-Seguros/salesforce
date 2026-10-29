@@ -1760,16 +1760,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // Colectivas: un solo comparativo. La sección "Comparativa de Cotizaciones" muestra el colectivo (primas,
     // plan/coberturas, cuota al millar, recomendación y PDF) en lugar del general; la carga queda en "Cotizaciones colectivas".
+    // Colectivas: no se muestra la Comparativa de Cotizaciones (solo la lista de cotizaciones cargadas).
     get mostrarComparativaColectiva() {
-        return this.mostrarCotizacionesColectivas && this.colectivoCotizaciones > 0;
+        return false;
     }
     // Flotilla: su comparativo (por tipo de vehículo y por vehículo) ocupa la sección Comparativa de Cotizaciones.
     get mostrarComparativaFlotilla() {
-        return this.isFlotilla && this.flotillaCotizaciones > 0;
+        return false;
     }
     // Un solo comparativo por oportunidad: el general solo en individuales.
     get mostrarComparativaGeneral() {
-        return this.hasQuoteComparison && !this.mostrarCotizacionesColectivas && !this.isFlotilla;
+        return this.hasQuoteComparison && !this.isColectiva;
+    }
+    // Vista previa de la comparativa al crear desde PDFs: tampoco en colectivas.
+    get mostrarComparativaPrevia() {
+        return this.hasQuoteComparison && !this.isColectiva;
     }
     get comparativaColectivaSubtitulo() {
         return this.isColectivoUbicaciones

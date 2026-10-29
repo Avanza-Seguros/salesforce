@@ -174,7 +174,7 @@
                                             </template>
                                         </div>
                                         <p><strong>{t.baseTxt}</strong> · {t.desgloseTxt}</p>
-                                        <p>{t.aseguradosTxt}</p>
+                                        <template if:true={t.aseguradosTxt}><p>{t.aseguradosTxt}</p></template>
                                         <template if:true={t.sumaTxt}><p>{t.sumaTxt}</p></template>
                                         <template if:true={t.aseguradosAviso}><p class="tarjeta-aviso">{t.aseguradosAviso}</p></template>
                                         <p class="doc-card-sub">Cotización {t.numero}<template if:true={t.vigenciaTxt}> · Vigencia {t.vigenciaTxt}</template></p>

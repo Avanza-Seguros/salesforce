@@ -193,7 +193,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 difTxt: !esMejor && lista.length > 1 && mejor ? `+${moneda(b - mejor)} (+${Math.round(((b - mejor) / mejor) * 1000) / 10}%)` : '',
                 desgloseTxt: [q.primaNeta ? `Neta ${moneda(q.primaNeta)}` : '', q.derechos ? `Derechos ${moneda(q.derechos)}` : '',
                     q.iva ? `IVA ${moneda(q.iva)}` : 'Sin IVA', q.primaTotal ? `Total ${moneda(q.primaTotal)}` : ''].filter((x) => x).join(' · '),
-                aseguradosTxt: `${a} ${this.unidadDe(a)} · ${a ? moneda(b / a) : '—'} por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}`,
+                // Las cotizaciones solo con primas no traen asegurados ni ubicaciones: no se muestra la línea.
+                aseguradosTxt: a ? `${a} ${this.unidadDe(a)} · ${moneda(b / a)} por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}` : '',
                 aseguradosAviso: a < maxAseg ? `Cotizó ${a} de ${maxAseg} ${this.unidad}` : '',
                 sumaTxt: this.sumaTotal(q) > 0
                     ? `${this.esUbicaciones ? 'Valor asegurado' : 'Suma asegurada'} ${moneda(this.sumaTotal(q))}`
