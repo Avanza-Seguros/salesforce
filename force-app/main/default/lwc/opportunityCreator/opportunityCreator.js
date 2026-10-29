@@ -3776,7 +3776,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
             // Prima neta mayor a 0.
             const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
-            if (!primaVal || primaVal <= 0) { errores.push('Prima neta mayor a 0'); }
+            if ((!primaVal || primaVal <= 0) && !this._flotillaPorCargar) { errores.push('Prima neta mayor a 0'); }
             // Cuenta.
             if (!this.opportunity.AccountId && !this.isNewAccount) {
                 errores.push('Selecciona una cuenta o elige "Crear cuenta nueva"');
@@ -3840,7 +3840,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 'success');
             await this.loadOpportunities();
 
-            if (this._colectivoPorCrear && savedId) {
+            if (this._flotillaPorCargar && savedId) {
+                // Flotilla de "Crear desde PDFs": sus archivos se cargan en la sección Flotilla.
+                const files = this._flotillaPorCargar;
+                this._flotillaPorCargar = null;
+                await this.guardarArchivosPdf(savedId);
+                this.viewMode = VIEW_MODES.EDIT;
+                await this.cargarArchivosFlotilla(files);
+            } else if (this._colectivoPorCrear && savedId) {
                 // Cotizaciones colectivas leídas en "Crear desde PDFs": se crean ya con la oportunidad guardada.
                 const vistas = this._colectivoPorCrear;
                 this._colectivoPorCrear = null;
@@ -4100,6 +4107,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const { files, archivos } = (event && event.detail) || {};
         if (!files || !files.length) { return; }
         const existente = !!this.opportunity.Id;
+        if (existente && this.isFlotilla) {
+            this.handleCancelAddPdf();
+            this.pdfArchivos = archivos || [];
+            await this.guardarArchivosPdf(this.opportunity.Id);
+            await this.cargarArchivosFlotilla(files);
+            return;
+        }
         if (existente && !this.mostrarCotizacionesColectivas) {
             this.showToast('Cotización colectiva',
                 'Esta oportunidad no es colectiva de personas o ubicaciones: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
@@ -4128,6 +4142,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
         const r = await comp.analizarArchivos(files);
+        if (!existente && r.ramo === RAMO_TYPES.AUTOMOVIL) {
+            await this.prepararFlotilla(files);
+            return;
+        }
         if (r.fallas.length) { this.showToast('No se pudieron leer', r.fallas.join(' | '), 'error', 'sticky'); }
         if (!r.vistas.length) { return; }
         if (existente) {
@@ -4141,7 +4159,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const contratante = (resumen.find((x) => x.contratante) || {}).contratante || '';
         // Cuenta: la que ya exista en Salesforce con el contratante o con el nombre de los archivos (HAND CLOUD en
         // "23102026_PROPUESTA HAND CLOUD_GMG-17588_0.pdf"); si ninguna existe, se crea con el primer nombre.
-        const candidatos = [contratante, ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
+        const candidatos = [contratante, this.clienteComun(files), ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
         const cuentaSf = await this.cuentaExistente(candidatos);
         const cliente = cuentaSf || candidatos[0] || '';
         // Tipo de negocio: si alguna cotización dice Reexpedición o Renovación, gana sobre "Nueva" (las aseguradoras
@@ -4186,6 +4204,64 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             'success');
     }
 
+    // Flotilla subida en "Crear desde PDFs": oportunidad colectiva de Automóviles con el cliente de los nombres de los
+    // archivos; las cotizaciones se cargan en la sección Flotilla al guardar (necesitan la oportunidad guardada).
+    async prepararFlotilla(files) {
+        this._colectivoPorCrear = null;
+        this._flotillaPorCargar = files;
+        const candidatos = [this.clienteComun(files), ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
+        const cuentaSf = await this.cuentaExistente(candidatos);
+        const cliente = cuentaSf || candidatos[0] || '';
+        this.opportunity = {
+            ...this.opportunity,
+            Tipo_Contratacion__c: 'Colectiva',
+            Mercado__c: 'Corporativo',
+            Ramo__c: RAMO_TYPES.AUTOMOVIL,
+            Name: this.opportunity.Name || cliente.substring(0, 80),
+            Description: this.opportunity.Description || 'Cotizaciones de flotilla: ' + files.map((f) => f.name).join(' · ')
+        };
+        if (cliente && !this.opportunity.AccountId) {
+            this.opportunity = { ...this.opportunity, AccountName: cliente };
+            await this.resolveAccountByName(cliente);
+            this.opportunity = { ...this.opportunity, Mercado__c: 'Corporativo' };
+            this.syncContactoConMercado();
+        }
+        this.aplicarFechaCierreSugerida();
+        this.setDefaultAgente({ archivos: files.map((f) => ({ nombre: f.name })) });
+        this.showToast('Flotilla de automóviles',
+            `Los ${files.length} archivo(s) son cotizaciones de flotilla. Revisa los datos de la oportunidad y guarda: al guardar se cargan en la sección Flotilla, una por una.`,
+            'success', 'sticky');
+    }
+
+    // Pasa los archivos a la sección Flotilla de la oportunidad guardada.
+    async cargarArchivosFlotilla(files) {
+        await this.esperarRender();
+        const comp = this.template.querySelector('c-flotilla-colectiva[data-carga]');
+        if (!comp) {
+            this.showToast('Flotilla', 'No se encontró la sección Flotilla.', 'error');
+            return;
+        }
+        comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        await comp.cargarArchivos(files);
+    }
+
+    // Nombre del cliente que se repite en todos los archivos ("GREENLINE CAPITAL MAPFRE.pdf",
+    // "PROPUESTA_GREENLINE CAPITAL CHUBB.xlsx" -> "GREENLINE CAPITAL"): la secuencia de palabras común más larga.
+    clienteComun(files) {
+        const nombres = (files || []).map((f) => this.clienteDesdeArchivo(f.name)).filter(Boolean);
+        if (nombres.length < 2) { return ''; }
+        const palabras = (t) => t.split(/\s+/);
+        const base = palabras(nombres[0]);
+        const resto = nombres.slice(1).map((t) => ` ${palabras(t).join(' ').toLowerCase()} `);
+        for (let largo = base.length; largo > 0; largo--) {
+            for (let i = 0; i + largo <= base.length; i++) {
+                const sec = base.slice(i, i + largo).join(' ');
+                if (sec.length >= 3 && resto.every((t) => t.includes(` ${sec.toLowerCase()} `))) { return sec; }
+            }
+        }
+        return '';
+    }
+
     // Nombre del cliente en el nombre del archivo: quita fechas, folios y palabras de cotización
     // ("PR_GMM_HAND CLOUD_2026_RHC_v2.xlsm" -> "HAND CLOUD").
     clienteDesdeArchivo(nombre) {
@@ -4207,8 +4283,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 // eslint-disable-next-line no-await-in-loop
                 const res = (await searchAccounts({ searchTerm: c })) || [];
                 const n = norm(c);
+                // "Hand Cloud" = "Hand Cloud, S.A. de C.V.", pero no "PRUEBA FLOTILLA Greenline Capital".
+                const razon = /^(s|a|de|c|v|sa|cv|sapi|sab|rl|r|l|sc|ac|s de rl|s en c|mi|ip)$/;
+                const soloRazon = (largo, corto) => largo.startsWith(corto + ' ')
+                    && largo.substring(corto.length).trim().split(' ').every((w) => razon.test(w));
                 const cuenta = res.find((a) => norm(a.Name) === n)
-                    || res.find((a) => ` ${norm(a.Name)} `.includes(` ${n} `) || ` ${n} `.includes(` ${norm(a.Name)} `));
+                    || res.find((a) => soloRazon(norm(a.Name), n) || soloRazon(n, norm(a.Name)));
                 if (cuenta) {
                     this._cuentaColectivaId = cuenta.Id;
                     return cuenta.Name;
@@ -4654,6 +4734,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.asegurados = [];
         this.uploadedQuotes = [];
         this._colectivoPorCrear = null;
+        this._flotillaPorCargar = null;
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
         this.selectedQuoteRamo = '';

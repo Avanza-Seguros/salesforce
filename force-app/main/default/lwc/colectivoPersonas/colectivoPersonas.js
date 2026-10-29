@@ -43,7 +43,10 @@ const RAMOS_ETIQUETA = {
 const RAMOS_TEXTO = [
     ['GMM', /gastos medicos|\bgmm\b|\bgmg\b|hospitaliz|coaseguro|maternidad/g], ['Vida', /\bvida\b/g],
     ['Accidentes Personales', /accidentes personales/g], ['Dental', /\bdental\b/g], ['Vision', /\bvision\b|\blentes\b/g],
-    ['Viajes', /\bviajes?\b|asistencia en viaje/g], ['Danos', /\bincendio\b|\bdanos\b|ubicacion|terremoto|\bedificio|contenidos/g],
+    ['Viajes', /\bviajes?\b|asistencia en viaje/g],
+    ['Danos', /\bincendio\b|\bdanos\b(?! materiales)|ubicacion|terremoto|\bedificio|contenidos/g],
+    // Flotilla: "Daños materiales" y "Robo total" son coberturas de auto, no del ramo Daños.
+    ['Automoviles', /flotilla|automovil|vehicul|\binciso|placas|numero de serie|robo total|danos materiales|pick ?up|tractocamion/g],
     ['Empresarial', /paquete empresarial|\bempresarial\b|\bpyme\b/g]
 ];
 // Valor de una cobertura (ya pasado por fold) que indica que no se incluye: "N/A", "No amparada", "Excluida", "-".
@@ -550,6 +553,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                     // eslint-disable-next-line no-await-in-loop
                     vistas.push(await this.leerCotizacion(file));
                 } catch (e) {
+                    if (e.flotilla) { break; }
                     fallas.push(`${file.name}: ${this.mensaje(e)}`);
                 }
             }
@@ -637,6 +641,12 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         if (this._detectarRamo) {
             this._ramo = this.ramoPorTexto(texto) || this._ramo;
             this._detectarRamo = false;
+            // Una flotilla se carga en su propia sección (por inciso); aquí no se lee con la IA de personas/ubicaciones.
+            if (this._ramo === 'Automoviles') {
+                const e = new Error('Cotización de flotilla');
+                e.flotilla = true;
+                throw e;
+            }
         }
         let datos;
         const avisosLectura = [];

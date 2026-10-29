@@ -454,7 +454,7 @@ public with sharing class FlotillaController {
 		if (datos.incisos.size() > MAX_INCISOS) {
 			throw error('La cotización tiene ' + datos.incisos.size() + ' incisos; el máximo por carga es ' + MAX_INCISOS + '.');
 		}
-		List<Opportunity> opps = [SELECT Id, Name, AccountId, Pricebook2Id, Ramo__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+		List<Opportunity> opps = [SELECT Id, Name, AccountId, Pricebook2Id, Ramo__c, Prima_neta__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
 		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
 		Opportunity opp = opps[0];
 		if (opp.AccountId == null) {
@@ -504,6 +504,10 @@ public with sharing class FlotillaController {
 			if (datos.iva != null) { q.put('IVA__c', datos.iva); }
 			if (String.isNotBlank(datos.archivo)) { q.Description = ('Cotización de flotilla cargada de: ' + datos.archivo).left(32000); }
 			insert q;
+			// La flotilla creada desde los archivos se guarda sin prima: toma la de la primera cotización.
+			if (neta != null && (opp.Prima_neta__c == null || opp.Prima_neta__c <= 0)) {
+				update new Opportunity(Id = opp.Id, Prima_neta__c = neta);
+			}
 
 			Map<String, Id> vehiculos = vehiculosDe(opp.AccountId, datos.incisos);
 			List<Inciso_Flotilla__c> incisos = new List<Inciso_Flotilla__c>();
