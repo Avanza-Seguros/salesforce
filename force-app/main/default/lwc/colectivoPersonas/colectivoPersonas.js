@@ -623,9 +623,12 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             const hojas = tabla.hojas.length ? tabla.hojas : [''];
             const leidas = [];
             for (const h of hojas) { leidas.push({ h, filas: await tabla.leerHoja(h) }); }
-            // La hoja con más números (la de primas) va primero; las demás se agregan si caben.
+            // La hoja de primas va primero: la que más renglones "Prima neta / Prima total / Derechos / IVA" tiene y, si
+            // empatan, la de más números. Así un listado de miles de vehículos no deja fuera el resumen de primas.
             const numeros = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'number').length, 0);
-            leidas.sort((a, b) => numeros(b.filas) - numeros(a.filas));
+            const etiquetas = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'string'
+                && /^\s*(prima\s*(neta|total)|derechos|iva\b|gastos de expedici)/i.test(c)).length, 0);
+            leidas.sort((a, b) => (etiquetas(b.filas) - etiquetas(a.filas)) || (numeros(b.filas) - numeros(a.filas)));
             const partes = [];
             let largo = 0;
             leidas.forEach(({ h, filas }) => {
@@ -879,17 +882,20 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             iva: numero(d.iva) ?? sumaCategorias('iva'),
             primaTotal: totalPoliza !== null ? totalPoliza : (anual && anual.primaTotal ? anual.primaTotal : null)
         };
-        // IVA que no se pudo asociar a su columna: la diferencia entre la prima total y la suma de los demás montos,
-        // solo si equivale al 16% de esa suma.
-        if (encabezado.iva === null && encabezado.primaTotal && encabezado.primaNeta) {
-            const base = encabezado.primaNeta + (encabezado.derechos || 0) + (encabezado.recargo || 0);
-            const dif = redondear(encabezado.primaTotal - base);
-            if (dif > 0 && Math.abs(dif - base * 0.16) <= Math.max(1, base * 0.0005)) { encabezado.iva = dif; }
-        }
         if (encabezado.primaNeta === null && encabezado.primaTotal === null) {
             throw new Error('La IA no encontró la prima de la cotización.');
         }
-        if (encabezado.iva === null && this.ramo !== 'Vida') { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
+        // IVA = 16% de prima neta + derechos + recargo (Vida no lleva IVA). Si la IA no lo encontró o trae otro monto
+        // (ej. $100 sobre una neta de $486,613), se calcula; y si la prima total no cuadra con eso, se recalcula.
+        if (encabezado.primaNeta !== null && this.ramo !== 'Vida') {
+            const base = redondear(encabezado.primaNeta + (encabezado.derechos || 0) + (encabezado.recargo || 0));
+            const iva = redondear(base * 0.16);
+            if (encabezado.iva === null || Math.abs(encabezado.iva - iva) > Math.max(1, iva * 0.01)) { encabezado.iva = iva; }
+            const total = redondear(base + encabezado.iva);
+            if (encabezado.primaTotal === null || Math.abs(encabezado.primaTotal - total) > Math.max(1, total * 0.01)) {
+                encabezado.primaTotal = total;
+            }
+        }
         return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.contratanteValido(d.contratante) };
     }
 
