@@ -945,4 +945,41 @@ private class PolicyControllerTest {
         String conNumero = '{"numeroPoliza":"ABC123"}';
         System.assertEquals(conNumero, PolicyController.completarNumeroPoliza(conNumero, voucher));
     }
+
+    /**
+     * @creation date: 29/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza de Daños con varias ubicaciones: un bien del cliente (CustomerProperty) y un bien de póliza
+     * por domicilio distinto (dos incisos con el mismo domicilio son uno), sin participantes por los asegurados
+     * adicionales; reprocesar no duplica.
+     * @return void
+     */
+    @isTest
+    static void testUbicacionesDanos() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Danos');
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradosAdicionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'GRAN PRO BAMBOO REUDY' } },
+            'ubicaciones' => new List<Object>{
+                new Map<String, Object>{ 'direccion' => 'AV. VALLARTA 3959, ZAPOPAN, JALISCO', 'giro' => 'MUEBLERIA', 'inciso' => '1' },
+                new Map<String, Object>{ 'direccion' => 'Av Vallarta 3959 Zapopan Jalisco', 'giro' => 'MUEBLERIA', 'inciso' => '2' },
+                new Map<String, Object>{ 'direccion' => 'CALLE 3 300, MERIDA, YUCATAN', 'giro' => 'BODEGA', 'inciso' => '3' }
+            }
+        });
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('ubicaciones'), 'Dos domicilios distintos: ' + resumen);
+        System.assertEquals(2, [SELECT COUNT() FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND Street != null]);
+        List<InsurancePolicyAsset> bienes = [SELECT AssetName FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY AssetName];
+        System.assertEquals(2, bienes.size(), 'Un bien de póliza por ubicación, sin duplicar');
+        System.assert(bienes[0].AssetName.startsWith('Inciso 1, 2'), bienes[0].AssetName);
+        System.assertEquals(0, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND ParticipantName = 'GRAN PRO BAMBOO REUDY'],
+            'Los asegurados adicionales de Daños no son participantes');
+    }
 }

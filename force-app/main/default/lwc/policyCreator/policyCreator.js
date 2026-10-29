@@ -484,7 +484,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         if (r.beneficiarios) { partes.push(`${r.beneficiarios} beneficiario(s)`); }
         if (r.cuenta) { partes.push('datos del cliente'); }
         if (r.vehiculo) { partes.push('vehículo'); }
-        if (r.bien) { partes.push('bien asegurado'); }
+        if (r.ubicaciones) { partes.push(`${r.ubicaciones} ubicación(es)`); } else if (r.bien) { partes.push('bien asegurado'); }
         if (r.transaccion) { partes.push('transacción de prima'); }
         if (r.renovacion) { partes.push('fecha de renovación'); }
 
@@ -559,6 +559,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
             this.completarCoberturasDesdeTexto(datos, texto);
+            // Daños: ubicaciones (incisos) del PDF completo; Apex crea un bien del cliente por cada una.
+            datos.ubicaciones = this.ubicacionesDesdeTexto(texto);
             // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
             datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
             // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe, se
@@ -694,6 +696,34 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         return filas
             .map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim())
             .join('\n');
+    }
+
+    // Ubicaciones de una póliza de Daños (ej. HDI "PÓLIZA MAESTRA": un inciso por ubicación): domicilio, giro e
+    // incisos de cada domicilio distinto, leídos del texto completo (la IA solo recibe una parte). Sin ubicaciones, [].
+    ubicacionesDesdeTexto(texto) {
+        const t = String(texto || '');
+        const etiqueta = /(?:Domicilio de la Empresa|Domicilio del Riesgo|Ubicaci[oó]n del Riesgo|Ubicaci[oó]n Asegurada)\s*:\s*/gi;
+        const fin = /\n\s*(?:Informaci[oó]n de la Empresa|Muros|Consta de|Entrepisos|Giro|Techos|Sustancias|Pisos|Cliente|No\. P[oó]liza|Datos|Tipo de|BIENES)\b/i;
+        const porDireccion = new Map();
+        let m;
+        while ((m = etiqueta.exec(t)) !== null) {
+            const ini = m.index + m[0].length;
+            const resto = t.substring(ini, ini + 400);
+            const corte = resto.search(fin);
+            const direccion = (corte >= 0 ? resto.substring(0, corte) : resto.split('\n').slice(0, 2).join(' '))
+                .replace(/\s+/g, ' ').replace(/[,\s]+$/, '').trim();
+            if (direccion.length < 10) { continue; }
+            // El inciso es el último "Inciso: n" antes del domicilio; el giro, el primero después.
+            const incisos = [...t.substring(Math.max(0, m.index - 1500), m.index).matchAll(/Inciso:\s*(\d+)/gi)];
+            const inciso = incisos.length ? incisos[incisos.length - 1][1] : '';
+            const giro = (t.substring(ini, ini + 1500).match(/Giro:\s*([^\n]+)/i) || [])[1] || '';
+            // La misma dirección (repetida en cada página del inciso o en otro inciso) es una sola ubicación.
+            const llave = direccion.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+            const u = porDireccion.get(llave) || { direccion, giro: giro.trim(), incisos: [] };
+            if (inciso && !u.incisos.includes(inciso)) { u.incisos.push(inciso); }
+            porDireccion.set(llave, u);
+        }
+        return [...porDireccion.values()].map((u) => ({ direccion: u.direccion, giro: u.giro, inciso: u.incisos.join(', ') }));
     }
 
     // Deja solo el número de PÓLIZA. Varias aseguradoras imprimen en el mismo renglón las
