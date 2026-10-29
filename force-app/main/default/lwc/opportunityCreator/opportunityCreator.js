@@ -1734,14 +1734,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isColectivoUbicaciones() {
         return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
     }
-    // Cotizaciones por aseguradora con comparativo (c-colectivo-personas). RC y Fianzas usan las cotizaciones normales.
+    // Cotizaciones por aseguradora (c-colectivo-personas): solo aseguradora, vigencia y primas. RC y Fianzas usan las
+    // cotizaciones normales.
     get mostrarCotizacionesColectivas() {
-        return this.isCensoPersonas || this.isColectivoUbicaciones;
+        return this.isCensoPersonas || this.isColectivoUbicaciones || this.isFlotilla;
     }
     get colectivoSubtitulo() {
-        return this.isColectivoUbicaciones
-            ? 'Cotización de cada aseguradora por ubicación, coberturas y primas, con comparativo'
-            : 'Cotización de cada aseguradora por categoría, plan y primas, con comparativo';
+        return 'Cotización de cada aseguradora: vigencia, primas y formas de pago';
     }
     get flotillaBadge() {
         return this.flotillaCotizaciones
@@ -3776,7 +3775,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
             // Prima neta mayor a 0.
             const primaVal = parseFloat(this.opportunity.Prima_Neta__c);
-            if ((!primaVal || primaVal <= 0) && !this._flotillaPorCargar) { errores.push('Prima neta mayor a 0'); }
+            if (!primaVal || primaVal <= 0) { errores.push('Prima neta mayor a 0'); }
             // Cuenta.
             if (!this.opportunity.AccountId && !this.isNewAccount) {
                 errores.push('Selecciona una cuenta o elige "Crear cuenta nueva"');
@@ -3840,14 +3839,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 'success');
             await this.loadOpportunities();
 
-            if (this._flotillaPorCargar && savedId) {
-                // Flotilla de "Crear desde PDFs": sus archivos se cargan en la sección Flotilla.
-                const files = this._flotillaPorCargar;
-                this._flotillaPorCargar = null;
-                await this.guardarArchivosPdf(savedId);
-                this.viewMode = VIEW_MODES.EDIT;
-                await this.cargarArchivosFlotilla(files);
-            } else if (this._colectivoPorCrear && savedId) {
+            if (this._colectivoPorCrear && savedId) {
                 // Cotizaciones colectivas leídas en "Crear desde PDFs": se crean ya con la oportunidad guardada.
                 const vistas = this._colectivoPorCrear;
                 this._colectivoPorCrear = null;
@@ -4107,16 +4099,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const { files, archivos } = (event && event.detail) || {};
         if (!files || !files.length) { return; }
         const existente = !!this.opportunity.Id;
-        if (existente && this.isFlotilla) {
-            this.handleCancelAddPdf();
-            this.pdfArchivos = archivos || [];
-            await this.guardarArchivosPdf(this.opportunity.Id);
-            await this.cargarArchivosFlotilla(files);
-            return;
-        }
         if (existente && !this.mostrarCotizacionesColectivas) {
             this.showToast('Cotización colectiva',
-                'Esta oportunidad no es colectiva de personas o ubicaciones: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
+                'Esta oportunidad no es colectiva: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
                 'warning', 'sticky');
             return;
         }
@@ -4142,10 +4127,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
         const r = await comp.analizarArchivos(files);
-        if (!existente && r.ramo === RAMO_TYPES.AUTOMOVIL) {
-            await this.prepararFlotilla(files);
-            return;
-        }
         if (r.fallas.length) { this.showToast('No se pudieron leer', r.fallas.join(' | '), 'error', 'sticky'); }
         if (!r.vistas.length) { return; }
         if (existente) {
@@ -4189,7 +4170,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Prima_Neta__c: prima || this.opportunity.Prima_Neta__c,
             Prima_neta__c: prima || this.opportunity.Prima_neta__c,
             Description: this.opportunity.Description || 'Cotizaciones colectivas leídas por la IA: ' + resumen.map((x) =>
-                `${x.aseguradora || x.archivo} ${this.formatCurrency(x.primaTotal || x.primaNeta || 0)} (${x.tamano})`).join(' · ')
+                `${x.aseguradora || x.archivo} ${this.formatCurrency(x.primaTotal || x.primaNeta || 0)}`).join(' · ')
         };
         if (cliente && !this.opportunity.AccountId) {
             this.opportunity = { ...this.opportunity, AccountName: cliente };
@@ -4202,47 +4183,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.showToast('La IA ya lo llenó',
             `Se leyeron ${resumen.length} cotización(es) colectiva(s). Revisa los datos de la oportunidad y guarda: al guardar se crean las cotizaciones.`,
             'success');
-    }
-
-    // Flotilla subida en "Crear desde PDFs": oportunidad colectiva de Automóviles con el cliente de los nombres de los
-    // archivos; las cotizaciones se cargan en la sección Flotilla al guardar (necesitan la oportunidad guardada).
-    async prepararFlotilla(files) {
-        this._colectivoPorCrear = null;
-        this._flotillaPorCargar = files;
-        const candidatos = [this.clienteComun(files), ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
-        const cuentaSf = await this.cuentaExistente(candidatos);
-        const cliente = cuentaSf || candidatos[0] || '';
-        this.opportunity = {
-            ...this.opportunity,
-            Tipo_Contratacion__c: 'Colectiva',
-            Mercado__c: 'Corporativo',
-            Ramo__c: RAMO_TYPES.AUTOMOVIL,
-            Name: this.opportunity.Name || cliente.substring(0, 80),
-            Description: this.opportunity.Description || 'Cotizaciones de flotilla: ' + files.map((f) => f.name).join(' · ')
-        };
-        if (cliente && !this.opportunity.AccountId) {
-            this.opportunity = { ...this.opportunity, AccountName: cliente };
-            await this.resolveAccountByName(cliente);
-            this.opportunity = { ...this.opportunity, Mercado__c: 'Corporativo' };
-            this.syncContactoConMercado();
-        }
-        this.aplicarFechaCierreSugerida();
-        this.setDefaultAgente({ archivos: files.map((f) => ({ nombre: f.name })) });
-        this.showToast('Flotilla de automóviles',
-            `Los ${files.length} archivo(s) son cotizaciones de flotilla. Revisa los datos de la oportunidad y guarda: al guardar se cargan en la sección Flotilla, una por una.`,
-            'success', 'sticky');
-    }
-
-    // Pasa los archivos a la sección Flotilla de la oportunidad guardada.
-    async cargarArchivosFlotilla(files) {
-        await this.esperarRender();
-        const comp = this.template.querySelector('c-flotilla-colectiva[data-carga]');
-        if (!comp) {
-            this.showToast('Flotilla', 'No se encontró la sección Flotilla.', 'error');
-            return;
-        }
-        comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        await comp.cargarArchivos(files);
     }
 
     // Nombre del cliente que se repite en todos los archivos ("GREENLINE CAPITAL MAPFRE.pdf",
@@ -4734,7 +4674,6 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.asegurados = [];
         this.uploadedQuotes = [];
         this._colectivoPorCrear = null;
-        this._flotillaPorCargar = null;
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
         this.selectedQuoteRamo = '';

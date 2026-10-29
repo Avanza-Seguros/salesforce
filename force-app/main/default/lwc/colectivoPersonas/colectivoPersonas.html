@@ -256,13 +256,16 @@
                 </div>
 
                 <div class="censo-stats slds-m-top_small">
-                    <div class="stat"><span class="stat-num">{aseguradosVista}</span><span class="stat-lbl">{etiquetaTamanoVista}</span></div>
+                    <template if:true={hayCategoriasVista}>
+                        <div class="stat"><span class="stat-num">{aseguradosVista}</span><span class="stat-lbl">{etiquetaTamanoVista}</span></div>
+                    </template>
                     <template if:true={sumaVista}>
                         <div class="stat"><span class="stat-num">{sumaVista}</span><span class="stat-lbl">Suma asegurada total</span></div>
                     </template>
                     <div class="stat"><span class="stat-num">{totalVista}</span><span class="stat-lbl">Prima total</span></div>
                 </div>
 
+                <template if:true={hayCategoriasVista}>
                 <template if:true={esGmm}>
                 <h3 class="subtitulo">Categorías</h3>
                 <div class="censo-scroll">
@@ -361,6 +364,7 @@
                             <p key={c.keyOtras} class="nota"><strong>Otras condiciones ({c.nombre}):</strong> {c.parametrosTxt}</p>
                         </template>
                     </template>
+                </template>
                 </template>
 
                 <template if:true={hayFormasPagoVista}>

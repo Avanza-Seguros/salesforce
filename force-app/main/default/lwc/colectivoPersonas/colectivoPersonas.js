@@ -126,8 +126,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     get tituloRenglones() { return this.esUbicaciones ? 'Ubicaciones' : 'Categorías'; }
     get textoCarga() {
         return this.esUbicaciones
-            ? 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; la cotización se crea sola (si falta la aseguradora, la revisas). Puedes subir varias a la vez.'
-            : 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; la cotización se crea sola (si falta la aseguradora, la revisas). Puedes subir varias a la vez.';
+            ? 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee la aseguradora, la vigencia, las primas y las formas de pago (no las ubicaciones); la cotización se crea sola (si falta la aseguradora o la prima, la revisas). Puedes subir varias a la vez.'
+            : 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee la aseguradora, la vigencia, las primas y las formas de pago (no los asegurados ni los autos); la cotización se crea sola (si falta la aseguradora o la prima, la revisas). Puedes subir varias a la vez.';
     }
 
     // Si alguna aseguradora no incluye IVA, se compara prima neta + derechos para todas (como en el PDF).
@@ -553,7 +553,6 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                     // eslint-disable-next-line no-await-in-loop
                     vistas.push(await this.leerCotizacion(file));
                 } catch (e) {
-                    if (e.flotilla) { break; }
                     fallas.push(`${file.name}: ${this.mensaje(e)}`);
                 }
             }
@@ -581,7 +580,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 try {
                     // eslint-disable-next-line no-await-in-loop
                     await this.guardarVista(vista);
-                    creadas.push(`${vista.archivo} (${this.tamanoDe(vista)} ${this.unidad})`);
+                    creadas.push(vista.archivo);
                     if (vista.avisos.length) { conAvisos.push(`${vista.archivo}: ${vista.avisos.join(' ')}`); }
                 } catch (e) {
                     fallas.push(`${vista.archivo}: ${this.mensaje(e)}`);
@@ -641,21 +640,10 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         if (this._detectarRamo) {
             this._ramo = this.ramoPorTexto(texto) || this._ramo;
             this._detectarRamo = false;
-            // Una flotilla se carga en su propia sección (por inciso); aquí no se lee con la IA de personas/ubicaciones.
-            if (this._ramo === 'Automoviles') {
-                const e = new Error('Cotización de flotilla');
-                e.flotilla = true;
-                throw e;
-            }
         }
         let datos;
-        const avisosLectura = [];
         if (partes && partes.length > 1) {
-            if (partes.length > MAX_PARTES) {
-                avisosLectura.push(`El documento es muy largo: se leyeron sus primeras ${MAX_PARTES} de ${partes.length} partes. `
-                    + `Revisa que estén todas las ${this.esUbicaciones ? 'ubicaciones' : 'categorías'}.`);
-                partes = partes.slice(0, MAX_PARTES);
-            }
+            if (partes.length > MAX_PARTES) { partes = partes.slice(0, MAX_PARTES); }
             const resultados = [];
             for (let i = 0; i < partes.length; i++) {
                 this.avance(`Analizando la cotización con IA (parte ${i + 1} de ${partes.length})…`);
@@ -672,7 +660,9 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             datos = this.parsearJsonIA(json);
         }
         const vista = this.normalizar(datos, vigencia, texto);
-        vista.avisos.unshift(...avisosLectura);
+        // Colectivas: solo aseguradora, vigencia y primas; los asegurados, autos o ubicaciones no se guardan.
+        vista.categorias = [];
+        vista.avisos = [];
         vista.archivo = file.name;
         vista.tipoNegocio = this.tipoNegocioPorTexto(texto);
         return vista;
@@ -708,8 +698,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         return mejor;
     }
 
-    // Lista para crearse sin revisión: trae aseguradora y asegurados (o ubicaciones).
-    completa(vista) { return !!vista.encabezado.aseguradoraId && this.tamanoDe(vista) > 0; }
+    // Lista para crearse sin revisión: trae aseguradora y prima.
+    completa(vista) { return !!vista.encabezado.aseguradoraId && this.totalDe(vista.encabezado) !== null; }
 
     // Muestra para revisión la siguiente cotización que no se pudo crear sola.
     siguientePendiente() {
@@ -718,7 +708,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.paso = vista ? 'vista' : 'resumen';
         if (vista) {
             this.archivoNombre = vista.archivo;
-            this.toast('Cotización colectiva', `Falta la aseguradora o los ${this.unidad} de ${vista.archivo}: revísala y guárdala.`, 'warning');
+            this.toast('Cotización colectiva', `Falta la aseguradora o la prima de ${vista.archivo}: revísala y guárdala.`, 'warning');
         }
     }
 
@@ -859,10 +849,6 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 tarifaEdades: tarifa
             };
         });
-        if (!categorias.length) {
-            throw new Error(this.esUbicaciones ? 'La IA no encontró ubicaciones en la cotización.' : 'La IA no encontró categorías ni asegurados en la cotización.');
-        }
-
         const sumaNeta = categorias.reduce((s, c) => s + (c.primaNeta || 0), 0);
         const primaNeta = numero(d.primaNeta) !== null ? numero(d.primaNeta) : (sumaNeta ? redondear(sumaNeta) : null);
         if (numero(d.primaNeta) !== null && sumaNeta && Math.abs(sumaNeta - primaNeta) / primaNeta > 0.01) {
@@ -898,6 +884,9 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             const base = encabezado.primaNeta + (encabezado.derechos || 0) + (encabezado.recargo || 0);
             const dif = redondear(encabezado.primaTotal - base);
             if (dif > 0 && Math.abs(dif - base * 0.16) <= Math.max(1, base * 0.0005)) { encabezado.iva = dif; }
+        }
+        if (encabezado.primaNeta === null && encabezado.primaTotal === null) {
+            throw new Error('La IA no encontró la prima de la cotización.');
         }
         if (encabezado.iva === null && this.ramo !== 'Vida') { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
         return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.contratanteValido(d.contratante) };
@@ -1001,7 +990,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     }
     get totalVista() { return moneda(this.totalCalculado) || '—'; }
     get faltaAseguradora() { return !this.enc.aseguradoraId; }
-    get sinGuardar() { return this.cargando || !this.enc.aseguradoraId || !this.aseguradosVista; }
+    get sinGuardar() { return this.cargando || !this.enc.aseguradoraId || this.totalCalculado === null; }
+    get hayCategoriasVista() { return this.categoriasVista.length > 0; }
 
     handleEncabezado(event) {
         const campo = event.target.dataset.campo;
@@ -1034,7 +1024,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.progreso = 'Guardando cotización…';
         try {
             await this.guardarVista(this.vista);
-            this.toast('Cotización colectiva', `Cotización guardada: ${this.aseguradosVista} ${this.unidad}.`, 'success');
+            this.toast('Cotización colectiva', 'Cotización guardada.', 'success');
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
             this.siguientePendiente();

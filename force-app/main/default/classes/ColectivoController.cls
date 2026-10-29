@@ -120,6 +120,26 @@ public with sharing class ColectivoController {
 	@AuraEnabled(cacheable=false)
 	public static List<Map<String, Object>> getCotizacionesColectivas(Id opportunityId) {
 		Map<Id, Map<String, Object>> porQuote = new Map<Id, Map<String, Object>>();
+		// Cotizaciones solo con aseguradora y primas (sin categorías ni ubicaciones).
+		for (Quote qt : [
+			SELECT Id, Name, QuoteNumber, Aseguradora__r.Name, Prima_Total__c, Prima_Neta__c, Derechos_Poliza__c,
+				Recargo_Fraccionado__c, IVA__c, Forma_de_pago__c, Vigencia_Inicio__c, ExpirationDate, Opciones_Pago__c,
+				Ramos__c, NumeroCotizacion__c
+			FROM Quote
+			WHERE OpportunityId = :opportunityId AND Name LIKE 'Colectivo %'
+			ORDER BY CreatedDate ASC
+			LIMIT 200
+		]) {
+			porQuote.put(qt.Id, new Map<String, Object>{
+				'id' => qt.Id, 'nombre' => qt.Name, 'numero' => qt.QuoteNumber,
+				'aseguradora' => qt.Aseguradora__r != null ? qt.Aseguradora__r.Name : qt.Name,
+				'ramo' => qt.Ramos__c, 'numeroCotizacion' => qt.NumeroCotizacion__c,
+				'primaTotal' => qt.Prima_Total__c, 'primaNeta' => qt.Prima_Neta__c, 'derechos' => qt.Derechos_Poliza__c,
+				'recargo' => qt.Recargo_Fraccionado__c, 'iva' => qt.IVA__c, 'formaPago' => qt.Forma_de_pago__c,
+				'vigenciaDesde' => qt.Vigencia_Inicio__c, 'vigenciaHasta' => qt.ExpirationDate,
+				'formasPago' => jsonLista(qt.Opciones_Pago__c), 'categorias' => new List<Object>()
+			});
+		}
 		for (Categoria_Colectiva__c c : [
 			SELECT Id, Name, Cotizacion__c, Cotizacion__r.Name, Cotizacion__r.QuoteNumber, Cotizacion__r.Aseguradora__r.Name,
 				Cotizacion__r.Prima_Total__c, Cotizacion__r.Prima_Neta__c, Cotizacion__r.Derechos_Poliza__c,
@@ -166,7 +186,8 @@ public with sharing class ColectivoController {
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Guarda la cotización colectiva de una aseguradora: Quote (primas, formas de pago) y una
-	 *               Categoria_Colectiva__c por categoría. La prima total es la del archivo o, si no viene,
+	 *               Categoria_Colectiva__c por categoría. Sin categorías se guarda solo la cotización con sus primas
+	 *               y no se genera comparativo. La prima total es la del archivo o, si no viene,
 	 *               prima neta + derechos + recargo + IVA. Todo o nada.
 	 * @param opportunityId: oportunidad colectiva.
 	 * @param datosJson: JSON de CotizacionEntrada.
@@ -181,7 +202,10 @@ public with sharing class ColectivoController {
 			throw error('La cotización no tiene un formato válido: ' + e.getMessage());
 		}
 		if (datos.aseguradoraId == null) { throw error('Selecciona la aseguradora de la cotización.'); }
-		if (datos.categorias == null || datos.categorias.isEmpty()) { throw error('La cotización no tiene categorías, asegurados ni ubicaciones.'); }
+		if (datos.categorias == null) { datos.categorias = new List<CategoriaEntrada>(); }
+		if (datos.categorias.isEmpty() && datos.primaNeta == null && datos.primaTotal == null) {
+			throw error('La cotización no tiene prima neta ni prima total.');
+		}
 		List<Opportunity> opps = [SELECT Id, Name, Pricebook2Id, Ramo__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
 		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
 		Opportunity opp = opps[0];
@@ -203,9 +227,10 @@ public with sharing class ColectivoController {
 
 			String ramo = String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : 'GMM';
 			Quote q = new Quote(OpportunityId = opp.Id, Status = 'In Review');
-			String tamano = esUbicaciones(ramo) ? datos.categorias.size() + (datos.categorias.size() == 1 ? ' ubicación' : ' ubicaciones')
+			String tamano = datos.categorias.isEmpty() ? ''
+				: esUbicaciones(ramo) ? datos.categorias.size() + (datos.categorias.size() == 1 ? ' ubicación' : ' ubicaciones')
 				: asegurados.intValue() + ' asegurados';
-			q.Name = ('Colectivo ' + etiquetaRamo(ramo) + ' - ' + asegs[0].Name + ' (' + tamano + ')').left(255);
+			q.Name = ('Colectivo ' + etiquetaRamo(ramo) + ' - ' + asegs[0].Name + (String.isBlank(tamano) ? '' : ' (' + tamano + ')')).left(255);
 			q.Pricebook2Id = opp.Pricebook2Id != null ? opp.Pricebook2Id : pricebookEstandar();
 			q.put('Aseguradora__c', asegs[0].Id);
 			Id producto = productoRamo(asegs[0].Id, ramo);
@@ -259,8 +284,10 @@ public with sharing class ColectivoController {
 				if (!params.isEmpty()) { c.Parametros__c = JSON.serialize(params, true).left(32768); }
 				categorias.add(c);
 			}
-			insert categorias;
-			actualizarComparativo(opp.Id);
+			if (!categorias.isEmpty()) {
+				insert categorias;
+				actualizarComparativo(opp.Id);
+			}
 			return q.Id;
 		} catch (AuraHandledException ahe) {
 			Database.rollback(sp);

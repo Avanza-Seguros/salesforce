@@ -213,6 +213,31 @@ private class ColectivoControllerTest {
 	}
 
 	/**
+	 * @description: Cotización solo con aseguradora y primas: se crea sin categorías, aparece en la lista y no
+	 *               genera comparativo.
+	 */
+	@isTest
+	static void testSinDetalle() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		Aseguradora__c gnp = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Colectivo Test'];
+		String c = JSON.serialize(new Map<String, Object>{
+			'aseguradoraId' => gnp.Id, 'vigenciaDesde' => '2026-08-01', 'primaNeta' => 1000000, 'iva' => 160000, 'archivo' => 'gnp.pdf'
+		});
+		Test.startTest();
+		Id q = ColectivoController.guardarCotizacionColectiva(opp.Id, c);
+		Test.stopTest();
+		Quote qt = [SELECT Name, Prima_Neta__c, Prima_Total__c FROM Quote WHERE Id = :q];
+		System.assertEquals(1160000, qt.Prima_Total__c, 'Prima total = neta + IVA');
+		System.assert(!qt.Name.contains('('), 'Sin asegurados en el nombre: ' + qt.Name);
+		System.assertEquals(0, [SELECT COUNT() FROM Categoria_Colectiva__c], 'Sin categorías');
+		List<Map<String, Object>> cot = ColectivoController.getCotizacionesColectivas(opp.Id);
+		System.assertEquals(1, cot.size(), 'Aparece en la lista');
+		System.assertEquals(0, ((List<Object>) cot[0].get('categorias')).size(), 'Sin categorías en la lista');
+		Opportunity o = [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id];
+		System.assert(String.isBlank(o.Descripcion__c), 'No se genera comparativo');
+	}
+
+	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Lectura con IA (sin llamar a Einstein en pruebas) y helpers.
