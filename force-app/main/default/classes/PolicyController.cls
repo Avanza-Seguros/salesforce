@@ -285,7 +285,7 @@ public with sharing class PolicyController {
 			// 1) Datos de la póliza.
 			InsurancePolicy pol = [
 				SELECT Id, Name, NameInsuredId, SourceOpportunityId, SourceQuoteId,
-					   Ramo__c, ProductId, PremiumAmount, EffectiveDate
+					   Ramo__c, ProductId, PremiumAmount, EffectiveDate, ExpirationDate
 				FROM InsurancePolicy
 				WHERE Id = :policyId
 				LIMIT 1
@@ -389,6 +389,7 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 			if (pol.PremiumAmount != null) { ipa.StandardPremiumAmount = pol.PremiumAmount; }
 			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+			if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
 			insert ipa;
 			return ipa.Id;
 		} catch (AuraHandledException ahe) {
@@ -2175,7 +2176,7 @@ public with sharing class PolicyController {
 	private static Integer guardarUbicacionesDesdePdf(Id policyId, Id accountId, List<Object> ubicaciones) {
 		if (accountId == null || ubicaciones == null || ubicaciones.isEmpty()) { return 0; }
 		InsurancePolicy pol = [
-			SELECT Id, Name, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+			SELECT Id, Name, ProductId, EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
 		];
 		// Ubicaciones distintas por domicilio (el mismo domicilio en dos incisos es una sola).
 		Map<String, Map<String, Object>> porDireccion = new Map<String, Map<String, Object>>();
@@ -2234,6 +2235,7 @@ public with sharing class PolicyController {
 			);
 			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+			if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
 			Decimal prima = parseMonto(strOf(u.get('primaTotal')));
 			if (prima != null) { ipa.StandardPremiumAmount = prima; }
 			nuevos.add(ipa);
@@ -2262,7 +2264,7 @@ public with sharing class PolicyController {
 	private static Integer guardarVehiculosDesdePdf(Id policyId, Id accountId, Id oppId, List<Object> vehiculos) {
 		if (accountId == null || vehiculos == null || vehiculos.isEmpty()) { return 0; }
 		InsurancePolicy pol = [
-			SELECT Id, Name, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+			SELECT Id, Name, ProductId, EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
 		];
 		// Vehículos distintos por número de serie (sin serie, por inciso).
 		Map<String, Map<String, Object>> porLlave = new Map<String, Map<String, Object>>();
@@ -2325,6 +2327,7 @@ public with sharing class PolicyController {
 				);
 				if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 				if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+				if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
 				Decimal prima = parseMonto(valorVehiculo(v, 'primaTotal'));
 				if (prima != null) { ipa.StandardPremiumAmount = prima; }
 				nuevos.add(ipa);

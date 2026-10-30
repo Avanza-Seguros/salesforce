@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Vigente_Hasta__c</fullName>
+    <description>Fin de vigencia más lejano entre los bienes de póliza activos de este bien (vacío si alguno no tiene fecha de fin). Lo calcula BienVigencia.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Hasta cuándo está cubierto el bien por sus pólizas activas.</inlineHelpText>
+    <label>Vigente hasta</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

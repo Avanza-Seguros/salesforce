@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Vigente__c</fullName>
+    <description>El bien tiene al menos una póliza activa y su vigencia no ha terminado.</description>
+    <externalId>false</externalId>
+    <formula>AND(Polizas_Activas__c &gt; 0, OR(ISBLANK(Vigente_Hasta__c), Vigente_Hasta__c &gt;= TODAY()))</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>Cubierto hoy por al menos una póliza activa.</inlineHelpText>
+    <label>Vigente</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>
