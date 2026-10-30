@@ -545,8 +545,8 @@ public with sharing class FlotillaController {
 				Integer idx = de.getDmlIndex(0);
 				throw error((idx != null && idx < filas.size() ? 'Fila ' + filas[idx] + ': ' : '') + de.getDmlMessage(0));
 			}
-			// El mismo comparativo del PDF queda en la oportunidad para "Análisis IA".
-			ColectivoController.guardarComparativoEnOportunidad(opportunityId, FlotillaComparativoPdfController.construirHtml(opportunityId));
+			// Las colectivas no llevan comparativo: se quita el que hubiera en la oportunidad.
+			ColectivoController.guardarComparativoEnOportunidad(opportunityId, '');
 			return q.Id;
 		} catch (AuraHandledException ahe) {
 			Database.rollback(sp);
@@ -574,7 +574,7 @@ public with sharing class FlotillaController {
 			delete [SELECT Id FROM Inciso_Flotilla__c WHERE Cotizacion__c = :quoteId];
 			delete [SELECT Id FROM Quote WHERE Id = :quoteId];
 			if (oppId != null) {
-				ColectivoController.guardarComparativoEnOportunidad(oppId, FlotillaComparativoPdfController.construirHtml(oppId));
+				ColectivoController.guardarComparativoEnOportunidad(oppId, '');
 			}
 		} catch (Exception e) {
 			Database.rollback(sp);
@@ -669,7 +669,7 @@ public with sharing class FlotillaController {
 				}
 			}
 			if (!links.isEmpty()) { insert links; }
-			ColectivoController.guardarComparativoEnOportunidad(opportunityId, FlotillaComparativoPdfController.construirHtml(opportunityId));
+			ColectivoController.guardarComparativoEnOportunidad(opportunityId, '');
 			return docId;
 		} catch (Exception e) {
 			throw error('No se pudo generar el PDF del comparativo: ' + e.getMessage());

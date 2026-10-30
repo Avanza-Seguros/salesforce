@@ -714,11 +714,7 @@ public with sharing class PolicyController {
 		}
 
 		// Bien asegurado de la póliza (para ligar la cobertura, si existe uno).
-		Id assetId = null;
-		for (InsurancePolicyAsset a : [
-			SELECT Id FROM InsurancePolicyAsset
-			WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 1
-		]) { assetId = a.Id; }
+		Id assetId = bienUnicoDePoliza(policyId);
 
 		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
 		// Catálogo de coberturas del producto: ProductCoverage (lo administra Productos y Coberturas).
@@ -2442,6 +2438,21 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 29/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bien de la póliza al que se ligan sus coberturas: solo si es el único. Con varios bienes
+	 * (flotilla o ubicaciones de Daños) las coberturas son de toda la póliza y no se ligan a un inciso.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Id del InsurancePolicyAsset o null
+	 */
+	private static Id bienUnicoDePoliza(Id policyId) {
+		List<InsurancePolicyAsset> bienes = [
+			SELECT Id FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 2
+		];
+		return bienes.size() == 1 ? bienes[0].Id : null;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Valor de un dato del vehículo; vacío o "SN" (sin número) se toma como null.
 	 * @param v: datos del vehículo
 	 * @param k: nombre del dato
@@ -2736,8 +2747,7 @@ public with sharing class PolicyController {
 		Map<Id, InsurancePolicyCoverage> porActualizar = new Map<Id, InsurancePolicyCoverage>();
 
 		InsurancePolicy pol = [SELECT Id, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
-		Id assetId = null;
-		for (InsurancePolicyAsset x : [SELECT Id FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 1]) { assetId = x.Id; }
+		Id assetId = bienUnicoDePoliza(policyId);
 
 		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
 		InsurancePolicyCoverage anterior = null;

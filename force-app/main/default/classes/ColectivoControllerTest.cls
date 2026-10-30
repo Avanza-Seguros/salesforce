@@ -159,8 +159,8 @@ private class ColectivoControllerTest {
 		Id q1 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionGnp(gnp.Id));
 		Id q2 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionSmnyl(smnyl.Id));
 		String guardado = [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id].Descripcion__c;
-		System.assert(guardado != null && guardado.startsWith(ColectivoController.MARCA_COMPARATIVO) && !guardado.contains('<body>'),
-			'El comparativo vigente queda en la oportunidad para Análisis IA');
+		System.assert(guardado == null || !guardado.startsWith(ColectivoController.MARCA_COMPARATIVO),
+			'Las colectivas no guardan comparativo en la oportunidad');
 		Test.startTest();
 		ColectivoController.eliminarCotizacionColectiva(q1);
 		ColectivoController.eliminarCotizacionColectiva(null);

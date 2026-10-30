@@ -1158,26 +1158,6 @@
                     </div>
                 </template>
                 <!-- Censo de asegurados de la contratación COLECTIVA (GroupCensus) -->
-                <!-- Flotilla (Colectiva de Automóviles): cotizaciones por inciso de cada aseguradora -->
-                <template if:true={isFlotilla}>
-                    <div class="unified-section">
-                        <div class="section-header-compact">
-                            <div class="section-icon">
-                                <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
-                            </div>
-                            <div class="section-title-group">
-                                <h2 class="section-title">Flotilla</h2>
-                                <p class="section-subtitle">Cotizaciones por inciso de cada aseguradora y comparativo</p>
-                            </div>
-                            <div class="section-badge">{flotillaBadge}</div>
-                        </div>
-                        <div class="form-container">
-                            <c-flotilla-colectiva data-carga="true" opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
-                                modo="carga" onflotillaactualizada={handleFlotillaActualizada}
-                                oncotizacioncreada={handleCotizacionColectiva}></c-flotilla-colectiva>
-                        </div>
-                    </div>
-                </template>
                 <template if:true={isCensoPersonas}>
                     <div class="unified-section">
                         <div class="section-header-compact">
@@ -1196,7 +1176,7 @@
                         </div>
                     </div>
                 </template>
-                <!-- Cotizaciones colectivas (personas: GMM, Vida, AP, Dental, Visión, Viajes; ubicaciones: Daños, Empresarial): una por aseguradora y comparativo -->
+                <!-- Cotizaciones colectivas (personas, ubicaciones y autos): una por aseguradora, sin comparativo -->
                 <template if:true={mostrarCotizacionesColectivas}>
                     <div class="unified-section">
                         <div class="section-header-compact">

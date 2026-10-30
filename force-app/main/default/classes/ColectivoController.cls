@@ -471,13 +471,13 @@ public with sharing class ColectivoController {
 	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Guarda en la oportunidad el comparativo colectivo vigente (el mismo del PDF) para que "Análisis IA"
-	 *               muestre exactamente lo mismo que Crear Oportunidad. Si ya no hay cotizaciones lo quita.
+	 * @description: Las colectivas (cualquier ramo) no llevan comparativo: quita de la oportunidad el comparativo
+	 *               colectivo que se haya guardado antes (no toca el de la IA de una individual).
 	 * @param opportunityId: oportunidad colectiva.
 	 * @return void
 	 */
 	private static void actualizarComparativo(Id opportunityId) {
-		guardarComparativoEnOportunidad(opportunityId, ColectivoComparativoPdfController.construirHtml(opportunityId));
+		guardarComparativoEnOportunidad(opportunityId, '');
 	}
 
 	/**

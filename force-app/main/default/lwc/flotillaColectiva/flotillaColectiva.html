@@ -188,7 +188,7 @@
                                     <div key={t.id} class={t.claseDoc}>
                                         <div class="doc-card-encabezado">
                                             <h3>{t.aseguradora}</h3>
-                                            <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
+                                            
                                             <template if:true={puedeEditar}>
                                                 <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Eliminar cotización"
                                                     class="tarjeta-borrar" data-id={t.id} onclick={handleEliminar}></lightning-button-icon>

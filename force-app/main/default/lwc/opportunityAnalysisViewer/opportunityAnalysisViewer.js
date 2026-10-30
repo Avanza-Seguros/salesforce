@@ -3,6 +3,7 @@ import { getRecord, getFieldValue } from "lightning/uiRecordApi";
 import { NavigationMixin } from "lightning/navigation";
 import DESCRIPTION_FIELD from "@salesforce/schema/Opportunity.Description";
 import COMPARATIVO_FIELD from "@salesforce/schema/Opportunity.Descripcion__c";
+import TIPO_CONTRATACION_FIELD from "@salesforce/schema/Opportunity.Tipo_Contratacion__c";
 import getQuotesByOpportunity from "@salesforce/apex/OpportunityQuotesController.getQuotesByOpportunity";
 import getComparativoLinks from "@salesforce/apex/OpportunityQuotesController.getComparativoLinks";
 
@@ -60,10 +61,11 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
   comparativoTitle = "";
   comparativoHtml = "";
   _comparativoDirty = false;
+  tipoContratacion = "";
 
   @wire(getRecord, {
     recordId: "$recordId",
-    fields: [DESCRIPTION_FIELD, COMPARATIVO_FIELD]
+    fields: [DESCRIPTION_FIELD, COMPARATIVO_FIELD, TIPO_CONTRATACION_FIELD]
   })
   wiredOpp({ data, error }) {
     if (data) {
@@ -71,6 +73,7 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
       console.log("description::: " + this.description); 
       this.parse();
       this.comparativoHtml = getFieldValue(data, COMPARATIVO_FIELD) || "";
+      this.tipoContratacion = getFieldValue(data, TIPO_CONTRATACION_FIELD) || "";
       this._comparativoDirty = true;
       this.loaded = true;
     } else if (error) {
@@ -79,8 +82,13 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
     }
   }
 
+  // Colectivas (cualquier ramo): no se muestran comparativos.
+  get esColectiva() {
+    return this.tipoContratacion === "Colectiva";
+  }
+
   get hasComparativoHtml() {
-    return !!(this.comparativoHtml && this.comparativoHtml.trim());
+    return !this.esColectiva && !!(this.comparativoHtml && this.comparativoHtml.trim());
   }
 
   // Inyecta el HTML de la IA en un div con lwc:dom="manual". Se evita el iframe
@@ -125,7 +133,7 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
       this.keyData.length > 0 ||
       this.sections.length > 0 ||
       !!this.executiveSummary ||
-      !!this.comparisonTable ||
+      this.hasComparisonTable ||
       this.docAnalyses.length > 0 ||
       this.quoteTiles.length > 0 ||
       !!this.comparativoPdfId ||
@@ -191,7 +199,7 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
   }
 
   get hasQuotes() {
-    return !this.esComparativoColectivo && this.quoteTiles.length > 0;
+    return !this.esColectiva && !this.esComparativoColectivo && this.quoteTiles.length > 0;
   }
 
   // Matriz comparativa (cobertura × aseguradora) construida con las coberturas
@@ -254,7 +262,11 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
   }
 
   get hasComparativo() {
-    return !!this.comparativoPdfId;
+    return !this.esColectiva && !!this.comparativoPdfId;
+  }
+
+  get hasComparisonTable() {
+    return !this.esColectiva && !!this.comparisonTable;
   }
 
   handleOpenComparativo() {

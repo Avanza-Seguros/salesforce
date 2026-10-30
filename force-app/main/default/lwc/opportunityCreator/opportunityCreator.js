@@ -4464,8 +4464,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // HTML del comparativo a guardar en la oportunidad: el de la IA si sigue vigente; si no, el de las cotizaciones actuales.
     comparativoHtmlParaGuardar() {
-        // Colectivas y flotillas: el comparativo lo mantiene Apex al guardar o eliminar cotizaciones (null = no se toca).
-        if (this.mostrarCotizacionesColectivas || this.isFlotilla) { return null; }
+        // Colectivas (cualquier ramo): no llevan comparativo (null = no se toca).
+        if (this.isColectiva) { return null; }
         // Con una sola cotización no hay nada que comparar: no se guarda comparativo.
         if ((this.uploadedQuotes || []).length < 2) { return null; }
         if (this.hasComparativoHtml) { return this.comparativoHtml; }
