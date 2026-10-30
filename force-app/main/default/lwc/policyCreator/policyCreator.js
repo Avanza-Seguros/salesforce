@@ -483,7 +483,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
         if (r.beneficiarios) { partes.push(`${r.beneficiarios} beneficiario(s)`); }
         if (r.cuenta) { partes.push('datos del cliente'); }
-        if (r.vehiculo) { partes.push('vehículo'); }
+        if (r.vehiculos) { partes.push(`${r.vehiculos} vehículo(s) de flotilla`); } else if (r.vehiculo) { partes.push('vehículo'); }
         if (r.ubicaciones) { partes.push(`${r.ubicaciones} ubicación(es)`); } else if (r.bien) { partes.push('bien asegurado'); }
         if (r.transaccion) { partes.push('transacción de prima'); }
         if (r.renovacion) { partes.push('fecha de renovación'); }
@@ -561,6 +561,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             this.completarCoberturasDesdeTexto(datos, texto);
             // Daños: ubicaciones (incisos) del PDF completo; Apex crea un bien del cliente por cada una.
             datos.ubicaciones = this.ubicacionesDesdeTexto(texto);
+            // Flotilla / colectiva de autos: todos los vehículos (incisos); Apex crea su bien e inciso de flotilla.
+            datos.vehiculos = this.vehiculosDesdeTexto(texto);
             // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
             datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
             // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe, se
@@ -696,6 +698,100 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         return filas
             .map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim())
             .join('\n');
+    }
+
+    // Vehículos de una póliza de flotilla / colectiva de autos (ej. Afirme: una carátula por inciso), leídos del texto
+    // completo (la IA solo recibe una parte): inciso, asegurado (nombre, RFC, domicilio, C.P., contratante, conductor),
+    // vehículo (marca, año, descripción, serie, placas, pasajeros, motor, uso, clave), coberturas principales y primas
+    // del inciso. Con menos de dos vehículos, [] (póliza individual).
+    vehiculosDesdeTexto(texto) {
+        const t = String(texto || '');
+        const inicio = /DATOS DEL ASEGURADO/gi;
+        const cortes = [];
+        let m;
+        while ((m = inicio.exec(t)) !== null) { cortes.push(m.index); }
+        const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+        const uno = (re, txt) => { const r = re.exec(txt); return r ? limpio(r[1]) : ''; };
+        const monto = (re, txt) => { const v = uno(re, txt); return v ? v.replace(/[$,\s]/g, '') : ''; };
+        const vehiculos = [];
+        const vistos = new Set();
+        cortes.forEach((desde, i) => {
+            const hasta = i + 1 < cortes.length ? cortes[i + 1] : t.length;
+            let bloque = t.substring(desde, hasta);
+            if (!/DATOS DEL VEH[IÍ]CULO/i.test(bloque) || !/N[uú]mero de Serie/i.test(bloque)) { return; }
+            const total = /Prima Total\s*:\s*\$?\s*[\d,]+(?:\.\d+)?/i.exec(bloque);
+            if (total) { bloque = bloque.substring(0, total.index + total[0].length); }
+            // Número de inciso: el del encabezado de la carátula (antes del bloque).
+            const incisos = t.substring(Math.max(0, desde - 800), desde).match(/Inciso\s*:\s*(\d+)/gi);
+            const inciso = incisos ? incisos[incisos.length - 1].replace(/\D/g, '') : '';
+
+            const asegurado = bloque.split(/DATOS DEL VEH[IÍ]CULO/i)[0];
+            const vehiculo = bloque.substring(asegurado.length);
+            // Domicilio: renglones entre "Nombre:" y "Contratante:" sin las etiquetas ni el RFC.
+            const domM = /Nombre\s*:[^\n]*\n([\s\S]*?)\n\s*Contratante\s*:/i.exec(asegurado);
+            const domicilio = domM
+                ? domM[1].split('\n')
+                    .map((r) => limpio(r.replace(/Domicilio\s*:/i, '').replace(/R\.?\s*F\.?\s*C\.?\s*:\s*\S*/i, '')))
+                    .filter((r) => r)
+                : [];
+            // Descripción: del "Tipo:" a "Placas:" sin "Version:" ni el número de serie.
+            const descM = /Tipo\s*:([\s\S]*?)\n\s*Placas\s*:/i.exec(vehiculo);
+            const renglones = descM
+                ? descM[1].replace(/Versi[oó]n\s*:/gi, ' ').replace(/N[uú]mero de Serie\s*:[ \t]*[A-Z0-9-]*/i, ' ')
+                    .split('\n').map(limpio).filter((r) => r)
+                : [];
+            let serie = uno(/N[uú]mero de Serie\s*:[ \t]*([A-Z0-9-]{5,})/i, vehiculo);
+            if (!serie) {
+                // Serie partida en dos renglones por el PDF ("LZWNNNGNXRC81530" + "5"): se une hasta 17 caracteres.
+                const base = renglones.find((r) => /^[A-Z0-9]{8,17}$/.test(r) && /\d/.test(r) && /[A-Z]/.test(r));
+                if (base) {
+                    const resto = renglones.find((r) => r !== base && /^[A-Z0-9]{1,9}$/.test(r) && (base + r).length === 17);
+                    serie = base + (resto || '');
+                    renglones.splice(renglones.indexOf(base), 1);
+                    if (resto) { renglones.splice(renglones.indexOf(resto), 1); }
+                }
+            }
+            const llave = serie || `inciso ${inciso}`;
+            if (vistos.has(llave)) { return; }
+            vistos.add(llave);
+            const uso = uno(/Uso\s*:\s*(.*?)\s+Clave\s*:/i, vehiculo);
+            const conductor = uno(/Conductor\s*:[ \t]*([^\n]*)/i, asegurado);
+            const dm = /DA[NÑ]OS MATERIALES\s+(VALOR [A-ZÁÉÍÓÚ]+)\s+([\d.]+)\s*%/i.exec(vehiculo);
+            const rt = /ROBO TOTAL\s+(VALOR [A-ZÁÉÍÓÚ]+)\s+([\d.]+)\s*%/i.exec(vehiculo);
+            vehiculos.push({
+                inciso,
+                asegurado: uno(/Nombre\s*:\s*([^\n]+)/i, asegurado),
+                rfc: uno(/R\.?\s*F\.?\s*C\.?\s*:\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i, asegurado),
+                domicilio: domicilio.join(', '),
+                calle: domicilio[0] || '',
+                ciudadEstado: domicilio.slice(1).join(' '),
+                cp: uno(/C\.\s*P\.\s*:?\s*(\d{5})/i, asegurado),
+                contratante: uno(/Contratante\s*:\s*(.*?)(?:\s+C\.\s*P\.|\n|$)/i, asegurado),
+                conductor: /[A-Za-zÁÉÍÓÚÑ]/.test(conductor) ? conductor : '',
+                marca: uno(/Marca\s*:\s*([^,\n]+?)\s*,?\s*Modelo\s*:/i, vehiculo),
+                anio: uno(/Modelo\s*:\s*((?:19|20)\d{2})/i, vehiculo),
+                descripcion: limpio(renglones.join(' ')),
+                serie,
+                placas: uno(/Placas\s*:\s*(\S+)/i, vehiculo),
+                pasajeros: uno(/Pasajeros\s*:\s*(\d+)/i, vehiculo),
+                motor: uno(/N[uú]mero de Motor\s*:\s*(\S+)/i, vehiculo),
+                uso,
+                tipoVehiculo: limpio(uso.split(/\s+USO\s+/i)[0]),
+                clave: uno(/Clave\s*:\s*([A-Z0-9-]+)/i, vehiculo),
+                tipoCarga: uno(/Tipo de Carga\s*:[ \t]*([^\n]*)/i, vehiculo),
+                tipoValor: dm ? limpio(dm[1]) : (rt ? limpio(rt[1]) : ''),
+                deducibleDM: dm ? dm[2] : '',
+                deducibleRT: rt ? rt[2] : '',
+                responsabilidadCivil: monto(/^RESPONSABILIDAD CIVIL\s+\$\s*([\d,]+(?:\.\d+)?)/im, vehiculo),
+                gastosMedicos: monto(/GASTOS M[EÉ]DICOS[^\n$]*\$\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                muerteConductor: monto(/AL CONDUCTOR\s+\$\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                primaNeta: monto(/Prima Neta\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                gastosExpedicion: monto(/Gastos de Expedici[oó]n\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                iva: monto(/I\.?\s*V\.?\s*A\.?\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                primaTotal: monto(/Prima Total\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo)
+            });
+        });
+        return vehiculos.length > 1 ? vehiculos : [];
     }
 
     // Ubicaciones de una póliza de Daños (ej. HDI "PÓLIZA MAESTRA": un inciso por ubicación), leídas del texto completo

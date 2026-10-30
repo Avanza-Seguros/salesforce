@@ -1009,4 +1009,113 @@ private class PolicyControllerTest {
         System.assertEquals(5561.89, [SELECT StandardPremiumAmount FROM InsurancePolicyAsset WHERE CustomerPropertyId != null
             AND InsurancePolicyId = :policyId AND AssetName LIKE 'Inciso 1%'].StandardPremiumAmount);
     }
+
+    /**
+     * @creation date: 29/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza de flotilla / colectiva de autos: un bien del cliente por vehículo (por número de serie) con
+     * los datos del vehículo y del asegurado, un bien de póliza con la prima del inciso y un inciso de flotilla ligado
+     * a la póliza, la oportunidad y el vehículo; sin participantes por asegurados adicionales; reprocesar no duplica.
+     * @return void
+     */
+    @isTest
+    static void testVehiculosFlotilla() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Automoviles');
+        Map<String, Object> asegurado = new Map<String, Object>{
+            'asegurado' => 'CASGUTSA', 'rfc' => 'CAS041109LG9', 'calle' => 'CALLE ECA DO QUEIROS 5125 INT 1 JARDINES UNIVERSIDAD',
+            'ciudadEstado' => 'ZAPOPAN JALISCO', 'cp' => '45110', 'contratante' => 'CASGUTSA',
+            'domicilio' => 'CALLE ECA DO QUEIROS 5125 INT 1 JARDINES UNIVERSIDAD, ZAPOPAN JALISCO'
+        };
+        Map<String, Object> camion = new Map<String, Object>(asegurado);
+        camion.putAll(new Map<String, Object>{
+            'inciso' => '1', 'marca' => 'CHEVROLET', 'anio' => '2008', 'serie' => '3GCEC14X38M114075',
+            'descripcion' => 'SILVERADO 1500 CABINA REGULAR, V6, 4.3L, 200 CP, 2 PUERTAS, STD, PAQ H', 'placas' => 'SN',
+            'pasajeros' => '2', 'motor' => 'SN', 'uso' => 'CAMIÓN USO NORMAL CARGA', 'tipoVehiculo' => 'CAMIÓN',
+            'clave' => '300249', 'tipoCarga' => 'NO PELIGROSA', 'tipoValor' => 'VALOR COMERCIAL', 'deducibleDM' => '3',
+            'deducibleRT' => '5', 'responsabilidadCivil' => '2000000.00', 'gastosMedicos' => '200000.00',
+            'muerteConductor' => '100000.00', 'primaNeta' => '6203.35', 'gastosExpedicion' => '550.00', 'iva' => '1080.54',
+            'primaTotal' => '7833.89'
+        });
+        Map<String, Object> moto = new Map<String, Object>(asegurado);
+        moto.putAll(new Map<String, Object>{
+            'inciso' => '21', 'marca' => 'ITALIKA', 'anio' => '2021', 'serie' => '3H1KA0542MD816112',
+            'descripcion' => 'MOTOCICLETA MOTOCICLETA TODAS', 'placas' => 'JAL123', 'uso' => 'MOTOCICLETA USO NORMAL',
+            'tipoVehiculo' => 'MOTOCICLETA', 'primaNeta' => '3151.13', 'primaTotal' => '4293.31'
+        });
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradosAdicionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'CONDUCTOR ADICIONAL' } },
+            'vehiculos' => new List<Object>{ camion, moto }
+        });
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('vehiculos'), 'Dos vehículos: ' + resumen);
+        CustomerProperty cp = [
+            SELECT Make, ModelName, MakeYear, Vin, Motor__c, RegistrationNumber, PassengerSeatCapacity, Uso__c,
+                TipoVehiculo__c, Street, City, PostalCode, CountryCode, StateCode, Description
+            FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND Vin = '3GCEC14X38M114075'
+        ];
+        System.assertEquals('CHEVROLET', cp.Make);
+        System.assertEquals('SILVERADO 1500 CABINA REGULAR', cp.ModelName);
+        System.assertEquals(2008, cp.MakeYear);
+        System.assertEquals(null, cp.Motor__c, '"SN" no es un número de motor');
+        System.assertEquals(null, cp.RegistrationNumber);
+        System.assertEquals(2, cp.PassengerSeatCapacity);
+        System.assertEquals('CAMIÓN USO NORMAL CARGA', cp.Uso__c);
+        System.assertEquals('CAMIÓN', cp.TipoVehiculo__c);
+        System.assertEquals('CALLE ECA DO QUEIROS 5125 INT 1 JARDINES UNIVERSIDAD', cp.Street);
+        System.assertEquals('ZAPOPAN', cp.City);
+        System.assertEquals('45110', cp.PostalCode);
+        System.assertEquals('MX', cp.CountryCode);
+        System.assertEquals('JA', cp.StateCode);
+        System.assert(cp.Description.contains('Asegurado: CASGUTSA') && cp.Description.contains('RFC: CAS041109LG9'), cp.Description);
+        System.assertEquals('JAL123', [SELECT RegistrationNumber FROM CustomerProperty WHERE Vin = '3H1KA0542MD816112'].RegistrationNumber);
+
+        List<InsurancePolicyAsset> bienes = [
+            SELECT AssetName, StandardPremiumAmount FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY AssetName
+        ];
+        System.assertEquals(2, bienes.size(), 'Un bien de póliza por vehículo, sin duplicar');
+        System.assert(bienes[0].AssetName.startsWith('Inciso 1 - CHEVROLET'), bienes[0].AssetName);
+        System.assertEquals(7833.89, bienes[0].StandardPremiumAmount);
+
+        List<Inciso_Flotilla__c> incisos = [
+            SELECT Numero_Inciso__c, Oportunidad__c, Vehiculo__c, Serie__c, Modelo__c, Tipo_Vehiculo__c, Deducible_DM__c,
+                Responsabilidad_Civil__c, Prima_Neta__c, Prima__c, Placas__c
+            FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId ORDER BY Numero_Inciso__c
+        ];
+        System.assertEquals(2, incisos.size(), 'Un inciso de flotilla por vehículo, sin duplicar');
+        System.assertEquals(q.OpportunityId, incisos[0].Oportunidad__c);
+        System.assertEquals(cp.Id, incisos[0].Vehiculo__c);
+        System.assertEquals(2008, incisos[0].Modelo__c);
+        System.assertEquals(3, incisos[0].Deducible_DM__c);
+        System.assertEquals(2000000, incisos[0].Responsabilidad_Civil__c);
+        System.assertEquals(6203.35, incisos[0].Prima_Neta__c);
+        System.assertEquals(7833.89, incisos[0].Prima__c);
+        System.assertEquals(null, incisos[0].Placas__c);
+        System.assertEquals(21, incisos[1].Numero_Inciso__c);
+        System.assertEquals(0, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND ParticipantName = 'CONDUCTOR ADICIONAL'],
+            'Los asegurados adicionales de una flotilla no son participantes');
+    }
+
+    /**
+     * @creation date: 29/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida la separación de ciudad y estado del domicilio del asegurado.
+     * @return void
+     */
+    @isTest
+    static void testPartirCiudadEstado() {
+        System.assertEquals('ZAPOPAN', PolicyController.partirCiudadEstado('ZAPOPAN JALISCO').get('ciudad'));
+        System.assertEquals('JA', PolicyController.partirCiudadEstado('ZAPOPAN JALISCO').get('estado'));
+        System.assertEquals('DF', PolicyController.partirCiudadEstado('CIUDAD DE MEXICO').get('estado'));
+        System.assertEquals('PUEBLA', PolicyController.partirCiudadEstado('PUEBLA PUEBLA').get('ciudad'));
+        System.assertEquals('NL', PolicyController.partirCiudadEstado('SAN PEDRO GARZA GARCIA NUEVO LEON').get('estado'));
+        System.assertEquals(null, PolicyController.partirCiudadEstado('SIN ESTADO').get('estado'));
+    }
 }

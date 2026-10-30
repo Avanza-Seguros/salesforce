@@ -1040,6 +1040,10 @@ public with sharing class PolicyController {
 		Boolean esDanos = ramoKey.contains('dano') || ramoKey.contains('empresarial');
 		List<Object> ubicaciones = (esDanos && d.get('ubicaciones') instanceof List<Object>)
 			? (List<Object>) d.get('ubicaciones') : new List<Object>();
+		// Flotilla / colectiva de autos: cada vehículo (inciso) es un bien del cliente con su inciso de flotilla.
+		List<Object> vehiculos = (!esDanos && d.get('vehiculos') instanceof List<Object>)
+			? (List<Object>) d.get('vehiculos') : new List<Object>();
+		Boolean esFlotilla = vehiculos.size() > 1;
 
 		// 0) Completa los campos vacíos de la Cuenta (RFC, dirección, teléfono) con el PDF.
 		try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
@@ -1051,6 +1055,9 @@ public with sharing class PolicyController {
 		if (!ubicaciones.isEmpty()) {
 			try { resumen.put('ubicaciones', guardarUbicacionesDesdePdf(policyId, accountId, ubicaciones)); }
 			catch (Exception e) { resumen.put('ubicacionesError', msgLimpio(e)); }
+		} else if (esFlotilla) {
+			try { resumen.put('vehiculos', guardarVehiculosDesdePdf(policyId, accountId, oppId, vehiculos)); }
+			catch (Exception e) { resumen.put('vehiculosError', msgLimpio(e)); }
 		} else {
 			Id customerPropertyId = null;
 			try { customerPropertyId = guardarBienDesdePdf(policyId, accountId, d); resumen.put('vehiculo', 1); }
@@ -1072,8 +1079,8 @@ public with sharing class PolicyController {
 				Integer yaHay = [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId];
 				if (yaHay == 0) { n = crearParticipantesPoliza(policyId, oppId); }
 			}
-			// Los demás asegurados del PDF (otro titular, cónyuge, dependientes). En Daños no aplica.
-			if (!esDanos) { n += crearAseguradosAdicionalesDesdePdf(policyId, accountId, d); }
+			// Los demás asegurados del PDF (otro titular, cónyuge, dependientes). En Daños y flotillas no aplica.
+			if (!esDanos && !esFlotilla) { n += crearAseguradosAdicionalesDesdePdf(policyId, accountId, d); }
 			resumen.put('asegurados', n);
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
@@ -2242,6 +2249,256 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 29/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza de flotilla / colectiva de autos (un inciso por vehículo): por cada vehículo un
+	 * CustomerProperty del cliente (se reúsa el que tenga el mismo número de serie) con los datos del vehículo y del
+	 * asegurado, un InsurancePolicyAsset que lo liga a la póliza con la prima del inciso y un Inciso_Flotilla__c
+	 * ligado a la póliza, a la oportunidad y al vehículo con sus coberturas y primas. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param oppId: Id de la oportunidad origen (puede ser null)
+	 * @param vehiculos: lista leída del PDF: {inciso, asegurado, rfc, domicilio, calle, ciudadEstado, cp, contratante,
+	 *        conductor, marca, anio, descripcion, serie, placas, pasajeros, motor, uso, tipoVehiculo, clave, tipoCarga,
+	 *        tipoValor, deducibleDM, deducibleRT, responsabilidadCivil, gastosMedicos, muerteConductor, primaNeta,
+	 *        gastosExpedicion, iva, primaTotal}
+	 * @return Número de vehículos ligados a la póliza
+	 */
+	@TestVisible
+	private static Integer guardarVehiculosDesdePdf(Id policyId, Id accountId, Id oppId, List<Object> vehiculos) {
+		if (accountId == null || vehiculos == null || vehiculos.isEmpty()) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, Name, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		// Vehículos distintos por número de serie (sin serie, por inciso).
+		Map<String, Map<String, Object>> porLlave = new Map<String, Map<String, Object>>();
+		Set<String> series = new Set<String>();
+		for (Object o : vehiculos) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> v = (Map<String, Object>) o;
+			String serie = valorVehiculo(v, 'serie');
+			String inciso = valorVehiculo(v, 'inciso');
+			if (String.isBlank(serie) && String.isBlank(inciso)) { continue; }
+			String k = String.isNotBlank(serie) ? serie.toUpperCase() : 'inciso ' + inciso;
+			if (!porLlave.containsKey(k)) { porLlave.put(k, v); }
+			if (String.isNotBlank(serie)) { series.add(serie.toUpperCase()); }
+		}
+		if (porLlave.isEmpty()) { return 0; }
+
+		// Incisos que ya tiene la póliza (al volver a cargar el PDF se actualizan) y bienes del cliente con esa serie.
+		Map<String, Inciso_Flotilla__c> incisos = new Map<String, Inciso_Flotilla__c>();
+		for (Inciso_Flotilla__c i : [
+			SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId
+		]) {
+			incisos.put(String.isNotBlank(i.Serie__c) ? i.Serie__c.toUpperCase() : 'inciso ' + i.Numero_Inciso__c, i);
+		}
+		Map<String, CustomerProperty> porSerie = new Map<String, CustomerProperty>();
+		if (!series.isEmpty()) {
+			for (CustomerProperty c : [
+				SELECT Id, Vin FROM CustomerProperty WHERE PrimaryOwnerId = :accountId AND Vin IN :series
+				ORDER BY CreatedDate ASC
+			]) {
+				if (!porSerie.containsKey(c.Vin.toUpperCase())) { porSerie.put(c.Vin.toUpperCase(), c); }
+			}
+		}
+		Map<String, CustomerProperty> bienes = new Map<String, CustomerProperty>();
+		for (String k : porLlave.keySet()) {
+			CustomerProperty cp = porSerie.get(k);
+			Inciso_Flotilla__c ya = incisos.get(k);
+			if (cp == null && ya != null && ya.Vehiculo__c != null) { cp = new CustomerProperty(Id = ya.Vehiculo__c); }
+			if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
+			llenarVehiculo(cp, porLlave.get(k), pol.Name);
+			bienes.put(k, cp);
+		}
+		upsert bienes.values();
+
+		// Bien de póliza por vehículo (si ya está ligado, no se repite).
+		Set<Id> ligados = new Set<Id>();
+		for (InsurancePolicyAsset a : [
+			SELECT CustomerPropertyId FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
+		]) { ligados.add(a.CustomerPropertyId); }
+		List<InsurancePolicyAsset> nuevos = new List<InsurancePolicyAsset>();
+		List<Inciso_Flotilla__c> flotilla = new List<Inciso_Flotilla__c>();
+		for (String k : porLlave.keySet()) {
+			Map<String, Object> v = porLlave.get(k);
+			CustomerProperty cp = bienes.get(k);
+			String inciso = valorVehiculo(v, 'inciso');
+			String vehiculo = nombreVehiculo(v);
+			if (!ligados.contains(cp.Id)) {
+				InsurancePolicyAsset ipa = new InsurancePolicyAsset(
+					InsurancePolicyId = policyId, IsActive = true, CustomerPropertyId = cp.Id,
+					AssetName = ((String.isNotBlank(inciso) ? 'Inciso ' + inciso + ' - ' : '') + vehiculo).left(255)
+				);
+				if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
+				if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+				Decimal prima = parseMonto(valorVehiculo(v, 'primaTotal'));
+				if (prima != null) { ipa.StandardPremiumAmount = prima; }
+				nuevos.add(ipa);
+			}
+
+			Inciso_Flotilla__c inc = incisos.containsKey(k) ? incisos.get(k) : new Inciso_Flotilla__c(Poliza__c = policyId);
+			inc.Vehiculo__c = cp.Id;
+			if (oppId != null) { inc.Oportunidad__c = oppId; }
+			Decimal numero = parseMonto(inciso);
+			if (numero != null) { inc.Numero_Inciso__c = numero; }
+			inc.Serie__c = valorVehiculo(v, 'serie') == null ? null : valorVehiculo(v, 'serie').left(30);
+			inc.Placas__c = valorVehiculo(v, 'placas') == null ? null : valorVehiculo(v, 'placas').left(20);
+			Decimal anio = parseMonto(valorVehiculo(v, 'anio'));
+			if (anio != null) { inc.Modelo__c = anio; }
+			inc.Descripcion__c = vehiculo.left(255);
+			String tipo = valorVehiculo(v, 'tipoVehiculo');
+			if (tipo != null) { inc.Tipo_Vehiculo__c = tipo.left(80); }
+			String uso = valorVehiculo(v, 'uso');
+			if (uso != null) { inc.Uso__c = uso.left(60); }
+			String clave = valorVehiculo(v, 'clave');
+			if (clave != null) { inc.Clave_Vehicular__c = clave.left(30); }
+			String tipoValor = valorVehiculo(v, 'tipoValor');
+			if (tipoValor != null) { inc.Tipo_Valor__c = tipoValor.left(40); }
+			inc.Deducible_DM__c = parseMonto(valorVehiculo(v, 'deducibleDM'));
+			inc.Deducible_RT__c = parseMonto(valorVehiculo(v, 'deducibleRT'));
+			inc.Responsabilidad_Civil__c = parseMonto(valorVehiculo(v, 'responsabilidadCivil'));
+			inc.Gastos_Medicos__c = parseMonto(valorVehiculo(v, 'gastosMedicos'));
+			inc.Muerte_Conductor__c = parseMonto(valorVehiculo(v, 'muerteConductor'));
+			inc.Prima_Neta__c = parseMonto(valorVehiculo(v, 'primaNeta'));
+			inc.Prima__c = parseMonto(valorVehiculo(v, 'primaTotal'));
+			flotilla.add(inc);
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+		upsert flotilla;
+		return bienes.size();
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena el CustomerProperty de un vehículo de flotilla con los datos del PDF: marca, modelo
+	 * (versión), año, serie, motor, placas, pasajeros, uso y tipo; el domicilio del asegurado (calle, ciudad, estado,
+	 * C.P., México) y en la descripción el vehículo, el asegurado (nombre, RFC, domicilio, contratante, conductor),
+	 * las coberturas principales y las primas del inciso.
+	 * @param cp: CustomerProperty nuevo o existente
+	 * @param v: datos del vehículo
+	 * @param poliza: número de la póliza (origen del dato)
+	 * @return void
+	 */
+	private static void llenarVehiculo(CustomerProperty cp, Map<String, Object> v, String poliza) {
+		String marca = valorVehiculo(v, 'marca');
+		String descripcion = valorVehiculo(v, 'descripcion');
+		if (marca != null) { cp.Make = marca.left(255); }
+		if (descripcion != null) { cp.ModelName = descripcion.split(',')[0].trim().left(255); }
+		Decimal anio = parseMonto(valorVehiculo(v, 'anio'));
+		if (anio != null) { cp.MakeYear = anio.intValue(); }
+		if (valorVehiculo(v, 'serie') != null) { cp.Vin = valorVehiculo(v, 'serie').toUpperCase(); }
+		if (valorVehiculo(v, 'motor') != null) { cp.Motor__c = valorVehiculo(v, 'motor').left(40); }
+		if (valorVehiculo(v, 'placas') != null) { cp.RegistrationNumber = valorVehiculo(v, 'placas'); }
+		Decimal pasajeros = parseMonto(valorVehiculo(v, 'pasajeros'));
+		if (pasajeros != null) { cp.PassengerSeatCapacity = pasajeros.intValue(); }
+		if (valorVehiculo(v, 'uso') != null) { cp.Uso__c = valorVehiculo(v, 'uso').left(40); }
+		if (valorVehiculo(v, 'tipoVehiculo') != null) { cp.TipoVehiculo__c = valorVehiculo(v, 'tipoVehiculo').left(40); }
+		String usoPrincipal = pickPicklist(CustomerProperty.PrimaryUse.getDescribe(), new List<String>{ 'Compañía', 'Company', 'Trabajo' });
+		if (usoPrincipal != null) { cp.PrimaryUse = usoPrincipal; }
+
+		// Domicilio del asegurado.
+		String calle = valorVehiculo(v, 'calle');
+		if (calle != null) { cp.Street = calle.left(255); }
+		Map<String, String> lugar = partirCiudadEstado(valorVehiculo(v, 'ciudadEstado'));
+		if (String.isNotBlank(lugar.get('ciudad'))) { cp.City = lugar.get('ciudad').left(40); }
+		if (valorVehiculo(v, 'cp') != null) { cp.PostalCode = valorVehiculo(v, 'cp'); }
+		if (calle != null || valorVehiculo(v, 'cp') != null) {
+			String pais = pickPicklist(CustomerProperty.CountryCode.getDescribe(), new List<String>{ 'MX' });
+			String estado = lugar.get('estado');
+			if (pais != null) {
+				cp.CountryCode = pais;
+				String codigo = estado == null ? null : pickPicklist(CustomerProperty.StateCode.getDescribe(), new List<String>{ estado });
+				if (codigo != null) { cp.StateCode = codigo; }
+			} else {
+				cp.Country = 'México';
+			}
+		}
+		cp.SourceSystem = ('Póliza ' + poliza).left(255);
+
+		List<String> lineas = new List<String>{ nombreVehiculo(v) };
+		Map<String, String> etiquetas = new Map<String, String>{
+			'inciso' => 'Inciso', 'serie' => 'Número de serie', 'motor' => 'Número de motor', 'placas' => 'Placas',
+			'pasajeros' => 'Pasajeros', 'uso' => 'Uso', 'clave' => 'Clave vehicular', 'tipoCarga' => 'Tipo de carga',
+			'asegurado' => 'Asegurado', 'rfc' => 'RFC', 'domicilio' => 'Domicilio', 'cp' => 'C.P.',
+			'contratante' => 'Contratante', 'conductor' => 'Conductor', 'tipoValor' => 'Suma asegurada',
+			'deducibleDM' => 'Deducible daños materiales %', 'deducibleRT' => 'Deducible robo total %'
+		};
+		for (String k : etiquetas.keySet()) {
+			String valor = valorVehiculo(v, k);
+			if (valor != null) { lineas.add(etiquetas.get(k) + ': ' + valor); }
+		}
+		Map<String, String> montos = new Map<String, String>{
+			'responsabilidadCivil' => 'Responsabilidad civil', 'gastosMedicos' => 'Gastos médicos',
+			'muerteConductor' => 'Muerte del conductor', 'primaNeta' => 'Prima neta del inciso',
+			'gastosExpedicion' => 'Gastos de expedición', 'iva' => 'IVA', 'primaTotal' => 'Prima total del inciso'
+		};
+		for (String k : montos.keySet()) {
+			Decimal valor = parseMonto(valorVehiculo(v, k));
+			if (valor != null) { lineas.add(montos.get(k) + ': $' + valor.setScale(2).format()); }
+		}
+		lineas.add('Póliza: ' + poliza);
+		cp.Description = String.join(lineas, '\n').left(32000);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Valor de un dato del vehículo; vacío o "SN" (sin número) se toma como null.
+	 * @param v: datos del vehículo
+	 * @param k: nombre del dato
+	 * @return valor o null
+	 */
+	private static String valorVehiculo(Map<String, Object> v, String k) {
+		String valor = strOf(v.get(k));
+		return String.isBlank(valor) || valor.equalsIgnoreCase('SN') || valor.equalsIgnoreCase('S/N') ? null : valor;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Nombre del vehículo para el bien de póliza y el inciso: marca, descripción y año.
+	 * @param v: datos del vehículo
+	 * @return nombre (ej. "CHEVROLET SILVERADO 1500 CABINA REGULAR, V6... 2008")
+	 */
+	private static String nombreVehiculo(Map<String, Object> v) {
+		List<String> partes = new List<String>();
+		for (String k : new List<String>{ 'marca', 'descripcion', 'anio' }) {
+			if (valorVehiculo(v, k) != null) { partes.add(valorVehiculo(v, k)); }
+		}
+		return partes.isEmpty() ? 'Vehículo' : String.join(partes, ' ');
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Separa "ZAPOPAN JALISCO" en ciudad y código de estado: el estado es el final más largo que se
+	 * reconoce ("CIUDAD DE MEXICO" completo es DF, no "MEXICO"); todo el texto solo cuenta si es el nombre exacto
+	 * ("PUEBLA PUEBLA" es ciudad PUEBLA y estado PB).
+	 * @param texto: ciudad y estado juntos
+	 * @return mapa con ciudad y estado (código)
+	 */
+	@TestVisible
+	private static Map<String, String> partirCiudadEstado(String texto) {
+		Map<String, String> r = new Map<String, String>{ 'ciudad' => strOf(texto) };
+		if (String.isBlank(texto)) { return r; }
+		List<String> palabras = texto.normalizeSpace().split(' ');
+		for (Integer i = 0; i < palabras.size(); i++) {
+			List<String> fin = new List<String>();
+			for (Integer j = i; j < palabras.size(); j++) { fin.add(palabras[j]); }
+			String codigo = estadoMexico(String.join(fin, ' '), i > 0);
+			if (codigo != null) {
+				List<String> ciudad = new List<String>();
+				for (Integer j = 0; j < i; j++) { ciudad.add(palabras[j]); }
+				r.put('ciudad', String.join(ciudad, ' '));
+				r.put('estado', codigo);
+				break;
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Llena el CustomerProperty de una ubicación de Daños con los datos del PDF: domicilio (calle y
 	 * colonia, ciudad, estado, C.P., México), pisos (altos + planta baja), sótano, cajones, techo, uso comercial,
 	 * giro, suma asegurada (valor) y en la descripción todos los datos del inmueble y la prima del inciso.
@@ -2355,6 +2612,18 @@ public with sharing class PolicyController {
 	 */
 	@TestVisible
 	private static String estadoMexico(String estado) {
+		return estadoMexico(estado, true);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Código del estado de México por su nombre; sin permitirPrefijo solo acepta el nombre exacto.
+	 * @param estado: nombre del estado
+	 * @param permitirPrefijo: true acepta nombres largos que abren con el estado ("COAHUILA DE ZARAGOZA")
+	 * @return código o null si no se reconoce
+	 */
+	private static String estadoMexico(String estado, Boolean permitirPrefijo) {
 		String e = normKey(estado).replaceAll('[^a-z ]', ' ').normalizeSpace();
 		if (String.isBlank(e)) { return null; }
 		Map<String, String> codigos = new Map<String, String>{
@@ -2368,6 +2637,7 @@ public with sharing class PolicyController {
 			'tlaxcala' => 'TL', 'veracruz' => 'VE', 'yucatan' => 'YU', 'zacatecas' => 'ZA'
 		};
 		if (codigos.containsKey(e)) { return codigos.get(e); }
+		if (!permitirPrefijo) { return null; }
 		// "COAHUILA DE ZARAGOZA", "MICHOACAN DE OCAMPO", "VERACRUZ DE IGNACIO DE LA LLAVE": el nombre más largo que abre.
 		String mejor = null;
 		for (String nombre : codigos.keySet()) {
