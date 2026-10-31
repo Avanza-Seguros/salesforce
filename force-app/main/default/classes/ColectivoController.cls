@@ -608,18 +608,52 @@ public with sharing class ColectivoController {
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Producto de la aseguradora para el ramo (Family igual al ramo o equivalente, ej. GMM / Gastos Médicos Mayores).
+	 *               Entre varios se prefiere el de colectivos / empresas (Colectivo, Grupo, Flotilla, PyME, Empresarial...)
+	 *               y se evita el individual. Solo la familia igual al ramo (filtro de búsqueda de Quote.Product__c). En
+	 *               Daños colectivo un producto de hogar no aplica: sin otro, la cotización queda sin producto.
 	 * @param aseguradoraId: aseguradora.
 	 * @param ramo: ramo de la oportunidad.
 	 * @return Id de Product2 o null.
 	 */
-	private static Id productoRamo(Id aseguradoraId, String ramo) {
-		Set<String> familias = new Set<String>{ ramo, etiquetaRamo(ramo) };
-		if (ramo == 'GMM') { familias.add('Gastos Médicos Mayores'); }
-		if (ramo == 'Accidentes Personales' || ramo == 'Vida') { familias.add('Personas'); }
+	public static Id productoRamo(Id aseguradoraId, String ramo) {
+		Id mejor = null;
+		Integer mejorPuntos = null;
 		for (Product2 p : [
-			SELECT Id FROM Product2 WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family IN :familias ORDER BY Name LIMIT 1
-		]) { return p.Id; }
-		return null;
+			SELECT Id, Name FROM Product2 WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family = :ramo
+			ORDER BY Name LIMIT 500
+		]) {
+			Integer puntos = puntosProductoColectivo(p.Name, ramo);
+			if (puntos == null) { continue; }
+			if (mejorPuntos == null || puntos > mejorPuntos) { mejor = p.Id; mejorPuntos = puntos; }
+		}
+		return mejor;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Qué tanto un producto parece de colectivos / empresas según su nombre.
+	 * @param nombre: nombre del producto.
+	 * @param ramo: ramo de la oportunidad.
+	 * @return puntos (más es mejor) o null si el producto no aplica a un colectivo del ramo (ej. Hogar en Daños).
+	 */
+	@TestVisible
+	private static Integer puntosProductoColectivo(String nombre, String ramo) {
+		String n = nombre == null ? '' : nombre.toLowerCase().replace('á', 'a').replace('é', 'e').replace('í', 'i')
+			.replace('ó', 'o').replace('ú', 'u');
+		Boolean ubicaciones = esUbicaciones(ramo);
+		if (ubicaciones && (n.contains('hogar') || n.contains('casa') || n.contains('medic') || n.contains('vida'))) { return null; }
+		List<String> buenas = ubicaciones
+			? new List<String>{ 'empresarial', 'multiple', 'pyme', 'negocio', 'incendio', 'indemniza', 'comercio', 'industri' }
+			: (ramo == 'Automoviles' ? new List<String>{ 'flotilla', 'colectiv', 'pyme', 'empresa' }
+				: new List<String>{ 'colectiv', 'grupo', 'empresa', 'pyme', 'corporativ', 'empleados' });
+		Integer puntos = 0;
+		for (String b : buenas) { if (n.contains(b)) { puntos += 3; } }
+		for (String m : new List<String>{ 'individual', 'familiar', 'hogar', 'casa', 'taxi', 'uber', 'fronteriz' }) {
+			if (n.contains(m)) { puntos -= 3; }
+		}
+		if (n.contains('gobierno')) { puntos -= 1; }
+		return puntos;
 	}
 
 	/**

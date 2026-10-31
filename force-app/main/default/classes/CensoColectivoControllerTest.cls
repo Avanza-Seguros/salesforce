@@ -257,7 +257,7 @@ private class CensoColectivoControllerTest {
 		System.assertNotEquals(null, [SELECT EffectiveToDate FROM InsurancePolicyParticipant WHERE Id = :titular.Id].EffectiveToDate,
 			'Completa las fechas que faltan');
 		System.assertEquals(contactos, [SELECT COUNT() FROM Contact WHERE AccountId = :opp.AccountId], 'No duplica contactos');
-		System.assertEquals(new List<String>{ 'Mujer', 'Esposa' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
+		System.assertEquals(new List<String>{ 'Mujer', 'Esposa', 'Conyugue', 'Cónyuge' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
 		System.assertEquals(new List<String>{ 'Hijo' }, CensoColectivoController.parentescoPoliza('Secundario', 'Hombre'));
 		System.assertEquals(new List<String>{ 'Hija' }, CensoColectivoController.parentescoPoliza('Child', 'Femenino'));
 		System.assertEquals(new List<String>{ 'Suegro' }, CensoColectivoController.parentescoPoliza('Suegro', null));
@@ -277,5 +277,46 @@ private class CensoColectivoControllerTest {
 		System.assertEquals('UTRILLA ACEVEDO BRAULIO RODRIGO 00000003 TITULAR HOMBRE 35', unidos[3], 'Siguiente asegurado partido');
 		System.assertEquals('SANCHEZ MONTOYA NAOMI MONSERRAT 00000009 TITULAR MUJER 26', unidos[4], 'Pedazo de abajo al final del nombre');
 		System.assertEquals('ROBLEDO RODRIGUEZ KATTYA 00000001 TITULAR MUJER 47', unidos[1], 'Renglón completo sin cambios');
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: La persona que ya trae el PDF de la póliza (sin certificado y sin acentos) se completa con el censo
+	 *               en vez de duplicarse; la suma asegurada individual queda como cobertura de su participante.
+	 * @return void
+	 */
+	@isTest
+	static void testCensoConPersonaDelPdf() {
+		Opportunity opp = [SELECT Id, AccountId FROM Opportunity LIMIT 1];
+		CensoColectivoController.guardarCenso(opp.Id, censoJson(), true);
+		InsurancePolicy pol = new InsurancePolicy(Name = 'POL-CENSO-PDF', NameInsuredId = opp.AccountId, SourceOpportunityId = opp.Id,
+			Status = 'Inicial', PremiumAmount = 1200, PaymentDueDate = Date.today().addDays(30), EffectiveDate = Datetime.now(),
+			ExpirationDate = Datetime.now().addDays(365));
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { pol.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert pol;
+		String nombre = [SELECT Name FROM GroupCensusMember WHERE GroupCensus.Oportunidad__c = :opp.Id AND Certificado__c = '001'
+			AND PrimaryGroupCensusMemberId = null LIMIT 1].Name;
+		// Participante creado desde el PDF: sin certificado y con el nombre sin acentos.
+		InsurancePolicyParticipant delPdf = new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, PrimaryParticipantAccountId = opp.AccountId,
+			ParticipantName = nombre.toUpperCase().replace('É', 'E').replace('Í', 'I'), Role = 'Asegurado');
+		insert delPdf;
+		Test.startTest();
+		Integer creados = CensoColectivoController.copiarCensoAPoliza(opp.Id, pol.Id);
+		CensoColectivoController.copiarCensoAPoliza(opp.Id, pol.Id);
+		Test.stopTest();
+		System.assertEquals(3, creados, 'El titular del PDF no se vuelve a crear');
+		System.assertEquals(4, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id], 'Un participante por asegurado');
+		System.assertEquals('001', [SELECT ParticipantCode FROM InsurancePolicyParticipant WHERE Id = :delPdf.Id].ParticipantCode,
+			'Se completa el certificado');
+		System.assertNotEquals(null, [SELECT RelatedInsPolicyParticipantId FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Mar%'].RelatedInsPolicyParticipantId, 'El cónyuge se liga al titular del PDF');
+		List<InsurancePolicyCoverage> individuales = [SELECT LimitAmount, InsurancePolicyParticipantId FROM InsurancePolicyCoverage
+			WHERE InsurancePolicyId = :pol.Id AND InsurancePolicyParticipantId != null];
+		System.assertEquals(1, individuales.size(), 'Solo el asegurado con suma asegurada, sin duplicar');
+		System.assertEquals(1000000, individuales[0].LimitAmount, 'Suma asegurada del censo');
+		System.assertEquals(delPdf.Id, individuales[0].InsurancePolicyParticipantId, 'Ligada a su participante');
 	}
 }

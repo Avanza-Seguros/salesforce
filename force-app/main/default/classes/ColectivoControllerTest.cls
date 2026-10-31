@@ -415,4 +415,32 @@ private class ColectivoControllerTest {
 		System.assertEquals(0, res.get(opp.Id).get('unidades'), 'Sin flotilla');
 		System.assert(vacio.isEmpty(), 'Sin oportunidades no hay resumen');
 	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El producto de la cotización colectiva es el de colectivos / empresas y no el individual o de hogar.
+	 * @return void
+	 */
+	@isTest
+	static void testProductoColectivo() {
+		Aseguradora__c aseg = new Aseguradora__c(Name = 'MAPFRE Producto Test');
+		insert aseg;
+		Product2 hogar = new Product2(Name = 'Seguro de Hogar Bien Seguro', IsActive = true, Family = 'Danos');
+		Product2 empresa = new Product2(Name = 'Indemniza PyMES', IsActive = true, Family = 'Danos');
+		Product2 otraFamilia = new Product2(Name = 'Seguro Múltiple Empresarial', IsActive = true, Family = 'Empresarial');
+		for (Product2 p : new List<Product2>{ hogar, empresa, otraFamilia }) { p.put('Aseguradora__c', aseg.Id); }
+		insert new List<Product2>{ hogar, empresa, otraFamilia };
+		Test.startTest();
+		Id elegido = ColectivoController.productoRamo(aseg.Id, 'Danos');
+		delete empresa;
+		Id soloHogar = ColectivoController.productoRamo(aseg.Id, 'Danos');
+		Test.stopTest();
+		System.assertEquals(empresa.Id, elegido, 'Producto de empresa de la familia del ramo');
+		System.assertEquals(null, soloHogar, 'Un producto de hogar no aplica a Daños colectivo');
+		System.assert(ColectivoController.puntosProductoColectivo('Autos Flotillas y Colectividades', 'Automoviles')
+			> ColectivoController.puntosProductoColectivo('Seguro de Auto Individual', 'Automoviles'), 'Flotilla antes que individual');
+		System.assert(ColectivoController.puntosProductoColectivo('Vida Empresarial', 'Vida')
+			> ColectivoController.puntosProductoColectivo('Seguro de Vida Individual Met99 (Gobierno)', 'Vida'), 'Empresarial antes que individual');
+	}
 }

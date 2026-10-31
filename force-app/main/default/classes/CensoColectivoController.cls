@@ -649,7 +649,7 @@ public with sharing class CensoColectivoController {
 		List<GroupCensusMember> miembros = [
 			SELECT Id, FirstName, LastName, Name, Gender, RelationshipToPrimaryMember, PrimaryGroupCensusMemberId,
 				PrimaryGroupCensusMember.JoinDate, GroupClassId, JoinDate, Birthdate, Certificado__c, RFC__c, ContactId, Prima__c,
-				Email, PhoneNumber
+				Email, PhoneNumber, Suma_Asegurada__c
 			FROM GroupCensusMember
 			WHERE GroupCensus.Oportunidad__c = :opportunityId
 			ORDER BY PrimaryGroupCensusMemberId NULLS FIRST, Certificado__c, Name
@@ -661,12 +661,17 @@ public with sharing class CensoColectivoController {
 
 		// Participantes que ya están en la póliza (mismo certificado y nombre): no se duplican, solo se completan.
 		Map<String, InsurancePolicyParticipant> yaEstan = new Map<String, InsurancePolicyParticipant>();
+		Map<String, InsurancePolicyParticipant> sinCertificado = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
 			SELECT Id, ParticipantName, ParticipantCode, RelationshipToInsured, RelatedInsPolicyParticipantId,
 				EffectiveFromDate, EffectiveToDate, EffectiveDate, ExpirationDate, FechaNacimiento__c, Identificacion__c,
 				PrimaryParticipantContactId
 			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
-		]) { yaEstan.put(llaveParticipante(p.ParticipantCode, p.ParticipantName), p); }
+		]) {
+			yaEstan.put(llaveParticipante(p.ParticipantCode, p.ParticipantName), p);
+			// Sin certificado (ej. la persona que trae el PDF de la póliza): se reconoce solo por el nombre.
+			if (String.isBlank(p.ParticipantCode)) { sinCertificado.put(llaveParticipante(null, p.ParticipantName), p); }
+		}
 
 		String rolTitular = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(), new List<String>{ 'Asegurado', 'Insured' });
 		String rolDependiente = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(),
@@ -675,17 +680,21 @@ public with sharing class CensoColectivoController {
 
 		// 1) Titulares (los dependientes se ligan a ellos).
 		Map<Id, InsurancePolicyParticipant> porTitular = new Map<Id, InsurancePolicyParticipant>();
+		// Participante de cada asegurado del censo (para su suma asegurada individual).
+		Map<Id, InsurancePolicyParticipant> porMiembro = new Map<Id, InsurancePolicyParticipant>();
 		List<InsurancePolicyParticipant> titulares = new List<InsurancePolicyParticipant>();
 		for (GroupCensusMember m : miembros) {
 			if (m.PrimaryGroupCensusMemberId != null) { continue; }
 			InsurancePolicyParticipant p = participante(m, policyId, rolTitular, pol);
-			InsurancePolicyParticipant existe = yaEstan.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+			InsurancePolicyParticipant existe = participanteExistente(yaEstan, sinCertificado, p);
 			if (existe != null) {
 				porTitular.put(m.Id, existe);
+				porMiembro.put(m.Id, existe);
 				if (completarDatos(existe, p)) { completar.put(existe.Id, existe); }
 				continue;
 			}
 			porTitular.put(m.Id, p);
+			porMiembro.put(m.Id, p);
 			titulares.add(p);
 		}
 		if (!titulares.isEmpty()) { insert titulares; }
@@ -701,16 +710,64 @@ public with sharing class CensoColectivoController {
 			}
 			String rel = valorPicklist(relacion, parentescoPoliza(m.RelationshipToPrimaryMember, m.Gender));
 			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
-			InsurancePolicyParticipant existe = yaEstan.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+			InsurancePolicyParticipant existe = participanteExistente(yaEstan, sinCertificado, p);
 			if (existe != null) {
+				porMiembro.put(m.Id, existe);
 				if (completarDatos(existe, p)) { completar.put(existe.Id, existe); }
 				continue;
 			}
+			porMiembro.put(m.Id, p);
 			dependientes.add(p);
 		}
 		if (!dependientes.isEmpty()) { insert dependientes; }
 		if (!completar.isEmpty()) { update completar.values(); }
+		coberturasIndividuales(miembros, porMiembro, policyId);
 		return titulares.size() + dependientes.size();
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Participante que ya está en la póliza para el asegurado: mismo certificado y nombre o, si el que
+	 *               existe no tiene certificado (ej. la persona del PDF), mismo nombre. Cada uno se usa una sola vez.
+	 * @param yaEstan: participantes por certificado y nombre.
+	 * @param sinCertificado: participantes sin certificado, por nombre.
+	 * @param p: participante armado desde el censo.
+	 * @return participante existente o null.
+	 */
+	private static InsurancePolicyParticipant participanteExistente(Map<String, InsurancePolicyParticipant> yaEstan,
+			Map<String, InsurancePolicyParticipant> sinCertificado, InsurancePolicyParticipant p) {
+		InsurancePolicyParticipant existe = yaEstan.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+		if (existe == null) { existe = sinCertificado.remove(llaveParticipante(null, p.ParticipantName)); }
+		return existe;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Suma asegurada individual del censo (ej. Vida: meses de sueldo) como cobertura ligada al participante
+	 *               del asegurado. Es idempotente y no rebasa el límite de registros de la transacción.
+	 * @param miembros: asegurados del censo.
+	 * @param porMiembro: participante de cada asegurado.
+	 * @param policyId: póliza.
+	 */
+	private static void coberturasIndividuales(List<GroupCensusMember> miembros, Map<Id, InsurancePolicyParticipant> porMiembro, Id policyId) {
+		Set<Id> conCobertura = new Set<Id>();
+		for (InsurancePolicyCoverage c : [
+			SELECT InsurancePolicyParticipantId FROM InsurancePolicyCoverage
+			WHERE InsurancePolicyId = :policyId AND InsurancePolicyParticipantId != null
+		]) { conCobertura.add(c.InsurancePolicyParticipantId); }
+		Integer disponibles = Limits.getLimitDmlRows() - Limits.getDmlRows() - 500;
+		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		for (GroupCensusMember m : miembros) {
+			InsurancePolicyParticipant p = porMiembro.get(m.Id);
+			if (m.Suma_Asegurada__c == null || p == null || p.Id == null || conCobertura.contains(p.Id)) { continue; }
+			if (nuevas.size() >= disponibles) { break; }
+			conCobertura.add(p.Id);
+			nuevas.add(new InsurancePolicyCoverage(InsurancePolicyId = policyId, InsurancePolicyParticipantId = p.Id,
+				CoverageName = ('Suma asegurada - ' + p.ParticipantName).left(255), LimitAmount = m.Suma_Asegurada__c));
+		}
+		if (!nuevas.isEmpty()) { insert nuevas; }
 	}
 
 	/**
@@ -797,7 +854,7 @@ public with sharing class CensoColectivoController {
 	 */
 	private static Boolean completarDatos(InsurancePolicyParticipant existe, InsurancePolicyParticipant nuevo) {
 		Boolean cambio = false;
-		for (String campo : new List<String>{ 'EffectiveFromDate', 'EffectiveToDate', 'EffectiveDate', 'ExpirationDate',
+		for (String campo : new List<String>{ 'ParticipantCode', 'EffectiveFromDate', 'EffectiveToDate', 'EffectiveDate', 'ExpirationDate',
 				'FechaNacimiento__c', 'Identificacion__c', 'RelationshipToInsured', 'RelatedInsPolicyParticipantId',
 				'PrimaryParticipantContactId' }) {
 			if (existe.get(campo) == null && nuevo.get(campo) != null) {
@@ -950,7 +1007,8 @@ public with sharing class CensoColectivoController {
 		String r = censo == null ? '' : censo.toLowerCase();
 		Boolean mujer = sexo != null && (sexo.toLowerCase().startsWith('m') && !sexo.toLowerCase().startsWith('mas') || sexo.toLowerCase().startsWith('f'));
 		if (r.contains('nyuge') || r.contains('spouse') || r.contains('esposa') || r.contains('esposo')) {
-			return mujer ? new List<String>{ 'Mujer', 'Esposa' } : new List<String>{ 'Marido', 'Esposo' };
+			// El catálogo de parentescos tiene "Conyugue" (así está escrito) para ambos sexos.
+			return mujer ? new List<String>{ 'Mujer', 'Esposa', 'Conyugue', 'Cónyuge' } : new List<String>{ 'Marido', 'Esposo', 'Conyugue', 'Cónyuge' };
 		}
 		if (r.contains('secundario') || r.contains('child') || r.contains('hij')) {
 			return mujer ? new List<String>{ 'Hija' } : new List<String>{ 'Hijo' };
@@ -986,6 +1044,9 @@ public with sharing class CensoColectivoController {
 	 * @return llave.
 	 */
 	private static String llaveParticipante(String certificado, String nombre) {
-		return (certificado == null ? '' : certificado.trim()) + '|' + (nombre == null ? '' : nombre.normalizeSpace().toUpperCase());
+		// Sin acentos: el PDF de la aseguradora suele traer el nombre sin ellos ("PEREZ" / "Pérez").
+		String n = nombre == null ? '' : nombre.normalizeSpace().toUpperCase().replace('Á', 'A').replace('É', 'E').replace('Í', 'I')
+			.replace('Ó', 'O').replace('Ú', 'U').replace('Ü', 'U');
+		return (certificado == null ? '' : certificado.trim()) + '|' + n;
 	}
 }

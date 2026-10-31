@@ -1129,4 +1129,119 @@ private class PolicyControllerTest {
         System.assertEquals('NL', PolicyController.partirCiudadEstado('SAN PEDRO GARZA GARCIA NUEVO LEON').get('estado'));
         System.assertEquals(null, PolicyController.partirCiudadEstado('SIN ESTADO').get('estado'));
     }
+
+    /**
+     * @creation date: 31/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Flotilla emitida sin PDF: los vehículos de la cotización aceptada quedan como bienes e incisos de la
+     * póliza y el del censo con la misma serie se liga a la póliza.
+     * @return void
+     */
+    @isTest
+    static void testFlotillaSinPdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Automoviles');
+        insert new List<Inciso_Flotilla__c>{
+            new Inciso_Flotilla__c(Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId, Numero_Inciso__c = 1, Serie__c = 'SERIEE2E0001',
+                Descripcion__c = 'NISSAN VERSA', Modelo__c = 2024, Prima__c = 12000, Prima_Neta__c = 10000),
+            new Inciso_Flotilla__c(Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId, Numero_Inciso__c = 2, Serie__c = 'SERIEE2E0002',
+                Descripcion__c = 'TOYOTA HILUX', Modelo__c = 2023, Prima__c = 15000, Prima_Neta__c = 13000)
+        };
+        Inciso_Flotilla__c delCenso = new Inciso_Flotilla__c(Oportunidad__c = q.OpportunityId, Serie__c = 'SERIEE2E0001', Descripcion__c = 'VERSA (censo)');
+        insert delCenso;
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.completarPoliza(policyId, q.OpportunityId);
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('vehiculos'), 'Un bien por vehículo: ' + resumen);
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId]);
+        System.assertEquals(2, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId], 'Incisos de la póliza');
+        System.assertEquals(policyId, [SELECT Poliza__c FROM Inciso_Flotilla__c WHERE Id = :delCenso.Id].Poliza__c, 'El del censo se liga');
+        System.assertEquals(12000, [SELECT Prima__c FROM Inciso_Flotilla__c WHERE Id = :delCenso.Id].Prima__c, 'Con la prima cotizada');
+    }
+
+    /**
+     * @creation date: 31/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Daños colectivo emitido sin PDF: cada ubicación de la cotización aceptada es un bien de la póliza.
+     * @return void
+     */
+    @isTest
+    static void testUbicacionesSinPdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Danos');
+        insert new List<Categoria_Colectiva__c>{
+            new Categoria_Colectiva__c(Name = 'Oficinas', Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId,
+                Direccion__c = 'Av. Insurgentes Sur 1000, Col. Del Valle, CDMX, CP 03100', Suma_Asegurada_Total__c = 12000000, Prima_Neta__c = 18000),
+            new Categoria_Colectiva__c(Name = 'Bodega', Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId,
+                Direccion__c = 'Calle Industria 25, Tlalnepantla, Edo. Mex., CP 54030', Suma_Asegurada_Total__c = 25000000, Prima_Neta__c = 41000)
+        };
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.completarPoliza(policyId, q.OpportunityId);
+        // Con PDF que no trae ubicaciones: también las de la cotización (sin duplicar).
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, '{}');
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('ubicaciones'), 'Una ubicación por renglón: ' + resumen);
+        List<InsurancePolicyAsset> bienes = [SELECT StandardPremiumAmount FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId
+            ORDER BY StandardPremiumAmount];
+        System.assertEquals(2, bienes.size(), 'Sin bien genérico ni duplicados');
+        System.assertEquals(18000, bienes[0].StandardPremiumAmount, 'Prima de la ubicación');
+    }
+
+    /**
+     * @creation date: 31/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Colectiva de personas con PDF que trae a una persona: se copia todo el censo y las coberturas de las
+     * categorías cotizadas (suma asegurada, deducible y adicionales).
+     * @return void
+     */
+    @isTest
+    static void testColectivaPersonasConPdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Vida');
+        CensoColectivoController.guardarCenso(q.OpportunityId, JSON.serialize(new List<Object>{
+            new Map<String, Object>{ 'fila' => 2, 'nombre' => 'Juan', 'apellidos' => 'Perez Lopez', 'fechaNacimiento' => '1980-05-10',
+                'sexo' => 'Hombre', 'parentesco' => 'Titular', 'categoria' => 'Ejecutivos', 'certificado' => '1', 'sumaAsegurada' => 2400000 },
+            new Map<String, Object>{ 'fila' => 3, 'nombre' => 'Ana', 'apellidos' => 'Torres Diaz', 'fechaNacimiento' => '1990-11-15',
+                'sexo' => 'Mujer', 'parentesco' => 'Titular', 'categoria' => 'Ejecutivos', 'certificado' => '2' }
+        }), true);
+        insert new Categoria_Colectiva__c(Name = 'Ejecutivos', Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId, Plan__c = 'Plus',
+            Suma_Asegurada__c = '$1,000,000', Deducible__c = '$10,000', Coaseguro__c = '10%', Prima_Neta__c = 5000, Asegurados__c = 2,
+            Coberturas_Adicionales__c = 'Muerte accidental\nInvalidez total');
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradoNombre' => 'Cuenta Póliza Test',
+            'contratante' => new Map<String, Object>{ 'nombre' => 'Cuenta Póliza Test' },
+            'asegurado' => new Map<String, Object>{ 'nombre' => 'JUAN PEREZ LOPEZ' }
+        });
+
+        Test.startTest();
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        Test.stopTest();
+
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId],
+            'Todo el censo, sin duplicar a la persona del PDF');
+        InsurancePolicyCoverage cat = [SELECT LimitAmount, DeductibleAmount, PremiumAmount, Description FROM InsurancePolicyCoverage
+            WHERE InsurancePolicyId = :policyId AND CoverageName = 'Categoría Ejecutivos - Plan Plus'];
+        System.assertEquals(1000000, cat.LimitAmount, 'Suma asegurada de la categoría');
+        System.assertEquals(10000, cat.DeductibleAmount, 'Deducible de la categoría');
+        System.assertEquals(5000, cat.PremiumAmount, 'Prima de la categoría');
+        System.assert(cat.Description.contains('Coaseguro: 10%'), cat.Description);
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+            AND CoverageName IN ('Muerte accidental', 'Invalidez total')], 'Coberturas adicionales');
+        System.assertEquals(2400000, [SELECT LimitAmount FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+            AND InsurancePolicyParticipantId != null].LimitAmount, 'Suma asegurada individual del censo');
+        System.assertEquals(20000000, PolicyController.montoExacto('$20,000,000'));
+        System.assertEquals(15000, PolicyController.montoExacto('15,000 MXN'));
+        System.assertEquals(null, PolicyController.montoExacto('24 meses de sueldo'));
+        System.assertEquals(null, PolicyController.montoExacto('10%'));
+    }
 }

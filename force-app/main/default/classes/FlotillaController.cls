@@ -485,7 +485,9 @@ public with sharing class FlotillaController {
 			q.Name = ('Flotilla - ' + asegs[0].Name + ' (' + datos.incisos.size() + ' unidades)').left(255);
 			q.Pricebook2Id = opp.Pricebook2Id != null ? opp.Pricebook2Id : pricebookEstandar();
 			q.put('Aseguradora__c', asegs[0].Id);
-			Id producto = productoAuto(asegs[0].Id, opp.Ramo__c);
+			// Producto de flotillas / colectivos de la aseguradora; si no hay, cualquiera de Autos.
+			Id producto = ColectivoController.productoRamo(asegs[0].Id, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : 'Automoviles');
+			if (producto == null) { producto = productoAuto(asegs[0].Id, opp.Ramo__c); }
 			if (producto != null) { q.put('Product__c', producto); }
 			if (String.isNotBlank(opp.Ramo__c)) { q.put('Ramos__c', opp.Ramo__c); }
 			q.put('RatingDate', Date.today());

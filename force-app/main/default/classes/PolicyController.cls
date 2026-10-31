@@ -513,10 +513,15 @@ public with sharing class PolicyController {
 			}
 		}
 
-		// 1) Bien asegurado.
+		// 1) Bien asegurado. En colectivas de Daños / flotillas: las ubicaciones o vehículos de la cotización aceptada.
 		try {
-			Id ipaId = crearVinculoBien(policyId);
-			resumen.put('bien', ipaId != null ? 1 : 0);
+			Map<String, Object> colectivos = crearBienesColectivos(policyId, oppId);
+			if (!colectivos.isEmpty()) {
+				resumen.putAll(colectivos);
+			} else {
+				Id ipaId = crearVinculoBien(policyId);
+				resumen.put('bien', ipaId != null ? 1 : 0);
+			}
 		} catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
 
 		// 2) Asegurados / participantes (colectiva por OCR + respaldo individual).
@@ -524,9 +529,9 @@ public with sharing class PolicyController {
 			resumen.put('asegurados', crearParticipantesPoliza(policyId, oppId));
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
-		// 3) Coberturas desde el catálogo del producto.
+		// 3) Coberturas desde el catálogo del producto y, en colectivas de personas, las de cada categoría cotizada.
 		try {
-			resumen.put('coberturas', crearCoberturasPoliza(policyId));
+			resumen.put('coberturas', crearCoberturasPoliza(policyId) + crearCoberturasCategorias(policyId));
 		} catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
 
 		// 4) Transacción de prima inicial.
@@ -1063,6 +1068,7 @@ public with sharing class PolicyController {
 		List<Object> vehiculos = (!esDanos && d.get('vehiculos') instanceof List<Object>)
 			? (List<Object>) d.get('vehiculos') : new List<Object>();
 		Boolean esFlotilla = vehiculos.size() > 1;
+		Map<String, Object> bienesColectivos = new Map<String, Object>();
 
 		// 0) Completa los campos vacíos de la Cuenta (RFC, dirección, teléfono) con el PDF.
 		try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
@@ -1078,6 +1084,11 @@ public with sharing class PolicyController {
 			try { resumen.put('vehiculos', guardarVehiculosDesdePdf(policyId, accountId, oppId, vehiculos)); }
 			catch (Exception e) { resumen.put('vehiculosError', msgLimpio(e)); }
 		} else {
+			// Colectiva de Daños / flotilla cuyo PDF no trae las ubicaciones o los vehículos: los de la cotización aceptada.
+			try { bienesColectivos = crearBienesColectivos(policyId, oppId); resumen.putAll(bienesColectivos); }
+			catch (Exception e) { resumen.put('bienesError', msgLimpio(e)); }
+		}
+		if (ubicaciones.isEmpty() && !esFlotilla && bienesColectivos.isEmpty()) {
 			Id customerPropertyId = null;
 			try { customerPropertyId = guardarBienDesdePdf(policyId, accountId, d); resumen.put('vehiculo', 1); }
 			catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
@@ -1091,7 +1102,16 @@ public with sharing class PolicyController {
 		//    bajo la cuenta principal (ej. CASTEMON). Si el PDF no trae persona, se cae al
 		//    participante de la cuenta.
 		try {
-			Integer n = crearParticipanteDesdePdf(policyId, accountId, d);
+			// Si la persona del PDF no se puede crear (ej. regla de duplicados del contacto), el censo se copia igual.
+			Integer n = 0;
+			try { n = crearParticipanteDesdePdf(policyId, accountId, d); }
+			catch (Exception e) { resumen.put('aseguradoPdfError', msgLimpio(e)); }
+			// Colectiva de personas: todo el censo de la oportunidad, aunque el PDF traiga a una persona (se completa,
+			// no se duplica).
+			if (!esDanos && !esFlotilla && bienesColectivos.isEmpty() && oppId != null) {
+				try { n += CensoColectivoController.copiarCensoAPoliza(oppId, policyId); }
+				catch (Exception e) { System.debug(LoggingLevel.WARN, 'No se pudo copiar el censo a la póliza: ' + e.getMessage()); }
+			}
 			// Solo si la póliza quedó SIN participantes se usa el respaldo (catálogo/OCR).
 			// Si crearParticipanteDesdePdf no creó porque ya existía, NO se agrega otro.
 			if (n == 0) {
@@ -1099,7 +1119,7 @@ public with sharing class PolicyController {
 				if (yaHay == 0) { n = crearParticipantesPoliza(policyId, oppId); }
 			}
 			// Los demás asegurados del PDF (otro titular, cónyuge, dependientes). En Daños y flotillas no aplica.
-			if (!esDanos && !esFlotilla) { n += crearAseguradosAdicionalesDesdePdf(policyId, accountId, d); }
+			if (!esDanos && !esFlotilla && bienesColectivos.isEmpty()) { n += crearAseguradosAdicionalesDesdePdf(policyId, accountId, d); }
 			resumen.put('asegurados', n);
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
@@ -1121,6 +1141,7 @@ public with sharing class PolicyController {
 			if (nc == 0 && [SELECT COUNT() FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId] == 0) {
 				nc = crearCoberturasPoliza(policyId);
 			}
+			nc += crearCoberturasCategorias(policyId);
 			resumen.put('coberturas', nc);
 		}
 		catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
@@ -3006,5 +3027,190 @@ public with sharing class PolicyController {
 			if (String.isNotBlank(m)) { partes.add(m); }
 		}
 		return partes.isEmpty() ? e.getMessage() : String.join(partes, ' | ');
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bienes de una póliza colectiva a partir de la oportunidad (sin PDF): en Daños / Empresarial una
+	 * ubicación por cada renglón de la cotización aceptada; en flotillas un vehículo por cada inciso de la cotización
+	 * aceptada (o, si no los tiene, del censo de vehículos). Los incisos del censo con la misma serie se ligan a la
+	 * póliza en vez de duplicarse.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param oppId: Id de la oportunidad origen
+	 * @return {'ubicaciones' => n} o {'vehiculos' => n}; vacío si la póliza no es colectiva de bienes
+	 */
+	private static Map<String, Object> crearBienesColectivos(Id policyId, Id oppId) {
+		Map<String, Object> res = new Map<String, Object>();
+		if (policyId == null || oppId == null) { return res; }
+		InsurancePolicy pol = [
+			SELECT Id, NameInsuredId, SourceOpportunityId, SourceQuoteId, Ramo__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		String ramoKey = normKey(pol.Ramo__c);
+		if (ramoKey.contains('dano') || ramoKey.contains('empresarial')) {
+			if (pol.SourceQuoteId == null) { return res; }
+			List<Object> ubicaciones = new List<Object>();
+			for (Categoria_Colectiva__c c : [
+				SELECT Direccion__c, Suma_Asegurada_Total__c, Prima_Neta__c FROM Categoria_Colectiva__c
+				WHERE Cotizacion__c = :pol.SourceQuoteId AND Direccion__c != null ORDER BY CreatedDate ASC, Id ASC LIMIT 1000
+			]) {
+				ubicaciones.add(new Map<String, Object>{
+					'inciso' => String.valueOf(ubicaciones.size() + 1), 'direccion' => c.Direccion__c,
+					'sumaAsegurada' => c.Suma_Asegurada_Total__c, 'primaTotal' => c.Prima_Neta__c
+				});
+			}
+			if (!ubicaciones.isEmpty()) {
+				res.put('ubicaciones', guardarUbicacionesDesdePdf(policyId, resolverCuentaDePoliza(pol), ubicaciones));
+			}
+			return res;
+		}
+		if (!ramoKey.contains('auto')) { return res; }
+		// Vehículos con la prima cotizada; sin cotización con incisos, los del censo de la oportunidad.
+		List<Inciso_Flotilla__c> fuente = new List<Inciso_Flotilla__c>();
+		if (pol.SourceQuoteId != null) { fuente = incisosColectivos(pol.SourceQuoteId, null); }
+		if (fuente.isEmpty()) { fuente = incisosColectivos(null, oppId); }
+		if (fuente.size() < 2) { return res; }
+		List<Object> vehiculos = new List<Object>();
+		for (Inciso_Flotilla__c i : fuente) {
+			vehiculos.add(new Map<String, Object>{
+				'inciso' => i.Numero_Inciso__c, 'serie' => i.Serie__c, 'descripcion' => i.Descripcion__c, 'anio' => i.Modelo__c,
+				'placas' => i.Placas__c, 'uso' => i.Uso__c, 'tipoVehiculo' => i.Tipo_Vehiculo__c, 'clave' => i.Clave_Vehicular__c,
+				'tipoValor' => i.Tipo_Valor__c, 'deducibleDM' => i.Deducible_DM__c, 'deducibleRT' => i.Deducible_RT__c,
+				'responsabilidadCivil' => i.Responsabilidad_Civil__c, 'gastosMedicos' => i.Gastos_Medicos__c,
+				'muerteConductor' => i.Muerte_Conductor__c, 'primaNeta' => i.Prima_Neta__c, 'primaTotal' => i.Prima__c
+			});
+		}
+		res.put('vehiculos', guardarVehiculosDesdePdf(policyId, resolverCuentaDePoliza(pol), oppId, vehiculos));
+		return res;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Incisos de flotilla de una cotización o, si no se indica cotización, los del censo de vehículos
+	 * de la oportunidad que aún no están en una póliza.
+	 * @param quoteId: cotización (puede ser null)
+	 * @param oppId: oportunidad (se usa cuando no hay cotización)
+	 * @return incisos ordenados por número de inciso
+	 */
+	private static List<Inciso_Flotilla__c> incisosColectivos(Id quoteId, Id oppId) {
+		String filtro = quoteId != null ? 'Cotizacion__c = :quoteId' : 'Oportunidad__c = :oppId AND Cotizacion__c = null AND Poliza__c = null';
+		return Database.query(
+			'SELECT Numero_Inciso__c, Serie__c, Descripcion__c, Modelo__c, Placas__c, Uso__c, Tipo_Vehiculo__c, Clave_Vehicular__c, ' +
+			'Tipo_Valor__c, Deducible_DM__c, Deducible_RT__c, Responsabilidad_Civil__c, Gastos_Medicos__c, Muerte_Conductor__c, ' +
+			'Prima_Neta__c, Prima__c FROM Inciso_Flotilla__c WHERE ' + filtro + ' ORDER BY Numero_Inciso__c ASC NULLS LAST, Id ASC LIMIT 3000'
+		);
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Coberturas de una póliza colectiva de personas desde las categorías de la cotización aceptada: una
+	 * cobertura por categoría con su suma asegurada, deducible, prima y condiciones (plan, coaseguro, tope, tabulador,
+	 * nivel hospitalario, territorio) y una por cada cobertura adicional. Es idempotente (por nombre).
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Número de coberturas creadas
+	 */
+	@TestVisible
+	private static Integer crearCoberturasCategorias(Id policyId) {
+		if (policyId == null) { return 0; }
+		InsurancePolicy pol = [SELECT Id, Ramo__c, SourceQuoteId, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+		String ramoKey = normKey(pol.Ramo__c);
+		if (pol.SourceQuoteId == null || ramoKey.contains('dano') || ramoKey.contains('empresarial') || ramoKey.contains('auto')) { return 0; }
+		Set<String> ya = new Set<String>();
+		for (InsurancePolicyCoverage c : [SELECT CoverageName FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId AND CoverageName != null]) {
+			ya.add(c.CoverageName.toLowerCase());
+		}
+		Integer largoDesc = Schema.SObjectType.InsurancePolicyCoverage.fields.Description.getLength();
+		if (largoDesc == null || largoDesc <= 0) { largoDesc = 255; }
+		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		// Coberturas adicionales -> categorías que las tienen (una sola cobertura por nombre).
+		Map<String, List<String>> adicionales = new Map<String, List<String>>();
+		for (Categoria_Colectiva__c c : [
+			SELECT Name, Plan__c, Suma_Asegurada__c, Suma_Asegurada_Total__c, Deducible__c, Coaseguro__c, Tope_Coaseguro__c, Tabulador__c,
+				Nivel_Hospitalario__c, Territorio__c, Coberturas_Adicionales__c, Prima_Neta__c, Asegurados__c
+			FROM Categoria_Colectiva__c WHERE Cotizacion__c = :pol.SourceQuoteId ORDER BY CreatedDate ASC, Id ASC LIMIT 200
+		]) {
+			String nombre = ('Categoría ' + c.Name + (String.isNotBlank(c.Plan__c) ? ' - Plan ' + c.Plan__c : '')).left(255);
+			if (!ya.contains(nombre.toLowerCase())) {
+				List<String> det = new List<String>();
+				agregarDetalle(det, 'Suma asegurada', c.Suma_Asegurada__c);
+				agregarDetalle(det, 'Deducible', c.Deducible__c);
+				agregarDetalle(det, 'Coaseguro', c.Coaseguro__c);
+				agregarDetalle(det, 'Tope de coaseguro', c.Tope_Coaseguro__c);
+				agregarDetalle(det, 'Tabulador', c.Tabulador__c);
+				agregarDetalle(det, 'Nivel hospitalario', c.Nivel_Hospitalario__c);
+				agregarDetalle(det, 'Territorio', c.Territorio__c);
+				if (c.Asegurados__c != null) { det.add('Asegurados: ' + c.Asegurados__c.intValue()); }
+				if (c.Suma_Asegurada_Total__c != null) { det.add('Suma asegurada total: ' + c.Suma_Asegurada_Total__c.format()); }
+				InsurancePolicyCoverage cob = coberturaColectiva(pol, nombre, String.join(det, ' · ').left(largoDesc));
+				cob.LimitAmount = montoExacto(c.Suma_Asegurada__c);
+				cob.DeductibleAmount = montoExacto(c.Deducible__c);
+				if (c.Prima_Neta__c != null) { cob.PremiumAmount = c.Prima_Neta__c; }
+				nuevas.add(cob);
+				ya.add(nombre.toLowerCase());
+			}
+			if (String.isNotBlank(c.Coberturas_Adicionales__c)) {
+				for (String a : c.Coberturas_Adicionales__c.split('\n')) {
+					String k = a.normalizeSpace().left(255);
+					if (String.isBlank(k)) { continue; }
+					if (!adicionales.containsKey(k)) { adicionales.put(k, new List<String>()); }
+					adicionales.get(k).add(c.Name);
+				}
+			}
+		}
+		for (String a : adicionales.keySet()) {
+			if (ya.contains(a.toLowerCase())) { continue; }
+			nuevas.add(coberturaColectiva(pol, a, ('Cobertura adicional. Categorías: ' + String.join(adicionales.get(a), ', ')).left(largoDesc)));
+			ya.add(a.toLowerCase());
+		}
+		if (!nuevas.isEmpty()) { insert nuevas; }
+		return nuevas.size();
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cobertura nueva de la póliza con producto y fecha de inicio de la póliza.
+	 * @param pol: póliza (ProductId, EffectiveDate)
+	 * @param nombre: nombre de la cobertura
+	 * @param descripcion: detalle
+	 * @return cobertura sin insertar
+	 */
+	private static InsurancePolicyCoverage coberturaColectiva(InsurancePolicy pol, String nombre, String descripcion) {
+		InsurancePolicyCoverage c = new InsurancePolicyCoverage(InsurancePolicyId = pol.Id, CoverageName = nombre);
+		if (String.isNotBlank(descripcion)) { c.Description = descripcion; }
+		if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
+		if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
+		return c;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega "Etiqueta: valor" a la lista si el valor no está vacío.
+	 * @param det: lista de detalles
+	 * @param etiqueta: nombre del dato
+	 * @param valor: valor
+	 * @return void
+	 */
+	private static void agregarDetalle(List<String> det, String etiqueta, String valor) {
+		if (String.isNotBlank(valor)) { det.add(etiqueta + ': ' + valor.normalizeSpace()); }
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Monto solo si el texto es una cantidad ("$20,000,000", "15000 MXN"); textos como "24 meses de
+	 * sueldo" o "10%" no son un monto.
+	 * @param v: texto
+	 * @return monto o null
+	 */
+	@TestVisible
+	private static Decimal montoExacto(String v) {
+		if (String.isBlank(v)) { return null; }
+		String t = v.normalizeSpace().toUpperCase().removeEnd('M.N.').removeEnd('MXN').removeEnd('PESOS').trim();
+		if (!Pattern.matches('\\$?\\s*[0-9][0-9.,]*', t)) { return null; }
+		return parseMonto(t);
 	}
 }
