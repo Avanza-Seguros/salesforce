@@ -1173,6 +1173,8 @@
                         <div class="form-container">
                             <c-censo-colectivo opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
                                 oncensoactualizado={handleCensoActualizado}></c-censo-colectivo>
+                            <c-movimientos-colectivo record-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                onmovimientos={handleMovimientosCenso}></c-movimientos-colectivo>
                         </div>
                     </div>
                 </template>

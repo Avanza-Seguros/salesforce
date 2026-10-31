@@ -1721,7 +1721,17 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.censoTotal ? `${this.censoTotal} asegurados` : 'Sin censo';
     }
     handleCensoActualizado(event) {
-        this.censoTotal = (event.detail && event.detail.total) || 0;
+        const total = (event.detail && event.detail.total) || 0;
+        const cambio = total !== this.censoTotal;
+        this.censoTotal = total;
+        // El panel de renovación (altas, bajas y cambios) muestra el mismo censo.
+        const mov = cambio ? this.template.querySelector('c-movimientos-colectivo') : null;
+        if (mov) { mov.recargar(); }
+    }
+    // Altas, bajas o cambios aplicados al censo desde el panel de renovación: se refresca el censo.
+    handleMovimientosCenso() {
+        const censo = this.template.querySelector('c-censo-colectivo');
+        if (censo) { censo.recargar(); }
     }
     get censoVehiculosBadge() {
         return this.censoVehiculosTotal ? `${this.censoVehiculosTotal} vehículos` : 'Sin censo';

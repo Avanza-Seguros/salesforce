@@ -563,6 +563,11 @@ private class PolicyControllerTest {
         System.assertEquals(opp.AccountId, base.get('NameInsuredId'));
         System.assertEquals('Inicial', base.get('Status'));
         System.assertNotEquals(null, base.get('EffectiveDate'));
+        // La vigencia de la cotización manda sobre la fecha de hoy.
+        update new Quote(Id = q.Id, Vigencia_Inicio__c = Date.newInstance(2030, 3, 1), ExpirationDate = Date.newInstance(2031, 3, 1));
+        base = PolicyController.datosBasePoliza(q.OpportunityId, q.Id);
+        System.assertEquals('2030-03-01', base.get('EffectiveDate'));
+        System.assertEquals('2031-03-01', base.get('ExpirationDate'));
         // Sin oportunidad solo se devuelven el estatus y las fechas.
         Map<String, Object> sinOpp = PolicyController.datosBasePoliza(null, null);
         System.assertEquals('Inicial', sinOpp.get('Status'));

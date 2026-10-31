@@ -66,7 +66,8 @@ public with sharing class PolicyController {
 	 * @description: Devuelve los datos base para crear la póliza desde Crear Póliza (la póliza se crea al subir el
 	 * PDF, ya con su número real). Toma de la oportunidad el asegurado y el propietario, y de la cotización
 	 * aceptada la aseguradora, el producto, el ramo, la prima, la frecuencia y las fechas, con las mismas reglas
-	 * que usaba el flujo Create_Insured_Policy. Los picklists solo se llenan con valores válidos.
+	 * que usaba el flujo Create_Insured_Policy. Los picklists solo se llenan con valores válidos. La vigencia
+	 * sale de la cotización cuando la trae (renovaciones y colectivos); si no, inicia hoy y dura un año.
 	 * @param opportunityId: Id de la oportunidad (opcional; sin ella solo se devuelven el estatus y las fechas)
 	 * @param quoteId: Id de la cotización aceptada (opcional; si no llega se toma la aceptada más reciente)
 	 * @return Valores por API name de InsurancePolicy (fechas como AAAA-MM-DD)
@@ -85,12 +86,19 @@ public with sharing class PolicyController {
 		base.put('NameInsuredId', opp.AccountId);
 		base.put('OwnerId', opp.OwnerId);
 		List<Quote> qs = quoteId != null
-			? [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
+			? [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c,
+				Vigencia_Inicio__c, ExpirationDate
 			   FROM Quote WHERE Id = :quoteId AND OpportunityId = :opportunityId LIMIT 1]
-			: [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
+			: [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c,
+				Vigencia_Inicio__c, ExpirationDate
 			   FROM Quote WHERE OpportunityId = :opportunityId AND Status = 'Accepted' ORDER BY CreatedDate DESC LIMIT 1];
 		if (qs.isEmpty()) { return base; }
 		Quote q = qs[0];
+		if (q.Vigencia_Inicio__c != null) {
+			hoy = q.Vigencia_Inicio__c;
+			base.put('EffectiveDate', String.valueOf(hoy));
+			base.put('ExpirationDate', String.valueOf(q.ExpirationDate != null && q.ExpirationDate > hoy ? q.ExpirationDate : hoy.addDays(365)));
+		}
 		base.put('SourceQuoteId', q.Id);
 		base.put('Aseguradora__c', q.Aseguradora__c);
 		base.put('ProductId', q.Product__c);

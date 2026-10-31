@@ -59,6 +59,8 @@ const BLOQUE_PDF = 12000;
 
 export default class CensoColectivo extends LightningElement {
     @api readOnly = false;
+    // 'lector': solo lee y valida el archivo y lo entrega en el evento "leido" (no guarda ni muestra el censo).
+    @api modo = '';
 
     @track censo = null;
     @track paso = 'resumen';
@@ -85,8 +87,18 @@ export default class CensoColectivo extends LightningElement {
     set opportunityId(v) {
         const cambio = v !== this._opportunityId;
         this._opportunityId = v;
-        if (cambio && v) { this.cargarCenso(); }
+        if (cambio && v && !this.esLector) { this.cargarCenso(); }
     }
+
+    // Vuelve a leer el censo guardado (por ejemplo, después de aplicar altas y bajas de la renovación).
+    @api
+    recargar() {
+        return this.cargarCenso();
+    }
+
+    get esLector() { return this.modo === 'lector'; }
+    get mostrarCenso() { return !this.esLector; }
+    get tituloCarga() { return this.esLector ? 'Cargar archivo de la aseguradora' : 'Cargar censo'; }
 
     // ============================================================
     // Censo guardado
@@ -109,8 +121,8 @@ export default class CensoColectivo extends LightningElement {
     get enResumen() { return this.paso === 'resumen'; }
     get enMapeo() { return this.paso === 'mapeo'; }
     get enVista() { return this.paso === 'vista'; }
-    get puedeEditar() { return !this.readOnly && !!this._opportunityId; }
-    get sinOportunidad() { return !this._opportunityId; }
+    get puedeEditar() { return !this.readOnly && (!!this._opportunityId || this.esLector); }
+    get sinOportunidad() { return !this._opportunityId && !this.esLector; }
 
     get totalCategorias() { return this.censo && this.censo.categorias ? this.censo.categorias.length : 0; }
     get categoriasCenso() {
@@ -521,7 +533,7 @@ export default class CensoColectivo extends LightningElement {
     get dependientesValidos() { return this.totalValidos - this.titularesValidos; }
     get hayErrores() { return this.conError > 0; }
     get sinValidos() { return this.totalValidos === 0 || this.cargando; }
-    get textoGuardar() { return `Guardar ${this.totalValidos} asegurados`; }
+    get textoGuardar() { return this.esLector ? `Comparar ${this.totalValidos} asegurados` : `Guardar ${this.totalValidos} asegurados`; }
 
     get resumenVista() {
         const mapa = {};
@@ -600,6 +612,14 @@ export default class CensoColectivo extends LightningElement {
     async guardar() {
         const validos = this.validos;
         if (!validos.length) { return; }
+        if (this.esLector) {
+            // Se entrega la lista leída; titularIndex es la posición del titular en la misma lista.
+            const posicion = new Map(validos.map((r, j) => [r.idx, j]));
+            const miembros = validos.map((r) => ({ ...this.payload(r), titularIndex: r.esTitular ? null : (posicion.get(r.titularIndex) ?? null) }));
+            this.dispatchEvent(new CustomEvent('leido', { detail: { miembros, archivo: this.archivoNombre } }));
+            this.cancelar();
+            return;
+        }
         // Grupos titular + dependientes, para no separarlos entre lotes.
         const nuevoIdx = new Map();
         validos.forEach((r, i) => nuevoIdx.set(r.idx, i));
@@ -624,24 +644,7 @@ export default class CensoColectivo extends LightningElement {
                 this.progreso = lotes.length > 1 ? `Guardando lote ${i + 1} de ${lotes.length}…` : 'Guardando censo…';
                 const posicion = new Map(lotes[i].map((r, j) => [r.idx, j]));
                 const payload = lotes[i].map((r) => ({
-                    fila: r.fila,
-                    nombreCompleto: r.nombreCompleto,
-                    nombre: r.nombre,
-                    apellidos: r.apellidos,
-                    fechaNacimiento: r.fechaNacimiento || null,
-                    edad: r.edad,
-                    sexo: r.sexo,
-                    parentesco: r.parentesco,
-                    categoria: r.categoria,
-                    sueldoAnual: r.sueldoAnual,
-                    sumaAsegurada: r.sumaAsegurada,
-                    prima: r.prima,
-                    certificado: r.certificado,
-                    fechaAlta: r.fechaAlta || null,
-                    numEmpleado: r.numEmpleado,
-                    rfc: r.rfc,
-                    email: r.email,
-                    telefono: r.telefono,
+                    ...this.payload(r),
                     titularIndex: r.esTitular ? null : posicion.get(r.titularIndex)
                 }));
                 total = await guardarCenso({
@@ -659,6 +662,30 @@ export default class CensoColectivo extends LightningElement {
             this.cargando = false;
             this.progreso = '';
         }
+    }
+
+    // Renglón validado en el formato de CensoColectivoController.MiembroEntrada (sin titularIndex).
+    payload(r) {
+        return {
+            fila: r.fila,
+            nombreCompleto: r.nombreCompleto,
+            nombre: r.nombre,
+            apellidos: r.apellidos,
+            fechaNacimiento: r.fechaNacimiento || null,
+            edad: r.edad,
+            sexo: r.sexo,
+            parentesco: r.parentesco,
+            categoria: r.categoria,
+            sueldoAnual: r.sueldoAnual,
+            sumaAsegurada: r.sumaAsegurada,
+            prima: r.prima,
+            certificado: r.certificado,
+            fechaAlta: r.fechaAlta || null,
+            numEmpleado: r.numEmpleado,
+            rfc: r.rfc,
+            email: r.email,
+            telefono: r.telefono
+        };
     }
 
     // ============================================================
