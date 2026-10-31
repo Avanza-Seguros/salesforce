@@ -823,6 +823,18 @@ public with sharing class PolicyController {
 		@AuraEnabled public List<ParticipanteRow> participantes = new List<ParticipanteRow>();
 		@AuraEnabled public List<BienRow> bienes = new List<BienRow>();
 		@AuraEnabled public List<TransaccionRow> transacciones = new List<TransaccionRow>();
+		@AuraEnabled public List<ArchivoRow> archivos = new List<ArchivoRow>();
+	}
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivo adjunto a la póliza (ContentDocument) para la vista de la póliza.
+	 */
+	public class ArchivoRow {
+		@AuraEnabled public Id id;
+		@AuraEnabled public String nombre;
+		@AuraEnabled public String extension;
+		@AuraEnabled public Integer tamano;
 	}
 	/**
 	 * @creation date: 17/09/2026
@@ -883,10 +895,10 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 17/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Devuelve los registros hijos de la póliza (coberturas, participantes, bien asegurado y
-	 * transacciones) para mostrarlos en la vista de la póliza.
+	 * @description: Devuelve los registros hijos de la póliza (coberturas, participantes, bien asegurado,
+	 * transacciones y archivos adjuntos) para mostrarlos en la vista de la póliza.
 	 * @param policyId: Id de la InsurancePolicy
-	 * @return Wrapper con las cuatro listas (vacías si no hay registros)
+	 * @return Wrapper con las listas (vacías si no hay registros)
 	 */
 	@AuraEnabled(cacheable=false)
 	public static RegistrosPoliza getRegistrosPoliza(Id policyId) {
@@ -937,6 +949,16 @@ public with sharing class PolicyController {
 				r.id = t.Id; r.nombre = t.Name; r.tipo = t.Type; r.estatus = t.Status;
 				r.monto = t.TransactionAmount; r.fecha = t.TransactionEffectiveDate;
 				out.transacciones.add(r);
+			}
+			for (ContentDocumentLink l : [
+				SELECT ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension, ContentDocument.ContentSize
+				FROM ContentDocumentLink WHERE LinkedEntityId = :policyId
+				ORDER BY ContentDocument.CreatedDate ASC
+			]) {
+				ArchivoRow r = new ArchivoRow();
+				r.id = l.ContentDocumentId; r.nombre = l.ContentDocument.Title;
+				r.extension = l.ContentDocument.FileExtension; r.tamano = l.ContentDocument.ContentSize;
+				out.archivos.add(r);
 			}
 		} catch (Exception e) {
 			// No romper la vista: si un objeto no está accesible, se devuelve lo que sí se pudo.

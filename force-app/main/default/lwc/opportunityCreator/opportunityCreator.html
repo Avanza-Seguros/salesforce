@@ -1979,6 +1979,11 @@
                                 <p>Esta oportunidad no tiene archivos.</p>
                             </template>
                         </template>
+                        <!-- Cargador estándar: admite archivos grandes que no caben en la llamada a Apex -->
+                        <div class="slds-m-top_medium">
+                            <lightning-file-upload label="Adjuntar archivos" name="archivosOportunidad" record-id={archivosOppId}
+                                accept=".pdf,.xlsx,.xls,.csv,.docx,.jpg,.png" onuploadfinished={handleArchivoOppSubido} multiple></lightning-file-upload>
+                        </div>
                     </div>
                     <footer class="slds-modal__footer">
                         <button class="action-btn secondary" onclick={closeArchivosModal}>Cerrar</button>

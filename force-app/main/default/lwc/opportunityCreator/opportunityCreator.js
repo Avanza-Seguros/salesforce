@@ -194,6 +194,9 @@ const CONCEPTOS_POR_RAMO = {
 const MARCA_COMPARATIVO_CALCULADO = '<!--comparativo-calculado-->';
 // Comparativo colectivo / de flotilla que guarda Apex en Descripcion__c (lo muestra "Análisis IA").
 const MARCA_COMPARATIVO_COLECTIVO = '<!--comparativo-colectivo-->';
+// Base64 máximo que se adjunta automáticamente (~3 MB de archivo): Salesforce rechaza llamadas a Apex de más de
+// ~4 MB. Los archivos más grandes se suben con el cargador estándar del modal «Ver archivos».
+const MAX_BASE64_ADJUNTO = 4 * 1024 * 1024;
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -299,6 +302,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     };
     @track showComparisonSummary = false;
     @track archivosModalOpen = false;
+    // Oportunidad del modal de archivos (para el cargador estándar).
+    archivosOppId = null;
     @track archivosList = [];
     @track archivosLoading = false;
     @track archivosOppName = '';
@@ -4017,7 +4022,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const oppName = event.currentTarget.dataset.name || '';
         if (!oppId) { return; }
         this.archivosOppName = oppName;
+        this.archivosOppId = oppId;
         this.archivosModalOpen = true;
+        await this.cargarArchivosModal();
+    }
+
+    async cargarArchivosModal() {
+        const oppId = this.archivosOppId;
+        if (!oppId) { return; }
         this.archivosLoading = true;
         this.archivosList = [];
         try {
@@ -4062,6 +4074,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     closeArchivosModal() {
         this.archivosModalOpen = false;
         this.archivosList = [];
+        this.archivosOppId = null;
+    }
+
+    // Archivos subidos con el cargador estándar del modal (ya quedan ligados a la oportunidad).
+    handleArchivoOppSubido(event) {
+        const n = ((event.detail && event.detail.files) || []).length;
+        this.showToast('Archivos', n === 1 ? 'Archivo adjuntado a la oportunidad.' : `${n} archivos adjuntados a la oportunidad.`, 'success');
+        this.cargarArchivosModal();
     }
 
     get tieneArchivos() {
@@ -4073,15 +4093,27 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!oppId) { return; }
         const archivos = this.pdfArchivos || [];
         let subidos = 0;
+        // Archivos que no se pudieron adjuntar (los grandes no caben en la llamada a Apex).
+        const pendientes = [];
         for (const a of archivos) {
             if (!a || !a.base64) { continue; }
+            if (a.base64.length > MAX_BASE64_ADJUNTO) {
+                pendientes.push(`${a.nombre} (${this.formatFileSize(Math.round(a.base64.length * 0.75))})`);
+                continue;
+            }
             try {
                 await guardarArchivoEnOportunidad({ opportunityId: oppId, fileName: a.nombre, base64Data: a.base64 });
                 subidos++;
             } catch (e) {
+                pendientes.push(a.nombre);
                 // eslint-disable-next-line no-console
                 console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
             }
+        }
+        if (pendientes.length) {
+            this.showToast('Archivos sin adjuntar',
+                `No se pudieron adjuntar automáticamente: ${pendientes.join(', ')}. Súbelos desde el botón «Ver archivos» de la oportunidad.`,
+                'warning');
         }
         // Si se usó la IA, se guarda ÚNICAMENTE el comparativo que ella regresó.
         // Solo cuando no hay comparativo de IA se arma la matriz completa como respaldo.

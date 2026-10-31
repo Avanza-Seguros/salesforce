@@ -12,6 +12,9 @@ import PLANNED_RENEWAL_DATE from '@salesforce/schema/InsurancePolicy.PlannedRene
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
+// Tamaño máximo del PDF que se adjunta automáticamente: viaja en base64 dentro de la llamada a Apex y Salesforce
+// rechaza peticiones de más de ~4 MB. Los más grandes se adjuntan con el cargador estándar (lightning-file-upload).
+const MAX_ADJUNTO_AUTOMATICO = 3 * 1024 * 1024;
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import completarPoliza from '@salesforce/apex/PolicyController.completarPoliza';
@@ -41,6 +44,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track participantes = [];
     @track bienes = [];
     @track transacciones = [];
+    // Archivos adjuntos a la póliza (ContentDocument).
+    @track archivos = [];
     @track policyHero = {};
     // Etapa real de la oportunidad (API): define el aviso y el color de la cabecera.
     oppStage = '';
@@ -582,13 +587,21 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
             // queda pendiente y se adjunta al crearla (handleSuccess).
-            try {
-                const base64 = await this.readFileAsBase64(file);
-                this._pdfPendiente = { base64, nombre: file.name };
-                this._pdfCargado = true;
-                await this.guardarPdfEnPoliza();
-            } catch (fileErr) {
-                // No bloquea: se reintenta al guardar la póliza.
+            // Un PDF grande no cabe en la llamada a Apex: se pide adjuntarlo en la vista de la póliza.
+            this._pdfCargado = true;
+            if (file.size > MAX_ADJUNTO_AUTOMATICO) {
+                this._pdfPendiente = null;
+                this.showToast('Adjunta el PDF al terminar',
+                    `El PDF pesa ${this.fmtMb(file.size)} y no se puede adjuntar automáticamente. Al guardar la póliza, súbelo en la sección «Archivos de la póliza».`,
+                    'warning');
+            } else {
+                try {
+                    const base64 = await this.readFileAsBase64(file);
+                    this._pdfPendiente = { base64, nombre: file.name };
+                    await this.guardarPdfEnPoliza();
+                } catch (fileErr) {
+                    // No bloquea: se reintenta al guardar la póliza.
+                }
             }
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
@@ -634,8 +647,16 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             });
             this._pdfPendiente = null;
         } catch (e) {
-            // Si falla, se conserva pendiente para reintentar al guardar la póliza.
+            // Se conserva pendiente para reintentar al guardar la póliza; si ya existe la póliza se avisa.
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('No se pudo adjuntar el PDF',
+                `${msg}. Súbelo en la sección «Archivos de la póliza».`, 'warning');
         }
+    }
+
+    // Tamaño legible de un archivo ("12.8 MB").
+    fmtMb(bytes) {
+        return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
     }
 
     // Lee un archivo y devuelve su contenido en base64 (sin el prefijo data:).
@@ -1264,6 +1285,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 monto: this.fmtCurrency(t.monto),
                 fecha: this.fmtDate(t.fecha)
             }));
+            this.archivos = (reg.archivos || []).map((a) => ({
+                id: a.id,
+                nombre: a.extension ? `${a.nombre}.${a.extension}` : a.nombre,
+                tamano: a.tamano != null ? this.fmtMb(a.tamano) : '',
+                esPdf: (a.extension || '').toLowerCase() === 'pdf'
+            }));
         } catch (e) {
             // Silencioso: si falla, la vista igual muestra el resto de la póliza.
             console.warn('PolicyCreator::: no se pudieron cargar los registros de la póliza', e);
@@ -1274,6 +1301,26 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     get hasParticipantes() { return this.participantes && this.participantes.length > 0; }
     get hasBienes() { return this.bienes && this.bienes.length > 0; }
     get hasTransacciones() { return this.transacciones && this.transacciones.length > 0; }
+    get hasArchivos() { return this.archivos && this.archivos.length > 0; }
+    // Sin PDF adjunto se resalta el cargador para subir el de la póliza.
+    get faltaPdf() { return !!this.policyId && !(this.archivos || []).some((a) => a.esPdf); }
+    get archivosClase() { return this.faltaPdf ? 'ro-section ro-archivos ro-archivos--falta' : 'ro-section ro-archivos'; }
+
+    // Archivos subidos con el cargador estándar (ya quedan ligados a la póliza).
+    handleArchivoSubido(event) {
+        const n = ((event.detail && event.detail.files) || []).length;
+        this.showToast('Archivos de la póliza', n === 1 ? 'Archivo adjuntado a la póliza.' : `${n} archivos adjuntados a la póliza.`, 'success');
+        this.loadRegistrosPoliza();
+    }
+
+    // Abre la vista previa del archivo.
+    handleVerArchivo(event) {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__namedPage',
+            attributes: { pageName: 'filePreview' },
+            state: { selectedRecordId: event.currentTarget.dataset.id }
+        });
+    }
 
     get hasQuoteCards() {
         return this.quoteCards && this.quoteCards.length > 0;

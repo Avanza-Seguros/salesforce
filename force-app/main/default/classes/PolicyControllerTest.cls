@@ -881,6 +881,10 @@ private class PolicyControllerTest {
         Test.stopTest();
         System.assertEquals(doc1, doc2, 'No duplica el archivo');
         System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :policyId]);
+        // La vista de la póliza lista sus archivos adjuntos.
+        PolicyController.RegistrosPoliza reg = PolicyController.getRegistrosPoliza(policyId);
+        System.assertEquals(1, reg.archivos.size());
+        System.assertEquals('pdf', reg.archivos[0].extension);
     }
 
     /**
