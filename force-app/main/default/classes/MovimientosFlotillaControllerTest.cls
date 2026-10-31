@@ -209,6 +209,32 @@ private class MovimientosFlotillaControllerTest {
 	/**
 	 * @creation date: 31/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Emisión de la renovación: la póliza nueva toma los vehículos del censo y queda ligada a la anterior.
+	 * @return void
+	 */
+	@isTest
+	static void testEmisionRenovacion() {
+		InsurancePolicy pol = poliza();
+		Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Opp Renovacion Flotilla' LIMIT 1];
+		MovimientosFlotillaController.traerDePoliza(opp.Id, true);
+		InsurancePolicy nueva = new InsurancePolicy(Name = 'POL-FLOT-2', NameInsuredId = pol.NameInsuredId, Status = 'Inicial', PremiumAmount = 32000,
+			PaymentDueDate = Date.today().addDays(30), EffectiveDate = Datetime.now(), ExpirationDate = Datetime.now().addDays(365), SourceOpportunityId = opp.Id);
+		nueva.put('Ramo__c', 'Automoviles');
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { nueva.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert nueva;
+		Test.startTest();
+		Map<String, Object> r = PolicyController.completarPoliza(nueva.Id, opp.Id);
+		Test.stopTest();
+		System.assertEquals(3, r.get('vehiculos'), JSON.serialize(r));
+		System.assertEquals(pol.Id, [SELECT PriorPolicyId FROM InsurancePolicy WHERE Id = :nueva.Id].PriorPolicyId, 'Póliza anterior');
+		System.assertEquals(3, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :nueva.Id]);
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Validaciones: sin motivo, sin fecha, alta de una serie vigente, baja repetida y alta sin serie en la póliza.
 	 * @return void
 	 */

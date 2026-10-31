@@ -531,6 +531,7 @@ public with sharing class PolicyController {
 				resumen.put('bien', ipaId != null ? 1 : 0);
 			}
 		} catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
+		ligarRenovacionBienes(policyId, resumen);
 
 		// 2) Asegurados / participantes (colectiva por OCR + respaldo individual).
 		try {
@@ -1105,6 +1106,7 @@ public with sharing class PolicyController {
 			try { crearVinculoBien(policyId, customerPropertyId); resumen.put('bien', 1); }
 			catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
 		}
+		ligarRenovacionBienes(policyId, resumen);
 
 		// 3) Participante = la PERSONA asegurada del PDF (ej. Rosa Margarita), como Contacto
 		//    bajo la cuenta principal (ej. CASTEMON). Si el PDF no trae persona, se cae al
@@ -3090,6 +3092,23 @@ public with sharing class PolicyController {
 		}
 		res.put('vehiculos', guardarVehiculosDesdePdf(policyId, resolverCuentaDePoliza(pol), oppId, vehiculos));
 		return res;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: En una colectiva de bienes (flotilla o ubicaciones) que renueva otra póliza, la liga con su vigencia
+	 * anterior («Póliza anterior»). En colectivas de personas lo hace la copia del censo. La liga es informativa: si
+	 * falla no rompe la emisión.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param resumen: resumen de la emisión (trae 'vehiculos' o 'ubicaciones' si se crearon bienes colectivos)
+	 */
+	private static void ligarRenovacionBienes(Id policyId, Map<String, Object> resumen) {
+		if (!(resumen.get('vehiculos') instanceof Integer) && !(resumen.get('ubicaciones') instanceof Integer)) { return; }
+		try {
+			InsurancePolicy pol = [SELECT Id, NameInsuredId, Ramo__c, EffectiveDate, PriorPolicyId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+			if (CensoColectivoController.ligarPolizaAnterior(pol) != null) { resumen.put('polizaAnterior', 1); }
+		} catch (Exception e) { System.debug(LoggingLevel.WARN, 'No se ligó la vigencia anterior: ' + e.getMessage()); }
 	}
 
 	/**

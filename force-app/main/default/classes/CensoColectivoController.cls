@@ -787,16 +787,9 @@ public with sharing class CensoColectivoController {
 	 * @param nuevos: participantes del censo sin participante anterior.
 	 */
 	private static void ligarVigenciaAnterior(InsurancePolicy pol, List<InsurancePolicyParticipant> nuevos) {
-		if (nuevos.isEmpty() || pol.NameInsuredId == null || pol.EffectiveDate == null) { return; }
-		Id anteriorId = pol.PriorPolicyId;
-		if (anteriorId == null) {
-			InsurancePolicy anterior = polizaAnterior(pol.NameInsuredId, pol.Ramo__c, new Set<Id>{ pol.Id }, pol.EffectiveDate);
-			// Solo es renovación si la anterior termina cerca de donde empieza la nueva (otra póliza del mismo ramo no cuenta).
-			if (anterior == null || anterior.ExpirationDate == null
-					|| Math.abs(anterior.ExpirationDate.date().daysBetween(pol.EffectiveDate.date())) > DIAS_RENOVACION) { return; }
-			anteriorId = anterior.Id;
-			update new InsurancePolicy(Id = pol.Id, PriorPolicyId = anteriorId);
-		}
+		if (nuevos.isEmpty()) { return; }
+		Id anteriorId = ligarPolizaAnterior(pol);
+		if (anteriorId == null) { return; }
 		Map<String, InsurancePolicyParticipant> porLlave = new Map<String, InsurancePolicyParticipant>();
 		Map<String, InsurancePolicyParticipant> porNombre = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant a : [
@@ -818,6 +811,26 @@ public with sharing class CensoColectivoController {
 				OriginalParticipantId = a.OriginalParticipantId != null ? a.OriginalParticipantId : a.Id));
 		}
 		if (!ligar.isEmpty()) { update ligar; }
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga la póliza con la vigencia que renueva («Póliza anterior»): la más reciente de la misma empresa y
+	 *               ramo que termina cerca de donde empieza la nueva. Si ya tiene póliza anterior la respeta.
+	 * @param pol: póliza nueva (Id, NameInsuredId, Ramo__c, EffectiveDate, PriorPolicyId).
+	 * @return Id de la póliza anterior o null si no es renovación.
+	 */
+	public static Id ligarPolizaAnterior(InsurancePolicy pol) {
+		if (pol.PriorPolicyId != null) { return pol.PriorPolicyId; }
+		if (pol.NameInsuredId == null || pol.EffectiveDate == null) { return null; }
+		InsurancePolicy anterior = polizaAnterior(pol.NameInsuredId, pol.Ramo__c, new Set<Id>{ pol.Id }, pol.EffectiveDate);
+		// Solo es renovación si la anterior termina cerca de donde empieza la nueva (otra póliza del mismo ramo no cuenta).
+		if (anterior == null || anterior.ExpirationDate == null
+				|| Math.abs(anterior.ExpirationDate.date().daysBetween(pol.EffectiveDate.date())) > DIAS_RENOVACION) { return null; }
+		update new InsurancePolicy(Id = pol.Id, PriorPolicyId = anterior.Id);
+		pol.PriorPolicyId = anterior.Id;
+		return anterior.Id;
 	}
 
 	/**
