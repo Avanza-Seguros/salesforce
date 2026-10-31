@@ -2313,7 +2313,7 @@ public with sharing class PolicyController {
 	 * @return Número de vehículos ligados a la póliza
 	 */
 	@TestVisible
-	private static Integer guardarVehiculosDesdePdf(Id policyId, Id accountId, Id oppId, List<Object> vehiculos) {
+	public static Integer guardarVehiculosDesdePdf(Id policyId, Id accountId, Id oppId, List<Object> vehiculos) {
 		if (accountId == null || vehiculos == null || vehiculos.isEmpty()) { return 0; }
 		InsurancePolicy pol = [
 			SELECT Id, Name, ProductId, EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1

@@ -24,6 +24,7 @@
         <!-- ====================== RESUMEN DEL CENSO ====================== -->
         <template if:false={sinOportunidad}>
             <template if:true={enResumen}>
+                <template if:true={mostrarCenso}>
                 <template if:true={tieneCenso}>
                     <div class="censo-stats">
                         <div class="stat"><span class="stat-num">{censo.total}</span><span class="stat-lbl">Vehículos</span></div>
@@ -111,11 +112,12 @@
                         <p>Aún no hay censo de vehículos. Sube el listado de la flotilla que envió la empresa o la aseguradora (Excel, CSV o PDF). Al cargar la póliza, sus vehículos también aparecen aquí.</p>
                     </div>
                 </template>
+                </template>
 
                 <template if:true={puedeEditar}>
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
-                            <strong>Cargar censo de vehículos</strong>
+                            <strong>{tituloCarga}</strong>
                             <span>Excel (.xlsx), CSV o PDF. En PDF la IA lee la lista de vehículos.</span>
                         </div>
                         <div class="censo-carga-acciones">

@@ -1737,7 +1737,17 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.censoVehiculosTotal ? `${this.censoVehiculosTotal} vehículos` : 'Sin censo';
     }
     handleCensoVehiculosActualizado(event) {
-        this.censoVehiculosTotal = (event.detail && event.detail.total) || 0;
+        const total = (event.detail && event.detail.total) || 0;
+        const cambio = total !== this.censoVehiculosTotal;
+        this.censoVehiculosTotal = total;
+        // El panel de renovación de vehículos muestra el mismo censo.
+        const mov = cambio ? this.template.querySelector('c-movimientos-flotilla') : null;
+        if (mov) { mov.recargar(); }
+    }
+    // Altas, bajas o cambios de vehículos aplicados desde el panel de renovación: se refresca el censo de vehículos.
+    handleMovimientosVehiculos() {
+        const censo = this.template.querySelector('c-censo-vehiculos');
+        if (censo) { censo.recargar(); }
     }
     // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se carga el censo de vehículos
     // (c-censo-vehiculos: un Inciso_Flotilla__c por vehículo).

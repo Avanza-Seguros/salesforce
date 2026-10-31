@@ -69,6 +69,7 @@ public with sharing class MovimientosColectivoController {
 				accountId = pol.NameInsuredId;
 				res.put('contexto', 'poliza');
 				res.put('aplica', aplicaRamo(pol.Ramo__c));
+				res.put('flotilla', MovimientosFlotillaController.esFlotilla(pol.Ramo__c));
 				res.put('nombre', pol.Name);
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
@@ -358,6 +359,8 @@ public with sharing class MovimientosColectivoController {
 		for (Movimiento m : movs) {
 			if (m.tipo != CAMBIO) { continue; }
 			InsurancePolicyParticipant p = participantes.get(Id.valueOf(m.id));
+			// Dependiente que salió con su titular en esta misma carga: ya no se cambia.
+			if (p.IsActiveParticipant == false) { continue; }
 			List<String> detalle = cambiarParticipante(p, m.datos, cats);
 			if (m.datos.sumaAsegurada != null) {
 				Decimal antes = sumasActuales.get(p.Id);
@@ -633,6 +636,8 @@ public with sharing class MovimientosColectivoController {
 			if (conTitular) { r.Comentario__c = ('Baja junto con su titular. ' + (m.comentario == null ? '' : m.comentario)).trim().left(255); }
 			registro.add(r);
 		}
+		Set<Id> borrados = new Map<Id, GroupCensusMember>(borrarDependientes).keySet().clone();
+		borrados.addAll(new Map<Id, GroupCensusMember>(borrarTitulares).keySet());
 		if (!borrarDependientes.isEmpty()) { delete borrarDependientes; }
 		if (!borrarTitulares.isEmpty()) { delete borrarTitulares; }
 
@@ -642,6 +647,8 @@ public with sharing class MovimientosColectivoController {
 		Integer cambios = 0;
 		for (Movimiento m : movs) {
 			if (m.tipo != CAMBIO) { continue; }
+			// Dependiente que salió con su titular en esta misma carga: ya no está en el censo.
+			if (borrados.contains(Id.valueOf(m.id))) { continue; }
 			GroupCensusMember gm = miembros.get(Id.valueOf(m.id));
 			List<String> detalle = cambiarMiembro(gm, m.datos, cats);
 			if (detalle.isEmpty()) { continue; }
@@ -861,11 +868,12 @@ public with sharing class MovimientosColectivoController {
 	 * @param recordId: póliza u oportunidad.
 	 * @return movimientos como mapas.
 	 */
-	private static List<Object> historial(Id recordId) {
+	public static List<Object> historial(Id recordId) {
 		Map<String, String> motivos = etiquetas(Movimiento_Poliza__c.Motivo_Baja__c.getDescribe());
+		motivos.putAll(etiquetas(Movimiento_Poliza__c.Motivo_Baja_Vehiculo__c.getDescribe()));
 		List<Object> res = new List<Object>();
 		for (Movimiento_Poliza__c m : [
-			SELECT Id, Name, Tipo__c, Contexto__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Motivo_Baja__c,
+			SELECT Id, Name, Tipo__c, Contexto__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Motivo_Baja__c, Motivo_Baja_Vehiculo__c,
 				Numero_Endoso__c, Detalle__c, Comentario__c, CreatedBy.Name, CreatedDate
 			FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :recordId OR Oportunidad__c = :recordId
@@ -873,7 +881,7 @@ public with sharing class MovimientosColectivoController {
 		]) {
 			res.add(new Map<String, Object>{
 				'id' => m.Id, 'nombre' => m.Name, 'tipo' => m.Tipo__c, 'asegurado' => m.Asegurado__c, 'certificado' => m.Certificado__c,
-				'fecha' => m.Fecha_Movimiento__c, 'motivo' => m.Motivo_Baja__c == null ? null : motivos.get(m.Motivo_Baja__c),
+				'fecha' => m.Fecha_Movimiento__c, 'motivo' => motivos.get(m.Motivo_Baja__c != null ? m.Motivo_Baja__c : m.Motivo_Baja_Vehiculo__c),
 				'endoso' => m.Numero_Endoso__c, 'detalle' => m.Detalle__c, 'comentario' => m.Comentario__c,
 				'usuario' => m.CreatedBy.Name, 'creado' => m.CreatedDate
 			});
@@ -892,6 +900,8 @@ public with sharing class MovimientosColectivoController {
 	 * @param movs: movimientos.
 	 */
 	private static void validar(List<Movimiento> movs) {
+		Set<String> bajas = new Set<String>();
+		for (Movimiento m : movs) { if (m.tipo == BAJA && m.id != null) { bajas.add(m.id); } }
 		for (Integer i = 0; i < movs.size(); i++) {
 			Movimiento m = movs[i];
 			if (m.tipo != ALTA && m.tipo != BAJA && m.tipo != CAMBIO) {
@@ -911,6 +921,9 @@ public with sharing class MovimientosColectivoController {
 			}
 			if (m.tipo == ALTA && String.isBlank(nombreDe(m.datos))) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': el alta no tiene nombre.');
+			}
+			if (m.tipo == ALTA && m.titularId != null && bajas.contains(m.titularId)) {
+				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': el titular del dependiente se está dando de baja.');
 			}
 			if (m.titularRef != null && (m.titularRef < 0 || m.titularRef >= movs.size() || movs[m.titularRef].tipo != ALTA)) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': el titular del dependiente no es válido.');
@@ -981,7 +994,7 @@ public with sharing class MovimientosColectivoController {
 		return l;
 	}
 
-	private static Map<String, Object> dif(String campo, Object antes, Object despues) {
+	public static Map<String, Object> dif(String campo, Object antes, Object despues) {
 		return new Map<String, Object>{ 'campo' => campo, 'antes' => antes == null ? '—' : String.valueOf(antes), 'despues' => String.valueOf(despues) };
 	}
 
@@ -1015,18 +1028,18 @@ public with sharing class MovimientosColectivoController {
 		return l;
 	}
 
-	private static Map<String, String> etiquetas(Schema.DescribeFieldResult f) {
+	public static Map<String, String> etiquetas(Schema.DescribeFieldResult f) {
 		Map<String, String> m = new Map<String, String>();
 		for (Schema.PicklistEntry pe : f.getPicklistValues()) { m.put(pe.getValue(), pe.getLabel()); }
 		return m;
 	}
 
-	private static Boolean esPoliza(Id recordId) {
+	public static Boolean esPoliza(Id recordId) {
 		if (recordId == null) { throw CensoColectivoController.error('Falta el registro.'); }
 		return recordId.getSObjectType() == InsurancePolicy.SObjectType;
 	}
 
-	private static Opportunity oportunidad(Id oppId) {
+	public static Opportunity oportunidad(Id oppId) {
 		List<Opportunity> l = [SELECT Id, Name, AccountId, Ramo__c, Type FROM Opportunity WHERE Id = :oppId LIMIT 1];
 		if (l.isEmpty()) { throw CensoColectivoController.error('No se encontró la oportunidad.'); }
 		return l[0];
@@ -1039,7 +1052,7 @@ public with sharing class MovimientosColectivoController {
 	 * @param opp: oportunidad.
 	 * @return póliza o null.
 	 */
-	private static InsurancePolicy polizaAnteriorDe(Opportunity opp) {
+	public static InsurancePolicy polizaAnteriorDe(Opportunity opp) {
 		Set<Id> propias = new Map<Id, InsurancePolicy>([SELECT Id FROM InsurancePolicy WHERE SourceOpportunityId = :opp.Id]).keySet();
 		return CensoColectivoController.polizaAnterior(opp.AccountId, opp.Ramo__c, propias, null);
 	}
@@ -1132,7 +1145,7 @@ public with sharing class MovimientosColectivoController {
 	}
 
 	// Los objetos Apex dentro de un Map no se serializan hacia el LWC: se convierten a mapa.
-	private static Object comoMapa(Object o) {
+	public static Object comoMapa(Object o) {
 		return JSON.deserializeUntyped(JSON.serialize(o, true));
 	}
 
@@ -1140,14 +1153,14 @@ public with sharing class MovimientosColectivoController {
 		return c == null ? '' : c.trim().replaceFirst('^0+(?=.)', '').toUpperCase();
 	}
 
-	private static String texto(Object v) {
+	public static String texto(Object v) {
 		if (v == null) { return '—'; }
 		if (v instanceof Date) { return ((Date) v).format(); }
 		if (v instanceof Decimal) { return '$' + ((Decimal) v).setScale(2).format(); }
 		return String.valueOf(v);
 	}
 
-	private static String mensaje(Exception e) {
+	public static String mensaje(Exception e) {
 		if (e instanceof DmlException) { return ((DmlException) e).getDmlMessage(0); }
 		return e.getMessage();
 	}

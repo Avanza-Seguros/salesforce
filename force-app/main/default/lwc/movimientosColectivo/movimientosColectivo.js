@@ -75,6 +75,8 @@ export default class MovimientosColectivo extends LightningElement {
     // En la oportunidad solo aplica cuando el cliente ya tiene una póliza del ramo (renovación).
     get visible() { return !!this.datos && this.datos.aplica !== false && (this.enPoliza || (this.enOportunidad && !!this.datos.polizaAnteriorId)); }
     get noAplica() { return this.enPoliza && this.datos.aplica === false; }
+    // Flotilla: los movimientos son de vehículos (c-movimientos-flotilla).
+    get esFlotilla() { return this.noAplica && this.datos.flotilla === true; }
     get puedeEditar() { return !this.readOnly && this.visible; }
     get titulo() { return this.enPoliza ? 'Asegurados de la póliza' : 'Renovación: altas, bajas y cambios'; }
     get subtitulo() {

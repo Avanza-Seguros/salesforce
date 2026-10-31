@@ -1,9 +1,14 @@
 <template>
     <template if:true={noAplica}>
-        <div class="mov-vacio">
-            <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
-            <p>Esta póliza asegura vehículos o ubicaciones: sus altas y bajas se manejan en los bienes de la póliza.</p>
-        </div>
+        <template if:true={esFlotilla}>
+            <c-movimientos-flotilla record-id={recordId} read-only={readOnly}></c-movimientos-flotilla>
+        </template>
+        <template if:false={esFlotilla}>
+            <div class="mov-vacio">
+                <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                <p>Esta póliza asegura ubicaciones: sus altas y bajas se manejan en los bienes de la póliza.</p>
+            </div>
+        </template>
     </template>
     <template if:true={visible}>
         <div class="mov">

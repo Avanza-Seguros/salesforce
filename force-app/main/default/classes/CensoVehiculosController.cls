@@ -164,7 +164,7 @@ public with sharing class CensoVehiculosController {
 	 * @param serie: serie normalizada (puede ser null)
 	 * @return void
 	 */
-	private static void llenar(Inciso_Flotilla__c inc, FlotillaController.IncisoEntrada e, String serie) {
+	public static void llenar(Inciso_Flotilla__c inc, FlotillaController.IncisoEntrada e, String serie) {
 		inc.Numero_Inciso__c = e.inciso;
 		inc.Serie__c = serie == null ? null : serie.left(30);
 		inc.Clave_Vehicular__c = corto(e.claveVehicular, 30);

@@ -5,6 +5,8 @@
  *               navegador (Excel .xlsx, CSV o PDF con IA), deja mapear las columnas, valida cada vehículo (serie,
  *               duplicados, modelo) y lo guarda con CensoVehiculosController como Inciso_Flotilla__c de la oportunidad.
  *               Muestra el resumen por tipo de vehículo y la lista; al cargar la póliza los vehículos se ligan a ella.
+ *               En modo "lector" solo lee y valida el archivo y lo entrega en el evento `leido` (lo usa
+ *               c-movimientos-flotilla para comparar el archivo de la aseguradora contra los vehículos de la póliza).
  */
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -47,6 +49,8 @@ const BLOQUE_PDF = 12000;
 
 export default class CensoVehiculos extends LightningElement {
     @api readOnly = false;
+    // 'lector': solo lee el archivo y lo entrega en el evento `leido` (no guarda ni muestra el censo).
+    @api modo;
 
     @track censo = null;
     @track mapeo = {};
@@ -76,6 +80,11 @@ export default class CensoVehiculos extends LightningElement {
         if (cambio && v) { this.cargarCenso(); }
     }
 
+    @api
+    recargar() {
+        return this.cargarCenso();
+    }
+
     // ============================================================
     // Censo guardado
     // ============================================================
@@ -97,8 +106,11 @@ export default class CensoVehiculos extends LightningElement {
     get enResumen() { return this.paso === 'resumen'; }
     get enMapeo() { return this.paso === 'mapeo'; }
     get enVista() { return this.paso === 'vista'; }
-    get puedeEditar() { return !this.readOnly && !!this._opportunityId; }
-    get sinOportunidad() { return !this._opportunityId; }
+    get esLector() { return this.modo === 'lector'; }
+    get mostrarCenso() { return !this.esLector; }
+    get tituloCarga() { return this.esLector ? 'Cargar el archivo de la aseguradora' : 'Cargar censo de vehículos'; }
+    get puedeEditar() { return !this.readOnly && (this.esLector || !!this._opportunityId); }
+    get sinOportunidad() { return !this.esLector && !this._opportunityId; }
     get totalTipos() { return this.censo && this.censo.tipos ? this.censo.tipos.length : 0; }
     get valorCenso() { return moneda(this.censo && this.censo.valorTotal) || '—'; }
 
@@ -409,7 +421,7 @@ export default class CensoVehiculos extends LightningElement {
     get conAviso() { return this.renglones.filter((r) => !r.errores.length && r.avisos.length).length; }
     get hayErrores() { return this.conError > 0; }
     get sinValidos() { return this.totalValidos === 0 || this.cargando; }
-    get textoGuardar() { return `Guardar ${this.totalValidos} vehículos`; }
+    get textoGuardar() { return this.esLector ? `Comparar ${this.totalValidos} vehículos` : `Guardar ${this.totalValidos} vehículos`; }
 
     get resumenVista() {
         const mapa = {};
@@ -473,9 +485,32 @@ export default class CensoVehiculos extends LightningElement {
     // ============================================================
     // Guardado
     // ============================================================
+    payload(r) {
+        return {
+            fila: r.fila,
+            inciso: r.inciso,
+            serie: r.serie || null,
+            claveVehicular: r.claveVehicular || null,
+            descripcion: r.descripcion || null,
+            modelo: r.modelo,
+            placas: r.placas || null,
+            uso: r.uso || null,
+            tipoVehiculo: r.tipoVehiculo || null,
+            paquete: r.paquete || null,
+            tipoValor: r.tipoValor || null,
+            valor: r.valor,
+            prima: r.prima
+        };
+    }
+
     async guardar() {
         const validos = this.validos;
         if (!validos.length) { return; }
+        if (this.esLector) {
+            this.dispatchEvent(new CustomEvent('leido', { detail: { incisos: validos.map((r) => this.payload(r)), archivo: this.archivoNombre } }));
+            this.cancelar();
+            return;
+        }
         const lotes = [];
         for (let i = 0; i < validos.length; i += LOTE) { lotes.push(validos.slice(i, i + LOTE)); }
         this.cargando = true;
@@ -483,21 +518,7 @@ export default class CensoVehiculos extends LightningElement {
         try {
             for (let i = 0; i < lotes.length; i++) {
                 this.progreso = lotes.length > 1 ? `Guardando lote ${i + 1} de ${lotes.length}…` : 'Guardando censo…';
-                const payload = lotes[i].map((r) => ({
-                    fila: r.fila,
-                    inciso: r.inciso,
-                    serie: r.serie || null,
-                    claveVehicular: r.claveVehicular || null,
-                    descripcion: r.descripcion || null,
-                    modelo: r.modelo,
-                    placas: r.placas || null,
-                    uso: r.uso || null,
-                    tipoVehiculo: r.tipoVehiculo || null,
-                    paquete: r.paquete || null,
-                    tipoValor: r.tipoValor || null,
-                    valor: r.valor,
-                    prima: r.prima
-                }));
+                const payload = lotes[i].map((r) => this.payload(r));
                 total = await guardarCensoVehiculos({
                     opportunityId: this._opportunityId,
                     incisosJson: JSON.stringify(payload),

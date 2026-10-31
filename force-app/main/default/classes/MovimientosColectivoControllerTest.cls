@@ -242,6 +242,49 @@ private class MovimientosColectivoControllerTest {
 	/**
 	 * @creation date: 31/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Baja de un titular en la misma carga que un cambio de su dependiente (como llega del archivo): el
+	 *               dependiente sale con su titular y su cambio se omite, en la póliza y en la renovación. No se puede dar
+	 *               de alta a un dependiente de un titular que se está dando de baja.
+	 * @return void
+	 */
+	@isTest
+	static void testBajaTitularConDependientes() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id juan = participante(pol.Id, 'Juan%');
+		Id maria = participante(pol.Id, 'Mar%');
+		Map<String, Object> hijo = mov('alta', null, new Map<String, Object>{ 'nombreCompleto' => 'Diego Pérez', 'parentesco' => 'Hijo(a)' });
+		hijo.put('titularId', juan);
+		try {
+			MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{ mov('baja', juan, null), hijo }));
+			System.assert(false, 'No se da de alta un dependiente de un titular que se da de baja');
+		} catch (AuraHandledException e) {
+			System.assert(e.getMessage().contains('se está dando de baja'), e.getMessage());
+		}
+		Test.startTest();
+		Map<String, Object> r = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+			mov('baja', juan, null), mov('cambio', maria, new Map<String, Object>{ 'prima' => 999 }) }));
+		System.assertEquals(2, r.get('bajas'), 'Juan y María');
+		System.assertEquals(0, r.get('cambios'), 'El cambio de María se omite');
+		System.assertEquals(false, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :maria].IsActiveParticipant);
+
+		Opportunity renov = [SELECT Id FROM Opportunity WHERE Name = 'Opp Renovacion'];
+		MovimientosColectivoController.traerDePoliza(renov.Id, true);
+		Id pedro = [SELECT Id FROM GroupCensusMember WHERE GroupCensus.Oportunidad__c = :renov.Id AND Name LIKE 'Pedro%'].Id;
+		Map<String, Object> dep = mov('alta', null, new Map<String, Object>{ 'nombreCompleto' => 'Sara Gómez', 'parentesco' => 'Cónyuge', 'sexo' => 'Mujer' });
+		dep.put('titularId', pedro);
+		MovimientosColectivoController.aplicar(renov.Id, JSON.serialize(new List<Object>{ dep }));
+		Id sara = [SELECT Id FROM GroupCensusMember WHERE GroupCensus.Oportunidad__c = :renov.Id AND Name = 'Sara Gómez'].Id;
+		r = MovimientosColectivoController.aplicar(renov.Id, JSON.serialize(new List<Object>{
+			mov('baja', pedro, null), mov('cambio', sara, new Map<String, Object>{ 'prima' => 999 }) }));
+		Test.stopTest();
+		System.assertEquals(2, r.get('bajas'), 'Pedro y Sara');
+		System.assertEquals(0, r.get('cambios'));
+		System.assertEquals(0, [SELECT COUNT() FROM GroupCensusMember WHERE GroupCensus.Oportunidad__c = :renov.Id AND (Name LIKE 'Pedro%' OR Name = 'Sara Gómez')]);
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Validaciones de los movimientos y helpers.
 	 * @return void
 	 */

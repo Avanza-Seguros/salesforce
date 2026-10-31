@@ -1194,6 +1194,8 @@
                         <div class="form-container">
                             <c-censo-vehiculos opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
                                 oncensoactualizado={handleCensoVehiculosActualizado}></c-censo-vehiculos>
+                            <c-movimientos-flotilla record-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                onmovimientos={handleMovimientosVehiculos}></c-movimientos-flotilla>
                         </div>
                     </div>
                 </template>
