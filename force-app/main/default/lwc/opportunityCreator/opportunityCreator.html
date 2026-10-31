@@ -1176,6 +1176,25 @@
                         </div>
                     </div>
                 </template>
+                <!-- Censo de vehículos de la FLOTILLA (Inciso_Flotilla__c de la oportunidad, sin cotización) -->
+                <template if:true={isFlotilla}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:custom_notification" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Censo de vehículos</h2>
+                                <p class="section-subtitle">Vehículos de la flotilla: serie, placas, tipo, uso y valor</p>
+                            </div>
+                            <div class="section-badge">{censoVehiculosBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-censo-vehiculos opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                oncensoactualizado={handleCensoVehiculosActualizado}></c-censo-vehiculos>
+                        </div>
+                    </div>
+                </template>
                 <!-- Cotizaciones colectivas (personas, ubicaciones y autos): una por aseguradora, sin comparativo -->
                 <template if:true={mostrarCotizacionesColectivas}>
                     <div class="unified-section">

@@ -257,11 +257,27 @@
     </relatedLists>
     <relatedLists>
         <fields>NAME</fields>
+        <fields>Cotizacion__c</fields>
         <fields>Asegurados__c</fields>
         <fields>Dependientes__c</fields>
         <fields>Plan__c</fields>
         <fields>Suma_Asegurada_Total__c</fields>
         <relatedList>Categoria_Colectiva__c.Oportunidad__c</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>NAME</fields>
+        <fields>Numero_Inciso__c</fields>
+        <fields>Serie__c</fields>
+        <fields>Placas__c</fields>
+        <fields>Descripcion__c</fields>
+        <fields>Modelo__c</fields>
+        <fields>Tipo_Vehiculo__c</fields>
+        <fields>Uso__c</fields>
+        <fields>Poliza__c</fields>
+        <fields>Prima__c</fields>
+        <relatedList>Inciso_Flotilla__c.Oportunidad__c</relatedList>
+        <sortField>Numero_Inciso__c</sortField>
+        <sortOrder>Asc</sortOrder>
     </relatedLists>
     <relatedLists>
         <relatedList>RelatedGroupsListOnRecord</relatedList>

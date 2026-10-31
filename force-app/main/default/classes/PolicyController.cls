@@ -2250,7 +2250,8 @@ public with sharing class PolicyController {
 	 * @description: Póliza de flotilla / colectiva de autos (un inciso por vehículo): por cada vehículo un
 	 * CustomerProperty del cliente (se reúsa el que tenga el mismo número de serie) con los datos del vehículo y del
 	 * asegurado, un InsurancePolicyAsset que lo liga a la póliza con la prima del inciso y un Inciso_Flotilla__c
-	 * ligado a la póliza, a la oportunidad y al vehículo con sus coberturas y primas. Es idempotente.
+	 * ligado a la póliza, a la oportunidad y al vehículo con sus coberturas y primas. Los incisos del censo de
+	 * vehículos de la oportunidad con la misma serie se ligan a la póliza en vez de duplicarse. Es idempotente.
 	 * @param policyId: Id de la InsurancePolicy
 	 * @param accountId: Id de la cuenta del asegurado
 	 * @param oppId: Id de la oportunidad origen (puede ser null)
@@ -2287,6 +2288,17 @@ public with sharing class PolicyController {
 			SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId
 		]) {
 			incisos.put(String.isNotBlank(i.Serie__c) ? i.Serie__c.toUpperCase() : 'inciso ' + i.Numero_Inciso__c, i);
+		}
+		// Vehículos del censo de la oportunidad (sin póliza ni cotización) con la misma serie: se ligan a esta póliza.
+		if (oppId != null && !series.isEmpty()) {
+			for (Inciso_Flotilla__c i : [
+				SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c
+				WHERE Oportunidad__c = :oppId AND Poliza__c = null AND Cotizacion__c = null AND Serie__c IN :series
+				ORDER BY CreatedDate ASC
+			]) {
+				String k = i.Serie__c.toUpperCase();
+				if (!incisos.containsKey(k)) { incisos.put(k, i); }
+			}
 		}
 		Map<String, CustomerProperty> porSerie = new Map<String, CustomerProperty>();
 		if (!series.isEmpty()) {
@@ -2333,7 +2345,8 @@ public with sharing class PolicyController {
 				nuevos.add(ipa);
 			}
 
-			Inciso_Flotilla__c inc = incisos.containsKey(k) ? incisos.get(k) : new Inciso_Flotilla__c(Poliza__c = policyId);
+			Inciso_Flotilla__c inc = incisos.containsKey(k) ? incisos.get(k) : new Inciso_Flotilla__c();
+			inc.Poliza__c = policyId;
 			inc.Vehiculo__c = cp.Id;
 			if (oppId != null) { inc.Oportunidad__c = oppId; }
 			Decimal numero = parseMonto(inciso);

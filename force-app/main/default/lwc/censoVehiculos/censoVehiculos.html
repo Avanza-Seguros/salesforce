@@ -1,0 +1,272 @@
+<template>
+    <div class="censo">
+        <template if:true={cargando}>
+            <div class="censo-cargando">
+                <lightning-spinner alternative-text="Procesando" size="small"></lightning-spinner>
+                <p class="censo-progreso">{progreso}</p>
+            </div>
+        </template>
+
+        <template if:true={errorMensaje}>
+            <div class="censo-error" role="alert">
+                <lightning-icon icon-name="utility:error" variant="error" size="x-small"></lightning-icon>
+                <span>{errorMensaje}</span>
+            </div>
+        </template>
+
+        <template if:true={sinOportunidad}>
+            <div class="censo-vacio">
+                <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                <p>Guarda la oportunidad (con la empresa contratante como cliente) para cargar el censo de vehículos.</p>
+            </div>
+        </template>
+
+        <!-- ====================== RESUMEN DEL CENSO ====================== -->
+        <template if:false={sinOportunidad}>
+            <template if:true={enResumen}>
+                <template if:true={tieneCenso}>
+                    <div class="censo-stats">
+                        <div class="stat"><span class="stat-num">{censo.total}</span><span class="stat-lbl">Vehículos</span></div>
+                        <div class="stat"><span class="stat-num">{totalTipos}</span><span class="stat-lbl">Tipos</span></div>
+                        <div class="stat"><span class="stat-num">{censo.enPoliza}</span><span class="stat-lbl">En póliza</span></div>
+                        <div class="stat"><span class="stat-num">{valorCenso}</span><span class="stat-lbl">Valor asegurado</span></div>
+                    </div>
+
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col">Tipo de vehículo</th>
+                                <th scope="col" class="num">Vehículos</th>
+                                <th scope="col" class="num">Valor asegurado</th>
+                                <th scope="col" class="num">Prima</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={tiposCenso} for:item="t">
+                                <tr key={t.key}>
+                                    <td><span class="chip-categoria">{t.tipo}</span></td>
+                                    <td class="num"><strong>{t.vehiculos}</strong></td>
+                                    <td class="num">{t.valorTxt}</td>
+                                    <td class="num">{t.primaTxt}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+
+                    <div class="censo-acciones">
+                        <lightning-button label={verVehiculosLabel} icon-name="utility:travel_and_places" onclick={toggleVehiculos}></lightning-button>
+                        <template if:true={puedeEditar}>
+                            <lightning-button label="Eliminar censo" icon-name="utility:delete" variant="destructive-text" onclick={handleEliminar}></lightning-button>
+                        </template>
+                    </div>
+
+                    <template if:true={verVehiculos}>
+                        <div class="censo-scroll">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_striped censo-tabla">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col">#</th>
+                                        <th scope="col">Inciso</th>
+                                        <th scope="col">Serie</th>
+                                        <th scope="col">Vehículo</th>
+                                        <th scope="col" class="num">Modelo</th>
+                                        <th scope="col">Placas</th>
+                                        <th scope="col">Tipo</th>
+                                        <th scope="col">Uso</th>
+                                        <th scope="col" class="num">Valor</th>
+                                        <th scope="col">Póliza</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={vehiculosCenso} for:item="v">
+                                        <tr key={v.key}>
+                                            <td>{v.num}</td>
+                                            <td>{v.inciso}</td>
+                                            <td>{v.serie}</td>
+                                            <td><div class="nombre">{v.descripcion}</div></td>
+                                            <td class="num">{v.modelo}</td>
+                                            <td>{v.placas}</td>
+                                            <td>{v.tipoVehiculo}</td>
+                                            <td>{v.uso}</td>
+                                            <td class="num">{v.valorTxt}</td>
+                                            <td>
+                                                <template if:true={v.polizaUrl}><a href={v.polizaUrl} target="_blank">{v.poliza}</a></template>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="censo-paginacion">
+                            <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anteriorCenso} disabled={sinAnteriorCenso}></lightning-button-icon>
+                            <span>{textoPaginaCenso}</span>
+                            <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguienteCenso} disabled={sinSiguienteCenso}></lightning-button-icon>
+                        </div>
+                    </template>
+                </template>
+
+                <template if:false={tieneCenso}>
+                    <div class="censo-vacio">
+                        <lightning-icon icon-name="standard:custom_notification" size="small"></lightning-icon>
+                        <p>Aún no hay censo de vehículos. Sube el listado de la flotilla que envió la empresa o la aseguradora (Excel, CSV o PDF). Al cargar la póliza, sus vehículos también aparecen aquí.</p>
+                    </div>
+                </template>
+
+                <template if:true={puedeEditar}>
+                    <div class="censo-carga">
+                        <div class="censo-carga-texto">
+                            <strong>Cargar censo de vehículos</strong>
+                            <span>Excel (.xlsx), CSV o PDF. En PDF la IA lee la lista de vehículos.</span>
+                        </div>
+                        <div class="censo-carga-acciones">
+                            <lightning-input type="file" label="Archivo del censo de vehículos" variant="label-hidden"
+                                accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" onchange={handleArchivo}></lightning-input>
+                            <lightning-button label="Descargar plantilla" icon-name="utility:download" onclick={descargarPlantilla}></lightning-button>
+                        </div>
+                    </div>
+                </template>
+            </template>
+
+            <!-- ====================== MAPEO DE COLUMNAS ====================== -->
+            <template if:true={enMapeo}>
+                <div class="paso-titulo">
+                    <span class="paso-num">1</span>
+                    <div>
+                        <strong>Revisa las columnas de {archivoNombre}</strong>
+                        <p>{textoEncabezado}. Las columnas se detectaron automáticamente; corrige las que no coincidan.</p>
+                    </div>
+                </div>
+                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                    <template if:true={hayVariasHojas}>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-combobox label="Hoja" value={hojaActual} options={hojas} onchange={handleHoja}></lightning-combobox>
+                        </div>
+                    </template>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                        <lightning-combobox label="Renglón de encabezados" value={filaEncabezadoValor}
+                            options={opcionesEncabezado} onchange={handleEncabezado}></lightning-combobox>
+                    </div>
+                </div>
+                <div class="mapeo-grid">
+                    <template for:each={camposMapeo} for:item="c">
+                        <div key={c.key} class={c.clase}>
+                            <lightning-combobox label={c.label} value={c.value} options={opcionesColumnas}
+                                data-campo={c.key} onchange={handleMapeo} dropdown-alignment="auto"></lightning-combobox>
+                            <span class="ejemplo">{c.ejemplo}</span>
+                        </div>
+                    </template>
+                </div>
+                <div class="censo-acciones derecha">
+                    <lightning-button label="Cancelar" onclick={cancelar}></lightning-button>
+                    <lightning-button label="Continuar" variant="brand" icon-name="utility:forward" icon-position="right" onclick={aplicarMapeo}></lightning-button>
+                </div>
+            </template>
+
+            <!-- ====================== VISTA PREVIA ====================== -->
+            <template if:true={enVista}>
+                <div class="paso-titulo">
+                    <span class="paso-num">2</span>
+                    <div>
+                        <strong>Vista previa de {archivoNombre}</strong>
+                        <p>Revisa los vehículos antes de guardar. Los renglones con error no se guardan.</p>
+                    </div>
+                </div>
+
+                <div class="censo-stats">
+                    <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Se guardarán</span></div>
+                    <div class="stat"><span class="stat-num">{conSerieValidos}</span><span class="stat-lbl">Con serie</span></div>
+                    <div class="stat stat-aviso"><span class="stat-num">{conAviso}</span><span class="stat-lbl">Con aviso</span></div>
+                    <div class="stat stat-error"><span class="stat-num">{conError}</span><span class="stat-lbl">Con error</span></div>
+                </div>
+
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th scope="col">Tipo de vehículo</th>
+                            <th scope="col" class="num">Vehículos</th>
+                            <th scope="col" class="num">Valor asegurado</th>
+                            <th scope="col" class="num">Prima</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={resumenVista} for:item="t">
+                            <tr key={t.key}>
+                                <td><span class="chip-categoria">{t.tipo}</span></td>
+                                <td class="num"><strong>{t.vehiculos}</strong></td>
+                                <td class="num">{t.valorTxt}</td>
+                                <td class="num">{t.primaTxt}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small slds-m-top_small">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                        <lightning-combobox label="Mostrar" value={filtro} options={opcionesFiltro} onchange={handleFiltro}></lightning-combobox>
+                    </div>
+                    <template if:true={tieneCenso}>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                            <lightning-radio-group label="Ya existe un censo" options={opcionesModo} value={modoGuardar}
+                                onchange={handleModo} type="button"></lightning-radio-group>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="censo-scroll">
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col"></th>
+                                <th scope="col">Fila</th>
+                                <th scope="col">Inciso</th>
+                                <th scope="col">Serie</th>
+                                <th scope="col">Vehículo</th>
+                                <th scope="col" class="num">Modelo</th>
+                                <th scope="col">Placas</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Uso</th>
+                                <th scope="col" class="num">Valor</th>
+                                <th scope="col">Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={renglonesVista} for:item="r">
+                                <tr key={r.key} class={r.claseFila}>
+                                    <td><lightning-icon icon-name={r.icono} variant={r.variante} size="xx-small"></lightning-icon></td>
+                                    <td>{r.fila}</td>
+                                    <td>{r.inciso}</td>
+                                    <td>{r.serie}</td>
+                                    <td><div class="nombre">{r.descripcion}</div></td>
+                                    <td class="num">{r.modelo}</td>
+                                    <td>{r.placas}</td>
+                                    <td>{r.tipoVehiculo}</td>
+                                    <td>{r.uso}</td>
+                                    <td class="num">{r.valorTxt}</td>
+                                    <td class="mensajes">{r.mensajes}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="censo-paginacion">
+                    <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anterior} disabled={sinAnterior}></lightning-button-icon>
+                    <span>{textoPagina}</span>
+                    <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguiente} disabled={sinSiguiente}></lightning-button-icon>
+                </div>
+
+                <template if:true={hayErrores}>
+                    <div class="censo-alerta">
+                        <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
+                        <span>{conError} renglones con error no se guardarán. Corrige el archivo y vuelve a cargarlo si los necesitas.</span>
+                    </div>
+                </template>
+
+                <div class="censo-acciones derecha">
+                    <lightning-button label="Cancelar" onclick={cancelar}></lightning-button>
+                    <lightning-button label="Cambiar columnas" onclick={volverAMapeo}></lightning-button>
+                    <lightning-button label={textoGuardar} variant="brand" icon-name="utility:save" onclick={guardar} disabled={sinValidos}></lightning-button>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

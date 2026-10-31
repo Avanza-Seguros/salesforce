@@ -1049,6 +1049,10 @@ private class PolicyControllerTest {
             'aseguradosAdicionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'CONDUCTOR ADICIONAL' } },
             'vehiculos' => new List<Object>{ camion, moto }
         });
+        // El camión ya estaba en el censo de vehículos de la oportunidad: se liga a la póliza sin duplicarse.
+        Inciso_Flotilla__c delCenso = new Inciso_Flotilla__c(Oportunidad__c = q.OpportunityId, Serie__c = '3GCEC14X38M114075',
+            Descripcion__c = 'CHEVROLET SILVERADO (censo)');
+        insert delCenso;
 
         Test.startTest();
         Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
@@ -1090,6 +1094,9 @@ private class PolicyControllerTest {
             FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId ORDER BY Numero_Inciso__c
         ];
         System.assertEquals(2, incisos.size(), 'Un inciso de flotilla por vehículo, sin duplicar');
+        System.assertEquals(policyId, [SELECT Poliza__c FROM Inciso_Flotilla__c WHERE Id = :delCenso.Id].Poliza__c,
+            'El inciso del censo se liga a la póliza');
+        System.assertEquals(2, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Oportunidad__c = :q.OpportunityId AND Cotizacion__c = null]);
         System.assertEquals(q.OpportunityId, incisos[0].Oportunidad__c);
         System.assertEquals(cp.Id, incisos[0].Vehiculo__c);
         System.assertEquals(2008, incisos[0].Modelo__c);

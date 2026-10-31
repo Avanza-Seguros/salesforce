@@ -309,6 +309,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track asegurados = [];
     // Total de asegurados del censo colectivo (lo informa c-censo-colectivo).
     censoTotal = 0;
+    // Vehículos del censo de la flotilla (lo informa c-censo-vehiculos).
+    censoVehiculosTotal = 0;
     // Cotizaciones de flotilla cargadas (lo informa c-flotilla-colectiva).
     flotillaCotizaciones = 0;
     // Cotizaciones colectivas de personas cargadas (lo informa c-colectivo-personas).
@@ -1716,8 +1718,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleCensoActualizado(event) {
         this.censoTotal = (event.detail && event.detail.total) || 0;
     }
-    // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se cargan las
-    // cotizaciones de cada aseguradora por inciso (c-flotilla-colectiva).
+    get censoVehiculosBadge() {
+        return this.censoVehiculosTotal ? `${this.censoVehiculosTotal} vehículos` : 'Sin censo';
+    }
+    handleCensoVehiculosActualizado(event) {
+        this.censoVehiculosTotal = (event.detail && event.detail.total) || 0;
+    }
+    // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se carga el censo de vehículos
+    // (c-censo-vehiculos: un Inciso_Flotilla__c por vehículo).
     get isFlotilla() {
         return this.isColectiva && this.isRamoAutomovil;
     }
