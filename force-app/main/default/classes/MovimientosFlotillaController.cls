@@ -75,7 +75,12 @@ public with sharing class MovimientosFlotillaController {
 				res.put('nombre', pol.Name);
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
-				res.put('vehiculos', vehiculos(incisosPoliza(recordId, false, null)));
+				List<Object> vs = vehiculos(incisosPoliza(recordId, false, null));
+				// Póliza individual (o emitida sin incisos): el vehículo es el bien ligado a la póliza. Solo consulta.
+				Boolean deBienes = vs.isEmpty();
+				if (deBienes) { vs = vehiculosDeBienes(recordId); }
+				res.put('vehiculos', vs);
+				res.put('soloLectura', deBienes && !vs.isEmpty());
 			} else {
 				Opportunity opp = MovimientosColectivoController.oportunidad(recordId);
 				InsurancePolicy anterior = MovimientosColectivoController.polizaAnteriorDe(opp);
@@ -545,6 +550,56 @@ public with sharing class MovimientosFlotillaController {
 				'paquete' => i.Paquete__c, 'valor' => i.Valor__c, 'prima' => i.Prima__c, 'vehiculoId' => i.Vehiculo__c,
 				'activo' => i.Fecha_Baja__c == null, 'fechaAlta' => i.Fecha_Alta__c, 'fechaBaja' => i.Fecha_Baja__c,
 				'motivoBaja' => i.Motivo_Baja__c == null ? null : motivos.get(i.Motivo_Baja__c)
+			});
+		}
+		return l;
+	}
+
+	/**
+	 * @creation date: 01/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Vehículos de una póliza sin incisos de flotilla (póliza individual): los bienes ligados a la póliza
+	 *               (InsurancePolicyAsset con su CustomerProperty). El valor es el valor comercial del bien o, si no lo
+	 *               tiene, la suma de Daños materiales / Robo total de las coberturas de la póliza.
+	 * @param policyId: póliza.
+	 * @return vehículos con la misma forma que los incisos.
+	 */
+	@TestVisible
+	private static List<Object> vehiculosDeBienes(Id policyId) {
+		Decimal sumaDanos = null;
+		for (InsurancePolicyCoverage c : [
+			SELECT CoverageName, LimitAmount FROM InsurancePolicyCoverage
+			WHERE InsurancePolicyId = :policyId AND LimitAmount != null LIMIT 200
+		]) {
+			String n = CensoColectivoController.llave(c.CoverageName);
+			if ((n.contains('danos materiales') || n.contains('robo total')) && (sumaDanos == null || c.LimitAmount > sumaDanos)) {
+				sumaDanos = c.LimitAmount;
+			}
+		}
+		List<Object> l = new List<Object>();
+		Integer n = 0;
+		for (InsurancePolicyAsset a : [
+			SELECT Id, AssetName, IsActive, EffectiveFromDate, EffectiveToDate, StandardPremiumAmount, CustomerPropertyId,
+				CustomerProperty.Name, CustomerProperty.Make, CustomerProperty.ModelName, CustomerProperty.MakeYear, CustomerProperty.Vin,
+				CustomerProperty.Description, CustomerProperty.Uso__c, CustomerProperty.TipoVehiculo__c, CustomerProperty.FairMarketValue
+			FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
+			ORDER BY CreatedDate ASC LIMIT :MAX_VEHICULOS
+		]) {
+			n++;
+			CustomerProperty cp = a.CustomerProperty;
+			String modelo = String.isNotBlank(cp.ModelName) ? cp.ModelName
+				: (String.isNotBlank(cp.Description) ? cp.Description.split('\n')[0].trim() : a.AssetName);
+			String descripcion = modelo;
+			if (String.isNotBlank(cp.Make) && (modelo == null || !modelo.toUpperCase().startsWith(cp.Make.toUpperCase()))) {
+				descripcion = (cp.Make + ' ' + (modelo == null ? '' : modelo)).trim();
+			}
+			Boolean activo = a.IsActive != false;
+			l.add(new Map<String, Object>{
+				'id' => a.Id, 'nombre' => cp.Name, 'inciso' => n, 'serie' => cp.Vin, 'placas' => null, 'descripcion' => descripcion,
+				'modelo' => cp.MakeYear, 'tipoVehiculo' => cp.TipoVehiculo__c, 'uso' => cp.Uso__c, 'paquete' => null,
+				'valor' => cp.FairMarketValue != null ? cp.FairMarketValue : sumaDanos, 'prima' => a.StandardPremiumAmount,
+				'vehiculoId' => a.CustomerPropertyId, 'activo' => activo, 'fechaAlta' => a.EffectiveFromDate,
+				'fechaBaja' => activo ? null : a.EffectiveToDate, 'motivoBaja' => null, 'deLaPoliza' => true
 			});
 		}
 		return l;

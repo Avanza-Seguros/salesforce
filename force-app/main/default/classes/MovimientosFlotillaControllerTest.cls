@@ -282,4 +282,42 @@ private class MovimientosFlotillaControllerTest {
 		System.assertEquals(true, MovimientosFlotillaController.esFlotilla('Automóviles'));
 		System.assertEquals(false, MovimientosFlotillaController.esFlotilla('GMM'));
 	}
+
+	/**
+	 * @creation date: 01/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza individual de autos (sin incisos): el vehículo sale del bien ligado a la póliza, solo consulta.
+	 * @return void
+	 */
+	@isTest
+	static void testPolizaIndividual() {
+		Account acc = [SELECT Id FROM Account WHERE Name = 'Empresa Flotilla Test' LIMIT 1];
+		Datetime inicio = Datetime.now();
+		InsurancePolicy pol = new InsurancePolicy(Name = 'POL-AUTO-IND', NameInsuredId = acc.Id, Status = 'Inicial', PremiumAmount = 10414.71,
+			PaymentDueDate = Date.today().addDays(30), EffectiveDate = inicio, ExpirationDate = inicio.addDays(365));
+		pol.put('Ramo__c', 'Automoviles');
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { pol.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert pol;
+		CustomerProperty cp = new CustomerProperty(PrimaryOwnerId = acc.Id, Make = 'KIA', MakeYear = 2019,
+			Description = 'SPORTAGE SXL AWD L4 IMP AUT', Uso__c = 'PRIVADO');
+		insert cp;
+		insert new InsurancePolicyAsset(InsurancePolicyId = pol.Id, AssetName = 'SPORTAGE SXL', CustomerPropertyId = cp.Id, IsActive = true,
+			StandardPremiumAmount = 10414.71, EffectiveFromDate = Date.today());
+		insert new InsurancePolicyCoverage(InsurancePolicyId = pol.Id, CoverageName = 'DAÑOS MATERIALES', LimitAmount = 254900);
+
+		Test.startTest();
+		Map<String, Object> d = MovimientosFlotillaController.getDatos(pol.Id);
+		Test.stopTest();
+		System.assertEquals(true, d.get('soloLectura'));
+		List<Object> vs = (List<Object>) d.get('vehiculos');
+		System.assertEquals(1, vs.size());
+		Map<String, Object> v = (Map<String, Object>) vs[0];
+		System.assertEquals('KIA SPORTAGE SXL AWD L4 IMP AUT', v.get('descripcion'));
+		System.assertEquals(254900, (Decimal) v.get('valor'));
+		System.assertEquals(2019, v.get('modelo'));
+		System.assertEquals(true, v.get('activo'));
+		System.assertEquals(false, MovimientosFlotillaController.getDatos(poliza().Id).get('soloLectura'), 'La flotilla con incisos se edita');
+	}
 }

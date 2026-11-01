@@ -73,9 +73,15 @@ export default class MovimientosFlotilla extends LightningElement {
     get enOportunidad() { return !!this.datos && this.datos.contexto === 'oportunidad'; }
     // En la oportunidad solo aplica cuando el cliente ya tiene una póliza de autos (renovación).
     get visible() { return !!this.datos && this.datos.aplica === true && (this.enPoliza || !!this.datos.polizaAnteriorId); }
-    get puedeEditar() { return !this.readOnly && this.visible; }
-    get titulo() { return this.enPoliza ? 'Vehículos de la póliza' : 'Renovación: altas, bajas y cambios de vehículos'; }
+    // Póliza individual: el vehículo se lee del bien ligado a la póliza y solo se consulta.
+    get soloLectura() { return !!this.datos && this.datos.soloLectura === true; }
+    get puedeEditar() { return !this.readOnly && this.visible && !this.soloLectura; }
+    get titulo() {
+        if (this.soloLectura) { return this.vehiculos.length === 1 ? 'Vehículo de la póliza' : 'Vehículos de la póliza'; }
+        return this.enPoliza ? 'Vehículos de la póliza' : 'Renovación: altas, bajas y cambios de vehículos';
+    }
     get subtitulo() {
+        if (this.soloLectura) { return 'Póliza individual: vehículo asegurado según la póliza emitida.'; }
         if (this.enPoliza) { return 'Endosos durante la vigencia: alta, baja (con motivo) y cambios de datos de los vehículos.'; }
         const fin = this.datos.polizaAnteriorFin ? ` (vence el ${fechaVisible(this.datos.polizaAnteriorFin)})` : '';
         return `Renueva la póliza ${this.datos.polizaAnteriorNombre}${fin}. Ajusta aquí el censo de vehículos de la nueva vigencia.`;
