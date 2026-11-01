@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Venta_inmueble</fullName>
+        <default>false</default>
+        <label>Venta del inmueble</label>
+    </customValue>
+    <customValue>
+        <fullName>Cambio_domicilio</fullName>
+        <default>false</default>
+        <label>Desocupación o cambio de domicilio</label>
+    </customValue>
+    <customValue>
+        <fullName>Cierre</fullName>
+        <default>false</default>
+        <label>Cierre de la sucursal u operación</label>
+    </customValue>
+    <customValue>
+        <fullName>Fin_arrendamiento</fullName>
+        <default>false</default>
+        <label>Fin del arrendamiento</label>
+    </customValue>
+    <customValue>
+        <fullName>Perdida_total</fullName>
+        <default>false</default>
+        <label>Pérdida total (siniestro)</label>
+    </customValue>
+    <customValue>
+        <fullName>Solicitud_contratante</fullName>
+        <default>false</default>
+        <label>Solicitud del contratante</label>
+    </customValue>
+    <customValue>
+        <fullName>Falta_pago</fullName>
+        <default>false</default>
+        <label>Falta de pago</label>
+    </customValue>
+    <customValue>
+        <fullName>Otro_seguro</fullName>
+        <default>false</default>
+        <label>Asegurada con otra póliza</label>
+    </customValue>
+    <customValue>
+        <fullName>Error_censo</fullName>
+        <default>false</default>
+        <label>Error en el listado</label>
+    </customValue>
+    <customValue>
+        <fullName>No_renovado</fullName>
+        <default>false</default>
+        <label>No se renueva</label>
+    </customValue>
+    <customValue>
+        <fullName>Otro</fullName>
+        <default>false</default>
+        <label>Otro</label>
+    </customValue>
+    <description>Motivos de baja de una ubicación de una póliza de Daños / Empresarial (endoso o renovación).</description>
+    <masterLabel>Motivo de baja de ubicación</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

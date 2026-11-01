@@ -77,6 +77,9 @@ export default class MovimientosColectivo extends LightningElement {
     get noAplica() { return this.enPoliza && this.datos.aplica === false; }
     // Flotilla: los movimientos son de vehículos (c-movimientos-flotilla).
     get esFlotilla() { return this.noAplica && this.datos.flotilla === true; }
+    // Daños / Empresarial: los movimientos son de ubicaciones (c-movimientos-ubicaciones).
+    get esUbicaciones() { return this.noAplica && this.datos.ubicaciones === true; }
+    get sinMovimientosBienes() { return this.noAplica && !this.esFlotilla && !this.esUbicaciones; }
     get puedeEditar() { return !this.readOnly && this.visible; }
     get titulo() { return this.enPoliza ? 'Asegurados de la póliza' : 'Renovación: altas, bajas y cambios'; }
     get subtitulo() {

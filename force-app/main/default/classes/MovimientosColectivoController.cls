@@ -70,6 +70,7 @@ public with sharing class MovimientosColectivoController {
 				res.put('contexto', 'poliza');
 				res.put('aplica', aplicaRamo(pol.Ramo__c));
 				res.put('flotilla', MovimientosFlotillaController.esFlotilla(pol.Ramo__c));
+				res.put('ubicaciones', MovimientosUbicacionesController.esUbicaciones(pol.Ramo__c));
 				res.put('nombre', pol.Name);
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
@@ -869,11 +870,13 @@ public with sharing class MovimientosColectivoController {
 	 * @return movimientos como mapas.
 	 */
 	public static List<Object> historial(Id recordId) {
+		// Cada lista de motivos tiene sus etiquetas (algunos valores se repiten entre personas, vehículos y ubicaciones).
 		Map<String, String> motivos = etiquetas(Movimiento_Poliza__c.Motivo_Baja__c.getDescribe());
-		motivos.putAll(etiquetas(Movimiento_Poliza__c.Motivo_Baja_Vehiculo__c.getDescribe()));
+		Map<String, String> motivosVehiculo = etiquetas(Movimiento_Poliza__c.Motivo_Baja_Vehiculo__c.getDescribe());
+		Map<String, String> motivosUbicacion = etiquetas(Movimiento_Poliza__c.Motivo_Baja_Ubicacion__c.getDescribe());
 		List<Object> res = new List<Object>();
 		for (Movimiento_Poliza__c m : [
-			SELECT Id, Name, Tipo__c, Contexto__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Motivo_Baja__c, Motivo_Baja_Vehiculo__c,
+			SELECT Id, Name, Tipo__c, Contexto__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Motivo_Baja__c, Motivo_Baja_Vehiculo__c, Motivo_Baja_Ubicacion__c,
 				Numero_Endoso__c, Detalle__c, Comentario__c, CreatedBy.Name, CreatedDate
 			FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :recordId OR Oportunidad__c = :recordId
@@ -881,7 +884,8 @@ public with sharing class MovimientosColectivoController {
 		]) {
 			res.add(new Map<String, Object>{
 				'id' => m.Id, 'nombre' => m.Name, 'tipo' => m.Tipo__c, 'asegurado' => m.Asegurado__c, 'certificado' => m.Certificado__c,
-				'fecha' => m.Fecha_Movimiento__c, 'motivo' => motivos.get(m.Motivo_Baja__c != null ? m.Motivo_Baja__c : m.Motivo_Baja_Vehiculo__c),
+				'fecha' => m.Fecha_Movimiento__c, 'motivo' => m.Motivo_Baja__c != null ? motivos.get(m.Motivo_Baja__c)
+					: (m.Motivo_Baja_Vehiculo__c != null ? motivosVehiculo.get(m.Motivo_Baja_Vehiculo__c) : motivosUbicacion.get(m.Motivo_Baja_Ubicacion__c)),
 				'endoso' => m.Numero_Endoso__c, 'detalle' => m.Detalle__c, 'comentario' => m.Comentario__c,
 				'usuario' => m.CreatedBy.Name, 'creado' => m.CreatedDate
 			});

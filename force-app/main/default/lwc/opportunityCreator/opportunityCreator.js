@@ -1754,6 +1754,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isFlotilla() {
         return this.isColectiva && this.isRamoAutomovil;
     }
+    // Colectiva de Daños / Empresarial: en la renovación se ajusta el listado de ubicaciones (c-movimientos-ubicaciones).
+    get isColectivaUbicaciones() {
+        return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
+    }
     // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos. En Vida y Daños
     // colectivos tampoco (asegurado principal / subramo): de la colectiva solo importan las primas.
     get mostrarDetalleRamo() {

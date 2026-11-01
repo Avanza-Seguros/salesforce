@@ -3,7 +3,10 @@
         <template if:true={esFlotilla}>
             <c-movimientos-flotilla record-id={recordId} read-only={readOnly}></c-movimientos-flotilla>
         </template>
-        <template if:false={esFlotilla}>
+        <template if:true={esUbicaciones}>
+            <c-movimientos-ubicaciones record-id={recordId} read-only={readOnly}></c-movimientos-ubicaciones>
+        </template>
+        <template if:true={sinMovimientosBienes}>
             <div class="mov-vacio">
                 <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
                 <p>Esta póliza asegura ubicaciones: sus altas y bajas se manejan en los bienes de la póliza.</p>

@@ -2225,8 +2225,7 @@ public with sharing class PolicyController {
 	 *        sumaAsegurada, primaNeta, primaTotal}
 	 * @return Número de ubicaciones ligadas a la póliza
 	 */
-	@TestVisible
-	private static Integer guardarUbicacionesDesdePdf(Id policyId, Id accountId, List<Object> ubicaciones) {
+	public static Integer guardarUbicacionesDesdePdf(Id policyId, Id accountId, List<Object> ubicaciones) {
 		if (accountId == null || ubicaciones == null || ubicaciones.isEmpty()) { return 0; }
 		InsurancePolicy pol = [
 			SELECT Id, Name, ProductId, EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
@@ -2291,6 +2290,8 @@ public with sharing class PolicyController {
 			if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
 			Decimal prima = parseMonto(strOf(u.get('primaTotal')));
 			if (prima != null) { ipa.StandardPremiumAmount = prima; }
+			Decimal suma = parseMonto(strOf(u.get('sumaAsegurada')));
+			if (suma != null) { ipa.Suma_Asegurada__c = suma; }
 			nuevos.add(ipa);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
@@ -2735,6 +2736,29 @@ public with sharing class PolicyController {
 	 * @param cp: código postal (opcional)
 	 * @return llave
 	 */
+	/**
+	 * @creation date: 01/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de una ubicación escrita como texto (la misma con la que se reúsa su CustomerProperty).
+	 * @param direccion: domicilio completo.
+	 * @return llave normalizada de calle, colonia y CP.
+	 */
+	public static String llaveDireccion(String direccion) {
+		Map<String, String> partes = partirDireccion(direccion == null ? '' : direccion.normalizeSpace());
+		return llaveUbicacion(partes.get('calle'), partes.get('colonia'), partes.get('cp'));
+	}
+
+	/**
+	 * @creation date: 01/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de la ubicación guardada en un CustomerProperty (Street y PostalCode).
+	 * @param c: CustomerProperty.
+	 * @return llave normalizada.
+	 */
+	public static String llaveBien(CustomerProperty c) {
+		return llaveUbicacion(c.Street, null, c.PostalCode);
+	}
+
 	private static String llaveUbicacion(String calle, String colonia, String cp) {
 		String texto = (calle == null ? '' : calle) + (colonia == null ? '' : colonia);
 		return normKey(texto).replaceAll('[^a-z0-9]', '') + '|' + (cp == null ? '' : cp.trim());
@@ -3058,16 +3082,18 @@ public with sharing class PolicyController {
 		];
 		String ramoKey = normKey(pol.Ramo__c);
 		if (ramoKey.contains('dano') || ramoKey.contains('empresarial')) {
-			if (pol.SourceQuoteId == null) { return res; }
+			// Las ubicaciones de la cotización aceptada; si no las trae, las del listado de ubicaciones de la oportunidad.
 			List<Object> ubicaciones = new List<Object>();
-			for (Categoria_Colectiva__c c : [
-				SELECT Direccion__c, Suma_Asegurada_Total__c, Prima_Neta__c FROM Categoria_Colectiva__c
+			for (Categoria_Colectiva__c c : pol.SourceQuoteId == null ? new List<Categoria_Colectiva__c>() : [
+				SELECT Direccion__c, Suma_Asegurada_Total__c, Prima_Neta__c, Parametros__c FROM Categoria_Colectiva__c
 				WHERE Cotizacion__c = :pol.SourceQuoteId AND Direccion__c != null ORDER BY CreatedDate ASC, Id ASC LIMIT 1000
 			]) {
-				ubicaciones.add(new Map<String, Object>{
-					'inciso' => String.valueOf(ubicaciones.size() + 1), 'direccion' => c.Direccion__c,
-					'sumaAsegurada' => c.Suma_Asegurada_Total__c, 'primaTotal' => c.Prima_Neta__c
-				});
+				ubicaciones.add(ubicacionColectiva(c, ubicaciones.size() + 1));
+			}
+			if (ubicaciones.isEmpty()) {
+				for (Categoria_Colectiva__c c : MovimientosUbicacionesController.censo(oppId, null)) {
+					ubicaciones.add(ubicacionColectiva(c, ubicaciones.size() + 1));
+				}
 			}
 			if (!ubicaciones.isEmpty()) {
 				res.put('ubicaciones', guardarUbicacionesDesdePdf(policyId, resolverCuentaDePoliza(pol), ubicaciones));
@@ -3092,6 +3118,14 @@ public with sharing class PolicyController {
 		}
 		res.put('vehiculos', guardarVehiculosDesdePdf(policyId, resolverCuentaDePoliza(pol), oppId, vehiculos));
 		return res;
+	}
+
+	// Ubicación (renglón de la cotización o del listado de la oportunidad) en el formato de guardarUbicacionesDesdePdf.
+	private static Map<String, Object> ubicacionColectiva(Categoria_Colectiva__c c, Integer inciso) {
+		return new Map<String, Object>{
+			'inciso' => String.valueOf(inciso), 'direccion' => c.Direccion__c, 'giro' => MovimientosUbicacionesController.giro(c),
+			'sumaAsegurada' => c.Suma_Asegurada_Total__c, 'primaTotal' => c.Prima_Neta__c
+		};
 	}
 
 	/**

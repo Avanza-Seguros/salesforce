@@ -1199,6 +1199,10 @@
                         </div>
                     </div>
                 </template>
+                <!-- Renovación de una colectiva de Daños / Empresarial: listado de ubicaciones (se muestra solo si renueva una póliza) -->
+                <template if:true={isColectivaUbicaciones}>
+                    <c-movimientos-ubicaciones record-id={opportunity.Id} read-only={isOpportunityReadOnly}></c-movimientos-ubicaciones>
+                </template>
                 <!-- Cotizaciones colectivas (personas, ubicaciones y autos): una por aseguradora, sin comparativo -->
                 <template if:true={mostrarCotizacionesColectivas}>
                     <div class="unified-section">
