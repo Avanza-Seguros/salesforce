@@ -773,6 +773,16 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
+                <componentName>participantesPoliza</componentName>
+                <identifier>c_participantesPoliza</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-7b1c2e45-participantes-poliza</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
                 <componentInstanceProperties>
                     <name>active</name>
                     <value>true</value>
@@ -811,10 +821,24 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>title</name>
-                    <value>Asegurados / Vehículos</value>
+                    <value>Asegurados / Vehículos / Ubicaciones</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab4</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-7b1c2e45-participantes-poliza</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Participantes</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tab5</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>

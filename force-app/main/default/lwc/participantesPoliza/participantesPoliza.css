@@ -1,0 +1,302 @@
+.part {
+    position: relative;
+    min-height: 3rem;
+    padding: 0.75rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.5rem;
+    background: #fff;
+    margin-top: 0.75rem;
+}
+
+.part-cargando {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 0.5rem;
+}
+
+.part-encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.part-titulo {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #032d60;
+}
+
+.part-subtitulo,
+.sub {
+    font-size: 0.75rem;
+    color: #5c5c5c;
+}
+
+.part-error,
+.part-aviso {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8125rem;
+}
+
+.part-error {
+    background: #fef1f1;
+    color: #8e030f;
+}
+
+.part-aviso {
+    background: #f3f6fb;
+    color: #032d60;
+}
+
+.part-contratante {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0.5rem;
+    background: #fafaf9;
+    border: 1px solid #e5e5e5;
+}
+
+.contratante-cuerpo {
+    flex: 1;
+    min-width: 0;
+}
+
+.contratante-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+}
+
+.etiqueta {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #5c5c5c;
+}
+
+.part-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.stat {
+    flex: 1 1 7rem;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.875rem;
+    border-radius: 0.5rem;
+    background: #f3f6fb;
+    border-left: 4px solid #0176d3;
+}
+
+.stat-baja {
+    background: #f3f3f3;
+    border-left-color: #706e6b;
+}
+
+.stat-num {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #032d60;
+}
+
+.stat-lbl {
+    font-size: 0.6875rem;
+    color: #5c5c5c;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.part-barra {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.part-vistas,
+.part-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.part-buscar {
+    min-width: 16rem;
+}
+
+.part-filtro {
+    min-width: 11rem;
+}
+
+.part-scroll {
+    max-height: 32rem;
+    overflow: auto;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+}
+
+.part-tabla {
+    font-size: 0.8125rem;
+}
+
+.part-tabla th {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    color: #5c5c5c;
+}
+
+.part-tabla .num {
+    text-align: right;
+}
+
+.col-abrir {
+    width: 2rem;
+}
+
+.nombre {
+    font-weight: 600;
+}
+
+.nombre-dependiente {
+    padding-left: 1.25rem;
+    font-weight: 400;
+    position: relative;
+}
+
+.nombre-dependiente::before {
+    content: '↳';
+    position: absolute;
+    left: 0.25rem;
+    color: #919191;
+}
+
+.fila-dependiente td {
+    background: #fcfcfc;
+}
+
+.fila-baja td {
+    color: #919191;
+}
+
+.fila-abierta td {
+    background: #f3f6fb;
+}
+
+.estado {
+    display: inline-block;
+    padding: 0.0625rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.estado-vigente {
+    background: #ebf7e6;
+    color: #2e844a;
+}
+
+.estado-baja {
+    background: #f3f3f3;
+    color: #5c5c5c;
+}
+
+.fila-detalle td {
+    background: #f8fafc;
+    white-space: normal;
+}
+
+.detalle {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+    padding: 0.5rem 0.25rem;
+}
+
+.detalle-bloque h4 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #032d60;
+    margin-bottom: 0.375rem;
+}
+
+.datos .dato {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+}
+
+.datos dt {
+    flex: 0 0 8.5rem;
+    color: #5c5c5c;
+}
+
+.datos dd {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.datos-linea {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 1.5rem;
+    font-size: 0.8125rem;
+}
+
+.datos-linea dt {
+    flex: none;
+}
+
+.lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lista li {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #ececec;
+}
+
+.part-paginacion {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+}
+
+.part-vacio {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px dashed #c9c9c9;
+    border-radius: 0.5rem;
+    color: #5c5c5c;
+    background: #fafaf9;
+}
+
+.part-vacio p {
+    margin: 0;
+}

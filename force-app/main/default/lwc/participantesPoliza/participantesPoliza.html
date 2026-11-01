@@ -1,0 +1,260 @@
+<template>
+    <div class="part">
+        <template if:true={cargando}>
+            <div class="part-cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
+        </template>
+
+        <div class="part-encabezado">
+            <div>
+                <h3 class="part-titulo">Participantes de la póliza</h3>
+                <p class="part-subtitulo">{subtitulo}</p>
+            </div>
+            <lightning-button-icon icon-name="utility:refresh" alternative-text="Actualizar" title="Actualizar" onclick={cargar}></lightning-button-icon>
+        </div>
+
+        <template if:true={errorMensaje}>
+            <div class="part-error" role="alert">
+                <lightning-icon icon-name="utility:error" variant="error" size="x-small"></lightning-icon>
+                <span>{errorMensaje}</span>
+            </div>
+        </template>
+
+        <template if:true={hayDatos}>
+            <!-- ====================== CONTRATANTE ====================== -->
+            <template if:true={hayContratante}>
+                <div class="part-contratante">
+                    <div class="contratante-icono"><lightning-icon icon-name="standard:account" size="small"></lightning-icon></div>
+                    <div class="contratante-cuerpo">
+                        <div class="contratante-titulo">
+                            <span class="etiqueta">Contratante</span>
+                            <a data-id={contratante.id} onclick={abrirRegistro}>{contratante.nombre}</a>
+                        </div>
+                        <dl class="datos datos-linea">
+                            <template for:each={datosContratante} for:item="d">
+                                <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                            </template>
+                        </dl>
+                    </div>
+                </div>
+            </template>
+
+            <template if:true={avisoBienes}>
+                <div class="part-aviso">
+                    <lightning-icon icon-name="utility:info" size="x-small"></lightning-icon>
+                    <span>{avisoBienes}</span>
+                </div>
+            </template>
+
+            <div class="part-stats">
+                <template for:each={stats} for:item="s">
+                    <div key={s.key} class={s.clase}><span class="stat-num">{s.num}</span><span class="stat-lbl">{s.lbl}</span></div>
+                </template>
+            </div>
+
+            <!-- ====================== BARRA ====================== -->
+            <div class="part-barra">
+                <div class="part-vistas">
+                    <template for:each={vistas} for:item="v">
+                        <lightning-button key={v.value} label={v.label} variant={v.variante} data-vista={v.value} onclick={cambiarVista}></lightning-button>
+                    </template>
+                </div>
+                <div class="part-filtros">
+                    <lightning-input type="search" label="Buscar" variant="label-hidden" placeholder="Buscar por nombre, certificado, RFC o correo"
+                        value={busqueda} onchange={handleBusqueda} class="part-buscar"></lightning-input>
+                    <lightning-combobox label="Mostrar" variant="label-hidden" value={estado} options={opcionesEstado}
+                        onchange={handleEstado} class="part-filtro"></lightning-combobox>
+                </div>
+            </div>
+
+            <template if:true={sinFilas}>
+                <div class="part-vacio">
+                    <lightning-icon icon-name="utility:people" size="small"></lightning-icon>
+                    <p>No hay participantes con este filtro.</p>
+                </div>
+            </template>
+
+            <!-- ====================== ASEGURADOS ====================== -->
+            <template if:true={enAsegurados}>
+                <template if:false={sinFilas}>
+                    <div class="part-scroll">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer part-tabla">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col" class="col-abrir"></th>
+                                    <th scope="col">Cert.</th>
+                                    <th scope="col">Asegurado</th>
+                                    <template if:true={conParentesco}><th scope="col">Parentesco</th></template>
+                                    <template if:true={conCategoria}><th scope="col">Categoría</th></template>
+                                    <th scope="col">Nacimiento</th>
+                                    <template if:true={conSuma}><th scope="col" class="num">Suma asegurada</th></template>
+                                    <template if:true={conPrima}><th scope="col" class="num">Prima</th></template>
+                                    <th scope="col">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={filasAsegurados} for:item="p">
+                                    <tr key={p.key} class={p.claseFila}>
+                                        <td class="col-abrir">
+                                            <lightning-button-icon icon-name={p.iconoAbrir} variant="bare" alternative-text={p.textoAbrir} title={p.textoAbrir}
+                                                data-id={p.id} onclick={toggleDetalle}></lightning-button-icon>
+                                        </td>
+                                        <td>{p.certificado}</td>
+                                        <td>
+                                            <div class={p.claseNombre}>{p.nombre}</div>
+                                            <div class="sub">{p.contactoTxt}</div>
+                                        </td>
+                                        <template if:true={conParentesco}><td>{p.parentescoTxt}</td></template>
+                                        <template if:true={conCategoria}><td>{p.categoria}</td></template>
+                                        <td>{p.nacimientoTxt}</td>
+                                        <template if:true={conSuma}><td class="num">{p.sumaTxt}</td></template>
+                                        <template if:true={conPrima}><td class="num">{p.primaTxt}</td></template>
+                                        <td>
+                                            <span class={p.claseEstado}>{p.estado}</span>
+                                            <template if:true={p.motivoBaja}><div class="sub">{p.motivoBaja}</div></template>
+                                        </td>
+                                    </tr>
+                                    <template if:true={p.abierto}>
+                                        <tr key={p.keyDetalle} class="fila-detalle">
+                                            <td colspan={columnasAsegurados}>
+                                                <div class="detalle">
+                                                    <div class="detalle-bloque">
+                                                        <h4>{p.personaTitulo}</h4>
+                                                        <template if:true={p.hayPersona}>
+                                                            <dl class="datos">
+                                                                <template for:each={p.datosPersona} for:item="d">
+                                                                    <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                                                                </template>
+                                                            </dl>
+                                                            <lightning-button label="Abrir registro" variant="base" icon-name="utility:new_window"
+                                                                data-id={p.personaId} onclick={abrirRegistro}></lightning-button>
+                                                        </template>
+                                                        <template if:false={p.hayPersona}>
+                                                            <p class="sub">El participante no está ligado a un contacto ni a una cuenta.</p>
+                                                        </template>
+                                                    </div>
+                                                    <div class="detalle-bloque">
+                                                        <h4>En la póliza</h4>
+                                                        <dl class="datos">
+                                                            <template for:each={p.datosPoliza} for:item="d">
+                                                                <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                                                            </template>
+                                                        </dl>
+                                                        <lightning-button label="Ver participante" variant="base" icon-name="utility:new_window"
+                                                            data-id={p.id} onclick={abrirRegistro}></lightning-button>
+                                                    </div>
+                                                    <div class="detalle-bloque">
+                                                        <h4>Coberturas</h4>
+                                                        <template if:true={p.hayCoberturas}>
+                                                            <ul class="lista">
+                                                                <template for:each={p.coberturasTxt} for:item="c">
+                                                                    <li key={c.key}><strong>{c.nombre}</strong><div class="sub">{c.detalle}</div></li>
+                                                                </template>
+                                                            </ul>
+                                                        </template>
+                                                        <template if:false={p.hayCoberturas}>
+                                                            <p class="sub">Sin coberturas individuales: aplican las de la póliza.</p>
+                                                        </template>
+                                                        <template if:true={p.hayBeneficiarios}>
+                                                            <h4 class="slds-m-top_small">Beneficiarios</h4>
+                                                            <ul class="lista">
+                                                                <template for:each={p.beneficiarios} for:item="b">
+                                                                    <li key={b.id}>{b.texto}</li>
+                                                                </template>
+                                                            </ul>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+            </template>
+
+            <!-- ====================== BENEFICIARIOS Y OTROS ROLES ====================== -->
+            <template if:false={enAsegurados}>
+                <template if:false={sinFilas}>
+                    <div class="part-scroll">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer part-tabla">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col" class="col-abrir"></th>
+                                    <th scope="col">Nombre</th>
+                                    <th scope="col">Rol</th>
+                                    <th scope="col">Parentesco</th>
+                                    <template if:true={enBeneficiarios}><th scope="col" class="num">Porcentaje</th></template>
+                                    <th scope="col">Contacto</th>
+                                    <th scope="col">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={filasLista} for:item="p">
+                                    <tr key={p.key} class={p.claseFila}>
+                                        <td class="col-abrir">
+                                            <lightning-button-icon icon-name={p.iconoAbrir} variant="bare" alternative-text={p.textoAbrir} title={p.textoAbrir}
+                                                data-id={p.id} onclick={toggleDetalle}></lightning-button-icon>
+                                        </td>
+                                        <td>
+                                            <div class="nombre">{p.nombre}</div>
+                                            <div class="sub">{p.deTxt}</div>
+                                        </td>
+                                        <td>{p.rolesTexto}</td>
+                                        <td>{p.parentesco}</td>
+                                        <template if:true={enBeneficiarios}><td class="num">{p.porcentajeTxt}</td></template>
+                                        <td>{p.contactoTxt}</td>
+                                        <td><span class={p.claseEstado}>{p.estado}</span></td>
+                                    </tr>
+                                    <template if:true={p.abierto}>
+                                        <tr key={p.keyDetalle} class="fila-detalle">
+                                            <td colspan="7">
+                                                <div class="detalle">
+                                                    <div class="detalle-bloque">
+                                                        <h4>{p.personaTitulo}</h4>
+                                                        <template if:true={p.hayPersona}>
+                                                            <dl class="datos">
+                                                                <template for:each={p.datosPersona} for:item="d">
+                                                                    <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                                                                </template>
+                                                            </dl>
+                                                            <lightning-button label="Abrir registro" variant="base" icon-name="utility:new_window"
+                                                                data-id={p.personaId} onclick={abrirRegistro}></lightning-button>
+                                                        </template>
+                                                        <template if:false={p.hayPersona}>
+                                                            <p class="sub">El participante no está ligado a un contacto ni a una cuenta.</p>
+                                                        </template>
+                                                    </div>
+                                                    <div class="detalle-bloque">
+                                                        <h4>En la póliza</h4>
+                                                        <dl class="datos">
+                                                            <template for:each={p.datosPoliza} for:item="d">
+                                                                <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                                                            </template>
+                                                        </dl>
+                                                        <lightning-button label="Ver participante" variant="base" icon-name="utility:new_window"
+                                                            data-id={p.id} onclick={abrirRegistro}></lightning-button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+            </template>
+
+            <template if:true={conPaginas}>
+                <div class="part-paginacion">
+                    <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anterior} disabled={sinAnterior}></lightning-button-icon>
+                    <span>{textoPagina}</span>
+                    <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguiente} disabled={sinSiguiente}></lightning-button-icon>
+                </div>
+            </template>
+            <template if:true={textoLimite}><p class="sub">{textoLimite}</p></template>
+        </template>
+    </div>
+</template>
