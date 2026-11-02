@@ -462,9 +462,12 @@ private class PolicyControllerTest {
         if (activos.contains('Hermano')) {
             System.assertEquals('Hermano', PolicyController.parentescoPicklist(rel, 'HERMANO'));
         }
-        if (activos.contains('Marido')) {
-            System.assertEquals('Marido', PolicyController.parentescoPicklist(rel, 'ESPOSO'), 'Sinónimo esposo → Marido');
+        if (activos.contains('Conyugue')) {
+            System.assertEquals('Conyugue', PolicyController.parentescoPicklist(rel, 'ESPOSO'), 'Esposo → Conyugue');
+            System.assertEquals('Conyugue', PolicyController.parentescoPicklist(rel, 'MUJER'), 'Mujer → Conyugue');
+            System.assertEquals('Conyugue', PolicyController.parentescoPicklist(rel, 'Cónyuge'));
         }
+        System.assertEquals('Conyugue', PolicyController.candidatosParentesco('ESPOSA')[0]);
         System.assertEquals('hermano', PolicyController.candidatosParentesco('HERMANO')[0]);
         // Role es selección múltiple: se agrega el rol sin repetirlo.
         System.assertEquals('Asegurado;Beneficiario', PolicyController.agregarRol('Asegurado', 'Beneficiario'));

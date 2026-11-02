@@ -257,7 +257,11 @@ private class CensoColectivoControllerTest {
 		System.assertNotEquals(null, [SELECT EffectiveToDate FROM InsurancePolicyParticipant WHERE Id = :titular.Id].EffectiveToDate,
 			'Completa las fechas que faltan');
 		System.assertEquals(contactos, [SELECT COUNT() FROM Contact WHERE AccountId = :opp.AccountId], 'No duplica contactos');
-		System.assertEquals(new List<String>{ 'Mujer', 'Esposa', 'Conyugue', 'Cónyuge' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
+		System.assertEquals(new List<String>{ 'Conyugue', 'Cónyuge', 'Spouse' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
+		System.assertEquals('Conyugue', CensoColectivoController.parentescoPolizaVisible('Marido', new Map<String, String>()));
+		System.assertEquals('Conyugue', CensoColectivoController.parentescoPolizaVisible('Mujer', null));
+		System.assertEquals('Hijo', CensoColectivoController.parentescoPolizaVisible('Hijo', new Map<String, String>{ 'Hijo' => 'Hijo' }));
+		System.assertEquals(null, CensoColectivoController.parentescoPolizaVisible(null, null));
 		System.assertEquals(new List<String>{ 'Hijo' }, CensoColectivoController.parentescoPoliza('Secundario', 'Hombre'));
 		System.assertEquals(new List<String>{ 'Hija' }, CensoColectivoController.parentescoPoliza('Child', 'Femenino'));
 		System.assertEquals(new List<String>{ 'Suegro' }, CensoColectivoController.parentescoPoliza('Suegro', null));

@@ -791,7 +791,8 @@ public with sharing class MovimientosColectivoController {
 		for (InsurancePolicyParticipant p : ps) {
 			if (!esAsegurado(p.Role)) { continue; }
 			Boolean esTitular = p.RelatedInsPolicyParticipantId == null;
-			String parentesco = esTitular ? 'Titular' : (relaciones.containsKey(p.RelationshipToInsured) ? relaciones.get(p.RelationshipToInsured) : 'Dependiente');
+			String parentesco = esTitular ? 'Titular'
+				: (p.RelationshipToInsured == null ? 'Dependiente' : CensoColectivoController.parentescoPolizaVisible(p.RelationshipToInsured, relaciones));
 			lista.add(new Map<String, Object>{
 				'id' => (String) p.Id, 'nombre' => p.ParticipantName, 'esTitular' => esTitular,
 				'titularId' => esTitular ? null : (String) p.RelatedInsPolicyParticipantId,

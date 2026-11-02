@@ -1431,9 +1431,14 @@ public with sharing class PolicyController {
 		if (p.contains('mismo') || p.contains('titular')) { c.addAll(new List<String>{ 'El mismo', 'Self', 'Insured' }); }
 		else if (p.contains('mama') || p == 'madre') { c.addAll(new List<String>{ 'Madre', 'Mother', 'Parent' }); }
 		else if (p.contains('papa') || p == 'padre') { c.addAll(new List<String>{ 'Padre', 'Father', 'Parent' }); }
-		else if (p.contains('esposo') || p.contains('marido') || p.contains('concubino')) { c.addAll(new List<String>{ 'Marido', 'Esposo', 'Husband', 'Spouse' }); }
-		else if (p.contains('esposa') || p.contains('concubina')) { c.addAll(new List<String>{ 'Mujer', 'Esposa', 'Wife', 'Spouse' }); }
-		else if (p.contains('conyug') || p.contains('pareja')) { c.addAll(new List<String>{ 'Cónyuge', 'Spouse', 'Partner' }); }
+		// Ex cónyuge: el catálogo tiene «Ex marido» / «Ex mujer».
+		else if (p.startsWith('ex ') && (p.contains('espos') || p.contains('marido') || p.contains('mujer') || p.contains('conyug'))) {
+			c.addAll(p.contains('esposa') || p.contains('mujer') ? new List<String>{ 'Ex mujer' } : new List<String>{ 'Ex marido' });
+		}
+		// Cónyuge (esposo, esposa, marido, mujer, concubino, pareja): siempre «Conyugue», nunca Marido / Mujer.
+		else if (p.contains('espos') || p.contains('marido') || p == 'mujer' || p.contains('concubin') || p.contains('conyug') || p.contains('pareja')) {
+			c = new List<String>{ CensoColectivoController.CONYUGE, 'Cónyuge', 'Spouse', 'Partner' };
+		}
 		else if (p.contains('hija')) { c.addAll(new List<String>{ 'Hija', 'Daughter', 'Child' }); }
 		else if (p.contains('hijo')) { c.addAll(new List<String>{ 'Hijo', 'Son', 'Child' }); }
 		else if (p.contains('hermana')) { c.addAll(new List<String>{ 'Hermana', 'Sister', 'Sibling' }); }

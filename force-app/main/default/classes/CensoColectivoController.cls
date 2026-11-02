@@ -1126,6 +1126,25 @@ public with sharing class CensoColectivoController {
 		return p;
 	}
 
+	// Valor del catálogo de parentescos para el cónyuge (así está escrito) y los valores con género que lo sustituyen.
+	public static final String CONYUGE = 'Conyugue';
+	private static final Set<String> VALORES_CONYUGE = new Set<String>{ 'marido', 'mujer', 'esposo', 'esposa', 'husband', 'wife', 'spouse', 'conyuge', 'conyugue' };
+
+	/**
+	 * @creation date: 02/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Parentesco para mostrar. Marido, Mujer, Esposo o Esposa (registros anteriores) se muestran como
+	 *               el cónyuge del catálogo («Conyugue»).
+	 * @param valor: valor de RelationshipToInsured.
+	 * @param etiquetas: etiquetas del picklist por valor.
+	 * @return etiqueta para mostrar o null.
+	 */
+	public static String parentescoPolizaVisible(String valor, Map<String, String> etiquetas) {
+		if (String.isBlank(valor)) { return null; }
+		if (VALORES_CONYUGE.contains(llave(valor))) { valor = CONYUGE; }
+		return etiquetas != null && etiquetas.containsKey(valor) ? etiquetas.get(valor) : valor;
+	}
+
 	/**
 	 * @creation date: 15/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
@@ -1139,8 +1158,8 @@ public with sharing class CensoColectivoController {
 		String r = censo == null ? '' : censo.toLowerCase();
 		Boolean mujer = sexo != null && (sexo.toLowerCase().startsWith('m') && !sexo.toLowerCase().startsWith('mas') || sexo.toLowerCase().startsWith('f'));
 		if (r.contains('nyuge') || r.contains('spouse') || r.contains('esposa') || r.contains('esposo')) {
-			// El catálogo de parentescos tiene "Conyugue" (así está escrito) para ambos sexos.
-			return mujer ? new List<String>{ 'Mujer', 'Esposa', 'Conyugue', 'Cónyuge' } : new List<String>{ 'Marido', 'Esposo', 'Conyugue', 'Cónyuge' };
+			// El catálogo de parentescos tiene "Conyugue" (así está escrito) para ambos sexos: no se usa Marido/Mujer.
+			return new List<String>{ CONYUGE, 'Cónyuge', 'Spouse' };
 		}
 		if (r.contains('secundario') || r.contains('child') || r.contains('hij')) {
 			return mujer ? new List<String>{ 'Hija' } : new List<String>{ 'Hijo' };

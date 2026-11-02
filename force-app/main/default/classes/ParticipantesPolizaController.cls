@@ -128,8 +128,7 @@ public with sharing class ParticipantesPolizaController {
 		return new Map<String, Object>{
 			'id' => p.Id, 'folio' => p.Name, 'nombre' => p.ParticipantName, 'certificado' => p.ParticipantCode,
 			'roles' => rolesTexto, 'rolesTexto' => String.join(rolesTexto, ', '), 'grupo' => grupo(llavesRol, p),
-			'parentesco' => p.RelationshipToInsured == null ? null
-				: (parentescos.containsKey(p.RelationshipToInsured) ? parentescos.get(p.RelationshipToInsured) : p.RelationshipToInsured),
+			'parentesco' => CensoColectivoController.parentescoPolizaVisible(p.RelationshipToInsured, parentescos),
 			'titularId' => p.RelatedInsPolicyParticipantId,
 			'titularNombre' => p.RelatedInsPolicyParticipantId == null ? null : p.RelatedInsPolicyParticipant.ParticipantName,
 			'contratante' => p.IsPolicyholder == true, 'activo' => activo, 'categoria' => p.Categoria__c,
