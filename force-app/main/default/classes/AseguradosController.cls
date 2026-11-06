@@ -335,7 +335,7 @@ public with sharing class AseguradosController {
         Map<String, List<String>> cand = new Map<String, List<String>>{
             'Contratante'       => new List<String>{ 'Self', 'Insured', 'Titular', 'Same', 'Policyholder' },
             'Asegurado titular' => new List<String>{ 'Self', 'Insured', 'Titular', 'Same' },
-            'Conyuge'           => new List<String>{ 'Spouse', 'Conyuge', 'Cónyuge', 'Partner' },
+            'Conyuge'           => new List<String>{ 'Conyugue', 'Spouse', 'Conyuge', 'Cónyuge', 'Partner' },
             'Hijo'              => new List<String>{ 'Child', 'Son', 'Daughter', 'Hijo', 'Dependent' },
             'Padre o Madre'     => new List<String>{ 'Parent', 'Father', 'Mother', 'Padre', 'Madre' },
             'Empleado'          => new List<String>{ 'Employee', 'Empleado', 'Other' },

@@ -30,14 +30,15 @@ private class PolicyControllerTest {
      */
     @testSetup
     static void setup() {
-        Account acc = new Account(Name = 'Cuenta Póliza Test');
+        Account acc = new Account(Name = 'Cuenta Póliza Test', AnnualRevenue = 100);
         insert acc;
 
         Opportunity opp = new Opportunity(
             Name = 'Opp Póliza Test',
             StageName = activeStage(),
             CloseDate = Date.today().addDays(30),
-            AccountId = acc.Id
+            AccountId = acc.Id,
+            Ramo__c = 'Vida'
         );
         insert opp;
 
@@ -461,9 +462,12 @@ private class PolicyControllerTest {
         if (activos.contains('Hermano')) {
             System.assertEquals('Hermano', PolicyController.parentescoPicklist(rel, 'HERMANO'));
         }
-        if (activos.contains('Marido')) {
-            System.assertEquals('Marido', PolicyController.parentescoPicklist(rel, 'ESPOSO'), 'Sinónimo esposo → Marido');
+        if (activos.contains('Conyugue')) {
+            System.assertEquals('Conyugue', PolicyController.parentescoPicklist(rel, 'ESPOSO'), 'Esposo → Conyugue');
+            System.assertEquals('Conyugue', PolicyController.parentescoPicklist(rel, 'MUJER'), 'Mujer → Conyugue');
+            System.assertEquals('Conyugue', PolicyController.parentescoPicklist(rel, 'Cónyuge'));
         }
+        System.assertEquals('Conyugue', PolicyController.candidatosParentesco('ESPOSA')[0]);
         System.assertEquals('hermano', PolicyController.candidatosParentesco('HERMANO')[0]);
         // Role es selección múltiple: se agrega el rol sin repetirlo.
         System.assertEquals('Asegurado;Beneficiario', PolicyController.agregarRol('Asegurado', 'Beneficiario'));
@@ -562,6 +566,11 @@ private class PolicyControllerTest {
         System.assertEquals(opp.AccountId, base.get('NameInsuredId'));
         System.assertEquals('Inicial', base.get('Status'));
         System.assertNotEquals(null, base.get('EffectiveDate'));
+        // La vigencia de la cotización manda sobre la fecha de hoy.
+        update new Quote(Id = q.Id, Vigencia_Inicio__c = Date.newInstance(2030, 3, 1), ExpirationDate = Date.newInstance(2031, 3, 1));
+        base = PolicyController.datosBasePoliza(q.OpportunityId, q.Id);
+        System.assertEquals('2030-03-01', base.get('EffectiveDate'));
+        System.assertEquals('2031-03-01', base.get('ExpirationDate'));
         // Sin oportunidad solo se devuelven el estatus y las fechas.
         Map<String, Object> sinOpp = PolicyController.datosBasePoliza(null, null);
         System.assertEquals('Inicial', sinOpp.get('Status'));
@@ -738,6 +747,111 @@ private class PolicyControllerTest {
     }
 
     /**
+     * @creation date: 26/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que una póliza que no es de autos (Mascotas) también cree su CustomerProperty con el
+     * bien asegurado y lo ligue al Insurance Policy Asset, sin duplicarlo al reprocesar.
+     * @return void
+     */
+    @isTest
+    static void testBienAseguradoSinVehiculo() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        String datos = '{"ramo":"Mascotas","bienAsegurado":{"tipo":"Mascota","descripcion":"Perro BENITO",'
+            + '"atributos":[{"campo":"Nombre de la mascota","valor":"BENITO"},{"campo":"Raza","valor":"SHIH TZU"}]},'
+            + '"coberturas":[{"nombre":"Gastos médicos veterinarios","sumaAsegurada":"$35,000.00","deducible":"10.00 %"},'
+            + '{"nombre":"Franquicia","sumaAsegurada":"$500.00"},{"nombre":"Asistencias"},'
+            + '{"nombre":"Servicio de esterilización","sumaAsegurada":"Sin costo","deducible":"Amparada"}]}';
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, null, datos);
+        Test.stopTest();
+
+        List<CustomerProperty> bienes = [
+            SELECT Id, Description FROM CustomerProperty WHERE SourceSystemIdentifier = :String.valueOf(policyId)
+        ];
+        System.assertEquals(1, bienes.size(), 'Se crea un solo bien para la póliza: ' + resumen);
+        System.assert(bienes[0].Description.contains('Raza: SHIH TZU'), bienes[0].Description);
+        List<InsurancePolicyAsset> ipas = [
+            SELECT CustomerPropertyId, AssetName FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId
+        ];
+        System.assertEquals(1, ipas.size());
+        System.assertEquals(bienes[0].Id, ipas[0].CustomerPropertyId, 'El bien de la póliza queda ligado');
+        System.assertEquals('Perro BENITO', ipas[0].AssetName);
+
+        // La franquicia va en la cobertura anterior y el encabezado "Asistencias" no es cobertura.
+        Map<String, InsurancePolicyCoverage> cobs = new Map<String, InsurancePolicyCoverage>();
+        for (InsurancePolicyCoverage c : [
+            SELECT CoverageName, LimitAmount, Description FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+        ]) { cobs.put(c.CoverageName, c); }
+        System.assertEquals(2, cobs.size(), String.valueOf(cobs.keySet()));
+        InsurancePolicyCoverage gmv = cobs.get('Gastos médicos veterinarios');
+        System.assertEquals(35000, gmv.LimitAmount);
+        System.assert(gmv.Description.contains('Franquicia: $500.00'), gmv.Description);
+        System.assertEquals(1, gmv.Description.countMatches('Franquicia'), 'Reprocesar no repite la franquicia');
+        System.assertEquals(null, cobs.get('Servicio de esterilización').LimitAmount, '"Sin costo" no es un monto');
+    }
+
+    /**
+     * @creation date: 27/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que cada asegurado adicional del PDF (ej. el segundo titular de un voucher de viaje) se
+     * cree como participante, sin repetir al titular ni duplicarse al reprocesar.
+     * @return void
+     */
+    @isTest
+    static void testAseguradosAdicionales() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        // El titular ya es participante (lo crea el paso del asegurado principal).
+        insert new InsurancePolicyParticipant(InsurancePolicyId = policyId, PrimaryParticipantAccountId = acc.Id,
+            ParticipantName = 'Andrea Fernanda Bale Ramirez',
+            Role = InsurancePolicyParticipant.Role.getDescribe().getPicklistValues()[0].getValue());
+        String datos = '{"titular":"Andrea Fernanda Bale Ramirez",'
+            + '"asegurado":{"nombre":"Andrea Fernanda Bale Ramirez","fechaNacimiento":"25/07/1992","identificacion":"6379623"},'
+            + '"aseguradosAdicionales":['
+            + '{"nombre":"Andrea Fernanda Bale Ramirez"},'
+            + '{"nombre":"Gabriel Guadalupe  Reyes De Santiago","parentesco":"TITULAR 2",'
+            + '"fechaNacimiento":"1991-09-27","identificacion":"0379 8496"}]}';
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(datos);
+
+        Test.startTest();
+        Integer n1 = PolicyController.crearAseguradosAdicionalesDesdePdf(policyId, acc.Id, d);
+        Integer n2 = PolicyController.crearAseguradosAdicionalesDesdePdf(policyId, acc.Id, d);
+        Test.stopTest();
+
+        System.assertEquals(1, n1, 'Solo se agrega el segundo titular');
+        System.assertEquals(0, n2, 'Reprocesar no lo duplica');
+        List<InsurancePolicyParticipant> ps = [
+            SELECT ParticipantName, PrimaryParticipantAccountId, FechaNacimiento__c, Identificacion__c
+            FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :policyId AND ParticipantName = 'Gabriel Guadalupe Reyes De Santiago'
+        ];
+        System.assertEquals(1, ps.size());
+        System.assertEquals(acc.Id, ps[0].PrimaryParticipantAccountId);
+        System.assertEquals(Date.newInstance(1991, 9, 27), ps[0].FechaNacimiento__c);
+        System.assertEquals('03798496', ps[0].Identificacion__c);
+        InsurancePolicyParticipant tit = [
+            SELECT FechaNacimiento__c, Identificacion__c FROM InsurancePolicyParticipant
+            WHERE InsurancePolicyId = :policyId AND ParticipantName = 'Andrea Fernanda Bale Ramirez'
+        ];
+        System.assertEquals(Date.newInstance(1992, 7, 25), tit.FechaNacimiento__c, 'Se completan los datos del titular');
+        System.assertEquals('6379623', tit.Identificacion__c);
+
+        // Fechas del PDF en ambos formatos; lo ya capturado no se sobrescribe.
+        System.assertEquals(Date.newInstance(1992, 7, 25), PolicyController.parseFecha('25/07/1992'));
+        System.assertEquals(null, PolicyController.parseFecha('sin fecha'));
+        InsurancePolicyParticipant p = new InsurancePolicyParticipant(Identificacion__c = 'PREVIA');
+        Map<String, Object> persona = new Map<String, Object>{ 'fechaNacimiento' => '1990-01-02', 'identificacion' => 'X1' };
+        System.assert(PolicyController.aplicarDatosPersona(p, persona, null));
+        System.assertEquals('PREVIA', p.Identificacion__c);
+        System.assertEquals(Date.newInstance(1990, 1, 2), p.FechaNacimiento__c);
+    }
+
+    /**
      * @creation date: 11/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que guardarDatosPolizaDesdePdf exija la póliza y tolere un JSON vacío.
@@ -775,6 +889,10 @@ private class PolicyControllerTest {
         Test.stopTest();
         System.assertEquals(doc1, doc2, 'No duplica el archivo');
         System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :policyId]);
+        // La vista de la póliza lista sus archivos adjuntos.
+        PolicyController.RegistrosPoliza reg = PolicyController.getRegistrosPoliza(policyId);
+        System.assertEquals(1, reg.archivos.size());
+        System.assertEquals('pdf', reg.archivos[0].extension);
     }
 
     /**
@@ -814,5 +932,324 @@ private class PolicyControllerTest {
         Account acc = [SELECT Id FROM Account LIMIT 1];
         InsurancePolicy pol = polizaValida(acc.Id, null, q.OpportunityId, 'POL-OPP-001');
         System.assertEquals(pol.Id, PolicyController.getPolicyIdByQuote(null, q.OpportunityId));
+    }
+
+    /**
+     * @creation date: 27/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que, si la IA no trae el número de póliza, se tome del PDF por su etiqueta (voucher de
+     * asistencia en viaje, en el renglón siguiente; o "Póliza No." en el mismo renglón).
+     * @return void
+     */
+    @isTest
+    static void testNumeroPolizaDesdeTexto() {
+        String voucher = 'Código de Voucher\nCA-Z7B2GBN-MX\nGuarda este código para cualquier consulta';
+        String js = PolicyController.completarNumeroPoliza('{"numeroPoliza": null, "primaTotal": 81.2}', voucher);
+        Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(js);
+        System.assertEquals('CA-Z7B2GBN-MX', d.get('numeroPoliza'));
+        System.assertEquals(81.2, (Decimal) d.get('primaTotal'));
+        System.assertEquals('0971273390', PolicyController.numeroPolizaDesdeTexto('Datos\nPóliza No.: 0971273390 vigente'));
+        System.assertEquals(null, PolicyController.numeroPolizaDesdeTexto('Fechas de vigencia de tu póliza\nGuarda este código'));
+        System.assertEquals(5000, PolicyController.parseMonto('USD 5.000 / USD 30.000'));
+        System.assertEquals(1496.52, PolicyController.parseMonto('MXN $1.496,52'));
+        System.assertEquals(35000, PolicyController.parseMonto('$35,000.00'));
+        System.assertEquals(10, PolicyController.parseMonto('10.00 %'));
+        String conNumero = '{"numeroPoliza":"ABC123"}';
+        System.assertEquals(conNumero, PolicyController.completarNumeroPoliza(conNumero, voucher));
+    }
+
+    /**
+     * @creation date: 29/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza de Daños con varias ubicaciones: un bien del cliente (CustomerProperty) y un bien de póliza
+     * por domicilio distinto (dos incisos con el mismo domicilio son uno), sin participantes por los asegurados
+     * adicionales; reprocesar no duplica.
+     * @return void
+     */
+    @isTest
+    static void testUbicacionesDanos() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Danos');
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradosAdicionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'GRAN PRO BAMBOO REUDY' } },
+            'ubicaciones' => new List<Object>{
+                new Map<String, Object>{ 'direccion' => 'AV. VALLARTA 3959 Int. 17, DON BOSCO VALLARTA, C.P. 45049, ZAPOPAN, ZAPOPAN, JALISCO',
+                    'giro' => 'MUEBLERÍA BODEGA Y TIENDA', 'inciso' => '1', 'techos' => 'LAMINAS METALICAS', 'muros' => 'TABIQUE',
+                    'pisosAltos' => '1', 'sotanos' => '0', 'cajones' => '2', 'zonaTev' => 'B', 'zonaFh' => 'C',
+                    'sumaAsegurada' => 450000, 'primaNeta' => 3894.73, 'primaTotal' => 5561.89 },
+                new Map<String, Object>{ 'direccion' => 'Av. Vallarta 3959 Int. 17, Don Bosco Vallarta, C.P. 45049, Zapopan, Zapopan, Jalisco',
+                    'giro' => 'MUEBLERÍA BODEGA Y TIENDA', 'inciso' => '2' },
+                new Map<String, Object>{ 'direccion' => 'AV. CANAL 1512, DR ALFONSO ORTIZ TIRADO, C.P. 09020, IZTAPALAPA, IZTAPALAPA, CIUDAD DE MÉXICO',
+                    'giro' => 'BODEGA', 'inciso' => '3', 'sotanos' => '1' }
+            }
+        });
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('ubicaciones'), 'Dos domicilios distintos: ' + resumen);
+        System.assertEquals(2, [SELECT COUNT() FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND Street != null]);
+        List<InsurancePolicyAsset> bienes = [SELECT AssetName FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY AssetName];
+        System.assertEquals(2, bienes.size(), 'Un bien de póliza por ubicación, sin duplicar');
+        System.assert(bienes[0].AssetName.startsWith('Inciso 1, 2'), bienes[0].AssetName);
+        System.assertEquals(0, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND ParticipantName = 'GRAN PRO BAMBOO REUDY'],
+            'Los asegurados adicionales de Daños no son participantes');
+
+        CustomerProperty cp = [
+            SELECT Street, City, PostalCode, CountryCode, StateCode, FloorCount, IsBasementIncluded, GarageSpaceCount,
+                RoofType, Uso__c, FairMarketValue, Description
+            FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND PostalCode = '45049'
+        ];
+        System.assertEquals('AV. VALLARTA 3959 Int. 17\nDON BOSCO VALLARTA', cp.Street);
+        System.assertEquals('ZAPOPAN', cp.City);
+        System.assertEquals('MX', cp.CountryCode);
+        System.assertEquals('JA', cp.StateCode);
+        System.assertEquals(2, cp.FloorCount, 'Un piso alto + planta baja');
+        System.assertEquals(false, cp.IsBasementIncluded);
+        System.assertEquals(2, cp.GarageSpaceCount);
+        System.assertEquals('Tejado metálico', cp.RoofType);
+        System.assertEquals('MUEBLERÍA BODEGA Y TIENDA', cp.Uso__c);
+        System.assertEquals(450000, cp.FairMarketValue);
+        System.assert(cp.Description.contains('Muros: TABIQUE') && cp.Description.contains('Zona TEV: B'), cp.Description);
+        CustomerProperty cdmx = [SELECT StateCode, IsBasementIncluded FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND PostalCode = '09020'];
+        System.assertEquals('DF', cdmx.StateCode);
+        System.assertEquals(true, cdmx.IsBasementIncluded);
+        System.assertEquals(5561.89, [SELECT StandardPremiumAmount FROM InsurancePolicyAsset WHERE CustomerPropertyId != null
+            AND InsurancePolicyId = :policyId AND AssetName LIKE 'Inciso 1%'].StandardPremiumAmount);
+    }
+
+    /**
+     * @creation date: 29/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza de flotilla / colectiva de autos: un bien del cliente por vehículo (por número de serie) con
+     * los datos del vehículo y del asegurado, un bien de póliza con la prima del inciso y un inciso de flotilla ligado
+     * a la póliza, la oportunidad y el vehículo; sin participantes por asegurados adicionales; reprocesar no duplica.
+     * @return void
+     */
+    @isTest
+    static void testVehiculosFlotilla() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Automoviles');
+        Map<String, Object> asegurado = new Map<String, Object>{
+            'asegurado' => 'CASGUTSA', 'rfc' => 'CAS041109LG9', 'calle' => 'CALLE ECA DO QUEIROS 5125 INT 1 JARDINES UNIVERSIDAD',
+            'ciudadEstado' => 'ZAPOPAN JALISCO', 'cp' => '45110', 'contratante' => 'CASGUTSA',
+            'domicilio' => 'CALLE ECA DO QUEIROS 5125 INT 1 JARDINES UNIVERSIDAD, ZAPOPAN JALISCO'
+        };
+        Map<String, Object> camion = new Map<String, Object>(asegurado);
+        camion.putAll(new Map<String, Object>{
+            'inciso' => '1', 'marca' => 'CHEVROLET', 'anio' => '2008', 'serie' => '3GCEC14X38M114075',
+            'descripcion' => 'SILVERADO 1500 CABINA REGULAR, V6, 4.3L, 200 CP, 2 PUERTAS, STD, PAQ H', 'placas' => 'SN',
+            'pasajeros' => '2', 'motor' => 'SN', 'uso' => 'CAMIÓN USO NORMAL CARGA', 'tipoVehiculo' => 'CAMIÓN',
+            'clave' => '300249', 'tipoCarga' => 'NO PELIGROSA', 'tipoValor' => 'VALOR COMERCIAL', 'deducibleDM' => '3',
+            'deducibleRT' => '5', 'responsabilidadCivil' => '2000000.00', 'gastosMedicos' => '200000.00',
+            'muerteConductor' => '100000.00', 'primaNeta' => '6203.35', 'gastosExpedicion' => '550.00', 'iva' => '1080.54',
+            'primaTotal' => '7833.89'
+        });
+        Map<String, Object> moto = new Map<String, Object>(asegurado);
+        moto.putAll(new Map<String, Object>{
+            'inciso' => '21', 'marca' => 'ITALIKA', 'anio' => '2021', 'serie' => '3H1KA0542MD816112',
+            'descripcion' => 'MOTOCICLETA MOTOCICLETA TODAS', 'placas' => 'JAL123', 'uso' => 'MOTOCICLETA USO NORMAL',
+            'tipoVehiculo' => 'MOTOCICLETA', 'primaNeta' => '3151.13', 'primaTotal' => '4293.31'
+        });
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradosAdicionales' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'CONDUCTOR ADICIONAL' } },
+            'vehiculos' => new List<Object>{ camion, moto }
+        });
+        // El camión ya estaba en el censo de vehículos de la oportunidad: se liga a la póliza sin duplicarse.
+        Inciso_Flotilla__c delCenso = new Inciso_Flotilla__c(Oportunidad__c = q.OpportunityId, Serie__c = '3GCEC14X38M114075',
+            Descripcion__c = 'CHEVROLET SILVERADO (censo)');
+        insert delCenso;
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('vehiculos'), 'Dos vehículos: ' + resumen);
+        CustomerProperty cp = [
+            SELECT Make, ModelName, MakeYear, Vin, Motor__c, RegistrationNumber, PassengerSeatCapacity, Uso__c,
+                TipoVehiculo__c, Street, City, PostalCode, CountryCode, StateCode, Description
+            FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND Vin = '3GCEC14X38M114075'
+        ];
+        System.assertEquals('CHEVROLET', cp.Make);
+        System.assertEquals('SILVERADO 1500 CABINA REGULAR', cp.ModelName);
+        System.assertEquals(2008, cp.MakeYear);
+        System.assertEquals(null, cp.Motor__c, '"SN" no es un número de motor');
+        System.assertEquals(null, cp.RegistrationNumber);
+        System.assertEquals(2, cp.PassengerSeatCapacity);
+        System.assertEquals('CAMIÓN USO NORMAL CARGA', cp.Uso__c);
+        System.assertEquals('CAMIÓN', cp.TipoVehiculo__c);
+        System.assertEquals('CALLE ECA DO QUEIROS 5125 INT 1 JARDINES UNIVERSIDAD', cp.Street);
+        System.assertEquals('ZAPOPAN', cp.City);
+        System.assertEquals('45110', cp.PostalCode);
+        System.assertEquals('MX', cp.CountryCode);
+        System.assertEquals('JA', cp.StateCode);
+        System.assert(cp.Description.contains('Asegurado: CASGUTSA') && cp.Description.contains('RFC: CAS041109LG9'), cp.Description);
+        System.assertEquals('JAL123', [SELECT RegistrationNumber FROM CustomerProperty WHERE Vin = '3H1KA0542MD816112'].RegistrationNumber);
+
+        List<InsurancePolicyAsset> bienes = [
+            SELECT AssetName, StandardPremiumAmount FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY AssetName
+        ];
+        System.assertEquals(2, bienes.size(), 'Un bien de póliza por vehículo, sin duplicar');
+        System.assert(bienes[0].AssetName.startsWith('Inciso 1 - CHEVROLET'), bienes[0].AssetName);
+        System.assertEquals(7833.89, bienes[0].StandardPremiumAmount);
+
+        List<Inciso_Flotilla__c> incisos = [
+            SELECT Numero_Inciso__c, Oportunidad__c, Vehiculo__c, Serie__c, Modelo__c, Tipo_Vehiculo__c, Deducible_DM__c,
+                Responsabilidad_Civil__c, Prima_Neta__c, Prima__c, Placas__c
+            FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId ORDER BY Numero_Inciso__c
+        ];
+        System.assertEquals(2, incisos.size(), 'Un inciso de flotilla por vehículo, sin duplicar');
+        System.assertEquals(policyId, [SELECT Poliza__c FROM Inciso_Flotilla__c WHERE Id = :delCenso.Id].Poliza__c,
+            'El inciso del censo se liga a la póliza');
+        System.assertEquals(2, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Oportunidad__c = :q.OpportunityId AND Cotizacion__c = null]);
+        System.assertEquals(q.OpportunityId, incisos[0].Oportunidad__c);
+        System.assertEquals(cp.Id, incisos[0].Vehiculo__c);
+        System.assertEquals(2008, incisos[0].Modelo__c);
+        System.assertEquals(3, incisos[0].Deducible_DM__c);
+        System.assertEquals(2000000, incisos[0].Responsabilidad_Civil__c);
+        System.assertEquals(6203.35, incisos[0].Prima_Neta__c);
+        System.assertEquals(7833.89, incisos[0].Prima__c);
+        System.assertEquals(null, incisos[0].Placas__c);
+        System.assertEquals(21, incisos[1].Numero_Inciso__c);
+        System.assertEquals(0, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND ParticipantName = 'CONDUCTOR ADICIONAL'],
+            'Los asegurados adicionales de una flotilla no son participantes');
+    }
+
+    /**
+     * @creation date: 29/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida la separación de ciudad y estado del domicilio del asegurado.
+     * @return void
+     */
+    @isTest
+    static void testPartirCiudadEstado() {
+        System.assertEquals('ZAPOPAN', PolicyController.partirCiudadEstado('ZAPOPAN JALISCO').get('ciudad'));
+        System.assertEquals('JA', PolicyController.partirCiudadEstado('ZAPOPAN JALISCO').get('estado'));
+        System.assertEquals('DF', PolicyController.partirCiudadEstado('CIUDAD DE MEXICO').get('estado'));
+        System.assertEquals('PUEBLA', PolicyController.partirCiudadEstado('PUEBLA PUEBLA').get('ciudad'));
+        System.assertEquals('NL', PolicyController.partirCiudadEstado('SAN PEDRO GARZA GARCIA NUEVO LEON').get('estado'));
+        System.assertEquals(null, PolicyController.partirCiudadEstado('SIN ESTADO').get('estado'));
+    }
+
+    /**
+     * @creation date: 31/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Flotilla emitida sin PDF: los vehículos de la cotización aceptada quedan como bienes e incisos de la
+     * póliza y el del censo con la misma serie se liga a la póliza.
+     * @return void
+     */
+    @isTest
+    static void testFlotillaSinPdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Automoviles');
+        insert new List<Inciso_Flotilla__c>{
+            new Inciso_Flotilla__c(Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId, Numero_Inciso__c = 1, Serie__c = 'SERIEE2E0001',
+                Descripcion__c = 'NISSAN VERSA', Modelo__c = 2024, Prima__c = 12000, Prima_Neta__c = 10000),
+            new Inciso_Flotilla__c(Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId, Numero_Inciso__c = 2, Serie__c = 'SERIEE2E0002',
+                Descripcion__c = 'TOYOTA HILUX', Modelo__c = 2023, Prima__c = 15000, Prima_Neta__c = 13000)
+        };
+        Inciso_Flotilla__c delCenso = new Inciso_Flotilla__c(Oportunidad__c = q.OpportunityId, Serie__c = 'SERIEE2E0001', Descripcion__c = 'VERSA (censo)');
+        insert delCenso;
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.completarPoliza(policyId, q.OpportunityId);
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('vehiculos'), 'Un bien por vehículo: ' + resumen);
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId]);
+        System.assertEquals(2, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId], 'Incisos de la póliza');
+        System.assertEquals(policyId, [SELECT Poliza__c FROM Inciso_Flotilla__c WHERE Id = :delCenso.Id].Poliza__c, 'El del censo se liga');
+        System.assertEquals(12000, [SELECT Prima__c FROM Inciso_Flotilla__c WHERE Id = :delCenso.Id].Prima__c, 'Con la prima cotizada');
+    }
+
+    /**
+     * @creation date: 31/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Daños colectivo emitido sin PDF: cada ubicación de la cotización aceptada es un bien de la póliza.
+     * @return void
+     */
+    @isTest
+    static void testUbicacionesSinPdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Danos');
+        insert new List<Categoria_Colectiva__c>{
+            new Categoria_Colectiva__c(Name = 'Oficinas', Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId,
+                Direccion__c = 'Av. Insurgentes Sur 1000, Col. Del Valle, CDMX, CP 03100', Suma_Asegurada_Total__c = 12000000, Prima_Neta__c = 18000),
+            new Categoria_Colectiva__c(Name = 'Bodega', Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId,
+                Direccion__c = 'Calle Industria 25, Tlalnepantla, Edo. Mex., CP 54030', Suma_Asegurada_Total__c = 25000000, Prima_Neta__c = 41000)
+        };
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.completarPoliza(policyId, q.OpportunityId);
+        // Con PDF que no trae ubicaciones: también las de la cotización (sin duplicar).
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, '{}');
+        Test.stopTest();
+
+        System.assertEquals(2, resumen.get('ubicaciones'), 'Una ubicación por renglón: ' + resumen);
+        List<InsurancePolicyAsset> bienes = [SELECT StandardPremiumAmount FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId
+            ORDER BY StandardPremiumAmount];
+        System.assertEquals(2, bienes.size(), 'Sin bien genérico ni duplicados');
+        System.assertEquals(18000, bienes[0].StandardPremiumAmount, 'Prima de la ubicación');
+    }
+
+    /**
+     * @creation date: 31/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Colectiva de personas con PDF que trae a una persona: se copia todo el censo y las coberturas de las
+     * categorías cotizadas (suma asegurada, deducible y adicionales).
+     * @return void
+     */
+    @isTest
+    static void testColectivaPersonasConPdf() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Vida');
+        CensoColectivoController.guardarCenso(q.OpportunityId, JSON.serialize(new List<Object>{
+            new Map<String, Object>{ 'fila' => 2, 'nombre' => 'Juan', 'apellidos' => 'Perez Lopez', 'fechaNacimiento' => '1980-05-10',
+                'sexo' => 'Hombre', 'parentesco' => 'Titular', 'categoria' => 'Ejecutivos', 'certificado' => '1', 'sumaAsegurada' => 2400000 },
+            new Map<String, Object>{ 'fila' => 3, 'nombre' => 'Ana', 'apellidos' => 'Torres Diaz', 'fechaNacimiento' => '1990-11-15',
+                'sexo' => 'Mujer', 'parentesco' => 'Titular', 'categoria' => 'Ejecutivos', 'certificado' => '2' }
+        }), true);
+        insert new Categoria_Colectiva__c(Name = 'Ejecutivos', Cotizacion__c = q.Id, Oportunidad__c = q.OpportunityId, Plan__c = 'Plus',
+            Suma_Asegurada__c = '$1,000,000', Deducible__c = '$10,000', Coaseguro__c = '10%', Prima_Neta__c = 5000, Asegurados__c = 2,
+            Coberturas_Adicionales__c = 'Muerte accidental\nInvalidez total');
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradoNombre' => 'Cuenta Póliza Test',
+            'contratante' => new Map<String, Object>{ 'nombre' => 'Cuenta Póliza Test' },
+            'asegurado' => new Map<String, Object>{ 'nombre' => 'JUAN PEREZ LOPEZ' }
+        });
+
+        Test.startTest();
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, datos);
+        Test.stopTest();
+
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId],
+            'Todo el censo, sin duplicar a la persona del PDF');
+        InsurancePolicyCoverage cat = [SELECT LimitAmount, DeductibleAmount, PremiumAmount, Description FROM InsurancePolicyCoverage
+            WHERE InsurancePolicyId = :policyId AND CoverageName = 'Categoría Ejecutivos - Plan Plus'];
+        System.assertEquals(1000000, cat.LimitAmount, 'Suma asegurada de la categoría');
+        System.assertEquals(10000, cat.DeductibleAmount, 'Deducible de la categoría');
+        System.assertEquals(5000, cat.PremiumAmount, 'Prima de la categoría');
+        System.assert(cat.Description.contains('Coaseguro: 10%'), cat.Description);
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+            AND CoverageName IN ('Muerte accidental', 'Invalidez total')], 'Coberturas adicionales');
+        System.assertEquals(2400000, [SELECT LimitAmount FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
+            AND InsurancePolicyParticipantId != null].LimitAmount, 'Suma asegurada individual del censo');
+        System.assertEquals(20000000, PolicyController.montoExacto('$20,000,000'));
+        System.assertEquals(15000, PolicyController.montoExacto('15,000 MXN'));
+        System.assertEquals(null, PolicyController.montoExacto('24 meses de sueldo'));
+        System.assertEquals(null, PolicyController.montoExacto('10%'));
     }
 }

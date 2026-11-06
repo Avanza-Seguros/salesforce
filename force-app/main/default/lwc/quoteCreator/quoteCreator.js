@@ -831,7 +831,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
                 RatingDate: this.quote.FechaCotizacion || hoy,
                 Vigencia_Inicio__c: this.quote.EffectiveDate || null,
                 ExpirationDate: this.quote.ExpirationDate || null,
-                Description: this.quote.Description || null
+                Description: this.quote.Description || null,
+                Plan__c: this.quote.Plan__c || null
             };
             if (this.quote.Id) { quotePayload.Id = this.quote.Id; }
 
@@ -923,7 +924,8 @@ export default class QuoteCreator extends NavigationMixin(LightningElement) {
             FechaCotizacion: this.formatDateForInput(today),
             EffectiveDate: this.formatDateForInput(today),
             ExpirationDate: this.formatDateForInput(oneYearLater),
-            Description: ''
+            Description: '',
+            Plan__c: ''
         };
     }
 

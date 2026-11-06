@@ -17,7 +17,8 @@
         <template if:true={sinOportunidad}>
             <div class="censo-vacio">
                 <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
-                <p>Guarda la oportunidad para cargar las cotizaciones de las aseguradoras.</p>
+                <p lwc:if={porCrearTxt}>{porCrearTxt}</p>
+                <p lwc:else>Guarda la oportunidad para cargar las cotizaciones de las aseguradoras.</p>
             </div>
         </template>
 
@@ -165,15 +166,15 @@
                                     <div key={t.id} class={t.claseDoc}>
                                         <div class="doc-card-encabezado">
                                             <h3>{t.aseguradora}</h3>
-                                            <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
-                                            <template if:true={t.mejorCuota}><span class="chip-cuota">Mejor cuota al millar</span></template>
+                                            
+                                            
                                             <template if:true={puedeEditar}>
                                                 <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Eliminar cotización"
                                                     class="tarjeta-borrar" data-id={t.id} onclick={handleEliminar}></lightning-button-icon>
                                             </template>
                                         </div>
                                         <p><strong>{t.baseTxt}</strong> · {t.desgloseTxt}</p>
-                                        <p>{t.aseguradosTxt}</p>
+                                        <template if:true={t.aseguradosTxt}><p>{t.aseguradosTxt}</p></template>
                                         <template if:true={t.sumaTxt}><p>{t.sumaTxt}</p></template>
                                         <template if:true={t.aseguradosAviso}><p class="tarjeta-aviso">{t.aseguradosAviso}</p></template>
                                         <p class="doc-card-sub">Cotización {t.numero}<template if:true={t.vigenciaTxt}> · Vigencia {t.vigenciaTxt}</template></p>
@@ -196,12 +197,12 @@
                 <template if:true={puedeCargar}>
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
-                            <strong>Agregar cotización de aseguradora</strong>
+                            <strong>Agregar cotizaciones de aseguradoras</strong>
                             <span>{textoCarga}</span>
                         </div>
                         <div class="censo-carga-acciones">
                             <lightning-input type="file" label="Archivo de la cotización" variant="label-hidden"
-                                accept=".pdf,.xlsx,.xlsm,.xls,.xlsb,.csv,.txt" onchange={handleArchivo}></lightning-input>
+                                accept=".pdf,.xlsx,.xlsm,.xls,.xlsb,.csv,.txt" multiple onchange={handleArchivo}></lightning-input>
                         </div>
                     </div>
                 </template>
@@ -213,7 +214,7 @@
                     <span class="paso-num">1</span>
                     <div>
                         <strong>Revisa la cotización de {archivoNombre}</strong>
-                        <p>La IA leyó el documento; corrige lo que haga falta antes de guardar.</p>
+                        <p>No se pudo crear sola: completa lo que falta y guárdala.</p>
                     </div>
                 </div>
 
@@ -255,13 +256,16 @@
                 </div>
 
                 <div class="censo-stats slds-m-top_small">
-                    <div class="stat"><span class="stat-num">{aseguradosVista}</span><span class="stat-lbl">{etiquetaTamanoVista}</span></div>
+                    <template if:true={hayCategoriasVista}>
+                        <div class="stat"><span class="stat-num">{aseguradosVista}</span><span class="stat-lbl">{etiquetaTamanoVista}</span></div>
+                    </template>
                     <template if:true={sumaVista}>
                         <div class="stat"><span class="stat-num">{sumaVista}</span><span class="stat-lbl">Suma asegurada total</span></div>
                     </template>
                     <div class="stat"><span class="stat-num">{totalVista}</span><span class="stat-lbl">Prima total</span></div>
                 </div>
 
+                <template if:true={hayCategoriasVista}>
                 <template if:true={esGmm}>
                 <h3 class="subtitulo">Categorías</h3>
                 <div class="censo-scroll">
@@ -360,6 +364,7 @@
                             <p key={c.keyOtras} class="nota"><strong>Otras condiciones ({c.nombre}):</strong> {c.parametrosTxt}</p>
                         </template>
                     </template>
+                </template>
                 </template>
 
                 <template if:true={hayFormasPagoVista}>

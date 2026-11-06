@@ -159,8 +159,8 @@ private class ColectivoControllerTest {
 		Id q1 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionGnp(gnp.Id));
 		Id q2 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionSmnyl(smnyl.Id));
 		String guardado = [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id].Descripcion__c;
-		System.assert(guardado != null && guardado.startsWith(ColectivoController.MARCA_COMPARATIVO) && !guardado.contains('<body>'),
-			'El comparativo vigente queda en la oportunidad para Análisis IA');
+		System.assert(guardado == null || !guardado.startsWith(ColectivoController.MARCA_COMPARATIVO),
+			'Las colectivas no guardan comparativo en la oportunidad');
 		Test.startTest();
 		ColectivoController.eliminarCotizacionColectiva(q1);
 		ColectivoController.eliminarCotizacionColectiva(null);
@@ -213,6 +213,31 @@ private class ColectivoControllerTest {
 	}
 
 	/**
+	 * @description: Cotización solo con aseguradora y primas: se crea sin categorías, aparece en la lista y no
+	 *               genera comparativo.
+	 */
+	@isTest
+	static void testSinDetalle() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		Aseguradora__c gnp = [SELECT Id FROM Aseguradora__c WHERE Name = 'GNP Colectivo Test'];
+		String c = JSON.serialize(new Map<String, Object>{
+			'aseguradoraId' => gnp.Id, 'vigenciaDesde' => '2026-08-01', 'primaNeta' => 1000000, 'iva' => 160000, 'archivo' => 'gnp.pdf'
+		});
+		Test.startTest();
+		Id q = ColectivoController.guardarCotizacionColectiva(opp.Id, c);
+		Test.stopTest();
+		Quote qt = [SELECT Name, Prima_Neta__c, Prima_Total__c FROM Quote WHERE Id = :q];
+		System.assertEquals(1160000, qt.Prima_Total__c, 'Prima total = neta + IVA');
+		System.assert(!qt.Name.contains('('), 'Sin asegurados en el nombre: ' + qt.Name);
+		System.assertEquals(0, [SELECT COUNT() FROM Categoria_Colectiva__c], 'Sin categorías');
+		List<Map<String, Object>> cot = ColectivoController.getCotizacionesColectivas(opp.Id);
+		System.assertEquals(1, cot.size(), 'Aparece en la lista');
+		System.assertEquals(0, ((List<Object>) cot[0].get('categorias')).size(), 'Sin categorías en la lista');
+		Opportunity o = [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id];
+		System.assert(String.isBlank(o.Descripcion__c), 'No se genera comparativo');
+	}
+
+	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Lectura con IA (sin llamar a Einstein en pruebas) y helpers.
@@ -230,6 +255,10 @@ private class ColectivoControllerTest {
 		System.assertEquals('Trimestral', ColectivoController.frecuencia('trimestral'));
 		System.assertEquals('Mensual', ColectivoController.frecuencia('Mensual'));
 		System.assertEquals('Anual', ColectivoController.frecuencia('Contado'));
+		Id cuenta = [SELECT Id FROM Account LIMIT 1].Id;
+		System.assertEquals(false, ColectivoController.tienePolizaDelRamo(null, 'GMM'), 'Sin cuenta no hay póliza');
+		System.assertEquals(false, ColectivoController.tienePolizaDelRamo(cuenta, ''), 'La cuenta de prueba no tiene pólizas');
+		System.assertEquals(false, ColectivoController.tienePolizaDelRamo(cuenta, 'GMM'), 'Ni del ramo');
 		System.assertEquals(null, ColectivoController.fecha('01/08/2026'));
 		System.assertEquals('{"a":1}', ColectivoController.limpiarJson('```json {"a":1} ```'));
 		System.assertEquals('{"categorias":[]}', ColectivoController.limpiarJson(null));
@@ -385,5 +414,33 @@ private class ColectivoControllerTest {
 		System.assertEquals(2, res.get(opp.Id).get('cotizaciones'), 'Dos cotizaciones');
 		System.assertEquals(0, res.get(opp.Id).get('unidades'), 'Sin flotilla');
 		System.assert(vacio.isEmpty(), 'Sin oportunidades no hay resumen');
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El producto de la cotización colectiva es el de colectivos / empresas y no el individual o de hogar.
+	 * @return void
+	 */
+	@isTest
+	static void testProductoColectivo() {
+		Aseguradora__c aseg = new Aseguradora__c(Name = 'MAPFRE Producto Test');
+		insert aseg;
+		Product2 hogar = new Product2(Name = 'Seguro de Hogar Bien Seguro', IsActive = true, Family = 'Danos');
+		Product2 empresa = new Product2(Name = 'Indemniza PyMES', IsActive = true, Family = 'Danos');
+		Product2 otraFamilia = new Product2(Name = 'Seguro Múltiple Empresarial', IsActive = true, Family = 'Empresarial');
+		for (Product2 p : new List<Product2>{ hogar, empresa, otraFamilia }) { p.put('Aseguradora__c', aseg.Id); }
+		insert new List<Product2>{ hogar, empresa, otraFamilia };
+		Test.startTest();
+		Id elegido = ColectivoController.productoRamo(aseg.Id, 'Danos');
+		delete empresa;
+		Id soloHogar = ColectivoController.productoRamo(aseg.Id, 'Danos');
+		Test.stopTest();
+		System.assertEquals(empresa.Id, elegido, 'Producto de empresa de la familia del ramo');
+		System.assertEquals(null, soloHogar, 'Un producto de hogar no aplica a Daños colectivo');
+		System.assert(ColectivoController.puntosProductoColectivo('Autos Flotillas y Colectividades', 'Automoviles')
+			> ColectivoController.puntosProductoColectivo('Seguro de Auto Individual', 'Automoviles'), 'Flotilla antes que individual');
+		System.assert(ColectivoController.puntosProductoColectivo('Vida Empresarial', 'Vida')
+			> ColectivoController.puntosProductoColectivo('Seguro de Vida Individual Met99 (Gobierno)', 'Vida'), 'Empresarial antes que individual');
 	}
 }

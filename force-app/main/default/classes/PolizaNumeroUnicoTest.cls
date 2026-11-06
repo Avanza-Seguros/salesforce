@@ -23,6 +23,10 @@ private class PolizaNumeroUnicoTest {
 			]) { etapa = s.MasterLabel; }
 			Opportunity opp = new Opportunity(Name = 'Opp Póliza Única', AccountId = cuenta, StageName = etapa,
 				CloseDate = Date.today().addDays(30));
+			// En UAT el ramo de la oportunidad es obligatorio.
+			for (Schema.PicklistEntry pe : Opportunity.Ramo__c.getDescribe().getPicklistValues()) {
+				if (pe.isActive()) { opp.Ramo__c = pe.getValue(); break; }
+			}
 			insert opp;
 			oportunidadId = opp.Id;
 		}

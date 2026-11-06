@@ -66,7 +66,8 @@ public with sharing class PolicyController {
 	 * @description: Devuelve los datos base para crear la póliza desde Crear Póliza (la póliza se crea al subir el
 	 * PDF, ya con su número real). Toma de la oportunidad el asegurado y el propietario, y de la cotización
 	 * aceptada la aseguradora, el producto, el ramo, la prima, la frecuencia y las fechas, con las mismas reglas
-	 * que usaba el flujo Create_Insured_Policy. Los picklists solo se llenan con valores válidos.
+	 * que usaba el flujo Create_Insured_Policy. Los picklists solo se llenan con valores válidos. La vigencia
+	 * sale de la cotización cuando la trae (renovaciones y colectivos); si no, inicia hoy y dura un año.
 	 * @param opportunityId: Id de la oportunidad (opcional; sin ella solo se devuelven el estatus y las fechas)
 	 * @param quoteId: Id de la cotización aceptada (opcional; si no llega se toma la aceptada más reciente)
 	 * @return Valores por API name de InsurancePolicy (fechas como AAAA-MM-DD)
@@ -85,12 +86,19 @@ public with sharing class PolicyController {
 		base.put('NameInsuredId', opp.AccountId);
 		base.put('OwnerId', opp.OwnerId);
 		List<Quote> qs = quoteId != null
-			? [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
+			? [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c,
+				Vigencia_Inicio__c, ExpirationDate
 			   FROM Quote WHERE Id = :quoteId AND OpportunityId = :opportunityId LIMIT 1]
-			: [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c
+			: [SELECT Id, Aseguradora__c, Product__c, Ramos__c, Prima_Total__c, PrimaAnual__c, TotalPrice, Frecuencia_de_prima__c,
+				Vigencia_Inicio__c, ExpirationDate
 			   FROM Quote WHERE OpportunityId = :opportunityId AND Status = 'Accepted' ORDER BY CreatedDate DESC LIMIT 1];
 		if (qs.isEmpty()) { return base; }
 		Quote q = qs[0];
+		if (q.Vigencia_Inicio__c != null) {
+			hoy = q.Vigencia_Inicio__c;
+			base.put('EffectiveDate', String.valueOf(hoy));
+			base.put('ExpirationDate', String.valueOf(q.ExpirationDate != null && q.ExpirationDate > hoy ? q.ExpirationDate : hoy.addDays(365)));
+		}
 		base.put('SourceQuoteId', q.Id);
 		base.put('Aseguradora__c', q.Aseguradora__c);
 		base.put('ProductId', q.Product__c);
@@ -168,7 +176,7 @@ public with sharing class PolicyController {
 				ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(PROMPT_TEMPLATE_API_NAME, genInput);
 
 			if (gen != null && gen.generations != null && !gen.generations.isEmpty() && String.isNotBlank(gen.generations[0].text)) {
-				return cleanJson(gen.generations[0].text);
+				return completarNumeroPoliza(cleanJson(gen.generations[0].text), texto);
 			}
 			throw new AuraHandledException('La IA no devolvió información de la póliza.');
 		} catch (AuraHandledException ahe) {
@@ -177,6 +185,57 @@ public with sharing class PolicyController {
 		} catch (Exception e) {
 			throw new AuraHandledException('Error al analizar la póliza: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Si la IA no devolvió el número de póliza, lo toma del texto del PDF por su etiqueta
+	 * ("Póliza", "Código de Voucher", "Certificado", "Folio"…). Sin número no se puede crear la póliza.
+	 * @param jsonIa: JSON devuelto por la IA
+	 * @param texto: Texto del PDF
+	 * @return JSON con el número de póliza completado (o igual si no se encontró)
+	 */
+	@TestVisible
+	private static String completarNumeroPoliza(String jsonIa, String texto) {
+		Map<String, Object> d;
+		try {
+			d = (Map<String, Object>) JSON.deserializeUntyped(jsonIa);
+		} catch (Exception e) {
+			return jsonIa;
+		}
+		if (d == null || String.isNotBlank(strOf(d.get('numeroPoliza')))) { return jsonIa; }
+		String numero = numeroPolizaDesdeTexto(texto);
+		if (String.isBlank(numero)) { return jsonIa; }
+		d.put('numeroPoliza', numero);
+		return JSON.serialize(d);
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca el número de póliza por su etiqueta, en el mismo renglón o en el siguiente
+	 * (ej. "Código de Voucher" / "CA-Z7B2GBN-MX"). El valor debe traer al menos un dígito.
+	 * @param texto: Texto del PDF
+	 * @return Número encontrado; null si no hay
+	 */
+	@TestVisible
+	private static String numeroPolizaDesdeTexto(String texto) {
+		if (String.isBlank(texto)) { return null; }
+		String etiqueta = '(?i)^.*?(p[oó]liza|c[oó]digo de voucher|voucher|certificado|folio)'
+			+ '(\\s+(no\\.?|n[uú]m\\.?|n[uú]mero))?\\s*[:#.]?\\s*';
+		String valor = '([A-Z0-9][A-Z0-9\\-/]{3,}[A-Z0-9])';
+		List<String> lineas = texto.split('\\r?\\n');
+		for (Integer i = 0; i < lineas.size(); i++) {
+			String l = lineas[i].trim();
+			Matcher m = Pattern.compile(etiqueta + valor + '\\b.*$').matcher(l);
+			if (m.matches() && m.group(4).containsAny('0123456789')) { return m.group(4); }
+			if (Pattern.matches(etiqueta, l) && i + 1 < lineas.size()) {
+				String sig = lineas[i + 1].trim().split('\\s+')[0];
+				if (Pattern.matches(valor, sig) && sig.containsAny('0123456789')) { return sig; }
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -212,6 +271,21 @@ public with sharing class PolicyController {
 	 */
 	@AuraEnabled
 	public static Id crearVinculoBien(Id policyId) {
+		return crearVinculoBien(policyId, null);
+	}
+
+	/**
+	 * @creation date: 26/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea el vínculo póliza–bien ligando el CustomerProperty indicado. Si no se indica, en Autos
+	 * usa el vehículo más reciente del asegurado y en los demás ramos el bien creado para esta póliza; si no
+	 * existe, lo crea (Insurance Policy Asset siempre necesita un CustomerProperty). Si el vínculo ya existe sin
+	 * bien, se le asigna. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param customerPropertyId: Id del CustomerProperty a ligar (opcional)
+	 * @return Id del InsurancePolicyAsset creado o existente; null si no hay bien que ligar
+	 */
+	private static Id crearVinculoBien(Id policyId, Id customerPropertyId) {
 		if (policyId == null) {
 			throw new AuraHandledException('No se recibió la póliza para vincular el bien.');
 		}
@@ -219,41 +293,59 @@ public with sharing class PolicyController {
 			// 1) Datos de la póliza.
 			InsurancePolicy pol = [
 				SELECT Id, Name, NameInsuredId, SourceOpportunityId, SourceQuoteId,
-					   Ramo__c, ProductId, PremiumAmount, EffectiveDate
+					   Ramo__c, ProductId, PremiumAmount, EffectiveDate, ExpirationDate
 				FROM InsurancePolicy
 				WHERE Id = :policyId
 				LIMIT 1
 			];
 
-			// 2) Si ya existe el vínculo, no duplicar (idempotente).
-			List<InsurancePolicyAsset> existentes = [
-				SELECT Id FROM InsurancePolicyAsset
-				WHERE InsurancePolicyId = :policyId
-				LIMIT 1
-			];
-			if (!existentes.isEmpty()) { return existentes[0].Id; }
-
-			// 3) Cuenta del asegurado (por la oportunidad origen o por NameInsured).
+			// 2) Cuenta del asegurado (por la oportunidad origen o por NameInsured).
 			Id accountId = resolverCuentaDePoliza(pol);
-
-			// 3.1) Bien del cliente (CustomerProperty) del asegurado, si existe.
-			//      Es el objeto donde hoy se guarda el vehículo/bien.
-			CustomerProperty bienCliente = null;
-			if (accountId != null) {
-				for (CustomerProperty cp : [
-					SELECT Id, Name FROM CustomerProperty
-					WHERE PrimaryOwnerId = :accountId
-					ORDER BY LastModifiedDate DESC LIMIT 1
-				]) { bienCliente = cp; }
-			}
 			Schema.DescribeFieldResult cpField = InsurancePolicyAsset.CustomerPropertyId.getDescribe();
+			Boolean aceptaCp = campoAcepta(cpField, CustomerProperty.SObjectType);
 
-			// 4) Bien a ligar. Si hay CustomerProperty y el campo lo acepta, se usa ese
-			//    (no se crea Asset). Si no, se reúsa/crea un Asset como respaldo.
-			// Para ramos que NO son de autos (GMM, Vida, Daños) no se liga un vehículo,
-			// aunque la cuenta tenga uno de otra póliza. Si el ramo viene vacío, se permite.
+			// 3) Bien del cliente (CustomerProperty) a ligar.
+			// Para ramos que NO son de autos (GMM, Vida, Daños, Mascotas) no se liga un vehículo de otra
+			// póliza: se usa el bien de esta póliza o se crea uno. Si el ramo viene vacío, se permite el vehículo.
 			Boolean ramoNoAuto = String.isNotBlank(pol.Ramo__c) && !normKey(pol.Ramo__c).contains('auto');
-			Boolean usarCustomerProperty = (!ramoNoAuto && bienCliente != null && campoAcepta(cpField, CustomerProperty.SObjectType));
+			CustomerProperty bienCliente = null;
+			if (customerPropertyId != null) {
+				for (CustomerProperty cp : [SELECT Id, Name, Description FROM CustomerProperty WHERE Id = :customerPropertyId]) {
+					bienCliente = cp;
+				}
+			} else if (accountId != null && aceptaCp) {
+				if (!ramoNoAuto) {
+					for (CustomerProperty cp : [
+						SELECT Id, Name, Description FROM CustomerProperty
+						WHERE PrimaryOwnerId = :accountId AND (Vin != null OR Make != null OR ModelName != null)
+						ORDER BY LastModifiedDate DESC LIMIT 1
+					]) { bienCliente = cp; }
+				}
+				if (bienCliente == null) {
+					Id cpId = guardarBienGenerico(pol, accountId, null);
+					bienCliente = [SELECT Id, Name, Description FROM CustomerProperty WHERE Id = :cpId];
+				}
+			}
+
+			// 4) Si ya existe el vínculo, no duplicar (idempotente); solo se le liga el bien si no lo tiene.
+			List<InsurancePolicyAsset> existentes = [
+				SELECT Id, CustomerPropertyId FROM InsurancePolicyAsset
+				WHERE InsurancePolicyId = :policyId
+				ORDER BY CreatedDate ASC LIMIT 1
+			];
+			if (!existentes.isEmpty()) {
+				InsurancePolicyAsset ex = existentes[0];
+				if (ex.CustomerPropertyId == null && bienCliente != null && aceptaCp) {
+					ex.CustomerPropertyId = bienCliente.Id;
+					if (String.isNotBlank(bienCliente.Description)) { ex.AssetName = bienCliente.Description.split('\n')[0].trim().left(255); }
+					update ex;
+				}
+				return ex.Id;
+			}
+
+			// 5) Bien a ligar. Si hay CustomerProperty y el campo lo acepta, se usa ese
+			//    (no se crea Asset). Si no, se reúsa/crea un Asset como respaldo.
+			Boolean usarCustomerProperty = (bienCliente != null && aceptaCp);
 			Id assetId = null;
 			String assetName = null;
 			if (!usarCustomerProperty) {
@@ -281,8 +373,10 @@ public with sharing class PolicyController {
 				}
 			}
 
-			// 5) Crear el vínculo póliza-bien.
-			String nombreVinculo = (bienCliente != null && String.isNotBlank(bienCliente.Name))
+			// 6) Crear el vínculo póliza-bien.
+			String nombreVinculo = (bienCliente != null && String.isNotBlank(bienCliente.Description))
+				? bienCliente.Description.split('\n')[0].trim()
+				: (bienCliente != null && String.isNotBlank(bienCliente.Name))
 				? bienCliente.Name
 				: (String.isNotBlank(assetName)
 					? assetName
@@ -295,7 +389,7 @@ public with sharing class PolicyController {
 			// CustomerPropertyId puede apuntar a CustomerProperty o a Asset según el org.
 			// Se prioriza el CustomerProperty del cliente (donde vive el vehículo/bien);
 			// si el campo no lo acepta o no hay bien, se usa el Asset como respaldo.
-			if (bienCliente != null && campoAcepta(cpField, CustomerProperty.SObjectType)) {
+			if (bienCliente != null && aceptaCp) {
 				ipa.CustomerPropertyId = bienCliente.Id;
 			} else if (assetId != null && campoAcepta(cpField, Asset.SObjectType)) {
 				ipa.CustomerPropertyId = assetId;
@@ -303,6 +397,7 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 			if (pol.PremiumAmount != null) { ipa.StandardPremiumAmount = pol.PremiumAmount; }
 			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+			if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
 			insert ipa;
 			return ipa.Id;
 		} catch (AuraHandledException ahe) {
@@ -426,20 +521,26 @@ public with sharing class PolicyController {
 			}
 		}
 
-		// 1) Bien asegurado.
+		// 1) Bien asegurado. En colectivas de Daños / flotillas: las ubicaciones o vehículos de la cotización aceptada.
 		try {
-			Id ipaId = crearVinculoBien(policyId);
-			resumen.put('bien', ipaId != null ? 1 : 0);
+			Map<String, Object> colectivos = crearBienesColectivos(policyId, oppId);
+			if (!colectivos.isEmpty()) {
+				resumen.putAll(colectivos);
+			} else {
+				Id ipaId = crearVinculoBien(policyId);
+				resumen.put('bien', ipaId != null ? 1 : 0);
+			}
 		} catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
+		ligarRenovacionBienes(policyId, resumen);
 
 		// 2) Asegurados / participantes (colectiva por OCR + respaldo individual).
 		try {
 			resumen.put('asegurados', crearParticipantesPoliza(policyId, oppId));
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
-		// 3) Coberturas desde el catálogo del producto.
+		// 3) Coberturas desde el catálogo del producto y, en colectivas de personas, las de cada categoría cotizada.
 		try {
-			resumen.put('coberturas', crearCoberturasPoliza(policyId));
+			resumen.put('coberturas', crearCoberturasPoliza(policyId) + crearCoberturasCategorias(policyId));
 		} catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
 
 		// 4) Transacción de prima inicial.
@@ -628,11 +729,7 @@ public with sharing class PolicyController {
 		}
 
 		// Bien asegurado de la póliza (para ligar la cobertura, si existe uno).
-		Id assetId = null;
-		for (InsurancePolicyAsset a : [
-			SELECT Id FROM InsurancePolicyAsset
-			WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 1
-		]) { assetId = a.Id; }
+		Id assetId = bienUnicoDePoliza(policyId);
 
 		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
 		// Catálogo de coberturas del producto: ProductCoverage (lo administra Productos y Coberturas).
@@ -740,6 +837,18 @@ public with sharing class PolicyController {
 		@AuraEnabled public List<ParticipanteRow> participantes = new List<ParticipanteRow>();
 		@AuraEnabled public List<BienRow> bienes = new List<BienRow>();
 		@AuraEnabled public List<TransaccionRow> transacciones = new List<TransaccionRow>();
+		@AuraEnabled public List<ArchivoRow> archivos = new List<ArchivoRow>();
+	}
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivo adjunto a la póliza (ContentDocument) para la vista de la póliza.
+	 */
+	public class ArchivoRow {
+		@AuraEnabled public Id id;
+		@AuraEnabled public String nombre;
+		@AuraEnabled public String extension;
+		@AuraEnabled public Integer tamano;
 	}
 	/**
 	 * @creation date: 17/09/2026
@@ -800,10 +909,10 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 17/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Devuelve los registros hijos de la póliza (coberturas, participantes, bien asegurado y
-	 * transacciones) para mostrarlos en la vista de la póliza.
+	 * @description: Devuelve los registros hijos de la póliza (coberturas, participantes, bien asegurado,
+	 * transacciones y archivos adjuntos) para mostrarlos en la vista de la póliza.
 	 * @param policyId: Id de la InsurancePolicy
-	 * @return Wrapper con las cuatro listas (vacías si no hay registros)
+	 * @return Wrapper con las listas (vacías si no hay registros)
 	 */
 	@AuraEnabled(cacheable=false)
 	public static RegistrosPoliza getRegistrosPoliza(Id policyId) {
@@ -854,6 +963,16 @@ public with sharing class PolicyController {
 				r.id = t.Id; r.nombre = t.Name; r.tipo = t.Type; r.estatus = t.Status;
 				r.monto = t.TransactionAmount; r.fecha = t.TransactionEffectiveDate;
 				out.transacciones.add(r);
+			}
+			for (ContentDocumentLink l : [
+				SELECT ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension, ContentDocument.ContentSize
+				FROM ContentDocumentLink WHERE LinkedEntityId = :policyId
+				ORDER BY ContentDocument.CreatedDate ASC
+			]) {
+				ArchivoRow r = new ArchivoRow();
+				r.id = l.ContentDocumentId; r.nombre = l.ContentDocument.Title;
+				r.extension = l.ContentDocument.FileExtension; r.tamano = l.ContentDocument.ContentSize;
+				out.archivos.add(r);
 			}
 		} catch (Exception e) {
 			// No romper la vista: si un objeto no está accesible, se devuelve lo que sí se pudo.
@@ -943,35 +1062,74 @@ public with sharing class PolicyController {
 			: (Map<String, Object>) JSON.deserializeUntyped(datosJson);
 
 		InsurancePolicy pol = [
-			SELECT Id, NameInsuredId, SourceOpportunityId
+			SELECT Id, NameInsuredId, SourceOpportunityId, Ramo__c
 			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
 		];
 		Id oppId = opportunityId != null ? opportunityId : pol.SourceOpportunityId;
 		Id accountId = resolverCuentaDePoliza(pol);
+		// Daños / Empresarial: cada ubicación (inciso) es un bien del cliente; los "asegurados adicionales" del endoso
+		// no se crean como participantes.
+		String ramoKey = normKey(pol.Ramo__c);
+		Boolean esDanos = ramoKey.contains('dano') || ramoKey.contains('empresarial');
+		List<Object> ubicaciones = (esDanos && d.get('ubicaciones') instanceof List<Object>)
+			? (List<Object>) d.get('ubicaciones') : new List<Object>();
+		// Flotilla / colectiva de autos: cada vehículo (inciso) es un bien del cliente con su inciso de flotilla.
+		List<Object> vehiculos = (!esDanos && d.get('vehiculos') instanceof List<Object>)
+			? (List<Object>) d.get('vehiculos') : new List<Object>();
+		Boolean esFlotilla = vehiculos.size() > 1;
+		Map<String, Object> bienesColectivos = new Map<String, Object>();
 
 		// 0) Completa los campos vacíos de la Cuenta (RFC, dirección, teléfono) con el PDF.
 		try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
 		catch (Exception e) { resumen.put('cuentaError', msgLimpio(e)); }
 
-		// 1) Vehículo (CustomerProperty) con los datos reales del PDF.
-		try { guardarVehiculoDesdePdf(accountId, d); resumen.put('vehiculo', 1); }
-		catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
+		// 1) Bien del cliente (CustomerProperty) con los datos reales del PDF: el vehículo en Autos o el bien
+		//    asegurado (mascota, inmueble, persona...) en los demás ramos.
+		//    En Daños con ubicaciones: un CustomerProperty y un bien de póliza por ubicación.
+		if (!ubicaciones.isEmpty()) {
+			try { resumen.put('ubicaciones', guardarUbicacionesDesdePdf(policyId, accountId, ubicaciones)); }
+			catch (Exception e) { resumen.put('ubicacionesError', msgLimpio(e)); }
+		} else if (esFlotilla) {
+			try { resumen.put('vehiculos', guardarVehiculosDesdePdf(policyId, accountId, oppId, vehiculos)); }
+			catch (Exception e) { resumen.put('vehiculosError', msgLimpio(e)); }
+		} else {
+			// Colectiva de Daños / flotilla cuyo PDF no trae las ubicaciones o los vehículos: los de la cotización aceptada.
+			try { bienesColectivos = crearBienesColectivos(policyId, oppId); resumen.putAll(bienesColectivos); }
+			catch (Exception e) { resumen.put('bienesError', msgLimpio(e)); }
+		}
+		if (ubicaciones.isEmpty() && !esFlotilla && bienesColectivos.isEmpty()) {
+			Id customerPropertyId = null;
+			try { customerPropertyId = guardarBienDesdePdf(policyId, accountId, d); resumen.put('vehiculo', 1); }
+			catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
 
-		// 2) Bien de póliza (liga el CustomerProperty a la póliza).
-		try { crearVinculoBien(policyId); resumen.put('bien', 1); }
-		catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
+			// 2) Bien de póliza (liga el CustomerProperty a la póliza).
+			try { crearVinculoBien(policyId, customerPropertyId); resumen.put('bien', 1); }
+			catch (Exception e) { resumen.put('bienError', msgLimpio(e)); }
+		}
+		ligarRenovacionBienes(policyId, resumen);
 
 		// 3) Participante = la PERSONA asegurada del PDF (ej. Rosa Margarita), como Contacto
 		//    bajo la cuenta principal (ej. CASTEMON). Si el PDF no trae persona, se cae al
 		//    participante de la cuenta.
 		try {
-			Integer n = crearParticipanteDesdePdf(policyId, accountId, d);
+			// Si la persona del PDF no se puede crear (ej. regla de duplicados del contacto), el censo se copia igual.
+			Integer n = 0;
+			try { n = crearParticipanteDesdePdf(policyId, accountId, d); }
+			catch (Exception e) { resumen.put('aseguradoPdfError', msgLimpio(e)); }
+			// Colectiva de personas: todo el censo de la oportunidad, aunque el PDF traiga a una persona (se completa,
+			// no se duplica).
+			if (!esDanos && !esFlotilla && bienesColectivos.isEmpty() && oppId != null) {
+				try { n += CensoColectivoController.copiarCensoAPoliza(oppId, policyId); }
+				catch (Exception e) { System.debug(LoggingLevel.WARN, 'No se pudo copiar el censo a la póliza: ' + e.getMessage()); }
+			}
 			// Solo si la póliza quedó SIN participantes se usa el respaldo (catálogo/OCR).
 			// Si crearParticipanteDesdePdf no creó porque ya existía, NO se agrega otro.
 			if (n == 0) {
 				Integer yaHay = [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId];
 				if (yaHay == 0) { n = crearParticipantesPoliza(policyId, oppId); }
 			}
+			// Los demás asegurados del PDF (otro titular, cónyuge, dependientes). En Daños y flotillas no aplica.
+			if (!esDanos && !esFlotilla && bienesColectivos.isEmpty()) { n += crearAseguradosAdicionalesDesdePdf(policyId, accountId, d); }
 			resumen.put('asegurados', n);
 		} catch (Exception e) { resumen.put('aseguradosError', msgLimpio(e)); }
 
@@ -989,7 +1147,11 @@ public with sharing class PolicyController {
 		//    coberturas del CATÁLOGO del producto.
 		try {
 			Integer nc = crearCoberturasDesdePdf(policyId, d);
-			if (nc == 0) { nc = crearCoberturasPoliza(policyId); }
+			// Al reprocesar, si la póliza ya tiene coberturas no se agregan las del catálogo.
+			if (nc == 0 && [SELECT COUNT() FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId] == 0) {
+				nc = crearCoberturasPoliza(policyId);
+			}
+			nc += crearCoberturasCategorias(policyId);
 			resumen.put('coberturas', nc);
 		}
 		catch (Exception e) { resumen.put('coberturasError', msgLimpio(e)); }
@@ -1039,7 +1201,8 @@ public with sharing class PolicyController {
 		// actualiza ESE registro con ambos roles en lugar de crear otro.
 		Map<String, InsurancePolicyParticipant> porNombre = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT Id, ParticipantName, ParticipantCode, Role, RelationshipToInsured, BeneficiarySharePercentage
+			SELECT Id, ParticipantName, ParticipantCode, Role, RelationshipToInsured, BeneficiarySharePercentage,
+				FechaNacimiento__c, Identificacion__c
 			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
 		]) {
 			ya.add(llaveBeneficiario(p.ParticipantName, p.ParticipantCode));
@@ -1062,6 +1225,9 @@ public with sharing class PolicyController {
 			if (String.isBlank(nombre) || esElMismo(nombre)) { continue; }
 			String codigo = codigoBeneficio(strOf(b.get('tipo')));
 			String llave = llaveBeneficiario(nombre, codigo);
+			InsurancePolicyParticipant ex = porNombre.get(llaveBeneficiario(nombre, null));
+			// Si ya existe, se completan su fecha de nacimiento e identificación.
+			if (ex != null && aplicarDatosPersona(ex, b, null)) { actualizados.put(ex.Id, ex); }
 			if (ya.contains(llave)) { continue; }
 			ya.add(llave);
 			Decimal pct = parseMonto(strOf(b.get('porcentaje')));
@@ -1069,7 +1235,6 @@ public with sharing class PolicyController {
 
 			// Ya es participante (ej. el asegurado) y aún no tiene un beneficio asignado:
 			// se le agrega el rol Beneficiario (Role es selección múltiple) en el MISMO registro.
-			InsurancePolicyParticipant ex = porNombre.get(llaveBeneficiario(nombre, null));
 			if (ex != null && String.isBlank(ex.ParticipantCode)) {
 				ex.Role = agregarRol(ex.Role, rolBen);
 				ex.ParticipantCode = codigo;
@@ -1090,11 +1255,60 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
 			try { p.IsActiveParticipant = true; } catch (Exception ignore) {}
 			try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+			aplicarDatosPersona(p, b, null);
 			nuevos.add(p);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
 		if (!actualizados.isEmpty()) { update actualizados.values(); }
 		return nuevos.size() + actualizados.size();
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Completa la fecha de nacimiento y la identificación del participante con los datos de la persona
+	 * en el PDF. Solo llena lo vacío: no sobrescribe lo ya capturado.
+	 * @param p: Participante a completar
+	 * @param persona: Datos de la persona en el PDF ("fechaNacimiento", "identificacion"); puede ser null
+	 * @param identificacionRespaldo: Identificación a usar si la persona no trae una (ej. RFC del contratante)
+	 * @return true si se cambió algún dato
+	 */
+	@TestVisible
+	private static Boolean aplicarDatosPersona(InsurancePolicyParticipant p, Map<String, Object> persona, String identificacionRespaldo) {
+		Boolean cambio = false;
+		Date fecha = persona == null ? null : parseFecha(strOf(persona.get('fechaNacimiento')));
+		if (fecha != null && p.FechaNacimiento__c == null) { p.FechaNacimiento__c = fecha; cambio = true; }
+		String ident = persona == null ? null : strOf(persona.get('identificacion'));
+		if (String.isBlank(ident) && persona != null) { ident = strOf(persona.get('rfc')); }
+		if (String.isBlank(ident)) { ident = identificacionRespaldo; }
+		if (String.isNotBlank(ident) && String.isBlank(p.Identificacion__c)) {
+			p.Identificacion__c = ident.deleteWhitespace().toUpperCase().left(50);
+			cambio = true;
+		}
+		return cambio;
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte una fecha del PDF a Date: "AAAA-MM-DD" o "DD/MM/AAAA" (también con guiones).
+	 * @param v: Fecha en texto
+	 * @return Fecha; null si no es válida
+	 */
+	@TestVisible
+	private static Date parseFecha(String v) {
+		if (String.isBlank(v)) { return null; }
+		try {
+			Matcher iso = Pattern.compile('(\\d{4})-(\\d{1,2})-(\\d{1,2})').matcher(v);
+			if (iso.find()) {
+				return Date.newInstance(Integer.valueOf(iso.group(1)), Integer.valueOf(iso.group(2)), Integer.valueOf(iso.group(3)));
+			}
+			Matcher mx = Pattern.compile('(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})').matcher(v);
+			if (mx.find()) {
+				return Date.newInstance(Integer.valueOf(mx.group(3)), Integer.valueOf(mx.group(2)), Integer.valueOf(mx.group(1)));
+			}
+		} catch (Exception e) {}
+		return null;
 	}
 
 	/**
@@ -1217,9 +1431,14 @@ public with sharing class PolicyController {
 		if (p.contains('mismo') || p.contains('titular')) { c.addAll(new List<String>{ 'El mismo', 'Self', 'Insured' }); }
 		else if (p.contains('mama') || p == 'madre') { c.addAll(new List<String>{ 'Madre', 'Mother', 'Parent' }); }
 		else if (p.contains('papa') || p == 'padre') { c.addAll(new List<String>{ 'Padre', 'Father', 'Parent' }); }
-		else if (p.contains('esposo') || p.contains('marido') || p.contains('concubino')) { c.addAll(new List<String>{ 'Marido', 'Esposo', 'Husband', 'Spouse' }); }
-		else if (p.contains('esposa') || p.contains('concubina')) { c.addAll(new List<String>{ 'Mujer', 'Esposa', 'Wife', 'Spouse' }); }
-		else if (p.contains('conyug') || p.contains('pareja')) { c.addAll(new List<String>{ 'Cónyuge', 'Spouse', 'Partner' }); }
+		// Ex cónyuge: el catálogo tiene «Ex marido» / «Ex mujer».
+		else if (p.startsWith('ex ') && (p.contains('espos') || p.contains('marido') || p.contains('mujer') || p.contains('conyug'))) {
+			c.addAll(p.contains('esposa') || p.contains('mujer') ? new List<String>{ 'Ex mujer' } : new List<String>{ 'Ex marido' });
+		}
+		// Cónyuge (esposo, esposa, marido, mujer, concubino, pareja): siempre «Conyugue», nunca Marido / Mujer.
+		else if (p.contains('espos') || p.contains('marido') || p == 'mujer' || p.contains('concubin') || p.contains('conyug') || p.contains('pareja')) {
+			c = new List<String>{ CensoColectivoController.CONYUGE, 'Cónyuge', 'Spouse', 'Partner' };
+		}
 		else if (p.contains('hija')) { c.addAll(new List<String>{ 'Hija', 'Daughter', 'Child' }); }
 		else if (p.contains('hijo')) { c.addAll(new List<String>{ 'Hijo', 'Son', 'Child' }); }
 		else if (p.contains('hermana')) { c.addAll(new List<String>{ 'Hermana', 'Sister', 'Sibling' }); }
@@ -1389,7 +1608,9 @@ public with sharing class PolicyController {
 
 		String nombre = ('Familia ' + titular.Name.normalizeSpace()).left(80);
 		Account cuenta = new Account(Name = nombre);
-		Schema.RecordTypeInfo rt = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
+		// Cuenta del hogar: tipo general (no empresa), así no le aplican las reglas de cuentas empresariales.
+		Map<String, Schema.RecordTypeInfo> rts = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+		Schema.RecordTypeInfo rt = rts.containsKey('Default_Account') ? rts.get('Default_Account') : rts.get('Business_Account');
 		if (rt != null) { cuenta.RecordTypeId = rt.getRecordTypeId(); }
 		insert cuenta;
 		SObject g = nuevoRegistro('PartyRelationshipGroup');
@@ -1652,7 +1873,8 @@ public with sharing class PolicyController {
 		// RFC/correo/teléfono: solo si pertenecen a ESTA persona (el contratante ES la persona).
 		Boolean datosDeLaPersona = (per != null && nombre.equalsIgnoreCase(strOf(per.get('nombre'))));
 		String rfc = datosDeLaPersona ? strOf(per.get('rfc')) : null;
-		String email = datosDeLaPersona ? strOf(per.get('email')) : null;
+		// Algunos PDF separan el correo con espacios ("nombre @ gmail . com").
+		String email = datosDeLaPersona && per.get('email') != null ? strOf(per.get('email')).deleteWhitespace() : null;
 		String tel = datosDeLaPersona ? strOf(per.get('telefono')) : null;
 
 		// Busca el contacto bajo la cuenta comparando el nombre de forma TOLERANTE
@@ -1690,8 +1912,24 @@ public with sharing class PolicyController {
 			contactId = c.Id;
 		}
 
-		// Evita duplicar el participante: por contacto o por el mismo nombre.
-		if (polizaTieneParticipante(policyId, contactId, nombre)) { return 0; }
+		// Fecha de nacimiento e identificación: de "asegurado" si es esta persona; si no, el RFC del contratante.
+		Map<String, Object> persona = (aseg != null && nombre.equalsIgnoreCase(strOf(aseg.get('nombre')))) ? aseg : null;
+
+		// Evita duplicar el participante: por contacto o por el mismo nombre. Si ya existe, solo se
+		// completan sus datos.
+		if (polizaTieneParticipante(policyId, contactId, nombre)) {
+			String nom = normKey(nombre).replaceAll('\\s+', ' ');
+			for (InsurancePolicyParticipant ex : [
+				SELECT Id, PrimaryParticipantContactId, ParticipantName, FechaNacimiento__c, Identificacion__c
+				FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+			]) {
+				Boolean mismo = (contactId != null && ex.PrimaryParticipantContactId == contactId)
+					|| normKey(ex.ParticipantName == null ? '' : ex.ParticipantName).replaceAll('\\s+', ' ') == nom;
+				if (mismo && aplicarDatosPersona(ex, persona, rfc)) { update ex; }
+				if (mismo) { break; }
+			}
+			return 0;
+		}
 
 		InsurancePolicyParticipant part = new InsurancePolicyParticipant();
 		part.InsurancePolicyId = policyId;
@@ -1703,8 +1941,80 @@ public with sharing class PolicyController {
 		try { part.EffectiveDate = Date.today(); } catch (Exception ignore) {}
 		// Completa Cuenta, Producto y detalle de prima desde la póliza.
 		aplicarDatosParticipante(part, policyId, accountId);
+		aplicarDatosPersona(part, persona, rfc);
 		insert part;
 		return 1;
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea como participantes (rol Asegurado) a las demás personas aseguradas del PDF
+	 * ("aseguradosAdicionales": otro titular, cónyuge, dependientes), con su parentesco. No repite al titular ni a
+	 * quien ya es participante. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta principal
+	 * @param d: Datos del PDF
+	 * @return Número de participantes creados
+	 */
+	@TestVisible
+	private static Integer crearAseguradosAdicionalesDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
+		Object lista = d.get('aseguradosAdicionales');
+		Map<String, Object> aseg = (d.get('asegurado') instanceof Map<String, Object>)
+			? (Map<String, Object>) d.get('asegurado') : null;
+		Boolean hayLista = (lista instanceof List<Object>) && !((List<Object>) lista).isEmpty();
+		if (!hayLista && aseg == null) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, ProductId, NameInsuredId, SourceOpportunityId
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		Id acc = accountId != null ? accountId : resolverCuentaDePoliza(pol);
+		String titular = normKey(nombreTitular(d)).normalizeSpace();
+		String rol = pickPicklist(InsurancePolicyParticipant.Role.getDescribe(),
+			new List<String>{ 'Insured', 'Covered Party', 'Named Insured', 'Asegurado', 'Insured Party', 'Covered' });
+		Schema.DescribeFieldResult relDesc = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
+
+		Set<String> ya = new Set<String>{ titular };
+		Map<String, InsurancePolicyParticipant> existentes = new Map<String, InsurancePolicyParticipant>();
+		for (InsurancePolicyParticipant p : [
+			SELECT Id, ParticipantName, FechaNacimiento__c, Identificacion__c
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) {
+			String k = normKey(p.ParticipantName).normalizeSpace();
+			ya.add(k);
+			if (!existentes.containsKey(k)) { existentes.put(k, p); }
+		}
+		List<InsurancePolicyParticipant> nuevos = new List<InsurancePolicyParticipant>();
+		Map<Id, InsurancePolicyParticipant> actualizados = new Map<Id, InsurancePolicyParticipant>();
+		// El titular ya es participante: se completan su fecha de nacimiento e identificación.
+		InsurancePolicyParticipant exTitular = existentes.get(titular);
+		if (exTitular != null && aplicarDatosPersona(exTitular, aseg, null)) { actualizados.put(exTitular.Id, exTitular); }
+		for (Object o : hayLista ? (List<Object>) lista : new List<Object>()) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> a = (Map<String, Object>) o;
+			String nombre = strOf(a.get('nombre'));
+			if (String.isBlank(nombre) || esElMismo(nombre)) { continue; }
+			nombre = nombre.normalizeSpace();
+			// Ya es participante: solo se completan su fecha de nacimiento e identificación.
+			InsurancePolicyParticipant ex = existentes.get(normKey(nombre));
+			if (ex != null && aplicarDatosPersona(ex, a, null)) { actualizados.put(ex.Id, ex); }
+			if (!ya.add(normKey(nombre))) { continue; }
+			InsurancePolicyParticipant p = new InsurancePolicyParticipant();
+			p.InsurancePolicyId = policyId;
+			p.ParticipantName = nombre.left(255);
+			if (String.isNotBlank(rol)) { p.Role = rol; }
+			String rel = parentescoPicklist(relDesc, strOf(a.get('parentesco')));
+			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
+			if (acc != null) { p.PrimaryParticipantAccountId = acc; }
+			if (pol.ProductId != null) { p.ProductId = pol.ProductId; }
+			try { p.IsActiveParticipant = true; } catch (Exception ignore) {}
+			try { p.EffectiveDate = Date.today(); } catch (Exception ignore) {}
+			aplicarDatosPersona(p, a, null);
+			nuevos.add(p);
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+		if (!actualizados.isEmpty()) { update actualizados.values(); }
+		return nuevos.size();
 	}
 
 	/**
@@ -1838,16 +2148,19 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 18/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Crea o actualiza el CustomerProperty (vehículo) del asegurado con los datos del PDF.
+	 * @description: Crea o actualiza el CustomerProperty del asegurado con los datos del PDF: el vehículo si el
+	 * PDF trae datos de auto; si no, el bien asegurado de la póliza (cualquier ramo).
+	 * @param policyId: Id de la InsurancePolicy
 	 * @param accountId: Id de la cuenta del asegurado
 	 * @param d: Datos del PDF
-	 * @return void
+	 * @return Id del CustomerProperty; null si no hay cuenta
 	 */
-	private static void guardarVehiculoDesdePdf(Id accountId, Map<String, Object> d) {
-		if (accountId == null) { return; }
+	private static Id guardarBienDesdePdf(Id policyId, Id accountId, Map<String, Object> d) {
+		if (accountId == null) { return null; }
 		Object bienO = d.get('bienAsegurado');
-		if (!(bienO instanceof Map<String, Object>)) { return; }
-		Map<String, Object> bien = (Map<String, Object>) bienO;
+		Map<String, Object> bien = (bienO instanceof Map<String, Object>)
+			? (Map<String, Object>) bienO
+			: new Map<String, Object>();
 		Map<String, String> a = new Map<String, String>();
 		if (bien.get('atributos') instanceof List<Object>) {
 			for (Object o : (List<Object>) bien.get('atributos')) {
@@ -1867,9 +2180,12 @@ public with sharing class PolicyController {
 		Decimal anioD = parseMonto(a.get('ano'));
 		if (anioD == null && modeloEsAnio) { anioD = parseMonto(modeloRaw); }
 		Integer anio = (anioD != null) ? anioD.intValue() : null;
-		// Sin identificadores de vehículo no se crea CustomerProperty. Evita que ramos
-		// sin auto (GMM, Vida, Daños) generen un vehículo vacío o incorrecto.
-		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo) && anio == null) { return; }
+		// Sin identificadores de vehículo no se crea un vehículo: ramos sin auto (GMM, Vida, Daños, Mascotas)
+		// guardan su bien asegurado en un CustomerProperty propio de la póliza.
+		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo) && anio == null) {
+			InsurancePolicy pol = [SELECT Id, Name, Ramo__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+			return guardarBienGenerico(pol, accountId, bien);
+		}
 		// Mismo auto = no duplicar: busca por VIN y, si no, por Marca+Modelo+Año
 		// (el identificador puede diferir entre la cotización y la póliza).
 		CustomerProperty cp = null;
@@ -1897,6 +2213,610 @@ public with sharing class PolicyController {
 		if (String.isNotBlank(a.get('uso')))             { try { cp.put('Uso__c', a.get('uso').left(40)); } catch (Exception ignore) {} }
 		if (String.isNotBlank(a.get('tipo de unidad')))  { try { cp.put('TipoVehiculo__c', a.get('tipo de unidad').left(40)); } catch (Exception ignore) {} }
 		upsert cp;
+		return cp.Id;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza de Daños con varias ubicaciones (un inciso por ubicación): un CustomerProperty por
+	 * domicilio distinto del cliente (si ya existe uno con el mismo domicilio se reúsa) con todos los datos del PDF
+	 * (domicilio desglosado, pisos, sótano, cajones, techo, giro, suma asegurada y en la descripción el resto) y un
+	 * InsurancePolicyAsset que lo liga a la póliza con la prima del inciso. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param ubicaciones: lista leída del PDF: {direccion, inciso, giro, techos, muros, entrepisos, pisosAltos,
+	 *        sotanos, constaDe, cajones, zonaTev, zonaFh, sustanciasExplosivas, sustanciasInflamables,
+	 *        sumaAsegurada, primaNeta, primaTotal}
+	 * @return Número de ubicaciones ligadas a la póliza
+	 */
+	public static Integer guardarUbicacionesDesdePdf(Id policyId, Id accountId, List<Object> ubicaciones) {
+		if (accountId == null || ubicaciones == null || ubicaciones.isEmpty()) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, Name, ProductId, EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		// Ubicaciones distintas por domicilio (el mismo domicilio en dos incisos es una sola).
+		Map<String, Map<String, Object>> porDireccion = new Map<String, Map<String, Object>>();
+		for (Object o : ubicaciones) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> u = new Map<String, Object>((Map<String, Object>) o);
+			String dir = strOf(u.get('direccion'));
+			if (String.isBlank(dir)) { continue; }
+			u.put('direccion', dir.normalizeSpace());
+			Map<String, String> partes = partirDireccion(dir);
+			u.put('partes', partes);
+			String k = llaveUbicacion(partes.get('calle'), partes.get('colonia'), partes.get('cp'));
+			Map<String, Object> ya = porDireccion.get(k);
+			if (ya == null) {
+				porDireccion.put(k, u);
+			} else if (String.isNotBlank(strOf(u.get('inciso')))) {
+				String inc = strOf(ya.get('inciso'));
+				ya.put('inciso', String.isBlank(inc) ? strOf(u.get('inciso')) : inc + ', ' + strOf(u.get('inciso')));
+			}
+		}
+		if (porDireccion.isEmpty()) { return 0; }
+
+		// Bienes del cliente que ya tienen ese domicilio.
+		Map<String, CustomerProperty> existentes = new Map<String, CustomerProperty>();
+		for (CustomerProperty c : [
+			SELECT Id, Street, PostalCode FROM CustomerProperty
+			WHERE PrimaryOwnerId = :accountId AND Street != null
+			ORDER BY CreatedDate ASC LIMIT 5000
+		]) {
+			String k = llaveUbicacion(c.Street, null, c.PostalCode);
+			if (!existentes.containsKey(k)) { existentes.put(k, c); }
+		}
+		Map<String, CustomerProperty> porLlave = new Map<String, CustomerProperty>();
+		for (String k : porDireccion.keySet()) {
+			CustomerProperty cp = existentes.get(k);
+			if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
+			llenarUbicacion(cp, porDireccion.get(k), pol.Name);
+			porLlave.put(k, cp);
+		}
+		upsert porLlave.values();
+
+		// Bien de póliza por ubicación (si ya está ligada, no se repite).
+		Set<Id> ligados = new Set<Id>();
+		for (InsurancePolicyAsset a : [
+			SELECT CustomerPropertyId FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
+		]) { ligados.add(a.CustomerPropertyId); }
+		List<InsurancePolicyAsset> nuevos = new List<InsurancePolicyAsset>();
+		for (String k : porLlave.keySet()) {
+			CustomerProperty cp = porLlave.get(k);
+			if (ligados.contains(cp.Id)) { continue; }
+			Map<String, Object> u = porDireccion.get(k);
+			String inc = strOf(u.get('inciso'));
+			String nombre = (String.isNotBlank(inc) ? 'Inciso ' + inc + ' - ' : '') + strOf(u.get('direccion'));
+			InsurancePolicyAsset ipa = new InsurancePolicyAsset(
+				InsurancePolicyId = policyId, AssetName = nombre.left(255), IsActive = true, CustomerPropertyId = cp.Id
+			);
+			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
+			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+			if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
+			Decimal prima = parseMonto(strOf(u.get('primaTotal')));
+			if (prima != null) { ipa.StandardPremiumAmount = prima; }
+			Decimal suma = parseMonto(strOf(u.get('sumaAsegurada')));
+			if (suma != null) { ipa.Suma_Asegurada__c = suma; }
+			nuevos.add(ipa);
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+		return porLlave.size();
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza de flotilla / colectiva de autos (un inciso por vehículo): por cada vehículo un
+	 * CustomerProperty del cliente (se reúsa el que tenga el mismo número de serie) con los datos del vehículo y del
+	 * asegurado, un InsurancePolicyAsset que lo liga a la póliza con la prima del inciso y un Inciso_Flotilla__c
+	 * ligado a la póliza, a la oportunidad y al vehículo con sus coberturas y primas. Los incisos del censo de
+	 * vehículos de la oportunidad con la misma serie se ligan a la póliza en vez de duplicarse. Es idempotente.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param oppId: Id de la oportunidad origen (puede ser null)
+	 * @param vehiculos: lista leída del PDF: {inciso, asegurado, rfc, domicilio, calle, ciudadEstado, cp, contratante,
+	 *        conductor, marca, anio, descripcion, serie, placas, pasajeros, motor, uso, tipoVehiculo, clave, tipoCarga,
+	 *        tipoValor, deducibleDM, deducibleRT, responsabilidadCivil, gastosMedicos, muerteConductor, primaNeta,
+	 *        gastosExpedicion, iva, primaTotal}
+	 * @return Número de vehículos ligados a la póliza
+	 */
+	@TestVisible
+	public static Integer guardarVehiculosDesdePdf(Id policyId, Id accountId, Id oppId, List<Object> vehiculos) {
+		if (accountId == null || vehiculos == null || vehiculos.isEmpty()) { return 0; }
+		InsurancePolicy pol = [
+			SELECT Id, Name, ProductId, EffectiveDate, ExpirationDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		// Vehículos distintos por número de serie (sin serie, por inciso).
+		Map<String, Map<String, Object>> porLlave = new Map<String, Map<String, Object>>();
+		Set<String> series = new Set<String>();
+		for (Object o : vehiculos) {
+			if (!(o instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> v = (Map<String, Object>) o;
+			String serie = valorVehiculo(v, 'serie');
+			String inciso = valorVehiculo(v, 'inciso');
+			if (String.isBlank(serie) && String.isBlank(inciso)) { continue; }
+			String k = String.isNotBlank(serie) ? serie.toUpperCase() : 'inciso ' + inciso;
+			if (!porLlave.containsKey(k)) { porLlave.put(k, v); }
+			if (String.isNotBlank(serie)) { series.add(serie.toUpperCase()); }
+		}
+		if (porLlave.isEmpty()) { return 0; }
+
+		// Incisos que ya tiene la póliza (al volver a cargar el PDF se actualizan) y bienes del cliente con esa serie.
+		Map<String, Inciso_Flotilla__c> incisos = new Map<String, Inciso_Flotilla__c>();
+		for (Inciso_Flotilla__c i : [
+			SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId
+		]) {
+			incisos.put(String.isNotBlank(i.Serie__c) ? i.Serie__c.toUpperCase() : 'inciso ' + i.Numero_Inciso__c, i);
+		}
+		// Vehículos del censo de la oportunidad (sin póliza ni cotización) con la misma serie: se ligan a esta póliza.
+		if (oppId != null && !series.isEmpty()) {
+			for (Inciso_Flotilla__c i : [
+				SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c
+				WHERE Oportunidad__c = :oppId AND Poliza__c = null AND Cotizacion__c = null AND Serie__c IN :series
+				ORDER BY CreatedDate ASC
+			]) {
+				String k = i.Serie__c.toUpperCase();
+				if (!incisos.containsKey(k)) { incisos.put(k, i); }
+			}
+		}
+		Map<String, CustomerProperty> porSerie = new Map<String, CustomerProperty>();
+		if (!series.isEmpty()) {
+			for (CustomerProperty c : [
+				SELECT Id, Vin FROM CustomerProperty WHERE PrimaryOwnerId = :accountId AND Vin IN :series
+				ORDER BY CreatedDate ASC
+			]) {
+				if (!porSerie.containsKey(c.Vin.toUpperCase())) { porSerie.put(c.Vin.toUpperCase(), c); }
+			}
+		}
+		Map<String, CustomerProperty> bienes = new Map<String, CustomerProperty>();
+		for (String k : porLlave.keySet()) {
+			CustomerProperty cp = porSerie.get(k);
+			Inciso_Flotilla__c ya = incisos.get(k);
+			if (cp == null && ya != null && ya.Vehiculo__c != null) { cp = new CustomerProperty(Id = ya.Vehiculo__c); }
+			if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
+			llenarVehiculo(cp, porLlave.get(k), pol.Name);
+			bienes.put(k, cp);
+		}
+		upsert bienes.values();
+
+		// Bien de póliza por vehículo (si ya está ligado, no se repite).
+		Set<Id> ligados = new Set<Id>();
+		for (InsurancePolicyAsset a : [
+			SELECT CustomerPropertyId FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
+		]) { ligados.add(a.CustomerPropertyId); }
+		List<InsurancePolicyAsset> nuevos = new List<InsurancePolicyAsset>();
+		List<Inciso_Flotilla__c> flotilla = new List<Inciso_Flotilla__c>();
+		for (String k : porLlave.keySet()) {
+			Map<String, Object> v = porLlave.get(k);
+			CustomerProperty cp = bienes.get(k);
+			String inciso = valorVehiculo(v, 'inciso');
+			String vehiculo = nombreVehiculo(v);
+			if (!ligados.contains(cp.Id)) {
+				InsurancePolicyAsset ipa = new InsurancePolicyAsset(
+					InsurancePolicyId = policyId, IsActive = true, CustomerPropertyId = cp.Id,
+					AssetName = ((String.isNotBlank(inciso) ? 'Inciso ' + inciso + ' - ' : '') + vehiculo).left(255)
+				);
+				if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
+				if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
+				if (pol.ExpirationDate != null) { ipa.EffectiveToDate = pol.ExpirationDate.date(); }
+				Decimal prima = parseMonto(valorVehiculo(v, 'primaTotal'));
+				if (prima != null) { ipa.StandardPremiumAmount = prima; }
+				nuevos.add(ipa);
+			}
+
+			Inciso_Flotilla__c inc = incisos.containsKey(k) ? incisos.get(k) : new Inciso_Flotilla__c();
+			inc.Poliza__c = policyId;
+			inc.Vehiculo__c = cp.Id;
+			if (oppId != null) { inc.Oportunidad__c = oppId; }
+			Decimal numero = parseMonto(inciso);
+			if (numero != null) { inc.Numero_Inciso__c = numero; }
+			inc.Serie__c = valorVehiculo(v, 'serie') == null ? null : valorVehiculo(v, 'serie').left(30);
+			inc.Placas__c = valorVehiculo(v, 'placas') == null ? null : valorVehiculo(v, 'placas').left(20);
+			Decimal anio = parseMonto(valorVehiculo(v, 'anio'));
+			if (anio != null) { inc.Modelo__c = anio; }
+			inc.Descripcion__c = vehiculo.left(255);
+			String tipo = valorVehiculo(v, 'tipoVehiculo');
+			if (tipo != null) { inc.Tipo_Vehiculo__c = tipo.left(80); }
+			String uso = valorVehiculo(v, 'uso');
+			if (uso != null) { inc.Uso__c = uso.left(60); }
+			String clave = valorVehiculo(v, 'clave');
+			if (clave != null) { inc.Clave_Vehicular__c = clave.left(30); }
+			String tipoValor = valorVehiculo(v, 'tipoValor');
+			if (tipoValor != null) { inc.Tipo_Valor__c = tipoValor.left(40); }
+			inc.Deducible_DM__c = parseMonto(valorVehiculo(v, 'deducibleDM'));
+			inc.Deducible_RT__c = parseMonto(valorVehiculo(v, 'deducibleRT'));
+			inc.Responsabilidad_Civil__c = parseMonto(valorVehiculo(v, 'responsabilidadCivil'));
+			inc.Gastos_Medicos__c = parseMonto(valorVehiculo(v, 'gastosMedicos'));
+			inc.Muerte_Conductor__c = parseMonto(valorVehiculo(v, 'muerteConductor'));
+			inc.Prima_Neta__c = parseMonto(valorVehiculo(v, 'primaNeta'));
+			inc.Prima__c = parseMonto(valorVehiculo(v, 'primaTotal'));
+			flotilla.add(inc);
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+		upsert flotilla;
+		return bienes.size();
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena el CustomerProperty de un vehículo de flotilla con los datos del PDF: marca, modelo
+	 * (versión), año, serie, motor, placas, pasajeros, uso y tipo; el domicilio del asegurado (calle, ciudad, estado,
+	 * C.P., México) y en la descripción el vehículo, el asegurado (nombre, RFC, domicilio, contratante, conductor),
+	 * las coberturas principales y las primas del inciso.
+	 * @param cp: CustomerProperty nuevo o existente
+	 * @param v: datos del vehículo
+	 * @param poliza: número de la póliza (origen del dato)
+	 * @return void
+	 */
+	private static void llenarVehiculo(CustomerProperty cp, Map<String, Object> v, String poliza) {
+		String marca = valorVehiculo(v, 'marca');
+		String descripcion = valorVehiculo(v, 'descripcion');
+		if (marca != null) { cp.Make = marca.left(255); }
+		if (descripcion != null) { cp.ModelName = descripcion.split(',')[0].trim().left(255); }
+		Decimal anio = parseMonto(valorVehiculo(v, 'anio'));
+		if (anio != null) { cp.MakeYear = anio.intValue(); }
+		if (valorVehiculo(v, 'serie') != null) { cp.Vin = valorVehiculo(v, 'serie').toUpperCase(); }
+		if (valorVehiculo(v, 'motor') != null) { cp.Motor__c = valorVehiculo(v, 'motor').left(40); }
+		if (valorVehiculo(v, 'placas') != null) { cp.RegistrationNumber = valorVehiculo(v, 'placas'); }
+		Decimal pasajeros = parseMonto(valorVehiculo(v, 'pasajeros'));
+		if (pasajeros != null) { cp.PassengerSeatCapacity = pasajeros.intValue(); }
+		if (valorVehiculo(v, 'uso') != null) { cp.Uso__c = valorVehiculo(v, 'uso').left(40); }
+		if (valorVehiculo(v, 'tipoVehiculo') != null) { cp.TipoVehiculo__c = valorVehiculo(v, 'tipoVehiculo').left(40); }
+		String usoPrincipal = pickPicklist(CustomerProperty.PrimaryUse.getDescribe(), new List<String>{ 'Compañía', 'Company', 'Trabajo' });
+		if (usoPrincipal != null) { cp.PrimaryUse = usoPrincipal; }
+
+		// Domicilio del asegurado.
+		String calle = valorVehiculo(v, 'calle');
+		if (calle != null) { cp.Street = calle.left(255); }
+		Map<String, String> lugar = partirCiudadEstado(valorVehiculo(v, 'ciudadEstado'));
+		if (String.isNotBlank(lugar.get('ciudad'))) { cp.City = lugar.get('ciudad').left(40); }
+		if (valorVehiculo(v, 'cp') != null) { cp.PostalCode = valorVehiculo(v, 'cp'); }
+		if (calle != null || valorVehiculo(v, 'cp') != null) {
+			String pais = pickPicklist(CustomerProperty.CountryCode.getDescribe(), new List<String>{ 'MX' });
+			String estado = lugar.get('estado');
+			if (pais != null) {
+				cp.CountryCode = pais;
+				String codigo = estado == null ? null : pickPicklist(CustomerProperty.StateCode.getDescribe(), new List<String>{ estado });
+				if (codigo != null) { cp.StateCode = codigo; }
+			} else {
+				cp.Country = 'México';
+			}
+		}
+		cp.SourceSystem = ('Póliza ' + poliza).left(255);
+
+		List<String> lineas = new List<String>{ nombreVehiculo(v) };
+		Map<String, String> etiquetas = new Map<String, String>{
+			'inciso' => 'Inciso', 'serie' => 'Número de serie', 'motor' => 'Número de motor', 'placas' => 'Placas',
+			'pasajeros' => 'Pasajeros', 'uso' => 'Uso', 'clave' => 'Clave vehicular', 'tipoCarga' => 'Tipo de carga',
+			'asegurado' => 'Asegurado', 'rfc' => 'RFC', 'domicilio' => 'Domicilio', 'cp' => 'C.P.',
+			'contratante' => 'Contratante', 'conductor' => 'Conductor', 'tipoValor' => 'Suma asegurada',
+			'deducibleDM' => 'Deducible daños materiales %', 'deducibleRT' => 'Deducible robo total %'
+		};
+		for (String k : etiquetas.keySet()) {
+			String valor = valorVehiculo(v, k);
+			if (valor != null) { lineas.add(etiquetas.get(k) + ': ' + valor); }
+		}
+		Map<String, String> montos = new Map<String, String>{
+			'responsabilidadCivil' => 'Responsabilidad civil', 'gastosMedicos' => 'Gastos médicos',
+			'muerteConductor' => 'Muerte del conductor', 'primaNeta' => 'Prima neta del inciso',
+			'gastosExpedicion' => 'Gastos de expedición', 'iva' => 'IVA', 'primaTotal' => 'Prima total del inciso'
+		};
+		for (String k : montos.keySet()) {
+			Decimal valor = parseMonto(valorVehiculo(v, k));
+			if (valor != null) { lineas.add(montos.get(k) + ': $' + valor.setScale(2).format()); }
+		}
+		lineas.add('Póliza: ' + poliza);
+		cp.Description = String.join(lineas, '\n').left(32000);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bien de la póliza al que se ligan sus coberturas: solo si es el único. Con varios bienes
+	 * (flotilla o ubicaciones de Daños) las coberturas son de toda la póliza y no se ligan a un inciso.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Id del InsurancePolicyAsset o null
+	 */
+	private static Id bienUnicoDePoliza(Id policyId) {
+		List<InsurancePolicyAsset> bienes = [
+			SELECT Id FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 2
+		];
+		return bienes.size() == 1 ? bienes[0].Id : null;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Valor de un dato del vehículo; vacío o "SN" (sin número) se toma como null.
+	 * @param v: datos del vehículo
+	 * @param k: nombre del dato
+	 * @return valor o null
+	 */
+	private static String valorVehiculo(Map<String, Object> v, String k) {
+		String valor = strOf(v.get(k));
+		return String.isBlank(valor) || valor.equalsIgnoreCase('SN') || valor.equalsIgnoreCase('S/N') ? null : valor;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Nombre del vehículo para el bien de póliza y el inciso: marca, descripción y año.
+	 * @param v: datos del vehículo
+	 * @return nombre (ej. "CHEVROLET SILVERADO 1500 CABINA REGULAR, V6... 2008")
+	 */
+	private static String nombreVehiculo(Map<String, Object> v) {
+		List<String> partes = new List<String>();
+		for (String k : new List<String>{ 'marca', 'descripcion', 'anio' }) {
+			if (valorVehiculo(v, k) != null) { partes.add(valorVehiculo(v, k)); }
+		}
+		return partes.isEmpty() ? 'Vehículo' : String.join(partes, ' ');
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Separa "ZAPOPAN JALISCO" en ciudad y código de estado: el estado es el final más largo que se
+	 * reconoce ("CIUDAD DE MEXICO" completo es DF, no "MEXICO"); todo el texto solo cuenta si es el nombre exacto
+	 * ("PUEBLA PUEBLA" es ciudad PUEBLA y estado PB).
+	 * @param texto: ciudad y estado juntos
+	 * @return mapa con ciudad y estado (código)
+	 */
+	@TestVisible
+	private static Map<String, String> partirCiudadEstado(String texto) {
+		Map<String, String> r = new Map<String, String>{ 'ciudad' => strOf(texto) };
+		if (String.isBlank(texto)) { return r; }
+		List<String> palabras = texto.normalizeSpace().split(' ');
+		for (Integer i = 0; i < palabras.size(); i++) {
+			List<String> fin = new List<String>();
+			for (Integer j = i; j < palabras.size(); j++) { fin.add(palabras[j]); }
+			String codigo = estadoMexico(String.join(fin, ' '), i > 0);
+			if (codigo != null) {
+				List<String> ciudad = new List<String>();
+				for (Integer j = 0; j < i; j++) { ciudad.add(palabras[j]); }
+				r.put('ciudad', String.join(ciudad, ' '));
+				r.put('estado', codigo);
+				break;
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena el CustomerProperty de una ubicación de Daños con los datos del PDF: domicilio (calle y
+	 * colonia, ciudad, estado, C.P., México), pisos (altos + planta baja), sótano, cajones, techo, uso comercial,
+	 * giro, suma asegurada (valor) y en la descripción todos los datos del inmueble y la prima del inciso.
+	 * @param cp: CustomerProperty nuevo o existente
+	 * @param u: datos de la ubicación (con 'partes' = domicilio desglosado)
+	 * @param poliza: número de la póliza (origen del dato)
+	 * @return void
+	 */
+	private static void llenarUbicacion(CustomerProperty cp, Map<String, Object> u, String poliza) {
+		Map<String, String> partes = (Map<String, String>) u.get('partes');
+		String calle = partes.get('calle');
+		String colonia = partes.get('colonia');
+		cp.Street = (calle + (String.isNotBlank(colonia) ? '\n' + colonia : '')).left(255);
+		if (String.isNotBlank(partes.get('municipio'))) { cp.City = partes.get('municipio').left(40); }
+		if (String.isNotBlank(partes.get('cp'))) { cp.PostalCode = partes.get('cp'); }
+		String pais = pickPicklist(CustomerProperty.CountryCode.getDescribe(), new List<String>{ 'MX' });
+		String estado = estadoMexico(partes.get('estado'));
+		if (pais != null) {
+			cp.CountryCode = pais;
+			String codigo = estado == null ? null : pickPicklist(CustomerProperty.StateCode.getDescribe(), new List<String>{ estado });
+			if (codigo != null) { cp.StateCode = codigo; }
+		} else {
+			cp.Country = 'México';
+			if (String.isNotBlank(partes.get('estado'))) { cp.State = partes.get('estado').left(80); }
+		}
+		Decimal pisos = parseMonto(strOf(u.get('pisosAltos')));
+		if (pisos != null) { cp.FloorCount = pisos.intValue() + 1; }
+		Decimal sotanos = parseMonto(strOf(u.get('sotanos')));
+		if (sotanos != null) { cp.IsBasementIncluded = sotanos > 0; }
+		Decimal cajones = parseMonto(strOf(u.get('cajones')));
+		if (cajones != null) { cp.GarageSpaceCount = cajones.intValue(); }
+		String techos = normKey(strOf(u.get('techos')));
+		String techo = techos.contains('lamina') || techos.contains('metal') ? 'Tejado metálico'
+			: techos.contains('teja') ? 'Tejas de arcilla y hormigón' : null;
+		if (techo != null) {
+			String valor = pickPicklist(CustomerProperty.RoofType.getDescribe(), new List<String>{ techo });
+			if (valor != null) { cp.RoofType = valor; }
+		}
+		String uso = pickPicklist(CustomerProperty.PrimaryUse.getDescribe(), new List<String>{ 'Compañía', 'Company', 'Trabajo' });
+		if (uso != null) { cp.PrimaryUse = uso; }
+		String giro = strOf(u.get('giro'));
+		if (String.isNotBlank(giro)) { cp.Uso__c = giro.left(40); }
+		Decimal suma = parseMonto(strOf(u.get('sumaAsegurada')));
+		if (suma != null) { cp.FairMarketValue = suma; }
+		cp.SourceSystem = ('Póliza ' + poliza).left(255);
+
+		List<String> lineas = new List<String>{ 'Ubicación' + (String.isNotBlank(giro) ? ' - ' + giro : '') };
+		Map<String, String> etiquetas = new Map<String, String>{
+			'inciso' => 'Inciso', 'direccion' => 'Domicilio', 'giro' => 'Giro', 'constaDe' => 'Consta de',
+			'techos' => 'Techos', 'muros' => 'Muros', 'entrepisos' => 'Entrepisos', 'pisosAltos' => 'Pisos altos',
+			'sotanos' => 'Sótanos', 'cajones' => 'Cajones', 'zonaTev' => 'Zona TEV', 'zonaFh' => 'Zona FH',
+			'sustanciasExplosivas' => 'Sustancias explosivas', 'sustanciasInflamables' => 'Sustancias inflamables'
+		};
+		for (String k : etiquetas.keySet()) {
+			String v = strOf(u.get(k));
+			if (String.isNotBlank(v)) { lineas.add(etiquetas.get(k) + ': ' + v); }
+		}
+		Map<String, String> montos = new Map<String, String>{
+			'sumaAsegurada' => 'Suma asegurada', 'primaNeta' => 'Prima neta del inciso', 'primaTotal' => 'Prima total del inciso'
+		};
+		for (String k : montos.keySet()) {
+			Decimal v = parseMonto(strOf(u.get(k)));
+			if (v != null) { lineas.add(montos.get(k) + ': $' + v.setScale(2).format()); }
+		}
+		lineas.add('Póliza: ' + poliza);
+		cp.Description = String.join(lineas, '\n').left(32000);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Desglosa un domicilio mexicano "CALLE 1 Int. 2, COLONIA, C.P. 62370, MUNICIPIO, CIUDAD, ESTADO":
+	 * lo anterior al C.P. es calle y colonia (el último tramo); lo posterior, municipio (el primero) y estado (el
+	 * último). Sin C.P. todo queda como calle.
+	 * @param dir: domicilio
+	 * @return mapa con calle, colonia, cp, municipio y estado
+	 */
+	@TestVisible
+	private static Map<String, String> partirDireccion(String dir) {
+		Map<String, String> r = new Map<String, String>{ 'calle' => strOf(dir).normalizeSpace() };
+		List<String> partes = new List<String>();
+		for (String p : strOf(dir).split(',')) {
+			if (String.isNotBlank(p)) { partes.add(p.normalizeSpace()); }
+		}
+		Integer iCp = -1;
+		for (Integer i = 0; i < partes.size(); i++) {
+			Matcher m = Pattern.compile('(?i)^C\\.?\\s*P\\.?\\s*(\\d{5})$').matcher(partes[i]);
+			if (m.find()) { iCp = i; r.put('cp', m.group(1)); break; }
+		}
+		if (iCp < 0) { return r; }
+		List<String> antes = new List<String>();
+		for (Integer i = 0; i < iCp; i++) { antes.add(partes[i]); }
+		if (antes.size() >= 2) { r.put('colonia', antes.remove(antes.size() - 1)); }
+		r.put('calle', String.join(antes, ', '));
+		List<String> despues = new List<String>();
+		for (Integer i = iCp + 1; i < partes.size(); i++) { despues.add(partes[i]); }
+		if (!despues.isEmpty()) {
+			r.put('estado', despues[despues.size() - 1]);
+			if (despues.size() >= 2) { r.put('municipio', despues[0]); }
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Código del estado de México (picklist de estados de Salesforce) por su nombre, con variantes
+	 * ("CIUDAD DE MÉXICO" -> DF, "ESTADO DE MEXICO" -> ME, "COAHUILA DE ZARAGOZA" -> CO).
+	 * @param estado: nombre del estado
+	 * @return código o null si no se reconoce
+	 */
+	@TestVisible
+	private static String estadoMexico(String estado) {
+		return estadoMexico(estado, true);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Código del estado de México por su nombre; sin permitirPrefijo solo acepta el nombre exacto.
+	 * @param estado: nombre del estado
+	 * @param permitirPrefijo: true acepta nombres largos que abren con el estado ("COAHUILA DE ZARAGOZA")
+	 * @return código o null si no se reconoce
+	 */
+	private static String estadoMexico(String estado, Boolean permitirPrefijo) {
+		String e = normKey(estado).replaceAll('[^a-z ]', ' ').normalizeSpace();
+		if (String.isBlank(e)) { return null; }
+		Map<String, String> codigos = new Map<String, String>{
+			'aguascalientes' => 'AG', 'baja california sur' => 'BS', 'baja california' => 'BC', 'campeche' => 'CM',
+			'chiapas' => 'CS', 'chihuahua' => 'CH', 'coahuila' => 'CO', 'colima' => 'CL', 'durango' => 'DG',
+			'ciudad de mexico' => 'DF', 'cdmx' => 'DF', 'distrito federal' => 'DF', 'guanajuato' => 'GT',
+			'guerrero' => 'GR', 'hidalgo' => 'HG', 'jalisco' => 'JA', 'estado de mexico' => 'ME', 'edo de mexico' => 'ME',
+			'edomex' => 'ME', 'mexico' => 'ME', 'michoacan' => 'MI', 'morelos' => 'MO', 'nayarit' => 'NA',
+			'nuevo leon' => 'NL', 'oaxaca' => 'OA', 'puebla' => 'PB', 'queretaro' => 'QE', 'quintana roo' => 'QR',
+			'san luis potosi' => 'SL', 'sinaloa' => 'SI', 'sonora' => 'SO', 'tabasco' => 'TB', 'tamaulipas' => 'TM',
+			'tlaxcala' => 'TL', 'veracruz' => 'VE', 'yucatan' => 'YU', 'zacatecas' => 'ZA'
+		};
+		if (codigos.containsKey(e)) { return codigos.get(e); }
+		if (!permitirPrefijo) { return null; }
+		// "COAHUILA DE ZARAGOZA", "MICHOACAN DE OCAMPO", "VERACRUZ DE IGNACIO DE LA LLAVE": el nombre más largo que abre.
+		String mejor = null;
+		for (String nombre : codigos.keySet()) {
+			if (e.startsWith(nombre + ' ') && (mejor == null || nombre.length() > mejor.length())) { mejor = nombre; }
+		}
+		return mejor == null ? null : codigos.get(mejor);
+	}
+
+	/**
+	 * @creation date: 29/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de una ubicación para compararla: calle y colonia sin acentos, espacios ni signos, más el C.P.
+	 * @param calle: calle (o calle y colonia juntas)
+	 * @param colonia: colonia (opcional)
+	 * @param cp: código postal (opcional)
+	 * @return llave
+	 */
+	/**
+	 * @creation date: 01/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de una ubicación escrita como texto (la misma con la que se reúsa su CustomerProperty).
+	 * @param direccion: domicilio completo.
+	 * @return llave normalizada de calle, colonia y CP.
+	 */
+	public static String llaveDireccion(String direccion) {
+		Map<String, String> partes = partirDireccion(direccion == null ? '' : direccion.normalizeSpace());
+		return llaveUbicacion(partes.get('calle'), partes.get('colonia'), partes.get('cp'));
+	}
+
+	/**
+	 * @creation date: 01/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de la ubicación guardada en un CustomerProperty (Street y PostalCode).
+	 * @param c: CustomerProperty.
+	 * @return llave normalizada.
+	 */
+	public static String llaveBien(CustomerProperty c) {
+		return llaveUbicacion(c.Street, null, c.PostalCode);
+	}
+
+	private static String llaveUbicacion(String calle, String colonia, String cp) {
+		String texto = (calle == null ? '' : calle) + (colonia == null ? '' : colonia);
+		return normKey(texto).replaceAll('[^a-z0-9]', '') + '|' + (cp == null ? '' : cp.trim());
+	}
+
+	/**
+	 * @creation date: 26/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crea o actualiza el CustomerProperty del bien asegurado de una póliza que no es de autos
+	 * (mascota, inmueble, persona...). Se identifica por la póliza (SourceSystemIdentifier) para no duplicarlo.
+	 * La descripción lleva el bien y sus atributos del PDF; si no hay, "Bien asegurado - <ramo>".
+	 * @param pol: Póliza (Id, Name, Ramo__c)
+	 * @param accountId: Id de la cuenta del asegurado
+	 * @param bien: Objeto "bienAsegurado" del PDF (opcional)
+	 * @return Id del CustomerProperty
+	 */
+	private static Id guardarBienGenerico(InsurancePolicy pol, Id accountId, Map<String, Object> bien) {
+		String clave = String.valueOf(pol.Id);
+		CustomerProperty cp = null;
+		for (CustomerProperty c : [
+			SELECT Id FROM CustomerProperty
+			WHERE PrimaryOwnerId = :accountId AND SourceSystemIdentifier = :clave LIMIT 1
+		]) { cp = c; }
+		if (cp == null) {
+			cp = new CustomerProperty(PrimaryOwnerId = accountId, SourceSystemIdentifier = clave);
+		}
+		cp.SourceSystem = ('Póliza ' + pol.Name).left(255);
+
+		String texto = bien != null ? strOf(bien.get('descripcion')) : null;
+		List<String> lineas = new List<String>();
+		String domicilio = null;
+		if (bien != null && bien.get('atributos') instanceof List<Object>) {
+			for (Object o : (List<Object>) bien.get('atributos')) {
+				if (!(o instanceof Map<String, Object>)) { continue; }
+				Map<String, Object> mm = (Map<String, Object>) o;
+				String campo = strOf(mm.get('campo'));
+				String valor = strOf(mm.get('valor'));
+				if (String.isBlank(campo) || String.isBlank(valor)) { continue; }
+				lineas.add(campo + ': ' + valor);
+				String k = normKey(campo);
+				if (domicilio == null && (k.contains('domicilio') || k.contains('direccion') || k.contains('ubicacion'))) {
+					domicilio = valor;
+				}
+			}
+		}
+		if (String.isBlank(texto)) {
+			texto = String.isNotBlank(pol.Ramo__c) ? ('Bien asegurado - ' + pol.Ramo__c) : 'Bien asegurado';
+		}
+		if (!lineas.isEmpty()) { texto += '\n' + String.join(lineas, '\n'); }
+		cp.Description = texto.left(32000);
+		if (String.isNotBlank(domicilio)) { cp.Street = domicilio.left(255); }
+		upsert cp;
+		return cp.Id;
 	}
 
 	/**
@@ -1918,17 +2838,17 @@ public with sharing class PolicyController {
 			FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId
 		]) {
 			if (String.isNotBlank(c.CoverageName)) {
-				ya.add(c.CoverageName.toLowerCase());
-				existentes.put(c.CoverageName.toLowerCase(), c);
+				ya.add(llaveCobertura(c.CoverageName));
+				existentes.put(llaveCobertura(c.CoverageName), c);
 			}
 		}
 		Map<Id, InsurancePolicyCoverage> porActualizar = new Map<Id, InsurancePolicyCoverage>();
 
 		InsurancePolicy pol = [SELECT Id, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
-		Id assetId = null;
-		for (InsurancePolicyAsset x : [SELECT Id FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate ASC LIMIT 1]) { assetId = x.Id; }
+		Id assetId = bienUnicoDePoliza(policyId);
 
 		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		InsurancePolicyCoverage anterior = null;
 		for (Object o : (List<Object>) covsO) {
 			if (!(o instanceof Map<String, Object>)) { continue; }
 			Map<String, Object> m = (Map<String, Object>) o;
@@ -1941,9 +2861,27 @@ public with sharing class PolicyController {
 			Decimal suma = parseMonto(sumaTxt);
 			Decimal dedMonto = esMontoSimple(ded) ? parseMonto(ded) : null;
 			Decimal prima = parseMonto(strOf(m.get('prima')));
-			String descCob = descripcionCobertura(suma == null ? sumaTxt : null, ded);
+			// El texto de la suma se conserva si no es un solo monto en pesos ("USD 5.000 / USD 30.000").
+			Boolean sumaConDetalle = suma == null
+				|| Pattern.compile('(?i)/|usd|dls|dlls|eur|udi').matcher(sumaTxt).find();
+			String descCob = descripcionCobertura(sumaConDetalle ? sumaTxt : null, ded);
 
-			InsurancePolicyCoverage ex = existentes.get(nombre.toLowerCase());
+			// Renglón de condición (ej. "Franquicia $500" bajo Gastos médicos veterinarios): no es una
+			// cobertura, se agrega a la descripción de la cobertura anterior.
+			if (esCondicionDeCobertura(nombre)) {
+				String valor = String.isNotBlank(sumaTxt) ? sumaTxt : ded;
+				if (anterior != null && String.isNotBlank(valor)) {
+					String extra = nombre.trim() + ': ' + valor;
+					String actual = anterior.Description == null ? '' : anterior.Description;
+					if (!actual.containsIgnoreCase(extra)) {
+						anterior.Description = (String.isBlank(actual) ? extra : actual + ' | ' + extra).left(255);
+						if (anterior.Id != null) { porActualizar.put(anterior.Id, anterior); }
+					}
+				}
+				continue;
+			}
+
+			InsurancePolicyCoverage ex = existentes.get(llaveCobertura(nombre));
 			if (ex != null) {
 				Boolean cambio = false;
 				if (ex.LimitAmount == null && suma != null)         { ex.LimitAmount = suma; cambio = true; }
@@ -1951,9 +2889,10 @@ public with sharing class PolicyController {
 				if (ex.PremiumAmount == null && prima != null)       { ex.PremiumAmount = prima; cambio = true; }
 				if (String.isNotBlank(descCob) && ex.Description != descCob) { ex.Description = descCob; cambio = true; }
 				if (cambio) { porActualizar.put(ex.Id, ex); }
+				anterior = ex;
 				continue;
 			}
-			if (ya.contains(nombre.toLowerCase())) { continue; }
+			if (ya.contains(llaveCobertura(nombre))) { continue; }
 			InsurancePolicyCoverage c = new InsurancePolicyCoverage();
 			c.InsurancePolicyId = policyId;
 			c.CoverageName = nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
@@ -1964,12 +2903,24 @@ public with sharing class PolicyController {
 			if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
 			if (assetId != null)       { c.InsurancePolicyAssetId = assetId; }
 			if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
-			ya.add(nombre.toLowerCase());
+			ya.add(llaveCobertura(nombre));
 			nuevas.add(c);
+			anterior = c;
 		}
 		if (!nuevas.isEmpty()) { insert nuevas; }
 		if (!porActualizar.isEmpty()) { update porActualizar.values(); }
 		return nuevas.size();
+	}
+
+	/**
+	 * @creation date: 27/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave para comparar coberturas: sin acentos, espacios ni signos ("Fianza legal" = "fi anza legal").
+	 * @param nombre: Nombre de la cobertura
+	 * @return Llave de comparación
+	 */
+	private static String llaveCobertura(String nombre) {
+		return normKey(nombre).replaceAll('[^a-z0-9]', '');
 	}
 
 	/**
@@ -2037,9 +2988,24 @@ public with sharing class PolicyController {
 			'titular', 'contratante', 'asegurado', 'asegurada', 'asegurado titular',
 			'beneficiario', 'beneficiarios', 'conductor', 'conductor habitual',
 			'propietario', 'dependiente', 'dependientes', 'contratante/asegurado',
-			'datos del asegurado', 'datos del contratante'
+			'datos del asegurado', 'datos del contratante',
+			'coberturas', 'asistencias', 'asistencia', 'coberturas y asistencias', 'coberturas adicionales'
 		};
 		return roles.contains(k);
+	}
+
+	/**
+	 * @creation date: 26/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el renglón es una condición de la cobertura anterior (Franquicia, Coaseguro, Tope de
+	 * coaseguro, Copago) y no una cobertura propia.
+	 * @param nombre: Nombre de la supuesta cobertura
+	 * @return true si es una condición
+	 */
+	@TestVisible
+	private static Boolean esCondicionDeCobertura(String nombre) {
+		String k = normKey(nombre).replaceAll('\\s+', ' ').trim();
+		return Pattern.matches('(franquicia|coaseguro|tope de coaseguro|copago)( .{0,20})?', k);
 	}
 
 	/**
@@ -2068,16 +3034,21 @@ public with sharing class PolicyController {
 	/**
 	 * @creation date: 18/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Extrae el primer número de un texto ("$3,000,000", "150000 USD" → 150000).
+	 * @description: Extrae el primer número de un texto ("$3,000,000", "150000 USD" → 150000). También acepta el
+	 * punto como separador de miles ("USD 5.000" → 5000, "1.496,52" → 1496.52).
 	 * @param v: Texto con el monto
 	 * @return Monto; null si no hay número
 	 */
+	@TestVisible
 	private static Decimal parseMonto(String v) {
 		if (String.isBlank(v)) { return null; }
 		Matcher mt = Pattern.compile('[0-9][0-9,]*(\\.[0-9]+)?').matcher(v);
-		if (mt.find()) {
-			try { return Decimal.valueOf(mt.group().replace(',', '')); } catch (Exception e) {}
+		if (!mt.find()) { return null; }
+		Matcher miles = Pattern.compile('[0-9]{1,3}(\\.[0-9]{3})+(,[0-9]{1,2})?(?![0-9.,])').matcher(v);
+		if (miles.find() && miles.start() == mt.start()) {
+			try { return Decimal.valueOf(miles.group().replace('.', '').replace(',', '.')); } catch (Exception e) {}
 		}
+		try { return Decimal.valueOf(mt.group().replace(',', '')); } catch (Exception e) {}
 		return null;
 	}
 
@@ -2095,5 +3066,217 @@ public with sharing class PolicyController {
 			if (String.isNotBlank(m)) { partes.add(m); }
 		}
 		return partes.isEmpty() ? e.getMessage() : String.join(partes, ' | ');
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bienes de una póliza colectiva a partir de la oportunidad (sin PDF): en Daños / Empresarial una
+	 * ubicación por cada renglón de la cotización aceptada; en flotillas un vehículo por cada inciso de la cotización
+	 * aceptada (o, si no los tiene, del censo de vehículos). Los incisos del censo con la misma serie se ligan a la
+	 * póliza en vez de duplicarse.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param oppId: Id de la oportunidad origen
+	 * @return {'ubicaciones' => n} o {'vehiculos' => n}; vacío si la póliza no es colectiva de bienes
+	 */
+	private static Map<String, Object> crearBienesColectivos(Id policyId, Id oppId) {
+		Map<String, Object> res = new Map<String, Object>();
+		if (policyId == null || oppId == null) { return res; }
+		InsurancePolicy pol = [
+			SELECT Id, NameInsuredId, SourceOpportunityId, SourceQuoteId, Ramo__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		String ramoKey = normKey(pol.Ramo__c);
+		if (ramoKey.contains('dano') || ramoKey.contains('empresarial')) {
+			// Las ubicaciones de la cotización aceptada; si no las trae, las del listado de ubicaciones de la oportunidad.
+			List<Object> ubicaciones = new List<Object>();
+			for (Categoria_Colectiva__c c : pol.SourceQuoteId == null ? new List<Categoria_Colectiva__c>() : [
+				SELECT Direccion__c, Suma_Asegurada_Total__c, Prima_Neta__c, Parametros__c FROM Categoria_Colectiva__c
+				WHERE Cotizacion__c = :pol.SourceQuoteId AND Direccion__c != null ORDER BY CreatedDate ASC, Id ASC LIMIT 1000
+			]) {
+				ubicaciones.add(ubicacionColectiva(c, ubicaciones.size() + 1));
+			}
+			if (ubicaciones.isEmpty()) {
+				for (Categoria_Colectiva__c c : MovimientosUbicacionesController.censo(oppId, null)) {
+					ubicaciones.add(ubicacionColectiva(c, ubicaciones.size() + 1));
+				}
+			}
+			if (!ubicaciones.isEmpty()) {
+				res.put('ubicaciones', guardarUbicacionesDesdePdf(policyId, resolverCuentaDePoliza(pol), ubicaciones));
+			}
+			return res;
+		}
+		if (!ramoKey.contains('auto')) { return res; }
+		// Vehículos con la prima cotizada; sin cotización con incisos, los del censo de la oportunidad.
+		List<Inciso_Flotilla__c> fuente = new List<Inciso_Flotilla__c>();
+		if (pol.SourceQuoteId != null) { fuente = incisosColectivos(pol.SourceQuoteId, null); }
+		if (fuente.isEmpty()) { fuente = incisosColectivos(null, oppId); }
+		if (fuente.size() < 2) { return res; }
+		List<Object> vehiculos = new List<Object>();
+		for (Inciso_Flotilla__c i : fuente) {
+			vehiculos.add(new Map<String, Object>{
+				'inciso' => i.Numero_Inciso__c, 'serie' => i.Serie__c, 'descripcion' => i.Descripcion__c, 'anio' => i.Modelo__c,
+				'placas' => i.Placas__c, 'uso' => i.Uso__c, 'tipoVehiculo' => i.Tipo_Vehiculo__c, 'clave' => i.Clave_Vehicular__c,
+				'tipoValor' => i.Tipo_Valor__c, 'deducibleDM' => i.Deducible_DM__c, 'deducibleRT' => i.Deducible_RT__c,
+				'responsabilidadCivil' => i.Responsabilidad_Civil__c, 'gastosMedicos' => i.Gastos_Medicos__c,
+				'muerteConductor' => i.Muerte_Conductor__c, 'primaNeta' => i.Prima_Neta__c, 'primaTotal' => i.Prima__c
+			});
+		}
+		res.put('vehiculos', guardarVehiculosDesdePdf(policyId, resolverCuentaDePoliza(pol), oppId, vehiculos));
+		return res;
+	}
+
+	// Ubicación (renglón de la cotización o del listado de la oportunidad) en el formato de guardarUbicacionesDesdePdf.
+	private static Map<String, Object> ubicacionColectiva(Categoria_Colectiva__c c, Integer inciso) {
+		return new Map<String, Object>{
+			'inciso' => String.valueOf(inciso), 'direccion' => c.Direccion__c, 'giro' => MovimientosUbicacionesController.giro(c),
+			'sumaAsegurada' => c.Suma_Asegurada_Total__c, 'primaTotal' => c.Prima_Neta__c
+		};
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: En una colectiva de bienes (flotilla o ubicaciones) que renueva otra póliza, la liga con su vigencia
+	 * anterior («Póliza anterior»). En colectivas de personas lo hace la copia del censo. La liga es informativa: si
+	 * falla no rompe la emisión.
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param resumen: resumen de la emisión (trae 'vehiculos' o 'ubicaciones' si se crearon bienes colectivos)
+	 */
+	private static void ligarRenovacionBienes(Id policyId, Map<String, Object> resumen) {
+		if (!(resumen.get('vehiculos') instanceof Integer) && !(resumen.get('ubicaciones') instanceof Integer)) { return; }
+		try {
+			InsurancePolicy pol = [SELECT Id, NameInsuredId, Ramo__c, EffectiveDate, PriorPolicyId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+			if (CensoColectivoController.ligarPolizaAnterior(pol) != null) { resumen.put('polizaAnterior', 1); }
+		} catch (Exception e) { System.debug(LoggingLevel.WARN, 'No se ligó la vigencia anterior: ' + e.getMessage()); }
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Incisos de flotilla de una cotización o, si no se indica cotización, los del censo de vehículos
+	 * de la oportunidad que aún no están en una póliza.
+	 * @param quoteId: cotización (puede ser null)
+	 * @param oppId: oportunidad (se usa cuando no hay cotización)
+	 * @return incisos ordenados por número de inciso
+	 */
+	private static List<Inciso_Flotilla__c> incisosColectivos(Id quoteId, Id oppId) {
+		String filtro = quoteId != null ? 'Cotizacion__c = :quoteId' : 'Oportunidad__c = :oppId AND Cotizacion__c = null AND Poliza__c = null';
+		return Database.query(
+			'SELECT Numero_Inciso__c, Serie__c, Descripcion__c, Modelo__c, Placas__c, Uso__c, Tipo_Vehiculo__c, Clave_Vehicular__c, ' +
+			'Tipo_Valor__c, Deducible_DM__c, Deducible_RT__c, Responsabilidad_Civil__c, Gastos_Medicos__c, Muerte_Conductor__c, ' +
+			'Prima_Neta__c, Prima__c FROM Inciso_Flotilla__c WHERE ' + filtro + ' ORDER BY Numero_Inciso__c ASC NULLS LAST, Id ASC LIMIT 3000'
+		);
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Coberturas de una póliza colectiva de personas desde las categorías de la cotización aceptada: una
+	 * cobertura por categoría con su suma asegurada, deducible, prima y condiciones (plan, coaseguro, tope, tabulador,
+	 * nivel hospitalario, territorio) y una por cada cobertura adicional. Es idempotente (por nombre).
+	 * @param policyId: Id de la InsurancePolicy
+	 * @return Número de coberturas creadas
+	 */
+	@TestVisible
+	private static Integer crearCoberturasCategorias(Id policyId) {
+		if (policyId == null) { return 0; }
+		InsurancePolicy pol = [SELECT Id, Ramo__c, SourceQuoteId, ProductId, EffectiveDate FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+		String ramoKey = normKey(pol.Ramo__c);
+		if (pol.SourceQuoteId == null || ramoKey.contains('dano') || ramoKey.contains('empresarial') || ramoKey.contains('auto')) { return 0; }
+		Set<String> ya = new Set<String>();
+		for (InsurancePolicyCoverage c : [SELECT CoverageName FROM InsurancePolicyCoverage WHERE InsurancePolicyId = :policyId AND CoverageName != null]) {
+			ya.add(c.CoverageName.toLowerCase());
+		}
+		Integer largoDesc = Schema.SObjectType.InsurancePolicyCoverage.fields.Description.getLength();
+		if (largoDesc == null || largoDesc <= 0) { largoDesc = 255; }
+		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		// Coberturas adicionales -> categorías que las tienen (una sola cobertura por nombre).
+		Map<String, List<String>> adicionales = new Map<String, List<String>>();
+		for (Categoria_Colectiva__c c : [
+			SELECT Name, Plan__c, Suma_Asegurada__c, Suma_Asegurada_Total__c, Deducible__c, Coaseguro__c, Tope_Coaseguro__c, Tabulador__c,
+				Nivel_Hospitalario__c, Territorio__c, Coberturas_Adicionales__c, Prima_Neta__c, Asegurados__c
+			FROM Categoria_Colectiva__c WHERE Cotizacion__c = :pol.SourceQuoteId ORDER BY CreatedDate ASC, Id ASC LIMIT 200
+		]) {
+			String nombre = ('Categoría ' + c.Name + (String.isNotBlank(c.Plan__c) ? ' - Plan ' + c.Plan__c : '')).left(255);
+			if (!ya.contains(nombre.toLowerCase())) {
+				List<String> det = new List<String>();
+				agregarDetalle(det, 'Suma asegurada', c.Suma_Asegurada__c);
+				agregarDetalle(det, 'Deducible', c.Deducible__c);
+				agregarDetalle(det, 'Coaseguro', c.Coaseguro__c);
+				agregarDetalle(det, 'Tope de coaseguro', c.Tope_Coaseguro__c);
+				agregarDetalle(det, 'Tabulador', c.Tabulador__c);
+				agregarDetalle(det, 'Nivel hospitalario', c.Nivel_Hospitalario__c);
+				agregarDetalle(det, 'Territorio', c.Territorio__c);
+				if (c.Asegurados__c != null) { det.add('Asegurados: ' + c.Asegurados__c.intValue()); }
+				if (c.Suma_Asegurada_Total__c != null) { det.add('Suma asegurada total: ' + c.Suma_Asegurada_Total__c.format()); }
+				InsurancePolicyCoverage cob = coberturaColectiva(pol, nombre, String.join(det, ' · ').left(largoDesc));
+				cob.LimitAmount = montoExacto(c.Suma_Asegurada__c);
+				cob.DeductibleAmount = montoExacto(c.Deducible__c);
+				if (c.Prima_Neta__c != null) { cob.PremiumAmount = c.Prima_Neta__c; }
+				nuevas.add(cob);
+				ya.add(nombre.toLowerCase());
+			}
+			if (String.isNotBlank(c.Coberturas_Adicionales__c)) {
+				for (String a : c.Coberturas_Adicionales__c.split('\n')) {
+					String k = a.normalizeSpace().left(255);
+					if (String.isBlank(k)) { continue; }
+					if (!adicionales.containsKey(k)) { adicionales.put(k, new List<String>()); }
+					adicionales.get(k).add(c.Name);
+				}
+			}
+		}
+		for (String a : adicionales.keySet()) {
+			if (ya.contains(a.toLowerCase())) { continue; }
+			nuevas.add(coberturaColectiva(pol, a, ('Cobertura adicional. Categorías: ' + String.join(adicionales.get(a), ', ')).left(largoDesc)));
+			ya.add(a.toLowerCase());
+		}
+		if (!nuevas.isEmpty()) { insert nuevas; }
+		return nuevas.size();
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cobertura nueva de la póliza con producto y fecha de inicio de la póliza.
+	 * @param pol: póliza (ProductId, EffectiveDate)
+	 * @param nombre: nombre de la cobertura
+	 * @param descripcion: detalle
+	 * @return cobertura sin insertar
+	 */
+	private static InsurancePolicyCoverage coberturaColectiva(InsurancePolicy pol, String nombre, String descripcion) {
+		InsurancePolicyCoverage c = new InsurancePolicyCoverage(InsurancePolicyId = pol.Id, CoverageName = nombre);
+		if (String.isNotBlank(descripcion)) { c.Description = descripcion; }
+		if (pol.ProductId != null) { c.ProductId = pol.ProductId; }
+		if (pol.EffectiveDate != null) { asignaFechaFlexible(c, 'EffectiveDate', pol.EffectiveDate.date(), pol.EffectiveDate); }
+		return c;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega "Etiqueta: valor" a la lista si el valor no está vacío.
+	 * @param det: lista de detalles
+	 * @param etiqueta: nombre del dato
+	 * @param valor: valor
+	 * @return void
+	 */
+	private static void agregarDetalle(List<String> det, String etiqueta, String valor) {
+		if (String.isNotBlank(valor)) { det.add(etiqueta + ': ' + valor.normalizeSpace()); }
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Monto solo si el texto es una cantidad ("$20,000,000", "15000 MXN"); textos como "24 meses de
+	 * sueldo" o "10%" no son un monto.
+	 * @param v: texto
+	 * @return monto o null
+	 */
+	@TestVisible
+	private static Decimal montoExacto(String v) {
+		if (String.isBlank(v)) { return null; }
+		String t = v.normalizeSpace().toUpperCase().removeEnd('M.N.').removeEnd('MXN').removeEnd('PESOS').trim();
+		if (!Pattern.matches('\\$?\\s*[0-9][0-9.,]*', t)) { return null; }
+		return parseMonto(t);
 	}
 }

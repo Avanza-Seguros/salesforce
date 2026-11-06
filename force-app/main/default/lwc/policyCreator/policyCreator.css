@@ -542,3 +542,12 @@
 .field-card--static { justify-content: center; gap: 0.15rem; background: #F5F8FE; }
 .field-card--static .static-label { font-size: 0.75rem; color: #3E3E3C; }
 .field-card--static .static-value { font-size: 0.875rem; font-weight: 600; color: #16325C; }
+
+/* ----- Archivos de la póliza ----- */
+.ro-archivos { margin-bottom: 0.75rem; }
+.ro-archivos--falta { border-color: #F5A623; background: #FFFBF2; }
+.ro-archivos__aviso { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.5rem; font-size: 0.82rem; color: #8C4B02; font-weight: 600; }
+.ro-archivos__lista { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.ro-archivos__lista li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.ro-archivos__lista a { cursor: pointer; font-weight: 600; }
+.ro-archivos__tamano { color: #667085; font-size: 0.78rem; }

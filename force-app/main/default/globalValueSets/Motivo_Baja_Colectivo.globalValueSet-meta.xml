@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Renuncia</fullName>
+        <default>false</default>
+        <label>Renuncia del empleado</label>
+    </customValue>
+    <customValue>
+        <fullName>Terminacion_laboral</fullName>
+        <default>false</default>
+        <label>Despido o terminación laboral</label>
+    </customValue>
+    <customValue>
+        <fullName>Fallecimiento</fullName>
+        <default>false</default>
+        <label>Fallecimiento</label>
+    </customValue>
+    <customValue>
+        <fullName>Jubilacion</fullName>
+        <default>false</default>
+        <label>Jubilación o pensión</label>
+    </customValue>
+    <customValue>
+        <fullName>Cambio_empresa</fullName>
+        <default>false</default>
+        <label>Cambio de empresa o filial</label>
+    </customValue>
+    <customValue>
+        <fullName>Edad_limite</fullName>
+        <default>false</default>
+        <label>Rebasa la edad límite (hijo o dependiente)</label>
+    </customValue>
+    <customValue>
+        <fullName>Divorcio</fullName>
+        <default>false</default>
+        <label>Divorcio o separación</label>
+    </customValue>
+    <customValue>
+        <fullName>Solicitud_asegurado</fullName>
+        <default>false</default>
+        <label>Solicitud del asegurado</label>
+    </customValue>
+    <customValue>
+        <fullName>Solicitud_contratante</fullName>
+        <default>false</default>
+        <label>Solicitud del contratante</label>
+    </customValue>
+    <customValue>
+        <fullName>Falta_aportacion</fullName>
+        <default>false</default>
+        <label>Falta de pago de su aportación</label>
+    </customValue>
+    <customValue>
+        <fullName>Otro_seguro</fullName>
+        <default>false</default>
+        <label>Cuenta con otro seguro</label>
+    </customValue>
+    <customValue>
+        <fullName>Error_censo</fullName>
+        <default>false</default>
+        <label>Error o duplicado en el censo</label>
+    </customValue>
+    <customValue>
+        <fullName>No_renovado</fullName>
+        <default>false</default>
+        <label>No continúa en la renovación</label>
+    </customValue>
+    <customValue>
+        <fullName>Otro</fullName>
+        <default>false</default>
+        <label>Otro</label>
+    </customValue>
+    <description>Motivos de baja de un asegurado de una póliza colectiva (endoso o renovación). Se administran en Configuración; el código lee los valores activos.</description>
+    <masterLabel>Motivo de baja colectivo</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

@@ -188,7 +188,7 @@
                                     <div key={t.id} class={t.claseDoc}>
                                         <div class="doc-card-encabezado">
                                             <h3>{t.aseguradora}</h3>
-                                            <template if:true={t.mejor}><span class="chip-mejor">Mejor prima</span></template>
+                                            
                                             <template if:true={puedeEditar}>
                                                 <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Eliminar cotización"
                                                     class="tarjeta-borrar" data-id={t.id} onclick={handleEliminar}></lightning-button-icon>
@@ -218,7 +218,7 @@
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
                             <strong>Agregar cotización de aseguradora</strong>
-                            <span>Excel (.xlsx) o CSV con el detalle por inciso, o PDF (la IA lee los incisos). Si es .xlsb o .xls, guárdalo como .xlsx.</span>
+                            <span>Excel (.xlsx) o CSV con el detalle por inciso, o PDF (la IA lee los incisos). Si es .xlsb, guárdalo como .xlsx.</span>
                         </div>
                         <div class="censo-carga-acciones">
                             <lightning-input type="file" label="Archivo de la cotización" variant="label-hidden"

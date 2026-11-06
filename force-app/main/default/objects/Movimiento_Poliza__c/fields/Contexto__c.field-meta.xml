@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Contexto__c</fullName>
+    <description>Endoso: movimiento durante la vigencia. Renovación: ajuste del censo para la siguiente vigencia.</description>
+    <label>Contexto</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Endoso</fullName>
+                <default>false</default>
+                <label>Endoso</label>
+            </value>
+            <value>
+                <fullName>Renovacion</fullName>
+                <default>false</default>
+                <label>Renovación</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

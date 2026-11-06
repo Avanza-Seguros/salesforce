@@ -5,14 +5,14 @@
  *               Dental, Visión, Viajes): categorías con asegurados, plan, coberturas y tarifa por edad. Ramos de
  *               UBICACIONES (Daños, Empresarial): una fila por inmueble con dirección, valor asegurado, prima y coberturas.
  *               El agente sube la cotización de cada aseguradora (PDF, o Excel que se convierte a texto en el navegador);
- *               la IA la lee, el agente revisa/corrige y se guarda con ColectivoController (Quote + Categoria_Colectiva__c).
+ *               la IA la lee y se guarda sola (el agente solo revisa las que quedan incompletas) con ColectivoController (Quote + Categoria_Colectiva__c).
  *               Muestra el comparativo (con cuota al millar cuando hay suma asegurada) y genera el PDF.
  */
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { NavigationMixin } from 'lightning/navigation';
-import { fold, numero, fecha, fechaVisible, moneda, abrirTabla, bloquesPdf, tablaATexto, buscarVigencia } from 'c/lectorArchivos';
+import { fold, numero, fecha, fechaVisible, moneda, abrirTabla, paginasPdf, bloquesCompactos, tablaATexto, buscarVigencia } from 'c/lectorArchivos';
 import getAseguradoras from '@salesforce/apex/FlotillaController.getAseguradoras';
 import getCotizacionesColectivas from '@salesforce/apex/ColectivoController.getCotizacionesColectivas';
 import guardarCotizacionColectiva from '@salesforce/apex/ColectivoController.guardarCotizacionColectiva';
@@ -22,8 +22,10 @@ import generarComparativoPdf from '@salesforce/apex/ColectivoController.generarC
 
 // Palabras que no sirven para reconocer a la aseguradora en el texto.
 const GENERICAS = new Set(['seguros', 'seguro', 'compania', 'mexico', 'grupo', 'life', 'general', 'generales', 'de', 'cv', 'sa', 'del', 'corporativos']);
-// Texto máximo que se manda a la IA (una sola llamada: la cotización se lee completa).
+// Texto máximo que se manda a la IA en cada llamada. Un PDF más largo (pólizas o cotizaciones de cientos de páginas)
+// se compacta y se lee por partes, hasta MAX_PARTES.
 const MAX_TEXTO = 55000;
+const MAX_PARTES = 8;
 // Parámetros del plan que se comparan (clave en la categoría -> etiqueta).
 const PLAN = [
     ['plan', 'Plan'], ['sumaAsegurada', 'Suma asegurada'], ['deducible', 'Deducible'], ['coaseguro', 'Coaseguro'],
@@ -37,6 +39,16 @@ const RAMOS_ETIQUETA = {
     GMM: 'Gastos Médicos Mayores', Vida: 'Vida Grupo', 'Accidentes Personales': 'Accidentes Personales', Dental: 'Dental',
     Vision: 'Visión', Viajes: 'Viajes', Danos: 'Daños', Empresarial: 'Paquete Empresarial'
 };
+// Palabras que identifican el ramo en el texto de la cotización (ya pasado por fold): gana el que más aparece.
+const RAMOS_TEXTO = [
+    ['GMM', /gastos medicos|\bgmm\b|\bgmg\b|hospitaliz|coaseguro|maternidad/g], ['Vida', /\bvida\b/g],
+    ['Accidentes Personales', /accidentes personales/g], ['Dental', /\bdental\b/g], ['Vision', /\bvision\b|\blentes\b/g],
+    ['Viajes', /\bviajes?\b|asistencia en viaje/g],
+    ['Danos', /\bincendio\b|\bdanos\b(?! materiales)|ubicacion|terremoto|\bedificio|contenidos/g],
+    // Flotilla: "Daños materiales" y "Robo total" son coberturas de auto, no del ramo Daños.
+    ['Automoviles', /flotilla|automovil|vehicul|\binciso|placas|numero de serie|robo total|danos materiales|pick ?up|tractocamion/g],
+    ['Empresarial', /paquete empresarial|\bempresarial\b|\bpyme\b/g]
+];
 // Valor de una cobertura (ya pasado por fold) que indica que no se incluye: "N/A", "No amparada", "Excluida", "-".
 const NO_AMPARADA = /^(n a|na|no amparad[ao]s?|no aplica|excluid[ao]s?|no incluid[ao]s?|)$/;
 // Coberturas que en GMM ya son campos fijos del plan.
@@ -44,8 +56,11 @@ const CAMPOS_GMM = /^(plan|suma asegurada|deducible|coaseguro|tope|tabulador|niv
 
 export default class ColectivoPersonas extends NavigationMixin(LightningElement) {
     @api readOnly = false;
-    // Valor del picklist Ramo de la oportunidad (GMM, Vida, Accidentes Personales, Danos, ...).
-    @api ramo;
+    // Valor del picklist Ramo de la oportunidad (GMM, Vida, Accidentes Personales, Danos, ...). Al leer cotizaciones
+    // desde "Crear desde PDFs" el ramo se detecta del texto del primer archivo.
+    @api
+    get ramo() { return this._ramo; }
+    set ramo(v) { this._ramo = v; }
     // 'carga': subir y administrar cotizaciones; 'comparativo': solo el comparativo (en la sección Comparativa de
     // Cotizaciones de Crear Oportunidad); 'completo' (por omisión): ambos.
     @api modo = 'completo';
@@ -111,8 +126,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     get tituloRenglones() { return this.esUbicaciones ? 'Ubicaciones' : 'Categorías'; }
     get textoCarga() {
         return this.esUbicaciones
-            ? 'PDF o Excel (.xlsx, .xlsm, CSV). La IA lee las ubicaciones (dirección, valor asegurado y prima), las coberturas con sus deducibles y las formas de pago; revisas antes de guardar.'
-            : 'PDF o Excel (.xlsx, .xlsm, CSV). La IA lee categorías, asegurados, suma asegurada, coberturas, primas, formas de pago y la tabla de edades; revisas antes de guardar.';
+            ? 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee la aseguradora, la vigencia, las primas y las formas de pago (no las ubicaciones); la cotización se crea sola (si falta la aseguradora o la prima, la revisas). Puedes subir varias a la vez.'
+            : 'PDF o Excel (.xlsx, .xlsm, .xls, CSV). La IA lee la aseguradora, la vigencia, las primas y las formas de pago (no los asegurados ni los autos); la cotización se crea sola (si falta la aseguradora o la prima, la revisas). Puedes subir varias a la vez.';
     }
 
     // Si alguna aseguradora no incluye IVA, se compara prima neta + derechos para todas (como en el PDF).
@@ -178,7 +193,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 difTxt: !esMejor && lista.length > 1 && mejor ? `+${moneda(b - mejor)} (+${Math.round(((b - mejor) / mejor) * 1000) / 10}%)` : '',
                 desgloseTxt: [q.primaNeta ? `Neta ${moneda(q.primaNeta)}` : '', q.derechos ? `Derechos ${moneda(q.derechos)}` : '',
                     q.iva ? `IVA ${moneda(q.iva)}` : 'Sin IVA', q.primaTotal ? `Total ${moneda(q.primaTotal)}` : ''].filter((x) => x).join(' · '),
-                aseguradosTxt: `${a} ${this.unidadDe(a)} · ${a ? moneda(b / a) : '—'} por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}`,
+                // Las cotizaciones solo con primas no traen asegurados ni ubicaciones: no se muestra la línea.
+                aseguradosTxt: a ? `${a} ${this.unidadDe(a)} · ${moneda(b / a)} por ${this.esUbicaciones ? 'ubicación' : 'asegurado'}` : '',
                 aseguradosAviso: a < maxAseg ? `Cotizó ${a} de ${maxAseg} ${this.unidad}` : '',
                 sumaTxt: this.sumaTotal(q) > 0
                     ? `${this.esUbicaciones ? 'Valor asegurado' : 'Suma asegurada'} ${moneda(this.sumaTotal(q))}`
@@ -474,50 +490,243 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     // ============================================================
     // Lectura del archivo (siempre con IA)
     // ============================================================
+    // Se pueden subir varias cotizaciones a la vez: cada una se lee con la IA y se guarda sola, como las cotizaciones
+    // de PDF individuales. Solo quedan para revisión las que no se pudieron completar (sin aseguradora o sin
+    // asegurados/ubicaciones).
     async handleArchivo(event) {
-        const file = event.target.files && event.target.files[0];
+        const archivos = Array.from(event.target.files || []);
         event.target.value = null;
-        if (!file) { return; }
-        this.archivoNombre = file.name;
+        if (!archivos.length) { return; }
+        const { vistas, fallas } = await this.leerArchivos(archivos);
+        if (fallas.length) { this.toast('Cotización colectiva', fallas.join(' | '), 'error', 'sticky'); }
+        await this.crearVistas(vistas);
+    }
+
+    // "Crear desde PDFs" de Crear Oportunidad: lee las cotizaciones antes de que exista la oportunidad (detecta el
+    // ramo) y regresa lo leído; al guardar la oportunidad, Crear Oportunidad llama a crearCotizaciones.
+    @api
+    async analizarArchivos(archivos) {
+        if (!this.aseguradoras.length) {
+            try { this.aseguradoras = await getAseguradoras(); } catch (e) { this.aseguradoras = []; }
+        }
+        this._detectarRamo = true;
+        const { vistas, fallas } = await this.leerArchivos(archivos);
+        this._detectarRamo = false;
+        this._porCrear = vistas.length;
+        const nombre = (id) => ((this.aseguradoras || []).find((a) => a.id === id) || {}).nombre || '';
+        return JSON.parse(JSON.stringify({
+            ramo: this._ramo,
+            fallas,
+            vistas,
+            resumen: vistas.map((v) => ({
+                archivo: v.archivo, contratante: v.contratante, aseguradora: nombre(v.encabezado.aseguradoraId) || v.aseguradoraTexto,
+                primaNeta: numero(v.encabezado.primaNeta), primaTotal: this.totalDe(v.encabezado), tamano: this.tamanoDe(v),
+                vigenciaDesde: v.encabezado.vigenciaDesde, vigenciaHasta: v.encabezado.vigenciaHasta, tipoNegocio: v.tipoNegocio
+            }))
+        }));
+    }
+
+    // Crea las cotizaciones leídas con analizarArchivos en la oportunidad ya guardada.
+    @api
+    async crearCotizaciones(vistas, opportunityId) {
+        if (opportunityId) { this._opportunityId = opportunityId; }
+        this._porCrear = 0;
+        await this.crearVistas(JSON.parse(JSON.stringify(vistas || [])));
+    }
+
+    get porCrearTxt() {
+        return this._porCrear
+            ? `Se leyeron ${this._porCrear} ${this._porCrear === 1 ? 'cotización' : 'cotizaciones'}: se crearán al guardar la oportunidad.`
+            : '';
+    }
+
+    async leerArchivos(archivos) {
         this.errorMensaje = '';
         this.cargando = true;
-        this.progreso = 'Leyendo archivo…';
+        const vistas = [];
+        const fallas = [];
         try {
-            let texto;
-            let vigencia = { desde: '', hasta: '' };
-            if (file.name.toLowerCase().endsWith('.pdf')) {
-                const bloques = await bloquesPdf(this, file, MAX_TEXTO, (m) => { this.progreso = m; });
-                texto = bloques.join('\n');
-            } else {
-                const tabla = await abrirTabla(file);
-                const hojas = tabla.hojas.length ? tabla.hojas : [''];
-                const leidas = [];
-                for (const h of hojas) { leidas.push({ h, filas: await tabla.leerHoja(h) }); }
-                // La hoja con más números (la de primas) va primero; las demás se agregan si caben.
-                const numeros = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'number').length, 0);
-                leidas.sort((a, b) => numeros(b.filas) - numeros(a.filas));
-                const partes = [];
-                let largo = 0;
-                leidas.forEach(({ h, filas }) => {
-                    const t = tablaATexto(filas, MAX_TEXTO - largo);
-                    if (t && largo + t.length < MAX_TEXTO) { partes.push((h ? `=== HOJA ${h} ===\n` : '') + t); largo += t.length; }
-                });
-                texto = partes.join('\n');
-                vigencia = buscarVigencia(leidas.flatMap((x) => x.filas.slice(0, 60)));
+            for (let i = 0; i < archivos.length; i++) {
+                const file = archivos[i];
+                this.archivoNombre = file.name;
+                this._prefijo = archivos.length > 1 ? `(${i + 1} de ${archivos.length}) ${file.name}: ` : '';
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    vistas.push(await this.leerCotizacion(file));
+                } catch (e) {
+                    fallas.push(`${file.name}: ${this.mensaje(e)}`);
+                }
             }
-            if (!texto || texto.trim().length < 50) {
-                throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
-            }
-            this.progreso = 'Analizando la cotización con IA…';
-            const json = await analizarCotizacionColectiva({ textoCotizacion: texto.substring(0, 60000), ramo: this.ramo || null });
-            const datos = this.parsearJsonIA(json);
-            this.vista = this.normalizar(datos, vigencia, texto);
-            this.paso = 'vista';
-        } catch (e) {
-            this.toast('Cotización colectiva', this.mensaje(e), 'error');
         } finally {
+            this._prefijo = '';
             this.cargando = false;
             this.progreso = '';
+        }
+        return { vistas, fallas };
+    }
+
+    // Guarda las cotizaciones completas; las que no traen aseguradora o asegurados quedan para revisión.
+    async crearVistas(vistas) {
+        const creadas = [];
+        const conAvisos = [];
+        const pendientes = [];
+        const fallas = [];
+        this.cargando = true;
+        try {
+            for (let i = 0; i < vistas.length; i++) {
+                const vista = vistas[i];
+                if (!this.completa(vista)) { pendientes.push(vista); continue; }
+                this._prefijo = vistas.length > 1 ? `(${i + 1} de ${vistas.length}) ` : '';
+                this.avance('Guardando cotización…');
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await this.guardarVista(vista);
+                    creadas.push(vista.archivo);
+                    if (vista.avisos.length) { conAvisos.push(`${vista.archivo}: ${vista.avisos.join(' ')}`); }
+                } catch (e) {
+                    fallas.push(`${vista.archivo}: ${this.mensaje(e)}`);
+                }
+            }
+        } finally {
+            this._prefijo = '';
+            this.cargando = false;
+            this.progreso = '';
+        }
+        if (creadas.length) {
+            this.toast('Cotización colectiva', `Cotización creada: ${creadas.join(', ')}.`, 'success');
+            await this.cargar();
+            this.dispatchEvent(new CustomEvent('cotizacioncreada'));
+        }
+        if (conAvisos.length) { this.toast('Revisa la cotización creada', conAvisos.join(' | '), 'warning', 'sticky'); }
+        if (fallas.length) { this.toast('Cotización colectiva', fallas.join(' | '), 'error', 'sticky'); }
+        this._pendientes = pendientes;
+        this.siguientePendiente();
+    }
+
+    avance(m) { this.progreso = (this._prefijo || '') + m; }
+
+    // Lee el archivo (PDF por partes si es muy largo, o Excel) y lo pasa por la IA; regresa la vista de la cotización.
+    async leerCotizacion(file) {
+        this.avance('Leyendo archivo…');
+        let texto;
+        let partes = null;
+        let vigencia = { desde: '', hasta: '' };
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+            let paginas = await paginasPdf(this, file, (m) => this.avance(m), (p1) => this.paginasMaestra(p1));
+            // En la maestra, después del total ya viene la primera ubicación con su propia prima: se corta ahí.
+            if (this.paginasMaestra(paginas[0])) {
+                const conTotal = paginas.findIndex((p) => /prima total/i.test(p) && /\$\s?[\d,]+\.\d{2}/.test(p));
+                if (conTotal >= 0) { paginas = paginas.slice(0, conTotal + 1); }
+            }
+            texto = paginas.join('\n');
+            if (texto.length > MAX_TEXTO) {
+                partes = bloquesCompactos(paginas, MAX_TEXTO);
+                texto = partes.join('\n');
+            }
+        } else {
+            const tabla = await abrirTabla(file);
+            const hojas = tabla.hojas.length ? tabla.hojas : [''];
+            const leidas = [];
+            for (const h of hojas) { leidas.push({ h, filas: await tabla.leerHoja(h) }); }
+            // La hoja de primas va primero: la que más renglones "Prima neta / Prima total / Derechos / IVA" tiene y, si
+            // empatan, la de más números. Así un listado de miles de vehículos no deja fuera el resumen de primas.
+            const numeros = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'number').length, 0);
+            const etiquetas = (filas) => filas.reduce((s, f) => s + (f || []).filter((c) => typeof c === 'string'
+                && /^\s*(prima\s*(neta|total)|derechos|iva\b|gastos de expedici)/i.test(c)).length, 0);
+            leidas.sort((a, b) => (etiquetas(b.filas) - etiquetas(a.filas)) || (numeros(b.filas) - numeros(a.filas)));
+            const partes = [];
+            let largo = 0;
+            leidas.forEach(({ h, filas }) => {
+                const t = tablaATexto(filas, MAX_TEXTO - largo);
+                if (t && largo + t.length < MAX_TEXTO) { partes.push((h ? `=== HOJA ${h} ===\n` : '') + t); largo += t.length; }
+            });
+            texto = partes.join('\n');
+            vigencia = buscarVigencia(leidas.flatMap((x) => x.filas.slice(0, 60)));
+        }
+        if (!texto || texto.trim().length < 50) {
+            throw new Error('No se pudo leer texto del archivo (¿PDF escaneado?). Pide la cotización en Excel o en PDF con texto.');
+        }
+        if (this._detectarRamo) {
+            this._ramo = this.ramoPorTexto(texto) || this._ramo;
+            this._detectarRamo = false;
+        }
+        let datos;
+        if (partes && partes.length > 1) {
+            if (partes.length > MAX_PARTES) { partes = partes.slice(0, MAX_PARTES); }
+            const resultados = [];
+            for (let i = 0; i < partes.length; i++) {
+                this.avance(`Analizando la cotización con IA (parte ${i + 1} de ${partes.length})…`);
+                // eslint-disable-next-line no-await-in-loop
+                const json = await analizarCotizacionColectiva({
+                    textoCotizacion: `PARTE ${i + 1} DE ${partes.length}\n${partes[i]}`.substring(0, 60000), ramo: this.ramo || null
+                });
+                resultados.push(this.parsearJsonIA(json));
+            }
+            datos = this.unirPartes(resultados);
+        } else {
+            this.avance('Analizando la cotización con IA…');
+            const json = await analizarCotizacionColectiva({ textoCotizacion: (partes ? partes[0] : texto).substring(0, 60000), ramo: this.ramo || null });
+            datos = this.parsearJsonIA(json);
+        }
+        const vista = this.normalizar(datos, vigencia, texto);
+        // Colectivas: solo aseguradora, vigencia y primas; los asegurados, autos o ubicaciones no se guardan.
+        vista.categorias = [];
+        vista.avisos = [];
+        vista.archivo = file.name;
+        vista.tipoNegocio = this.tipoNegocioPorTexto(texto);
+        return vista;
+    }
+
+    // Cotización maestra (HDI "COTIZACIÓN MAESTRA DE SEGURO DE DAÑOS"): sus primeras páginas ("Página 1 de 20") traen el
+    // total de todas las ubicaciones; lo demás son las cotizaciones de cada ubicación, que no se leen.
+    paginasMaestra(pagina1) {
+        const t = fold(pagina1 || '');
+        if (!/cotizacion maestra/.test(t)) { return null; }
+        const m = t.match(/pagina 1 de (\d+)/);
+        return m ? Number(m[1]) : null;
+    }
+
+    // La IA a veces toma como contratante el nombre de la categoría ("EXP GLOBAL CAT. EMPLEADOS (CONTRATANTE) OPCION 1"):
+    // ese texto no es una empresa y se descarta.
+    contratanteValido(v) {
+        const t = this.txt(v);
+        return /\bcat\b|categ|\bopcion\b|exp global|\(contratante\)|subgrupo|empleados|directivos/.test(fold(t)) ? '' : t;
+    }
+
+    // Tipo de negocio del encabezado de la cotización: 'Renovacion', 'Reexpedicion' o 'Nuevo' ('' si no lo dice).
+    // Solo cuenta si la palabra abre un renglón o una celda ("RENOVACION COTIZACIÓN DE GASTOS MEDICOS", "R9: Nueva");
+    // frases como "A partir de la 1° Renovación", "(INICIO vs RENOVACION)" o "miembros de nuevo ingreso" no.
+    tipoNegocioPorTexto(texto) {
+        const celdas = texto.substring(0, 4000).split(/\n|\|/).map((c) => fold(c).replace(/^r\d+ /, ''));
+        const es = (re) => celdas.some((c) => re.test(c));
+        if (es(/^(tipo de (negocio|movimiento|poliza) )?(re ?expedicion|rexpedicion)\b/)) { return 'Reexpedicion'; }
+        if (es(/^(tipo de (negocio|movimiento|poliza) )?renovacion\b/)) { return 'Renovacion'; }
+        if (es(/^(tipo de (negocio|movimiento|poliza) )?(nueva|nuevo|negocio nuevo|nuevo negocio|inicial|poliza nueva)$/)) { return 'Nuevo'; }
+        return '';
+    }
+
+    ramoPorTexto(texto) {
+        const t = fold(texto.substring(0, 30000));
+        let mejor = '';
+        let veces = 0;
+        RAMOS_TEXTO.forEach(([ramo, re]) => {
+            const n = (t.match(re) || []).length;
+            if (n > veces) { veces = n; mejor = ramo; }
+        });
+        return mejor;
+    }
+
+    // Lista para crearse sin revisión: trae aseguradora y prima.
+    completa(vista) { return !!vista.encabezado.aseguradoraId && this.totalDe(vista.encabezado) !== null; }
+
+    // Muestra para revisión la siguiente cotización que no se pudo crear sola.
+    siguientePendiente() {
+        const vista = (this._pendientes || []).shift();
+        this.vista = vista || null;
+        this.paso = vista ? 'vista' : 'resumen';
+        if (vista) {
+            this.archivoNombre = vista.archivo;
+            this.toast('Cotización colectiva', `Falta la aseguradora o la prima de ${vista.archivo}: revísala y guárdala.`, 'warning');
         }
     }
 
@@ -528,7 +737,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         } catch (e) {
             // Valor de propiedad o elemento de lista: se repite hasta que no quede ninguna operación.
             const patron = /([:[,]\s*)(-?\d+(?:\.\d+)?(?:\s*[-+*/]\s*\d+(?:\.\d+)?)+)(\s*[,}\]])/g;
-            let limpio = String(texto);
+            // Un monto con signo de interrogación ("192665?") es un dato dudoso: queda en null.
+            let limpio = String(texto).replace(/-?\d+(?:\.\d+)?\?(?=\s*[,}\]])/g, 'null');
             let antes;
             do {
                 antes = limpio;
@@ -552,10 +762,57 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         return Math.round(total * 100) / 100;
     }
 
-    // Revisa y completa lo que devolvió la IA (asegurados contra la tabla de edades, formas de pago, coaseguro).
+    // Une lo que devolvió la IA para cada parte de un documento largo: los datos generales se toman de la primera
+    // parte que los trae (los montos de la póliza, todos de la misma parte: la del resumen) y las categorías o
+    // ubicaciones repetidas en el corte entre partes (mismo nombre) se juntan.
+    unirPartes(resultados) {
+        const d = { formasPago: [], categorias: [] };
+        const vacio = (v) => v === undefined || v === null || v === '';
+        const escalares = ['aseguradora', 'ramo', 'contratante', 'numeroCotizacion', 'vigenciaDesde', 'vigenciaHasta', 'formaPago', 'asegurados'];
+        const montos = ['primaNeta', 'derechos', 'recargo', 'iva', 'primaTotal'];
+        const llave = (c) => fold(c.nombre).replace(/[^a-z0-9]/g, '');
+        resultados.forEach((r) => {
+            escalares.forEach((k) => { if (vacio(d[k]) && !vacio(r[k])) { d[k] = r[k]; } });
+            if (montos.every((k) => vacio(d[k])) && (numero(r.primaNeta) || numero(r.primaTotal))) { montos.forEach((k) => { d[k] = r[k]; }); }
+            if (!d.formasPago.length && (r.formasPago || []).some((f) => numero(f.primaTotal) !== null)) { d.formasPago = r.formasPago; }
+            (r.categorias || []).forEach((c) => {
+                const igual = llave(c) && d.categorias.find((o) => llave(o) === llave(c)
+                    && (!o.direccion || !c.direccion || fold(o.direccion).substring(0, 15) === fold(c.direccion).substring(0, 15)));
+                if (!igual) { d.categorias.push({ ...c }); return; }
+                Object.keys(c).forEach((k) => { if (vacio(igual[k]) && !vacio(c[k]) && !Array.isArray(c[k])) { igual[k] = c[k]; } });
+                const conceptos = new Set((igual.parametros || []).map((pm) => fold(pm && pm.concepto)));
+                igual.parametros = [...(igual.parametros || []), ...(c.parametros || []).filter((pm) => pm && !conceptos.has(fold(pm.concepto)))];
+                igual.coberturasAdicionales = [...new Set([...(igual.coberturasAdicionales || []), ...(c.coberturasAdicionales || [])])];
+                if (!(igual.tarifaEdades || []).length) { igual.tarifaEdades = c.tarifaEdades || []; }
+                if (!(igual.formasPago || []).length) { igual.formasPago = c.formasPago || []; }
+            });
+        });
+        return d;
+    }
+
+    // Revisa y completa lo que devolvió la IA (asegurados contra la tabla de edades, totales por categoría, formas de pago, coaseguro).
     normalizar(d, vigencia, texto) {
         const avisos = [];
-        const categorias = (d.categorias || []).map((c, i) => {
+        const cats = d.categorias || [];
+        const redondear = (n) => Math.round(n * 100) / 100;
+        // Prima neta o asegurados de TODA la póliza que la IA puso en una categoría (ej. "PRIMA NETA TOTAL" en la hoja del
+        // primer subgrupo): a esa categoría le corresponde el total menos lo de las demás.
+        const corregidos = {};
+        if (cats.length > 1) {
+            ['primaNeta', 'asegurados'].forEach((k) => {
+                const total = numero(d[k]);
+                if (!total) { return; }
+                cats.forEach((c, i) => {
+                    const otras = cats.reduce((s, o, j) => s + (j === i ? 0 : numero(o[k]) || 0), 0);
+                    if (numero(c[k]) !== null && Math.abs(numero(c[k]) - total) <= total * 0.001 && otras > 0 && otras < total) {
+                        corregidos[`${i}.${k}`] = redondear(total - otras);
+                    }
+                });
+            });
+        }
+        let giro = '';
+        const categorias = cats.map((c, i) => {
+            const nombre = this.txt(c.nombre).replace(/^inciso\s*:?\s*/i, 'Inciso ') || (this.esUbicaciones ? `Ubicación ${i + 1}` : 'General');
             const tarifa = (c.tarifaEdades || []).map((t, j) => {
                 const h = numero(t.hombres) || 0;
                 const m = numero(t.mujeres) || 0;
@@ -568,46 +825,65 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 }
                 return { key: `t${i}-${j}`, rango: String(t.rango || ''), hombres: h, mujeres: m,
                     primaHombre: numero(t.primaHombre), primaMujer: numero(t.primaMujer),
-                    primaTotal: total === null ? null : Math.round(total * 100) / 100 };
+                    primaTotal: total === null ? null : redondear(total) };
             }).filter((t) => t.hombres || t.mujeres);
             let hombres = numero(c.hombres);
             let mujeres = numero(c.mujeres);
-            let asegurados = numero(c.asegurados);
+            let asegurados = corregidos[`${i}.asegurados`] ?? numero(c.asegurados);
             const sumH = tarifa.reduce((s, t) => s + t.hombres, 0);
             const sumM = tarifa.reduce((s, t) => s + t.mujeres, 0);
-            if (tarifa.length && (sumH !== hombres || sumM !== mujeres || sumH + sumM !== asegurados)) {
-                avisos.push(`${c.nombre || 'Categoría'}: asegurados ajustados con la tabla de edades (${sumH} H / ${sumM} M).`);
+            // La tabla de edades manda si cuadra con los asegurados impresos de la categoría (o si no vienen); si no
+            // cuadra, se conservan los impresos y se avisa para revisar.
+            if (tarifa.length && (asegurados === null || sumH + sumM === asegurados)) {
+                if (sumH !== hombres || sumM !== mujeres) {
+                    avisos.push(`${nombre}: hombres y mujeres tomados de la tabla de edades (${sumH} H / ${sumM} M).`);
+                }
                 hombres = sumH;
                 mujeres = sumM;
                 asegurados = sumH + sumM;
+            } else if (tarifa.length) {
+                avisos.push(`${nombre}: la tabla de edades suma ${sumH + sumM} asegurados (${sumH} H / ${sumM} M) y la cotización indica ${asegurados}. Revisa la categoría.`);
+                if (hombres === null || mujeres === null || hombres + mujeres !== asegurados) { hombres = null; mujeres = null; }
             }
             if (asegurados === null && hombres !== null && mujeres !== null) { asegurados = hombres + mujeres; }
             // Sin coberturas no amparadas ni, en GMM, las que repiten un campo fijo del plan (deducible, coaseguro...).
             const parametros = (c.parametros || []).map((pm, j) => ({ key: `p${i}-${j}`, concepto: this.txt(pm && pm.concepto), valor: this.txt(pm && pm.valor) }))
                 .filter((pm) => pm.concepto && pm.valor && !NO_AMPARADA.test(fold(pm.valor))
                     && !(this.esGmm && CAMPOS_GMM.test(fold(pm.concepto))));
+            // En ubicaciones el giro suele venir solo en la primera de varias seguidas: las siguientes lo heredan.
+            let plan = this.txt(c.plan);
+            if (this.esUbicaciones) {
+                plan = plan.replace(/^giro\s*:?\s*/i, '').replace(/\.$/, '') || giro;
+                giro = plan;
+            }
             return {
-                key: `c${i}`, nombre: c.nombre || (this.esUbicaciones ? `Ubicación ${i + 1}` : 'General'), asegurados, hombres, mujeres,
-                titulares: numero(c.titulares), dependientes: numero(c.dependientes), primaNeta: numero(c.primaNeta),
+                key: `c${i}`, nombre, asegurados, hombres, mujeres,
+                titulares: numero(c.titulares), dependientes: numero(c.dependientes), primaNeta: corregidos[`${i}.primaNeta`] ?? numero(c.primaNeta),
                 sumaAseguradaTotal: numero(c.sumaAseguradaTotal), direccion: this.txt(c.direccion), parametros,
-                plan: this.txt(c.plan), sumaAsegurada: this.txt(c.sumaAsegurada), deducible: this.txt(c.deducible),
+                plan, sumaAsegurada: this.txt(c.sumaAsegurada), deducible: this.txt(c.deducible),
                 coaseguro: this.porcentajeTxt(c.coaseguro), topeCoaseguro: this.montoTxt(c.topeCoaseguro), tabulador: this.txt(c.tabulador),
                 nivelHospitalario: this.txt(c.nivelHospitalario), territorio: this.txt(c.territorio),
                 coberturasAdicionales: (c.coberturasAdicionales || []).map((x) => this.txt(x)).filter((x) => x),
                 tarifaEdades: tarifa
             };
         });
-        if (!categorias.length) {
-            throw new Error(this.esUbicaciones ? 'La IA no encontró ubicaciones en la cotización.' : 'La IA no encontró categorías ni asegurados en la cotización.');
-        }
-
         const sumaNeta = categorias.reduce((s, c) => s + (c.primaNeta || 0), 0);
-        const primaNeta = numero(d.primaNeta) !== null ? numero(d.primaNeta) : (sumaNeta || null);
+        const primaNeta = numero(d.primaNeta) !== null ? numero(d.primaNeta) : (sumaNeta ? redondear(sumaNeta) : null);
         if (numero(d.primaNeta) !== null && sumaNeta && Math.abs(sumaNeta - primaNeta) / primaNeta > 0.01) {
-            avisos.push(`La suma de la prima neta de las categorías (${moneda(sumaNeta)}) no coincide con la prima neta total (${moneda(primaNeta)}).`);
+            avisos.push(`La suma de la prima neta de las ${this.esUbicaciones ? 'ubicaciones' : 'categorías'} (${moneda(sumaNeta)}) no coincide con la prima neta total (${moneda(primaNeta)}).`);
         }
-        const formasPago = this.normalizarFormasPago(d.formasPago || [], numero(d.primaTotal));
+        // Cuando cada categoría trae sus propios gastos, IVA, prima total y formas de pago (una página por categoría),
+        // los de la póliza son la suma de las categorías.
+        const sumaCategorias = (k) => {
+            const v = cats.map((c) => numero(c[k])).filter((x) => x !== null);
+            return v.length ? redondear(v.reduce((s, x) => s + x, 0)) : null;
+        };
+        const deCategoria = cats.filter((c) => (c.formasPago || []).length);
+        const formasPago = deCategoria.length > 1 || (!(d.formasPago || []).length && deCategoria.length)
+            ? this.sumarFormasPago(deCategoria.map((c) => this.normalizarFormasPago(c.formasPago, numero(c.primaTotal))))
+            : this.normalizarFormasPago(d.formasPago || [], numero(d.primaTotal));
         const anual = formasPago.find((f) => /anual|contado/i.test(f.forma));
+        const totalPoliza = numero(d.primaTotal) ?? sumaCategorias('primaTotal');
         const encabezado = {
             aseguradoraId: this.aseguradoraPorTexto(`${d.aseguradora || ''} ${this.archivoNombre} ${texto.substring(0, 2000)}`),
             numeroCotizacion: this.txt(d.numeroCotizacion),
@@ -615,19 +891,34 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             vigenciaHasta: fecha(d.vigenciaHasta).iso || vigencia.hasta || '',
             formaPago: this.capitalizar(d.formaPago) || 'Anual',
             primaNeta,
-            derechos: numero(d.derechos),
-            recargo: numero(d.recargo),
-            iva: numero(d.iva),
-            primaTotal: numero(d.primaTotal) !== null ? numero(d.primaTotal) : (anual && anual.primaTotal ? anual.primaTotal : null)
+            derechos: numero(d.derechos) ?? sumaCategorias('derechos'),
+            recargo: numero(d.recargo) ?? sumaCategorias('recargo'),
+            iva: numero(d.iva) ?? sumaCategorias('iva'),
+            primaTotal: totalPoliza !== null ? totalPoliza : (anual && anual.primaTotal ? anual.primaTotal : null)
         };
-        if (encabezado.iva === null && this.ramo !== 'Vida') { avisos.push('La cotización no incluye IVA: el comparativo se hará sobre prima neta + derechos.'); }
-        return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.txt(d.contratante) };
+        if (encabezado.primaNeta === null && encabezado.primaTotal === null) {
+            throw new Error('La IA no encontró la prima de la cotización.');
+        }
+        // IVA = 16% de prima neta + derechos + recargo (Vida no lleva IVA). Si la IA no lo encontró o trae otro monto
+        // (ej. $100 sobre una neta de $486,613), se calcula; y si la prima total no cuadra con eso, se recalcula.
+        if (encabezado.primaNeta !== null && this.ramo !== 'Vida') {
+            const base = redondear(encabezado.primaNeta + (encabezado.derechos || 0) + (encabezado.recargo || 0));
+            const iva = redondear(base * 0.16);
+            if (encabezado.iva === null || Math.abs(encabezado.iva - iva) > Math.max(1, iva * 0.01)) { encabezado.iva = iva; }
+            const total = redondear(base + encabezado.iva);
+            if (encabezado.primaTotal === null || Math.abs(encabezado.primaTotal - total) > Math.max(1, total * 0.01)) {
+                encabezado.primaTotal = total;
+            }
+        }
+        return { encabezado, categorias, formasPago, avisos, aseguradoraTexto: this.txt(d.aseguradora), contratante: this.contratanteValido(d.contratante) };
     }
 
     // Total anual de cada forma de pago: primer pago + subsecuentes; si la aseguradora solo da el importe de cada pago, ese × número de pagos.
+    // "Pago único" y "Contado" son la forma Anual; un recargo escrito como fracción (0.04) es 4%.
     normalizarFormasPago(lista, totalAnual) {
-        const anualFp = lista.find((f) => /anual|contado/i.test(f.forma || ''));
+        const anualFp = lista.find((f) => /anual|contado|unico/i.test(fold(f.forma)));
         const anual = totalAnual || (anualFp ? numero(anualFp.primaTotal) : null);
+        const vistas = new Set();
         return lista.map((f, i) => {
             const n = numero(f.numeroPagos) || 1;
             let total = numero(f.primaTotal);
@@ -639,9 +930,30 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
                 primer = primer !== null ? primer : total;
                 total = total * n;
             }
-            return { key: `f${i}`, forma: this.capitalizar(f.forma), recargoPct: numero(f.recargoPct), numeroPagos: n,
+            let pct = numero(f.recargoPct);
+            if (pct !== null && pct > 0 && pct < 1) { pct = Math.round(pct * 10000) / 100; }
+            const forma = /^(pago unico|contado|de contado|anual.*)$/.test(fold(f.forma)) ? 'Anual' : this.capitalizar(f.forma);
+            return { key: `f${i}`, forma, recargoPct: pct, numeroPagos: n,
                 primaTotal: total === null ? null : Math.round(total * 100) / 100, primerPago: primer, pagoSubsecuente: sub };
-        }).filter((f) => f.forma);
+        }).filter((f) => {
+            if (!f.forma || vistas.has(f.forma)) { return false; }
+            vistas.add(f.forma);
+            return true;
+        });
+    }
+
+    // Formas de pago de la póliza a partir de las de cada categoría: se suman los importes de la misma forma.
+    sumarFormasPago(listas) {
+        const porForma = new Map();
+        const suma = (a, b) => (a === null && b === null ? null : Math.round(((a || 0) + (b || 0)) * 100) / 100);
+        listas.flat().forEach((f) => {
+            const o = porForma.get(f.forma);
+            if (!o) { porForma.set(f.forma, { ...f }); return; }
+            o.primaTotal = suma(o.primaTotal, f.primaTotal);
+            o.primerPago = suma(o.primerPago, f.primerPago);
+            o.pagoSubsecuente = suma(o.pagoSubsecuente, f.pagoSubsecuente);
+        });
+        return [...porForma.values()].map((f, i) => ({ ...f, key: `f${i}` }));
     }
 
     aseguradoraPorTexto(texto) {
@@ -685,20 +997,22 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         }));
     }
     get hayFormasPagoVista() { return this.formasPagoVista.length > 0; }
-    get aseguradosVista() {
-        const cats = this.vista ? this.vista.categorias : [];
+    get aseguradosVista() { return this.vista ? this.tamanoDe(this.vista) : 0; }
+    tamanoDe(vista) {
+        const cats = vista.categorias;
         return this.esUbicaciones ? cats.length : cats.reduce((s, c) => s + (Number(c.asegurados) || 0), 0);
     }
     get etiquetaTamanoVista() { return this.esUbicaciones ? 'Ubicaciones' : 'Asegurados'; }
-    get totalCalculado() {
-        const e = this.enc;
+    get totalCalculado() { return this.totalDe(this.enc); }
+    totalDe(e) {
         if (numero(e.primaTotal) !== null) { return numero(e.primaTotal); }
         if (numero(e.primaNeta) === null) { return null; }
         return ['primaNeta', 'derechos', 'recargo', 'iva'].reduce((s, k) => s + (numero(e[k]) || 0), 0);
     }
     get totalVista() { return moneda(this.totalCalculado) || '—'; }
     get faltaAseguradora() { return !this.enc.aseguradoraId; }
-    get sinGuardar() { return this.cargando || !this.enc.aseguradoraId || !this.aseguradosVista; }
+    get sinGuardar() { return this.cargando || !this.enc.aseguradoraId || this.totalCalculado === null; }
+    get hayCategoriasVista() { return this.categoriasVista.length > 0; }
 
     handleEncabezado(event) {
         const campo = event.target.dataset.campo;
@@ -720,38 +1034,42 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.vista = { ...this.vista, categorias };
     }
 
+    // Descarta la cotización en revisión y pasa a la siguiente pendiente, si hay.
     cancelar() {
         this.errorMensaje = '';
-        this.vista = null;
-        this.paso = 'resumen';
+        this.siguientePendiente();
     }
 
     async guardar() {
-        const e = this.enc;
         this.cargando = true;
         this.progreso = 'Guardando cotización…';
         try {
-            const datos = {
-                aseguradoraId: e.aseguradoraId, numeroCotizacion: e.numeroCotizacion || null,
-                vigenciaDesde: e.vigenciaDesde || null, vigenciaHasta: e.vigenciaHasta || null, formaPago: e.formaPago || null,
-                primaNeta: numero(e.primaNeta), derechos: numero(e.derechos), recargo: numero(e.recargo), iva: numero(e.iva),
-                primaTotal: this.totalCalculado, archivo: this.archivoNombre,
-                formasPago: this.vista.formasPago.map(({ key, ...f }) => f),
-                categorias: this.vista.categorias.map(({ key, tarifaEdades, parametros, ...c }) => ({
-                    ...c, tarifaEdades: tarifaEdades.map(({ key: k, ...t }) => t), parametros: parametros.map(({ key: k, ...pm }) => pm)
-                }))
-            };
-            await guardarCotizacionColectiva({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });
-            this.toast('Cotización colectiva', `Cotización guardada: ${this.aseguradosVista} ${this.unidad}.`, 'success');
-            this.cancelar();
+            await this.guardarVista(this.vista);
+            this.toast('Cotización colectiva', 'Cotización guardada.', 'success');
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
+            this.siguientePendiente();
         } catch (err) {
             this.toast('Cotización colectiva', this.mensaje(err), 'error');
         } finally {
             this.cargando = false;
             this.progreso = '';
         }
+    }
+
+    guardarVista(vista) {
+        const e = vista.encabezado;
+        const datos = {
+            aseguradoraId: e.aseguradoraId, numeroCotizacion: e.numeroCotizacion || null,
+            vigenciaDesde: e.vigenciaDesde || null, vigenciaHasta: e.vigenciaHasta || null, formaPago: e.formaPago || null,
+            primaNeta: numero(e.primaNeta), derechos: numero(e.derechos), recargo: numero(e.recargo), iva: numero(e.iva),
+            primaTotal: this.totalDe(e), archivo: vista.archivo,
+            formasPago: vista.formasPago.map(({ key, ...f }) => f),
+            categorias: vista.categorias.map(({ key, tarifaEdades, parametros, ...c }) => ({
+                ...c, tarifaEdades: tarifaEdades.map(({ key: k, ...t }) => t), parametros: parametros.map(({ key: k, ...pm }) => pm)
+            }))
+        };
+        return guardarCotizacionColectiva({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });
     }
 
     // ============================================================
@@ -782,8 +1100,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     mensaje(e) {
         return (e && e.body && e.body.message) || (e && e.message) || 'Ocurrió un error inesperado.';
     }
-    toast(title, message, variant) {
+    toast(title, message, variant, mode) {
         this.errorMensaje = variant === 'error' ? message : '';
-        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant, mode: mode || 'dismissible' }));
     }
 }

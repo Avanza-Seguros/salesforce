@@ -12,6 +12,9 @@ import PLANNED_RENEWAL_DATE from '@salesforce/schema/InsurancePolicy.PlannedRene
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { loadScript } from 'lightning/platformResourceLoader';
 import PDFJS from '@salesforce/resourceUrl/pdfjs';
+// Tamaño máximo del PDF que se adjunta automáticamente: viaja en base64 dentro de la llamada a Apex y Salesforce
+// rechaza peticiones de más de ~4 MB. Los más grandes se adjuntan con el cargador estándar (lightning-file-upload).
+const MAX_ADJUNTO_AUTOMATICO = 3 * 1024 * 1024;
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import completarPoliza from '@salesforce/apex/PolicyController.completarPoliza';
@@ -41,6 +44,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track participantes = [];
     @track bienes = [];
     @track transacciones = [];
+    // Archivos adjuntos a la póliza (ContentDocument).
+    @track archivos = [];
     @track policyHero = {};
     // Etapa real de la oportunidad (API): define el aviso y el color de la cabecera.
     oppStage = '';
@@ -483,8 +488,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
         if (r.beneficiarios) { partes.push(`${r.beneficiarios} beneficiario(s)`); }
         if (r.cuenta) { partes.push('datos del cliente'); }
-        if (r.vehiculo) { partes.push('vehículo'); }
-        if (r.bien) { partes.push('bien asegurado'); }
+        if (r.vehiculos) { partes.push(`${r.vehiculos} vehículo(s) de flotilla`); } else if (r.vehiculo) { partes.push('vehículo'); }
+        if (r.ubicaciones) { partes.push(`${r.ubicaciones} ubicación(es)`); } else if (r.bien) { partes.push('bien asegurado'); }
         if (r.transaccion) { partes.push('transacción de prima'); }
         if (r.renovacion) { partes.push('fecha de renovación'); }
 
@@ -559,6 +564,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
             this.completarCoberturasDesdeTexto(datos, texto);
+            // Daños: ubicaciones (incisos) del PDF completo; Apex crea un bien del cliente por cada una.
+            datos.ubicaciones = this.ubicacionesDesdeTexto(texto);
+            // Flotilla / colectiva de autos: todos los vehículos (incisos); Apex crea su bien e inciso de flotilla.
+            datos.vehiculos = this.vehiculosDesdeTexto(texto);
             // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
             datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
             // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe, se
@@ -578,13 +587,21 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
             // queda pendiente y se adjunta al crearla (handleSuccess).
-            try {
-                const base64 = await this.readFileAsBase64(file);
-                this._pdfPendiente = { base64, nombre: file.name };
-                this._pdfCargado = true;
-                await this.guardarPdfEnPoliza();
-            } catch (fileErr) {
-                // No bloquea: se reintenta al guardar la póliza.
+            // Un PDF grande no cabe en la llamada a Apex: se pide adjuntarlo en la vista de la póliza.
+            this._pdfCargado = true;
+            if (file.size > MAX_ADJUNTO_AUTOMATICO) {
+                this._pdfPendiente = null;
+                this.showToast('Adjunta el PDF al terminar',
+                    `El PDF pesa ${this.fmtMb(file.size)} y no se puede adjuntar automáticamente. Al guardar la póliza, súbelo en la sección «Archivos de la póliza».`,
+                    'warning');
+            } else {
+                try {
+                    const base64 = await this.readFileAsBase64(file);
+                    this._pdfPendiente = { base64, nombre: file.name };
+                    await this.guardarPdfEnPoliza();
+                } catch (fileErr) {
+                    // No bloquea: se reintenta al guardar la póliza.
+                }
             }
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
@@ -630,8 +647,16 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             });
             this._pdfPendiente = null;
         } catch (e) {
-            // Si falla, se conserva pendiente para reintentar al guardar la póliza.
+            // Se conserva pendiente para reintentar al guardar la póliza; si ya existe la póliza se avisa.
+            const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
+            this.showToast('No se pudo adjuntar el PDF',
+                `${msg}. Súbelo en la sección «Archivos de la póliza».`, 'warning');
         }
+    }
+
+    // Tamaño legible de un archivo ("12.8 MB").
+    fmtMb(bytes) {
+        return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
     }
 
     // Lee un archivo y devuelve su contenido en base64 (sin el prefijo data:).
@@ -694,6 +719,181 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         return filas
             .map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim())
             .join('\n');
+    }
+
+    // Vehículos de una póliza de flotilla / colectiva de autos (ej. Afirme: una carátula por inciso), leídos del texto
+    // completo (la IA solo recibe una parte): inciso, asegurado (nombre, RFC, domicilio, C.P., contratante, conductor),
+    // vehículo (marca, año, descripción, serie, placas, pasajeros, motor, uso, clave), coberturas principales y primas
+    // del inciso. Con menos de dos vehículos, [] (póliza individual).
+    vehiculosDesdeTexto(texto) {
+        const t = String(texto || '');
+        const inicio = /DATOS DEL ASEGURADO/gi;
+        const cortes = [];
+        let m;
+        while ((m = inicio.exec(t)) !== null) { cortes.push(m.index); }
+        const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+        const uno = (re, txt) => { const r = re.exec(txt); return r ? limpio(r[1]) : ''; };
+        const monto = (re, txt) => { const v = uno(re, txt); return v ? v.replace(/[$,\s]/g, '') : ''; };
+        const vehiculos = [];
+        const vistos = new Set();
+        cortes.forEach((desde, i) => {
+            const hasta = i + 1 < cortes.length ? cortes[i + 1] : t.length;
+            let bloque = t.substring(desde, hasta);
+            if (!/DATOS DEL VEH[IÍ]CULO/i.test(bloque) || !/N[uú]mero de Serie/i.test(bloque)) { return; }
+            const total = /Prima Total\s*:\s*\$?\s*[\d,]+(?:\.\d+)?/i.exec(bloque);
+            if (total) { bloque = bloque.substring(0, total.index + total[0].length); }
+            // Número de inciso: el del encabezado de la carátula (antes del bloque).
+            const incisos = t.substring(Math.max(0, desde - 800), desde).match(/Inciso\s*:\s*(\d+)/gi);
+            const inciso = incisos ? incisos[incisos.length - 1].replace(/\D/g, '') : '';
+
+            const asegurado = bloque.split(/DATOS DEL VEH[IÍ]CULO/i)[0];
+            const vehiculo = bloque.substring(asegurado.length);
+            // Domicilio: renglones entre "Nombre:" y "Contratante:" sin las etiquetas ni el RFC.
+            const domM = /Nombre\s*:[^\n]*\n([\s\S]*?)\n\s*Contratante\s*:/i.exec(asegurado);
+            const domicilio = domM
+                ? domM[1].split('\n')
+                    .map((r) => limpio(r.replace(/Domicilio\s*:/i, '').replace(/R\.?\s*F\.?\s*C\.?\s*:\s*\S*/i, '')))
+                    .filter((r) => r)
+                : [];
+            // Descripción: del "Tipo:" a "Placas:" sin "Version:" ni el número de serie.
+            const descM = /Tipo\s*:([\s\S]*?)\n\s*Placas\s*:/i.exec(vehiculo);
+            const renglones = descM
+                ? descM[1].replace(/Versi[oó]n\s*:/gi, ' ').replace(/N[uú]mero de Serie\s*:[ \t]*[A-Z0-9-]*/i, ' ')
+                    .split('\n').map(limpio).filter((r) => r)
+                : [];
+            let serie = uno(/N[uú]mero de Serie\s*:[ \t]*([A-Z0-9-]{5,})/i, vehiculo);
+            if (!serie) {
+                // Serie partida en dos renglones por el PDF ("LZWNNNGNXRC81530" + "5"): se une hasta 17 caracteres.
+                const base = renglones.find((r) => /^[A-Z0-9]{8,17}$/.test(r) && /\d/.test(r) && /[A-Z]/.test(r));
+                if (base) {
+                    const resto = renglones.find((r) => r !== base && /^[A-Z0-9]{1,9}$/.test(r) && (base + r).length === 17);
+                    serie = base + (resto || '');
+                    renglones.splice(renglones.indexOf(base), 1);
+                    if (resto) { renglones.splice(renglones.indexOf(resto), 1); }
+                }
+            }
+            const llave = serie || `inciso ${inciso}`;
+            if (vistos.has(llave)) { return; }
+            vistos.add(llave);
+            const uso = uno(/Uso\s*:\s*(.*?)\s+Clave\s*:/i, vehiculo);
+            const conductor = uno(/Conductor\s*:[ \t]*([^\n]*)/i, asegurado);
+            const dm = /DA[NÑ]OS MATERIALES\s+(VALOR [A-ZÁÉÍÓÚ]+)\s+([\d.]+)\s*%/i.exec(vehiculo);
+            const rt = /ROBO TOTAL\s+(VALOR [A-ZÁÉÍÓÚ]+)\s+([\d.]+)\s*%/i.exec(vehiculo);
+            vehiculos.push({
+                inciso,
+                asegurado: uno(/Nombre\s*:\s*([^\n]+)/i, asegurado),
+                rfc: uno(/R\.?\s*F\.?\s*C\.?\s*:\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i, asegurado),
+                domicilio: domicilio.join(', '),
+                calle: domicilio[0] || '',
+                ciudadEstado: domicilio.slice(1).join(' '),
+                cp: uno(/C\.\s*P\.\s*:?\s*(\d{5})/i, asegurado),
+                contratante: uno(/Contratante\s*:\s*(.*?)(?:\s+C\.\s*P\.|\n|$)/i, asegurado),
+                conductor: /[A-Za-zÁÉÍÓÚÑ]/.test(conductor) ? conductor : '',
+                marca: uno(/Marca\s*:\s*([^,\n]+?)\s*,?\s*Modelo\s*:/i, vehiculo),
+                anio: uno(/Modelo\s*:\s*((?:19|20)\d{2})/i, vehiculo),
+                descripcion: limpio(renglones.join(' ')),
+                serie,
+                placas: uno(/Placas\s*:\s*(\S+)/i, vehiculo),
+                pasajeros: uno(/Pasajeros\s*:\s*(\d+)/i, vehiculo),
+                motor: uno(/N[uú]mero de Motor\s*:\s*(\S+)/i, vehiculo),
+                uso,
+                tipoVehiculo: limpio(uso.split(/\s+USO\s+/i)[0]),
+                clave: uno(/Clave\s*:\s*([A-Z0-9-]+)/i, vehiculo),
+                tipoCarga: uno(/Tipo de Carga\s*:[ \t]*([^\n]*)/i, vehiculo),
+                tipoValor: dm ? limpio(dm[1]) : (rt ? limpio(rt[1]) : ''),
+                deducibleDM: dm ? dm[2] : '',
+                deducibleRT: rt ? rt[2] : '',
+                responsabilidadCivil: monto(/^RESPONSABILIDAD CIVIL\s+\$\s*([\d,]+(?:\.\d+)?)/im, vehiculo),
+                gastosMedicos: monto(/GASTOS M[EÉ]DICOS[^\n$]*\$\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                muerteConductor: monto(/AL CONDUCTOR\s+\$\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                primaNeta: monto(/Prima Neta\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                gastosExpedicion: monto(/Gastos de Expedici[oó]n\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                iva: monto(/I\.?\s*V\.?\s*A\.?\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                primaTotal: monto(/Prima Total\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo)
+            });
+        });
+        return vehiculos.length > 1 ? vehiculos : [];
+    }
+
+    // Ubicaciones de una póliza de Daños (ej. HDI "PÓLIZA MAESTRA": un inciso por ubicación), leídas del texto completo
+    // (la IA solo recibe una parte): domicilio, incisos, datos del inmueble ("Información de la Empresa": techos, muros,
+    // pisos, sótanos, cajones, zonas, giro...), suma asegurada de contenidos y prima del inciso. Sin ubicaciones, [].
+    ubicacionesDesdeTexto(texto) {
+        const t = String(texto || '');
+        const etiqueta = /(?:Domicilio de la Empresa|Domicilio del Riesgo|Ubicaci[oó]n del Riesgo|Ubicaci[oó]n Asegurada)\s*:\s*/gi;
+        const fin = /\n\s*(?:Informaci[oó]n de la Empresa|Muros|Consta de|Entrepisos|Giro|Techos|Sustancias|Pisos|Cliente|No\. P[oó]liza|Datos|Tipo de|BIENES)\b/i;
+        // Datos del inmueble: el valor llega hasta la siguiente etiqueta del renglón ("Muros: TABIQUE Entrepisos: NO APLICA").
+        const CAMPOS = {
+            techos: 'Techos', muros: 'Muros', entrepisos: 'Entrepisos', pisosAltos: 'Pisos Altos', sotanos: 'S[oó]tanos',
+            constaDe: 'Consta de', sustanciasExplosivas: 'Sustancias Explosivas', sustanciasInflamables: 'Sustancias Inflamables',
+            cajones: 'Cajones', zonaTev: 'Zona TEV', zonaFh: 'Zona FH', giro: 'Giro'
+        };
+        const numero = /^\d+$/;
+        const VALIDOS = {
+            pisosAltos: numero, sotanos: numero, cajones: numero, constaDe: /^[A-ZÁÉÍÓÚÑ][^:]*[A-Za-zÁÉÍÓÚÑ]$/i,
+            sustanciasExplosivas: /^[\d.,]+\s*(kg|%)?$/i, sustanciasInflamables: /^[\d.,]+\s*(kg|%)?$/i, zonaTev: /^[A-Z0-9]{1,4}$/i,
+            zonaFh: /^[A-Z0-9]{1,4}$/i
+        };
+        const siguiente = `(?=\\s+(?:${Object.values(CAMPOS).join('|')}|Porcentaje Multicl[aá]usula|Informaci[oó]n de la Empresa)\\s*:|\\n|$)`;
+        const monto = (v) => (v ? Number(String(v).replace(/[$,\s]/g, '')) : null);
+        const conIncisos = /Inciso:\s*\d+/i.test(t);
+        const porDireccion = new Map();
+        let m;
+        while ((m = etiqueta.exec(t)) !== null) {
+            const ini = m.index + m[0].length;
+            const resto = t.substring(ini, ini + 400);
+            const corte = resto.search(fin);
+            const direccion = (corte >= 0 ? resto.substring(0, corte) : resto.split('\n').slice(0, 2).join(' '))
+                .replace(/\s+/g, ' ').replace(/[,\s]+$/, '').trim();
+            if (direccion.length < 10) { continue; }
+            // El inciso es el último "Inciso: n" antes del domicilio.
+            const incisos = [...t.substring(Math.max(0, m.index - 1500), m.index).matchAll(/Inciso:\s*(\d+)/gi)];
+            const inciso = incisos.length ? incisos[incisos.length - 1][1] : '';
+            // La misma dirección (repetida en cada página del inciso o en otro inciso) es una sola ubicación.
+            const llave = direccion.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+            const u = porDireccion.get(llave) || { direccion, incisos: [] };
+            if (inciso && !u.incisos.includes(inciso)) { u.incisos.push(inciso); }
+            porDireccion.set(llave, u);
+            // En una póliza por incisos, los datos solo se toman de las páginas del inciso (no de la maestra).
+            if (conIncisos && !inciso) { continue; }
+            const datos = t.substring(ini, ini + 1500).split(/BIENES Y RIESGOS|SECCI[OÓ]N/i)[0];
+            Object.keys(CAMPOS).forEach((k) => {
+                if (u[k]) { return; }
+                const v = ((datos.match(new RegExp(`${CAMPOS[k]}\\s*:\\s*(.*?)${siguiente}`, 'i')) || [])[1] || '').trim();
+                // A veces el PDF desordena el renglón ("PLANTA BAJA Sustancias Explosivas: Consta de: 0.00KG"): solo se
+                // acepta un valor con la forma esperada.
+                if (VALIDOS[k] ? VALIDOS[k].test(v) : v && !v.includes(':')) { u[k] = v; }
+            });
+            if (!u.constaDe) {
+                const c = datos.match(/\n\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ,]+?)\s+Sustancias Explosivas/);
+                if (c) { u.constaDe = c[1].trim(); }
+            }
+            // Páginas del inciso: hasta que empieza otro inciso.
+            let ventana = t.substring(ini, ini + 15000);
+            const otro = [...ventana.matchAll(/Inciso:\s*(\d+)/gi)].find((x) => inciso && x[1] !== inciso);
+            if (otro) { ventana = ventana.substring(0, otro.index); }
+            if (u.sumaAsegurada == null) {
+                const s = ventana.match(/Todo Riesgo Incendio (?:Contenidos|Edificio)\s*\$\s*([\d,]+\.\d{2})/i);
+                if (s) { u.sumaAsegurada = monto(s[1]); }
+            }
+            if (u.primaNeta == null) {
+                // Renglón de montos bajo "Prima Neta ... Prima Total". Las columnas pueden venir desordenadas: el total es
+                // el mayor, el IVA el que equivale al 16% de la base (total / 1.16) y la prima neta el mayor de los demás.
+                const p = ventana.match(/Prima Neta[^\n]*Prima Total[^\n]*\n([^\n]+)/i);
+                const montos = p ? (p[1].match(/\$\s*[\d,]+\.\d{2}/g) || []).map(monto) : [];
+                if (montos.length >= 2) {
+                    const total = Math.max(...montos);
+                    const resto = [...montos];
+                    resto.splice(resto.indexOf(total), 1);
+                    const ivaEsperado = total * 0.16 / 1.16;
+                    const iva = resto.find((x) => Math.abs(x - ivaEsperado) <= Math.max(1, ivaEsperado * 0.01));
+                    if (iva !== undefined) { resto.splice(resto.indexOf(iva), 1); }
+                    u.primaTotal = total;
+                    u.primaNeta = Math.max(...resto);
+                }
+            }
+        }
+        return [...porDireccion.values()].map(({ incisos, ...u }) => ({ ...u, inciso: incisos.join(', ') }));
     }
 
     // Deja solo el número de PÓLIZA. Varias aseguradoras imprimen en el mismo renglón las
@@ -1085,6 +1285,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 monto: this.fmtCurrency(t.monto),
                 fecha: this.fmtDate(t.fecha)
             }));
+            this.archivos = (reg.archivos || []).map((a) => ({
+                id: a.id,
+                nombre: a.extension ? `${a.nombre}.${a.extension}` : a.nombre,
+                tamano: a.tamano != null ? this.fmtMb(a.tamano) : '',
+                esPdf: (a.extension || '').toLowerCase() === 'pdf'
+            }));
         } catch (e) {
             // Silencioso: si falla, la vista igual muestra el resto de la póliza.
             console.warn('PolicyCreator::: no se pudieron cargar los registros de la póliza', e);
@@ -1095,6 +1301,26 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     get hasParticipantes() { return this.participantes && this.participantes.length > 0; }
     get hasBienes() { return this.bienes && this.bienes.length > 0; }
     get hasTransacciones() { return this.transacciones && this.transacciones.length > 0; }
+    get hasArchivos() { return this.archivos && this.archivos.length > 0; }
+    // Sin PDF adjunto se resalta el cargador para subir el de la póliza.
+    get faltaPdf() { return !!this.policyId && !(this.archivos || []).some((a) => a.esPdf); }
+    get archivosClase() { return this.faltaPdf ? 'ro-section ro-archivos ro-archivos--falta' : 'ro-section ro-archivos'; }
+
+    // Archivos subidos con el cargador estándar (ya quedan ligados a la póliza).
+    handleArchivoSubido(event) {
+        const n = ((event.detail && event.detail.files) || []).length;
+        this.showToast('Archivos de la póliza', n === 1 ? 'Archivo adjuntado a la póliza.' : `${n} archivos adjuntados a la póliza.`, 'success');
+        this.loadRegistrosPoliza();
+    }
+
+    // Abre la vista previa del archivo.
+    handleVerArchivo(event) {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__namedPage',
+            attributes: { pageName: 'filePreview' },
+            state: { selectedRecordId: event.currentTarget.dataset.id }
+        });
+    }
 
     get hasQuoteCards() {
         return this.quoteCards && this.quoteCards.length > 0;

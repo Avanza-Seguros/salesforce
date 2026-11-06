@@ -192,6 +192,11 @@ private class PdfOpportunityCreatorControllerTest {
         System.assert(!PdfOpportunityCreatorController.parseFullComparisonJson('```json\n{"a":1}\n```').isEmpty());
         System.assert(PdfOpportunityCreatorController.parseFullComparisonJson('sin json').isEmpty());
         System.assert(PdfOpportunityCreatorController.parseFullComparisonJson('').isEmpty());
+        // Respuesta cortada a media tabla HTML: se rescatan las cotizaciones.
+        Map<String, Object> cortada = PdfOpportunityCreatorController.parseFullComparisonJson(
+            '{"ramo":"Viajes","aseguradoras":[{"nombre":"Continental Assist","plan":"Total"}],"glosario":[],'
+            + '"comparativo_html":"<html><table><tr><td class="x">{Total}');
+        System.assertEquals(1, ((List<Object>) cortada.get('aseguradoras')).size(), 'Cotizaciones rescatadas');
 
         System.assertEquals('', PdfOpportunityCreatorController.sharedFilenamePrefix(new List<String>{ 'abc.pdf', 'xyz.pdf' }));
         System.assertEquals('auto', PdfOpportunityCreatorController.sharedFilenamePrefix(new List<String>{ 'auto-hdi.pdf', 'auto-gnp.pdf' }));
@@ -260,7 +265,7 @@ private class PdfOpportunityCreatorControllerTest {
         insert acc;
         Opportunity opp = new Opportunity(
             Name = 'Oportunidad Dup', StageName = activeStage(),
-            CloseDate = Date.today().addDays(15), AccountId = acc.Id
+            CloseDate = Date.today().addDays(15), AccountId = acc.Id, Ramo__c = 'Vida'
         );
         insert opp;
 
@@ -357,6 +362,40 @@ private class PdfOpportunityCreatorControllerTest {
             PdfOpportunityCreatorController.llaveCotizacion(d), '"(dup)" debe detectarse como repetida');
         System.assertNotEquals(PdfOpportunityCreatorController.llaveCotizacion(a),
             PdfOpportunityCreatorController.llaveCotizacion(c), 'Planes distintos no son duplicados');
+
+        // Un mismo PDF con varios planes (ej. Continental Total / Maximus): son cotizaciones distintas.
+        Map<String, Object> e = new Map<String, Object>{
+            'nombre' => 'Continental Assist', 'plan' => 'Total',
+            'archivo_origen' => 'OCTAVIO - CONTINENTAL.pdf', 'prima_total' => 86.40
+        };
+        Map<String, Object> f = new Map<String, Object>{
+            'nombre' => 'Continental Assist', 'plan' => 'Maximus',
+            'archivo_origen' => 'OCTAVIO - CONTINENTAL.pdf', 'prima_total' => 105.60
+        };
+        System.assertNotEquals(PdfOpportunityCreatorController.llaveCotizacion(e),
+            PdfOpportunityCreatorController.llaveCotizacion(f), 'Planes del mismo PDF no son duplicados');
+    }
+
+    /**
+     * @creation date: 22/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que la aseguradora se tome del nombre del archivo cuando la IA no la reconoce.
+     * @return void
+     */
+    @isTest
+    static void testAseguradoraDesdeArchivo() {
+        insert new Aseguradora__c(Name = 'Continental Assist');
+        List<Object> raw = new List<Object>{
+            new Map<String, Object>{ 'nombre' => 'Desconocida', 'plan' => 'Total' },
+            new Map<String, Object>{ 'nombre' => 'OCTAVIO PEREZ - CONTINENTAL', 'plan' => 'Maximus' },
+            new Map<String, Object>{ 'nombre' => '', 'plan' => 'Supreme' }
+        };
+        Map<String, String> ren = PdfOpportunityCreatorController.aseguradoraDesdeArchivo(raw,
+            new List<String>{ 'OCTAVIO PEREZ - CONTINENTAL.pdf' });
+        for (Object o : raw) {
+            System.assertEquals('Continental Assist', ((Map<String, Object>) o).get('nombre'), 'Aseguradora tomada del archivo');
+        }
+        System.assertEquals('Continental Assist', ren.get('Desconocida'), 'Se informa el cambio de nombre');
     }
 
     /**
@@ -432,7 +471,7 @@ private class PdfOpportunityCreatorControllerTest {
      * @return Oportunidad creada
      */
     static Opportunity oportunidadConCatalogo() {
-        Account acc = new Account(Name = 'Cliente Cotizaciones PDF');
+        Account acc = new Account(Name = 'Cliente Cotizaciones PDF', AnnualRevenue = 100);
         insert acc;
         Opportunity opp = new Opportunity(Name = 'Opp Cotizaciones PDF', StageName = activeStage(),
             CloseDate = Date.today().addDays(30), AccountId = acc.Id, Ramo__c = 'Vida');
@@ -533,6 +572,30 @@ private class PdfOpportunityCreatorControllerTest {
     }
 
     /**
+     * @creation date: 25/10/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Valida que volver a subir un PDF con el mismo nombre, o regenerar el comparativo, no duplique
+     * archivos en la oportunidad.
+     * @return void
+     */
+    @isTest
+    static void testArchivosNoSeDuplican() {
+        Opportunity opp = oportunidadConCatalogo();
+        String base64 = EncodingUtil.base64Encode(Blob.valueOf('PDF COTIZACION'));
+        PdfOpportunityCreatorController.actualizarComparativoOpp(opp.Id, '<html><body>Comparativo</body></html>');
+        Test.startTest();
+        Id doc1 = PdfOpportunityCreatorController.guardarArchivoEnOportunidad(opp.Id, 'GNP.pdf', base64);
+        Id doc2 = PdfOpportunityCreatorController.guardarArchivoEnOportunidad(opp.Id, 'GNP.pdf', base64);
+        Id cmp1 = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, 'Cliente');
+        Id cmp2 = PdfOpportunityCreatorController.guardarComparativoPdf(opp.Id, 'Cliente');
+        Test.stopTest();
+        System.assertEquals(doc1, doc2, 'El mismo PDF no se vuelve a subir');
+        System.assertEquals(cmp1, cmp2, 'El comparativo se guarda como nueva versión del mismo archivo');
+        System.assertEquals(2, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :opp.Id],
+            'Solo un PDF de cotización y un comparativo');
+    }
+
+    /**
      * @creation date: 11/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que prepararCotizaciones resuelva la aseguradora por siglas, liste sus productos y
@@ -544,13 +607,16 @@ private class PdfOpportunityCreatorControllerTest {
         oportunidadConCatalogo();
         Product2 prod = [SELECT Id, Aseguradora__c FROM Product2 WHERE Name = 'IMAGINA SER 65'];
         List<Object> quotes = new List<Object>{
-            new Map<String, Object>{ 'id' => 'q1', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Imagina Ser 65 - 15 pagos' }
+            new Map<String, Object>{ 'id' => 'q1', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Imagina Ser 65 - 15 pagos' },
+            // Plan que no existe en el catálogo: no se preselecciona ningún producto.
+            new Map<String, Object>{ 'id' => 'q2', 'compania' => 'SMNYL', 'ramo' => 'Vida', 'plan' => 'Plan Inexistente Zeta' }
         };
         Test.startTest();
         List<Map<String, Object>> res = PdfOpportunityCreatorController.prepararCotizaciones(JSON.serialize(quotes));
         Test.stopTest();
         System.assertEquals(prod.Aseguradora__c, res[0].get('aseguradoraId'), 'SMNYL = Seguros Monterrey NYL');
         System.assertEquals(prod.Id, res[0].get('productoSugeridoId'), 'Sugiere el producto que coincide con el plan');
+        System.assertEquals(null, res[1].get('productoSugeridoId'), 'Sin coincidencia no se sugiere producto');
     }
 
     /**
@@ -582,7 +648,8 @@ private class PdfOpportunityCreatorControllerTest {
         Map<String, String> ramos = new Map<String, String>{
             'Viajes Internacional' => 'Viajes', 'Daños a casa' => 'Danos', 'Paquete Empresarial' => 'Empresarial',
             'Fianzas' => 'Fianzas', 'Plan Dental' => 'Dental', 'Visión' => 'Vision', 'Responsabilidad civil' => 'RC',
-            'Gastos Médicos' => 'GMM', 'Otro ramo' => 'Otro ramo'
+            'Gastos Médicos' => 'GMM', 'Otro ramo' => 'Otro ramo', 'Mascotas' => 'Mascotas',
+            'Gastos médicos veterinarios' => 'Mascotas'
         };
         for (String r : ramos.keySet()) {
             System.assertEquals(ramos.get(r), PdfOpportunityCreatorController.mapRamoToFormValue(r), r);

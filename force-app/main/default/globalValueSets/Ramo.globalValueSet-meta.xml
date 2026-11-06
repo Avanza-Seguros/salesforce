@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <customValue>
+        <fullName>Mascotas</fullName>
+        <default>false</default>
+        <label>Mascotas</label>
+    </customValue>
+    <customValue>
         <fullName>Automoviles</fullName>
         <default>false</default>
         <label>Automóviles</label>

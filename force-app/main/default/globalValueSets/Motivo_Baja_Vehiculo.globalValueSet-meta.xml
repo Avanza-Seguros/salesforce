@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Venta</fullName>
+        <default>false</default>
+        <label>Venta del vehículo</label>
+    </customValue>
+    <customValue>
+        <fullName>Perdida_total</fullName>
+        <default>false</default>
+        <label>Pérdida total (siniestro)</label>
+    </customValue>
+    <customValue>
+        <fullName>Robo</fullName>
+        <default>false</default>
+        <label>Robo total</label>
+    </customValue>
+    <customValue>
+        <fullName>Sustitucion</fullName>
+        <default>false</default>
+        <label>Sustitución por otra unidad</label>
+    </customValue>
+    <customValue>
+        <fullName>Fin_arrendamiento</fullName>
+        <default>false</default>
+        <label>Fin del arrendamiento</label>
+    </customValue>
+    <customValue>
+        <fullName>Fuera_operacion</fullName>
+        <default>false</default>
+        <label>Unidad fuera de operación</label>
+    </customValue>
+    <customValue>
+        <fullName>Solicitud_contratante</fullName>
+        <default>false</default>
+        <label>Solicitud del contratante</label>
+    </customValue>
+    <customValue>
+        <fullName>Falta_pago</fullName>
+        <default>false</default>
+        <label>Falta de pago</label>
+    </customValue>
+    <customValue>
+        <fullName>Otro_seguro</fullName>
+        <default>false</default>
+        <label>Asegurado con otra póliza</label>
+    </customValue>
+    <customValue>
+        <fullName>Error_censo</fullName>
+        <default>false</default>
+        <label>Error en el censo</label>
+    </customValue>
+    <customValue>
+        <fullName>No_renovado</fullName>
+        <default>false</default>
+        <label>No se renueva</label>
+    </customValue>
+    <customValue>
+        <fullName>Otro</fullName>
+        <default>false</default>
+        <label>Otro</label>
+    </customValue>
+    <description>Motivos de baja de un vehículo de una flotilla (endoso o renovación).</description>
+    <masterLabel>Motivo de baja de vehículo</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

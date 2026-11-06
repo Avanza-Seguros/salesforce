@@ -594,6 +594,13 @@
                         </div>
                         <div class="section-badge">Opcional</div>
                     </div>
+                    <!-- Aviso: datos del asegurado que no venían en las cotizaciones PDF -->
+                    <template if:true={avisoDatosAsegurado}>
+                        <div class="readonly-banner datos-asegurado-banner">
+                            <lightning-icon icon-name="utility:warning" size="x-small"></lightning-icon>
+                            <span>{avisoDatosAsegurado}</span>
+                        </div>
+                    </template>
                     <div class="form-container">
                         <div class="form-grid two-columns">
                             <div class="form-column">
@@ -1151,26 +1158,6 @@
                     </div>
                 </template>
                 <!-- Censo de asegurados de la contratación COLECTIVA (GroupCensus) -->
-                <!-- Flotilla (Colectiva de Automóviles): cotizaciones por inciso de cada aseguradora -->
-                <template if:true={isFlotilla}>
-                    <div class="unified-section">
-                        <div class="section-header-compact">
-                            <div class="section-icon">
-                                <lightning-icon icon-name="standard:asset_object" size="small"></lightning-icon>
-                            </div>
-                            <div class="section-title-group">
-                                <h2 class="section-title">Flotilla</h2>
-                                <p class="section-subtitle">Cotizaciones por inciso de cada aseguradora y comparativo</p>
-                            </div>
-                            <div class="section-badge">{flotillaBadge}</div>
-                        </div>
-                        <div class="form-container">
-                            <c-flotilla-colectiva opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
-                                modo="carga" onflotillaactualizada={handleFlotillaActualizada}
-                                oncotizacioncreada={handleCotizacionColectiva}></c-flotilla-colectiva>
-                        </div>
-                    </div>
-                </template>
                 <template if:true={isCensoPersonas}>
                     <div class="unified-section">
                         <div class="section-header-compact">
@@ -1186,10 +1173,37 @@
                         <div class="form-container">
                             <c-censo-colectivo opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
                                 oncensoactualizado={handleCensoActualizado}></c-censo-colectivo>
+                            <c-movimientos-colectivo record-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                onmovimientos={handleMovimientosCenso}></c-movimientos-colectivo>
                         </div>
                     </div>
                 </template>
-                <!-- Cotizaciones colectivas (personas: GMM, Vida, AP, Dental, Visión, Viajes; ubicaciones: Daños, Empresarial): una por aseguradora y comparativo -->
+                <!-- Censo de vehículos de la FLOTILLA (Inciso_Flotilla__c de la oportunidad, sin cotización) -->
+                <template if:true={isFlotilla}>
+                    <div class="unified-section">
+                        <div class="section-header-compact">
+                            <div class="section-icon">
+                                <lightning-icon icon-name="standard:custom_notification" size="small"></lightning-icon>
+                            </div>
+                            <div class="section-title-group">
+                                <h2 class="section-title">Censo de vehículos</h2>
+                                <p class="section-subtitle">Vehículos de la flotilla: serie, placas, tipo, uso y valor</p>
+                            </div>
+                            <div class="section-badge">{censoVehiculosBadge}</div>
+                        </div>
+                        <div class="form-container">
+                            <c-censo-vehiculos opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                oncensoactualizado={handleCensoVehiculosActualizado}></c-censo-vehiculos>
+                            <c-movimientos-flotilla record-id={opportunity.Id} read-only={isOpportunityReadOnly}
+                                onmovimientos={handleMovimientosVehiculos}></c-movimientos-flotilla>
+                        </div>
+                    </div>
+                </template>
+                <!-- Renovación de una colectiva de Daños / Empresarial: listado de ubicaciones (se muestra solo si renueva una póliza) -->
+                <template if:true={isColectivaUbicaciones}>
+                    <c-movimientos-ubicaciones record-id={opportunity.Id} read-only={isOpportunityReadOnly}></c-movimientos-ubicaciones>
+                </template>
+                <!-- Cotizaciones colectivas (personas, ubicaciones y autos): una por aseguradora, sin comparativo -->
                 <template if:true={mostrarCotizacionesColectivas}>
                     <div class="unified-section">
                         <div class="section-header-compact">
@@ -1203,7 +1217,7 @@
                             <div class="section-badge">{colectivoBadge}</div>
                         </div>
                         <div class="form-container">
-                            <c-colectivo-personas opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
+                            <c-colectivo-personas data-carga="true" opportunity-id={opportunity.Id} read-only={isOpportunityReadOnly} ramo={opportunity.Ramo__c}
                                 modo="carga" oncolectivoactualizado={handleColectivoActualizado}
                                 oncotizacioncreada={handleCotizacionColectiva}></c-colectivo-personas>
                         </div>
@@ -1263,6 +1277,7 @@
                                     onanalysisstart={handlePdfAnalyzing}
                                     onanalysisdone={handlePdfAnalyzingDone}
                                     onpdfdataextracted={handlePDFDataExtracted}
+                                    oncolectivoarchivos={handleColectivoArchivos}
                                     onanalysiscomplete={handlePdfAnalysisComplete}>
                                 </c-pdf-opportunity-creator>
                             </div>
@@ -1412,6 +1427,11 @@
                                                 <template if:true={q.sinProductos}>
                                                     <p class="eq-warn">No hay productos de esta aseguradora/ramo. Elige otro o da uno de alta.</p>
                                                 </template>
+                                                <button class="eq-refresh" data-index={idx} onclick={handleRecargarProductos}
+                                                    title="Si diste de alta el producto en otra pestaña, vuelve a consultar la lista">
+                                                    <lightning-icon icon-name="utility:refresh" size="xx-small"></lightning-icon>
+                                                    Actualizar lista de productos
+                                                </button>
                                             </div>
                                             <div class="eq-row">
                                                 <lightning-input label="Plan" value={q.plan}
@@ -1694,7 +1714,7 @@
                 <!-- En modo CREACIÓN -->
                 <template if:false={isEditMode}>
                     <!-- Comparativa (vista previa desde PDFs, sin guardar) -->
-                    <template if:true={hasQuoteComparison}>
+                    <template if:true={mostrarComparativaPrevia}>
                         <div class="unified-section comparison-section">
                             <div class="section-header-compact">
                                 <div class="section-icon compare-icon">
@@ -1929,6 +1949,7 @@
             <div class="content-container glass-effect unified-view pdf-view-container">
                 <c-pdf-opportunity-creator
                     onpdfdataextracted={handlePDFDataExtracted}
+                    oncolectivoarchivos={handleColectivoArchivos}
                     onanalysiscomplete={handlePdfAnalysisComplete}>
                 </c-pdf-opportunity-creator>
             </div>
@@ -1966,6 +1987,11 @@
                                 <p>Esta oportunidad no tiene archivos.</p>
                             </template>
                         </template>
+                        <!-- Cargador estándar: admite archivos grandes que no caben en la llamada a Apex -->
+                        <div class="slds-m-top_medium">
+                            <lightning-file-upload label="Adjuntar archivos" name="archivosOportunidad" record-id={archivosOppId}
+                                accept=".pdf,.xlsx,.xls,.csv,.docx,.jpg,.png" onuploadfinished={handleArchivoOppSubido} multiple></lightning-file-upload>
+                        </div>
                     </div>
                     <footer class="slds-modal__footer">
                         <button class="action-btn secondary" onclick={closeArchivosModal}>Cerrar</button>

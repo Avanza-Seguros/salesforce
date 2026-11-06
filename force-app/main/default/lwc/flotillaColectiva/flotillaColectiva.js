@@ -86,6 +86,7 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     paginaComparativo = 1;
     _opportunityId;
     _tabla = null;
+    _cola = [];
 
     @api
     get opportunityId() { return this._opportunityId; }
@@ -446,6 +447,24 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         const file = event.target.files && event.target.files[0];
         event.target.value = null;
         if (!file) { return; }
+        this._cola = [];
+        await this.leerArchivo(file);
+    }
+
+    // Archivos subidos en "Crear desde PDFs": se leen uno por uno; al guardar o cancelar uno sigue el siguiente.
+    @api
+    async cargarArchivos(files) {
+        this._cola = [...(files || [])];
+        await this.siguienteArchivo();
+    }
+
+    async siguienteArchivo() {
+        const file = (this._cola || []).shift();
+        if (file) { await this.leerArchivo(file); }
+    }
+
+    async leerArchivo(file) {
+        let fallo = false;
         this.archivoNombre = file.name;
         this.errorMensaje = '';
         this.encabezado = this.encabezadoVacio();
@@ -467,11 +486,14 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             }
             this.prepararMapeo();
         } catch (e) {
-            this.toast('Flotilla', this.mensaje(e), 'error');
+            this.toast('Flotilla', `${file.name}: ${this.mensaje(e)}`, 'error');
+            this.paso = 'resumen';
+            fallo = true;
         } finally {
             this.cargando = false;
             this.progreso = '';
         }
+        if (fallo) { await this.siguienteArchivo(); }
     }
 
     // Las cotizaciones suelen traer una hoja de presentación y otra con el detalle ("Cotiza", "Detalle", "Incisos").
@@ -601,6 +623,10 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
     }
 
     cancelar() {
+        this.limpiar();
+        this.siguienteArchivo();
+    }
+    limpiar() {
         this.errorMensaje = '';
         this.paso = 'resumen';
         this.renglones = [];
@@ -867,6 +893,7 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         }
         this.cargando = true;
         this.progreso = 'Guardando cotización…';
+        let guardada = false;
         try {
             const datos = {
                 aseguradoraId: this.encabezado.aseguradoraId,
@@ -888,7 +915,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             };
             await guardarCotizacionFlotilla({ opportunityId: this._opportunityId, datosJson: JSON.stringify(datos) });
             this.toast('Flotilla', `Cotización guardada: ${datos.incisos.length} incisos.`, 'success');
-            this.cancelar();
+            this.limpiar();
+            guardada = true;
             await this.cargarFlotilla();
             // La cotización también es un Quote de la oportunidad: el padre refresca su lista.
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
@@ -898,6 +926,7 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             this.cargando = false;
             this.progreso = '';
         }
+        if (guardada) { await this.siguienteArchivo(); }
     }
 
     // ============================================================

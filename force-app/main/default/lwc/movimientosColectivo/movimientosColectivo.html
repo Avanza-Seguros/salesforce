@@ -1,0 +1,465 @@
+<template>
+    <template if:true={noAplica}>
+        <template if:true={esFlotilla}>
+            <c-movimientos-flotilla record-id={recordId} read-only={readOnly}></c-movimientos-flotilla>
+        </template>
+        <template if:true={esUbicaciones}>
+            <c-movimientos-ubicaciones record-id={recordId} read-only={readOnly}></c-movimientos-ubicaciones>
+        </template>
+        <template if:true={sinMovimientosBienes}>
+            <div class="mov-vacio">
+                <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                <p>Esta póliza asegura ubicaciones: sus altas y bajas se manejan en los bienes de la póliza.</p>
+            </div>
+        </template>
+    </template>
+    <template if:true={visible}>
+        <div class="mov">
+            <template if:true={cargando}>
+                <div class="mov-cargando"><lightning-spinner alternative-text="Procesando" size="small"></lightning-spinner></div>
+            </template>
+
+            <div class="mov-encabezado">
+                <div>
+                    <h3 class="mov-titulo">{titulo}</h3>
+                    <p class="mov-subtitulo">{subtitulo}</p>
+                </div>
+                <template if:true={enOportunidad}>
+                    <lightning-button label={textoAbrir} onclick={toggleAbierto}></lightning-button>
+                </template>
+            </div>
+
+            <template if:true={errorMensaje}>
+                <div class="mov-error" role="alert">
+                    <lightning-icon icon-name="utility:error" variant="error" size="x-small"></lightning-icon>
+                    <span>{errorMensaje}</span>
+                </div>
+            </template>
+
+            <template if:true={mostrarCuerpo}>
+                <div class="mov-stats">
+                    <div class="stat"><span class="stat-num">{totalVigentes}</span><span class="stat-lbl">Vigentes</span></div>
+                    <div class="stat"><span class="stat-num">{totalTitulares}</span><span class="stat-lbl">Titulares</span></div>
+                    <div class="stat"><span class="stat-num">{totalDependientes}</span><span class="stat-lbl">Dependientes</span></div>
+                    <template if:true={enPoliza}>
+                        <div class="stat stat-baja"><span class="stat-num">{totalBajas}</span><span class="stat-lbl">Dados de baja</span></div>
+                    </template>
+                </div>
+
+                <!-- ====================== LISTA ====================== -->
+                <template if:true={enLista}>
+                    <template if:true={puedeTraer}>
+                        <div class="mov-aviso">
+                            <lightning-icon icon-name="utility:refresh" size="x-small"></lightning-icon>
+                            <span>Si el ejecutivo arma la renovación, parte de los asegurados vigentes de la póliza anterior y después aplica las altas, bajas y cambios.
+                                Si la aseguradora mandó el censo nuevo, usa «Cargar archivo».</span>
+                            <lightning-button label={textoTraer} icon-name="utility:download" onclick={handleTraer}></lightning-button>
+                        </div>
+                    </template>
+
+                    <div class="mov-barra">
+                        <div class="mov-filtros">
+                            <lightning-input type="search" label="Buscar" variant="label-hidden" placeholder="Buscar por nombre, certificado o categoría"
+                                value={busqueda} onchange={handleBusqueda} class="mov-buscar"></lightning-input>
+                            <template if:true={enPoliza}>
+                                <lightning-combobox label="Mostrar" variant="label-hidden" value={filtro} options={opcionesFiltro}
+                                    onchange={handleFiltro} class="mov-filtro"></lightning-combobox>
+                            </template>
+                        </div>
+                        <div class="mov-acciones">
+                            <template if:true={puedeEditar}>
+                                <lightning-button label="Alta de asegurado" icon-name="utility:adduser" onclick={abrirAlta}></lightning-button>
+                                <lightning-button label={textoBajaSeleccion} icon-name="utility:remove_user" variant="destructive-text"
+                                    onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
+                                <lightning-button label="Cargar archivo" icon-name="utility:upload" onclick={verArchivo}></lightning-button>
+                            </template>
+                            <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
+                        </div>
+                    </div>
+
+                    <template if:true={sinAsegurados}>
+                        <div class="mov-vacio">
+                            <lightning-icon icon-name="standard:groups" size="small"></lightning-icon>
+                            <p>No hay asegurados todavía.</p>
+                        </div>
+                    </template>
+                    <template if:false={sinAsegurados}>
+                        <div class="mov-scroll">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col" class="col-check"></th>
+                                        <th scope="col">Certificado</th>
+                                        <th scope="col">Nombre</th>
+                                        <th scope="col">Parentesco</th>
+                                        <th scope="col">Categoría</th>
+                                        <th scope="col">Nacimiento</th>
+                                        <th scope="col">Alta</th>
+                                        <th scope="col" class="num">Suma asegurada</th>
+                                        <th scope="col" class="num">Prima</th>
+                                        <th scope="col">Estado</th>
+                                        <th scope="col" class="col-acciones"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={filas} for:item="m">
+                                        <tr key={m.id} class={m.claseFila}>
+                                            <td class="col-check">
+                                                <template if:false={m.noSeleccionable}>
+                                                    <input type="checkbox" data-id={m.id} checked={m.seleccionado} onchange={handleSeleccion}
+                                                        aria-label="Seleccionar asegurado" />
+                                                </template>
+                                            </td>
+                                            <td>{m.certificado}</td>
+                                            <td>
+                                                <div class="nombre">{m.nombre}</div>
+                                                <template if:false={m.esTitular}><div class="sub">de {m.titularNombre}</div></template>
+                                            </td>
+                                            <td>{m.parentesco}</td>
+                                            <td>{m.categoria}</td>
+                                            <td>{m.nacimientoTxt}</td>
+                                            <td>{m.altaTxt}</td>
+                                            <td class="num">{m.sumaTxt}</td>
+                                            <td class="num">{m.primaTxt}</td>
+                                            <td>
+                                                <span class={m.claseEstado}>{m.estado}</span>
+                                                <template if:true={m.motivoBaja}><div class="sub">{m.motivoBaja}</div></template>
+                                            </td>
+                                            <td class="col-acciones">
+                                                <template if:true={m.puedeMover}>
+                                                    <lightning-button-icon icon-name="utility:edit" alternative-text="Cambiar datos" title="Cambiar datos"
+                                                        data-id={m.id} onclick={abrirCambio} size="small"></lightning-button-icon>
+                                                    <lightning-button-icon icon-name="utility:remove_user" alternative-text="Dar de baja" title="Dar de baja"
+                                                        data-id={m.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
+                                                </template>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mov-paginacion">
+                            <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anterior} disabled={sinAnterior}></lightning-button-icon>
+                            <span>{textoPagina}</span>
+                            <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguiente} disabled={sinSiguiente}></lightning-button-icon>
+                        </div>
+                    </template>
+                </template>
+
+                <!-- ====================== ARCHIVO ====================== -->
+                <template if:true={enArchivo}>
+                    <div class="mov-paso">
+                        <lightning-radio-group label="¿Qué trae el archivo?" options={opcionesCenso} value={censoCompleto}
+                            onchange={handleCensoCompleto} type="button"></lightning-radio-group>
+                    </div>
+                    <c-censo-colectivo modo="lector" onleido={handleLeido}></c-censo-colectivo>
+                    <div class="mov-pie">
+                        <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
+                    </div>
+                </template>
+
+                <!-- ====================== REVISIÓN DEL ARCHIVO ====================== -->
+                <template if:true={enRevision}>
+                    <div class="mov-paso">
+                        <strong>Diferencias de {archivoNombre} contra los asegurados vigentes</strong>
+                        <p class="sub">{textoSinCambios} Desmarca lo que no quieras aplicar.</p>
+                    </div>
+
+                    <template if:true={sinDiferencias}>
+                        <div class="mov-vacio"><p>El archivo coincide con los asegurados vigentes: no hay movimientos.</p></div>
+                    </template>
+
+                    <template if:false={sinDiferencias}>
+                        <div class="slds-grid slds-wrap slds-gutters_x-small modal-form">
+                            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                                <lightning-input type="date" label={etiquetaFecha} value={comun.fecha} data-campo="fecha" onchange={handleComun} required></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                                <lightning-input label="Número de endoso" value={comun.endoso} data-campo="endoso" onchange={handleComun}></lightning-input>
+                            </div>
+                            <template if:true={hayBajas}>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
+                                    <lightning-combobox label="Motivo de baja (general)" value={comun.motivo} options={motivos}
+                                        data-campo="motivo" onchange={handleComun} placeholder="Selecciona"></lightning-combobox>
+                                </div>
+                            </template>
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
+                                <lightning-input label="Comentario" value={comun.comentario} data-campo="comentario" onchange={handleComun} max-length="255"></lightning-input>
+                            </div>
+                        </div>
+
+                        <template if:true={hayBajas}>
+                            <h4 class="mov-seccion seccion-baja">{textoBajas}</h4>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                    <thead><tr>
+                                        <th class="col-check"><input type="checkbox" data-lista="bajas" checked onchange={marcarTodos} aria-label="Todas" /></th>
+                                        <th>Certificado</th><th>Nombre</th><th>Parentesco</th><th>Motivo (si es distinto al general)</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={bajasRev} for:item="b">
+                                            <tr key={b.key}>
+                                                <td class="col-check"><input type="checkbox" data-lista="bajas" data-key={b.key} checked={b.sel} onchange={marcar} aria-label="Aplicar" /></td>
+                                                <td>{b.certificado}</td>
+                                                <td><div class="nombre">{b.nombre}</div><template if:true={b.titularNombre}><div class="sub">de {b.titularNombre}</div></template></td>
+                                                <td>{b.parentesco}</td>
+                                                <td class="col-motivo">
+                                                    <lightning-combobox label="Motivo" variant="label-hidden" value={b.motivo} options={motivos}
+                                                        data-key={b.key} onchange={motivoBaja} placeholder="General"></lightning-combobox>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+
+                        <template if:true={hayAltas}>
+                            <h4 class="mov-seccion seccion-alta">{textoAltas}</h4>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                    <thead><tr>
+                                        <th class="col-check"><input type="checkbox" data-lista="altas" checked onchange={marcarTodos} aria-label="Todas" /></th>
+                                        <th>Certificado</th><th>Nombre</th><th>Parentesco</th><th>Categoría</th><th>Nacimiento</th>
+                                        <th class="num">Suma asegurada</th><th class="num">Prima</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={altasRev} for:item="a">
+                                            <tr key={a.key}>
+                                                <td class="col-check"><input type="checkbox" data-lista="altas" data-key={a.key} checked={a.sel} onchange={marcar} aria-label="Aplicar" /></td>
+                                                <td>{a.certificado}</td>
+                                                <td><div class="nombre">{a.nombre}</div><template if:true={a.titularNombre}><div class="sub">de {a.titularNombre}</div></template></td>
+                                                <td>{a.parentesco}</td>
+                                                <td>{a.categoria}</td>
+                                                <td>{a.nacimientoTxt}</td>
+                                                <td class="num">{a.sumaTxt}</td>
+                                                <td class="num">{a.primaTxt}</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+
+                        <template if:true={hayCambios}>
+                            <h4 class="mov-seccion seccion-cambio">{textoCambios}</h4>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                    <thead><tr>
+                                        <th class="col-check"><input type="checkbox" data-lista="cambios" checked onchange={marcarTodos} aria-label="Todos" /></th>
+                                        <th>Certificado</th><th>Nombre</th><th>Cambios</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={cambiosRev} for:item="c">
+                                            <tr key={c.key}>
+                                                <td class="col-check"><input type="checkbox" data-lista="cambios" data-key={c.key} checked={c.sel} onchange={marcar} aria-label="Aplicar" /></td>
+                                                <td>{c.certificado}</td>
+                                                <td><div class="nombre">{c.nombre}</div></td>
+                                                <td>
+                                                    <template for:each={c.difs} for:item="d"><div key={d.key}>{d.texto}</div></template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+                    </template>
+
+                    <div class="mov-pie">
+                        <lightning-button label="Cancelar" onclick={verLista}></lightning-button>
+                        <lightning-button label="Cargar otro archivo" onclick={verArchivo}></lightning-button>
+                        <template if:false={sinDiferencias}>
+                            <lightning-button label="Aplicar movimientos" variant="brand" icon-name="utility:check" onclick={aplicarRevision}></lightning-button>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- ====================== HISTORIAL ====================== -->
+                <template if:true={enHistorial}>
+                    <template if:true={sinHistorial}>
+                        <div class="mov-vacio"><p>Aún no hay movimientos registrados.</p></div>
+                    </template>
+                    <template if:false={sinHistorial}>
+                        <div class="mov-scroll">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                <thead><tr>
+                                    <th>Movimiento</th><th>Tipo</th><th>Fecha</th><th>Asegurado</th><th>Certificado</th><th>Endoso</th><th>Detalle</th><th>Usuario</th>
+                                </tr></thead>
+                                <tbody>
+                                    <template for:each={historial} for:item="h">
+                                        <tr key={h.id}>
+                                            <td>{h.nombre}</td>
+                                            <td><span class={h.claseTipo}>{h.tipo}</span></td>
+                                            <td>{h.fechaTxt}</td>
+                                            <td>{h.asegurado}</td>
+                                            <td>{h.certificado}</td>
+                                            <td>{h.endoso}</td>
+                                            <td class="detalle">{h.detalleTxt}</td>
+                                            <td>{h.usuario}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                    <div class="mov-pie">
+                        <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
+                    </div>
+                </template>
+            </template>
+
+            <!-- ====================== MODALES ====================== -->
+            <template if:true={hayModal}>
+                <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+                    <div class="slds-modal__container">
+                        <template if:true={enModalBaja}>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Baja de asegurados</h2></div>
+                            <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <p class="sub slds-m-bottom_x-small">{textoBaja}</p>
+                                <ul class="mov-lista">
+                                    <template for:each={bajaNombres} for:item="n"><li key={n.id}>{n.texto}</li></template>
+                                </ul>
+                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="date" label="Fecha de baja" value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-combobox label="Motivo de baja" value={form.motivo} options={motivos} data-campo="motivo"
+                                            onchange={handleForm} placeholder="Selecciona" required></lightning-combobox>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="slds-modal__footer">
+                                <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
+                                <lightning-button label="Dar de baja" variant="destructive" class="slds-m-left_x-small" onclick={guardarBaja}></lightning-button>
+                            </div>
+                        </template>
+
+                        <template if:true={enModalAlta}>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Alta de asegurado</h2></div>
+                            <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                    <div class="slds-col slds-size_1-of-1">
+                                        <lightning-radio-group label="Tipo" options={opcionesTipoAlta} value={form.tipo} data-campo="tipo"
+                                            onchange={handleForm} type="button"></lightning-radio-group>
+                                    </div>
+                                    <template if:true={esAltaDependiente}>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                                            <lightning-combobox label="Titular" value={form.titularId} options={opcionesTitulares} data-campo="titularId"
+                                                onchange={handleForm} placeholder="Selecciona el titular" required></lightning-combobox>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                            <lightning-combobox label="Parentesco" value={form.parentesco} options={opcionesParentesco} data-campo="parentesco"
+                                                onchange={handleForm} required></lightning-combobox>
+                                        </div>
+                                    </template>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input label="Nombre(s)" value={form.nombre} data-campo="nombre" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input label="Apellidos" value={form.apellidos} data-campo="apellidos" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} data-campo="fechaNacimiento" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-combobox label="Sexo" value={form.sexo} options={opcionesSexo} data-campo="sexo" onchange={handleForm} placeholder="Selecciona"></lightning-combobox>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="Certificado" value={form.certificado} data-campo="certificado" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="Categoría" value={form.categoria} data-campo="categoria" onchange={handleForm}
+                                            field-level-help={ayudaCategoria}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="number" formatter="currency" step="0.01" label="Suma asegurada" value={form.sumaAsegurada}
+                                            data-campo="sumaAsegurada" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={form.prima}
+                                            data-campo="prima" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="RFC" value={form.rfc} data-campo="rfc" onchange={handleForm} max-length="13"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_2-of-3">
+                                        <lightning-input type="email" label="Correo" value={form.email} data-campo="email" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="slds-modal__footer">
+                                <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
+                                <lightning-button label="Dar de alta" variant="brand" class="slds-m-left_x-small" onclick={guardarAlta}></lightning-button>
+                            </div>
+                        </template>
+
+                        <template if:true={enModalCambio}>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Cambio de datos: {form.nombreActual}</h2></div>
+                            <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                    <div class="slds-col slds-size_1-of-1">
+                                        <lightning-input label="Nombre completo" value={form.nombreCompleto} data-campo="nombreCompleto" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="Certificado" value={form.certificado} data-campo="certificado" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} data-campo="fechaNacimiento" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="RFC" value={form.rfc} data-campo="rfc" onchange={handleForm} max-length="13"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="Categoría" value={form.categoria} data-campo="categoria" onchange={handleForm}
+                                            field-level-help={ayudaCategoria}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="number" formatter="currency" step="0.01" label="Suma asegurada" value={form.sumaAsegurada}
+                                            data-campo="sumaAsegurada" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={form.prima}
+                                            data-campo="prima" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <template if:true={enOportunidad}>
+                                        <div class="slds-col slds-size_1-of-3">
+                                            <lightning-combobox label="Sexo" value={form.sexo} options={opcionesSexo} data-campo="sexo" onchange={handleForm} placeholder="Selecciona"></lightning-combobox>
+                                        </div>
+                                    </template>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-1">
+                                        <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="slds-modal__footer">
+                                <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
+                                <lightning-button label="Guardar cambio" variant="brand" class="slds-m-left_x-small" onclick={guardarCambio}></lightning-button>
+                            </div>
+                        </template>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+            </template>
+        </div>
+    </template>
+</template>

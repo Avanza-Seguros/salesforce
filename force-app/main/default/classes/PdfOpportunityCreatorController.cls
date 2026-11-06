@@ -92,6 +92,8 @@ public with sharing class PdfOpportunityCreatorController {
 				StageName = defaultStageName(),
 				CloseDate = Date.today().addMonths(1)
 			);
+			// Ramo obligatorio en la oportunidad: el borrador lleva el de omisión hasta que la IA lo detecte.
+			applyOpportunityDefaults(draft);
 			insert draft;
 
 			List<ContentVersion> versions = new List<ContentVersion>();
@@ -266,12 +268,27 @@ public with sharing class PdfOpportunityCreatorController {
 		if (start < 0 || last < start) {
 			return new Map<String, Object>();
 		}
+		String desdeInicio = payload.substring(start);
 		payload = payload.substring(start, last + 1);
 		try {
 			return (Map<String, Object>) JSON.deserializeUntyped(payload);
 		} catch (Exception e) {
-			return new Map<String, Object>();
+			System.debug('IA::: JSON inválido (' + raw.length() + ' caracteres): se rescatan las cotizaciones. ' + e.getMessage());
 		}
+		// Respuesta larga que llegó cortada o con el HTML mal escapado: se descarta desde el comparativo (o desde la
+		// recomendación) hacia el final y se conserva lo anterior, que trae las cotizaciones.
+		for (String campo : new List<String>{ '"comparativo_html"', '"glosario"', '"recomendacion"' }) {
+			Integer corte = desdeInicio.indexOf(campo);
+			if (corte < 0) { continue; }
+			String parcial = desdeInicio.substring(0, corte).trim();
+			if (parcial.endsWith(',')) { parcial = parcial.substring(0, parcial.length() - 1); }
+			try {
+				return (Map<String, Object>) JSON.deserializeUntyped(parcial + '}');
+			} catch (Exception e2) {
+				System.debug('IA::: sin rescate cortando en ' + campo);
+			}
+		}
+		return new Map<String, Object>();
 	}
 
 	/**
@@ -490,6 +507,9 @@ public with sharing class PdfOpportunityCreatorController {
 			throw new AuraHandledException('Faltan datos para guardar el archivo.');
 		}
 		try {
+			// Si la oportunidad ya tiene un archivo con ese nombre (ej. se volvió a cargar el PDF), no se duplica.
+			Id existente = documentoDeOportunidad(opportunityId, fileName);
+			if (existente != null) { return existente; }
 			ContentVersion cv = new ContentVersion(
 				Title = fileName,
 				PathOnClient = fileName,
@@ -573,22 +593,27 @@ public with sharing class PdfOpportunityCreatorController {
 				pdfBlob = pr.getContentAsPDF();
 			}
 
+			// Si ya existe el comparativo en la oportunidad se guarda como nueva versión del mismo archivo.
+			Id existente = documentoDeOportunidad(opportunityId, filename);
 			ContentVersion cv = new ContentVersion(
 				Title = filename,
 				PathOnClient = filename,
 				VersionData = pdfBlob,
 				Origin = 'H'
 			);
+			if (existente != null) { cv.ContentDocumentId = existente; }
 			insert cv;
 			ContentVersion stored = [
 				SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1
 			];
-			insert new ContentDocumentLink(
-				ContentDocumentId = stored.ContentDocumentId,
-				LinkedEntityId = opportunityId,
-				ShareType = 'V',
-				Visibility = 'AllUsers'
-			);
+			if (existente == null) {
+				insert new ContentDocumentLink(
+					ContentDocumentId = stored.ContentDocumentId,
+					LinkedEntityId = opportunityId,
+					ShareType = 'V',
+					Visibility = 'AllUsers'
+				);
+			}
 			// El mismo archivo queda también en cada cotización.
 			vincularComparativoACotizaciones(opportunityId, stored.ContentDocumentId);
 			return stored.ContentDocumentId;
@@ -967,6 +992,10 @@ public with sharing class PdfOpportunityCreatorController {
 		String ramoIa = mapRamoToFormValue(stringOf(comparison.get('ramo')));
 		String ramoForm = ramoIa;
 
+		// Si la IA no da una aseguradora reconocible (vacía, "Desconocida" o el nombre del archivo), se toma del
+		// nombre del archivo (ej. "... - CONTINENTAL.pdf" -> Continental Assist).
+		Map<String, String> renombradas = aseguradoraDesdeArchivo(aseguradorasRaw, fileNames);
+
 		// Validación contra el catálogo: se busca el PRODUCTO de cada cotización por su plan y
 		// su aseguradora. Si se encuentra, el ramo del producto (Family) manda sobre el que
 		// dedujo la IA (p. ej. "IMAGINA SER 65" → Vida, aunque el PDF mencione gmm@...).
@@ -1019,6 +1048,7 @@ public with sharing class PdfOpportunityCreatorController {
 				ganadora = stringOf(((Map<String, Object>) gs[0]).get('nombre'));
 			}
 		}
+		if (renombradas.containsKey(ganadora)) { ganadora = renombradas.get(ganadora); }
 		// Marcamos la cotización ganadora dentro de la lista.
 		if (String.isNotBlank(ganadora)) {
 			for (Map<String, Object> qq : quotes) {
@@ -1064,6 +1094,50 @@ public with sharing class PdfOpportunityCreatorController {
 		};
 	}
 
+	/**
+	 * @creation date: 22/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Corrige el nombre de la aseguradora de cada cotización cuando la IA no da uno del catálogo
+	 * (vacío, "Desconocida") o pone el nombre del archivo: lo busca en el nombre del archivo de origen (o en el
+	 * único archivo cargado) y usa el nombre de la Aseguradora__c encontrada.
+	 * @param aseguradorasRaw: cotizaciones devueltas por la IA (se modifican en el lugar)
+	 * @param fileNames: archivos cargados
+	 * @return mapa nombre-original a nombre-corregido
+	 */
+	@TestVisible
+	private static Map<String, String> aseguradoraDesdeArchivo(List<Object> aseguradorasRaw, List<String> fileNames) {
+		Map<String, String> renombradas = new Map<String, String>();
+		if (aseguradorasRaw == null || aseguradorasRaw.isEmpty()) { return renombradas; }
+		String unico = (fileNames != null && fileNames.size() == 1) ? fileNames[0] : null;
+		Set<String> nombres = new Set<String>();
+		for (Object a : aseguradorasRaw) {
+			if (!(a instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) a;
+			nombres.add(stringOf(m.get('nombre')));
+			String archivo = coalesceStr(stringOf(m.get('archivo_origen')), unico);
+			if (String.isNotBlank(archivo)) { nombres.add(archivo.replaceAll('(?i)\\.pdf$', '')); }
+		}
+		nombres.remove('');
+		nombres.remove(null);
+		Map<String, Id> porNombre = resolveAseguradoraByName(nombres);
+		Map<Id, String> nombreCatalogo = new Map<Id, String>();
+		for (Aseguradora__c a : [SELECT Id, Name FROM Aseguradora__c WHERE Id IN :porNombre.values()]) { nombreCatalogo.put(a.Id, a.Name); }
+		for (Object a : aseguradorasRaw) {
+			if (!(a instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> m = (Map<String, Object>) a;
+			String nombre = stringOf(m.get('nombre'));
+			String archivo = coalesceStr(stringOf(m.get('archivo_origen')), unico);
+			String base = String.isBlank(archivo) ? '' : archivo.replaceAll('(?i)\\.pdf$', '');
+			Boolean esArchivo = String.isNotBlank(base) && texto(nombre) == texto(base);
+			if (String.isNotBlank(nombre) && porNombre.containsKey(nombre) && !esArchivo) { continue; }
+			Id asegId = porNombre.get(base);
+			if (asegId == null) { continue; }
+			m.put('nombre', nombreCatalogo.get(asegId));
+			if (String.isNotBlank(nombre)) { renombradas.put(nombre, nombreCatalogo.get(asegId)); }
+		}
+		return renombradas;
+	}
+
 	// ============================================================
 	// Comparativo HTML de respaldo (cuando la IA lo devuelve truncado)
 	// ============================================================
@@ -1071,20 +1145,21 @@ public with sharing class PdfOpportunityCreatorController {
 	/**
 	 * @creation date: 30/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Arma la llave para detectar cotizaciones repetidas que devuelve la IA: archivo de origen, o
-	 * nombre + número de cotización, o nombre + plan + prima.
+	 * @description: Arma la llave para detectar cotizaciones repetidas que devuelve la IA: archivo de origen + plan +
+	 * prima (un mismo PDF puede traer varios planes, ej. Continental Total/Maximus/Supreme), o nombre + número de
+	 * cotización, o nombre + plan + prima.
 	 * @param a: Cotización (aseguradora) devuelta por la IA
 	 * @return Llave de comparación
 	 */
 	@TestVisible
 	private static String llaveCotizacion(Map<String, Object> a) {
+		String plan = texto(a.get('plan')).replaceAll('\\([^)]*\\)', ' ').replaceAll('\\s+', ' ').trim();
+		String prima = texto(a.get('prima_total')) + '/' + texto(a.get('prima_anual'));
 		String archivo = texto(a.get('archivo_origen'));
-		if (String.isNotBlank(archivo)) { return 'archivo|' + archivo; }
+		if (String.isNotBlank(archivo)) { return 'archivo|' + archivo + '|' + plan + '|' + prima; }
 		String nombre = texto(a.get('nombre'));
 		String numero = texto(a.get('no_cotizacion'));
 		if (String.isNotBlank(numero)) { return 'numero|' + nombre + '|' + numero; }
-		String plan = texto(a.get('plan')).replaceAll('\\([^)]*\\)', ' ').replaceAll('\\s+', ' ').trim();
-		String prima = texto(a.get('prima_total')) + '/' + texto(a.get('prima_anual'));
 		return 'plan|' + nombre + '|' + plan + '|' + prima;
 	}
 
@@ -1149,7 +1224,10 @@ public with sharing class PdfOpportunityCreatorController {
 		q.put('compania', stringOf(m.get('nombre')));
 		q.put('plan', stringOf(m.get('plan')));
 		q.put('ramo', ramoForm);
-		q.put('primaTotal', asDecimal(m.get('prima_anual')));
+		// Prima de contado; si la IA solo llenó prima_total (ej. "Precio Total" en Viajes), se usa esa.
+		Decimal primaContado = asDecimal(m.get('prima_anual'));
+		if (primaContado == null || primaContado == 0) { primaContado = asDecimal(m.get('prima_total')); }
+		q.put('primaTotal', primaContado);
 		q.put('moneda', coalesceStr(stringOf(m.get('moneda')), 'MXN'));
 		// Fin de vigencia: si la IA no lo trae, se calcula como inicio + 1 año.
 		String vigIniTxt = stringOf(m.get('vigencia_inicio'));
@@ -1375,7 +1453,7 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @creation date: 02/07/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Traduce el ramo que devuelve la IA al valor exacto del picklist Ramo__c del LWC
-	 * (Automoviles, GMM, Vida, Viajes, Danos, Empresarial, Fianzas, Dental, Vision, RC).
+	 * (Automoviles, GMM, Vida, Viajes, Danos, Empresarial, Fianzas, Dental, Vision, RC, Mascotas).
 	 * @param ramo: ramo tal como lo devuelve la IA.
 	 * @return valor del picklist correspondiente, o el ramo original si no hay coincidencia.
 	 */
@@ -1385,6 +1463,8 @@ public with sharing class PdfOpportunityCreatorController {
 			return '';
 		}
 		String u = ramo.toUpperCase();
+		// Antes que GMM/Vida: una póliza de mascota menciona gastos médicos veterinarios.
+		if (u.contains('MASCOTA') || u.contains('VETERINAR')) return 'Mascotas';
 		if (u.contains('AUTO')) return 'Automoviles';
 		if (u.contains('GMM') || u.contains('MEDIC') || u.contains('MÉDIC')) return 'GMM';
 		if (u.contains('VIDA')) return 'Vida';
@@ -1550,6 +1630,7 @@ public with sharing class PdfOpportunityCreatorController {
 			if (vigIni != null) { q.put('Vigencia_Inicio__c', vigIni); }
 			if (asegId != null)    { q.put(QF_ASEGURADORA, asegId); }
 			if (productId != null) { q.put(QF_PRODUCT, productId); }
+			if (String.isNotBlank(plan)) { q.Plan__c = plan.left(100); }
 			// Resumen de coberturas del PDF en los campos de la Quote (suma, tipo de valor,
 			// deducibles, RC, gastos médicos…) que muestran las "Cotizaciones comparadas".
 			try { aplicarResumenCoberturas(q, m.get('coberturas'), stringOf(m.get('notas'))); }
@@ -1678,6 +1759,24 @@ public with sharing class PdfOpportunityCreatorController {
 	 * @return void
 	 */
 	@TestVisible
+	/**
+	 * @creation date: 25/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca un archivo ligado a la oportunidad con el mismo nombre, para no duplicarlo.
+	 * @param opportunityId: Id de la oportunidad
+	 * @param titulo: Nombre del archivo
+	 * @return Id del ContentDocument existente; null si no hay
+	 */
+	private static Id documentoDeOportunidad(Id opportunityId, String titulo) {
+		if (opportunityId == null || String.isBlank(titulo)) { return null; }
+		for (ContentDocumentLink l : [
+			SELECT ContentDocumentId FROM ContentDocumentLink
+			WHERE LinkedEntityId = :opportunityId AND ContentDocument.Title = :titulo
+			ORDER BY ContentDocument.CreatedDate DESC LIMIT 1
+		]) { return l.ContentDocumentId; }
+		return null;
+	}
+
 	private static void vincularComparativoACotizaciones(Id opportunityId, Id documentId) {
 		if (opportunityId == null) { return; }
 		Id docId = documentId;
@@ -2166,11 +2265,13 @@ public with sharing class PdfOpportunityCreatorController {
 	 */
 	private static Id productoMasParecido(List<Product2> prods, String plan) {
 		if (prods == null || prods.isEmpty()) { return null; }
-		if (String.isBlank(plan)) { return prods[0].Id; }
+		// Sin plan solo se sugiere si no hay de dónde escoger.
+		if (String.isBlank(plan)) { return prods.size() == 1 ? prods[0].Id : null; }
 		Set<String> planToks = tokensDe(plan);
+		planToks.removeAll(PALABRAS_GENERICAS_PLAN);
 		String planFold = foldRamo(plan);
-		Id mejor = prods[0].Id;
-		Integer mejorScore = -1;
+		Id mejor = null;
+		Integer mejorScore = 0;
 		for (Product2 p : prods) {
 			Set<String> pt = tokensDe(p.Name);
 			Integer score = 0;
@@ -2180,8 +2281,13 @@ public with sharing class PdfOpportunityCreatorController {
 				&& (pn.contains(planFold) || planFold.contains(pn))) { score += 2; }
 			if (score > mejorScore) { mejorScore = score; mejor = p.Id; }
 		}
+		// Si ninguna palabra del plan coincide, no se preselecciona nada: el usuario elige el producto (o lo da de alta).
 		return mejor;
 	}
+
+	// Palabras que no distinguen un plan de otro ("Plan Total" no se parece a "Plan Essential" por decir "Plan").
+	private static final Set<String> PALABRAS_GENERICAS_PLAN = new Set<String>{
+		'plan', 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'para', 'en', 'seguro', 'poliza' };
 
 	/**
 	 * @creation date: 29/09/2026
@@ -2211,7 +2317,8 @@ public with sharing class PdfOpportunityCreatorController {
 		'viaje' => 'viajes', 'viajes' => 'viajes',
 		'auto' => 'autos', 'autos' => 'autos', 'automoviles' => 'autos',
 		'ap' => 'ap', 'accidentespersonales' => 'ap',
-		'vision' => 'vision', 'dental' => 'dental'
+		'vision' => 'vision', 'dental' => 'dental',
+		'mascota' => 'mascotas', 'mascotas' => 'mascotas'
 	};
 
 	/**

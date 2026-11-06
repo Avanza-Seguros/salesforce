@@ -83,6 +83,38 @@
                     </div>
                 </div>
 
+                <!-- Archivos de la póliza: los PDFs grandes se suben aquí con el cargador estándar -->
+                <div class={archivosClase}>
+                    <h3 class="ro-section__title">
+                        <lightning-icon icon-name="doc:attachment" size="x-small"></lightning-icon>
+                        Archivos de la póliza
+                    </h3>
+                    <template if:true={faltaPdf}>
+                        <p class="ro-archivos__aviso">
+                            <lightning-icon icon-name="utility:warning" variant="warning" size="xx-small"></lightning-icon>
+                            <span>La póliza no tiene su PDF adjunto. Súbelo aquí (sin límite práctico de tamaño).</span>
+                        </p>
+                    </template>
+                    <template if:true={hasArchivos}>
+                        <ul class="ro-archivos__lista">
+                            <template for:each={archivos} for:item="a">
+                                <li key={a.id}>
+                                    <lightning-icon icon-name="doc:pdf" size="x-small"></lightning-icon>
+                                    <a data-id={a.id} onclick={handleVerArchivo}>{a.nombre}</a>
+                                    <span class="ro-archivos__tamano">{a.tamano}</span>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                    <template if:true={policyId}>
+                        <lightning-file-upload label="Adjuntar archivo" name="archivoPoliza" accept=".pdf,.xlsx,.xls,.docx,.jpg,.png"
+                            record-id={policyId} onuploadfinished={handleArchivoSubido} multiple></lightning-file-upload>
+                    </template>
+                    <template if:false={policyId}>
+                        <p class="ro-empty">Aún no hay póliza.</p>
+                    </template>
+                </div>
+
                 <!-- Oportunidad + Cotizaciones -->
                 <div class="ro-row">
                     <div class="ro-section">

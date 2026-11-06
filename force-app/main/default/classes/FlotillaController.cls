@@ -454,7 +454,7 @@ public with sharing class FlotillaController {
 		if (datos.incisos.size() > MAX_INCISOS) {
 			throw error('La cotización tiene ' + datos.incisos.size() + ' incisos; el máximo por carga es ' + MAX_INCISOS + '.');
 		}
-		List<Opportunity> opps = [SELECT Id, Name, AccountId, Pricebook2Id, Ramo__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+		List<Opportunity> opps = [SELECT Id, Name, AccountId, Pricebook2Id, Ramo__c, Prima_neta__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
 		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
 		Opportunity opp = opps[0];
 		if (opp.AccountId == null) {
@@ -485,7 +485,9 @@ public with sharing class FlotillaController {
 			q.Name = ('Flotilla - ' + asegs[0].Name + ' (' + datos.incisos.size() + ' unidades)').left(255);
 			q.Pricebook2Id = opp.Pricebook2Id != null ? opp.Pricebook2Id : pricebookEstandar();
 			q.put('Aseguradora__c', asegs[0].Id);
-			Id producto = productoAuto(asegs[0].Id, opp.Ramo__c);
+			// Producto de flotillas / colectivos de la aseguradora; si no hay, cualquiera de Autos.
+			Id producto = ColectivoController.productoRamo(asegs[0].Id, String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : 'Automoviles');
+			if (producto == null) { producto = productoAuto(asegs[0].Id, opp.Ramo__c); }
 			if (producto != null) { q.put('Product__c', producto); }
 			if (String.isNotBlank(opp.Ramo__c)) { q.put('Ramos__c', opp.Ramo__c); }
 			q.put('RatingDate', Date.today());
@@ -504,6 +506,10 @@ public with sharing class FlotillaController {
 			if (datos.iva != null) { q.put('IVA__c', datos.iva); }
 			if (String.isNotBlank(datos.archivo)) { q.Description = ('Cotización de flotilla cargada de: ' + datos.archivo).left(32000); }
 			insert q;
+			// La flotilla creada desde los archivos se guarda sin prima: toma la de la primera cotización.
+			if (neta != null && (opp.Prima_neta__c == null || opp.Prima_neta__c <= 0)) {
+				update new Opportunity(Id = opp.Id, Prima_neta__c = neta);
+			}
 
 			Map<String, Id> vehiculos = vehiculosDe(opp.AccountId, datos.incisos);
 			List<Inciso_Flotilla__c> incisos = new List<Inciso_Flotilla__c>();
@@ -541,8 +547,8 @@ public with sharing class FlotillaController {
 				Integer idx = de.getDmlIndex(0);
 				throw error((idx != null && idx < filas.size() ? 'Fila ' + filas[idx] + ': ' : '') + de.getDmlMessage(0));
 			}
-			// El mismo comparativo del PDF queda en la oportunidad para "Análisis IA".
-			ColectivoController.guardarComparativoEnOportunidad(opportunityId, FlotillaComparativoPdfController.construirHtml(opportunityId));
+			// Las colectivas no llevan comparativo: se quita el que hubiera en la oportunidad.
+			ColectivoController.guardarComparativoEnOportunidad(opportunityId, '');
 			return q.Id;
 		} catch (AuraHandledException ahe) {
 			Database.rollback(sp);
@@ -570,7 +576,7 @@ public with sharing class FlotillaController {
 			delete [SELECT Id FROM Inciso_Flotilla__c WHERE Cotizacion__c = :quoteId];
 			delete [SELECT Id FROM Quote WHERE Id = :quoteId];
 			if (oppId != null) {
-				ColectivoController.guardarComparativoEnOportunidad(oppId, FlotillaComparativoPdfController.construirHtml(oppId));
+				ColectivoController.guardarComparativoEnOportunidad(oppId, '');
 			}
 		} catch (Exception e) {
 			Database.rollback(sp);
@@ -665,7 +671,7 @@ public with sharing class FlotillaController {
 				}
 			}
 			if (!links.isEmpty()) { insert links; }
-			ColectivoController.guardarComparativoEnOportunidad(opportunityId, FlotillaComparativoPdfController.construirHtml(opportunityId));
+			ColectivoController.guardarComparativoEnOportunidad(opportunityId, '');
 			return docId;
 		} catch (Exception e) {
 			throw error('No se pudo generar el PDF del comparativo: ' + e.getMessage());

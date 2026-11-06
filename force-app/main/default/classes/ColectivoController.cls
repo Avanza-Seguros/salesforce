@@ -120,6 +120,26 @@ public with sharing class ColectivoController {
 	@AuraEnabled(cacheable=false)
 	public static List<Map<String, Object>> getCotizacionesColectivas(Id opportunityId) {
 		Map<Id, Map<String, Object>> porQuote = new Map<Id, Map<String, Object>>();
+		// Cotizaciones solo con aseguradora y primas (sin categorías ni ubicaciones).
+		for (Quote qt : [
+			SELECT Id, Name, QuoteNumber, Aseguradora__r.Name, Prima_Total__c, Prima_Neta__c, Derechos_Poliza__c,
+				Recargo_Fraccionado__c, IVA__c, Forma_de_pago__c, Vigencia_Inicio__c, ExpirationDate, Opciones_Pago__c,
+				Ramos__c, NumeroCotizacion__c
+			FROM Quote
+			WHERE OpportunityId = :opportunityId AND Name LIKE 'Colectivo %'
+			ORDER BY CreatedDate ASC
+			LIMIT 200
+		]) {
+			porQuote.put(qt.Id, new Map<String, Object>{
+				'id' => qt.Id, 'nombre' => qt.Name, 'numero' => qt.QuoteNumber,
+				'aseguradora' => qt.Aseguradora__r != null ? qt.Aseguradora__r.Name : qt.Name,
+				'ramo' => qt.Ramos__c, 'numeroCotizacion' => qt.NumeroCotizacion__c,
+				'primaTotal' => qt.Prima_Total__c, 'primaNeta' => qt.Prima_Neta__c, 'derechos' => qt.Derechos_Poliza__c,
+				'recargo' => qt.Recargo_Fraccionado__c, 'iva' => qt.IVA__c, 'formaPago' => qt.Forma_de_pago__c,
+				'vigenciaDesde' => qt.Vigencia_Inicio__c, 'vigenciaHasta' => qt.ExpirationDate,
+				'formasPago' => jsonLista(qt.Opciones_Pago__c), 'categorias' => new List<Object>()
+			});
+		}
 		for (Categoria_Colectiva__c c : [
 			SELECT Id, Name, Cotizacion__c, Cotizacion__r.Name, Cotizacion__r.QuoteNumber, Cotizacion__r.Aseguradora__r.Name,
 				Cotizacion__r.Prima_Total__c, Cotizacion__r.Prima_Neta__c, Cotizacion__r.Derechos_Poliza__c,
@@ -166,7 +186,8 @@ public with sharing class ColectivoController {
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Guarda la cotización colectiva de una aseguradora: Quote (primas, formas de pago) y una
-	 *               Categoria_Colectiva__c por categoría. La prima total es la del archivo o, si no viene,
+	 *               Categoria_Colectiva__c por categoría. Sin categorías se guarda solo la cotización con sus primas
+	 *               y no se genera comparativo. La prima total es la del archivo o, si no viene,
 	 *               prima neta + derechos + recargo + IVA. Todo o nada.
 	 * @param opportunityId: oportunidad colectiva.
 	 * @param datosJson: JSON de CotizacionEntrada.
@@ -181,7 +202,10 @@ public with sharing class ColectivoController {
 			throw error('La cotización no tiene un formato válido: ' + e.getMessage());
 		}
 		if (datos.aseguradoraId == null) { throw error('Selecciona la aseguradora de la cotización.'); }
-		if (datos.categorias == null || datos.categorias.isEmpty()) { throw error('La cotización no tiene categorías, asegurados ni ubicaciones.'); }
+		if (datos.categorias == null) { datos.categorias = new List<CategoriaEntrada>(); }
+		if (datos.categorias.isEmpty() && datos.primaNeta == null && datos.primaTotal == null) {
+			throw error('La cotización no tiene prima neta ni prima total.');
+		}
 		List<Opportunity> opps = [SELECT Id, Name, Pricebook2Id, Ramo__c FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
 		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
 		Opportunity opp = opps[0];
@@ -203,9 +227,10 @@ public with sharing class ColectivoController {
 
 			String ramo = String.isNotBlank(opp.Ramo__c) ? opp.Ramo__c : 'GMM';
 			Quote q = new Quote(OpportunityId = opp.Id, Status = 'In Review');
-			String tamano = esUbicaciones(ramo) ? datos.categorias.size() + (datos.categorias.size() == 1 ? ' ubicación' : ' ubicaciones')
+			String tamano = datos.categorias.isEmpty() ? ''
+				: esUbicaciones(ramo) ? datos.categorias.size() + (datos.categorias.size() == 1 ? ' ubicación' : ' ubicaciones')
 				: asegurados.intValue() + ' asegurados';
-			q.Name = ('Colectivo ' + etiquetaRamo(ramo) + ' - ' + asegs[0].Name + ' (' + tamano + ')').left(255);
+			q.Name = ('Colectivo ' + etiquetaRamo(ramo) + ' - ' + asegs[0].Name + (String.isBlank(tamano) ? '' : ' (' + tamano + ')')).left(255);
 			q.Pricebook2Id = opp.Pricebook2Id != null ? opp.Pricebook2Id : pricebookEstandar();
 			q.put('Aseguradora__c', asegs[0].Id);
 			Id producto = productoRamo(asegs[0].Id, ramo);
@@ -259,8 +284,10 @@ public with sharing class ColectivoController {
 				if (!params.isEmpty()) { c.Parametros__c = JSON.serialize(params, true).left(32768); }
 				categorias.add(c);
 			}
-			insert categorias;
-			actualizarComparativo(opp.Id);
+			if (!categorias.isEmpty()) {
+				insert categorias;
+				actualizarComparativo(opp.Id);
+			}
 			return q.Id;
 		} catch (AuraHandledException ahe) {
 			Database.rollback(sp);
@@ -444,13 +471,13 @@ public with sharing class ColectivoController {
 	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Guarda en la oportunidad el comparativo colectivo vigente (el mismo del PDF) para que "Análisis IA"
-	 *               muestre exactamente lo mismo que Crear Oportunidad. Si ya no hay cotizaciones lo quita.
+	 * @description: Las colectivas (cualquier ramo) no llevan comparativo: quita de la oportunidad el comparativo
+	 *               colectivo que se haya guardado antes (no toca el de la IA de una individual).
 	 * @param opportunityId: oportunidad colectiva.
 	 * @return void
 	 */
 	private static void actualizarComparativo(Id opportunityId) {
-		guardarComparativoEnOportunidad(opportunityId, ColectivoComparativoPdfController.construirHtml(opportunityId));
+		guardarComparativoEnOportunidad(opportunityId, '');
 	}
 
 	/**
@@ -530,6 +557,24 @@ public with sharing class ColectivoController {
 			+ cuerpo + '</div>';
 	}
 
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: true si la cuenta ya tiene una póliza del ramo: la oportunidad colectiva es una renovación aunque
+	 *               las cotizaciones de las otras aseguradoras digan "Nueva".
+	 * @param accountId: cuenta del cliente.
+	 * @param ramo: valor del picklist Ramo (vacío = cualquier ramo).
+	 * @return true si hay al menos una póliza.
+	 */
+	@AuraEnabled
+	public static Boolean tienePolizaDelRamo(Id accountId, String ramo) {
+		if (accountId == null) { return false; }
+		if (String.isBlank(ramo)) {
+			return [SELECT COUNT() FROM InsurancePolicy WHERE NameInsuredId = :accountId] > 0;
+		}
+		return [SELECT COUNT() FROM InsurancePolicy WHERE NameInsuredId = :accountId AND Ramo__c = :ramo] > 0;
+	}
+
 	// ============================================================
 	// Helpers
 	// ============================================================
@@ -563,18 +608,52 @@ public with sharing class ColectivoController {
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Producto de la aseguradora para el ramo (Family igual al ramo o equivalente, ej. GMM / Gastos Médicos Mayores).
+	 *               Entre varios se prefiere el de colectivos / empresas (Colectivo, Grupo, Flotilla, PyME, Empresarial...)
+	 *               y se evita el individual. Solo la familia igual al ramo (filtro de búsqueda de Quote.Product__c). En
+	 *               Daños colectivo un producto de hogar no aplica: sin otro, la cotización queda sin producto.
 	 * @param aseguradoraId: aseguradora.
 	 * @param ramo: ramo de la oportunidad.
 	 * @return Id de Product2 o null.
 	 */
-	private static Id productoRamo(Id aseguradoraId, String ramo) {
-		Set<String> familias = new Set<String>{ ramo, etiquetaRamo(ramo) };
-		if (ramo == 'GMM') { familias.add('Gastos Médicos Mayores'); }
-		if (ramo == 'Accidentes Personales' || ramo == 'Vida') { familias.add('Personas'); }
+	public static Id productoRamo(Id aseguradoraId, String ramo) {
+		Id mejor = null;
+		Integer mejorPuntos = null;
 		for (Product2 p : [
-			SELECT Id FROM Product2 WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family IN :familias ORDER BY Name LIMIT 1
-		]) { return p.Id; }
-		return null;
+			SELECT Id, Name FROM Product2 WHERE IsActive = true AND Aseguradora__c = :aseguradoraId AND Family = :ramo
+			ORDER BY Name LIMIT 500
+		]) {
+			Integer puntos = puntosProductoColectivo(p.Name, ramo);
+			if (puntos == null) { continue; }
+			if (mejorPuntos == null || puntos > mejorPuntos) { mejor = p.Id; mejorPuntos = puntos; }
+		}
+		return mejor;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Qué tanto un producto parece de colectivos / empresas según su nombre.
+	 * @param nombre: nombre del producto.
+	 * @param ramo: ramo de la oportunidad.
+	 * @return puntos (más es mejor) o null si el producto no aplica a un colectivo del ramo (ej. Hogar en Daños).
+	 */
+	@TestVisible
+	private static Integer puntosProductoColectivo(String nombre, String ramo) {
+		String n = nombre == null ? '' : nombre.toLowerCase().replace('á', 'a').replace('é', 'e').replace('í', 'i')
+			.replace('ó', 'o').replace('ú', 'u');
+		Boolean ubicaciones = esUbicaciones(ramo);
+		if (ubicaciones && (n.contains('hogar') || n.contains('casa') || n.contains('medic') || n.contains('vida'))) { return null; }
+		List<String> buenas = ubicaciones
+			? new List<String>{ 'empresarial', 'multiple', 'pyme', 'negocio', 'incendio', 'indemniza', 'comercio', 'industri' }
+			: (ramo == 'Automoviles' ? new List<String>{ 'flotilla', 'colectiv', 'pyme', 'empresa' }
+				: new List<String>{ 'colectiv', 'grupo', 'empresa', 'pyme', 'corporativ', 'empleados' });
+		Integer puntos = 0;
+		for (String b : buenas) { if (n.contains(b)) { puntos += 3; } }
+		for (String m : new List<String>{ 'individual', 'familiar', 'hogar', 'casa', 'taxi', 'uber', 'fronteriz' }) {
+			if (n.contains(m)) { puntos -= 3; }
+		}
+		if (n.contains('gobierno')) { puntos -= 1; }
+		return puntos;
 	}
 
 	/**

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fecha_Alta__c</fullName>
+    <description>Fecha en que el vehículo entró a la póliza por endoso (vacía si viene desde la emisión).</description>
+    <label>Fecha de alta</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

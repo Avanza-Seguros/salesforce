@@ -17,6 +17,8 @@ public with sharing class CensoColectivoController {
 	// Asegurados que se regresan al LWC para la tabla (el resumen sí cuenta a todos).
 	private static final Integer MAX_MIEMBROS_VISTA = 500;
 	private static final String SIN_CATEGORIA = 'Sin categoría';
+	// Días de diferencia entre el fin de la vigencia anterior y el inicio de la nueva para tomarla como renovación.
+	private static final Integer DIAS_RENOVACION = 60;
 	// Valores de RelationshipToPrimaryMember para cada AssociationWithPrimaryMbr. En dev el picklist quedó
 	// con valores API traducidos (Child = "Secundario", Parent = "Principal"); se prueban ambos en orden.
 	private static final Map<String, List<String>> RELACION_POR_ASOCIACION = new Map<String, List<String>>{
@@ -175,11 +177,7 @@ public with sharing class CensoColectivoController {
 		try {
 			GroupCensus censo = censoDe(opportunityId);
 			if (censo == null) {
-				censo = new GroupCensus(AccountId = opp.AccountId, Oportunidad__c = opp.Id);
-				setTexto(censo, 'Name', 'Censo - ' + opp.Name);
-				setPicklist(censo, 'Status', 'Draft');
-				setPicklist(censo, 'Type', 'Quote');
-				insert censo;
+				censo = asegurarCenso(opp);
 			} else if (reemplazar == true) {
 				// Primero dependientes y luego titulares (los dependientes apuntan a su titular).
 				delete [SELECT Id FROM GroupCensusMember WHERE GroupCensusId = :censo.Id AND PrimaryGroupCensusMemberId != null];
@@ -296,10 +294,55 @@ public with sharing class CensoColectivoController {
 	 * @param opportunityId: Id de la oportunidad.
 	 * @return GroupCensus o null si la oportunidad aún no tiene censo.
 	 */
-	private static GroupCensus censoDe(Id opportunityId) {
+	public static GroupCensus censoDe(Id opportunityId) {
 		if (opportunityId == null) { return null; }
 		List<GroupCensus> l = [SELECT Id, Name FROM GroupCensus WHERE Oportunidad__c = :opportunityId ORDER BY CreatedDate DESC LIMIT 1];
 		return l.isEmpty() ? null : l[0];
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Censo de la oportunidad; si no existe lo crea (borrador, tipo cotización) para la empresa de la oportunidad.
+	 * @param opp: oportunidad con Id, Name y AccountId.
+	 * @return GroupCensus guardado.
+	 */
+	public static GroupCensus asegurarCenso(Opportunity opp) {
+		GroupCensus censo = censoDe(opp.Id);
+		if (censo != null) { return censo; }
+		censo = new GroupCensus(AccountId = opp.AccountId, Oportunidad__c = opp.Id);
+		setTexto(censo, 'Name', 'Censo - ' + opp.Name);
+		setPicklist(censo, 'Status', 'Draft');
+		setPicklist(censo, 'Type', 'Quote');
+		insert censo;
+		return censo;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Vigencia anterior de una póliza colectiva: la póliza más reciente de la misma empresa y ramo que empieza
+	 *               antes de la fecha indicada. Es la póliza que se renueva.
+	 * @param accountId: empresa contratante.
+	 * @param ramo: ramo de la póliza (vacío = cualquiera).
+	 * @param excluir: pólizas que no cuentan (la nueva vigencia, las emitidas desde la misma oportunidad).
+	 * @param antesDe: la anterior debe empezar antes de esta fecha (null = sin límite).
+	 * @return póliza anterior o null.
+	 */
+	public static InsurancePolicy polizaAnterior(Id accountId, String ramo, Set<Id> excluir, Datetime antesDe) {
+		if (accountId == null) { return null; }
+		Set<Id> fuera = excluir == null ? new Set<Id>() : excluir;
+		Datetime limite = antesDe == null ? Datetime.now().addYears(100) : antesDe;
+		List<InsurancePolicy> l = [
+			SELECT Id, Name, EffectiveDate, ExpirationDate, Ramo__c
+			FROM InsurancePolicy
+			WHERE NameInsuredId = :accountId AND Id NOT IN :fuera AND EffectiveDate < :limite
+			ORDER BY EffectiveDate DESC NULLS LAST, CreatedDate DESC
+			LIMIT 50
+		];
+		// Del mismo ramo; sin ramo indicado, la más reciente.
+		for (InsurancePolicy p : l) { if (String.isBlank(ramo) || p.Ramo__c == ramo) { return p; } }
+		return null;
 	}
 
 	/**
@@ -337,7 +380,7 @@ public with sharing class CensoColectivoController {
 	 * @param entrada: renglones del censo.
 	 * @return mapa llave normalizada de la categoría -> Id de GroupClass.
 	 */
-	private static Map<String, Id> categoriasDe(Id accountId, List<MiembroEntrada> entrada) {
+	public static Map<String, Id> categoriasDe(Id accountId, List<MiembroEntrada> entrada) {
 		Map<String, String> nuevas = new Map<String, String>();
 		for (MiembroEntrada e : entrada) {
 			if (String.isNotBlank(e.categoria)) { nuevas.put(llave(e.categoria), e.categoria.normalizeSpace()); }
@@ -373,7 +416,7 @@ public with sharing class CensoColectivoController {
 	 * @param categorias: llave de categoría -> Id de GroupClass.
 	 * @return GroupCensusMember sin insertar.
 	 */
-	private static GroupCensusMember miembro(MiembroEntrada e, Id censoId, Map<String, Id> categorias) {
+	public static GroupCensusMember miembro(MiembroEntrada e, Id censoId, Map<String, Id> categorias) {
 		GroupCensusMember m = new GroupCensusMember(GroupCensusId = censoId);
 		String nombre = e.nombre == null ? null : e.nombre.normalizeSpace();
 		String apellidos = e.apellidos == null ? null : e.apellidos.normalizeSpace();
@@ -476,7 +519,7 @@ public with sharing class CensoColectivoController {
 	 * @return parentesco en español.
 	 */
 	@TestVisible
-	private static String parentescoVisible(String valor, Boolean esTitular) {
+	public static String parentescoVisible(String valor, Boolean esTitular) {
 		if (esTitular || valor == 'Self') { return 'Titular'; }
 		Map<String, String> m = new Map<String, String>{
 			'Spouse' => 'Cónyuge', 'Child' => 'Hijo(a)', 'Parent' => 'Padre/Madre', 'Parent-in-law' => 'Suegro(a)'
@@ -509,7 +552,7 @@ public with sharing class CensoColectivoController {
 	 * @return Date o null.
 	 */
 	@TestVisible
-	private static Date fecha(String s) {
+	public static Date fecha(String s) {
 		if (String.isBlank(s)) { return null; }
 		try { return Date.valueOf(s.trim().left(10)); } catch (Exception e) { return null; }
 	}
@@ -522,7 +565,7 @@ public with sharing class CensoColectivoController {
 	 * @return texto normalizado ('' si viene vacío).
 	 */
 	@TestVisible
-	private static String llave(String s) {
+	public static String llave(String s) {
 		if (String.isBlank(s)) { return ''; }
 		return s.toLowerCase().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o')
 			.replace('ú', 'u').replace('ü', 'u').replace('ñ', 'n').normalizeSpace();
@@ -553,7 +596,7 @@ public with sharing class CensoColectivoController {
 	 * @param campo: API name del picklist.
 	 * @param valor: valor deseado.
 	 */
-	private static void setPicklist(SObject so, String campo, String valor) {
+	public static void setPicklist(SObject so, String campo, String valor) {
 		if (String.isBlank(valor)) { return; }
 		Set<String> buscados = new Set<String>{ llave(valor) };
 		if (llave(valor) == 'hombre') { buscados.add('male'); buscados.add('masculino'); }
@@ -624,7 +667,7 @@ public with sharing class CensoColectivoController {
 	 * @param msg: mensaje para el usuario.
 	 * @return excepción lista para lanzar.
 	 */
-	private static AuraHandledException error(String msg) {
+	public static AuraHandledException error(String msg) {
 		AuraHandledException e = new AuraHandledException(msg);
 		e.setMessage(msg);
 		return e;
@@ -637,6 +680,8 @@ public with sharing class CensoColectivoController {
 	 *               por asegurado. Titulares con rol "Asegurado"; dependientes con rol "Miembro familiar", ligados a su
 	 *               titular y con el parentesco según el censo y el sexo (Cónyuge -> Mujer/Marido, hijo -> Hijo/Hija).
 	 *               Lleva certificado, categoría (subgrupo), fecha de alta y el contacto si el asegurado lo tiene.
+	 *               Cada titular queda ligado a un Contacto de la cuenta de la póliza (a quien se le envía su
+	 *               certificado): se reutiliza el que ya exista o se crea con los datos del censo.
 	 *               No duplica: omite asegurados que ya están en la póliza (mismo certificado y nombre).
 	 * @param opportunityId: oportunidad colectiva con censo.
 	 * @param policyId: póliza emitida.
@@ -646,49 +691,309 @@ public with sharing class CensoColectivoController {
 		if (opportunityId == null || policyId == null) { return 0; }
 		List<GroupCensusMember> miembros = [
 			SELECT Id, FirstName, LastName, Name, Gender, RelationshipToPrimaryMember, PrimaryGroupCensusMemberId,
-				GroupClassId, JoinDate, Certificado__c, ContactId, Prima__c
+				PrimaryGroupCensusMember.JoinDate, GroupClassId, GroupClass.Name, JoinDate, Birthdate, Certificado__c, RFC__c, ContactId, Prima__c,
+				Email, PhoneNumber, Suma_Asegurada__c
 			FROM GroupCensusMember
 			WHERE GroupCensus.Oportunidad__c = :opportunityId
 			ORDER BY PrimaryGroupCensusMemberId NULLS FIRST, Certificado__c, Name
 			LIMIT 10000
 		];
 		if (miembros.isEmpty()) { return 0; }
+		InsurancePolicy pol = [SELECT Id, EffectiveDate, ExpirationDate, NameInsuredId, Ramo__c, PriorPolicyId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+		ligarContactosTitulares(miembros, pol.NameInsuredId);
 
-		Set<String> yaEstan = new Set<String>();
+		// Participantes que ya están en la póliza (mismo certificado y nombre): no se duplican, solo se completan.
+		Map<String, InsurancePolicyParticipant> yaEstan = new Map<String, InsurancePolicyParticipant>();
+		Map<String, InsurancePolicyParticipant> sinCertificado = new Map<String, InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT ParticipantName, ParticipantCode FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
-		]) { yaEstan.add(llaveParticipante(p.ParticipantCode, p.ParticipantName)); }
+			SELECT Id, ParticipantName, ParticipantCode, RelationshipToInsured, RelatedInsPolicyParticipantId,
+				EffectiveFromDate, EffectiveToDate, EffectiveDate, ExpirationDate, FechaNacimiento__c, Identificacion__c,
+				PrimaryParticipantContactId, Categoria__c, PriorParticipantId
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId
+		]) {
+			yaEstan.put(llaveParticipante(p.ParticipantCode, p.ParticipantName), p);
+			// Sin certificado (ej. la persona que trae el PDF de la póliza): se reconoce solo por el nombre.
+			if (String.isBlank(p.ParticipantCode)) { sinCertificado.put(llaveParticipante(null, p.ParticipantName), p); }
+		}
 
 		String rolTitular = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(), new List<String>{ 'Asegurado', 'Insured' });
 		String rolDependiente = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(),
 			new List<String>{ 'Miembro familiar', 'Asegurado', 'Insured' });
+		Map<Id, InsurancePolicyParticipant> completar = new Map<Id, InsurancePolicyParticipant>();
 
 		// 1) Titulares (los dependientes se ligan a ellos).
 		Map<Id, InsurancePolicyParticipant> porTitular = new Map<Id, InsurancePolicyParticipant>();
+		// Participante de cada asegurado del censo (para su suma asegurada individual).
+		Map<Id, InsurancePolicyParticipant> porMiembro = new Map<Id, InsurancePolicyParticipant>();
+		List<InsurancePolicyParticipant> titulares = new List<InsurancePolicyParticipant>();
 		for (GroupCensusMember m : miembros) {
 			if (m.PrimaryGroupCensusMemberId != null) { continue; }
-			InsurancePolicyParticipant p = participante(m, policyId, rolTitular);
-			if (yaEstan.contains(llaveParticipante(p.ParticipantCode, p.ParticipantName))) { continue; }
+			InsurancePolicyParticipant p = participante(m, policyId, rolTitular, pol);
+			InsurancePolicyParticipant existe = participanteExistente(yaEstan, sinCertificado, p);
+			if (existe != null) {
+				porTitular.put(m.Id, existe);
+				porMiembro.put(m.Id, existe);
+				if (completarDatos(existe, p)) { completar.put(existe.Id, existe); }
+				continue;
+			}
 			porTitular.put(m.Id, p);
+			porMiembro.put(m.Id, p);
+			titulares.add(p);
 		}
-		if (!porTitular.isEmpty()) { insert porTitular.values(); }
+		if (!titulares.isEmpty()) { insert titulares; }
 
 		// 2) Dependientes con su parentesco y ligados al participante de su titular.
 		Schema.DescribeFieldResult relacion = InsurancePolicyParticipant.RelationshipToInsured.getDescribe();
 		List<InsurancePolicyParticipant> dependientes = new List<InsurancePolicyParticipant>();
 		for (GroupCensusMember m : miembros) {
 			if (m.PrimaryGroupCensusMemberId == null) { continue; }
-			InsurancePolicyParticipant p = participante(m, policyId, rolDependiente);
-			if (yaEstan.contains(llaveParticipante(p.ParticipantCode, p.ParticipantName))) { continue; }
+			InsurancePolicyParticipant p = participante(m, policyId, rolDependiente, pol);
 			if (porTitular.containsKey(m.PrimaryGroupCensusMemberId)) {
 				p.RelatedInsPolicyParticipantId = porTitular.get(m.PrimaryGroupCensusMemberId).Id;
 			}
 			String rel = valorPicklist(relacion, parentescoPoliza(m.RelationshipToPrimaryMember, m.Gender));
 			if (String.isNotBlank(rel)) { p.RelationshipToInsured = rel; }
+			InsurancePolicyParticipant existe = participanteExistente(yaEstan, sinCertificado, p);
+			if (existe != null) {
+				porMiembro.put(m.Id, existe);
+				if (completarDatos(existe, p)) { completar.put(existe.Id, existe); }
+				continue;
+			}
+			porMiembro.put(m.Id, p);
 			dependientes.add(p);
 		}
 		if (!dependientes.isEmpty()) { insert dependientes; }
-		return porTitular.size() + dependientes.size();
+		if (!completar.isEmpty()) { update completar.values(); }
+		coberturasIndividuales(miembros, porMiembro, policyId);
+		// Se ligan los nuevos y los que ya estaban (ej. los del PDF) que aún no tienen participante anterior.
+		Map<Id, InsurancePolicyParticipant> sinAnterior = new Map<Id, InsurancePolicyParticipant>();
+		for (InsurancePolicyParticipant p : porMiembro.values()) {
+			if (p.Id != null && p.PriorParticipantId == null) { sinAnterior.put(p.Id, p); }
+		}
+		List<InsurancePolicyParticipant> nuevos = sinAnterior.values();
+		// La liga con la vigencia anterior es informativa: si falla, el censo ya quedó en la póliza.
+		try { ligarVigenciaAnterior(pol, nuevos); }
+		catch (Exception e) { System.debug(LoggingLevel.WARN, 'No se ligó la vigencia anterior: ' + e.getMessage()); }
+		return titulares.size() + dependientes.size();
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga una renovación con su vigencia anterior: la póliza apunta a la anterior («Póliza anterior») y cada
+	 *               asegurado nuevo a su participante de la vigencia anterior y al original, para conservar su antigüedad.
+	 *               El asegurado se reconoce por certificado y nombre o, si no, solo por el nombre.
+	 * @param pol: póliza nueva (Id, NameInsuredId, Ramo__c, EffectiveDate, PriorPolicyId).
+	 * @param nuevos: participantes del censo sin participante anterior.
+	 */
+	private static void ligarVigenciaAnterior(InsurancePolicy pol, List<InsurancePolicyParticipant> nuevos) {
+		if (nuevos.isEmpty()) { return; }
+		Id anteriorId = ligarPolizaAnterior(pol);
+		if (anteriorId == null) { return; }
+		Map<String, InsurancePolicyParticipant> porLlave = new Map<String, InsurancePolicyParticipant>();
+		Map<String, InsurancePolicyParticipant> porNombre = new Map<String, InsurancePolicyParticipant>();
+		for (InsurancePolicyParticipant a : [
+			SELECT Id, ParticipantName, ParticipantCode, OriginalParticipantId
+			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :anteriorId LIMIT 10000
+		]) {
+			porLlave.put(llaveParticipante(a.ParticipantCode, a.ParticipantName), a);
+			porNombre.put(llaveParticipante(null, a.ParticipantName), a);
+		}
+		Set<Id> usados = new Set<Id>();
+		List<InsurancePolicyParticipant> ligar = new List<InsurancePolicyParticipant>();
+		for (InsurancePolicyParticipant p : nuevos) {
+			if (p.Id == null) { continue; }
+			InsurancePolicyParticipant a = porLlave.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+			if (a == null) { a = porNombre.get(llaveParticipante(null, p.ParticipantName)); }
+			if (a == null || usados.contains(a.Id)) { continue; }
+			usados.add(a.Id);
+			ligar.add(new InsurancePolicyParticipant(Id = p.Id, PriorParticipantId = a.Id,
+				OriginalParticipantId = a.OriginalParticipantId != null ? a.OriginalParticipantId : a.Id));
+		}
+		if (!ligar.isEmpty()) { update ligar; }
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga la póliza con la vigencia que renueva («Póliza anterior»): la más reciente de la misma empresa y
+	 *               ramo que termina cerca de donde empieza la nueva. Si ya tiene póliza anterior la respeta.
+	 * @param pol: póliza nueva (Id, NameInsuredId, Ramo__c, EffectiveDate, PriorPolicyId).
+	 * @return Id de la póliza anterior o null si no es renovación.
+	 */
+	public static Id ligarPolizaAnterior(InsurancePolicy pol) {
+		if (pol.PriorPolicyId != null) { return pol.PriorPolicyId; }
+		if (pol.NameInsuredId == null || pol.EffectiveDate == null) { return null; }
+		InsurancePolicy anterior = polizaAnterior(pol.NameInsuredId, pol.Ramo__c, new Set<Id>{ pol.Id }, pol.EffectiveDate);
+		// Solo es renovación si la anterior termina cerca de donde empieza la nueva (otra póliza del mismo ramo no cuenta).
+		if (anterior == null || anterior.ExpirationDate == null
+				|| Math.abs(anterior.ExpirationDate.date().daysBetween(pol.EffectiveDate.date())) > DIAS_RENOVACION) { return null; }
+		update new InsurancePolicy(Id = pol.Id, PriorPolicyId = anterior.Id);
+		pol.PriorPolicyId = anterior.Id;
+		return anterior.Id;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Participante que ya está en la póliza para el asegurado: mismo certificado y nombre o, si el que
+	 *               existe no tiene certificado (ej. la persona del PDF), mismo nombre. Cada uno se usa una sola vez.
+	 * @param yaEstan: participantes por certificado y nombre.
+	 * @param sinCertificado: participantes sin certificado, por nombre.
+	 * @param p: participante armado desde el censo.
+	 * @return participante existente o null.
+	 */
+	private static InsurancePolicyParticipant participanteExistente(Map<String, InsurancePolicyParticipant> yaEstan,
+			Map<String, InsurancePolicyParticipant> sinCertificado, InsurancePolicyParticipant p) {
+		InsurancePolicyParticipant existe = yaEstan.get(llaveParticipante(p.ParticipantCode, p.ParticipantName));
+		if (existe == null) { existe = sinCertificado.remove(llaveParticipante(null, p.ParticipantName)); }
+		return existe;
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Suma asegurada individual del censo (ej. Vida: meses de sueldo) como cobertura ligada al participante
+	 *               del asegurado. Es idempotente y no rebasa el límite de registros de la transacción.
+	 * @param miembros: asegurados del censo.
+	 * @param porMiembro: participante de cada asegurado.
+	 * @param policyId: póliza.
+	 */
+	private static void coberturasIndividuales(List<GroupCensusMember> miembros, Map<Id, InsurancePolicyParticipant> porMiembro, Id policyId) {
+		Set<Id> conCobertura = new Set<Id>();
+		for (InsurancePolicyCoverage c : [
+			SELECT InsurancePolicyParticipantId FROM InsurancePolicyCoverage
+			WHERE InsurancePolicyId = :policyId AND InsurancePolicyParticipantId != null
+		]) { conCobertura.add(c.InsurancePolicyParticipantId); }
+		Integer disponibles = Limits.getLimitDmlRows() - Limits.getDmlRows() - 500;
+		List<InsurancePolicyCoverage> nuevas = new List<InsurancePolicyCoverage>();
+		for (GroupCensusMember m : miembros) {
+			InsurancePolicyParticipant p = porMiembro.get(m.Id);
+			if (m.Suma_Asegurada__c == null || p == null || p.Id == null || conCobertura.contains(p.Id)) { continue; }
+			if (nuevas.size() >= disponibles) { break; }
+			conCobertura.add(p.Id);
+			nuevas.add(new InsurancePolicyCoverage(InsurancePolicyId = policyId, InsurancePolicyParticipantId = p.Id,
+				CoverageName = ('Suma asegurada - ' + p.ParticipantName).left(255), LimitAmount = m.Suma_Asegurada__c));
+		}
+		if (!nuevas.isEmpty()) { insert nuevas; }
+	}
+
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Liga cada titular del censo a un Contacto de la cuenta (a quien se le envía su certificado). Reutiliza
+	 *               el contacto que ya exista en la cuenta con el mismo RFC o con el mismo nombre y fecha de nacimiento;
+	 *               si no hay, lo crea con nombre, apellidos, fecha de nacimiento, RFC, correo y teléfono del censo. Guarda
+	 *               el contacto en el asegurado del censo para que la renovación use el mismo.
+	 * @param miembros: asegurados del censo (se les llena ContactId).
+	 * @param accountId: cuenta de la póliza (la empresa).
+	 */
+	public static void ligarContactosTitulares(List<GroupCensusMember> miembros, Id accountId) {
+		if (accountId == null) { return; }
+		List<GroupCensusMember> sinContacto = new List<GroupCensusMember>();
+		for (GroupCensusMember m : miembros) {
+			if (m.PrimaryGroupCensusMemberId == null && m.ContactId == null && String.isNotBlank(m.LastName)) { sinContacto.add(m); }
+		}
+		if (sinContacto.isEmpty()) { return; }
+
+		Map<String, Id> existentes = new Map<String, Id>();
+		for (Contact c : [SELECT Id, Name, FirstName, LastName, Birthdate, RFC__c FROM Contact WHERE AccountId = :accountId LIMIT 10000]) {
+			if (String.isNotBlank(c.RFC__c)) { existentes.put('rfc:' + c.RFC__c.deleteWhitespace().toUpperCase(), c.Id); }
+			existentes.put(llaveContacto((c.FirstName == null ? '' : c.FirstName + ' ') + c.LastName, c.Birthdate), c.Id);
+		}
+
+		List<GroupCensusMember> porCrear = new List<GroupCensusMember>();
+		List<Contact> nuevos = new List<Contact>();
+		for (GroupCensusMember m : sinContacto) {
+			String rfc = String.isBlank(m.RFC__c) ? null : 'rfc:' + m.RFC__c.deleteWhitespace().toUpperCase();
+			String llave = llaveContacto((m.FirstName == null || m.FirstName == '-' ? '' : m.FirstName + ' ') + m.LastName, m.Birthdate);
+			Id existe = rfc != null && existentes.containsKey(rfc) ? existentes.get(rfc) : existentes.get(llave);
+			if (existe != null) {
+				m.ContactId = existe;
+				continue;
+			}
+			Contact c = new Contact(AccountId = accountId, LastName = m.LastName.left(80), Birthdate = m.Birthdate);
+			if (String.isNotBlank(m.FirstName) && m.FirstName != '-') { c.FirstName = m.FirstName.left(40); }
+			if (String.isNotBlank(m.RFC__c)) { c.RFC__c = m.RFC__c.deleteWhitespace().toUpperCase().left(13); }
+			if (String.isNotBlank(m.Email)) { c.Email = m.Email; }
+			// Celular: el campo Teléfono tiene una regla de formato que rechazaría el contacto completo.
+			if (String.isNotBlank(m.PhoneNumber)) { c.MobilePhone = m.PhoneNumber.left(40); }
+			porCrear.add(m);
+			nuevos.add(c);
+		}
+		if (!nuevos.isEmpty()) {
+			// Las reglas de duplicados no deben frenar el alta masiva; un contacto que no se pueda crear queda sin ligar.
+			Database.DMLOptions opciones = new Database.DMLOptions();
+			opciones.DuplicateRuleHeader.allowSave = true;
+			opciones.OptAllOrNone = false;
+			List<Database.SaveResult> res = Database.insert(nuevos, opciones);
+			for (Integer i = 0; i < res.size(); i++) {
+				if (res[i].isSuccess()) { porCrear[i].ContactId = res[i].getId(); }
+				else {
+					// La regla de duplicados encontró a la persona (por ejemplo, sin fecha de nacimiento): se usa ese contacto.
+					porCrear[i].ContactId = contactoDuplicado(res[i].getErrors());
+					if (porCrear[i].ContactId == null) { System.debug(LoggingLevel.WARN, 'Contacto no creado: ' + res[i].getErrors()); }
+				}
+			}
+		}
+		List<GroupCensusMember> actualizar = new List<GroupCensusMember>();
+		for (GroupCensusMember m : sinContacto) {
+			if (m.ContactId != null && m.Id != null) { actualizar.add(new GroupCensusMember(Id = m.Id, ContactId = m.ContactId)); }
+		}
+		if (!actualizar.isEmpty()) { Database.update(actualizar, false); }
+	}
+
+	/**
+	 * @creation date: 31/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Contacto que la regla de duplicados señaló como la misma persona.
+	 * @param errores: errores del insert del contacto.
+	 * @return Id del contacto existente o null.
+	 */
+	private static Id contactoDuplicado(List<Database.Error> errores) {
+		for (Database.Error err : errores) {
+			if (!(err instanceof Database.DuplicateError)) { continue; }
+			for (Datacloud.MatchResult mr : ((Database.DuplicateError) err).getDuplicateResult().getMatchResults()) {
+				for (Datacloud.MatchRecord rec : mr.getMatchRecords()) {
+					if (rec.getRecord() != null && rec.getRecord().Id != null) { return rec.getRecord().Id; }
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave para encontrar un contacto: nombre sin acentos ni signos más la fecha de nacimiento.
+	 * @param nombre: nombre completo.
+	 * @param nacimiento: fecha de nacimiento (puede ser null).
+	 * @return llave.
+	 */
+	private static String llaveContacto(String nombre, Date nacimiento) {
+		return 'nom:' + llave(nombre) + '|' + (nacimiento == null ? '' : String.valueOf(nacimiento));
+	}
+
+	/**
+	 * @creation date: 28/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llena en un participante que ya estaba en la póliza los datos que le falten (fechas, fecha de
+	 *               nacimiento, identificación, parentesco y titular); no cambia lo que ya tiene.
+	 * @param existe: participante guardado.
+	 * @param nuevo: participante armado desde el censo.
+	 * @return true si se llenó algún dato.
+	 */
+	private static Boolean completarDatos(InsurancePolicyParticipant existe, InsurancePolicyParticipant nuevo) {
+		Boolean cambio = false;
+		for (String campo : new List<String>{ 'ParticipantCode', 'EffectiveFromDate', 'EffectiveToDate', 'EffectiveDate', 'ExpirationDate',
+				'FechaNacimiento__c', 'Identificacion__c', 'RelationshipToInsured', 'RelatedInsPolicyParticipantId',
+				'PrimaryParticipantContactId', 'Categoria__c' }) {
+			if (existe.get(campo) == null && nuevo.get(campo) != null) {
+				existe.put(campo, nuevo.get(campo));
+				cambio = true;
+			}
+		}
+		return cambio;
 	}
 
 	/**
@@ -790,7 +1095,7 @@ public with sharing class CensoColectivoController {
 	 * @param rol: rol del participante.
 	 * @return participante sin insertar.
 	 */
-	private static InsurancePolicyParticipant participante(GroupCensusMember m, Id policyId, String rol) {
+	public static InsurancePolicyParticipant participante(GroupCensusMember m, Id policyId, String rol, InsurancePolicy pol) {
 		InsurancePolicyParticipant p = new InsurancePolicyParticipant(InsurancePolicyId = policyId);
 		String nombre = String.isNotBlank(m.Name) ? m.Name : ((m.FirstName == null ? '' : m.FirstName + ' ') + m.LastName);
 		p.ParticipantName = nombre.normalizeSpace().left(255);
@@ -798,12 +1103,46 @@ public with sharing class CensoColectivoController {
 		if (String.isNotBlank(m.Certificado__c)) { p.ParticipantCode = m.Certificado__c.left(255); }
 		// Categoría (subgrupo): el campo existe en versiones recientes de la API; si no está disponible se omite.
 		if (m.GroupClassId != null) { try { p.put('GroupClassId', m.GroupClassId); } catch (Exception e) { System.debug(LoggingLevel.FINE, e.getMessage()); } }
+		if (m.GroupClass != null && String.isNotBlank(m.GroupClass.Name)) { p.Categoria__c = m.GroupClass.Name.left(80); }
 		if (m.ContactId != null) { p.PrimaryParticipantContactId = m.ContactId; }
-		if (m.JoinDate != null) { p.EffectiveFromDate = m.JoinDate; }
+		// Vigencia del asegurado: desde su fecha de alta (el dependiente toma la de su titular; sin alta, el inicio de
+		// la póliza) hasta el fin de vigencia de la póliza.
+		Date alta = m.JoinDate != null ? m.JoinDate
+			: (m.PrimaryGroupCensusMember != null && m.PrimaryGroupCensusMember.JoinDate != null ? m.PrimaryGroupCensusMember.JoinDate
+				: (pol != null && pol.EffectiveDate != null ? pol.EffectiveDate.date() : null));
+		if (alta != null) {
+			p.EffectiveFromDate = alta;
+			p.EffectiveDate = Datetime.newInstance(alta, Time.newInstance(12, 0, 0, 0));
+		}
+		if (pol != null && pol.ExpirationDate != null) {
+			p.EffectiveToDate = pol.ExpirationDate.date();
+			p.ExpirationDate = pol.ExpirationDate;
+		}
+		if (m.Birthdate != null) { p.FechaNacimiento__c = m.Birthdate; }
+		if (String.isNotBlank(m.RFC__c)) { p.Identificacion__c = m.RFC__c.left(50); }
 		// Prima individual del asegurado (del listado de la aseguradora) como prima del periodo del participante.
 		if (m.Prima__c != null) { p.TermPremiumAmount = m.Prima__c; }
 		p.IsActiveParticipant = true;
 		return p;
+	}
+
+	// Valor del catálogo de parentescos para el cónyuge (así está escrito) y los valores con género que lo sustituyen.
+	public static final String CONYUGE = 'Conyugue';
+	private static final Set<String> VALORES_CONYUGE = new Set<String>{ 'marido', 'mujer', 'esposo', 'esposa', 'husband', 'wife', 'spouse', 'conyuge', 'conyugue' };
+
+	/**
+	 * @creation date: 02/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Parentesco para mostrar. Marido, Mujer, Esposo o Esposa (registros anteriores) se muestran como
+	 *               el cónyuge del catálogo («Conyugue»).
+	 * @param valor: valor de RelationshipToInsured.
+	 * @param etiquetas: etiquetas del picklist por valor.
+	 * @return etiqueta para mostrar o null.
+	 */
+	public static String parentescoPolizaVisible(String valor, Map<String, String> etiquetas) {
+		if (String.isBlank(valor)) { return null; }
+		if (VALORES_CONYUGE.contains(llave(valor))) { valor = CONYUGE; }
+		return etiquetas != null && etiquetas.containsKey(valor) ? etiquetas.get(valor) : valor;
 	}
 
 	/**
@@ -815,11 +1154,12 @@ public with sharing class CensoColectivoController {
 	 * @return valores candidatos del picklist RelationshipToInsured, en orden de preferencia.
 	 */
 	@TestVisible
-	private static List<String> parentescoPoliza(String censo, String sexo) {
+	public static List<String> parentescoPoliza(String censo, String sexo) {
 		String r = censo == null ? '' : censo.toLowerCase();
 		Boolean mujer = sexo != null && (sexo.toLowerCase().startsWith('m') && !sexo.toLowerCase().startsWith('mas') || sexo.toLowerCase().startsWith('f'));
 		if (r.contains('nyuge') || r.contains('spouse') || r.contains('esposa') || r.contains('esposo')) {
-			return mujer ? new List<String>{ 'Mujer', 'Esposa' } : new List<String>{ 'Marido', 'Esposo' };
+			// El catálogo de parentescos tiene "Conyugue" (así está escrito) para ambos sexos: no se usa Marido/Mujer.
+			return new List<String>{ CONYUGE, 'Cónyuge', 'Spouse' };
 		}
 		if (r.contains('secundario') || r.contains('child') || r.contains('hij')) {
 			return mujer ? new List<String>{ 'Hija' } : new List<String>{ 'Hijo' };
@@ -837,7 +1177,7 @@ public with sharing class CensoColectivoController {
 	 * @param candidatos: valores en orden de preferencia.
 	 * @return valor del picklist o null.
 	 */
-	private static String valorPicklist(Schema.DescribeFieldResult campo, List<String> candidatos) {
+	public static String valorPicklist(Schema.DescribeFieldResult campo, List<String> candidatos) {
 		for (String c : candidatos) {
 			for (Schema.PicklistEntry pe : campo.getPicklistValues()) {
 				if (pe.isActive() && (pe.getValue().equalsIgnoreCase(c) || pe.getLabel().equalsIgnoreCase(c))) { return pe.getValue(); }
@@ -854,7 +1194,10 @@ public with sharing class CensoColectivoController {
 	 * @param nombre: nombre del asegurado.
 	 * @return llave.
 	 */
-	private static String llaveParticipante(String certificado, String nombre) {
-		return (certificado == null ? '' : certificado.trim()) + '|' + (nombre == null ? '' : nombre.normalizeSpace().toUpperCase());
+	public static String llaveParticipante(String certificado, String nombre) {
+		// Sin acentos: el PDF de la aseguradora suele traer el nombre sin ellos ("PEREZ" / "Pérez").
+		String n = nombre == null ? '' : nombre.normalizeSpace().toUpperCase().replace('Á', 'A').replace('É', 'E').replace('Í', 'I')
+			.replace('Ó', 'O').replace('Ú', 'U').replace('Ü', 'U');
+		return (certificado == null ? '' : certificado.trim()) + '|' + n;
 	}
 }

@@ -16,14 +16,14 @@ private class OpportunityQuotesControllerTest {
 	 */
 	@testSetup
 	static void setup() {
-		Account acc = new Account(Name = 'Cliente Comparativo');
+		Account acc = new Account(Name = 'Cliente Comparativo', AnnualRevenue = 100);
 		insert acc;
 		String etapa = 'Prospecting';
 		for (OpportunityStage s : [
 			SELECT MasterLabel FROM OpportunityStage WHERE IsActive = true AND IsClosed = false ORDER BY SortOrder LIMIT 1
 		]) { etapa = s.MasterLabel; }
 		Opportunity opp = new Opportunity(Name = 'Oportunidad Comparativo', AccountId = acc.Id, StageName = etapa,
-			CloseDate = Date.today().addMonths(1));
+			CloseDate = Date.today().addMonths(1), Ramo__c = 'Vida');
 		insert opp;
 
 		Aseguradora__c aseg = new Aseguradora__c(Name = 'Aseguradora Comparativo');

@@ -16,7 +16,7 @@
     <referenceTo>Agente__c</referenceTo>
     <relationshipLabel>Oportunidades (Agente Relacionado)</relationshipLabel>
     <relationshipName>Oportunidades1</relationshipName>
-    <required>true</required>
+    <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
     <type>Lookup</type>
 </CustomField>

@@ -537,6 +537,21 @@
         <relatedList>InsurancePolicyAssets</relatedList>
 
     </relatedLists>
+    <relatedLists>
+        <fields>NAME</fields>
+        <fields>Numero_Inciso__c</fields>
+        <fields>Serie__c</fields>
+        <fields>Placas__c</fields>
+        <fields>Descripcion__c</fields>
+        <fields>Modelo__c</fields>
+        <fields>Tipo_Vehiculo__c</fields>
+        <fields>Uso__c</fields>
+        <fields>Vehiculo__c</fields>
+        <fields>Prima__c</fields>
+        <relatedList>Inciso_Flotilla__c.Poliza__c</relatedList>
+        <sortField>Numero_Inciso__c</sortField>
+        <sortOrder>Asc</sortOrder>
+    </relatedLists>
 
     <relatedLists>
 

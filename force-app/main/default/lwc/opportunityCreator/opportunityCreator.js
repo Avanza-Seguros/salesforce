@@ -14,6 +14,7 @@ import QUOTE_OBJECT from '@salesforce/schema/Quote';
 import FRECUENCIA_FIELD from '@salesforce/schema/Quote.Frecuencia_de_prima__c';
 import getOpportunities from '@salesforce/apex/OpportunityController.getOpportunities';
 import getResumenOportunidades from '@salesforce/apex/ColectivoController.getResumenOportunidades';
+import tienePolizaDelRamo from '@salesforce/apex/ColectivoController.tienePolizaDelRamo';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import searchAccounts from '@salesforce/apex/OpportunityController.searchAccounts';
 import getAccountById from '@salesforce/apex/OpportunityController.getAccountById';
@@ -60,6 +61,7 @@ const RAMO_TYPES = {
     FIANZAS: 'Fianzas',
     DENTAL: 'Dental',
     VISION: 'Vision',
+    MASCOTAS: 'Mascotas',
     RESPONSABILIDAD_CIVIL: 'RC'
 };
 // Etapas: API value (Salesforce) -> etiqueta visible (UX) + metadatos
@@ -192,6 +194,9 @@ const CONCEPTOS_POR_RAMO = {
 const MARCA_COMPARATIVO_CALCULADO = '<!--comparativo-calculado-->';
 // Comparativo colectivo / de flotilla que guarda Apex en Descripcion__c (lo muestra "Análisis IA").
 const MARCA_COMPARATIVO_COLECTIVO = '<!--comparativo-colectivo-->';
+// Base64 máximo que se adjunta automáticamente (~3 MB de archivo): Salesforce rechaza llamadas a Apex de más de
+// ~4 MB. Los archivos más grandes se suben con el cargador estándar del modal «Ver archivos».
+const MAX_BASE64_ADJUNTO = 4 * 1024 * 1024;
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     @api recordId;
@@ -297,6 +302,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     };
     @track showComparisonSummary = false;
     @track archivosModalOpen = false;
+    // Oportunidad del modal de archivos (para el cargador estándar).
+    archivosOppId = null;
     @track archivosList = [];
     @track archivosLoading = false;
     @track archivosOppName = '';
@@ -307,6 +314,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track asegurados = [];
     // Total de asegurados del censo colectivo (lo informa c-censo-colectivo).
     censoTotal = 0;
+    // Vehículos del censo de la flotilla (lo informa c-censo-vehiculos).
+    censoVehiculosTotal = 0;
     // Cotizaciones de flotilla cargadas (lo informa c-flotilla-colectiva).
     flotillaCotizaciones = 0;
     // Cotizaciones colectivas de personas cargadas (lo informa c-colectivo-personas).
@@ -352,6 +361,38 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     get isPersonAccount() {
         return this.opportunity.tipoCliente === 'Persona';
+    }
+
+    // true cuando la oportunidad se llenó desde cotizaciones PDF (activa el aviso
+    // de datos del asegurado que no venían en ellas).
+    datosClienteDesdePdf = false;
+
+    // Datos del asegurado que siguen vacíos (se recalcula al capturar).
+    get datosAseguradoFaltantes() {
+        const o = this.opportunity || {};
+        const vacio = (v) => !String(v || '').trim();
+        const faltan = [];
+        if (this.isPersonAccount) {
+            if (vacio(o.clienteNombre) || vacio(o.clienteApellidoPaterno)) { faltan.push('nombre completo'); }
+        } else if (vacio(o.clienteNombre)) {
+            faltan.push('razón social');
+        }
+        if (vacio(o.clienteRFC))       { faltan.push('RFC'); }
+        if (vacio(o.clienteEmail))     { faltan.push('correo'); }
+        if (vacio(o.clienteTelefono))  { faltan.push('teléfono'); }
+        if (vacio(o.clienteCP))        { faltan.push('código postal'); }
+        if (vacio(o.clienteDireccion)) { faltan.push('dirección'); }
+        return faltan;
+    }
+
+    get avisoDatosAsegurado() {
+        if (!this.datosClienteDesdePdf || this.addQuotesMode) { return ''; }
+        // Si se eligió una cuenta existente, sus datos ya están en Salesforce.
+        if (this.opportunity.AccountId && !this.isNewAccount) { return ''; }
+        const faltan = this.datosAseguradoFaltantes;
+        if (!faltan.length) { return ''; }
+        return `Las cotizaciones no traen estos datos del asegurado: ${faltan.join(', ')}. ` +
+            'Captúralos a mano, ya que no vienen en los PDFs.';
     }
 
     get hasVehiculoResults() {
@@ -405,21 +446,32 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         );
     }
 
-    async handleCrearCotizaciones() {
+    // soloConProducto: crea las que ya tienen producto y deja las demás pendientes (al guardar).
+    async handleCrearCotizaciones(soloConProducto) {
         if (!this.opportunity.Id || !this.hasEditableQuotes) { return; }
+        const parcial = soloConProducto === true;
         // Solo se crean las cotizaciones seleccionadas.
-        const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
+        let seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
         if (!seleccionadas.length) {
             this.showToast('Sin selección', 'Marca al menos una cotización para agregarla.', 'warning');
             return;
         }
         // Validar que cada cotización seleccionada tenga producto
         const sinProd = seleccionadas.filter(q => !q.productId);
-        if (sinProd.length) {
+        if (sinProd.length && !parcial) {
             this.showToast('Falta producto',
-                `Selecciona el producto de: ${sinProd.map(q => q.compania).join(', ')}`, 'warning');
+                `Selecciona el producto de: ${sinProd.map(q => q.plan || q.compania).join(', ')}`, 'warning');
             return;
         }
+        if (parcial) {
+            seleccionadas = seleccionadas.filter(q => q.productId);
+            if (!seleccionadas.length) { return; }
+        }
+        // Las que no se crean ahora (sin marcar o sin producto) se conservan para crearlas después
+        // sin volver a cargar los PDFs.
+        const idsCrear = new Set(seleccionadas.map(q => q.id));
+        const pendientesEditables = this.editableQuotes.filter(q => !idsCrear.has(q.id));
+        const pendientesOrigen = (this.uploadedQuotes || []).filter(u => !idsCrear.has(u.id));
         this.isSaving = true; this.isLoading = true;
         try {
             // Coberturas y notas del PDF de cada cotización: con ellas Apex llena la suma
@@ -463,6 +515,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.addQuotesMode = false;
             this.pdfAnalyzing = false;
             await this.openOpportunityInEditMode(this.opportunity.Id);
+            // Recargar la oportunidad limpia el formulario: se restauran las pendientes.
+            if (pendientesEditables.length) {
+                this.uploadedQuotes = pendientesOrigen;
+                this.editableQuotes = pendientesEditables;
+                const faltan = pendientesEditables.filter(q => !q.productId);
+                if (faltan.length) {
+                    this.showToast('Cotizaciones pendientes',
+                        `Falta elegir el producto de: ${faltan.map(q => q.plan || q.compania).join(', ')}. ` +
+                        'Siguen en "Revisar y editar cotizaciones"; no necesitas volver a cargar el PDF.',
+                        'warning', 'sticky');
+                    this.irASeccionCotizaciones();
+                }
+            }
             // Se conserva el comparativo que regresa la IA (Descripcion__c recuperado al
             // recargar). Solo si la oportunidad NO tiene comparativo de IA se reconstruye
             // la matriz comparativa como respaldo.
@@ -1499,10 +1564,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 productName = qli[0].Product2?.Name || '';
             }
         }
-        // Plan: viene embebido en el nombre de la cotización con el formato
-        // "Compañía - Plan" (así se crea al generarla). Se toma lo que va después de " - ".
-        let plan = '';
-        if (typeof q.Name === 'string') {
+        // Plan: el campo Plan__c (cotización manual o PDF). En las cotizaciones anteriores
+        // viene en el nombre "Compañía - Plan": se toma lo que va después de " - ".
+        let plan = q.Plan__c || '';
+        if (!plan && typeof q.Name === 'string') {
             const idx = q.Name.indexOf(' - ');
             if (idx >= 0) { plan = q.Name.substring(idx + 3).trim(); }
         }
@@ -1656,16 +1721,48 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.censoTotal ? `${this.censoTotal} asegurados` : 'Sin censo';
     }
     handleCensoActualizado(event) {
-        this.censoTotal = (event.detail && event.detail.total) || 0;
+        const total = (event.detail && event.detail.total) || 0;
+        const cambio = total !== this.censoTotal;
+        this.censoTotal = total;
+        // El panel de renovación (altas, bajas y cambios) muestra el mismo censo.
+        const mov = cambio ? this.template.querySelector('c-movimientos-colectivo') : null;
+        if (mov) { mov.recargar(); }
     }
-    // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se cargan las
-    // cotizaciones de cada aseguradora por inciso (c-flotilla-colectiva).
+    // Altas, bajas o cambios aplicados al censo desde el panel de renovación: se refresca el censo.
+    handleMovimientosCenso() {
+        const censo = this.template.querySelector('c-censo-colectivo');
+        if (censo) { censo.recargar(); }
+    }
+    get censoVehiculosBadge() {
+        return this.censoVehiculosTotal ? `${this.censoVehiculosTotal} vehículos` : 'Sin censo';
+    }
+    handleCensoVehiculosActualizado(event) {
+        const total = (event.detail && event.detail.total) || 0;
+        const cambio = total !== this.censoVehiculosTotal;
+        this.censoVehiculosTotal = total;
+        // El panel de renovación de vehículos muestra el mismo censo.
+        const mov = cambio ? this.template.querySelector('c-movimientos-flotilla') : null;
+        if (mov) { mov.recargar(); }
+    }
+    // Altas, bajas o cambios de vehículos aplicados desde el panel de renovación: se refresca el censo de vehículos.
+    handleMovimientosVehiculos() {
+        const censo = this.template.querySelector('c-censo-vehiculos');
+        if (censo) { censo.recargar(); }
+    }
+    // Colectiva de Automóviles = FLOTILLA: en vez del censo de personas se carga el censo de vehículos
+    // (c-censo-vehiculos: un Inciso_Flotilla__c por vehículo).
     get isFlotilla() {
         return this.isColectiva && this.isRamoAutomovil;
     }
-    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos.
+    // Colectiva de Daños / Empresarial: en la renovación se ajusta el listado de ubicaciones (c-movimientos-ubicaciones).
+    get isColectivaUbicaciones() {
+        return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
+    }
+    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos. En Vida y Daños
+    // colectivos tampoco (asegurado principal / subramo): de la colectiva solo importan las primas.
     get mostrarDetalleRamo() {
-        return this.showCreateView && !this.isFlotilla;
+        return this.showCreateView && !this.isFlotilla
+            && !(this.isColectiva && (this.isRamoVida || this.isRamoDanos));
     }
     // Censo de personas: colectivas de ramos que aseguran personas.
     get isCensoPersonas() {
@@ -1676,14 +1773,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isColectivoUbicaciones() {
         return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
     }
-    // Cotizaciones por aseguradora con comparativo (c-colectivo-personas). RC y Fianzas usan las cotizaciones normales.
+    // Cotizaciones por aseguradora (c-colectivo-personas): solo aseguradora, vigencia y primas. RC y Fianzas usan las
+    // cotizaciones normales.
     get mostrarCotizacionesColectivas() {
-        return this.isCensoPersonas || this.isColectivoUbicaciones;
+        return this.isCensoPersonas || this.isColectivoUbicaciones || this.isFlotilla;
     }
     get colectivoSubtitulo() {
-        return this.isColectivoUbicaciones
-            ? 'Cotización de cada aseguradora por ubicación, coberturas y primas, con comparativo'
-            : 'Cotización de cada aseguradora por categoría, plan y primas, con comparativo';
+        return 'Cotización de cada aseguradora: vigencia, primas y formas de pago';
     }
     get flotillaBadge() {
         return this.flotillaCotizaciones
@@ -1703,16 +1799,21 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // Colectivas: un solo comparativo. La sección "Comparativa de Cotizaciones" muestra el colectivo (primas,
     // plan/coberturas, cuota al millar, recomendación y PDF) en lugar del general; la carga queda en "Cotizaciones colectivas".
+    // Colectivas: no se muestra la Comparativa de Cotizaciones (solo la lista de cotizaciones cargadas).
     get mostrarComparativaColectiva() {
-        return this.mostrarCotizacionesColectivas && this.colectivoCotizaciones > 0;
+        return false;
     }
     // Flotilla: su comparativo (por tipo de vehículo y por vehículo) ocupa la sección Comparativa de Cotizaciones.
     get mostrarComparativaFlotilla() {
-        return this.isFlotilla && this.flotillaCotizaciones > 0;
+        return false;
     }
     // Un solo comparativo por oportunidad: el general solo en individuales.
     get mostrarComparativaGeneral() {
-        return this.hasQuoteComparison && !this.mostrarCotizacionesColectivas && !this.isFlotilla;
+        return this.hasQuoteComparison && !this.isColectiva;
+    }
+    // Vista previa de la comparativa al crear desde PDFs: tampoco en colectivas.
+    get mostrarComparativaPrevia() {
+        return this.hasQuoteComparison && !this.isColectiva;
     }
     get comparativaColectivaSubtitulo() {
         return this.isColectivoUbicaciones
@@ -1797,6 +1898,11 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleTipoContratacionChange(event) {
         const value = event.detail.value;
         this.opportunity = { ...this.opportunity, Tipo_Contratacion__c: value };
+        // Una contratación colectiva es de una empresa: Mercado Corporativo.
+        if (value === 'Colectiva') {
+            this.opportunity = { ...this.opportunity, Mercado__c: 'Corporativo' };
+            this.syncContactoConMercado();
+        }
         if (value === 'Colectiva' && this.opportunity.Id) {
             this.cargarAsegurados(this.opportunity.Id);
         }
@@ -2820,6 +2926,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     // Mercado según el tipo de cliente: Persona → Individual; Empresa → Corporativo.
     mercadoPorTipo(tipoCliente) {
+        if (this.isColectiva) { return 'Corporativo'; }
         return tipoCliente === 'Persona' ? 'Individual' : 'Corporativo';
     }
 
@@ -3651,6 +3758,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!ramoDetectado) return null;
         const u = ramoDetectado.toUpperCase();
         const mapping = {
+            // Primero: una póliza de mascota también menciona gastos médicos (veterinarios).
+            'MASCOTA': RAMO_TYPES.MASCOTAS, 'VETERINAR': RAMO_TYPES.MASCOTAS,
             'AUTOMOVIL': RAMO_TYPES.AUTOMOVIL, 'AUTO': RAMO_TYPES.AUTOMOVIL,
             'VEHICULO': RAMO_TYPES.AUTOMOVIL, 'CARRO': RAMO_TYPES.AUTOMOVIL,
             'VIAJE': RAMO_TYPES.VIAJE, 'TRAVEL': RAMO_TYPES.VIAJE, 'VIAJES': RAMO_TYPES.VIAJE,
@@ -3658,7 +3767,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             'GASTOS MEDICOS': RAMO_TYPES.GASTOS_MEDICOS, 'MEDICO': RAMO_TYPES.GASTOS_MEDICOS,
             'VIDA': RAMO_TYPES.VIDA, 'LIFE': RAMO_TYPES.VIDA,
             'DANOS': RAMO_TYPES.DANOS, 'DAÑOS': RAMO_TYPES.DANOS,
-            'HOGAR': RAMO_TYPES.DANOS, 'MASCOTAS': RAMO_TYPES.DANOS,
+            'HOGAR': RAMO_TYPES.DANOS,
             'RESPONSABILIDAD CIVIL': RAMO_TYPES.RESPONSABILIDAD_CIVIL, 'RC': RAMO_TYPES.RESPONSABILIDAD_CIVIL,
             'EMPRESARIAL': RAMO_TYPES.EMPRESARIAL, 'BUSINESS': RAMO_TYPES.EMPRESARIAL,
             'FIANZAS': RAMO_TYPES.FIANZAS, 'DENTAL': RAMO_TYPES.DENTAL, 'VISION': RAMO_TYPES.VISION
@@ -3774,7 +3883,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 'success');
             await this.loadOpportunities();
 
-            if (this.hasPdfQuotes && savedId) {
+            if (this._colectivoPorCrear && savedId) {
+                // Cotizaciones colectivas leídas en "Crear desde PDFs": se crean ya con la oportunidad guardada.
+                const vistas = this._colectivoPorCrear;
+                this._colectivoPorCrear = null;
+                await this.guardarArchivosPdf(savedId);
+                this.viewMode = VIEW_MODES.EDIT;
+                await this.esperarRender();
+                const comp = this.template.querySelector('c-colectivo-personas[data-carga]');
+                if (comp) { await comp.crearCotizaciones(vistas, savedId); }
+            } else if (this.hasPdfQuotes && savedId) {
                 // Venimos del flujo de PDFs: guardamos los PDFs y el comparativo (como PDF)
                 // en la oportunidad, y nos quedamos en ella para crear las cotizaciones.
                 await this.guardarArchivosPdf(savedId);
@@ -3928,7 +4046,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         const oppName = event.currentTarget.dataset.name || '';
         if (!oppId) { return; }
         this.archivosOppName = oppName;
+        this.archivosOppId = oppId;
         this.archivosModalOpen = true;
+        await this.cargarArchivosModal();
+    }
+
+    async cargarArchivosModal() {
+        const oppId = this.archivosOppId;
+        if (!oppId) { return; }
         this.archivosLoading = true;
         this.archivosList = [];
         try {
@@ -3973,6 +4098,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     closeArchivosModal() {
         this.archivosModalOpen = false;
         this.archivosList = [];
+        this.archivosOppId = null;
+    }
+
+    // Archivos subidos con el cargador estándar del modal (ya quedan ligados a la oportunidad).
+    handleArchivoOppSubido(event) {
+        const n = ((event.detail && event.detail.files) || []).length;
+        this.showToast('Archivos', n === 1 ? 'Archivo adjuntado a la oportunidad.' : `${n} archivos adjuntados a la oportunidad.`, 'success');
+        this.cargarArchivosModal();
     }
 
     get tieneArchivos() {
@@ -3984,15 +4117,27 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!oppId) { return; }
         const archivos = this.pdfArchivos || [];
         let subidos = 0;
+        // Archivos que no se pudieron adjuntar (los grandes no caben en la llamada a Apex).
+        const pendientes = [];
         for (const a of archivos) {
             if (!a || !a.base64) { continue; }
+            if (a.base64.length > MAX_BASE64_ADJUNTO) {
+                pendientes.push(`${a.nombre} (${this.formatFileSize(Math.round(a.base64.length * 0.75))})`);
+                continue;
+            }
             try {
                 await guardarArchivoEnOportunidad({ opportunityId: oppId, fileName: a.nombre, base64Data: a.base64 });
                 subidos++;
             } catch (e) {
+                pendientes.push(a.nombre);
                 // eslint-disable-next-line no-console
                 console.error(':::OpportunityCreator::: No se pudo subir el archivo', a && a.nombre, e);
             }
+        }
+        if (pendientes.length) {
+            this.showToast('Archivos sin adjuntar',
+                `No se pudieron adjuntar automáticamente: ${pendientes.join(', ')}. Súbelos desde el botón «Ver archivos» de la oportunidad.`,
+                'warning');
         }
         // Si se usó la IA, se guarda ÚNICAMENTE el comparativo que ella regresó.
         // Solo cuando no hay comparativo de IA se arma la matriz completa como respaldo.
@@ -4016,6 +4161,160 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (subidos > 0 || htmlComparativo) {
             this.showToast('Archivos', 'Se guardaron los PDFs y el comparativo en la oportunidad.', 'success');
         }
+    }
+
+    // "Crear desde PDFs" con cotizaciones colectivas (PDF o Excel): c-colectivo-personas las lee con la IA (detecta el
+    // ramo) y con eso se llena la oportunidad; al guardarla se crean las cotizaciones. En una oportunidad ya guardada
+    // ("Agregar cotizaciones desde PDF") se crean en ese momento.
+    async handleColectivoArchivos(event) {
+        const { files, archivos } = (event && event.detail) || {};
+        if (!files || !files.length) { return; }
+        const existente = !!this.opportunity.Id;
+        if (existente && !this.mostrarCotizacionesColectivas) {
+            this.showToast('Cotización colectiva',
+                'Esta oportunidad no es colectiva: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
+                'warning', 'sticky');
+            return;
+        }
+        if (existente) {
+            this.handleCancelAddPdf();
+        } else {
+            this._colectivoPorCrear = null;
+            this.pdfArchivos = archivos || [];
+            // Ramo provisional para mostrar la sección de cotizaciones colectivas; el real se detecta al leer.
+            this.opportunity = {
+                ...this.opportunity,
+                Tipo_Contratacion__c: 'Colectiva',
+                Mercado__c: 'Corporativo',
+                Ramo__c: this.opportunity.Ramo__c || RAMO_TYPES.GASTOS_MEDICOS
+            };
+            this.viewMode = VIEW_MODES.CREATE;
+        }
+        await this.esperarRender();
+        const comp = this.template.querySelector('c-colectivo-personas[data-carga]');
+        if (!comp) {
+            this.showToast('Cotización colectiva', 'No se encontró la sección de cotizaciones colectivas.', 'error');
+            return;
+        }
+        comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const r = await comp.analizarArchivos(files);
+        if (r.fallas.length) { this.showToast('No se pudieron leer', r.fallas.join(' | '), 'error', 'sticky'); }
+        if (!r.vistas.length) { return; }
+        if (existente) {
+            await comp.crearCotizaciones(r.vistas, this.opportunity.Id);
+            this.pdfArchivos = archivos || [];
+            await this.guardarArchivosPdf(this.opportunity.Id);
+            return;
+        }
+        this._colectivoPorCrear = r.vistas;
+        const resumen = r.resumen || [];
+        const contratante = (resumen.find((x) => x.contratante) || {}).contratante || '';
+        // Cuenta: la que ya exista en Salesforce con el contratante o con el nombre de los archivos (HAND CLOUD en
+        // "23102026_PROPUESTA HAND CLOUD_GMG-17588_0.pdf"); si ninguna existe, se crea con el primer nombre.
+        const candidatos = [contratante, this.clienteComun(files), ...files.map((f) => this.clienteDesdeArchivo(f.name))].filter(Boolean);
+        const cuentaSf = await this.cuentaExistente(candidatos);
+        const cliente = cuentaSf || candidatos[0] || '';
+        // Tipo de negocio: si alguna cotización dice Reexpedición o Renovación, gana sobre "Nueva" (las aseguradoras
+        // que no tienen hoy la póliza cotizan como nueva). Si el cliente ya tiene una póliza del ramo con nosotros,
+        // es renovación interna aunque las cotizaciones digan "Nueva".
+        const tipos = resumen.map((x) => x.tipoNegocio);
+        let tipoNegocio = ['Reexpedicion', 'Renovacion', 'Nuevo'].find((t) => tipos.includes(t)) || '';
+        let conPoliza = false;
+        if (this._cuentaColectivaId && tipoNegocio !== 'Reexpedicion') {
+            try {
+                conPoliza = await tienePolizaDelRamo({ accountId: this._cuentaColectivaId, ramo: r.ramo || this.opportunity.Ramo__c });
+            } catch (e) {
+                conPoliza = false;
+            }
+            if (conPoliza) { tipoNegocio = 'Renovacion'; }
+        }
+        const tipoOportunidad = tipoNegocio === 'Reexpedicion' ? 'Reissue'
+            : tipoNegocio === 'Renovacion' ? (cuentaSf ? 'Internal_Renewal' : 'External_Renewal')
+                : tipoNegocio === 'Nuevo' ? 'New_Business' : this.opportunity.Type;
+        const primas = resumen.map((x) => x.primaNeta || x.primaTotal).filter((v) => v > 0);
+        const prima = primas.length ? Math.min(...primas) : null;
+        this.opportunity = {
+            ...this.opportunity,
+            Ramo__c: r.ramo || this.opportunity.Ramo__c,
+            Name: this.opportunity.Name || cliente.substring(0, 80),
+            Type: tipoOportunidad,
+            Prima_Neta__c: prima || this.opportunity.Prima_Neta__c,
+            Prima_neta__c: prima || this.opportunity.Prima_neta__c,
+            Description: this.opportunity.Description || 'Cotizaciones colectivas leídas por la IA: ' + resumen.map((x) =>
+                `${x.aseguradora || x.archivo} ${this.formatCurrency(x.primaTotal || x.primaNeta || 0)}`).join(' · ')
+        };
+        if (cliente && !this.opportunity.AccountId) {
+            this.opportunity = { ...this.opportunity, AccountName: cliente };
+            await this.resolveAccountByName(cliente);
+            this.opportunity = { ...this.opportunity, Mercado__c: 'Corporativo' };
+            this.syncContactoConMercado();
+        }
+        this.aplicarFechaCierreSugerida();
+        this.setDefaultAgente({ archivos: files.map((f) => ({ nombre: f.name })) });
+        this.showToast('La IA ya lo llenó',
+            `Se leyeron ${resumen.length} cotización(es) colectiva(s). Revisa los datos de la oportunidad y guarda: al guardar se crean las cotizaciones.`,
+            'success');
+    }
+
+    // Nombre del cliente que se repite en todos los archivos ("GREENLINE CAPITAL MAPFRE.pdf",
+    // "PROPUESTA_GREENLINE CAPITAL CHUBB.xlsx" -> "GREENLINE CAPITAL"): la secuencia de palabras común más larga.
+    clienteComun(files) {
+        const nombres = (files || []).map((f) => this.clienteDesdeArchivo(f.name)).filter(Boolean);
+        if (nombres.length < 2) { return ''; }
+        const palabras = (t) => t.split(/\s+/);
+        const base = palabras(nombres[0]);
+        const resto = nombres.slice(1).map((t) => ` ${palabras(t).join(' ').toLowerCase()} `);
+        for (let largo = base.length; largo > 0; largo--) {
+            for (let i = 0; i + largo <= base.length; i++) {
+                const sec = base.slice(i, i + largo).join(' ');
+                if (sec.length >= 3 && resto.every((t) => t.includes(` ${sec.toLowerCase()} `))) { return sec; }
+            }
+        }
+        return '';
+    }
+
+    // Nombre del cliente en el nombre del archivo: quita fechas, folios y palabras de cotización
+    // ("PR_GMM_HAND CLOUD_2026_RHC_v2.xlsm" -> "HAND CLOUD").
+    clienteDesdeArchivo(nombre) {
+        const ruido = /^(propuesta|cotizacion|cotizaciones|poliza|renovacion|tarifa|tar|pr|nn|gmm|gmg|gm|vida|ap|danos|colectivo|colectiva|rhc|cp|cre|v\d+|final|de|del|la|el)$/i;
+        const partes = String(nombre || '').replace(/\.[^.]+$/, '').split(/[_\-–]+/)
+            .map((seg) => seg.split(/\s+/).filter((w) => w && !/\d/.test(w) && !ruido.test(w)).join(' '))
+            .filter((seg) => seg.length >= 3);
+        return partes.sort((a, b) => b.length - a.length)[0] || '';
+    }
+
+    // Primer candidato que ya existe como cuenta (mismo nombre, sin importar acentos ni mayúsculas, o que uno contenga
+    // al otro); regresa el nombre de la cuenta o ''.
+    async cuentaExistente(candidatos) {
+        this._cuentaColectivaId = null;
+        const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        for (const c of candidatos) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                const res = (await searchAccounts({ searchTerm: c })) || [];
+                const n = norm(c);
+                // "Hand Cloud" = "Hand Cloud, S.A. de C.V.", pero no "PRUEBA FLOTILLA Greenline Capital".
+                const razon = /^(s|a|de|c|v|sa|cv|sapi|sab|rl|r|l|sc|ac|s de rl|s en c|mi|ip)$/;
+                const soloRazon = (largo, corto) => largo.startsWith(corto + ' ')
+                    && largo.substring(corto.length).trim().split(' ').every((w) => razon.test(w));
+                const cuenta = res.find((a) => norm(a.Name) === n)
+                    || res.find((a) => soloRazon(norm(a.Name), n) || soloRazon(n, norm(a.Name)));
+                if (cuenta) {
+                    this._cuentaColectivaId = cuenta.Id;
+                    return cuenta.Name;
+                }
+            } catch (e) {
+                // Sigue con el siguiente nombre.
+            }
+        }
+        return '';
+    }
+
+    // Espera a que se pinte el cambio de vista (para encontrar los componentes hijos).
+    esperarRender() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        return new Promise((resolve) => setTimeout(resolve, 0));
     }
 
     handlePdfAnalysisComplete(event) {
@@ -4070,6 +4369,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
         this.setDefaultAgente(d);
         this.loadEditableQuotes();
+        this.datosClienteDesdePdf = true;
 
         this.showToast(
             'La IA ya lo llenó',
@@ -4078,6 +4378,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 : `Listo, sin capturar a mano: ${n} cotizaciones leídas. Solo revisa y guarda.`,
             'success'
         );
+
+        // Aviso aparte si los PDFs no traían datos del asegurado.
+        const faltan = this.datosAseguradoFaltantes;
+        if (faltan.length) {
+            this.showToast(
+                'Faltan datos del asegurado',
+                `Las cotizaciones no traen: ${faltan.join(', ')}. Captúralos en "Información del Cliente".`,
+                'warning'
+            );
+        }
     }
 
     // El AGENTE (Producer) se toma del NOMBRE DEL ARCHIVO de las cotizaciones
@@ -4218,8 +4528,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     // HTML del comparativo a guardar en la oportunidad: el de la IA si sigue vigente; si no, el de las cotizaciones actuales.
     comparativoHtmlParaGuardar() {
-        // Colectivas y flotillas: el comparativo lo mantiene Apex al guardar o eliminar cotizaciones (null = no se toca).
-        if (this.mostrarCotizacionesColectivas || this.isFlotilla) { return null; }
+        // Colectivas (cualquier ramo): no llevan comparativo (null = no se toca).
+        if (this.isColectiva) { return null; }
+        // Con una sola cotización no hay nada que comparar: no se guarda comparativo.
+        if ((this.uploadedQuotes || []).length < 2) { return null; }
         if (this.hasComparativoHtml) { return this.comparativoHtml; }
         const calculado = this.buildComparativoHtmlCompleto();
         return calculado ? MARCA_COMPARATIVO_CALCULADO + calculado : null;
@@ -4432,6 +4744,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.transporte = this.getDefaultTransporte();
         this.asegurados = [];
         this.uploadedQuotes = [];
+        this._colectivoPorCrear = null;
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
         this.selectedQuoteRamo = '';
@@ -4447,32 +4760,55 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.isNewContacto = false;
         this.comparativoHtml = '';
         this._comparativoDirty = true;
+        this.datosClienteDesdePdf = false;
     }
 
     showToast(title, message, variant, mode) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant, mode: mode || 'dismissible' }));
     }
 
-    // Al guardar una oportunidad que viene de PDFs, crea de una vez las cotizaciones seleccionadas. Si a alguna le
-    // falta el producto, no crea ninguna: avisa (aviso fijo) y lleva a "Revisar y editar cotizaciones".
+    // Al guardar una oportunidad que viene de PDFs, crea de una vez las cotizaciones seleccionadas que ya tienen
+    // producto. Las que no lo tienen quedan pendientes en "Revisar y editar cotizaciones" (sin recargar el PDF).
     async crearCotizacionesAlGuardar() {
         if (!this.hasEditableQuotes) { return; }
         const seleccionadas = this.editableQuotes.filter(q => q.seleccionada);
         if (!seleccionadas.length) { return; }
         const sinProd = seleccionadas.filter(q => !q.productId);
-        if (sinProd.length) {
+        if (sinProd.length === seleccionadas.length) {
             this.showToast('Falta un paso: crear las cotizaciones',
                 `La oportunidad se guardó, pero las cotizaciones aún no se crean. Elige el producto de: ${sinProd.map(q => q.plan || q.compania).join(', ')} y presiona "Aceptar y crear cotizaciones".`,
                 'warning', 'sticky');
-            // Espera a que se pinte la vista de edición y lleva a la sección.
-            // eslint-disable-next-line @lwc/lwc/no-async-operation
-            setTimeout(() => {
-                const sec = this.template.querySelector('.edit-quotes-section');
-                if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-            }, 400);
+            this.irASeccionCotizaciones();
             return;
         }
-        await this.handleCrearCotizaciones();
+        await this.handleCrearCotizaciones(true);
+    }
+
+    // Espera a que se pinte la vista de edición y lleva a "Revisar y editar cotizaciones".
+    irASeccionCotizaciones() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            const sec = this.template.querySelector('.edit-quotes-section');
+            if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }, 400);
+    }
+
+    // Vuelve a consultar los productos de la tarjeta (ej. después de dar de alta uno en otra pestaña).
+    async handleRecargarProductos(event) {
+        const idx = parseInt(event.currentTarget.dataset.index, 10);
+        const q = this.editableQuotes[idx];
+        if (!q || !q.aseguradoraId) { return; }
+        let productos = [];
+        try {
+            productos = await getProductosPorAseguradoraRamo({ aseguradoraId: q.aseguradoraId, ramo: q.ramo });
+        } catch (e) { productos = []; }
+        productos = productos || [];
+        const sigue = productos.some(p => p.value === q.productId);
+        this.editableQuotes = this.editableQuotes.map((it, i) =>
+            i === idx
+                ? { ...it, productos, productId: sigue ? it.productId : (productos.length === 1 ? productos[0].value : null), sinProductos: !productos.length }
+                : it);
+        this.showToast('Productos', `Se encontraron ${productos.length} producto(s) para ${q.compania}.`, 'info');
     }
 
     addMoreQuotes() {

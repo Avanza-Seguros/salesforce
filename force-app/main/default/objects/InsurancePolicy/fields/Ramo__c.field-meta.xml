@@ -58,6 +58,11 @@
                 <default>false</default>
                 <label>Visión</label>
             </value>
+            <value>
+                <fullName>Mascotas</fullName>
+                <default>false</default>
+                <label>Mascotas</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>
