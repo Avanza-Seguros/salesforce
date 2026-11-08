@@ -25,6 +25,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>PolicyTermsController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PolicyPaymentReceiptQueueable</apexClass>
         <enabled>true</enabled>
     </classAccesses>

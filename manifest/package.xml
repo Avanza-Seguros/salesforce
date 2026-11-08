@@ -32,6 +32,8 @@
         <members>PolicyPaymentReceiptReversalService</members>
         <members>PolicyPaymentReceiptReversalServiceTest</members>
         <members>PolicyInstallmentsControllerTest</members>
+        <members>PolicyTermsController</members>
+        <members>PolicyTermsControllerTest</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
         <members>PaymentInstallmentMatchQueueable</members>
@@ -404,6 +406,7 @@
         <members>reconciliationManualReject</members>
         <members>reconciliationManualReprocess</members>
         <members>policyInstallments</members>
+        <members>policyTerms</members>
         <members>inboundRefundResolve</members>
         <members>policyPaymentReceiptReverse</members>
         <members>inboundPolicyStatusReprocess</members>

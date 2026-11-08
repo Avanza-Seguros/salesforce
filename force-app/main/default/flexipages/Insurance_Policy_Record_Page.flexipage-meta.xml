@@ -783,6 +783,16 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
+                <componentName>policyTerms</componentName>
+                <identifier>c_policyTerms</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-vigencias-poliza</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
                 <componentInstanceProperties>
                     <name>active</name>
                     <value>true</value>
@@ -811,6 +821,20 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab2</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-vigencias-poliza</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Vigencias</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tabVigencias</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>

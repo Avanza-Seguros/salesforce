@@ -1,0 +1,28 @@
+<template>
+	<lightning-card title={cardTitle} icon-name="standard:timeline">
+		<div class="slds-p-horizontal_small">
+			<template if:true={error}>
+				<p class="slds-text-color_error slds-text-body_small">{error}</p>
+			</template>
+
+			<template if:true={hasRows}>
+				<lightning-datatable
+					key-field="policyId"
+					data={rows}
+					columns={columns}
+					hide-checkbox-column
+					resize-column-disabled
+					onrowaction={handleRowAction}
+				></lightning-datatable>
+			</template>
+
+			<template if:true={isOnlyTerm}>
+				<p
+					class="slds-text-color_weak slds-text-body_small slds-p-vertical_x-small"
+				>
+					Es la única vigencia registrada de esta póliza.
+				</p>
+			</template>
+		</div>
+	</lightning-card>
+</template>
