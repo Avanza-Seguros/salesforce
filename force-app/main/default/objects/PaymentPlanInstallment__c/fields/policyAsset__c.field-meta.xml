@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>policyAsset__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <description
+	>Inciso de la flotilla al que corresponde este recibo, cuando el inciso es un bien (vehículo, local, ubicación). Vacío en una póliza individual. Un bien con recibos no se puede borrar: se da de baja.</description>
+    <label>Inciso (bien)</label>
+    <referenceTo>InsurancePolicyAsset</referenceTo>
+    <relationshipLabel>Recibos del inciso</relationshipLabel>
+    <relationshipName>Installments</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

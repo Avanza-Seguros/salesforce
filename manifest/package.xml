@@ -34,6 +34,11 @@
         <members>PolicyInstallmentsControllerTest</members>
         <members>PolicyTermsController</members>
         <members>PolicyTermsControllerTest</members>
+        <members>InsuredSubjectService</members>
+        <members>FleetIncisoService</members>
+        <members>FleetIncisoServiceTest</members>
+        <members>InsuredSubjectServiceTest</members>
+        <members>InsuredSubjectBackfillBatch</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
         <members>PaymentInstallmentMatchQueueable</members>
@@ -84,6 +89,8 @@
     </types>
     <types>
         <members>InsurancePolicyTrigger</members>
+        <members>InsuredSubjectAssetTrigger</members>
+        <members>InsuredSubjectParticipantTrigger</members>
         <members>PaymentPlanTrigger</members>
         <members>PaymentPlanInstallmentTrigger</members>
         <members>PolicyPaymentReceiptTrigger</members>
@@ -278,6 +285,10 @@
         <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
         <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
         <members>InsurancePolicy.insuredAssetDescription__c</members>
+        <members>InsurancePolicy.insuredSubject__c</members>
+        <members>PaymentPlanInstallment__c.policyAsset__c</members>
+        <members>PaymentPlanInstallment__c.policyParticipant__c</members>
+        <members>CustomerProperty.RegistrationNumber</members>
         <members>InsurancePolicy.planPremiumAmount__c</members>
         <members>InsurancePolicy.planPremiumMismatch__c</members>
         <members>InsurancePolicy.premiumMismatchAmount__c</members>
@@ -456,6 +467,7 @@
         <members
 		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
         <members>InsurancePolicy.All_InsurancePolicies</members>
+        <members>InsurancePolicy.Polizas_Asegurado_O_Bien</members>
         <members>InsurancePolicy.Polizas_Vigentes</members>
         <members>InsurancePolicy.Polizas_Iniciales</members>
         <members>InsurancePolicy.Polizas_Vencidas</members>
@@ -486,6 +498,7 @@
     <types>
         <members>InsurancePolicy.PremiumFieldsRequired</members>
         <members>PolicyPaymentReceipt__c.ReversalIsTerminal</members>
+        <members>PaymentPlanInstallment__c.OneIncisoOnly</members>
         <members
 		>PolicyPaymentReceipt__c.ReversalRequiresReasonAndNotes</members>
         <members>Opportunity.BloquearCerrada</members>

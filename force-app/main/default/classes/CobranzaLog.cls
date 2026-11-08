@@ -65,6 +65,12 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_PLAN_PREMIUM_MISMATCH_FAILED = 'PLAN_PREMIUM_MISMATCH_FAILED';
 	// No se pudo alinear la casilla Activa de un activo con el estado de su poliza.
 	public static final String EVENT_POLICY_ASSET_SYNC_FAILED = 'POLICY_ASSET_SYNC_FAILED';
+	// Datos de la poliza que se calculan a partir de sus bienes y asegurados.
+	public static final String STAGE_DATOS_POLIZA = 'Datos de poliza';
+	// No se pudo guardar el campo «Asegurado o bien» de una poliza; las demas si se guardaron.
+	public static final String EVENT_INSURED_SUBJECT_FAILED = 'INSURED_SUBJECT_FAILED';
+	// Termino el relleno del campo «Asegurado o bien» de las polizas existentes.
+	public static final String EVENT_INSURED_SUBJECT_BACKFILLED = 'INSURED_SUBJECT_BACKFILLED';
 	// La devolucion se aplico sola: anulo el recibo de una cuota o cancelo cuotas no pagadas.
 	public static final String EVENT_REFUND_APPLIED = 'REFUND_APPLIED';
 	// La devolucion no coincide exactamente con nada, o coincide con varias cosas: la decide

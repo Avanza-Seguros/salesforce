@@ -401,6 +401,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>PaymentPlanInstallment__c.policyAsset__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.policyParticipant__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>PaymentReconciliation__c.handleLookupKey__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -957,6 +967,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>InsurancePolicy.insuredAssetDescription__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.insuredSubject__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

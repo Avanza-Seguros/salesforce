@@ -1,4 +1,4 @@
-import { buildRows } from "../installmentRows";
+import { buildRows, isFleet } from "../installmentRows";
 
 /** Cuota como la devuelve el controlador, con lo mínimo que usa la pestaña. */
 function cuota(overrides) {
@@ -276,6 +276,30 @@ describe("buildRows", () => {
 		expect(rows[0]._children[0].periodEndDate__c).toBe("2026-06-19");
 	});
 
+	it("el periodo del recibo va en una sola columna y dice qué extremo falta", () => {
+		const { rows } = buildRows([
+			cuota({
+				Id: "p1",
+				periodStartDate__c: "2025-12-16",
+				periodEndDate__c: "2026-12-16"
+			}),
+			cuota({
+				Id: "p2",
+				sequenceNumber__c: 2,
+				periodStartDate__c: "2026-01-01"
+			}),
+			cuota({ Id: "p3", sequenceNumber__c: 3, periodEndDate__c: "2026-02-01" }),
+			cuota({ Id: "p4", sequenceNumber__c: 4 })
+		]);
+		const byId = Object.fromEntries(rows.map((r) => [r.Id, r.coveragePeriod]));
+
+		// Las fechas no se corren un día por la zona horaria del usuario.
+		expect(byId.p1).toMatch(/16.*2025 – .*16.*2026/);
+		expect(byId.p2).toMatch(/^Desde .*1.*2026$/);
+		expect(byId.p3).toMatch(/^Hasta .*1.*2026$/);
+		expect(byId.p4).toBeNull();
+	});
+
 	it("una estimada cancelada no se muestra ni cuenta", () => {
 		const real = cuota({ Id: "l1", carrierReceiptNumber__c: "80009593552" });
 		const estimadaCancelada = cuota({
@@ -299,7 +323,149 @@ describe("buildRows", () => {
 				outstanding: 0,
 				estimated: 0,
 				count: 0
-			}
+			},
+			fleet: false
+		});
+	});
+
+	describe("flotilla o colectiva", () => {
+		const policy = {
+			Status: "Vigente",
+			ExpirationDate: "2026-12-16T06:00:00.000Z"
+		};
+		const bien = (id, overrides) => ({
+			Id: id,
+			AssetName: "Local",
+			IsActive: true,
+			EffectiveToDate: "2026-12-16",
+			...overrides
+		});
+		const recibo = (id, due, asset, overrides) =>
+			cuota({
+				Id: id,
+				dueDate__c: due,
+				carrierReceiptNumber__c: `R-${id}`,
+				policyAsset__c: asset.Id,
+				policyAsset__r: asset,
+				paymentPlan__r: { Name: "PP-001", insurancePolicy__r: policy },
+				...overrides
+			});
+
+		const versa = bien("ipa1", {
+			AssetCode: "002",
+			AssetName: "NISSAN VERSA 2024",
+			CustomerProperty: { Vin: "3N1CN8AE0RL000001" }
+		});
+		const local = bien("ipa2", { AssetName: "Inciso 1 - Av. Vallarta 1340" });
+		const baja = bien("ipa3", {
+			AssetCode: "3",
+			AssetName: "KIA RIO",
+			IsActive: false,
+			EffectiveToDate: "2026-03-01"
+		});
+		const records = [
+			recibo("f1", "2025-12-16", versa, {
+				installmentStatus__c: "Conciliado",
+				matchedAmount__c: 100,
+				outstandingAmount__c: 0
+			}),
+			recibo("f2", "2025-12-16", baja, { installmentStatus__c: "Cancelado" }),
+			recibo("f3", "2025-12-16", local),
+			recibo("f4", "2026-01-16", versa)
+		];
+
+		it("una póliza sin recibos por inciso no es flotilla", () => {
+			expect(isFleet([cuota({ Id: "x1" })])).toBe(false);
+			expect(isFleet(records)).toBe(true);
+		});
+
+		it("agrupa por fecha con el resumen y ordena los incisos, las bajas al final y en gris", () => {
+			const { rows, totals, fleet } = buildRows(records);
+
+			expect(fleet).toBe(true);
+			expect(rows.map((r) => r.Id)).toEqual([
+				"fecha-2025-12-16",
+				"fecha-2026-01-16"
+			]);
+			expect(rows[0].sequenceLabel).toMatch(
+				/16.*2025 · 3 incisos · 1 pagado · 1 pendiente · 1 cancelado$/
+			);
+			const hijos = rows[0]._children;
+			expect(hijos.map((h) => h.Id)).toEqual(["f3", "f1", "f2"]);
+			expect(hijos[0].sequenceLabel).toBe("Inciso 1");
+			expect(hijos[0].subjectLabel).toBe("Av. Vallarta 1340");
+			expect(hijos[0].subjectUrl).toBe("/ipa2");
+			expect(hijos[1].subjectLabel).toBe(
+				"NISSAN VERSA 2024 · serie 3N1CN8AE0RL000001"
+			);
+			expect(hijos[2].sequenceLabel).toMatch(/^Inciso 3 · Baja .*2026$/);
+			expect(hijos[2].statusClass).toBe("slds-text-color_weak");
+			expect(hijos[2].subjectClass).toBe("slds-text-color_weak");
+			// Los totales son los de siempre: cuentan las cuotas vivas, sin las canceladas.
+			expect(totals).toEqual({
+				expected: 300,
+				matched: 100,
+				outstanding: 200,
+				estimated: 0,
+				count: 4
+			});
+		});
+
+		it("agrupa por inciso con sus recibos por fecha", () => {
+			const { rows, totals } = buildRows(records, "inciso");
+
+			expect(rows.map((r) => r.sequenceLabel.split(" · ")[0])).toEqual([
+				"Inciso 1",
+				"Inciso 2",
+				"Inciso 3"
+			]);
+			expect(rows[1].sequenceLabel).toMatch(/· 2 recibos ·/);
+			expect(rows[1]._children.map((h) => h.Id)).toEqual(["f1", "f4"]);
+			expect(rows[1]._children[1].sequenceLabel).toMatch(/16.*2026/);
+			expect(rows[2].statusClass).toBe("slds-text-color_weak");
+			expect(totals.expected).toBe(300);
+		});
+
+		it("una póliza vencida no pone de baja a sus incisos apagados", () => {
+			const vencida = {
+				Status: "Vencido",
+				ExpirationDate: "2026-12-16T06:00:00.000Z"
+			};
+			const apagado = bien("ipa9", { AssetCode: "9", IsActive: false });
+			const { rows } = buildRows([
+				recibo("v1", "2025-12-16", apagado, {
+					paymentPlan__r: { Name: "PP", insurancePolicy__r: vencida }
+				})
+			]);
+
+			expect(rows[0]._children[0].sequenceLabel).toBe("Inciso 9");
+		});
+
+		it("un certificado dice el nombre de la persona y los reemplazados siguen colgando de él", () => {
+			const persona = {
+				ParticipantCode: "1234",
+				ParticipantName: "Ana López",
+				IsActiveParticipant: true
+			};
+			const deLaPersona = (id, overrides) =>
+				cuota({
+					Id: id,
+					policyParticipant__c: "ipp1",
+					policyParticipant__r: persona,
+					paymentPlan__r: { Name: "PP", insurancePolicy__r: policy },
+					...overrides
+				});
+			const { rows } = buildRows([
+				deLaPersona("c1", { installmentStatus__c: "Cancelado" }),
+				deLaPersona("c2", { replacesInstallment__c: "c1" }),
+				cuota({ Id: "c3", sequenceNumber__c: 2 })
+			]);
+
+			const hijos = rows[0]._children;
+			expect(hijos[0].sequenceLabel).toBe("Certificado 1234");
+			expect(hijos[0].subjectLabel).toBe("Ana López");
+			expect(hijos[0]._children.map((h) => h.Id)).toEqual(["c1"]);
+			expect(hijos[1].sequenceLabel).toBe("Sin inciso");
 		});
 	});
 });

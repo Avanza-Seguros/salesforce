@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>insuredSubject__c</fullName>
+    <description
+	>Qué asegura la póliza, para verlo en las vistas sin entrar en ella: el bien (vehículo con su serie, o domicilio), los asegurados con el titular primero, o el número de incisos o certificados de una flotilla o colectiva. Lo calcula Salesforce cada vez que cambian los bienes o los asegurados de la póliza; no se edita a mano.</description>
+    <externalId>false</externalId>
+    <label>Asegurado o bien</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

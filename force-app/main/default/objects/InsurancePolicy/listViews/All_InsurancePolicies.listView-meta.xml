@@ -3,6 +3,7 @@
     <fullName>All_InsurancePolicies</fullName>
     <columns>Name</columns>
     <columns>Aseguradora__c</columns>
+    <columns>Ramo__c</columns>
     <columns>NameInsured</columns>
     <columns>PremiumFrequency</columns>
     <columns>EffectiveDate</columns>
@@ -10,6 +11,7 @@
     <columns>PremiumAmount</columns>
     <columns>Status</columns>
     <columns>insuredAssetDescription__c</columns>
+    <columns>CreatedDate</columns>
     <filterScope>Everything</filterScope>
     <label>Todas las Pólizas de seguros</label>
     <sharedTo>

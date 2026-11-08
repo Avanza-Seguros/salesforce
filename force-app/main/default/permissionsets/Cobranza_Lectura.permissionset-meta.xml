@@ -336,6 +336,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InsurancePolicy.insuredSubject__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InsurancePolicy.planPremiumAmount__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -461,7 +466,17 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>PaymentPlanInstallment__c.policyAsset__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>PaymentPlanInstallment__c.policyNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.policyParticipant__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

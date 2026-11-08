@@ -1,0 +1,4 @@
+/* Con muchas filas la tabla se desplaza por dentro y su barra horizontal queda a la vista. */
+.table-scroll {
+	height: 32rem;
+}

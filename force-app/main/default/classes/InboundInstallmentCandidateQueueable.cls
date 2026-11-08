@@ -115,6 +115,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 				inboundStatus__c,
 				carrierReceiptStatus__c,
 				candidatePolicy__c,
+				sourcePolicyNumber__c,
 				sourceInstallmentNumber__c,
 				sourceDueDate__c,
 				sourceAmount__c,
@@ -336,7 +337,8 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 	 * @author: Javier Torres - Volestra
 	 * @description: Cuotas que este pago concreto puede tomar. A las abiertas se suman
 	 *               las CANCELADAS, pero solo si la aseguradora da el recibo por cobrado: quien
-	 *               decide reabrir una deuda cancelada es ella, no el motor.
+	 *               decide reabrir una deuda cancelada es ella, no el motor. El pago de un
+	 *               certificado de flotilla solo toma las de su inciso.
 	 * @param payment: Pago evaluado, con el estatus que reporta la aseguradora.
 	 * @param openByPolicy: Cuotas abiertas por poliza.
 	 * @param cancelledByPolicy: Cuotas canceladas reabribles por poliza.
@@ -354,16 +356,20 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 		if (open != null) {
 			eligible.addAll(open);
 		}
-		if (!CARRIER_STATUS_PAID.equals(payment.carrierReceiptStatus__c)) {
-			return eligible;
+		if (CARRIER_STATUS_PAID.equals(payment.carrierReceiptStatus__c)) {
+			List<PaymentPlanInstallment__c> cancelled = cancelledByPolicy.get(
+				payment.candidatePolicy__c
+			);
+			if (cancelled != null) {
+				eligible.addAll(cancelled);
+			}
 		}
-		List<PaymentPlanInstallment__c> cancelled = cancelledByPolicy.get(
-			payment.candidatePolicy__c
+		// En una flotilla cada inciso tiene sus propios recibos, con la misma fecha y a menudo el
+		// mismo importe: el pago de un certificado solo compite por los de su inciso.
+		return FleetIncisoService.onlyItsInciso(
+			payment.sourcePolicyNumber__c,
+			eligible
 		);
-		if (cancelled != null) {
-			eligible.addAll(cancelled);
-		}
-		return eligible;
 	}
 
 	/**
@@ -400,6 +406,11 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 				installmentStatus__c,
 				periodStartDate__c,
 				periodEndDate__c,
+				policyAsset__c,
+				policyAsset__r.AssetCode,
+				policyAsset__r.AssetName,
+				policyParticipant__c,
+				policyParticipant__r.ParticipantCode,
 				paymentPlan__c,
 				paymentPlan__r.insurancePolicy__c
 			FROM PaymentPlanInstallment__c
@@ -451,6 +462,11 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 				installmentStatus__c,
 				periodStartDate__c,
 				periodEndDate__c,
+				policyAsset__c,
+				policyAsset__r.AssetCode,
+				policyAsset__r.AssetName,
+				policyParticipant__c,
+				policyParticipant__r.ParticipantCode,
 				paymentPlan__c
 			FROM PaymentPlanInstallment__c
 			WHERE
