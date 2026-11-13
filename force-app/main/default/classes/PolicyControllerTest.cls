@@ -1020,6 +1020,9 @@ private class PolicyControllerTest {
         System.assertEquals(true, cdmx.IsBasementIncluded);
         System.assertEquals(5561.89, [SELECT StandardPremiumAmount FROM InsurancePolicyAsset WHERE CustomerPropertyId != null
             AND InsurancePolicyId = :policyId AND AssetName LIKE 'Inciso 1%'].StandardPremiumAmount);
+        // El código del bien es el número de inciso (si dos incisos comparten domicilio, ambos: "1, 2").
+        System.assert([SELECT AssetCode FROM InsurancePolicyAsset WHERE CustomerPropertyId != null
+            AND InsurancePolicyId = :policyId AND AssetName LIKE 'Inciso 1%'].AssetCode.startsWith('1'), 'El código del bien es el número de inciso');
     }
 
     /**
@@ -1120,6 +1123,47 @@ private class PolicyControllerTest {
         System.assertEquals(21, incisos[1].Numero_Inciso__c);
         System.assertEquals(0, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND ParticipantName = 'CONDUCTOR ADICIONAL'],
             'Los asegurados adicionales de una flotilla no son participantes');
+    }
+
+    /**
+     * @creation date: 13/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza 3201-033679-00 (Afirme): una carga anterior dejó el inciso 77 con el VIN partido
+     * ("LZWNNNGNXRC81530", sin el último "5") y el inciso 1 con el folio del recibo como serie. Al volver a cargar el
+     * PDF con las series correctas se actualizan esos mismos incisos (por número) en vez de crear incisos, bienes del
+     * cliente y bienes de póliza duplicados.
+     * @return void
+     */
+    @isTest
+    static void recargarConSerieCorregidaNoDuplicaElInciso() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        List<Object> primeraCarga = new List<Object>{
+            new Map<String, Object>{ 'inciso' => '1', 'serie' => 'SAA-01978913', 'marca' => 'CHEVROLET', 'anio' => '2008', 'primaTotal' => '7833.89' },
+            new Map<String, Object>{ 'inciso' => '77', 'serie' => 'LZWNNNGNXRC81530', 'marca' => 'CHEVROLET', 'anio' => '2024' }
+        };
+        List<Object> segundaCarga = new List<Object>{
+            new Map<String, Object>{ 'inciso' => '1', 'serie' => '3GCEC14X38M114075', 'marca' => 'CHEVROLET', 'anio' => '2008', 'primaTotal' => '7833.89' },
+            new Map<String, Object>{ 'inciso' => '77', 'serie' => 'LZWNNNGNXRC815305', 'marca' => 'CHEVROLET', 'anio' => '2024' }
+        };
+
+        Test.startTest();
+        PolicyController.guardarVehiculosDesdePdf(policyId, acc.Id, q.OpportunityId, primeraCarga);
+        Integer ligados = PolicyController.guardarVehiculosDesdePdf(policyId, acc.Id, q.OpportunityId, segundaCarga);
+        Test.stopTest();
+
+        System.assertEquals(2, ligados);
+        List<Inciso_Flotilla__c> incisos = [
+            SELECT Numero_Inciso__c, Serie__c, Vehiculo__c, Vehiculo__r.Vin FROM Inciso_Flotilla__c
+            WHERE Poliza__c = :policyId ORDER BY Numero_Inciso__c
+        ];
+        System.assertEquals(2, incisos.size(), 'Un inciso por número, sin duplicar: ' + incisos);
+        System.assertEquals('3GCEC14X38M114075', incisos[0].Serie__c);
+        System.assertEquals('LZWNNNGNXRC815305', incisos[1].Serie__c);
+        System.assertEquals('LZWNNNGNXRC815305', incisos[1].Vehiculo__r.Vin, 'El vehículo del inciso se corrige, no se crea otro');
+        System.assertEquals(2, [SELECT COUNT() FROM CustomerProperty WHERE PrimaryOwnerId = :acc.Id AND Vin IN ('3GCEC14X38M114075', 'LZWNNNGNXRC815305', 'SAA-01978913', 'LZWNNNGNXRC81530')]);
+        System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId]);
     }
 
     /**
@@ -1251,5 +1295,195 @@ private class PolicyControllerTest {
         System.assertEquals(15000, PolicyController.montoExacto('15,000 MXN'));
         System.assertEquals(null, PolicyController.montoExacto('24 meses de sueldo'));
         System.assertEquals(null, PolicyController.montoExacto('10%'));
+    }
+
+    /**
+     * @creation date: 10/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Complementar una póliza existente: solo llena los campos vacíos, no toca los que fija la emisión
+     * (estatus) ni los que ya tienen valor, e ignora los campos que no existen.
+     * @return void
+     */
+    @isTest
+    static void testComplementarCamposPoliza() {
+        Quote q = [SELECT Id FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, PolicyDescription = null);
+        String campos = JSON.serialize(new Map<String, Object>{
+            'PremiumAmount' => 999, 'PolicyDescription' => 'Colectivo de vida', 'Status' => 'Vigente',
+            'CampoQueNoExiste__c' => 'x', 'PolicyName' => ''
+        });
+
+        Test.startTest();
+        List<String> llenados = PolicyController.complementarCamposPoliza(policyId, campos);
+        List<String> otraVez = PolicyController.complementarCamposPoliza(policyId, campos);
+        Test.stopTest();
+
+        InsurancePolicy p = [SELECT PremiumAmount, PolicyDescription, Status FROM InsurancePolicy WHERE Id = :policyId];
+        System.assertEquals(1200, p.PremiumAmount, 'No sobrescribe un dato capturado');
+        System.assertEquals('Colectivo de vida', p.PolicyDescription, 'Llena el dato vacío');
+        System.assertEquals('Inicial', p.Status, 'El estatus no se complementa');
+        System.assertEquals(new List<String>{ 'PolicyDescription' }, llenados);
+        System.assert(otraVez.isEmpty(), 'Al repetir ya no hay nada que llenar');
+        try {
+            PolicyController.complementarCamposPoliza(null, campos);
+            System.assert(false, 'Debe pedir la póliza');
+        } catch (AuraHandledException e) {
+            System.assert(true);
+        }
+    }
+
+    /**
+     * @creation date: 10/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Conversión de valores al tipo del campo al complementar la póliza.
+     * @return void
+     */
+    @isTest
+    static void testValorParaCampo() {
+        Schema.DescribeFieldResult prima = InsurancePolicy.PremiumAmount.getDescribe();
+        Schema.DescribeFieldResult inicio = InsurancePolicy.EffectiveDate.getDescribe();
+        Schema.DescribeFieldResult texto = InsurancePolicy.PolicyDescription.getDescribe();
+        System.assertEquals(1500.5, (Decimal) PolicyController.valorParaCampo(prima, '$1,500.50'));
+        System.assertEquals(10, ((Decimal) PolicyController.valorParaCampo(prima, 10)).intValue());
+        Object fecha = PolicyController.valorParaCampo(inicio, '2026-03-05T12:00:00.000Z');
+        System.assertEquals(Date.newInstance(2026, 3, 5),
+            fecha instanceof Datetime ? ((Datetime) fecha).dateGmt() : (Date) fecha, 'Fecha sin desfase');
+        System.assertEquals('abc', PolicyController.valorParaCampo(texto, ' abc '));
+        System.assertEquals(null, PolicyController.valorParaCampo(texto, '  '));
+        System.assertEquals(null, PolicyController.valorParaCampo(prima, null));
+        System.assertEquals(null, PolicyController.valorParaCampo(inicio, 'no es fecha'));
+    }
+
+    /**
+     * @creation date: 10/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Emisión de colectivos con un Excel de flotilla y sin carátula: crea el inciso aunque sea un solo
+     * vehículo, no crea bienes ni participantes del PDF y, al complementar con otro archivo con menos columnas, no
+     * borra los datos que el inciso ya tenía.
+     * @return void
+     */
+    @isTest
+    static void testFlotillaDesdeArchivoSinCaratula() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Automoviles');
+        String primero = JSON.serialize(new Map<String, Object>{
+            '_sinCaratula' => true, '_vehiculosArchivo' => true,
+            'vehiculos' => new List<Object>{ new Map<String, Object>{
+                'inciso' => '1', 'serie' => 'VINEXCEL0001', 'marca' => 'NISSAN', 'anio' => '2024', 'descripcion' => 'VERSA SENSE',
+                'deducibleDM' => '5', 'primaTotal' => 8500 } }
+        });
+        String complemento = JSON.serialize(new Map<String, Object>{
+            '_sinCaratula' => true, '_vehiculosArchivo' => true,
+            'vehiculos' => new List<Object>{ new Map<String, Object>{ 'serie' => 'VINEXCEL0001', 'placas' => 'ABC1234' } }
+        });
+
+        Test.startTest();
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, primero);
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, complemento);
+        Test.stopTest();
+
+        System.assertEquals(1, resumen.get('vehiculos'), 'Un vehículo del Excel: ' + resumen);
+        System.assert(!resumen.containsKey('cuenta') && !resumen.containsKey('vehiculo'), 'Sin carátula no se leen datos del PDF: ' + resumen);
+        Inciso_Flotilla__c inc = [SELECT Deducible_DM__c, Prima__c, Placas__c, Modelo__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId];
+        System.assertEquals(5, inc.Deducible_DM__c, 'El complemento no borra el deducible');
+        System.assertEquals(8500, inc.Prima__c, 'El complemento no borra la prima');
+        System.assertEquals(2024, inc.Modelo__c);
+        System.assertEquals('ABC1234', inc.Placas__c, 'El complemento agrega las placas');
+        System.assertEquals(1, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId], 'Sin duplicar el bien');
+    }
+
+    @isTest
+    static void atributosDelVehiculoPorSinonimos() {
+        Map<String, String> a = new Map<String, String>{
+            'serie' => '1GKKN8LS7HZ124851', 'motor' => '3IMNHELE', 'placas' => 'BRC911A', 'ocupantes' => '06',
+            'servicio' => 'PARTICULAR', 'color' => 'null', 'clave interna' => '643', 'no. de serie' => 'OTRO'
+        };
+        System.assertEquals('1GKKN8LS7HZ124851', PolicyController.attrVehiculo(a, new List<String>{ 'numero de serie', 'serie' }));
+        System.assertEquals('3IMNHELE', PolicyController.attrVehiculo(a, new List<String>{ 'numero de motor', 'motor' }));
+        System.assertEquals('643', PolicyController.attrVehiculo(a, new List<String>{ 'clave interna', 'clave' }));
+        System.assertEquals('OTRO', PolicyController.attrVehiculo(a, new List<String>{ 'no de serie' }));
+        System.assertEquals(null, PolicyController.attrVehiculo(a, new List<String>{ 'color' }), 'Un "null" no cuenta');
+        System.assertEquals(null, PolicyController.attrVehiculo(a, new List<String>{ 'marca' }));
+        Map<String, String> b = new Map<String, String>{ 'no serie' => 'ABC', 'tipo de valor' => 'COMERCIAL' };
+        System.assertEquals('ABC', PolicyController.attrVehiculo(b, new List<String>{ 'numero de serie', 'serie' }));
+        System.assertEquals(null, PolicyController.attrVehiculo(b, new List<String>{ 'tipo' }), '"tipo" solo exacto');
+        System.assertEquals('1GKKN8LS7HZ124851', PolicyController.buscarVin('AUT. Serie 1GKKN8LS7HZ124851 Motor 3IMNHELE'));
+        System.assertEquals(null, PolicyController.buscarVin('12345678901234567 SIN VIN'));
+        System.assertEquals(null, PolicyController.buscarVin(null));
+        System.assertEquals('1', PolicyController.codigoInciso('0001'));
+        System.assertEquals('21', PolicyController.codigoInciso(21.0));
+        System.assertEquals('A-3', PolicyController.codigoInciso(' A-3 '));
+        System.assertEquals(null, PolicyController.codigoInciso(''));
+    }
+
+    /**
+     * @creation date: 13/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza individual de autos: al volver a analizar el PDF se actualiza el vehículo ligado a la póliza
+     * (no se crea otro), la serie se toma de la descripción si no viene en los atributos y la marca y el modelo de la
+     * descripción.
+     * @return void
+     */
+    @isTest
+    static void ligarOportunidadAPolizaExistente() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, SourceOpportunityId = null, SourceQuoteId = null);
+        Test.startTest();
+        List<String> llenados = PolicyController.ligarOportunidadPoliza(policyId, q.OpportunityId, q.Id);
+        List<String> otraVez = PolicyController.ligarOportunidadPoliza(policyId, q.OpportunityId, q.Id);
+        Test.stopTest();
+        InsurancePolicy pol = [SELECT SourceOpportunityId, SourceQuoteId FROM InsurancePolicy WHERE Id = :policyId];
+        System.assertEquals(q.OpportunityId, pol.SourceOpportunityId);
+        System.assertEquals(q.Id, pol.SourceQuoteId);
+        System.assert(llenados.contains('SourceOpportunityId'), String.valueOf(llenados));
+        System.assert(otraVez.isEmpty(), 'Ya ligada: no cambia nada');
+        System.assert(PolicyController.ligarOportunidadPoliza(null, q.OpportunityId, null).isEmpty());
+    }
+
+    @isTest
+    static void reanalizarActualizaElVehiculoLigado() {
+        Quote q = [SELECT Id, OpportunityId FROM Quote LIMIT 1];
+        Account acc = [SELECT Id FROM Account LIMIT 1];
+        Id policyId = tryCreatePolicy(q.Id, acc.Id);
+        update new InsurancePolicy(Id = policyId, Ramo__c = 'Automoviles');
+        Map<String, Object> soloAnio = new Map<String, Object>{ 'bienAsegurado' => new Map<String, Object>{
+            'tipo' => 'Vehículo', 'atributos' => new List<Object>{
+                new Map<String, Object>{ 'campo' => 'Modelo', 'valor' => '2017' },
+                new Map<String, Object>{ 'campo' => 'Uso', 'valor' => 'NORMAL' } } } };
+        Map<String, Object> completo = new Map<String, Object>{ 'bienAsegurado' => new Map<String, Object>{
+            'tipo' => 'Vehículo',
+            'descripcion' => 'GMOTORS ACADIA E DENALI 5P V6 3.6L AWD VP QC R20 N AUT. Serie 1GKKN8LS7HZ124851 Motor 3IMNHELE Modelo 2017',
+            'atributos' => new List<Object>{
+                new Map<String, Object>{ 'campo' => 'Modelo', 'valor' => '2017' },
+                new Map<String, Object>{ 'campo' => 'Placas', 'valor' => 'BRC911A' },
+                new Map<String, Object>{ 'campo' => 'Clave interna', 'valor' => '643' } } } };
+
+        Test.startTest();
+        PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, JSON.serialize(soloAnio));
+        Id ligadoAntes = [SELECT CustomerPropertyId FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId LIMIT 1].CustomerPropertyId;
+        Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, JSON.serialize(completo));
+        Test.stopTest();
+
+        List<InsurancePolicyAsset> ligas = [SELECT CustomerPropertyId, AssetCode FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId];
+        System.assertEquals(1, ligas.size(), 'Un solo bien de póliza: ' + resumen);
+        System.assertEquals('1', ligas[0].AssetCode, 'Póliza individual: inciso 1');
+        System.assertEquals(ligadoAntes, ligas[0].CustomerPropertyId, 'Se actualiza el vehículo ligado');
+        CustomerProperty cp = [
+            SELECT Make, ModelName, MakeYear, Vin, RegistrationNumber, TarifaAseguradora__c, Uso__c
+            FROM CustomerProperty WHERE Id = :ligas[0].CustomerPropertyId
+        ];
+        System.assertEquals('1GKKN8LS7HZ124851', cp.Vin);
+        System.assertEquals('GMOTORS', cp.Make);
+        System.assertEquals('ACADIA E DENALI 5P V6 3.6L AWD VP QC R20 N AUT', cp.ModelName);
+        System.assertEquals(2017, cp.MakeYear);
+        System.assertEquals('BRC911A', cp.RegistrationNumber);
+        System.assertEquals('643', cp.TarifaAseguradora__c);
+        System.assertEquals('NORMAL', cp.Uso__c, 'Lo que ya tenía se conserva');
     }
 }

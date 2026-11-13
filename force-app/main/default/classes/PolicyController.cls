@@ -137,6 +137,17 @@ public with sharing class PolicyController {
 		}
 	}
 
+	// Banderas que manda Crear Póliza en el JSON de datos al emitir un colectivo con varios archivos.
+	@TestVisible private static final String SIN_CARATULA = '_sinCaratula';
+	@TestVisible private static final String VEHICULOS_ARCHIVO = '_vehiculosArchivo';
+	@TestVisible private static final String UBICACIONES_ARCHIVO = '_ubicacionesArchivo';
+	// Campos de la póliza que nunca se tocan al complementarla (los fija la emisión o son automáticos).
+	private static final Set<String> NO_COMPLEMENTAR = new Set<String>{
+		'status', 'nameinsuredid', 'productid', 'sourcequoteid', 'sourceopportunityid', 'ownerid', 'aseguradora__c',
+		'policytype', 'ramo__c', 'policyterm', 'saledate', 'cancellationeffectivedate', 'cancellationdate',
+		'currentdueamount', 'pastdueamount', 'paidtodate', 'totalsuminsured', 'isrenewedpolicy'
+	};
+
 	// API Name del Prompt Template y de su variable de entrada (Prompt Builder).
 	private static final String PROMPT_TEMPLATE_API_NAME = 'Analizador_Poliza_Auto';
 	private static final String PROMPT_INPUT_PARAM = 'Input:TextoPoliza';
@@ -329,13 +340,19 @@ public with sharing class PolicyController {
 
 			// 4) Si ya existe el vínculo, no duplicar (idempotente); solo se le liga el bien si no lo tiene.
 			List<InsurancePolicyAsset> existentes = [
-				SELECT Id, CustomerPropertyId FROM InsurancePolicyAsset
+				SELECT Id, CustomerPropertyId, AssetCode FROM InsurancePolicyAsset
 				WHERE InsurancePolicyId = :policyId
 				ORDER BY CreatedDate ASC LIMIT 1
 			];
 			if (!existentes.isEmpty()) {
 				InsurancePolicyAsset ex = existentes[0];
-				if (ex.CustomerPropertyId == null && bienCliente != null && aceptaCp) {
+				// Póliza individual: un solo bien, inciso 1.
+				if (String.isBlank(ex.AssetCode) && [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId] == 1) {
+					update new InsurancePolicyAsset(Id = ex.Id, AssetCode = '1');
+				}
+				// Sin bien, o con otro bien cuando se indica el vehículo del PDF (al volver a analizarlo): se liga el indicado.
+				Boolean religar = customerPropertyId != null && ex.CustomerPropertyId != customerPropertyId;
+				if ((ex.CustomerPropertyId == null || religar) && bienCliente != null && aceptaCp) {
 					ex.CustomerPropertyId = bienCliente.Id;
 					if (String.isNotBlank(bienCliente.Description)) { ex.AssetName = bienCliente.Description.split('\n')[0].trim().left(255); }
 					update ex;
@@ -384,6 +401,7 @@ public with sharing class PolicyController {
 			InsurancePolicyAsset ipa = new InsurancePolicyAsset(
 				InsurancePolicyId = policyId,
 				AssetName = nombreVinculo.left(255),
+				AssetCode = '1',
 				IsActive = true
 			);
 			// CustomerPropertyId puede apuntar a CustomerProperty o a Asset según el org.
@@ -495,6 +513,142 @@ public with sharing class PolicyController {
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo guardar el archivo en la póliza: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 13/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Al volver a emitir una póliza que ya existe desde una oportunidad, la liga a esa oportunidad y a su
+	 * cotización aceptada (y llena producto y aseguradora) solo si la póliza no los tiene. No le quita la póliza a otra
+	 * oportunidad.
+	 * @param policyId: Id de la InsurancePolicy existente
+	 * @param opportunityId: Id de la oportunidad desde la que se emite
+	 * @param quoteId: Id de la cotización (opcional; si no llega, la aceptada más reciente)
+	 * @return API names de los campos que se llenaron
+	 */
+	@AuraEnabled
+	public static List<String> ligarOportunidadPoliza(Id policyId, Id opportunityId, Id quoteId) {
+		List<String> llenados = new List<String>();
+		if (policyId == null || opportunityId == null) { return llenados; }
+		try {
+			Map<String, Object> base = datosBasePoliza(opportunityId, quoteId);
+			InsurancePolicy pol = [
+				SELECT Id, SourceOpportunityId, SourceQuoteId, ProductId, Aseguradora__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+			];
+			InsurancePolicy upd = new InsurancePolicy(Id = policyId);
+			if (pol.SourceOpportunityId == null) { upd.SourceOpportunityId = opportunityId; llenados.add('SourceOpportunityId'); }
+			Map<String, Object> actuales = new Map<String, Object>{
+				'SourceQuoteId' => pol.SourceQuoteId, 'ProductId' => pol.ProductId, 'Aseguradora__c' => pol.Aseguradora__c
+			};
+			for (String campo : actuales.keySet()) {
+				if (actuales.get(campo) == null && base.get(campo) != null) {
+					upd.put(campo, base.get(campo));
+					llenados.add(campo);
+				}
+			}
+			if (!llenados.isEmpty()) { update upd; }
+			return llenados;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo ligar la póliza a la oportunidad: ' + msgLimpio(e));
+		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Complementa una póliza que ya existe con los datos leídos de sus archivos (carátula de un
+	 * colectivo cargada después, o con otro archivo): solo llena los campos que están vacíos, nunca sobrescribe lo
+	 * ya capturado. Convierte cada valor al tipo del campo (fechas, Fecha/Hora a mediodía GMT, números, picklists
+	 * solo con valores activos y textos recortados a su longitud) y omite los campos que no existen, no son
+	 * editables o los fija la emisión (estatus, asegurado, producto, aseguradora, ramo...).
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param camposJson: JSON { apiName: valor } con los valores propuestos
+	 * @return Lista con los API names de los campos que se llenaron
+	 */
+	@AuraEnabled
+	public static List<String> complementarCamposPoliza(Id policyId, String camposJson) {
+		if (policyId == null) { throw new AuraHandledException('No se recibió la póliza a complementar.'); }
+		Map<String, Object> propuestos = String.isBlank(camposJson)
+			? new Map<String, Object>() : (Map<String, Object>) JSON.deserializeUntyped(camposJson);
+		Map<String, Schema.SObjectField> campos = InsurancePolicy.SObjectType.getDescribe().fields.getMap();
+		Map<String, Schema.DescribeFieldResult> aplicables = new Map<String, Schema.DescribeFieldResult>();
+		for (String k : propuestos.keySet()) {
+			Schema.SObjectField f = campos.get(k.toLowerCase());
+			if (f == null || NO_COMPLEMENTAR.contains(k.toLowerCase())) { continue; }
+			Schema.DescribeFieldResult dfr = f.getDescribe();
+			if (!dfr.isUpdateable()) { continue; }
+			aplicables.put(dfr.getName(), dfr);
+		}
+		List<String> llenados = new List<String>();
+		if (aplicables.isEmpty()) { return llenados; }
+		SObject pol = Database.query('SELECT Id, ' + String.join(new List<String>(aplicables.keySet()), ', ')
+			+ ' FROM InsurancePolicy WHERE Id = :policyId LIMIT 1');
+		for (String campo : aplicables.keySet()) {
+			Object actual = pol.get(campo);
+			if (actual != null && !(actual instanceof String && String.isBlank((String) actual))) { continue; }
+			Object valor = valorParaCampo(aplicables.get(campo), findValor(propuestos, campo));
+			if (valor == null) { continue; }
+			pol.put(campo, valor);
+			llenados.add(campo);
+		}
+		if (llenados.isEmpty()) { return llenados; }
+		try {
+			update pol;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo complementar la póliza: ' + msgLimpio(e));
+		}
+		return llenados;
+	}
+
+	// Valor propuesto por API name sin importar mayúsculas.
+	private static Object findValor(Map<String, Object> m, String campo) {
+		for (String k : m.keySet()) { if (k.equalsIgnoreCase(campo)) { return m.get(k); } }
+		return null;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Convierte un valor del JSON al tipo del campo; null si está vacío o no es válido para el campo.
+	 * @param f: Describe del campo
+	 * @param v: Valor propuesto
+	 * @return Valor convertido o null
+	 */
+	@TestVisible
+	private static Object valorParaCampo(Schema.DescribeFieldResult f, Object v) {
+		if (v == null) { return null; }
+		String s = String.valueOf(v).trim();
+		if (String.isBlank(s)) { return null; }
+		Schema.DisplayType t = f.getType();
+		try {
+			if (t == Schema.DisplayType.DATE) {
+				return Date.valueOf(s.left(10));
+			}
+			if (t == Schema.DisplayType.DATETIME) {
+				// Mediodía GMT: el día no cambia por la zona horaria (igual que Crear Póliza).
+				return Datetime.newInstanceGmt(Date.valueOf(s.left(10)), Time.newInstance(12, 0, 0, 0));
+			}
+			if (t == Schema.DisplayType.CURRENCY || t == Schema.DisplayType.DOUBLE || t == Schema.DisplayType.PERCENT) {
+				return v instanceof Decimal ? (Decimal) v : parseMonto(s);
+			}
+			if (t == Schema.DisplayType.INTEGER) {
+				Decimal n = v instanceof Decimal ? (Decimal) v : parseMonto(s);
+				return n == null ? null : n.intValue();
+			}
+			if (t == Schema.DisplayType.PICKLIST) {
+				for (Schema.PicklistEntry pe : f.getPicklistValues()) {
+					if (pe.isActive() && normKey(pe.getValue()) == normKey(s)) { return pe.getValue(); }
+				}
+				return null;
+			}
+			if (t == Schema.DisplayType.STRING || t == Schema.DisplayType.TEXTAREA || t == Schema.DisplayType.EMAIL
+					|| t == Schema.DisplayType.PHONE || t == Schema.DisplayType.URL) {
+				return s.left(f.getLength());
+			}
+		} catch (Exception e) {
+			return null;
+		}
+		return null;
 	}
 
 	/**
@@ -1070,18 +1224,25 @@ public with sharing class PolicyController {
 		// Daños / Empresarial: cada ubicación (inciso) es un bien del cliente; los "asegurados adicionales" del endoso
 		// no se crean como participantes.
 		String ramoKey = normKey(pol.Ramo__c);
-		Boolean esDanos = ramoKey.contains('dano') || ramoKey.contains('empresarial');
+		// Emisión de colectivos con varios archivos: los datos pueden venir solo de Excel (censo, flotilla o
+		// ubicaciones) sin la carátula; en ese caso se omiten los pasos que dependen del PDF de la póliza.
+		Boolean sinCaratula = String.valueOf(d.get(SIN_CARATULA)) == 'true';
+		Boolean ubicacionesDeArchivo = String.valueOf(d.get(UBICACIONES_ARCHIVO)) == 'true';
+		Boolean vehiculosDeArchivo = String.valueOf(d.get(VEHICULOS_ARCHIVO)) == 'true';
+		Boolean esDanos = ramoKey.contains('dano') || ramoKey.contains('empresarial') || ubicacionesDeArchivo;
 		List<Object> ubicaciones = (esDanos && d.get('ubicaciones') instanceof List<Object>)
 			? (List<Object>) d.get('ubicaciones') : new List<Object>();
 		// Flotilla / colectiva de autos: cada vehículo (inciso) es un bien del cliente con su inciso de flotilla.
-		List<Object> vehiculos = (!esDanos && d.get('vehiculos') instanceof List<Object>)
+		List<Object> vehiculos = ((!esDanos || vehiculosDeArchivo) && d.get('vehiculos') instanceof List<Object>)
 			? (List<Object>) d.get('vehiculos') : new List<Object>();
-		Boolean esFlotilla = vehiculos.size() > 1;
+		Boolean esFlotilla = vehiculos.size() > 1 || (vehiculosDeArchivo && !vehiculos.isEmpty());
 		Map<String, Object> bienesColectivos = new Map<String, Object>();
 
 		// 0) Completa los campos vacíos de la Cuenta (RFC, dirección, teléfono) con el PDF.
-		try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
-		catch (Exception e) { resumen.put('cuentaError', msgLimpio(e)); }
+		if (!sinCaratula) {
+			try { completarCuentaDesdePdf(accountId, d); resumen.put('cuenta', 1); }
+			catch (Exception e) { resumen.put('cuentaError', msgLimpio(e)); }
+		}
 
 		// 1) Bien del cliente (CustomerProperty) con los datos reales del PDF: el vehículo en Autos o el bien
 		//    asegurado (mascota, inmueble, persona...) en los demás ramos.
@@ -1097,7 +1258,8 @@ public with sharing class PolicyController {
 			try { bienesColectivos = crearBienesColectivos(policyId, oppId); resumen.putAll(bienesColectivos); }
 			catch (Exception e) { resumen.put('bienesError', msgLimpio(e)); }
 		}
-		if (ubicaciones.isEmpty() && !esFlotilla && bienesColectivos.isEmpty()) {
+		// Sin carátula no hay bien individual que leer (solo se complementan censo, flotilla o ubicaciones).
+		if (!sinCaratula && ubicaciones.isEmpty() && !esFlotilla && bienesColectivos.isEmpty()) {
 			Id customerPropertyId = null;
 			try { customerPropertyId = guardarBienDesdePdf(policyId, accountId, d); resumen.put('vehiculo', 1); }
 			catch (Exception e) { resumen.put('vehiculoError', msgLimpio(e)); }
@@ -1114,8 +1276,10 @@ public with sharing class PolicyController {
 		try {
 			// Si la persona del PDF no se puede crear (ej. regla de duplicados del contacto), el censo se copia igual.
 			Integer n = 0;
-			try { n = crearParticipanteDesdePdf(policyId, accountId, d); }
-			catch (Exception e) { resumen.put('aseguradoPdfError', msgLimpio(e)); }
+			if (!sinCaratula) {
+				try { n = crearParticipanteDesdePdf(policyId, accountId, d); }
+				catch (Exception e) { resumen.put('aseguradoPdfError', msgLimpio(e)); }
+			}
 			// Colectiva de personas: todo el censo de la oportunidad, aunque el PDF traiga a una persona (se completa,
 			// no se duplica).
 			if (!esDanos && !esFlotilla && bienesColectivos.isEmpty() && oppId != null) {
@@ -2170,16 +2334,55 @@ public with sharing class PolicyController {
 				}
 			}
 		}
-		String vin = a.get('numero de serie');
-		String marca = a.get('marca');
+		// La IA nombra los atributos de distintas formas ("Serie", "No. de serie", "VIN"...): se busca por sinónimos.
+		String descBienTxt = strOf(bien.get('descripcion'));
+		String vin = attrVehiculo(a, new List<String>{ 'numero de serie', 'no de serie', 'serie', 'vin', 'niv' });
+		if (vin != null) { vin = vin.deleteWhitespace().toUpperCase(); }
+		// Sin serie en los atributos (la IA a veces la deja en la descripción): un VIN de 17 caracteres en cualquier valor.
+		if (String.isBlank(vin)) {
+			String todo = descBienTxt == null ? '' : descBienTxt;
+			for (String v : a.values()) { if (v != null) { todo += ' ' + v; } }
+			vin = buscarVin(todo);
+		}
+		String marca = attrVehiculo(a, new List<String>{ 'marca' });
 		// En México "Modelo" suele ser el AÑO. Si "modelo" es un año de 4 dígitos, va a
 		// MakeYear; el nombre real del modelo (ej. X3) viene en "submarca".
-		String modeloRaw = a.get('modelo');
+		String modeloRaw = attrVehiculo(a, new List<String>{ 'modelo' });
 		Boolean modeloEsAnio = String.isNotBlank(modeloRaw) && Pattern.matches('\\s*(19|20)\\d{2}\\s*', modeloRaw);
-		String modelo = modeloEsAnio ? a.get('submarca') : modeloRaw;
-		Decimal anioD = parseMonto(a.get('ano'));
+		String modelo = modeloEsAnio ? attrVehiculo(a, new List<String>{ 'submarca', 'version', 'linea' }) : modeloRaw;
+		Decimal anioD = parseMonto(attrVehiculo(a, new List<String>{ 'ano', 'ano modelo', 'anio' }));
 		if (anioD == null && modeloEsAnio) { anioD = parseMonto(modeloRaw); }
 		Integer anio = (anioD != null) ? anioD.intValue() : null;
+		// Sin marca/modelo en los atributos se toman de la descripción del bien ("GMOTORS ACADIA E DENALI ... Modelo 2017"):
+		// la primera palabra es la marca y el resto el modelo. Solo si el bien es un vehículo.
+		Boolean esVehiculo = Pattern.matches('(?is).*(veh[ií]culo|auto|cami[oó]n|moto).*',
+			strOf(bien.get('tipo')) + ' ' + strOf(d.get('ramo')));
+		if (esVehiculo && String.isNotBlank(descBienTxt) && (String.isBlank(marca) || String.isBlank(modelo))) {
+			// Sin los datos que la IA a veces agrega al final ("Serie ... Motor ... Modelo 2017 ...") ni el año suelto.
+			String limpia = descBienTxt
+				.replaceAll('(?i)[,.]?\\s+(?:no\\.?\\s*de\\s*)?(?:serie|vin|niv)\\s*[:#]?\\s*[A-Z0-9]{8,}.*$', '')
+				.replaceAll('(?i)[,.]?\\s+(?:motor|placas?|ocupantes|servicio)\\s*:?\\s*[A-Z0-9]{2,}.*$', '')
+				.replaceAll('(?i)[,.]?\\s*modelo\\s*:?\\s*(19|20)\\d{2}.*$', '')
+				.replaceAll('[,.]?\\s*(19|20)\\d{2}\\s*$', '')
+				.replaceAll('[,.\\s]+$', '')
+				.normalizeSpace();
+			Integer esp = limpia.indexOf(' ');
+			if (String.isBlank(marca) && esp > 0) { marca = limpia.substring(0, esp); }
+			if (String.isBlank(modelo)) { modelo = esp > 0 ? limpia.substring(esp + 1) : limpia; }
+			if (anio == null) {
+				Matcher mAnio = Pattern.compile('(?i)modelo\\s*((?:19|20)\\d{2})').matcher(descBienTxt);
+				if (mAnio.find()) { anio = Integer.valueOf(mAnio.group(1)); }
+			}
+		}
+		String motor = attrVehiculo(a, new List<String>{ 'numero de motor', 'no de motor', 'motor' });
+		String placas = attrVehiculo(a, new List<String>{ 'placas', 'placa', 'matricula' });
+		Decimal pasajeros = parseMonto(attrVehiculo(a, new List<String>{ 'ocupantes', 'pasajeros', 'capacidad', 'numero de pasajeros' }));
+		String uso = attrVehiculo(a, new List<String>{ 'uso' });
+		String servicio = attrVehiculo(a, new List<String>{ 'servicio' });
+		String color = attrVehiculo(a, new List<String>{ 'color' });
+		String tipoVeh = attrVehiculo(a, new List<String>{ 'tipo de unidad', 'tipo de vehiculo', 'tipo' });
+		String carroceria = attrVehiculo(a, new List<String>{ 'carroceria' });
+		String clave = attrVehiculo(a, new List<String>{ 'clave interna', 'clave vehicular', 'clave amis', 'clave', 'tarifa' });
 		// Sin identificadores de vehículo no se crea un vehículo: ramos sin auto (GMM, Vida, Daños, Mascotas)
 		// guardan su bien asegurado en un CustomerProperty propio de la póliza.
 		if (String.isBlank(vin) && String.isBlank(marca) && String.isBlank(modelo) && anio == null) {
@@ -2195,6 +2398,20 @@ public with sharing class PolicyController {
 				WHERE PrimaryOwnerId = :accountId AND Vin = :vin LIMIT 1
 			]) { cp = c; }
 		}
+		// Al volver a analizar el PDF se actualiza el vehículo que ya está ligado a la póliza (no se crea otro).
+		if (cp == null) {
+			for (InsurancePolicyAsset ipa : [
+				SELECT CustomerPropertyId FROM InsurancePolicyAsset
+				WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null ORDER BY CreatedDate ASC LIMIT 1
+			]) {
+				for (CustomerProperty c : [
+					SELECT Id, Vin FROM CustomerProperty WHERE Id = :ipa.CustomerPropertyId AND PrimaryOwnerId = :accountId
+				]) {
+					// Si el ligado es otro auto (otro VIN), no se sobrescribe.
+					if (String.isBlank(c.Vin) || String.isBlank(vin) || c.Vin == vin) { cp = c; }
+				}
+			}
+		}
 		if (cp == null && String.isNotBlank(marca) && String.isNotBlank(modelo) && anio != null) {
 			for (CustomerProperty c : [
 				SELECT Id FROM CustomerProperty
@@ -2203,15 +2420,20 @@ public with sharing class PolicyController {
 			]) { cp = c; }
 		}
 		if (cp == null) { cp = new CustomerProperty(PrimaryOwnerId = accountId); }
-		if (String.isNotBlank(marca))                    { cp.Make = marca; }
-		if (String.isNotBlank(modelo))                   { cp.ModelName = modelo; }
-		if (String.isNotBlank(vin))                      { cp.Vin = vin; }
-		if (String.isNotBlank(a.get('numero de motor'))) { cp.Motor__c = a.get('numero de motor'); }
-		String descBien = strOf(bien.get('descripcion'));
-		if (String.isNotBlank(descBien))                 { cp.Description = descBien.length() > 255 ? descBien.substring(0, 255) : descBien; }
+		if (String.isNotBlank(marca))      { cp.Make = marca.left(255); }
+		if (String.isNotBlank(modelo))     { cp.ModelName = modelo.left(255); }
+		if (String.isNotBlank(vin))        { cp.Vin = vin.left(255); }
+		if (String.isNotBlank(motor))      { cp.Motor__c = motor.left(40); }
+		if (String.isNotBlank(placas))     { cp.RegistrationNumber = placas.deleteWhitespace().toUpperCase().left(255); }
+		if (pasajeros != null)             { try { cp.PassengerSeatCapacity = pasajeros.intValue(); } catch (Exception ignore) {} }
+		if (String.isNotBlank(descBienTxt)) { cp.Description = descBienTxt.left(255); }
 		if (anio != null) { try { cp.put('MakeYear', anio); } catch (Exception ignore) {} }
-		if (String.isNotBlank(a.get('uso')))             { try { cp.put('Uso__c', a.get('uso').left(40)); } catch (Exception ignore) {} }
-		if (String.isNotBlank(a.get('tipo de unidad')))  { try { cp.put('TipoVehiculo__c', a.get('tipo de unidad').left(40)); } catch (Exception ignore) {} }
+		if (String.isNotBlank(uso))        { cp.Uso__c = uso.left(40); }
+		if (String.isNotBlank(servicio))   { cp.Servicio__c = servicio.left(40); }
+		if (String.isNotBlank(color))      { cp.Color__c = color.left(30); }
+		if (String.isNotBlank(tipoVeh))    { cp.TipoVehiculo__c = tipoVeh.left(40); }
+		if (String.isNotBlank(carroceria)) { cp.Carroceria__c = carroceria.left(40); }
+		if (String.isNotBlank(clave))      { cp.TarifaAseguradora__c = clave.left(10); }
 		upsert cp;
 		return cp.Id;
 	}
@@ -2275,20 +2497,28 @@ public with sharing class PolicyController {
 		}
 		upsert porLlave.values();
 
-		// Bien de póliza por ubicación (si ya está ligada, no se repite).
-		Set<Id> ligados = new Set<Id>();
+		// Bien de póliza por ubicación (si ya está ligada, no se repite; solo se le pone el número de inciso si no lo tiene).
+		Map<Id, InsurancePolicyAsset> ligados = new Map<Id, InsurancePolicyAsset>();
 		for (InsurancePolicyAsset a : [
-			SELECT CustomerPropertyId FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
-		]) { ligados.add(a.CustomerPropertyId); }
+			SELECT Id, CustomerPropertyId, AssetCode FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
+		]) { ligados.put(a.CustomerPropertyId, a); }
 		List<InsurancePolicyAsset> nuevos = new List<InsurancePolicyAsset>();
+		List<InsurancePolicyAsset> conInciso = new List<InsurancePolicyAsset>();
 		for (String k : porLlave.keySet()) {
 			CustomerProperty cp = porLlave.get(k);
-			if (ligados.contains(cp.Id)) { continue; }
 			Map<String, Object> u = porDireccion.get(k);
 			String inc = strOf(u.get('inciso'));
+			InsurancePolicyAsset yaLigado = ligados.get(cp.Id);
+			if (yaLigado != null) {
+				if (String.isBlank(yaLigado.AssetCode) && codigoInciso(inc) != null) {
+					conInciso.add(new InsurancePolicyAsset(Id = yaLigado.Id, AssetCode = codigoInciso(inc)));
+				}
+				continue;
+			}
 			String nombre = (String.isNotBlank(inc) ? 'Inciso ' + inc + ' - ' : '') + strOf(u.get('direccion'));
 			InsurancePolicyAsset ipa = new InsurancePolicyAsset(
-				InsurancePolicyId = policyId, AssetName = nombre.left(255), IsActive = true, CustomerPropertyId = cp.Id
+				InsurancePolicyId = policyId, AssetName = nombre.left(255), IsActive = true, CustomerPropertyId = cp.Id,
+				AssetCode = codigoInciso(inc)
 			);
 			if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
 			if (pol.EffectiveDate != null) { ipa.EffectiveFromDate = pol.EffectiveDate.date(); }
@@ -2300,6 +2530,7 @@ public with sharing class PolicyController {
 			nuevos.add(ipa);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
+		if (!conInciso.isEmpty()) { update conInciso; }
 		return porLlave.size();
 	}
 
@@ -2344,20 +2575,41 @@ public with sharing class PolicyController {
 		// Incisos que ya tiene la póliza (al volver a cargar el PDF se actualizan) y bienes del cliente con esa serie.
 		Map<String, Inciso_Flotilla__c> incisos = new Map<String, Inciso_Flotilla__c>();
 		for (Inciso_Flotilla__c i : [
-			SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId
+			SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c, Descripcion__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId
 		]) {
 			incisos.put(String.isNotBlank(i.Serie__c) ? i.Serie__c.toUpperCase() : 'inciso ' + i.Numero_Inciso__c, i);
 		}
 		// Vehículos del censo de la oportunidad (sin póliza ni cotización) con la misma serie: se ligan a esta póliza.
 		if (oppId != null && !series.isEmpty()) {
 			for (Inciso_Flotilla__c i : [
-				SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c FROM Inciso_Flotilla__c
+				SELECT Id, Numero_Inciso__c, Serie__c, Vehiculo__c, Descripcion__c FROM Inciso_Flotilla__c
 				WHERE Oportunidad__c = :oppId AND Poliza__c = null AND Cotizacion__c = null AND Serie__c IN :series
 				ORDER BY CreatedDate ASC
 			]) {
 				String k = i.Serie__c.toUpperCase();
 				if (!incisos.containsKey(k)) { incisos.put(k, i); }
 			}
+		}
+		// Inciso de la póliza con el mismo número pero otra serie (ej. una carga anterior leyó mal el VIN o tomó el
+		// folio del recibo): se actualiza ese inciso en vez de crear otro con el mismo número. No se toma si su serie
+		// es la de otro vehículo de esta carga.
+		Set<Id> yaUsados = new Set<Id>();
+		for (String k : porLlave.keySet()) {
+			if (incisos.containsKey(k)) { yaUsados.add(incisos.get(k).Id); }
+		}
+		Map<String, Inciso_Flotilla__c> porNumero = new Map<String, Inciso_Flotilla__c>();
+		for (Inciso_Flotilla__c i : incisos.values()) {
+			String num = codigoInciso(i.Numero_Inciso__c);
+			Boolean serieDeOtro = String.isNotBlank(i.Serie__c) && porLlave.containsKey(i.Serie__c.toUpperCase());
+			if (num != null && i.Id != null && !serieDeOtro && !yaUsados.contains(i.Id) && !porNumero.containsKey(num)) {
+				porNumero.put(num, i);
+			}
+		}
+		for (String k : porLlave.keySet()) {
+			if (incisos.containsKey(k)) { continue; }
+			String num = codigoInciso(valorVehiculo(porLlave.get(k), 'inciso'));
+			Inciso_Flotilla__c mismoNumero = num == null ? null : porNumero.remove(num);
+			if (mismoNumero != null) { incisos.put(k, mismoNumero); }
 		}
 		Map<String, CustomerProperty> porSerie = new Map<String, CustomerProperty>();
 		if (!series.isEmpty()) {
@@ -2379,21 +2631,26 @@ public with sharing class PolicyController {
 		}
 		upsert bienes.values();
 
-		// Bien de póliza por vehículo (si ya está ligado, no se repite).
-		Set<Id> ligados = new Set<Id>();
+		// Bien de póliza por vehículo (si ya está ligado, no se repite; solo se le pone el número de inciso si no lo tiene).
+		Map<Id, InsurancePolicyAsset> ligados = new Map<Id, InsurancePolicyAsset>();
 		for (InsurancePolicyAsset a : [
-			SELECT CustomerPropertyId FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
-		]) { ligados.add(a.CustomerPropertyId); }
+			SELECT Id, CustomerPropertyId, AssetCode FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
+		]) { ligados.put(a.CustomerPropertyId, a); }
 		List<InsurancePolicyAsset> nuevos = new List<InsurancePolicyAsset>();
+		List<InsurancePolicyAsset> conInciso = new List<InsurancePolicyAsset>();
 		List<Inciso_Flotilla__c> flotilla = new List<Inciso_Flotilla__c>();
 		for (String k : porLlave.keySet()) {
 			Map<String, Object> v = porLlave.get(k);
 			CustomerProperty cp = bienes.get(k);
 			String inciso = valorVehiculo(v, 'inciso');
 			String vehiculo = nombreVehiculo(v);
-			if (!ligados.contains(cp.Id)) {
+			InsurancePolicyAsset yaLigado = ligados.get(cp.Id);
+			if (yaLigado != null && String.isBlank(yaLigado.AssetCode) && codigoInciso(inciso) != null) {
+				conInciso.add(new InsurancePolicyAsset(Id = yaLigado.Id, AssetCode = codigoInciso(inciso)));
+			}
+			if (yaLigado == null) {
 				InsurancePolicyAsset ipa = new InsurancePolicyAsset(
-					InsurancePolicyId = policyId, IsActive = true, CustomerPropertyId = cp.Id,
+					InsurancePolicyId = policyId, IsActive = true, CustomerPropertyId = cp.Id, AssetCode = codigoInciso(inciso),
 					AssetName = ((String.isNotBlank(inciso) ? 'Inciso ' + inciso + ' - ' : '') + vehiculo).left(255)
 				);
 				if (pol.ProductId != null) { ipa.ProductId = pol.ProductId; }
@@ -2410,11 +2667,16 @@ public with sharing class PolicyController {
 			if (oppId != null) { inc.Oportunidad__c = oppId; }
 			Decimal numero = parseMonto(inciso);
 			if (numero != null) { inc.Numero_Inciso__c = numero; }
-			inc.Serie__c = valorVehiculo(v, 'serie') == null ? null : valorVehiculo(v, 'serie').left(30);
-			inc.Placas__c = valorVehiculo(v, 'placas') == null ? null : valorVehiculo(v, 'placas').left(20);
+			// Solo se escribe lo que trae el archivo: al complementar con otro archivo (ej. un Excel con menos
+			// columnas) no se borran los datos que el inciso ya tenía.
+			String serie = valorVehiculo(v, 'serie');
+			if (serie != null) { inc.Serie__c = serie.left(30); }
+			String placas = valorVehiculo(v, 'placas');
+			if (placas != null) { inc.Placas__c = placas.left(20); }
 			Decimal anio = parseMonto(valorVehiculo(v, 'anio'));
 			if (anio != null) { inc.Modelo__c = anio; }
-			inc.Descripcion__c = vehiculo.left(255);
+			Boolean traeVehiculo = valorVehiculo(v, 'marca') != null || valorVehiculo(v, 'descripcion') != null;
+			if (traeVehiculo || String.isBlank(inc.Descripcion__c)) { inc.Descripcion__c = vehiculo.left(255); }
 			String tipo = valorVehiculo(v, 'tipoVehiculo');
 			if (tipo != null) { inc.Tipo_Vehiculo__c = tipo.left(80); }
 			String uso = valorVehiculo(v, 'uso');
@@ -2423,18 +2685,36 @@ public with sharing class PolicyController {
 			if (clave != null) { inc.Clave_Vehicular__c = clave.left(30); }
 			String tipoValor = valorVehiculo(v, 'tipoValor');
 			if (tipoValor != null) { inc.Tipo_Valor__c = tipoValor.left(40); }
-			inc.Deducible_DM__c = parseMonto(valorVehiculo(v, 'deducibleDM'));
-			inc.Deducible_RT__c = parseMonto(valorVehiculo(v, 'deducibleRT'));
-			inc.Responsabilidad_Civil__c = parseMonto(valorVehiculo(v, 'responsabilidadCivil'));
-			inc.Gastos_Medicos__c = parseMonto(valorVehiculo(v, 'gastosMedicos'));
-			inc.Muerte_Conductor__c = parseMonto(valorVehiculo(v, 'muerteConductor'));
-			inc.Prima_Neta__c = parseMonto(valorVehiculo(v, 'primaNeta'));
-			inc.Prima__c = parseMonto(valorVehiculo(v, 'primaTotal'));
+			Decimal dedDM = parseMonto(valorVehiculo(v, 'deducibleDM'));
+			if (dedDM != null) { inc.Deducible_DM__c = dedDM; }
+			Decimal dedRT = parseMonto(valorVehiculo(v, 'deducibleRT'));
+			if (dedRT != null) { inc.Deducible_RT__c = dedRT; }
+			Decimal rc = parseMonto(valorVehiculo(v, 'responsabilidadCivil'));
+			if (rc != null) { inc.Responsabilidad_Civil__c = rc; }
+			Decimal gm = parseMonto(valorVehiculo(v, 'gastosMedicos'));
+			if (gm != null) { inc.Gastos_Medicos__c = gm; }
+			Decimal muerte = parseMonto(valorVehiculo(v, 'muerteConductor'));
+			if (muerte != null) { inc.Muerte_Conductor__c = muerte; }
+			Decimal primaNeta = parseMonto(valorVehiculo(v, 'primaNeta'));
+			if (primaNeta != null) { inc.Prima_Neta__c = primaNeta; }
+			Decimal primaTotal = parseMonto(valorVehiculo(v, 'primaTotal'));
+			if (primaTotal != null) { inc.Prima__c = primaTotal; }
 			flotilla.add(inc);
 		}
 		if (!nuevos.isEmpty()) { insert nuevos; }
+		if (!conInciso.isEmpty()) { update conInciso; }
 		upsert flotilla;
 		return bienes.size();
+	}
+
+	// Número de inciso como código del bien de póliza (AssetCode): "0001" → "1"; null si no hay.
+	@TestVisible
+	private static String codigoInciso(Object inciso) {
+		String s = inciso == null ? null : String.valueOf(inciso).trim();
+		if (String.isBlank(s)) { return null; }
+		if (s.isNumeric()) { s = String.valueOf(Long.valueOf(s)); }
+		else if (Pattern.matches('\\d+\\.0+', s)) { s = s.substringBefore('.'); }
+		return s.left(255);
 	}
 
 	/**
@@ -3015,6 +3295,42 @@ public with sharing class PolicyController {
 	 * @param s: Texto a normalizar
 	 * @return Texto normalizado
 	 */
+	// Valor del primer atributo cuyo nombre (sin acentos ni puntuación) coincide con alguno de los sinónimos, en ese orden.
+	// Los vacíos, "null" y "S/N" no cuentan.
+	// Primer VIN (17 caracteres, sin I, O ni Q, con al menos un dígito) en el texto; null si no hay.
+	@TestVisible
+	private static String buscarVin(String texto) {
+		if (String.isBlank(texto)) { return null; }
+		Matcher m = Pattern.compile('(?i)\\b([A-HJ-NPR-Z0-9]{17})\\b').matcher(texto);
+		while (m.find()) {
+			String v = m.group(1).toUpperCase();
+			if (v.containsAny('0123456789') && !v.isNumeric()) { return v; }
+		}
+		return null;
+	}
+
+	@TestVisible
+	private static String attrVehiculo(Map<String, String> atributos, List<String> sinonimos) {
+		Map<String, String> limpios = new Map<String, String>();
+		for (String k : atributos.keySet()) {
+			String v = atributos.get(k);
+			if (String.isBlank(v) || v.equalsIgnoreCase('null') || v.equalsIgnoreCase('SN') || v.equalsIgnoreCase('S/N')) { continue; }
+			limpios.put(k.replaceAll('[^a-z0-9 ]', ' ').normalizeSpace(), v.trim());
+		}
+		for (String sin : sinonimos) {
+			if (limpios.containsKey(sin)) { return limpios.get(sin); }
+		}
+		// Nombres compuestos ("No. Serie", "Número de serie / VIN"): el sinónimo como palabra. "tipo" solo exacto
+		// (no debe tomar "Tipo de valor" o "Tipo de uso").
+		for (String sin : sinonimos) {
+			if (sin == 'tipo') { continue; }
+			for (String k : limpios.keySet()) {
+				if ((' ' + k + ' ').contains(' ' + sin + ' ')) { return limpios.get(k); }
+			}
+		}
+		return null;
+	}
+
 	private static String normKey(String s) {
 		if (s == null) { return ''; }
 		String r = s.toLowerCase();

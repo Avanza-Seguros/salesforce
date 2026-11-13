@@ -15,6 +15,7 @@ import {
     fold, tieneDatos, numero, moneda, abrirTabla, detectarEncabezado,
     mapeoAutomatico, opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
+import { incisosDeCaratulas, unirIncisosIa } from 'c/clasificadorArchivos';
 import getCensoVehiculos from '@salesforce/apex/CensoVehiculosController.getCensoVehiculos';
 import guardarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.guardarCensoVehiculos';
 import eliminarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.eliminarCensoVehiculos';
@@ -182,6 +183,22 @@ export default class CensoVehiculos extends LightningElement {
     // ============================================================
     // Lectura del archivo
     // ============================================================
+    // Zona de carga propia (la del componente estándar es muy pequeña): clic o arrastrar y soltar.
+    arrastrando = false;
+    get claseZona() { return 'censo-zona' + (this.arrastrando ? ' censo-zona-activa' : ''); }
+    elegirArchivo() {
+        const input = this.template.querySelector('input.censo-input');
+        if (input) { input.click(); }
+    }
+    sobreZona(e) { e.preventDefault(); this.arrastrando = true; }
+    fueraZona() { this.arrastrando = false; }
+    soltarArchivo(e) {
+        e.preventDefault();
+        this.arrastrando = false;
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) { this.handleArchivo({ target: { files: [f], value: null } }); }
+    }
+
     async handleArchivo(event) {
         const file = event.target.files && event.target.files[0];
         event.target.value = null;
@@ -307,14 +324,24 @@ export default class CensoVehiculos extends LightningElement {
         if (!bloques.length) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide el listado en Excel.');
         }
-        const datos = [];
+        // Póliza con una carátula por inciso (ej. Afirme): se lee directo del texto, sin IA. Por bloques, un inciso
+        // queda partido entre dos bloques y la IA lo repetía o le cruzaba los datos del inciso vecino.
+        const caratulas = incisosDeCaratulas(bloques.join('\n'));
+        if (caratulas.length) {
+            this.filasCrudas = [];
+            this.validar(caratulas.map((x, i) => ({ ...x, fila: i + 1 })));
+            return;
+        }
+        const leidos = [];
         for (let i = 0; i < bloques.length; i++) {
             this.progreso = `Analizando con IA: bloque ${i + 1} de ${bloques.length}…`;
             const json = await analizarFlotillaPdf({ textoCotizacion: bloques[i] });
             let r = {};
             try { r = JSON.parse(json || '{}'); } catch (e) { r = {}; }
-            (r.incisos || []).forEach((x) => datos.push({ ...x, fila: datos.length + 1 }));
+            leidos.push(...(r.incisos || []));
         }
+        // El mismo inciso puede venir en dos bloques: se une por serie / número de inciso.
+        const datos = unirIncisosIa(leidos).map((x, i) => ({ ...x, fila: i + 1 }));
         if (!datos.length) {
             throw new Error('La IA no encontró vehículos en el PDF.');
         }
@@ -332,8 +359,16 @@ export default class CensoVehiculos extends LightningElement {
             .filter((r) => r.serie || /[a-z]/i.test(r.descripcion))
             .filter((r) => !/^(sub)?total(es)?\b/.test(fold(r.descripcion)));
         const series = {};
+        const numeros = {};
         renglones.forEach((r, i) => {
             r.idx = i;
+            if (r.inciso !== null) {
+                if (numeros[r.inciso] !== undefined) {
+                    r.avisos.push(`Inciso repetido (fila ${renglones[numeros[r.inciso]].fila})`);
+                } else {
+                    numeros[r.inciso] = i;
+                }
+            }
             if (r.serie) {
                 if (series[r.serie] !== undefined) {
                     r.errores.push(`Serie repetida (fila ${renglones[series[r.serie]].fila})`);
@@ -421,7 +456,7 @@ export default class CensoVehiculos extends LightningElement {
     get conAviso() { return this.renglones.filter((r) => !r.errores.length && r.avisos.length).length; }
     get hayErrores() { return this.conError > 0; }
     get sinValidos() { return this.totalValidos === 0 || this.cargando; }
-    get textoGuardar() { return this.esLector ? `Comparar ${this.totalValidos} vehículos` : `Guardar ${this.totalValidos} vehículos`; }
+    get textoGuardar() { return this.esLector ? `Procesar registros (${this.totalValidos})` : `Guardar ${this.totalValidos} vehículos`; }
 
     get resumenVista() {
         const mapa = {};

@@ -14,6 +14,7 @@ import {
     fold, tieneDatos, numero, fecha, fechaVisible, moneda, abrirTabla, detectarEncabezado,
     mapeoAutomatico, opcionesColumnas, opcionesEncabezado, buscarVigencia, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
+import { CAMPOS_FLOTILLA, incisosDeCaratulas, unirIncisosIa } from 'c/clasificadorArchivos';
 import getFlotilla from '@salesforce/apex/FlotillaController.getFlotilla';
 import getCoberturasFlotilla from '@salesforce/apex/FlotillaController.getCoberturasFlotilla';
 import getAseguradoras from '@salesforce/apex/FlotillaController.getAseguradoras';
@@ -23,30 +24,8 @@ import analizarFlotillaPdf from '@salesforce/apex/FlotillaController.analizarFlo
 import generarComparativoPdf from '@salesforce/apex/FlotillaController.generarComparativoPdf';
 
 // Campos del inciso (la clave es la misma que devuelve la IA) y encabezados con que suelen venir.
-const CAMPOS = [
-    { key: 'inciso', label: 'Inciso', alias: ['inciso', 'inc', 'no inciso', 'num inciso', 'no de inciso', 'numero de inciso', 'no', 'consecutivo'] },
-    { key: 'serie', label: 'Serie (VIN)', alias: ['serie', 'series', 'no serie', 'no de serie', 'numero de serie', 'num serie', 'vin', 'niv'] },
-    { key: 'claveVehicular', label: 'Clave vehicular', alias: ['clave', 'clave amis', 'amis', 'clave vehicular', 'clave vehiculo', 'cve amis', 'mtc'] },
-    { key: 'marca', label: 'Marca', alias: ['marca'] },
-    { key: 'descripcion', label: 'Descripción', excluir: ['equipo', 'adapt', 'cobertura'], alias: ['descripcion', 'descripcion ocupantes', 'descripcion del vehiculo', 'descripcion vehiculo', 'vehiculo', 'unidad', 'marca tipo', 'marca y tipo', 'marca submarca', 'submarca', 'version'] },
-    { key: 'modelo', label: 'Modelo (año)', tipo: 'numero', alias: ['modelo', 'mod', 'ano', 'ano modelo', 'anio'] },
-    { key: 'placas', label: 'Placas', alias: ['placas', 'placa', 'matricula'] },
-    { key: 'uso', label: 'Uso', alias: ['uso', 'tipo de uso', 'uso del vehiculo', 'servicio'] },
-    { key: 'tipoVehiculo', label: 'Tipo de vehículo', alias: ['tipo de vehiculo', 'tipo vehiculo', 'tipo de unidad', 'clase', 'categoria', 'tonelaje'] },
-    { key: 'paquete', label: 'Paquete', alias: ['cobertura', 'paquete', 'paq', 'plan', 'tipo de cobertura', 'paquete de cobertura'] },
-    { key: 'tipoValor', label: 'Tipo de valor', alias: ['tipo de valor', 'tipo valor', 'valor', 'suma aseg'] },
-    { key: 'valor', label: 'Valor / suma asegurada', tipo: 'numero', alias: ['valor convenido', 'valor comercial', 'valor factura', 'suma asegurada', 'suma asegurada dm', 'suma aseg', 'valor vehiculo', 'sa dm', 'valor'] },
-    { key: 'dedDM', label: 'Deducible DM', tipo: 'numero', alias: ['dm', 'deducible dm', 'deducibles dm', 'ded dm', 'deducible danos materiales', 'danos materiales ded', 'danos materiales'] },
-    { key: 'dedRT', label: 'Deducible RT', tipo: 'numero', alias: ['rt', 'deducible rt', 'ded rt', 'deducible robo total', 'robo total ded', 'robo total'] },
-    { key: 'rc', label: 'Responsabilidad civil', tipo: 'numero', alias: ['sumaaseg rc', 'suma asegurada rc', 'sa rc', 'responsabilidad civil por danos a terceros', 'responsabilidad civil', 'rc', 'rc bienes y personas'] },
-    { key: 'gm', label: 'Gastos médicos', tipo: 'numero', alias: ['gm', 'gastos medicos', 'gastos medicos ocupantes', 'gmo', 'sa gm'] },
-    { key: 'muerte', label: 'Muerte del conductor', tipo: 'numero', alias: ['muerte acc', 'muerte del conductor', 'muerte conductor', 'accidentes automovilisticos al conductor', 'muerte'] },
-    { key: 'primaNeta', label: 'Prima neta del inciso', tipo: 'numero', alias: ['prima neta', 'neta', 'pn', 'pn c desc'] },
-    { key: 'recargo', label: 'Recargo', tipo: 'numero', alias: ['rec', 'recargo', 'recargo por pago fraccionado', 'recargo fraccionado'] },
-    { key: 'derechos', label: 'Derechos / gastos de expedición', tipo: 'numero', alias: ['der pol', 'derechos', 'derecho de poliza', 'derechos de poliza', 'gastos de expedicion', 'gastos expedicion'] },
-    { key: 'iva', label: 'IVA', tipo: 'numero', alias: ['iva', 'i v a'] },
-    { key: 'prima', label: 'Prima total del inciso', tipo: 'numero', alias: ['prima total', 'total', 'prima', 'prima anual', 'importe', 'importe total'] }
-];
+// Se comparten con Crear Póliza (emisión de colectivos con varios archivos) en c/clasificadorArchivos.
+const CAMPOS = CAMPOS_FLOTILLA;
 
 // Modelos de pick-up comunes (cuando la descripción no dice "pick up" ni el uso "carga").
 const PICKUPS = ['hilux', 'tacoma', 'tundra', 'np300', 'frontier', 'ranger', 'f 150', 'f150', 'lobo', 'saveiro', 'amarok', 'l200',
@@ -643,11 +622,15 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
         if (!bloques.length) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide la cotización en Excel.');
         }
-        const datos = [];
+        // Póliza con una carátula por inciso (ej. Afirme): los incisos se leen directo del texto (sin IA, que por
+        // bloques los repetía o cruzaba); la IA solo lee el encabezado (aseguradora, vigencia, primas) del primer bloque.
+        const caratulas = incisosDeCaratulas(bloques.join('\n'));
+        const aLeer = caratulas.length ? bloques.slice(0, 1) : bloques;
+        const leidos = [];
         const enc = { ...this.encabezado };
-        for (let i = 0; i < bloques.length; i++) {
-            this.progreso = `Analizando con IA: bloque ${i + 1} de ${bloques.length}…`;
-            const json = await analizarFlotillaPdf({ textoCotizacion: bloques[i] });
+        for (let i = 0; i < aLeer.length; i++) {
+            this.progreso = `Analizando con IA: bloque ${i + 1} de ${aLeer.length}…`;
+            const json = await analizarFlotillaPdf({ textoCotizacion: aLeer[i] });
             let r = {};
             try { r = JSON.parse(json || '{}'); } catch (e) { r = {}; }
             if (!enc.aseguradoraId && r.aseguradora) { enc.aseguradoraId = this.aseguradoraPorTexto(r.aseguradora); }
@@ -657,8 +640,10 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             ['primaNeta', 'derechos', 'recargo', 'iva', 'primaTotal'].forEach((k) => {
                 if (numero(r[k]) !== null) { enc[k] = numero(r[k]); }
             });
-            (r.incisos || []).forEach((x) => datos.push({ ...x, fila: datos.length + 1 }));
+            leidos.push(...(r.incisos || []));
         }
+        // El mismo inciso puede venir en dos bloques: se une por serie / número de inciso.
+        const datos = (caratulas.length ? caratulas : unirIncisosIa(leidos)).map((x, i) => ({ ...x, fila: i + 1 }));
         if (!enc.aseguradoraId) { enc.aseguradoraId = this.aseguradoraPorTexto(this.archivoNombre + ' ' + bloques[0].substring(0, 3000)); }
         this.encabezado = enc;
         if (!datos.length) {

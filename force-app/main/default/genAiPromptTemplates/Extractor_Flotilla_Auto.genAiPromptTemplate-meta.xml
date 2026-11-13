@@ -11,6 +11,9 @@ Reglas:
 - Usa solo la información del texto. Si un dato no aparece, ponlo en null. No inventes vehículos ni montos.
 - Ignora encabezados, totales, subtotales, notas, condiciones y números de página: en "incisos" solo van renglones de vehículos.
 - Respeta el orden y el número de inciso como aparecen.
+- Si el texto es una PÓLIZA con una carátula por inciso (encabezado "Inciso: n" y sección "DATOS DEL VEHÍCULO"), cada inciso es UNA carátula con "DATOS DEL VEHÍCULO": toma inciso, serie, marca, modelo y primas solo de esa sección. Las páginas que solo repiten el encabezado "Inciso: n" (texto legal, observaciones, anexos, UNE/CONDUSEF, recibo de primas, comprobante fiscal/CFDI) NO son incisos: no las agregues.
+- "serie" es el número de serie del vehículo (VIN, normalmente 17 caracteres). Nunca uses el folio o la serie del recibo o del comprobante fiscal, el folio fiscal ni el número de certificado. Si el VIN viene partido en dos renglones, únelo.
+- Nunca repitas un inciso: si el mismo número de inciso o la misma serie aparece varias veces, devuélvelo una sola vez.
 - Montos como número, sin símbolo de moneda ni comas de miles (ej. 15527.81). Deducibles como porcentaje numérico (5% o 0.05 -> 5).
 - Por inciso: "primaNeta" es la prima neta del vehículo (sin derechos ni IVA) y "prima" es su prima TOTAL (con derechos, recargo e IVA). Muchas aseguradoras solo dan una de las dos: llena la que venga y deja la otra en null. Si la columna solo dice "Prima Neta", va en "primaNeta"; si dice "Prima Total" o "Total", va en "prima". No las calcules.
 - De la póliza completa (resumen o "Formas de pago"): "primaNeta", "derechos" (derechos de póliza o gastos de expedición), "recargo" (recargo por pago fraccionado), "iva" y "primaTotal", tal como vienen impresos para la forma de pago indicada. Si no aparecen, null.

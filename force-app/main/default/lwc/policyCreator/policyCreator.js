@@ -15,6 +15,11 @@ import PDFJS from '@salesforce/resourceUrl/pdfjs';
 // Tamaño máximo del PDF que se adjunta automáticamente: viaja en base64 dentro de la llamada a Apex y Salesforce
 // rechaza peticiones de más de ~4 MB. Los más grandes se adjuntan con el cargador estándar (lightning-file-upload).
 const MAX_ADJUNTO_AUTOMATICO = 3 * 1024 * 1024;
+// Emisión de colectivos: caracteres por bloque de un censo en PDF que se manda a la IA y asegurados por llamada a Apex.
+const BLOQUE_CENSO_PDF = 12000;
+const LOTE_CENSO = 2000;
+// Archivos que se aceptan en la carga de colectivos.
+const ACEPTA_COLECTIVO = '.pdf,.xlsx,.xlsm,.xls,.csv,.txt,.docx,.doc,.jpg,.jpeg,.png';
 import fontsResource from '@salesforce/resourceUrl/fuentes_pdf';
 import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import completarPoliza from '@salesforce/apex/PolicyController.completarPoliza';
@@ -24,7 +29,20 @@ import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
 import datosBasePoliza from '@salesforce/apex/PolicyController.datosBasePoliza';
-import validarNumeroPoliza from '@salesforce/apex/PolizaNumeroUnico.validarNumeroPoliza';
+import complementarCamposPoliza from '@salesforce/apex/PolicyController.complementarCamposPoliza';
+import ligarOportunidadPoliza from '@salesforce/apex/PolicyController.ligarOportunidadPoliza';
+import polizaExistente from '@salesforce/apex/PolizaNumeroUnico.polizaExistente';
+import complementarCenso from '@salesforce/apex/CensoColectivoController.complementarCenso';
+import analizarCensoPdf from '@salesforce/apex/CensoColectivoController.analizarCensoPdf';
+import movimientosSinContacto from '@salesforce/apex/CensoColectivoController.movimientosSinContacto';
+import aplicarBajas from '@salesforce/apex/CensoColectivoController.aplicarBajas';
+import LightningConfirm from 'lightning/confirm';
+import LightningAlert from 'lightning/alert';
+import { abrirTabla } from 'c/lectorArchivos';
+import {
+    TIPOS, ETIQUETAS_TIPO, detectarTipoTabla, detectarTipoPdf, mapeoComo, filasComoObjetos, normalizarCenso,
+    miembrosValidos, lotesCenso, vehiculosDesdeTabla, ubicacionesDesdeTabla, unirVehiculos, unirUbicaciones, vehiculosDeCaratulas, MOVIMIENTOS
+} from 'c/clasificadorArchivos';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 
@@ -35,6 +53,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track loading = true;
     @track errorMsg = '';
     @track analizando = false;
+    arrastrando = false;
     @track dates = {};
     @track readOnly = false;
     @track oppCard = null;
@@ -60,6 +79,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // La póliza aún no existe: se crea al subir el PDF (ya con su número real) con estos datos
     // base de la oportunidad y la cotización aceptada.
     @track esNueva = false;
+    // Emisión de COLECTIVOS con varios archivos: archivos seleccionados con el tipo detectado (editable por el
+    // usuario antes de procesar), archivos por adjuntar cuando exista la póliza y avance del proceso.
+    // Solo datos ligeros (se pintan en la revisión). El contenido de cada archivo (File, filas del Excel, texto del
+    // PDF) va en _cargaDatos, fuera del estado reactivo, y las conversiones se guardan en _conversiones.
+    cargaArchivos = [];
+    _cargaDatos = {};
+    _conversiones = {};
+    mostrarCarga = false;
+    progresoCarga = '';
+    tipoContratacion = '';
+    _adjuntosPendientes = [];
+    // Oportunidad de la póliza existente que se complementa (si es otra que la de la pantalla).
+    _oportunidadPoliza = null;
     _datosBase = null;
     _basePintada = false;
     _dtFlags = {}; // por campo: true si en la org es Fecha/Hora (para formatear al guardar)
@@ -230,6 +262,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.errorMsg = '';
         this.policyId = null;
         this.esNueva = false;
+        this._oportunidadPoliza = null;
+        this._adjuntosPendientes = [];
         this._datosBase = null;
         this._basePintada = false;
         try {
@@ -297,7 +331,492 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         return this.loading || this.analizando;
     }
     get overlayMessage() {
+        if (this.analizando && this.progresoCarga) { return this.progresoCarga; }
         return this.analizando ? 'Analizando el PDF de la póliza…' : 'Cargando la póliza…';
+    }
+
+    // ============================================================
+    // EMISIÓN DE COLECTIVOS: varios archivos por carga
+    // ============================================================
+    get isColectiva() {
+        return this.tipoContratacion === 'Colectiva';
+    }
+    // Colectivos: se pueden cargar archivos al emitir y también después, para complementar la póliza emitida
+    // (salvo en una oportunidad perdida).
+    get mostrarCargaColectiva() {
+        return this.isColectiva && (this.isEditable || (!!this.policyId && !this.isPerdida));
+    }
+    get mostrarPdfIndividual() {
+        return !this.isColectiva && this.isEditable;
+    }
+    get aceptaColectivo() {
+        return ACEPTA_COLECTIVO;
+    }
+    get textoBotonArchivos() {
+        return this.policyId ? 'Complementar con archivos' : 'Cargar archivos de la póliza';
+    }
+    get subtituloCarga() {
+        return this.policyId
+            ? 'La póliza ya existe: se complementa con estos archivos (solo se llenan los datos que faltan y no se duplican asegurados, vehículos ni ubicaciones).'
+            : 'Revisa lo que se detectó en cada archivo. La carátula (PDF de la póliza) es necesaria para emitirla.';
+    }
+    get textoProcesar() {
+        return this.policyId ? 'Complementar póliza' : 'Emitir póliza';
+    }
+    get cargaVista() {
+        return this.cargaArchivos.map((a) => ({
+            ...a,
+            opciones: a.tiposPosibles.map((t) => ({ label: ETIQUETAS_TIPO[t], value: t })),
+            detalle: this.detalleArchivo(this.conDatos(a))
+        }));
+    }
+    // Renglón de la revisión con el contenido de su archivo (File, filas, texto).
+    conDatos(a) {
+        return { ...a, ...(this._cargaDatos[a.key] || {}) };
+    }
+    get avisoCarga() {
+        if (!this.policyId && !this.cargaArchivos.some((a) => a.tipo === TIPOS.POLIZA)) {
+            return 'No se detectó la carátula de la póliza. Indica cuál PDF es la póliza o agrégalo a la carga para poder emitirla.';
+        }
+        return '';
+    }
+
+    // Abre el selector de archivos (varios) de un colectivo.
+    handleCargarArchivos() {
+        const input = this.template.querySelector('input.colectivo-file-input');
+        if (input) { input.value = null; input.click(); }
+    }
+
+    // Lee cada archivo y detecta su contenido: carátula o censo (PDF), censo / flotilla / ubicaciones (Excel o CSV)
+    // o solo adjunto. Un Excel con varias hojas reconocidas da un renglón por hoja.
+    async handleArchivosColectivo(event) {
+        const files = Array.from((event.target && event.target.files) || []);
+        if (!files.length) { return; }
+        this.analizando = true;
+        this._cargaDatos = {};
+        this._conversiones = {};
+        const carga = [];
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                this.progresoCarga = `Revisando ${file.name} (${i + 1} de ${files.length})…`;
+                // eslint-disable-next-line no-await-in-loop
+                const renglones = await this.clasificarArchivo(file, i);
+                // El contenido pesado se separa del renglón que se pinta.
+                renglones.forEach((r) => {
+                    const { file: f, filas, texto, ...ligero } = r;
+                    this._cargaDatos[r.key] = { file: f, filas, texto };
+                    carga.push({ ...ligero, esTabla: !!filas });
+                });
+            }
+            // Si hay varias carátulas, la primera es la principal; las demás (endosos, anexos) se leen solo para
+            // vehículos y ubicaciones.
+            this.cargaArchivos = carga;
+            this.mostrarCarga = true;
+        } catch (e) {
+            this.showToast('Error', this.mensajeError(e, 'No se pudieron leer los archivos.'), 'error');
+        } finally {
+            this.analizando = false;
+            this.progresoCarga = '';
+        }
+    }
+
+    async clasificarArchivo(file, i) {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        const base = { file, archivo: file.name, tamano: this.fmtMb(file.size) };
+        if (ext === 'pdf') {
+            if (typeof window.pdfjsLib === 'undefined') {
+                throw new Error('El lector de PDF aún se está cargando. Intenta de nuevo en unos segundos.');
+            }
+            const texto = await this.extractPdfText(file);
+            const tipo = detectarTipoPdf(file.name, texto);
+            return [{ ...base, key: `a${i}`, etiquetaArchivo: file.name, texto, tipo,
+                tiposPosibles: texto ? [TIPOS.POLIZA, TIPOS.CENSO, TIPOS.ADJUNTO] : [TIPOS.ADJUNTO] }];
+        }
+        if (['xlsx', 'xlsm', 'xls', 'csv', 'txt'].includes(ext)) {
+            let tabla;
+            try {
+                tabla = await abrirTabla(file);
+            } catch (e) {
+                return [{ ...base, key: `a${i}`, etiquetaArchivo: file.name, tipo: TIPOS.ADJUNTO, tiposPosibles: [TIPOS.ADJUNTO],
+                    error: this.mensajeError(e, 'No se pudo leer') }];
+            }
+            const hojas = tabla.hojas.length ? tabla.hojas : [''];
+            const tiposTabla = [TIPOS.CENSO, TIPOS.VEHICULOS, TIPOS.UBICACIONES, TIPOS.ADJUNTO];
+            const renglones = [];
+            for (let h = 0; h < hojas.length; h++) {
+                // eslint-disable-next-line no-await-in-loop
+                const filas = await tabla.leerHoja(hojas[h]);
+                const det = detectarTipoTabla(filas, `${file.name} ${hojas[h]}`);
+                if (det.tipo === TIPOS.ADJUNTO) { continue; }
+                renglones.push({ ...base, key: `a${i}h${h}`, hoja: hojas[h], filas, tipo: det.tipo, tiposPosibles: tiposTabla,
+                    etiquetaArchivo: hojas.length > 1 ? `${file.name} · hoja «${hojas[h]}»` : file.name });
+            }
+            if (renglones.length) { return renglones; }
+            // Ninguna hoja se reconoció: se puede indicar a mano el tipo de la primera hoja.
+            const filas = await tabla.leerHoja(hojas[0]);
+            return [{ ...base, key: `a${i}`, hoja: hojas[0], filas, tipo: TIPOS.ADJUNTO, tiposPosibles: tiposTabla,
+                etiquetaArchivo: file.name }];
+        }
+        return [{ ...base, key: `a${i}`, etiquetaArchivo: file.name, tipo: TIPOS.ADJUNTO, tiposPosibles: [TIPOS.ADJUNTO] }];
+    }
+
+    // Texto de la columna "Detalle": qué se va a hacer con el archivo según su tipo.
+    detalleArchivo(a) {
+        if (a.error) { return `${a.error}. Se adjunta a la póliza.`; }
+        if (a.tipo === TIPOS.POLIZA) {
+            const principal = this.cargaArchivos.find((x) => x.tipo === TIPOS.POLIZA);
+            return principal === a || (principal && principal.key === a.key)
+                ? 'Se analiza con IA: datos de la póliza, coberturas, primas, vehículos y ubicaciones.'
+                : 'Póliza adicional (endoso/anexo): se toman sus vehículos y ubicaciones.';
+        }
+        if (a.tipo === TIPOS.CENSO && !a.filas) { return 'Censo en PDF: se lee con IA y se agregan los asegurados que falten.'; }
+        if (a.tipo === TIPOS.ADJUNTO) { return 'Se adjunta a la póliza.'; }
+        const r = this.convertirTabla(a);
+        if (r.error) { return r.error; }
+        if (a.tipo === TIPOS.CENSO) {
+            const mv = r.movimientos || {};
+            const movimientos = mv.hay
+                ? ` · Movimientos: ${mv.altas} alta(s), ${mv.bajas} baja(s), ${mv.cambios} cambio(s)`
+                    + (mv.bajas ? ' (las bajas se quitan del censo y, si la póliza ya existe, de la póliza)' : '')
+                : '';
+            return `${r.miembros.length} asegurado(s)` + movimientos + (r.conError ? ` · ${r.conError} con error se omiten` : '')
+                + ' · se agregan los que falten al censo y a la póliza.';
+        }
+        if (a.tipo === TIPOS.VEHICULOS) { return `${r.vehiculos.length} vehículo(s) · se crean o completan sus incisos.`; }
+        return `${r.ubicaciones.length} ubicación(es) · se crean o completan como bienes de la póliza.`;
+    }
+
+    // Convierte una hoja según el tipo elegido: { miembros, conError } / { vehiculos } / { ubicaciones } o { error }.
+    // Se guarda por archivo y tipo: la revisión se vuelve a pintar varias veces y un censo puede tener miles de renglones.
+    convertirTabla(a) {
+        const llave = `${a.key}|${a.tipo}`;
+        if (!this._conversiones[llave]) { this._conversiones[llave] = this.convertirTablaSinCache(a); }
+        return this._conversiones[llave];
+    }
+    convertirTablaSinCache(a) {
+        const m = mapeoComo(a.tipo, a.filas || []);
+        if (!m.valido) {
+            return { error: 'No se reconocen las columnas para este tipo. Revisa el archivo o elige «Solo adjuntar».',
+                miembros: [], vehiculos: [], ubicaciones: [], conError: 0 };
+        }
+        if (a.tipo === TIPOS.CENSO) {
+            return miembrosValidos(normalizarCenso(filasComoObjetos(a.filas, m.encabezado, m.mapeo)));
+        }
+        if (a.tipo === TIPOS.VEHICULOS) { return { vehiculos: vehiculosDesdeTabla(a.filas, m.encabezado, m.mapeo) }; }
+        return { ubicaciones: ubicacionesDesdeTabla(a.filas, m.encabezado, m.mapeo) };
+    }
+
+    handleTipoArchivo(event) {
+        const key = event.target.dataset.key;
+        const tipo = event.detail.value;
+        this.cargaArchivos = this.cargaArchivos.map((a) => (a.key === key ? { ...a, tipo } : a));
+    }
+
+    cancelarCarga() {
+        this.mostrarCarga = false;
+        this.limpiarCarga();
+    }
+
+    limpiarCarga() {
+        this.cargaArchivos = [];
+        this._cargaDatos = {};
+        this._conversiones = {};
+    }
+
+    // Procesa la carga: analiza la carátula, junta censo, vehículos y ubicaciones de todos los archivos y crea la
+    // póliza o, si ya existe, la complementa (solo lo que falta, sin duplicar).
+    async procesarCarga() {
+        const carga = this.cargaArchivos.map((a) => this.conDatos(a));
+        const polizas = carga.filter((a) => a.tipo === TIPOS.POLIZA);
+        if (!this.policyId && !polizas.length) {
+            this.showToast('Falta la póliza', 'Para emitir la póliza incluye su PDF (carátula) en la carga.', 'warning');
+            return;
+        }
+        this.mostrarCarga = false;
+        this.analizando = true;
+        try {
+            // 1) Carátula principal con IA; los demás PDFs de póliza aportan vehículos y ubicaciones.
+            let datos = null;
+            if (polizas.length) {
+                this.progresoCarga = `Analizando con IA la póliza ${polizas[0].archivo}…`;
+                datos = await this.analizarTextoPoliza(polizas[0].texto);
+                if (!datos) { return; }
+                polizas.slice(1).forEach((p) => {
+                    datos.vehiculos = unirVehiculos(datos.vehiculos, this.vehiculosDesdeTexto(p.texto));
+                    datos.ubicaciones = unirUbicaciones(datos.ubicaciones, this.ubicacionesDesdeTexto(p.texto));
+                });
+                // 2) Si la póliza (mismo número y vigencia) ya existe, se complementa en lugar de crear otra.
+                const seguir = await this.resolverPolizaExistente(datos);
+                if (!seguir) { return; }
+            }
+            const sinCaratula = !datos;
+            datos = datos || {};
+            datos._sinCaratula = sinCaratula;
+
+            // 3) Excel / CSV: censo, flotilla y ubicaciones.
+            let miembros = [];
+            let omitidos = 0;
+            const revisar = [];
+            for (const a of carga) {
+                if (a.tipo === TIPOS.CENSO) {
+                    this.progresoCarga = `Leyendo el censo ${a.etiquetaArchivo}…`;
+                    // eslint-disable-next-line no-await-in-loop
+                    const r = a.filas ? this.convertirTabla(a) : await this.censoDesdePdf(a);
+                    miembros = miembros.concat(this.desplazarTitulares(r.miembros || [], miembros.length));
+                    omitidos += r.conError || 0;
+                    (r.revisar || []).forEach((p) => revisar.push({ ...p, archivo: a.etiquetaArchivo }));
+                } else if (a.tipo === TIPOS.VEHICULOS && a.filas) {
+                    const r = this.convertirTabla(a);
+                    if ((r.vehiculos || []).length) {
+                        datos.vehiculos = unirVehiculos(datos.vehiculos, r.vehiculos);
+                        datos._vehiculosArchivo = true;
+                    }
+                } else if (a.tipo === TIPOS.UBICACIONES && a.filas) {
+                    const r = this.convertirTabla(a);
+                    if ((r.ubicaciones || []).length) {
+                        datos.ubicaciones = unirUbicaciones(datos.ubicaciones, r.ubicaciones);
+                        datos._ubicacionesArchivo = true;
+                    }
+                }
+            }
+
+            // 4) Censo: se agregan a la oportunidad los asegurados que falten; al guardar la póliza se copian a ella.
+            const avisos = [];
+            if (miembros.length) {
+                const oppId = this.idOrNull(this._oportunidadPoliza || this.opportunityId);
+                if (!oppId) {
+                    avisos.push('el censo no se cargó porque la póliza no tiene oportunidad');
+                } else {
+                    const lotes = lotesCenso(miembros, LOTE_CENSO);
+                    let nuevos = 0;
+                    for (let i = 0; i < lotes.length; i++) {
+                        this.progresoCarga = lotes.length > 1 ? `Guardando censo (lote ${i + 1} de ${lotes.length})…` : 'Guardando censo…';
+                        // eslint-disable-next-line no-await-in-loop
+                        const r = await complementarCenso({ opportunityId: oppId, miembrosJson: JSON.stringify(lotes[i]) });
+                        nuevos += (r && r.nuevos) || 0;
+                    }
+                    avisos.push(`censo: ${nuevos} asegurado(s) nuevo(s)` + (omitidos ? `, ${omitidos} renglón(es) con error omitidos` : ''));
+                }
+            }
+
+            // Bajas (se quitan del censo y, si la póliza ya existe, sus participantes quedan inactivos) y aviso
+            // informativo de las bajas y cambios de personas que no existen.
+            if (revisar.length) { await this.aplicarMovimientos(revisar, avisos); }
+
+            // 5) Archivos por adjuntar a la póliza (cada archivo una vez; los grandes se suben aparte).
+            this.progresoCarga = 'Preparando archivos…';
+            await this.prepararAdjuntos(carga);
+
+            // 6) Póliza nueva: mismo flujo que el PDF individual (formulario -> handleSuccess). Ya existe: se complementa.
+            if (!this.policyId) {
+                this._pdfCargado = true;
+                this._datosPoliza = datos;
+                this.fillForm(datos);
+                if (avisos.length) { this.showToast('Carga de archivos', avisos.join(' · '), 'info'); }
+                this.showToast('Listo', 'Datos de la póliza cargados. Guardando…', 'success');
+                this.guardarYcerrar();
+                return;
+            }
+            await this.complementarPolizaExistente(datos, sinCaratula, avisos);
+        } catch (e) {
+            this.showToast('Error', this.mensajeError(e, 'No se pudieron procesar los archivos.'), 'error');
+        } finally {
+            this.analizando = false;
+            this.progresoCarga = '';
+            this.limpiarCarga();
+        }
+    }
+
+    // La póliza ya existe: llena solo sus campos vacíos, adjunta los archivos y crea/completa sus registros hijos.
+    async complementarPolizaExistente(datos, sinCaratula, avisos) {
+        const policyId = this.policyId;
+        if (!sinCaratula) {
+            this.progresoCarga = 'Complementando los datos de la póliza…';
+            const llenados = await complementarCamposPoliza({ policyId, camposJson: JSON.stringify(this.camposDesdeDatos(datos)) });
+            if (llenados && llenados.length) { avisos.push(`${llenados.length} dato(s) de la póliza completados`); }
+        }
+        // La póliza se liga a la oportunidad desde la que se emite (y a su cotización y agente) si no la tiene.
+        const oppEmision = this.idOrNull(this.opportunityId);
+        if (oppEmision) {
+            try {
+                const ligados = await ligarOportunidadPoliza({ policyId, opportunityId: oppEmision, quoteId: this.idOrNull(this.quoteId) });
+                if (ligados && ligados.includes('SourceOpportunityId')) { avisos.push('póliza ligada a la oportunidad'); }
+                await vincularProducer({ policyId, opportunityId: oppEmision });
+            } catch (e) {
+                avisos.push(this.mensajeError(e, 'no se pudo ligar la póliza a la oportunidad'));
+            }
+        }
+        this.progresoCarga = 'Adjuntando archivos…';
+        await this.adjuntarPendientes();
+        this.progresoCarga = 'Guardando asegurados, vehículos, ubicaciones y coberturas…';
+        const resumen = await guardarDatosPolizaDesdePdf({
+            policyId,
+            opportunityId: this.idOrNull(this._oportunidadPoliza || this.opportunityId),
+            datosJson: JSON.stringify(datos)
+        });
+        this.mostrarResumenPoliza(resumen);
+        if (avisos.length) { this.showToast('Póliza complementada', avisos.join(' · '), 'info'); }
+        notifyRecordUpdateAvailable([{ recordId: policyId }]);
+        if (this.readOnly) {
+            await this.loadRegistrosPoliza();
+            return;
+        }
+        // Con la carátula, la oportunidad pasa a Póliza (igual que al emitir con el PDF).
+        this._pdfCargado = !sinCaratula;
+        await this.finalizarEmision();
+    }
+
+    // Revisa si ya hay una póliza con el número y la vigencia de la carátula. Si existe y el usuario puede editarla,
+    // pregunta y se toma esa póliza para complementarla. Devuelve false si no se debe continuar.
+    async resolverPolizaExistente(datos) {
+        if (!datos.numeroPoliza) { return true; }
+        const vigencia = datos.vigenciaDesde || (this._datosBase && this._datosBase.EffectiveDate) || null;
+        const r = await polizaExistente({
+            numero: datos.numeroPoliza,
+            vigenciaDesde: vigencia ? String(vigencia).substring(0, 10) : null,
+            policyId: this.idOrNull(this.policyId)
+        }) || {};
+        if (r.error) {
+            this.showToast('Póliza repetida', r.error, 'error');
+            return false;
+        }
+        if (!r.policyId) { return true; }
+        if (this.policyId) {
+            this.showToast('Póliza repetida',
+                `El número ${datos.numeroPoliza} ya pertenece a otra póliza (${r.nombre}). Esta oportunidad ya tiene su propia póliza.`, 'error');
+            return false;
+        }
+        const ok = await LightningConfirm.open({
+            message: `La póliza ${r.nombre} ya existe con el número ${datos.numeroPoliza} y la misma vigencia. `
+                + 'En lugar de crear otra, se actualizará esa póliza: se llenan los datos que le faltan y se crean los participantes, '
+            + 'bienes y coberturas que no tenga. ¿Continuar?',
+            variant: 'header', label: 'La póliza ya existe', theme: 'info'
+        });
+        if (!ok) { return false; }
+        this.policyId = r.policyId;
+        this.esNueva = false;
+        this._oportunidadPoliza = r.oportunidadId || null;
+        return true;
+    }
+
+    // Aplica las bajas del censo y avisa (solo informativo) de las bajas y cambios de personas que no existen: una
+    // baja de alguien que no existe no se puede aplicar y un cambio se agrega como asegurado nuevo.
+    async aplicarMovimientos(revisar, avisos) {
+        const oppId = this.idOrNull(this._oportunidadPoliza || this.opportunityId);
+        // Cada renglón se identifica por su posición: las filas se repiten entre archivos.
+        const personas = revisar.map((p, i) => ({ ...p, fila: i + 1 }));
+        const bajas = personas.filter((p) => p.movimiento === MOVIMIENTOS.BAJA);
+        const cambios = personas.filter((p) => p.movimiento === MOVIMIENTOS.CAMBIO);
+        const faltan = [];
+        if (bajas.length) {
+            this.progresoCarga = 'Aplicando bajas…';
+            const r = await aplicarBajas({ opportunityId: oppId, policyId: this.idOrNull(this.policyId), personasJson: JSON.stringify(bajas) }) || {};
+            const aplicadas = bajas.length - (r.noEncontrados || []).length;
+            if (aplicadas) {
+                avisos.push(`${aplicadas} baja(s) aplicada(s)` + (r.poliza ? ` (${r.poliza} participante(s) inactivado(s) en la póliza)` : ''));
+            }
+            faltan.push(...(r.noEncontrados || []));
+        }
+        if (cambios.length) {
+            try {
+                faltan.push(...(await movimientosSinContacto({ opportunityId: oppId, accountId: null, personasJson: JSON.stringify(cambios) }) || []));
+            } catch (e) {
+                // Solo es un aviso: si la revisión falla, la carga sigue.
+            }
+        }
+        if (!faltan.length) { return; }
+        const lista = faltan.map((n) => revisar[n - 1]).filter((p) => p);
+        const MAX = 15;
+        const lineas = lista.slice(0, MAX).map((p) => `• ${p.movimiento}: ${p.nombreCompleto || '(sin nombre)'}`
+            + (p.certificado ? ` (cert. ${p.certificado})` : '') + ` — fila ${p.fila} de ${p.archivo}`);
+        if (lista.length > MAX) { lineas.push(`… y ${lista.length - MAX} más`); }
+        await LightningAlert.open({
+            message: `${lista.length} movimiento(s) son de personas que no existen, así que no se puede hacer nada con ellos:\n`
+                + lineas.join('\n')
+                + '\n\nEsas bajas no se aplican y esos cambios se agregan como asegurados nuevos. El resto de la carga continúa.',
+            variant: 'header', label: 'Personas que no existen', theme: 'info'
+        });
+    }
+
+    // Censo en PDF: el texto se manda a la IA por bloques y se valida igual que un Excel.
+    async censoDesdePdf(a) {
+        const bloques = this.bloquesTexto(a.texto, BLOQUE_CENSO_PDF);
+        const datos = [];
+        for (let i = 0; i < bloques.length; i++) {
+            this.progresoCarga = `Leyendo el censo ${a.archivo} con IA (bloque ${i + 1} de ${bloques.length})…`;
+            // eslint-disable-next-line no-await-in-loop
+            const json = await analizarCensoPdf({ textoCenso: bloques[i] });
+            let r = {};
+            try { r = JSON.parse(json || '{}'); } catch (e) { r = {}; }
+            (r.asegurados || []).forEach((x) => datos.push({ ...x, fila: datos.length + 1 }));
+        }
+        return miembrosValidos(normalizarCenso(datos));
+    }
+
+    // Parte un texto en bloques de hasta "max" caracteres por renglones completos.
+    bloquesTexto(texto, max) {
+        const bloques = [];
+        let actual = '';
+        String(texto || '').split('\n').forEach((l) => {
+            if (actual && actual.length + l.length + 1 > max) { bloques.push(actual); actual = ''; }
+            actual += l + '\n';
+        });
+        if (actual.trim()) { bloques.push(actual); }
+        return bloques;
+    }
+
+    // Al juntar censos de varios archivos, el titularIndex se recorre a su posición en la lista completa.
+    desplazarTitulares(miembros, desplazamiento) {
+        return miembros.map((m) => ({
+            ...m,
+            titularIndex: m.titularIndex === null || m.titularIndex === undefined ? null : m.titularIndex + desplazamiento
+        }));
+    }
+
+    // Lee en base64 los archivos de la carga (cada archivo una sola vez) para adjuntarlos a la póliza. Los que no
+    // caben en la llamada a Apex se avisan para subirlos en «Archivos de la póliza».
+    async prepararAdjuntos(carga) {
+        const vistos = new Set();
+        const grandes = [];
+        const pendientes = [];
+        for (const a of carga) {
+            if (vistos.has(a.file)) { continue; }
+            vistos.add(a.file);
+            if (a.file.size > MAX_ADJUNTO_AUTOMATICO) { grandes.push(a.archivo); continue; }
+            // eslint-disable-next-line no-await-in-loop
+            pendientes.push({ nombre: a.archivo, base64: await this.readFileAsBase64(a.file) });
+        }
+        this._adjuntosPendientes = pendientes;
+        if (grandes.length) {
+            this.showToast('Adjunta estos archivos al terminar',
+                `${grandes.join(', ')} pesan más de ${this.fmtMb(MAX_ADJUNTO_AUTOMATICO)} y no se adjuntan automáticamente. Súbelos en la sección «Archivos de la póliza».`,
+                'warning');
+        }
+    }
+
+    // Adjunta a la póliza los archivos pendientes de la carga de colectivos (idempotente por nombre).
+    async adjuntarPendientes() {
+        if (!this.policyId || !this._adjuntosPendientes.length) { return; }
+        const fallidos = [];
+        const pendientes = this._adjuntosPendientes;
+        this._adjuntosPendientes = [];
+        for (const a of pendientes) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                await guardarArchivoEnPoliza({ base64: a.base64, nombreArchivo: a.nombre, policyId: this.policyId });
+            } catch (e) {
+                fallidos.push(a.nombre);
+            }
+        }
+        if (fallidos.length) {
+            this.showToast('Algunos archivos no se adjuntaron',
+                `${fallidos.join(', ')}. Súbelos en la sección «Archivos de la póliza».`, 'warning');
+        }
+    }
+
+    mensajeError(e, porDefecto) {
+        return (e && e.body && e.body.message) || (e && e.message) || porDefecto;
     }
 
     // Al cargar el registro, toma los valores de fecha y detecta si son Fecha/Hora.
@@ -418,6 +937,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             notifyRecordUpdateAvailable([{ recordId: savedId }]);
             // Adjunta el PDF que se haya seleccionado antes de que existiera la póliza.
             await this.guardarPdfEnPoliza();
+            // Colectivos: los demás archivos de la carga (censo, flotilla, ubicaciones, anexos).
+            await this.adjuntarPendientes();
         }
         // Completa los registros hijos de la póliza (modelo FSC), de forma idempotente:
         //   bien (InsurancePolicyAsset), asegurados (InsurancePolicyParticipant),
@@ -447,9 +968,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // No bloquea: la póliza ya quedó guardada.
             this.showToast('Aviso', msg, 'warning');
         }
-        // Sin PDF de la póliza la oportunidad sigue en emisión y el formulario editable.
-        if (!this._pdfCargado) { return; }
-        // Con el PDF cargado, la oportunidad pasa a etapa "Póliza" y ya no se puede modificar.
+        await this.finalizarEmision();
+    }
+
+    // Con el PDF de la póliza cargado, la oportunidad pasa a etapa "Póliza" y se muestra la póliza en solo lectura.
+    // Sin PDF la oportunidad sigue en emisión y el formulario editable.
+    async finalizarEmision() {
+        // Sin PDF no cambia la etapa, pero igual se lleva al registro de la póliza.
+        if (!this._pdfCargado) { this.navegarAPoliza(); return; }
         try {
             if (this.opportunityId) {
                 await cambiarEtapaAPoliza({ opportunityId: this.opportunityId });
@@ -459,16 +985,21 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
             this.showToast('La póliza se guardó, pero la etapa no cambió', msg, 'warning');
-            return;
         }
-        // Lleva a la vista completa de la póliza en modo lectura (resumen + coberturas,
-        // participantes, bien y transacción).
+        // Lleva a la vista estándar del registro de la póliza (Insurance Policy).
         this.navegarAPoliza();
     }
 
-    // Redirige al mismo LWC de Crear Póliza en modo SOLO LECTURA (igual que el botón
-    // "Información"), donde se ve el resumen completo con coberturas, participantes, etc.
+    // Redirige a la página de registro estándar de Salesforce de la póliza guardada.
+    // Si por alguna razón no hay Id, vuelve a Crear Póliza en modo solo lectura.
     navegarAPoliza() {
+        if (this.policyId) {
+            this[NavigationMixin.Navigate]({
+                type: 'standard__recordPage',
+                attributes: { recordId: this.policyId, objectApiName: 'InsurancePolicy', actionName: 'view' }
+            });
+            return;
+        }
         this[NavigationMixin.Navigate]({
             type: 'standard__navItemPage',
             attributes: { apiName: 'Crear_Poliza' },
@@ -531,6 +1062,51 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.showToast('No se pudo guardar la póliza', msg, 'error');
     }
 
+    // ----- Arrastrar y soltar el archivo de la póliza -----
+    get mostrarZonaArrastre() {
+        return this.mostrarPdfIndividual || this.mostrarCargaColectiva;
+    }
+    get claseZonaArrastre() {
+        return 'drop-zone' + (this.arrastrando ? ' drop-zone_activa' : '') + (this.analizando ? ' drop-zone_deshabilitada' : '');
+    }
+    get textoZonaArrastre() {
+        if (this.mostrarCargaColectiva) {
+            return 'Arrastra aquí los archivos de la póliza (PDF, Excel o CSV)';
+        }
+        return 'Arrastra aquí el PDF de la póliza';
+    }
+    handleClicZonaArrastre() {
+        if (this.analizando) { return; }
+        if (this.mostrarCargaColectiva) { this.handleCargarArchivos(); } else { this.handleAnalizarPdf(); }
+    }
+    handleDragOver(event) {
+        event.preventDefault();
+        if (event.dataTransfer) { event.dataTransfer.dropEffect = this.analizando ? 'none' : 'copy'; }
+        if (!this.analizando) { this.arrastrando = true; }
+    }
+    handleDragLeave(event) {
+        // Solo al salir de la zona, no al pasar sobre sus elementos internos.
+        if (event.currentTarget && event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) { return; }
+        this.arrastrando = false;
+    }
+    handleDrop(event) {
+        event.preventDefault();
+        this.arrastrando = false;
+        if (this.analizando || this.readOnly) { return; }
+        const files = Array.from((event.dataTransfer && event.dataTransfer.files) || []);
+        if (!files.length) { return; }
+        if (this.mostrarCargaColectiva) {
+            this.handleArchivosColectivo({ target: { files } });
+            return;
+        }
+        const pdf = files.find((f) => /\.pdf$/i.test(f.name || '') || f.type === 'application/pdf');
+        if (!pdf) {
+            this.showToast('Aviso', 'Arrastra un archivo PDF de la póliza.', 'warning');
+            return;
+        }
+        this.handleFileSelected({ target: { files: [pdf] } });
+    }
+
     // Abre el selector de archivo para analizar un PDF de póliza.
     handleAnalizarPdf() {
         if (this.readOnly) { return; }
@@ -552,39 +1128,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 this.showToast('Aviso', 'No se pudo leer texto del PDF (¿está escaneado?).', 'warning');
                 return;
             }
-            const jsonStr = await analizarPoliza({ textoPoliza: texto });
-            console.log('PolicyCreator::: JSON recibido de Apex ->', jsonStr);
-            let datos;
-            try {
-                datos = JSON.parse(jsonStr || '{}');
-            } catch (parseErr) {
-                console.error('PolicyCreator::: no se pudo parsear el JSON', parseErr);
-                this.showToast('Aviso', 'La IA respondió en un formato no válido. Intenta de nuevo.', 'warning');
-                return;
-            }
-            // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
-            this.completarCoberturasDesdeTexto(datos, texto);
-            // Daños: ubicaciones (incisos) del PDF completo; Apex crea un bien del cliente por cada una.
-            datos.ubicaciones = this.ubicacionesDesdeTexto(texto);
-            // Flotilla / colectiva de autos: todos los vehículos (incisos); Apex crea su bien e inciso de flotilla.
-            datos.vehiculos = this.vehiculosDesdeTexto(texto);
-            // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
-            datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
-            // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe, se
-            // avisa y NO se crea/actualiza la póliza ni se adjunta el PDF.
-            if (datos.numeroPoliza) {
-                const vigencia = datos.vigenciaDesde
-                    || (this._datosBase && this._datosBase.EffectiveDate) || null;
-                const repetida = await validarNumeroPoliza({
-                    numero: datos.numeroPoliza,
-                    vigenciaDesde: vigencia ? String(vigencia).substring(0, 10) : null,
-                    policyId: this.idOrNull(this.policyId)
-                });
-                if (repetida) {
-                    this.showToast('Póliza repetida', repetida, 'error');
-                    return;
-                }
-            }
+            const datos = await this.analizarTextoPoliza(texto);
+            if (!datos) { return; }
+            // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe (y el usuario
+            // puede editarla) se actualiza esa póliza en lugar de crear otra; si no, se avisa y no se guarda nada.
+            const polizaAntes = this.policyId;
+            if (!(await this.resolverPolizaExistente(datos))) { return; }
+            const actualizarExistente = !polizaAntes && !!this.policyId;
             // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
             // queda pendiente y se adjunta al crearla (handleSuccess).
             // Un PDF grande no cabe en la llamada a Apex: se pide adjuntarlo en la vista de la póliza.
@@ -605,6 +1155,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Guarda el JSON para crear/actualizar los objetos hijos al guardar la póliza.
             this._datosPoliza = datos;
+            // La póliza ya existía: se actualiza y se crean los participantes, bienes y coberturas que falten.
+            if (actualizarExistente) {
+                await this.complementarPolizaExistente(datos, false, []);
+                return;
+            }
             this.fillForm(datos);
             // Una vez subido el PDF, se guarda automáticamente y se pasa a la vista de SOLO
             // LECTURA: el usuario ya no puede modificar los valores de la póliza.
@@ -618,9 +1173,33 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
     }
 
+    // Analiza con la IA el texto de la carátula y lo completa con lo que se lee directo del texto: coberturas,
+    // ubicaciones (Daños), vehículos (flotilla) y el número de póliza limpio. null si la IA no respondió un JSON.
+    async analizarTextoPoliza(texto) {
+        const jsonStr = await analizarPoliza({ textoPoliza: texto });
+        console.log('PolicyCreator::: JSON recibido de Apex ->', jsonStr);
+        let datos;
+        try {
+            datos = JSON.parse(jsonStr || '{}');
+        } catch (parseErr) {
+            console.error('PolicyCreator::: no se pudo parsear el JSON', parseErr);
+            this.showToast('Aviso', 'La IA respondió en un formato no válido. Intenta de nuevo.', 'warning');
+            return null;
+        }
+        // Completa límite/deducible/prima de cada cobertura desde su renglón del PDF.
+        this.completarCoberturasDesdeTexto(datos, texto);
+        // Daños: ubicaciones (incisos) del PDF completo; Apex crea un bien del cliente por cada una.
+        datos.ubicaciones = this.ubicacionesDesdeTexto(texto);
+        // Flotilla / colectiva de autos: todos los vehículos (incisos); Apex crea su bien e inciso de flotilla.
+        datos.vehiculos = this.vehiculosDesdeTexto(texto);
+        // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
+        datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
+        return datos;
+    }
+
     // Guarda automáticamente la póliza tras subir el PDF y la deja en SOLO LECTURA.
     // Envía el formulario (mismo flujo que "Guardar Póliza": handleSubmit -> handleSuccess
-    // -> navegarAPoliza). Espera un momento a que el formulario pinte los valores del PDF.
+    // -> navegarAPoliza, que abre el registro de la póliza). Espera un momento a que el formulario pinte los valores del PDF.
     guardarYcerrar() {
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
@@ -722,97 +1301,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
 
     // Vehículos de una póliza de flotilla / colectiva de autos (ej. Afirme: una carátula por inciso), leídos del texto
-    // completo (la IA solo recibe una parte): inciso, asegurado (nombre, RFC, domicilio, C.P., contratante, conductor),
-    // vehículo (marca, año, descripción, serie, placas, pasajeros, motor, uso, clave), coberturas principales y primas
-    // del inciso. Con menos de dos vehículos, [] (póliza individual).
+    // completo (la IA solo recibe una parte). La lectura vive en c/clasificadorArchivos para que el censo de
+    // vehículos y la flotilla lean igual el mismo PDF. Con menos de dos vehículos, [] (póliza individual).
     vehiculosDesdeTexto(texto) {
-        const t = String(texto || '');
-        const inicio = /DATOS DEL ASEGURADO/gi;
-        const cortes = [];
-        let m;
-        while ((m = inicio.exec(t)) !== null) { cortes.push(m.index); }
-        const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
-        const uno = (re, txt) => { const r = re.exec(txt); return r ? limpio(r[1]) : ''; };
-        const monto = (re, txt) => { const v = uno(re, txt); return v ? v.replace(/[$,\s]/g, '') : ''; };
-        const vehiculos = [];
-        const vistos = new Set();
-        cortes.forEach((desde, i) => {
-            const hasta = i + 1 < cortes.length ? cortes[i + 1] : t.length;
-            let bloque = t.substring(desde, hasta);
-            if (!/DATOS DEL VEH[IÍ]CULO/i.test(bloque) || !/N[uú]mero de Serie/i.test(bloque)) { return; }
-            const total = /Prima Total\s*:\s*\$?\s*[\d,]+(?:\.\d+)?/i.exec(bloque);
-            if (total) { bloque = bloque.substring(0, total.index + total[0].length); }
-            // Número de inciso: el del encabezado de la carátula (antes del bloque).
-            const incisos = t.substring(Math.max(0, desde - 800), desde).match(/Inciso\s*:\s*(\d+)/gi);
-            const inciso = incisos ? incisos[incisos.length - 1].replace(/\D/g, '') : '';
-
-            const asegurado = bloque.split(/DATOS DEL VEH[IÍ]CULO/i)[0];
-            const vehiculo = bloque.substring(asegurado.length);
-            // Domicilio: renglones entre "Nombre:" y "Contratante:" sin las etiquetas ni el RFC.
-            const domM = /Nombre\s*:[^\n]*\n([\s\S]*?)\n\s*Contratante\s*:/i.exec(asegurado);
-            const domicilio = domM
-                ? domM[1].split('\n')
-                    .map((r) => limpio(r.replace(/Domicilio\s*:/i, '').replace(/R\.?\s*F\.?\s*C\.?\s*:\s*\S*/i, '')))
-                    .filter((r) => r)
-                : [];
-            // Descripción: del "Tipo:" a "Placas:" sin "Version:" ni el número de serie.
-            const descM = /Tipo\s*:([\s\S]*?)\n\s*Placas\s*:/i.exec(vehiculo);
-            const renglones = descM
-                ? descM[1].replace(/Versi[oó]n\s*:/gi, ' ').replace(/N[uú]mero de Serie\s*:[ \t]*[A-Z0-9-]*/i, ' ')
-                    .split('\n').map(limpio).filter((r) => r)
-                : [];
-            let serie = uno(/N[uú]mero de Serie\s*:[ \t]*([A-Z0-9-]{5,})/i, vehiculo);
-            if (!serie) {
-                // Serie partida en dos renglones por el PDF ("LZWNNNGNXRC81530" + "5"): se une hasta 17 caracteres.
-                const base = renglones.find((r) => /^[A-Z0-9]{8,17}$/.test(r) && /\d/.test(r) && /[A-Z]/.test(r));
-                if (base) {
-                    const resto = renglones.find((r) => r !== base && /^[A-Z0-9]{1,9}$/.test(r) && (base + r).length === 17);
-                    serie = base + (resto || '');
-                    renglones.splice(renglones.indexOf(base), 1);
-                    if (resto) { renglones.splice(renglones.indexOf(resto), 1); }
-                }
-            }
-            const llave = serie || `inciso ${inciso}`;
-            if (vistos.has(llave)) { return; }
-            vistos.add(llave);
-            const uso = uno(/Uso\s*:\s*(.*?)\s+Clave\s*:/i, vehiculo);
-            const conductor = uno(/Conductor\s*:[ \t]*([^\n]*)/i, asegurado);
-            const dm = /DA[NÑ]OS MATERIALES\s+(VALOR [A-ZÁÉÍÓÚ]+)\s+([\d.]+)\s*%/i.exec(vehiculo);
-            const rt = /ROBO TOTAL\s+(VALOR [A-ZÁÉÍÓÚ]+)\s+([\d.]+)\s*%/i.exec(vehiculo);
-            vehiculos.push({
-                inciso,
-                asegurado: uno(/Nombre\s*:\s*([^\n]+)/i, asegurado),
-                rfc: uno(/R\.?\s*F\.?\s*C\.?\s*:\s*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i, asegurado),
-                domicilio: domicilio.join(', '),
-                calle: domicilio[0] || '',
-                ciudadEstado: domicilio.slice(1).join(' '),
-                cp: uno(/C\.\s*P\.\s*:?\s*(\d{5})/i, asegurado),
-                contratante: uno(/Contratante\s*:\s*(.*?)(?:\s+C\.\s*P\.|\n|$)/i, asegurado),
-                conductor: /[A-Za-zÁÉÍÓÚÑ]/.test(conductor) ? conductor : '',
-                marca: uno(/Marca\s*:\s*([^,\n]+?)\s*,?\s*Modelo\s*:/i, vehiculo),
-                anio: uno(/Modelo\s*:\s*((?:19|20)\d{2})/i, vehiculo),
-                descripcion: limpio(renglones.join(' ')),
-                serie,
-                placas: uno(/Placas\s*:\s*(\S+)/i, vehiculo),
-                pasajeros: uno(/Pasajeros\s*:\s*(\d+)/i, vehiculo),
-                motor: uno(/N[uú]mero de Motor\s*:\s*(\S+)/i, vehiculo),
-                uso,
-                tipoVehiculo: limpio(uso.split(/\s+USO\s+/i)[0]),
-                clave: uno(/Clave\s*:\s*([A-Z0-9-]+)/i, vehiculo),
-                tipoCarga: uno(/Tipo de Carga\s*:[ \t]*([^\n]*)/i, vehiculo),
-                tipoValor: dm ? limpio(dm[1]) : (rt ? limpio(rt[1]) : ''),
-                deducibleDM: dm ? dm[2] : '',
-                deducibleRT: rt ? rt[2] : '',
-                responsabilidadCivil: monto(/^RESPONSABILIDAD CIVIL\s+\$\s*([\d,]+(?:\.\d+)?)/im, vehiculo),
-                gastosMedicos: monto(/GASTOS M[EÉ]DICOS[^\n$]*\$\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
-                muerteConductor: monto(/AL CONDUCTOR\s+\$\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
-                primaNeta: monto(/Prima Neta\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
-                gastosExpedicion: monto(/Gastos de Expedici[oó]n\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
-                iva: monto(/I\.?\s*V\.?\s*A\.?\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
-                primaTotal: monto(/Prima Total\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo)
-            });
-        });
-        return vehiculos.length > 1 ? vehiculos : [];
+        return vehiculosDeCaratulas(texto);
     }
 
     // Ubicaciones de una póliza de Daños (ej. HDI "PÓLIZA MAESTRA": un inciso por ubicación), leídas del texto completo
@@ -1002,9 +1494,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             .trim();
     }
 
-    // Prellena los campos del formulario con el JSON devuelto por la IA.
-    fillForm(d) {
-        if (!d) { return; }
+    // Campos de la póliza (API name -> valor) a partir del JSON devuelto por la IA. Lo usan el formulario
+    // (fillForm) y el complemento de una póliza que ya existe (complementarCamposPoliza: solo llena lo vacío).
+    camposDesdeDatos(d) {
         const bien = d.bienAsegurado || {};
         const cob = d.cobranza || {};
         let descripcion = d.descripcion || '';
@@ -1131,13 +1623,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             PolicyName: d.numeroPoliza,
             // PlanType es picklist y NO está en el formulario; NO se fuerza desde la IA
             // (un valor fuera del catálogo rompería el guardado). El plan queda en la descripción.
-            // El estatus NO se toma del PDF: al crear/subir la póliza debe quedar en "Inicial".
-            Status: 'Inicial',
+            // El estatus NO se toma del PDF ni se toca al emitir/reanalizar: la póliza conserva el que tiene
+            // (una póliza nueva nace con el estatus inicial de datosBasePoliza).
             CancellationReason: d.motivoCancelacion,
-            // Primas (definición de negocio): GrossWrittenPremium = prima TOTAL anualizada,
-            // PremiumAmount = prima NETA sin impuestos.
+            // Primas: PremiumAmount y GrossWrittenPremium = prima TOTAL (con impuestos); la prima neta
+            // queda en el desglose (Subtotal, IVA, gastos de expedición).
             PremiumFrequency: d.frecuenciaPago || cob.formaPago,
-            PremiumAmount: cob.primaNeta != null ? cob.primaNeta : d.primaNeta,
+            PremiumAmount: cob.totalAPagar != null ? cob.totalAPagar
+                : (d.primaTotal != null ? d.primaTotal : (cob.primaNeta != null ? cob.primaNeta : d.primaNeta)),
             GrossWrittenPremium: cob.totalAPagar != null ? cob.totalAPagar : d.primaTotal,
             // Prima del periodo actual: si la póliza trae el importe real del primer pago
             // se usa ese (incluye financiamiento); si no, se calcula por frecuencia.
@@ -1165,7 +1658,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             CLABE__c: cob.clabe,
             PolicyDescription: esAuto && descripcionAuto ? conPlan(descripcionAuto).substring(0, 255) : descripcionCorta
         };
+        return map;
+    }
 
+    // Prellena los campos del formulario con el JSON devuelto por la IA.
+    fillForm(d) {
+        if (!d) { return; }
+        const map = this.camposDesdeDatos(d);
         const fields = this.template.querySelectorAll('lightning-input-field');
         console.log('PolicyCreator::: campos encontrados en el formulario =', fields.length);
         if (!fields.length) {
@@ -1211,6 +1710,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             const detail = await getOpportunityDetails({ opportunityId: this.opportunityId });
             const o = (detail && detail.opportunity) || {};
             this.oppStage = o.StageName || '';
+            this.tipoContratacion = o.Tipo_Contratacion__c || '';
             if (!this.readOnly && this.isEtapaBloqueada(o.StageName)) {
                 this.readOnly = true;
                 if (this.policyId) { this.loadRegistrosPoliza(); }
