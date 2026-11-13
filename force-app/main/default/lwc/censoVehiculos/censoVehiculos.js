@@ -13,9 +13,9 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import {
     fold, tieneDatos, numero, moneda, abrirTabla, detectarEncabezado,
-    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
+    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, paginasPdf, inicioDatos
 } from 'c/lectorArchivos';
-import { incisosDeCaratulas, unirIncisosIa } from 'c/clasificadorArchivos';
+import { incisosDeCaratulas, unirIncisosIa, bloquesPorInciso, corregirIncisos } from 'c/clasificadorArchivos';
 import getCensoVehiculos from '@salesforce/apex/CensoVehiculosController.getCensoVehiculos';
 import guardarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.guardarCensoVehiculos';
 import eliminarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.eliminarCensoVehiculos';
@@ -320,18 +320,20 @@ export default class CensoVehiculos extends LightningElement {
     // PDF (pdf.js + IA)
     // ============================================================
     async procesarPdf(file) {
-        const bloques = await bloquesPdf(this, file, BLOQUE_PDF, (m) => { this.progreso = m; });
-        if (!bloques.length) {
+        const paginas = await paginasPdf(this, file, (m) => { this.progreso = m; });
+        if (!paginas.some((p) => p.trim())) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide el listado en Excel.');
         }
         // Póliza con una carátula por inciso (ej. Afirme): se lee directo del texto, sin IA. Por bloques, un inciso
         // queda partido entre dos bloques y la IA lo repetía o le cruzaba los datos del inciso vecino.
-        const caratulas = incisosDeCaratulas(bloques.join('\n'));
+        const caratulas = incisosDeCaratulas(paginas.join('\n'));
         if (caratulas.length) {
             this.filasCrudas = [];
             this.validar(caratulas.map((x, i) => ({ ...x, fila: i + 1 })));
             return;
         }
+        // Sin carátulas, la IA lee bloques con incisos completos (un inciso nunca queda partido entre dos bloques).
+        const bloques = bloquesPorInciso(paginas, BLOQUE_PDF);
         const leidos = [];
         for (let i = 0; i < bloques.length; i++) {
             this.progreso = `Analizando con IA: bloque ${i + 1} de ${bloques.length}…`;
@@ -340,8 +342,8 @@ export default class CensoVehiculos extends LightningElement {
             try { r = JSON.parse(json || '{}'); } catch (e) { r = {}; }
             leidos.push(...(r.incisos || []));
         }
-        // El mismo inciso puede venir en dos bloques: se une por serie / número de inciso.
-        const datos = unirIncisosIa(leidos).map((x, i) => ({ ...x, fila: i + 1 }));
+        // Número de inciso según la página donde está la serie y, después, sin repetir por serie / número de inciso.
+        const datos = unirIncisosIa(corregirIncisos(unirIncisosIa(leidos), paginas)).map((x, i) => ({ ...x, fila: i + 1 }));
         if (!datos.length) {
             throw new Error('La IA no encontró vehículos en el PDF.');
         }

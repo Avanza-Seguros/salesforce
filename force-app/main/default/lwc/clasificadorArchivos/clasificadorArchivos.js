@@ -755,7 +755,8 @@ const VIN = /^[A-HJ-NPR-Z0-9]{17}$/;
  *  - los de la misma serie;
  *  - los del mismo número de inciso (y mismo paquete) cuando a uno le falta la serie o solo uno trae un VIN
  *    válido (la otra "serie" es un folio o el VIN mal leído).
- * Lo que ya venía se completa con lo nuevo sin sobrescribirlo, salvo la serie cuando la nueva sí es un VIN.
+ * Lo que ya venía se completa con lo nuevo sin sobrescribirlo, salvo la serie cuando la nueva sí es un VIN y los datos
+ * de un renglón sin número de inciso (ej. un anexo con el mismo vehículo), que ceden ante los del renglón con inciso.
  * Dos incisos con el mismo número y VIN distintos se dejan (los marca la validación).
  */
 export function unirIncisosIa(incisos) {
@@ -778,6 +779,10 @@ export function unirIncisosIa(incisos) {
         }
         if (ya) {
             if (VIN.test(s) && !VIN.test(serieDe(ya))) { ya.serie = x.serie; }
+            if (vacio(ya.inciso) && n) {
+                Object.keys(x).forEach((c) => { if (c !== 'serie' && !vacio(x[c])) { ya[c] = x[c]; } });
+                if (!porNumero.has(n)) { porNumero.set(n, ya); }
+            }
             Object.keys(x).forEach((c) => { if (vacio(ya[c]) && !vacio(x[c])) { ya[c] = x[c]; } });
             if (serieDe(ya)) { porSerie.set(serieDe(ya), ya); }
             return;
@@ -788,4 +793,86 @@ export function unirIncisosIa(incisos) {
         if (n && !porNumero.has(n)) { porNumero.set(n, copia); }
     });
     return out;
+}
+
+// ============================================================
+// Bloques para la IA que no parten un inciso
+// ============================================================
+
+// Número de inciso del encabezado de una página ("Inciso: 15" en sus primeros renglones); null si no tiene.
+function incisoDePagina(pagina) {
+    const m = /Inciso\s*:\s*(\d+)/i.exec(String(pagina || '').substring(0, 600));
+    return m ? String(Number(m[1])) : null;
+}
+
+// Números de serie con forma de VIN (17 caracteres con letras y dígitos, sin I, O ni Q) de un texto.
+const VIN_EN_TEXTO = /(?:^|[^A-Za-z0-9])((?=[A-HJ-NPR-Z0-9]*[A-HJ-NPR-Z])(?=[A-HJ-NPR-Z0-9]*\d)[A-HJ-NPR-Z0-9]{17})(?![A-Za-z0-9])/g;
+function vinsDe(texto) {
+    return [...String(texto || '').matchAll(VIN_EN_TEXTO)].map((m) => m[1]);
+}
+
+/**
+ * Agrupa las páginas por inciso: cada grupo empieza en la página con un "Inciso: n" nuevo y sigue con las páginas
+ * del mismo inciso y las que no traen encabezado (ej. el anexo de RC en E.U.A. y Canadá de Chubb que viene tras
+ * cada automóvil de Afirme). Las páginas de un inciso que ya pasó y sin ningún VIN (recibo de primas y CFDI del
+ * final) se descartan. Devuelve [{ inciso, paginas }]; las páginas antes del primer inciso van con inciso null.
+ */
+export function gruposPorInciso(paginas) {
+    const grupos = [];
+    const vistos = new Set();
+    let actual = null;
+    (paginas || []).forEach((p) => {
+        const n = incisoDePagina(p);
+        if (n && (!actual || actual.inciso !== n)) {
+            if (vistos.has(n) && !vinsDe(p).length) { actual = { inciso: n, descartado: true, paginas: [] }; return; }
+            vistos.add(n);
+            actual = { inciso: n, paginas: [] };
+            grupos.push(actual);
+        } else if (!actual) {
+            actual = { inciso: null, paginas: [] };
+            grupos.push(actual);
+        }
+        if (!actual.descartado) { actual.paginas.push(p); }
+    });
+    return grupos;
+}
+
+/**
+ * Bloques de hasta "maxCaracteres" para mandar a la IA, armados con incisos completos: un inciso nunca queda partido
+ * entre dos bloques (si un solo inciso no cabe, se parte por páginas). En un PDF sin "Inciso: n" equivale a partir
+ * por páginas completas, como bloquesPdf.
+ */
+export function bloquesPorInciso(paginas, maxCaracteres) {
+    const bloques = [];
+    let actual = '';
+    const agregar = (texto) => {
+        if (actual && actual.length + texto.length > maxCaracteres) { bloques.push(actual); actual = ''; }
+        actual += texto;
+    };
+    gruposPorInciso(paginas).forEach((g) => {
+        const texto = g.paginas.map((p) => p + '\n').join('');
+        if (g.inciso !== null && texto.length <= maxCaracteres) { agregar(texto); return; }
+        g.paginas.forEach((p) => agregar(p + '\n'));
+    });
+    if (actual.trim()) { bloques.push(actual); }
+    return bloques;
+}
+
+/**
+ * Corrige el número de inciso que dio la IA con el del PDF: si la serie del vehículo aparece en las páginas de un
+ * solo inciso, ese es su número (la IA tomaba el "Inciso: n" del encabezado de otra página del bloque).
+ */
+export function corregirIncisos(incisos, paginas) {
+    const porVin = new Map();
+    gruposPorInciso(paginas).forEach((g) => {
+        if (g.inciso === null) { return; }
+        new Set(vinsDe(g.paginas.join('\n'))).forEach((v) => {
+            porVin.set(v, porVin.has(v) && porVin.get(v) !== g.inciso ? null : g.inciso);
+        });
+    });
+    return (incisos || []).map((x) => {
+        if (!x) { return x; }
+        const n = porVin.get(String(x.serie ?? '').replace(/\s/g, '').toUpperCase());
+        return n && String(numero(x.inciso)) !== n ? { ...x, inciso: Number(n) } : x;
+    });
 }

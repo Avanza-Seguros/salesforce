@@ -12,9 +12,9 @@ import LightningConfirm from 'lightning/confirm';
 import { NavigationMixin } from 'lightning/navigation';
 import {
     fold, tieneDatos, numero, fecha, fechaVisible, moneda, abrirTabla, detectarEncabezado,
-    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, buscarVigencia, bloquesPdf, inicioDatos
+    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, buscarVigencia, paginasPdf, inicioDatos
 } from 'c/lectorArchivos';
-import { CAMPOS_FLOTILLA, incisosDeCaratulas, unirIncisosIa } from 'c/clasificadorArchivos';
+import { CAMPOS_FLOTILLA, incisosDeCaratulas, unirIncisosIa, bloquesPorInciso, corregirIncisos } from 'c/clasificadorArchivos';
 import getFlotilla from '@salesforce/apex/FlotillaController.getFlotilla';
 import getCoberturasFlotilla from '@salesforce/apex/FlotillaController.getCoberturasFlotilla';
 import getAseguradoras from '@salesforce/apex/FlotillaController.getAseguradoras';
@@ -618,13 +618,15 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
 
     // PDF: texto con pdf.js y lectura de incisos con IA, por bloques de páginas.
     async procesarPdf(file) {
-        const bloques = await bloquesPdf(this, file, BLOQUE_PDF, (m) => { this.progreso = m; });
+        const paginas = await paginasPdf(this, file, (m) => { this.progreso = m; });
+        // Bloques con incisos completos: un inciso nunca queda partido entre dos bloques.
+        const bloques = bloquesPorInciso(paginas, BLOQUE_PDF);
         if (!bloques.length) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide la cotización en Excel.');
         }
         // Póliza con una carátula por inciso (ej. Afirme): los incisos se leen directo del texto (sin IA, que por
         // bloques los repetía o cruzaba); la IA solo lee el encabezado (aseguradora, vigencia, primas) del primer bloque.
-        const caratulas = incisosDeCaratulas(bloques.join('\n'));
+        const caratulas = incisosDeCaratulas(paginas.join('\n'));
         const aLeer = caratulas.length ? bloques.slice(0, 1) : bloques;
         const leidos = [];
         const enc = { ...this.encabezado };
@@ -642,8 +644,8 @@ export default class FlotillaColectiva extends NavigationMixin(LightningElement)
             });
             leidos.push(...(r.incisos || []));
         }
-        // El mismo inciso puede venir en dos bloques: se une por serie / número de inciso.
-        const datos = (caratulas.length ? caratulas : unirIncisosIa(leidos)).map((x, i) => ({ ...x, fila: i + 1 }));
+        // Número de inciso según la página donde está la serie y, después, sin repetir por serie / número de inciso.
+        const datos = (caratulas.length ? caratulas : unirIncisosIa(corregirIncisos(unirIncisosIa(leidos), paginas))).map((x, i) => ({ ...x, fila: i + 1 }));
         if (!enc.aseguradoraId) { enc.aseguradoraId = this.aseguradoraPorTexto(this.archivoNombre + ' ' + bloques[0].substring(0, 3000)); }
         this.encabezado = enc;
         if (!datos.length) {

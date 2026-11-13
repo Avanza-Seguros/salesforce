@@ -3,7 +3,9 @@
  * páginas con el mismo "Inciso: n" y al final vienen el recibo y el CFDI del inciso 1. Leídas por bloques con IA,
  * los incisos salían repetidos o con la serie del vecino / del recibo.
  */
-import { vehiculosDeCaratulas, incisosDeCaratulas, unirIncisosIa } from 'c/clasificadorArchivos';
+import {
+    vehiculosDeCaratulas, incisosDeCaratulas, unirIncisosIa, gruposPorInciso, bloquesPorInciso, corregirIncisos
+} from 'c/clasificadorArchivos';
 
 const ENCABEZADO = (n) => [
     `Número de Póliza: 3201-033679-00 Inciso: ${n}`,
@@ -152,5 +154,67 @@ describe('unirIncisosIa', () => {
     it('tolera listas vacías y renglones nulos', () => {
         expect(unirIncisosIa(null)).toEqual([]);
         expect(unirIncisosIa([null, { descripcion: 'NISSAN NP300' }])).toEqual([{ descripcion: 'NISSAN NP300' }]);
+    });
+});
+
+// Respaldo con IA (PDF sin el formato de carátula): páginas de los incisos 14 a 16 como vienen en la póliza.
+const PAG = {
+    caratula14: [...ENCABEZADO(14), 'DATOS DEL VEHÍCULO', 'Marca: BMW, Modelo: 2012', 'Número de Serie: WBAFG2107CL510281'].join('\n'),
+    legal14: [...ENCABEZADO(14), 'SEGUROS AFIRME S.A. DE C.V.'].join('\n'),
+    // Anexo de Chubb (RC en E.U.A. y Canadá) tras cada automóvil: sin "Inciso: n".
+    chubb14: ['Chubb Seguros México, S.A.', 'Año / Year: 2012 Marca / Make: BMW', 'Serie / VIN: WBAFG2107CL510281 Placas / Plates: SN Uso / Use: PRIVADO'].join('\n'),
+    caratula15: [...ENCABEZADO(15), 'DATOS DEL VEHÍCULO', 'Marca: VOLKSWAGEN, Modelo: 2020', 'Número de Serie: 9BWKB45U6LP009017'].join('\n'),
+    legal15: [...ENCABEZADO(15), 'SEGUROS AFIRME S.A. DE C.V.'].join('\n'),
+    caratula16: [...ENCABEZADO(16), 'DATOS DEL VEHÍCULO', 'Marca: TOYOTA, Modelo: 2020', 'Número de Serie: MR0EX8CB9L1408154'].join('\n'),
+    recibo14: RECIBO.replace(/Inciso: 1\b/g, 'Inciso: 14')
+};
+const PAGINAS = ['Condiciones especiales sin inciso', PAG.caratula14, PAG.legal14, PAG.chubb14, PAG.caratula15, PAG.legal15,
+    PAG.caratula16, PAG.recibo14];
+
+describe('gruposPorInciso / bloquesPorInciso', () => {
+    it('agrupa por inciso, deja el anexo sin encabezado con su inciso y descarta el recibo del final', () => {
+        const g = gruposPorInciso(PAGINAS);
+        expect(g.map((x) => x.inciso)).toEqual([null, '14', '15', '16']);
+        expect(g[1].paginas).toEqual([PAG.caratula14, PAG.legal14, PAG.chubb14]);
+        expect(g[3].paginas).toEqual([PAG.caratula16]);
+    });
+
+    it('no parte un inciso entre dos bloques', () => {
+        const max = PAG.caratula14.length + PAG.legal14.length + PAG.chubb14.length + PAG.caratula15.length + 10;
+        const bloques = bloquesPorInciso(PAGINAS, max);
+        const incisosPorBloque = bloques.map((b) => [...new Set([...b.matchAll(/Inciso: (\d+)/g)].map((m) => m[1]))]);
+        const todos = incisosPorBloque.flat();
+        expect(new Set(todos).size).toBe(todos.length);
+        expect(bloques.some((b) => b.includes(PAG.legal15) && !b.includes(PAG.caratula15))).toBe(false);
+        expect(bloques.join('')).not.toContain('RECIBO DE PRIMAS');
+    });
+
+    it('sin encabezados de inciso parte por páginas completas', () => {
+        expect(bloquesPorInciso(['a'.repeat(6), 'b'.repeat(6), 'c'.repeat(6)], 15)).toEqual(['aaaaaa\nbbbbbb\n', 'cccccc\n']);
+        expect(bloquesPorInciso([], 100)).toEqual([]);
+    });
+});
+
+describe('corregirIncisos', () => {
+    it('toma el número de inciso de la página donde está la serie (caso de la captura: Hilux como inciso 15)', () => {
+        const ia = [
+            { inciso: 15, serie: '9BWKB45U6LP009017', descripcion: 'VOLKSWAGEN SAVEIRO', uso: 'CAMIÓN USO NORMAL CARGA' },
+            { inciso: null, serie: 'WBAFG2107CL510281', descripcion: 'BMW X6', uso: 'PRIVADO' },
+            { inciso: 15, serie: 'MR0EX8CB9L1408154', descripcion: 'TOYOTA HILUX' },
+            { inciso: 16, serie: 'MR0EX8CB9L1408154', descripcion: 'TOYOTA HILUX' },
+            { inciso: 14, serie: 'WBAFG2107CL510281', descripcion: 'BMW X6', uso: 'AUTOMÓVIL USO NORMAL' }
+        ];
+        const r = unirIncisosIa(corregirIncisos(unirIncisosIa(ia), PAGINAS));
+        expect(r.map((x) => [x.inciso, x.serie, x.uso])).toEqual([
+            [15, '9BWKB45U6LP009017', 'CAMIÓN USO NORMAL CARGA'],
+            [14, 'WBAFG2107CL510281', 'AUTOMÓVIL USO NORMAL'],
+            [16, 'MR0EX8CB9L1408154', undefined]
+        ]);
+    });
+
+    it('no toca la serie que no está en el PDF ni la que aparece en dos incisos', () => {
+        const paginas = [PAG.caratula14, [...ENCABEZADO(20), 'Serie: WBAFG2107CL510281'].join('\n')];
+        expect(corregirIncisos([{ inciso: 3, serie: 'WBAFG2107CL510281' }, { inciso: 4, serie: 'XYZ' }], paginas))
+            .toEqual([{ inciso: 3, serie: 'WBAFG2107CL510281' }, { inciso: 4, serie: 'XYZ' }]);
     });
 });
