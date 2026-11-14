@@ -125,6 +125,24 @@ private class MovimientosUbicacionesControllerTest {
 		Movimiento_Poliza__c baja = [SELECT Motivo_Baja_Ubicacion__c, Certificado__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id AND Tipo__c = 'Baja'];
 		System.assertEquals(motivo(), baja.Motivo_Baja_Ubicacion__c);
 		System.assertEquals('Inciso 1', baja.Certificado__c);
+
+		// Cada ubicación trae su último movimiento (estado, fechas) y se puede cerrar.
+		Map<String, Object> cambiada;
+		for (Object o : (List<Object>) d.get('ubicaciones')) {
+			Map<String, Object> u = (Map<String, Object>) o;
+			System.assertNotEquals(null, u.get('tipoMovimiento'), 'Toda ubicación tiene estado');
+			if (u.get('id') == b2) { cambiada = u; }
+		}
+		System.assertEquals('Cambio', cambiada.get('tipoMovimiento'));
+		System.assertEquals(Date.today(), cambiada.get('fechaMovimiento'));
+		System.assertNotEquals(null, cambiada.get('fechaCreacion'));
+		System.assertEquals(null, cambiada.get('fechaCierre'));
+		Id movId = (Id) cambiada.get('movimientoId');
+		System.assertNotEquals(null, MovimientosColectivoController.cerrarMovimiento(movId));
+		for (Object o : (List<Object>) MovimientosUbicacionesController.getDatos(pol.Id).get('ubicaciones')) {
+			Map<String, Object> u = (Map<String, Object>) o;
+			if (u.get('id') == b2) { System.assertNotEquals(null, u.get('fechaCierre'), 'Movimiento cerrado'); }
+		}
 	}
 
 	/**
@@ -180,7 +198,6 @@ private class MovimientosUbicacionesControllerTest {
 		Map<String, Object> sinMotivo = mov('baja', b1, null, Date.today());
 		sinMotivo.remove('motivo');
 		List<List<Object>> casos = new List<List<Object>>{
-			new List<Object>{ sinMotivo },
 			new List<Object>{ mov('alta', null, new Map<String, Object>{ 'giro' => 'X' }, Date.today()) },
 			new List<Object>{ mov('alta', null, new Map<String, Object>{ 'direccion' => DIR_2 }, Date.today()) },
 			new List<Object>{ mov('cambio', b1, new Map<String, Object>{ 'direccion' => DIR_4 }, Date.today()) },
@@ -206,5 +223,10 @@ private class MovimientosUbicacionesControllerTest {
 		System.assertEquals(casos.size() + 1, errores, 'Todos los casos deben fallar');
 		System.assertEquals(0, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id]);
 		System.assertEquals(false, MovimientosUbicacionesController.esUbicaciones('GMM'));
+
+		// El motivo de baja es opcional.
+		MovimientosUbicacionesController.aplicar(pol.Id, JSON.serialize(new List<Object>{ sinMotivo }));
+		System.assertEquals(1, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id AND Motivo_Baja_Ubicacion__c = null],
+			'La baja sin motivo se aplica');
 	}
 }

@@ -11,8 +11,9 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
-import { fechaVisible, moneda } from 'c/lectorArchivos';
+import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosUbicacionesController.getDatos';
+import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosUbicacionesController.aplicar';
 import traerDePoliza from '@salesforce/apex/MovimientosUbicacionesController.traerDePoliza';
 
@@ -27,8 +28,10 @@ export default class MovimientosUbicaciones extends LightningElement {
     vista = 'lista';
     filtro = 'vigentes';
     busqueda = '';
+    busquedaHistorial = '';
     pagina = 1;
     modal = null;
+    fechasExcel = [];
     seleccion = new Set();
     abierto = false;
     _recordId;
@@ -128,8 +131,14 @@ export default class MovimientosUbicaciones extends LightningElement {
             sumaTxt: moneda(u.sumaAsegurada),
             primaTxt: moneda(u.prima),
             altaTxt: fechaVisible(u.fechaAlta),
-            estado: u.activo ? 'Vigente' : `Baja ${fechaVisible(u.fechaBaja)}`,
-            claseEstado: u.activo ? 'estado estado-vigente' : 'estado estado-baja',
+            fechaMovimientoTxt: fechaVisible(u.fechaMovimiento),
+            // Creación del movimiento y su cierre (botón «Cerrar movimiento»).
+            fechaCreacionTxt: this.fechaHoraTxt(u.fechaCreacion),
+            fechaCierreTxt: this.fechaHoraTxt(u.fechaCierre),
+            // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
+            estado: u.tipoMovimiento || (u.activo ? 'Alta' : 'Baja'),
+            claseEstado: `estado estado-${String(u.tipoMovimiento || (u.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
+            puedeCerrar: this.enPoliza && this.puedeEditar && !!u.movimientoId && !u.fechaCierre,
             puedeMover: u.activo && this.puedeEditar
         }));
     }
@@ -232,7 +241,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     async guardarBaja() {
         if (!this.validarForm()) { return; }
         const f = this.form;
-        await this.enviar(f.ids.map((id) => ({ tipo: 'baja', id, fecha: f.fecha, motivo: f.motivo, endoso: f.endoso, comentario: f.comentario })));
+        await this.enviar(f.ids.map((id) => ({ tipo: 'baja', id, fecha: f.fecha, motivo: f.motivo || null, endoso: f.endoso, comentario: f.comentario })));
     }
 
     async guardarAlta() {
@@ -283,7 +292,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     // ============================================================
     // Historial
     // ============================================================
-    get historial() {
+    get historialCompleto() {
         return ((this.datos && this.datos.movimientos) || []).map((m) => ({
             ...m,
             fechaTxt: fechaVisible(m.fecha),
@@ -291,7 +300,85 @@ export default class MovimientosUbicaciones extends LightningElement {
             detalleTxt: [m.motivo, m.detalle, m.comentario].filter((x) => x).join(' · ')
         }));
     }
-    get sinHistorial() { return this.historial.length === 0; }
+    // Buscador del historial: folio, tipo, fecha, ubicación, inciso, endoso, detalle o usuario.
+    get historial() {
+        const q = this.fold(this.busquedaHistorial);
+        if (!q) { return this.historialCompleto; }
+        return this.historialCompleto.filter((h) => this.fold([h.nombre, h.tipo, h.fechaTxt, h.asegurado, h.certificado, h.endoso,
+            h.detalleTxt, h.usuario].filter((x) => x).join(' ')).includes(q));
+    }
+    handleBusquedaHistorial(e) { this.busquedaHistorial = e.target.value || ''; }
+    get sinHistorial() { return this.historialCompleto.length === 0; }
+    get sinResultadosHistorial() { return !this.sinHistorial && this.historial.length === 0; }
+    get textoResultadosHistorial() {
+        return this.busquedaHistorial ? `${this.historial.length} de ${this.historialCompleto.length} movimientos` : '';
+    }
+
+    // ============================================================
+    // Excel por fecha de movimiento
+    // ============================================================
+    get enModalExcel() { return this.modal === 'excel'; }
+    // Fechas de movimiento que hay (más reciente primero) con cuántos registros tiene cada una.
+    abrirExcel() {
+        const cuenta = new Map();
+        this.ubicaciones.forEach((r) => {
+            const k = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
+            cuenta.set(k, (cuenta.get(k) || 0) + 1);
+        });
+        this.fechasExcel = [...cuenta.entries()]
+            .sort((a, b) => (a[0] === b[0] ? 0 : (a[0] < b[0] ? 1 : -1)))
+            .map(([fecha, n]) => ({ key: fecha || 'sin-fecha', fecha, n, sel: false,
+                texto: `${fecha ? fechaVisible(fecha) : 'Sin fecha de movimiento'} (${n})` }));
+        this.modal = 'excel';
+    }
+    marcarFechaExcel(e) {
+        const key = e.target.dataset.key;
+        this.fechasExcel = this.fechasExcel.map((f) => (f.key === key ? { ...f, sel: e.target.checked } : f));
+    }
+    marcarTodasFechasExcel(e) {
+        this.fechasExcel = this.fechasExcel.map((f) => ({ ...f, sel: e.target.checked }));
+    }
+    get todasFechasExcel() { return this.fechasExcel.length > 0 && this.fechasExcel.every((f) => f.sel); }
+    get sinFechasExcel() { return !this.fechasExcel.some((f) => f.sel); }
+    get sinFechasMovimiento() { return this.fechasExcel.length === 0; }
+    generarExcel() {
+        const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
+        const registros = this.ubicaciones.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        const columnas = [
+                ['Inciso', (r) => (r.inciso == null || isNaN(Number(r.inciso)) ? r.inciso : Number(r.inciso))], ['Nombre', (r) => r.nombre],
+                ['Dirección', (r) => r.direccion], ['Giro', (r) => r.giro], ['Alta', (r) => fechaVisible(r.fechaAlta)],
+                ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
+                ['Fecha de creación', (r) => this.fechaHoraTxt(r.fechaCreacion)], ['Fecha de cierre', (r) => this.fechaHoraTxt(r.fechaCierre)],
+                ['Suma asegurada', (r) => (r.sumaAsegurada == null ? null : Number(r.sumaAsegurada))],
+                ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
+                ['Estado', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')], ['Motivo de baja', (r) => r.motivoBaja]
+            ];
+        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
+        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
+        descargarExcel(`Ubicaciones_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Ubicaciones',
+            columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
+        this.cerrarModal();
+    }
+    fechaHoraTxt(v) {
+        if (!v) { return ''; }
+        const d = new Date(v);
+        return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Cierra el movimiento del registro (vehículos y ubicaciones no envían correo): guarda la fecha de cierre.
+    async cerrarMov(e) {
+        const id = e.currentTarget.dataset.mov;
+        this.cargando = true;
+        try {
+            await cerrarMovimiento({ movimientoId: id });
+            this.toast('Movimiento', 'Movimiento cerrado.', 'success');
+            await this.cargar();
+        } catch (err) {
+            this.mostrarError(err);
+        } finally {
+            this.cargando = false;
+        }
+    }
 
     // ============================================================
     // Utilidades

@@ -59,6 +59,7 @@
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
                                 <lightning-button label="Cargar vehículos" icon-name="utility:upload" onclick={verArchivo}></lightning-button>
                             </template>
+                            <lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button>
                             <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
                         </div>
                     </div>
@@ -81,6 +82,11 @@
                                         <th scope="col">Placas</th>
                                         <th scope="col">Uso</th>
                                         <th scope="col">Alta</th>
+                                        <th scope="col">Fecha de movimiento</th>
+                                        <template if:true={enPoliza}>
+                                            <th scope="col">Fecha de creación</th>
+                                            <th scope="col">Fecha de cierre</th>
+                                        </template>
                                         <th scope="col" class="num">Valor</th>
                                         <th scope="col" class="num">Prima</th>
                                         <th scope="col">Estado</th>
@@ -105,6 +111,11 @@
                                             <td>{v.placas}</td>
                                             <td>{v.uso}</td>
                                             <td>{v.altaTxt}</td>
+                                            <td>{v.fechaMovimientoTxt}</td>
+                                            <template if:true={enPoliza}>
+                                                <td>{v.fechaCreacionTxt}</td>
+                                                <td>{v.fechaCierreTxt}</td>
+                                            </template>
                                             <td class="num">{v.valorTxt}</td>
                                             <td class="num">{v.primaTxt}</td>
                                             <td>
@@ -112,6 +123,10 @@
                                                 <template if:true={v.motivoBaja}><div class="sub">{v.motivoBaja}</div></template>
                                             </td>
                                             <td class="col-acciones">
+                                                <template if:true={v.puedeCerrar}>
+                                                    <lightning-button-icon icon-name="utility:check" alternative-text="Cerrar movimiento" title="Cerrar movimiento"
+                                                        data-mov={v.movimientoId} onclick={cerrarMov} size="small" class="slds-m-right_xx-small"></lightning-button-icon>
+                                                </template>
                                                 <template if:true={v.puedeMover}>
                                                     <lightning-button-icon icon-name="utility:edit" alternative-text="Cambiar datos" title="Cambiar datos"
                                                         data-id={v.id} onclick={abrirCambio} size="small"></lightning-button-icon>
@@ -321,6 +336,34 @@
             <template if:true={hayModal}>
                 <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
                     <div class="slds-modal__container">
+                        <template if:true={enModalExcel}>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Excel de vehículos por fecha de movimiento</h2></div>
+                            <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <template if:true={sinFechasMovimiento}>
+                                    <p class="sub">No hay registros con fecha de movimiento.</p>
+                                </template>
+                                <template if:false={sinFechasMovimiento}>
+                                    <p class="sub slds-m-bottom_x-small">Elige las fechas de movimiento que quieres en el Excel.</p>
+                                    <label class="mov-excel-fecha mov-excel-todas">
+                                        <input type="checkbox" checked={todasFechasExcel} onchange={marcarTodasFechasExcel} />
+                                        <span>Todas</span>
+                                    </label>
+                                    <div class="mov-excel-lista">
+                                        <template for:each={fechasExcel} for:item="f">
+                                            <label key={f.key} class="mov-excel-fecha">
+                                                <input type="checkbox" data-key={f.key} checked={f.sel} onchange={marcarFechaExcel} />
+                                                <span>{f.texto}</span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="slds-modal__footer">
+                                <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
+                                <lightning-button label="Generar Excel" variant="brand" class="slds-m-left_x-small" icon-name="utility:download"
+                                    onclick={generarExcel} disabled={sinFechasExcel}></lightning-button>
+                            </div>
+                        </template>
                         <template if:true={enModalBaja}>
                             <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Baja de vehículos</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">

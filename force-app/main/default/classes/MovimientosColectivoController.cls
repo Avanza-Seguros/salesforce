@@ -1178,6 +1178,29 @@ public with sharing class MovimientosColectivoController {
 		}
 		fila.put('tipoMovimiento', tipo);
 		fila.put('fechaMovimiento', fecha);
+		if (fila.get('fechaCreacion') != null && ultimo != null && ultimo.Id != null) { fila.put('movimientoId', ultimo.Id); }
+	}
+
+	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cierra un movimiento (vehículos y ubicaciones, que no envían correo): guarda la fecha de cierre.
+	 * @param movimientoId: Movimiento_Poliza__c.
+	 * @return fecha de cierre (la que ya tenía si estaba cerrado).
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Datetime cerrarMovimiento(Id movimientoId) {
+		List<Movimiento_Poliza__c> l = [SELECT Id, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :movimientoId LIMIT 1];
+		if (l.isEmpty()) { throw CensoColectivoController.error('El movimiento ya no existe.'); }
+		if (l[0].Fecha_Cierre__c != null) { return l[0].Fecha_Cierre__c; }
+		try {
+			// Al segundo, como se guarda (así la fecha devuelta es igual a la que se lee después).
+			l[0].Fecha_Cierre__c = Datetime.newInstance((Datetime.now().getTime() / 1000) * 1000);
+			update l[0];
+			return l[0].Fecha_Cierre__c;
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo cerrar el movimiento: ' + mensaje(e));
+		}
 	}
 
 	/**

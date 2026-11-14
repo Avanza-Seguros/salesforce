@@ -213,6 +213,37 @@ private class MovimientosFlotillaControllerTest {
 	}
 
 	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cada vehículo trae su último movimiento (estado, fecha de movimiento, creación y cierre) y el
+	 *               movimiento se puede cerrar una sola vez.
+	 * @return void
+	 */
+	@isTest
+	static void testEstadoYCierreDelMovimiento() {
+		InsurancePolicy pol = poliza();
+		Id inc2 = inciso(pol.Id, SERIE_2);
+		MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+			mov('cambio', inc2, new Map<String, Object>{ 'prima' => 12500 }, Date.today())
+		}));
+		Map<String, Object> v2;
+		for (Object o : (List<Object>) MovimientosFlotillaController.getDatos(pol.Id).get('vehiculos')) {
+			Map<String, Object> v = (Map<String, Object>) o;
+			System.assertNotEquals(null, v.get('tipoMovimiento'), 'Todo vehículo tiene estado');
+			if (v.get('id') == inc2) { v2 = v; }
+		}
+		System.assertEquals('Cambio', v2.get('tipoMovimiento'));
+		System.assertEquals(Date.today(), v2.get('fechaMovimiento'));
+		System.assertNotEquals(null, v2.get('fechaCreacion'));
+		System.assertEquals(null, v2.get('fechaCierre'));
+		Test.startTest();
+		Datetime cierre = MovimientosColectivoController.cerrarMovimiento((Id) v2.get('movimientoId'));
+		System.assertEquals(cierre, MovimientosColectivoController.cerrarMovimiento((Id) v2.get('movimientoId')), 'Cerrar dos veces no cambia la fecha');
+		Test.stopTest();
+		System.assertEquals(cierre, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Inciso__c = :inc2].Fecha_Cierre__c);
+	}
+
+	/**
 	 * @creation date: 31/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Renovación: el censo se llena con los vehículos vigentes de la póliza anterior (sin el dado de

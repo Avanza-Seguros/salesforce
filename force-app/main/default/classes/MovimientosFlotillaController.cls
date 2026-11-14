@@ -570,15 +570,28 @@ public with sharing class MovimientosFlotillaController {
 
 	private static List<Object> vehiculos(List<Inciso_Flotilla__c> incisos) {
 		Map<String, String> motivos = MovimientosColectivoController.etiquetas(Inciso_Flotilla__c.Motivo_Baja__c.getDescribe());
+		// Último movimiento de cada inciso: fecha de movimiento, creación, cierre y estado (igual que en asegurados).
+		Map<Id, Movimiento_Poliza__c> ultimos = new Map<Id, Movimiento_Poliza__c>();
+		Set<Id> ids = new Map<Id, Inciso_Flotilla__c>(incisos).keySet();
+		if (!ids.isEmpty()) {
+			for (Movimiento_Poliza__c m : [
+				SELECT Id, Inciso__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				WHERE Inciso__c IN :ids ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
+			]) {
+				if (!ultimos.containsKey(m.Inciso__c)) { ultimos.put(m.Inciso__c, m); }
+			}
+		}
 		List<Object> l = new List<Object>();
 		for (Inciso_Flotilla__c i : incisos) {
-			l.add(new Map<String, Object>{
+			Map<String, Object> fila = new Map<String, Object>{
 				'id' => i.Id, 'nombre' => i.Name, 'inciso' => i.Numero_Inciso__c, 'serie' => i.Serie__c, 'placas' => i.Placas__c,
 				'descripcion' => i.Descripcion__c, 'modelo' => i.Modelo__c, 'tipoVehiculo' => i.Tipo_Vehiculo__c, 'uso' => i.Uso__c,
 				'paquete' => i.Paquete__c, 'valor' => i.Valor__c, 'prima' => i.Prima__c, 'vehiculoId' => i.Vehiculo__c,
 				'activo' => i.Fecha_Baja__c == null, 'fechaAlta' => i.Fecha_Alta__c, 'fechaBaja' => i.Fecha_Baja__c,
 				'motivoBaja' => i.Motivo_Baja__c == null ? null : motivos.get(i.Motivo_Baja__c)
-			});
+			};
+			MovimientosColectivoController.ponerMovimiento(fila, ultimos.get(i.Id), i.Fecha_Baja__c == null, i.Fecha_Alta__c, i.Fecha_Baja__c);
+			l.add(fila);
 		}
 		return l;
 	}

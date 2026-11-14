@@ -769,3 +769,129 @@ export function tablaATexto(filas, maxCaracteres) {
     }
     return lineas.join('\n');
 }
+
+// ============================================================
+// Excel de salida (.xlsx): ZIP sin compresión con el XML mínimo de una hoja.
+// ============================================================
+const TABLA_CRC = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) { c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; }
+        t[n] = c >>> 0;
+    }
+    return t;
+})();
+function crc32(bytes) {
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) { c = TABLA_CRC[(c ^ bytes[i]) & 0xff] ^ (c >>> 8); }
+    return (c ^ 0xffffffff) >>> 0;
+}
+function xmlTexto(v) {
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        // Caracteres de control que Excel no acepta.
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+}
+function zipSinCompresion(archivos) {
+    const enc = new TextEncoder();
+    const partes = [];
+    const central = [];
+    let offset = 0;
+    const u16 = (v) => [v & 0xff, (v >>> 8) & 0xff];
+    const u32 = (v) => [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
+    archivos.forEach(({ nombre, contenido }) => {
+        const n = enc.encode(nombre);
+        const d = enc.encode(contenido);
+        const crc = crc32(d);
+        // Versión 2.0, bandera UTF-8, sin compresión, fecha fija (1980-01-01).
+        const comun = [...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(d.length), ...u32(d.length), ...u16(n.length)];
+        const local = Uint8Array.from([...u32(0x04034b50), ...u16(20), ...comun, ...u16(0)]);
+        partes.push(local, n, d);
+        central.push(Uint8Array.from([...u32(0x02014b50), ...u16(20), ...u16(20), ...comun, ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+            ...u32(0), ...u32(offset)]), n);
+        offset += local.length + n.length + d.length;
+    });
+    const tamCentral = central.reduce((s, p) => s + p.length, 0);
+    const fin = Uint8Array.from([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(archivos.length), ...u16(archivos.length),
+        ...u32(tamCentral), ...u32(offset), ...u16(0)]);
+    const todo = [...partes, ...central, fin];
+    const r = new Uint8Array(todo.reduce((s, p) => s + p.length, 0));
+    let pos = 0;
+    todo.forEach((p) => { r.set(p, pos); pos += p.length; });
+    return r;
+}
+
+const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const NS_MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+/**
+ * Arma un .xlsx de una hoja. columnas: textos del encabezado; filas: arreglos de valores (texto, número o vacío).
+ * El encabezado va en negritas y fijo al desplazarse.
+ * @return bytes del archivo (Uint8Array).
+ */
+export function generarXlsx(hoja, columnas, filas) {
+    const celda = (v, r, c) => {
+        if (v === null || v === undefined || v === '') { return ''; }
+        const ref = letraColumna(c) + r;
+        if (typeof v === 'number' && isFinite(v)) { return `<c r="${ref}"><v>${v}</v></c>`; }
+        return `<c r="${ref}" t="inlineStr"${r === 1 ? ' s="1"' : ''}><is><t xml:space="preserve">${xmlTexto(v)}</t></is></c>`;
+    };
+    const renglones = [columnas, ...filas].map((f, i) => `<row r="${i + 1}">${f.map((v, c) => celda(v, i + 1, c)).join('')}</row>`);
+    const anchos = columnas.map((c, i) => {
+        const largo = Math.max(String(c).length, ...filas.map((f) => String(f[i] == null ? '' : f[i]).length));
+        return `<col min="${i + 1}" max="${i + 1}" width="${Math.min(60, Math.max(10, largo + 2))}" customWidth="1"/>`;
+    });
+    const nombreHoja = xmlTexto(String(hoja || 'Hoja1').replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+    return zipSinCompresion([
+        { nombre: '[Content_Types].xml', contenido: XML
+            + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            + '<Default Extension="xml" ContentType="application/xml"/>'
+            + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            + '</Types>' },
+        { nombre: '_rels/.rels', contenido: XML
+            + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            + `<Relationship Id="rId1" Type="${NS_REL}/officeDocument" Target="xl/workbook.xml"/>`
+            + '</Relationships>' },
+        { nombre: 'xl/workbook.xml', contenido: XML
+            + `<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_REL}">`
+            + `<sheets><sheet name="${nombreHoja}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+        { nombre: 'xl/_rels/workbook.xml.rels', contenido: XML
+            + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            + `<Relationship Id="rId1" Type="${NS_REL}/worksheet" Target="worksheets/sheet1.xml"/>`
+            + `<Relationship Id="rId2" Type="${NS_REL}/styles" Target="styles.xml"/>`
+            + '</Relationships>' },
+        { nombre: 'xl/styles.xml', contenido: XML
+            + `<styleSheet xmlns="${NS_MAIN}">`
+            + '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+            + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            + '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+            + '</styleSheet>' },
+        { nombre: 'xl/worksheets/sheet1.xml', contenido: XML
+            + `<worksheet xmlns="${NS_MAIN}">`
+            + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            + `<cols>${anchos.join('')}</cols><sheetData>${renglones.join('')}</sheetData></worksheet>` }
+    ]);
+}
+
+/**
+ * Descarga un .xlsx de una hoja (ver generarXlsx).
+ */
+export function descargarExcel(nombreArchivo, hoja, columnas, filas) {
+    const bytes = generarXlsx(hoja, columnas, filas);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) { bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); }
+    const a = document.createElement('a');
+    a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + btoa(bin);
+    a.download = /\.xlsx$/i.test(nombreArchivo) ? nombreArchivo : nombreArchivo + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}

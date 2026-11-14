@@ -12,7 +12,7 @@ import { LightningElement, api, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
-import { fechaVisible, moneda } from 'c/lectorArchivos';
+import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosColectivoController.compararArchivo';
@@ -64,6 +64,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     busquedaHistorial = '';
     pagina = 1;
     modal = null;
+    fechasExcel = [];
     seleccion = new Set();
     archivoNombre = '';
     // Fecha, endoso, motivo y comentario comunes de la revisión del archivo.
@@ -1064,6 +1065,58 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get sinResultadosHistorial() { return !this.sinHistorial && this.historial.length === 0; }
     get textoResultadosHistorial() {
         return this.busquedaHistorial ? `${this.historial.length} de ${this.historialCompleto.length} movimientos` : '';
+    }
+
+    // ============================================================
+    // Excel por fecha de movimiento
+    // ============================================================
+    get enModalExcel() { return this.modal === 'excel'; }
+    // Fechas de movimiento que hay (más reciente primero) con cuántos registros tiene cada una.
+    abrirExcel() {
+        const cuenta = new Map();
+        this.miembros.forEach((r) => {
+            const k = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
+            cuenta.set(k, (cuenta.get(k) || 0) + 1);
+        });
+        this.fechasExcel = [...cuenta.entries()]
+            .sort((a, b) => (a[0] === b[0] ? 0 : (a[0] < b[0] ? 1 : -1)))
+            .map(([fecha, n]) => ({ key: fecha || 'sin-fecha', fecha, n, sel: false,
+                texto: `${fecha ? fechaVisible(fecha) : 'Sin fecha de movimiento'} (${n})` }));
+        this.modal = 'excel';
+    }
+    marcarFechaExcel(e) {
+        const key = e.target.dataset.key;
+        this.fechasExcel = this.fechasExcel.map((f) => (f.key === key ? { ...f, sel: e.target.checked } : f));
+    }
+    marcarTodasFechasExcel(e) {
+        this.fechasExcel = this.fechasExcel.map((f) => ({ ...f, sel: e.target.checked }));
+    }
+    get todasFechasExcel() { return this.fechasExcel.length > 0 && this.fechasExcel.every((f) => f.sel); }
+    get sinFechasExcel() { return !this.fechasExcel.some((f) => f.sel); }
+    get sinFechasMovimiento() { return this.fechasExcel.length === 0; }
+    generarExcel() {
+        const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
+        const registros = this.miembros.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        const columnas = [
+                ['Certificado', (r) => r.certificado], ['Nombre', (r) => r.nombre], ['Titular', (r) => (r.esTitular ? '' : r.titularNombre)],
+                ['Parentesco', (r) => r.parentesco], ['Categoría', (r) => r.categoria], ['Nacimiento', (r) => fechaVisible(r.fechaNacimiento)],
+                ['Alta', (r) => fechaVisible(r.fechaAlta)], ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
+                ['Fecha de creación', (r) => this.fechaHoraTxt(r.fechaCreacion)], ['Fecha de cierre', (r) => this.fechaHoraTxt(r.fechaCierre)],
+                ['Suma asegurada', (r) => (r.sumaAsegurada == null ? null : Number(r.sumaAsegurada))],
+                ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
+                ['Estado', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')], ['Motivo de baja', (r) => r.motivoBaja],
+                ['Correo', (r) => this.correoDe(r)]
+            ];
+        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
+        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
+        descargarExcel(`Asegurados_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Asegurados',
+            columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
+        this.cerrarModal();
+    }
+    fechaHoraTxt(v) {
+        if (!v) { return ''; }
+        const d = new Date(v);
+        return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
     // ============================================================

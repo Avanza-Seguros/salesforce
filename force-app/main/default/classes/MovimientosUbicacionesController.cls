@@ -90,7 +90,7 @@ public with sharing class MovimientosUbicacionesController {
 				res.put('nombre', pol.Name);
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
-				res.put('ubicaciones', ubicacionesPoliza(bienes(recordId, false, null)));
+				res.put('ubicaciones', conMovimiento(ubicacionesPoliza(bienes(recordId, false, null)), recordId));
 			} else {
 				Opportunity opp = MovimientosColectivoController.oportunidad(recordId);
 				InsurancePolicy anterior = MovimientosColectivoController.polizaAnteriorDe(opp);
@@ -101,7 +101,7 @@ public with sharing class MovimientosUbicacionesController {
 				res.put('polizaAnteriorNombre', anterior == null ? null : anterior.Name);
 				res.put('polizaAnteriorFin', anterior == null || anterior.ExpirationDate == null ? null : anterior.ExpirationDate.date());
 				res.put('ubicacionesAnterior', anterior == null ? 0 : bienes(anterior.Id, true, null).size());
-				res.put('ubicaciones', ubicacionesCenso(censo(recordId, null)));
+				res.put('ubicaciones', conMovimiento(ubicacionesCenso(censo(recordId, null)), recordId));
 			}
 			res.put('movimientos', MovimientosColectivoController.historial(recordId));
 			return res;
@@ -557,6 +557,41 @@ public with sharing class MovimientosUbicacionesController {
 		return res;
 	}
 
+	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega a cada ubicación su último movimiento (fecha de movimiento, creación, cierre y estado), igual
+	 *               que en asegurados. El movimiento se reconoce por el domicilio (se guarda en Asegurado__c).
+	 * @param filas: ubicaciones como mapas.
+	 * @param recordId: póliza u oportunidad.
+	 * @return las mismas filas.
+	 */
+	private static List<Object> conMovimiento(List<Object> filas, Id recordId) {
+		Map<String, Movimiento_Poliza__c> ultimos = new Map<String, Movimiento_Poliza__c>();
+		Boolean esPoliza = MovimientosColectivoController.esPoliza(recordId);
+		for (Movimiento_Poliza__c m : esPoliza
+				? [SELECT Id, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+					WHERE Poliza__c = :recordId AND Oportunidad__c = null AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]
+				: [SELECT Id, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+					WHERE Oportunidad__c = :recordId AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]) {
+			String k = PolicyController.llaveDireccion(m.Asegurado__c);
+			if (String.isNotBlank(k) && !ultimos.containsKey(k)) { ultimos.put(k, m); }
+		}
+		for (Object o : filas) {
+			Map<String, Object> u = (Map<String, Object>) o;
+			String dir = (String) u.get('direccion');
+			Movimiento_Poliza__c m = String.isBlank(dir) ? null : ultimos.get(PolicyController.llaveDireccion(dir.left(255)));
+			MovimientosColectivoController.ponerMovimiento(u, m, u.get('activo') != false, comoFecha(u.get('fechaAlta')), comoFecha(u.get('fechaBaja')));
+		}
+		return filas;
+	}
+
+	private static Date comoFecha(Object v) {
+		if (v == null) { return null; }
+		if (v instanceof Date) { return (Date) v; }
+		return ((Datetime) v).date();
+	}
+
 	private static List<Object> ubicacionesCenso(List<Categoria_Colectiva__c> l) {
 		List<Object> res = new List<Object>();
 		for (Integer i = 0; i < l.size(); i++) { res.add(ubicacion(l[i], i + 1)); }
@@ -656,9 +691,8 @@ public with sharing class MovimientosUbicacionesController {
 			if (m.tipo != ALTA && String.isBlank(m.id)) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': falta la ubicación.');
 			}
-			if (m.tipo == BAJA && String.isBlank(m.motivo)) {
-				throw CensoColectivoController.error('Indica el motivo de baja de cada ubicación.');
-			}
+			// El motivo de baja es opcional: si viene vacío se guarda sin motivo.
+			if (String.isBlank(m.motivo)) { m.motivo = null; }
 			if (m.tipo != BAJA && m.datos == null) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': faltan los datos de la ubicación.');
 			}
@@ -706,10 +740,13 @@ public with sharing class MovimientosUbicacionesController {
 		];
 	}
 
+	// Motivos del bien de póliza que solo aplican a vehículos de flotilla.
+	private static final Set<String> SOLO_VEHICULOS = new Set<String>{ 'Venta', 'Robo', 'Sustitucion', 'Fuera_operacion' };
+
 	private static List<Object> motivos() {
 		List<Object> l = new List<Object>();
 		for (Schema.PicklistEntry pe : InsurancePolicyAsset.Motivo_Baja__c.getDescribe().getPicklistValues()) {
-			if (pe.isActive()) { l.add(new Map<String, Object>{ 'label' => pe.getLabel(), 'value' => pe.getValue() }); }
+			if (pe.isActive() && !SOLO_VEHICULOS.contains(pe.getValue())) { l.add(new Map<String, Object>{ 'label' => pe.getLabel(), 'value' => pe.getValue() }); }
 		}
 		return l;
 	}

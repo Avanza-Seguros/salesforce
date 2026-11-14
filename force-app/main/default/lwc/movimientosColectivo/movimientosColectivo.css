@@ -419,3 +419,25 @@
 .mov-faltantes {
     margin: 0 0 0.5rem;
 }
+
+/* Excel por fecha de movimiento */
+.mov-excel-lista {
+    max-height: 16rem;
+    overflow: auto;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.mov-excel-fecha {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+
+.mov-excel-todas {
+    font-weight: 600;
+}

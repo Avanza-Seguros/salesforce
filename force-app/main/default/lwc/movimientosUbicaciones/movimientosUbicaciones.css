@@ -163,8 +163,9 @@
     padding-left: 1.5rem;
 }
 
+/* Dado de baja: el texto se ve igual que los vigentes; solo el estado va en rojo. */
 .fila-baja td {
-    color: #919191;
+    color: inherit;
 }
 
 .estado {
@@ -181,8 +182,8 @@
 }
 
 .estado-baja {
-    background: #f3f3f3;
-    color: #5c5c5c;
+    background: #fef1f1;
+    color: #ba0517;
 }
 
 .tipo {
@@ -267,4 +268,36 @@
     margin: 0 0 0.75rem 1rem;
     list-style: disc;
     font-size: 0.8125rem;
+}
+
+.estado-alta {
+    background: #ebf7e6;
+    color: #2e844a;
+}
+
+.estado-cambio {
+    background: #eef4ff;
+    color: #0176d3;
+}
+
+/* Excel por fecha de movimiento */
+.mov-excel-lista {
+    max-height: 16rem;
+    overflow: auto;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.mov-excel-fecha {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+
+.mov-excel-todas {
+    font-weight: 600;
 }

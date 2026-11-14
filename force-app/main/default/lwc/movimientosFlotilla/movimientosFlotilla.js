@@ -11,8 +11,9 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
-import { fechaVisible, moneda } from 'c/lectorArchivos';
+import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
+import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosFlotillaController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosFlotillaController.compararArchivo';
 import traerDePoliza from '@salesforce/apex/MovimientosFlotillaController.traerDePoliza';
@@ -33,6 +34,7 @@ export default class MovimientosFlotilla extends LightningElement {
     busquedaHistorial = '';
     pagina = 1;
     modal = null;
+    fechasExcel = [];
     seleccion = new Set();
     archivoNombre = '';
     @track comun = {};
@@ -142,8 +144,14 @@ export default class MovimientosFlotilla extends LightningElement {
             valorTxt: moneda(v.valor),
             primaTxt: moneda(v.prima),
             altaTxt: fechaVisible(v.fechaAlta),
-            estado: v.activo ? 'Vigente' : `Baja ${fechaVisible(v.fechaBaja)}`,
-            claseEstado: v.activo ? 'estado estado-vigente' : 'estado estado-baja',
+            fechaMovimientoTxt: fechaVisible(v.fechaMovimiento),
+            // Creación del movimiento y su cierre (botón «Cerrar movimiento»).
+            fechaCreacionTxt: this.fechaHoraTxt(v.fechaCreacion),
+            fechaCierreTxt: this.fechaHoraTxt(v.fechaCierre),
+            // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
+            estado: v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja'),
+            claseEstado: `estado estado-${String(v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
+            puedeCerrar: this.enPoliza && this.puedeEditar && !!v.movimientoId && !v.fechaCierre,
             puedeMover: v.activo && this.puedeEditar
         }));
     }
@@ -434,6 +442,71 @@ export default class MovimientosFlotilla extends LightningElement {
     get sinResultadosHistorial() { return !this.sinHistorial && this.historial.length === 0; }
     get textoResultadosHistorial() {
         return this.busquedaHistorial ? `${this.historial.length} de ${this.historialCompleto.length} movimientos` : '';
+    }
+
+    // ============================================================
+    // Excel por fecha de movimiento
+    // ============================================================
+    get enModalExcel() { return this.modal === 'excel'; }
+    // Fechas de movimiento que hay (más reciente primero) con cuántos registros tiene cada una.
+    abrirExcel() {
+        const cuenta = new Map();
+        this.vehiculos.forEach((r) => {
+            const k = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
+            cuenta.set(k, (cuenta.get(k) || 0) + 1);
+        });
+        this.fechasExcel = [...cuenta.entries()]
+            .sort((a, b) => (a[0] === b[0] ? 0 : (a[0] < b[0] ? 1 : -1)))
+            .map(([fecha, n]) => ({ key: fecha || 'sin-fecha', fecha, n, sel: false,
+                texto: `${fecha ? fechaVisible(fecha) : 'Sin fecha de movimiento'} (${n})` }));
+        this.modal = 'excel';
+    }
+    marcarFechaExcel(e) {
+        const key = e.target.dataset.key;
+        this.fechasExcel = this.fechasExcel.map((f) => (f.key === key ? { ...f, sel: e.target.checked } : f));
+    }
+    marcarTodasFechasExcel(e) {
+        this.fechasExcel = this.fechasExcel.map((f) => ({ ...f, sel: e.target.checked }));
+    }
+    get todasFechasExcel() { return this.fechasExcel.length > 0 && this.fechasExcel.every((f) => f.sel); }
+    get sinFechasExcel() { return !this.fechasExcel.some((f) => f.sel); }
+    get sinFechasMovimiento() { return this.fechasExcel.length === 0; }
+    generarExcel() {
+        const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
+        const registros = this.vehiculos.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        const columnas = [
+                ['Inciso', (r) => (r.inciso == null ? null : Number(r.inciso))], ['Vehículo', (r) => r.descripcion], ['Serie', (r) => r.serie],
+                ['Modelo', (r) => (r.modelo == null ? null : Number(r.modelo))], ['Placas', (r) => r.placas], ['Uso', (r) => r.uso],
+                ['Paquete', (r) => r.paquete], ['Alta', (r) => fechaVisible(r.fechaAlta)], ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
+                ['Fecha de creación', (r) => this.fechaHoraTxt(r.fechaCreacion)], ['Fecha de cierre', (r) => this.fechaHoraTxt(r.fechaCierre)],
+                ['Valor', (r) => (r.valor == null ? null : Number(r.valor))], ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
+                ['Estado', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')], ['Motivo de baja', (r) => r.motivoBaja]
+            ];
+        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
+        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
+        descargarExcel(`Vehiculos_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Vehículos',
+            columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
+        this.cerrarModal();
+    }
+    fechaHoraTxt(v) {
+        if (!v) { return ''; }
+        const d = new Date(v);
+        return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Cierra el movimiento del registro (vehículos y ubicaciones no envían correo): guarda la fecha de cierre.
+    async cerrarMov(e) {
+        const id = e.currentTarget.dataset.mov;
+        this.cargando = true;
+        try {
+            await cerrarMovimiento({ movimientoId: id });
+            this.toast('Movimiento', 'Movimiento cerrado.', 'success');
+            await this.cargar();
+        } catch (err) {
+            this.mostrarError(err);
+        } finally {
+            this.cargando = false;
+        }
     }
 
     // ============================================================
