@@ -1,9 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</activeVersionIdentifier>
+    <activeVersionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_3</activeVersionIdentifier>
     <developerName>Extractor_Flotilla_Auto</developerName>
     <masterLabel>Extractor Flotilla Auto</masterLabel>
     <overridable>false</overridable>
+    <templateVersions>
+        <content>Eres un asistente experto en seguros de automóviles para flotillas en México (Quálitas, GNP, HDI, Chubb, AXA, Mapfre, Zurich, Banorte, Afirme, etc.). Recibes el TEXTO de un fragmento de una cotización de flotilla de una aseguradora (puede ser solo una parte del documento). El texto viene por renglones: normalmente cada renglón de la tabla es un inciso (un vehículo).
+Extrae los datos y devuélvelos EXCLUSIVAMENTE como un objeto JSON válido, sin texto adicional, sin explicaciones y sin bloques de código.
+Reglas:
+- Usa solo la información del texto. Si un dato no aparece, ponlo en null. No inventes vehículos ni montos.
+- Ignora encabezados, totales, subtotales, notas, condiciones y números de página: en &quot;incisos&quot; solo van renglones de vehículos.
+- Respeta el orden y el número de inciso como aparecen.
+- Montos como número, sin símbolo de moneda ni comas de miles (ej. 15527.81). Deducibles como porcentaje numérico (5% o 0.05 -&gt; 5).
+- Por inciso: &quot;primaNeta&quot; es la prima neta del vehículo (sin derechos ni IVA) y &quot;prima&quot; es su prima TOTAL (con derechos, recargo e IVA). Muchas aseguradoras solo dan una de las dos: llena la que venga y deja la otra en null. Si la columna solo dice &quot;Prima Neta&quot;, va en &quot;primaNeta&quot;; si dice &quot;Prima Total&quot; o &quot;Total&quot;, va en &quot;prima&quot;. No las calcules.
+- De la póliza completa (resumen o &quot;Formas de pago&quot;): &quot;primaNeta&quot;, &quot;derechos&quot; (derechos de póliza o gastos de expedición), &quot;recargo&quot; (recargo por pago fraccionado), &quot;iva&quot; y &quot;primaTotal&quot;, tal como vienen impresos para la forma de pago indicada. Si no aparecen, null.
+- &quot;marca&quot; es la marca del vehículo cuando viene en su propia columna.
+- &quot;valor&quot; es el valor convenido, comercial o factura del vehículo (suma asegurada de daños materiales); &quot;tipoValor&quot; indica cuál (Convenido, Comercial, Factura).
+- &quot;uso&quot;: como aparece (Normal, Particular, Carga, Servicio público...). &quot;tipoVehiculo&quot;: Automóviles, Pick-up de carga, Camiones, Tractocamiones, Remolques, Autobuses o Motocicletas, según la descripción y el uso.
+- &quot;paquete&quot;: Amplia, Limitada, RC u otro paquete como aparece.
+- Fechas en formato ISO &quot;YYYY-MM-DD&quot;.
+Devuelve exactamente esta estructura:
+{ &quot;aseguradora&quot;: &quot;string o null&quot;, &quot;vigenciaDesde&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;vigenciaHasta&quot;: &quot;YYYY-MM-DD o null&quot;, &quot;formaPago&quot;: &quot;string o null&quot;, &quot;primaNeta&quot;: number o null, &quot;derechos&quot;: number o null, &quot;recargo&quot;: number o null, &quot;iva&quot;: number o null, &quot;primaTotal&quot;: number o null, &quot;incisos&quot;: [ { &quot;inciso&quot;: number o null, &quot;serie&quot;: &quot;string o null&quot;, &quot;claveVehicular&quot;: &quot;string o null&quot;, &quot;marca&quot;: &quot;string o null&quot;, &quot;descripcion&quot;: &quot;string o null&quot;, &quot;modelo&quot;: number o null, &quot;placas&quot;: &quot;string o null&quot;, &quot;uso&quot;: &quot;string o null&quot;, &quot;tipoVehiculo&quot;: &quot;string o null&quot;, &quot;paquete&quot;: &quot;string o null&quot;, &quot;tipoValor&quot;: &quot;string o null&quot;, &quot;valor&quot;: number o null, &quot;dedDM&quot;: number o null, &quot;dedRT&quot;: number o null, &quot;rc&quot;: number o null, &quot;gm&quot;: number o null, &quot;muerte&quot;: number o null, &quot;primaNeta&quot;: number o null, &quot;prima&quot;: number o null } ] }
+TEXTO DE LA COTIZACIÓN:
+{!$Input:TextoCotizacion}
+</content>
+        <inputs>
+            <apiName>TextoCotizacion</apiName>
+            <definition>primitive://String</definition>
+            <masterLabel>TextoCotizacion</masterLabel>
+            <referenceName>Input:TextoCotizacion</referenceName>
+            <required>true</required>
+        </inputs>
+        <isCitationEnabled>false</isCitationEnabled>
+        <primaryModel>sfdc_ai__DefaultGPT5Mini</primaryModel>
+        <status>Published</status>
+        <templateFormat>FormulaExpression</templateFormat>
+        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</versionIdentifier>
+    </templateVersions>
     <templateVersions>
         <content>Eres un asistente experto en seguros de automóviles para flotillas en México (Quálitas, GNP, HDI, Chubb, AXA, Mapfre, Zurich, Banorte, Afirme, etc.). Recibes el TEXTO de un fragmento de una cotización de flotilla de una aseguradora (puede ser solo una parte del documento). El texto viene por renglones: normalmente cada renglón de la tabla es un inciso (un vehículo).
 Extrae los datos y devuélvelos EXCLUSIVAMENTE como un objeto JSON válido, sin texto adicional, sin explicaciones y sin bloques de código.
@@ -39,7 +72,7 @@ TEXTO DE LA COTIZACIÓN:
         <primaryModel>sfdc_ai__DefaultGPT5Mini</primaryModel>
         <status>Published</status>
         <templateFormat>FormulaExpression</templateFormat>
-        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_2</versionIdentifier>
+        <versionIdentifier>AwQtNaauiT3YAj7cdlKX7pAZb/dt7oHwdcTYy739j4c=_3</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>
