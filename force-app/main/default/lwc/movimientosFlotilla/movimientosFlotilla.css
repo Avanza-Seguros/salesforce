@@ -335,3 +335,8 @@
     font-family: monospace;
     font-size: 0.75rem;
 }
+
+/* Vigencia del vehículo (desde – hasta) en un renglón */
+.col-vigencia {
+    white-space: nowrap;
+}

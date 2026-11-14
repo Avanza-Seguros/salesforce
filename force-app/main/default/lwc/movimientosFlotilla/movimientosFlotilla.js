@@ -143,7 +143,7 @@ export default class MovimientosFlotilla extends LightningElement {
             claseFila: v.activo ? '' : 'fila-baja',
             valorTxt: moneda(v.valor),
             primaTxt: moneda(v.prima),
-            altaTxt: fechaVisible(v.fechaAlta),
+            vigenciaTxt: this.vigenciaTxt(v),
             fechaMovimientoTxt: fechaVisible(v.fechaMovimiento),
             // Creación del movimiento y su cierre (botón «Cerrar movimiento»).
             fechaCreacionTxt: this.fechaHoraTxt(v.fechaCreacion),
@@ -477,7 +477,8 @@ export default class MovimientosFlotilla extends LightningElement {
         const columnas = [
                 ['Inciso', (r) => (r.inciso == null ? null : Number(r.inciso))], ['Vehículo', (r) => r.descripcion], ['Serie', (r) => r.serie],
                 ['Modelo', (r) => (r.modelo == null ? null : Number(r.modelo))], ['Placas', (r) => r.placas], ['Uso', (r) => r.uso],
-                ['Paquete', (r) => r.paquete], ['Alta', (r) => fechaVisible(r.fechaAlta)], ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
+                ['Paquete', (r) => r.paquete], ['Vigencia desde', (r) => fechaVisible(this.vigenciaDesde(r))],
+                ['Vigencia hasta', (r) => fechaVisible(this.vigenciaHasta(r))], ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
                 ['Fecha de creación', (r) => this.fechaHoraTxt(r.fechaCreacion)], ['Fecha de cierre', (r) => this.fechaHoraTxt(r.fechaCierre)],
                 ['Valor', (r) => (r.valor == null ? null : Number(r.valor))], ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
                 ['Estado', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')], ['Motivo de baja', (r) => r.motivoBaja]
@@ -487,6 +488,14 @@ export default class MovimientosFlotilla extends LightningElement {
         descargarExcel(`Vehiculos_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Vehículos',
             columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
         this.cerrarModal();
+    }
+    // Vigencia del vehículo: desde su alta (o el inicio de la póliza) hasta su baja (o el fin de la póliza).
+    vigenciaDesde(v) { return v.fechaAlta || (this.datos && this.datos.inicio) || null; }
+    vigenciaHasta(v) { return v.fechaBaja || (this.datos && this.datos.fin) || null; }
+    vigenciaTxt(v) {
+        const d = fechaVisible(this.vigenciaDesde(v));
+        const h = fechaVisible(this.vigenciaHasta(v));
+        return d && h ? `${d} – ${h}` : (d || h || '');
     }
     fechaHoraTxt(v) {
         if (!v) { return ''; }
