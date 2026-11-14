@@ -930,6 +930,7 @@ public with sharing class MovimientosColectivoController {
 		Map<String, String> relaciones = etiquetas(InsurancePolicyParticipant.RelationshipToInsured.getDescribe());
 		Map<Id, Movimiento_Poliza__c> ultimos = ultimosMovimientos(policyId);
 		Map<Id, String> correos = ParticipantesPolizaController.correosDe(ps);
+		Map<Id, Contact> contactos = contactosDe(ps);
 		List<Map<String, Object>> lista = new List<Map<String, Object>>();
 		for (InsurancePolicyParticipant p : ps) {
 			if (!esAsegurado(p.Role)) { continue; }
@@ -953,6 +954,9 @@ public with sharing class MovimientosColectivoController {
 			});
 			Map<String, Object> fila = lista[lista.size() - 1];
 			ponerMovimiento(fila, ultimos.get(p.Id), p.IsActiveParticipant != false, p.EffectiveFromDate, p.EffectiveToDate);
+			ponerNombre(fila, contactos.get(p.PrimaryParticipantContactId));
+			Movimiento_Poliza__c ult = ultimos.get(p.Id);
+			if (ult != null) { fila.put('movimientoNumero', ult.Name); fila.put('numeroEndoso', ult.Numero_Endoso__c); }
 			// Sin registro de movimiento (carga inicial): se crea con el participante y se cierra con el primer correo.
 			if (fila.get('fechaCreacion') == null) {
 				fila.put('fechaCreacion', p.CreatedDate);
@@ -1152,13 +1156,48 @@ public with sharing class MovimientosColectivoController {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
-			SELECT Participante__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			SELECT Participante__c, Name, Numero_Endoso__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :policyId AND Participante__c != null
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
 			if (!r.containsKey(m.Participante__c)) { r.put(m.Participante__c, m); }
 		}
 		return r;
+	}
+
+	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Contactos de los asegurados (nombre, apellidos y sexo por separado, para el Excel de movimientos).
+	 */
+	private static Map<Id, Contact> contactosDe(List<InsurancePolicyParticipant> ps) {
+		Set<Id> ids = new Set<Id>();
+		for (InsurancePolicyParticipant p : ps) { if (p.PrimaryParticipantContactId != null) { ids.add(p.PrimaryParticipantContactId); } }
+		if (ids.isEmpty()) { return new Map<Id, Contact>(); }
+		return new Map<Id, Contact>([
+			SELECT Id, FirstName, LastName, Apellido_paterno__c, Apellido_materno__c, Sexo__c FROM Contact WHERE Id IN :ids
+		]);
+	}
+
+	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega 'nombres', 'apellidoPaterno', 'apellidoMaterno' y 'sexoContacto' del contacto del asegurado.
+	 *               Sin apellidos en el contacto, los apellidos son su LastName (paterno y materno separados por espacio).
+	 */
+	private static void ponerNombre(Map<String, Object> fila, Contact c) {
+		if (c == null) { return; }
+		String paterno = c.Apellido_paterno__c;
+		String materno = c.Apellido_materno__c;
+		if (String.isBlank(paterno) && String.isNotBlank(c.LastName)) {
+			List<String> partes = c.LastName.trim().split('\\s+');
+			paterno = partes[0];
+			if (String.isBlank(materno) && partes.size() > 1) { partes.remove(0); materno = String.join(partes, ' '); }
+		}
+		fila.put('nombres', c.FirstName);
+		fila.put('apellidoPaterno', paterno);
+		fila.put('apellidoMaterno', materno);
+		fila.put('sexoContacto', c.Sexo__c);
 	}
 
 	/**

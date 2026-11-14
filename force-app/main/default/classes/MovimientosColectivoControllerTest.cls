@@ -349,6 +349,29 @@ private class MovimientosColectivoControllerTest {
 	}
 
 	@isTest
+	static void testNombreDelContactoParaExcel() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		InsurancePolicyParticipant pedro = [SELECT Id FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Pedro%' LIMIT 1];
+		Contact c = new Contact(FirstName = 'PEDRO', LastName = 'GOMEZ RUIZ', Sexo__c = 'Masculino');
+		insert c;
+		update new InsurancePolicyParticipant(Id = pedro.Id, PrimaryParticipantContactId = c.Id);
+		Test.startTest();
+		Map<String, Object> datos = MovimientosColectivoController.getDatos(pol.Id);
+		Test.stopTest();
+		Map<String, Object> fila = null;
+		for (Object o : (List<Object>) datos.get('miembros')) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			if (m.get('id') == (String) pedro.Id) { fila = m; }
+		}
+		System.assertNotEquals(null, fila, 'Pedro está en los asegurados');
+		System.assertEquals('PEDRO', fila.get('nombres'), 'Nombre(s) del contacto');
+		System.assertEquals('GOMEZ', fila.get('apellidoPaterno'), 'Apellido paterno tomado del LastName');
+		System.assertEquals('RUIZ', fila.get('apellidoMaterno'), 'Apellido materno tomado del LastName');
+		System.assertEquals('Masculino', fila.get('sexoContacto'), 'Sexo del contacto');
+	}
+
+	@isTest
 	static void testCambioDeCorreo() {
 		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
 		InsurancePolicyParticipant pedro = [SELECT Id, PrimaryParticipantContactId, PrimaryParticipantAccountId FROM InsurancePolicyParticipant

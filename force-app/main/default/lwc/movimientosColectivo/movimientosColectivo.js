@@ -1112,21 +1112,68 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     generarExcel() {
         const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
         const registros = this.miembros.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
-        const columnas = [
-                ['Certificado', (r) => r.certificado], ['Nombre', (r) => r.nombre], ['Titular', (r) => (r.esTitular ? '' : r.titularNombre)],
-                ['Parentesco', (r) => r.parentesco], ['Categoría', (r) => r.categoria], ['Nacimiento', (r) => fechaVisible(r.fechaNacimiento)],
-                ['Alta', (r) => fechaVisible(r.fechaAlta)], ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
-                ['Fecha de creación', (r) => this.fechaHoraTxt(r.fechaCreacion)], ['Fecha de cierre', (r) => this.fechaHoraTxt(r.fechaCierre)],
-                ['Suma asegurada', (r) => (r.sumaAsegurada == null ? null : Number(r.sumaAsegurada))],
-                ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
-                ['Estado', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')], ['Motivo de baja', (r) => r.motivoBaja],
-                ['Correo', (r) => this.correoDe(r)]
-            ];
+        // Formato de la solicitud de movimientos a la aseguradora: un renglón por titular con sus dependientes en columnas.
+        const porId = new Map(this.miembros.map((m) => [m.id, m]));
+        const familias = new Map();
+        registros.forEach((r) => {
+            const clave = r.esTitular ? r.id : (r.titularId || r.id);
+            if (!familias.has(clave)) { familias.set(clave, { titular: porId.get(clave) || r, enMovimiento: [], dependientes: [] }); }
+            const fam = familias.get(clave);
+            fam.enMovimiento.push(r);
+            if (r.id !== clave) { fam.dependientes.push(r); }
+        });
+        const grupos = [...familias.values()];
+        const numDep = Math.max(3, ...grupos.map((g) => g.dependientes.length));
+        const columnas = ['Número de movimiento', 'Nombre', 'Apellido Paterno del Asegurado', 'Apellido Materno del Asegurado',
+            'Fecha de nacimiento', 'Sexo', 'Movimiento interno', 'Tipo de petición', 'Fecha de petición', 'Poliza', 'Categorias',
+            'Certificado', 'Parentesco'];
+        for (let i = 1; i <= numDep; i++) {
+            columnas.push('Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de Nacimiento', 'Parentesco', `Sexo Dependiente ${i}`, 'Porcentaje');
+        }
+        columnas.push('Descripción', 'Correo electrónico');
+        const poliza = (this.datos && this.datos.nombre) || '';
+        const filas = grupos.map((g) => {
+            const t = g.titular;
+            // El movimiento del renglón: el del titular si va en él; si no, el del primer dependiente.
+            const mov = g.enMovimiento.find((r) => r.id === t.id) || g.enMovimiento[0];
+            const n = this.partesNombre(t);
+            const fila = [mov.movimientoNumero || '', n.nombres, n.paterno, n.materno, fechaVisible(t.fechaNacimiento), this.sexoExcel(t),
+                mov.numeroEndoso || '', mov.tipoMovimiento || (mov.activo ? 'Alta' : 'Baja'), fechaVisible(mov.fechaMovimiento), poliza,
+                t.categoria || '', t.certificado || '', '01 Titular'];
+            for (let i = 0; i < numDep; i++) {
+                const d = g.dependientes[i];
+                if (d) {
+                    const nd = this.partesNombre(d);
+                    fila.push(nd.nombres, nd.paterno, nd.materno, fechaVisible(d.fechaNacimiento), d.parentesco || '', this.sexoExcel(d), 0);
+                } else {
+                    fila.push('', '', '', '', '', '', 0);
+                }
+            }
+            const motivos = g.enMovimiento.filter((r) => r.motivoBaja).map((r) => (r.id === t.id ? r.motivoBaja : `${r.nombre}: ${r.motivoBaja}`));
+            fila.push(motivos.join(' | '), this.correoDe(t) || '');
+            return fila;
+        });
         const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
         const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
-        descargarExcel(`Asegurados_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Asegurados',
-            columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
+        descargarExcel(`Asegurados_${String(poliza).replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Asegurados', columnas, filas);
         this.cerrarModal();
+    }
+    // Nombre(s) y apellidos por separado: los del contacto; si no hay, del nombre completo (los dos últimos son los apellidos).
+    partesNombre(r) {
+        if (r.nombres || r.apellidoPaterno) {
+            return { nombres: r.nombres || '', paterno: r.apellidoPaterno || '', materno: r.apellidoMaterno || '' };
+        }
+        const p = String(r.nombre || '').trim().split(/\s+/).filter((x) => x);
+        if (p.length >= 3) { return { nombres: p.slice(0, -2).join(' '), paterno: p[p.length - 2], materno: p[p.length - 1] }; }
+        if (p.length === 2) { return { nombres: p[0], paterno: p[1], materno: '' }; }
+        return { nombres: p.join(' '), paterno: '', materno: '' };
+    }
+    sexoExcel(r) {
+        const s = this.fold(r.sexoContacto || r.sexo);
+        if (!s) { return ''; }
+        if (s.startsWith('f') || s.startsWith('mujer')) { return 'Femenino'; }
+        if (s.startsWith('mas') || s.startsWith('h') || s === 'm') { return 'Masculino'; }
+        return r.sexoContacto || r.sexo;
     }
     fechaHoraTxt(v) {
         if (!v) { return ''; }
