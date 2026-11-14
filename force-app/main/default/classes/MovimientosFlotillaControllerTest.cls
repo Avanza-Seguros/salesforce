@@ -106,9 +106,15 @@ private class MovimientosFlotillaControllerTest {
 		Inciso_Flotilla__c b = [SELECT Fecha_Baja__c, Motivo_Baja__c, Vehiculo__c FROM Inciso_Flotilla__c WHERE Id = :inc1];
 		System.assertEquals(hoy, b.Fecha_Baja__c);
 		System.assertEquals(motivo(), b.Motivo_Baja__c);
-		InsurancePolicyAsset a = [SELECT IsActive, EffectiveToDate FROM InsurancePolicyAsset WHERE InsurancePolicyId = :pol.Id AND CustomerPropertyId = :b.Vehiculo__c];
+		InsurancePolicyAsset a = [SELECT IsActive, EffectiveToDate, Fecha_Baja__c, Motivo_Baja__c FROM InsurancePolicyAsset
+			WHERE InsurancePolicyId = :pol.Id AND CustomerPropertyId = :b.Vehiculo__c];
 		System.assertEquals(false, a.IsActive);
 		System.assertEquals(hoy, a.EffectiveToDate);
+		System.assertEquals(hoy, a.Fecha_Baja__c, 'El bien de póliza guarda la fecha de baja');
+		System.assertNotEquals(null, a.Motivo_Baja__c, 'El bien de póliza guarda el motivo de baja');
+		System.assertEquals(MovimientosFlotillaController.motivoBien(motivo()), a.Motivo_Baja__c);
+		System.assertEquals(null, MovimientosFlotillaController.motivoBien(null));
+		System.assertEquals('Otro', MovimientosFlotillaController.motivoBien('no existe'));
 
 		Inciso_Flotilla__c c = [SELECT Placas__c, Prima__c, Vehiculo__c FROM Inciso_Flotilla__c WHERE Id = :inc2];
 		System.assertEquals('NEW0001', c.Placas__c);
@@ -130,6 +136,10 @@ private class MovimientosFlotillaControllerTest {
 		b = [SELECT Fecha_Baja__c, Fecha_Alta__c, Prima__c FROM Inciso_Flotilla__c WHERE Id = :inc1];
 		System.assertEquals(null, b.Fecha_Baja__c);
 		System.assertEquals(9500, b.Prima__c);
+		InsurancePolicyAsset reingreso = [SELECT IsActive, Fecha_Baja__c, Motivo_Baja__c FROM InsurancePolicyAsset WHERE Id = :a.Id];
+		System.assertEquals(true, reingreso.IsActive);
+		System.assertEquals(null, reingreso.Fecha_Baja__c, 'Al reingresar se limpia la baja');
+		System.assertEquals(null, reingreso.Motivo_Baja__c);
 
 		Map<String, Object> d = MovimientosFlotillaController.getDatos(pol.Id);
 		System.assertEquals(true, d.get('aplica'));
@@ -165,6 +175,40 @@ private class MovimientosFlotillaControllerTest {
 		// Solo movimientos: no propone bajas.
 		r = MovimientosFlotillaController.compararArchivo(pol.Id, JSON.serialize(archivo), false);
 		System.assertEquals(0, ((List<Object>) r.get('bajas')).size());
+	}
+
+	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivo de movimientos con un vehículo que ya está igual en la póliza y otro repetido en el mismo
+	 *               archivo: ninguno se propone como alta y los dos se avisan como duplicados.
+	 * @return void
+	 */
+	@isTest
+	static void testCompararArchivoDuplicados() {
+		InsurancePolicy pol = poliza();
+		Inciso_Flotilla__c ya = [SELECT Numero_Inciso__c, Serie__c, Descripcion__c, Modelo__c, Placas__c, Prima__c FROM Inciso_Flotilla__c
+			WHERE Id = :inciso(pol.Id, SERIE_1)];
+		List<Object> archivo = new List<Object>{
+			// Ya está en la póliza con los mismos datos.
+			new Map<String, Object>{ 'serie' => ya.Serie__c },
+			// Nuevo, pero viene dos veces.
+			new Map<String, Object>{ 'serie' => SERIE_4, 'descripcion' => 'TOYOTA HILUX', 'modelo' => 2024 },
+			new Map<String, Object>{ 'serie' => SERIE_4.toLowerCase(), 'descripcion' => 'TOYOTA HILUX', 'modelo' => 2024 }
+		};
+		Map<String, Object> r = MovimientosFlotillaController.compararArchivo(pol.Id, JSON.serialize(archivo), false);
+		System.assertEquals(1, ((List<Object>) r.get('altas')).size(), 'La serie repetida se toma una sola vez');
+		List<Object> dups = (List<Object>) r.get('duplicados');
+		System.assertEquals(2, dups.size());
+		Map<String, Object> d0 = (Map<String, Object>) dups[0];
+		Map<String, Object> d1 = (Map<String, Object>) dups[1];
+		System.assertEquals(false, d0.get('repetidoEnArchivo'), 'El primero ya está en la póliza');
+		System.assertEquals(true, d1.get('repetidoEnArchivo'));
+		System.assertEquals(3, d1.get('fila'));
+		System.assertEquals(2, d1.get('filaOriginal'));
+		// Censo completo: los que ya están son esperados y no se avisan; el repetido sí.
+		r = MovimientosFlotillaController.compararArchivo(pol.Id, JSON.serialize(archivo), true);
+		System.assertEquals(1, ((List<Object>) r.get('duplicados')).size());
 	}
 
 	/**
@@ -247,7 +291,6 @@ private class MovimientosFlotillaControllerTest {
 		Map<String, Object> sinFecha = mov('baja', inc1, null, Date.today());
 		sinFecha.remove('fecha');
 		List<List<Object>> casos = new List<List<Object>>{
-			new List<Object>{ sinMotivo },
 			new List<Object>{ sinFecha },
 			new List<Object>{ mov('alta', null, new Map<String, Object>{ 'serie' => SERIE_2, 'descripcion' => 'X' }, Date.today()) },
 			new List<Object>{ mov('alta', null, new Map<String, Object>{ 'descripcion' => 'Sin serie' }, Date.today()) },
@@ -263,7 +306,8 @@ private class MovimientosFlotillaControllerTest {
 			}
 		}
 		System.assertEquals(casos.size(), errores);
-		MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{ mov('baja', inc1, null, Date.today()) }));
+		// El motivo de baja es opcional.
+		MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{ sinMotivo }));
 		try {
 			MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{ mov('baja', inc1, null, Date.today()) }));
 			System.assert(false, 'La baja repetida debe fallar');

@@ -30,6 +30,7 @@ export default class MovimientosFlotilla extends LightningElement {
     vista = 'lista';
     filtro = 'vigentes';
     busqueda = '';
+    busquedaHistorial = '';
     pagina = 1;
     modal = null;
     seleccion = new Set();
@@ -249,7 +250,7 @@ export default class MovimientosFlotilla extends LightningElement {
     async guardarBaja() {
         if (!this.validarForm()) { return; }
         const f = this.form;
-        await this.enviar(f.ids.map((id) => ({ tipo: 'baja', id, fecha: f.fecha, motivo: f.motivo, endoso: f.endoso, comentario: f.comentario })));
+        await this.enviar(f.ids.map((id) => ({ tipo: 'baja', id, fecha: f.fecha, motivo: f.motivo || null, endoso: f.endoso, comentario: f.comentario })));
     }
 
     async guardarAlta() {
@@ -324,7 +325,15 @@ export default class MovimientosFlotilla extends LightningElement {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
                 bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
                 cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
-                sinCambios: r.sinCambios
+                sinCambios: r.sinCambios,
+                duplicados: (r.duplicados || []).map((d, i) => ({
+                    ...d,
+                    key: 'd' + i,
+                    nombre: this.nombre(d),
+                    detalle: d.repetidoEnArchivo
+                        ? `viene repetido en el archivo (registro ${d.fila}, ya leído en el registro ${d.filaOriginal}): se toma una sola vez`
+                        : 'ya está vigente en ' + (this.enPoliza ? 'la póliza' : 'el censo') + ' con los mismos datos: no se da de alta otra vez'
+                }))
             };
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
             this.vista = 'revision';
@@ -350,6 +359,11 @@ export default class MovimientosFlotilla extends LightningElement {
     get hayCambios() { return this.cambiosRev.length > 0; }
     get sinDiferencias() { return !this.hayAltas && !this.hayBajas && !this.hayCambios; }
     get textoAltas() { return `Altas (${this.altasRev.length})`; }
+    get duplicadosRev() { return this.revision ? this.revision.duplicados || [] : []; }
+    get hayDuplicados() { return this.duplicadosRev.length > 0; }
+    get textoDuplicados() {
+        return `${this.duplicadosRev.length} vehículo(s) del archivo están duplicados: no se duplicaron.`;
+    }
     get textoBajas() { return `Bajas (${this.bajasRev.length})`; }
     get textoCambios() { return `Cambios (${this.cambiosRev.length})`; }
     get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} vehículos sin cambios.`; }
@@ -381,12 +395,9 @@ export default class MovimientosFlotilla extends LightningElement {
         const c = this.comun;
         const movs = [];
         this.revision.bajas.filter((b) => b.sel).forEach((b) => {
-            movs.push({ tipo: 'baja', id: b.id, fecha: c.fecha, motivo: b.motivo || c.motivo, endoso: c.endoso, comentario: c.comentario });
+            // El motivo es opcional.
+            movs.push({ tipo: 'baja', id: b.id, fecha: c.fecha, motivo: b.motivo || c.motivo || null, endoso: c.endoso, comentario: c.comentario });
         });
-        if (movs.some((m) => !m.motivo)) {
-            this.toast('Bajas', 'Indica el motivo de baja (general o por vehículo).', 'warning');
-            return;
-        }
         this.revision.cambios.filter((x) => x.sel).forEach((x) => {
             movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: c.fecha, endoso: c.endoso, comentario: c.comentario });
         });
@@ -403,7 +414,7 @@ export default class MovimientosFlotilla extends LightningElement {
     // ============================================================
     // Historial
     // ============================================================
-    get historial() {
+    get historialCompleto() {
         return ((this.datos && this.datos.movimientos) || []).map((m) => ({
             ...m,
             fechaTxt: fechaVisible(m.fecha),
@@ -411,7 +422,19 @@ export default class MovimientosFlotilla extends LightningElement {
             detalleTxt: [m.motivo, m.detalle, m.comentario].filter((x) => x).join(' · ')
         }));
     }
-    get sinHistorial() { return this.historial.length === 0; }
+    // Buscador del historial: folio, tipo, fecha, vehículo, inciso, endoso, detalle o usuario.
+    get historial() {
+        const q = this.fold(this.busquedaHistorial);
+        if (!q) { return this.historialCompleto; }
+        return this.historialCompleto.filter((h) => this.fold([h.nombre, h.tipo, h.fechaTxt, h.asegurado, h.certificado, h.endoso,
+            h.detalleTxt, h.usuario].filter((x) => x).join(' ')).includes(q));
+    }
+    handleBusquedaHistorial(e) { this.busquedaHistorial = e.target.value || ''; }
+    get sinHistorial() { return this.historialCompleto.length === 0; }
+    get sinResultadosHistorial() { return !this.sinHistorial && this.historial.length === 0; }
+    get textoResultadosHistorial() {
+        return this.busquedaHistorial ? `${this.historial.length} de ${this.historialCompleto.length} movimientos` : '';
+    }
 
     // ============================================================
     // Utilidades

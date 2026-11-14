@@ -145,7 +145,8 @@ public with sharing class MovimientosFlotillaController {
 	 * @param recordId: póliza u oportunidad.
 	 * @param incisosJson: lista de FlotillaController.IncisoEntrada.
 	 * @param censoCompleto: true si el archivo es el censo completo (los que no vienen se proponen como baja).
-	 * @return altas (ref = posición en el archivo), bajas, cambios (con diferencias) y sinCambios.
+	 * @return altas (ref = posición en el archivo), bajas, cambios (con diferencias), sinCambios y duplicados (ya están en la
+	 *         póliza sin cambios o vienen repetidos en el archivo).
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> compararArchivo(Id recordId, String incisosJson, Boolean censoCompleto) {
@@ -168,10 +169,22 @@ public with sharing class MovimientosFlotillaController {
 			Set<Id> usados = new Set<Id>();
 			List<Object> altas = new List<Object>();
 			List<Object> cambios = new List<Object>();
+			// Vehículos del archivo que ya están en la póliza o que vienen repetidos en el archivo: no se duplican; solo se avisa.
+			List<Object> duplicados = new List<Object>();
+			Map<String, Integer> vistos = new Map<String, Integer>();
 			Integer sinCambios = 0;
 			for (Integer ref = 0; ref < entrada.size(); ref++) {
 				FlotillaController.IncisoEntrada e = entrada[ref];
 				String s = serie(e.serie);
+				String llave = String.isNotBlank(s) ? 'S|' + s : (String.isNotBlank(e.placas) ? 'P|' + placas(e.placas) : null);
+				if (llave != null && vistos.containsKey(llave)) {
+					duplicados.add(new Map<String, Object>{
+						'fila' => e.fila != null ? e.fila : ref + 1, 'inciso' => e.inciso, 'serie' => String.isNotBlank(s) ? s : e.placas, 'descripcion' => e.descripcion,
+						'repetidoEnArchivo' => true, 'filaOriginal' => vistos.get(llave)
+					});
+					continue;
+				}
+				if (llave != null) { vistos.put(llave, e.fila != null ? e.fila : ref + 1); }
 				Inciso_Flotilla__c actual = String.isNotBlank(s) ? porSerie.get(s)
 					: (String.isNotBlank(e.placas) ? porPlacas.get(placas(e.placas)) : null);
 				if (actual != null && usados.contains(actual.Id)) { actual = null; }
@@ -189,6 +202,13 @@ public with sharing class MovimientosFlotillaController {
 				}
 				usados.add(actual.Id);
 				List<Object> difs = diferencias(actual, e);
+				// Archivo de movimientos (altas y cambios) con un vehículo que ya está igual en la póliza: se avisa.
+				if (difs.isEmpty() && censoCompleto != true) {
+					duplicados.add(new Map<String, Object>{
+						'fila' => e.fila != null ? e.fila : ref + 1, 'inciso' => actual.Numero_Inciso__c, 'serie' => actual.Serie__c, 'descripcion' => actual.Descripcion__c,
+						'repetidoEnArchivo' => false
+					});
+				}
 				if (difs.isEmpty()) { sinCambios++; continue; }
 				cambios.add(new Map<String, Object>{
 					'id' => actual.Id, 'inciso' => actual.Numero_Inciso__c, 'serie' => actual.Serie__c, 'descripcion' => actual.Descripcion__c,
@@ -204,7 +224,8 @@ public with sharing class MovimientosFlotillaController {
 					});
 				}
 			}
-			return new Map<String, Object>{ 'altas' => altas, 'bajas' => bajas, 'cambios' => cambios, 'sinCambios' => sinCambios };
+			return new Map<String, Object>{ 'altas' => altas, 'bajas' => bajas, 'cambios' => cambios, 'sinCambios' => sinCambios,
+				'duplicados' => duplicados };
 		} catch (AuraHandledException e) {
 			throw e;
 		} catch (Exception e) {
@@ -278,7 +299,7 @@ public with sharing class MovimientosFlotillaController {
 		}
 		Map<Id, InsurancePolicyAsset> bienes = new Map<Id, InsurancePolicyAsset>();
 		for (InsurancePolicyAsset a : [
-			SELECT Id, CustomerPropertyId, IsActive, EffectiveFromDate, EffectiveToDate, StandardPremiumAmount
+			SELECT Id, CustomerPropertyId, IsActive, EffectiveFromDate, EffectiveToDate, StandardPremiumAmount, Fecha_Baja__c, Motivo_Baja__c
 			FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
 		]) { bienes.put(a.CustomerPropertyId, a); }
 
@@ -303,8 +324,11 @@ public with sharing class MovimientosFlotillaController {
 				actualizar.put(inc.Id, inc);
 				InsurancePolicyAsset a = bienes.get(inc.Vehiculo__c);
 				if (a != null) {
+					// Igual que en las ubicaciones: el bien de póliza guarda la fecha y el motivo de la baja.
 					a.IsActive = false;
 					a.EffectiveToDate = f;
+					a.Fecha_Baja__c = f;
+					a.Motivo_Baja__c = motivoBien(m.motivo);
 					actualizarBienes.put(a.Id, a);
 				}
 				registro.add(registro(m, BAJA, CONTEXTO_ENDOSO, policyId, null, inc));
@@ -366,6 +390,8 @@ public with sharing class MovimientosFlotillaController {
 					a.IsActive = true;
 					a.EffectiveFromDate = f;
 					a.EffectiveToDate = fin;
+					a.Fecha_Baja__c = null;
+					a.Motivo_Baja__c = null;
 					if (m.datos.prima != null) { a.StandardPremiumAmount = m.datos.prima; }
 					actualizarBienes.put(a.Id, a);
 				}
@@ -578,10 +604,13 @@ public with sharing class MovimientosFlotillaController {
 		}
 		List<Object> l = new List<Object>();
 		Integer n = 0;
+		Map<String, String> motivosBien = MovimientosColectivoController.etiquetas(InsurancePolicyAsset.Motivo_Baja__c.getDescribe());
 		for (InsurancePolicyAsset a : [
-			SELECT Id, AssetName, IsActive, EffectiveFromDate, EffectiveToDate, StandardPremiumAmount, CustomerPropertyId,
+			SELECT Id, AssetName, AssetCode, IsActive, EffectiveFromDate, EffectiveToDate, StandardPremiumAmount, CustomerPropertyId,
+				Fecha_Baja__c, Motivo_Baja__c,
 				CustomerProperty.Name, CustomerProperty.Make, CustomerProperty.ModelName, CustomerProperty.MakeYear, CustomerProperty.Vin,
-				CustomerProperty.Description, CustomerProperty.Uso__c, CustomerProperty.TipoVehiculo__c, CustomerProperty.FairMarketValue
+				CustomerProperty.Description, CustomerProperty.Uso__c, CustomerProperty.TipoVehiculo__c, CustomerProperty.FairMarketValue,
+				CustomerProperty.RegistrationNumber
 			FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId AND CustomerPropertyId != null
 			ORDER BY CreatedDate ASC LIMIT :MAX_VEHICULOS
 		]) {
@@ -593,13 +622,15 @@ public with sharing class MovimientosFlotillaController {
 			if (String.isNotBlank(cp.Make) && (modelo == null || !modelo.toUpperCase().startsWith(cp.Make.toUpperCase()))) {
 				descripcion = (cp.Make + ' ' + (modelo == null ? '' : modelo)).trim();
 			}
-			Boolean activo = a.IsActive != false;
+			Boolean activo = a.IsActive != false && a.Fecha_Baja__c == null;
+			Object inciso = String.isNotBlank(a.AssetCode) ? (Object) a.AssetCode : (Object) n;
 			l.add(new Map<String, Object>{
-				'id' => a.Id, 'nombre' => cp.Name, 'inciso' => n, 'serie' => cp.Vin, 'placas' => null, 'descripcion' => descripcion,
+				'id' => a.Id, 'nombre' => cp.Name, 'inciso' => inciso, 'serie' => cp.Vin, 'placas' => cp.RegistrationNumber, 'descripcion' => descripcion,
 				'modelo' => cp.MakeYear, 'tipoVehiculo' => cp.TipoVehiculo__c, 'uso' => cp.Uso__c, 'paquete' => null,
 				'valor' => cp.FairMarketValue != null ? cp.FairMarketValue : sumaDanos, 'prima' => a.StandardPremiumAmount,
 				'vehiculoId' => a.CustomerPropertyId, 'activo' => activo, 'fechaAlta' => a.EffectiveFromDate,
-				'fechaBaja' => activo ? null : a.EffectiveToDate, 'motivoBaja' => null, 'deLaPoliza' => true
+				'fechaBaja' => activo ? null : (a.Fecha_Baja__c != null ? a.Fecha_Baja__c : a.EffectiveToDate),
+				'motivoBaja' => a.Motivo_Baja__c == null ? null : motivosBien.get(a.Motivo_Baja__c), 'deLaPoliza' => true
 			});
 		}
 		return l;
@@ -697,9 +728,8 @@ public with sharing class MovimientosFlotillaController {
 			if (m.tipo != ALTA && String.isBlank(m.id)) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': falta el vehículo.');
 			}
-			if (m.tipo == BAJA && String.isBlank(m.motivo)) {
-				throw CensoColectivoController.error('Indica el motivo de baja de cada vehículo.');
-			}
+			// El motivo de baja es opcional: si viene vacío se guarda sin motivo.
+			if (String.isBlank(m.motivo)) { m.motivo = null; }
 			if (m.tipo != BAJA && m.datos == null) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': faltan los datos del vehículo.');
 			}
@@ -769,6 +799,22 @@ public with sharing class MovimientosFlotillaController {
 
 	private static String serie(String s) {
 		return String.isBlank(s) ? null : s.deleteWhitespace().toUpperCase();
+	}
+
+	// Motivo de baja del vehículo (catálogo de vehículos) como valor del motivo del bien de póliza: por valor o por
+	// etiqueta; si el bien no tiene ese motivo, «Otro».
+	@TestVisible
+	private static String motivoBien(String motivo) {
+		if (String.isBlank(motivo)) { return null; }
+		String etiquetaVehiculo = MovimientosColectivoController.etiquetas(Inciso_Flotilla__c.Motivo_Baja__c.getDescribe()).get(motivo);
+		String otro = null;
+		for (Schema.PicklistEntry pe : InsurancePolicyAsset.Motivo_Baja__c.getDescribe().getPicklistValues()) {
+			if (!pe.isActive()) { continue; }
+			if (pe.getValue().equalsIgnoreCase(motivo) || pe.getLabel().equalsIgnoreCase(motivo)
+				|| (etiquetaVehiculo != null && pe.getLabel().equalsIgnoreCase(etiquetaVehiculo))) { return pe.getValue(); }
+			if (pe.getValue() == 'Otro') { otro = pe.getValue(); }
+		}
+		return otro;
 	}
 
 	private static String placas(String s) {
