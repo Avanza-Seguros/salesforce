@@ -3,7 +3,7 @@
     <allowInChatterGroups>false</allowInChatterGroups>
     <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
     <deploymentStatus>Deployed</deploymentStatus>
-    <description>Historial de altas, bajas y cambios de asegurados de una póliza colectiva: endosos durante la vigencia y ajustes del censo en la renovación.</description>
+    <description>Historial de altas, bajas y cambios de asegurados de una póliza empresarial: endosos durante la vigencia y ajustes del censo en la renovación.</description>
     <enableActivities>false</enableActivities>
     <enableBulkApi>true</enableBulkApi>
     <enableFeeds>false</enableFeeds>

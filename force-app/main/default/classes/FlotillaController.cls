@@ -885,7 +885,7 @@ public with sharing class FlotillaController {
 		if (String.isBlank(raw)) { return '{"incisos":[]}'; }
 		Integer ini = raw.indexOf('{');
 		Integer fin = raw.lastIndexOf('}');
-		return (ini >= 0 && fin > ini) ? raw.substring(ini, fin + 1) : '{"incisos":[]}';
+		return (ini >= 0 && fin > ini) ? JsonIa.repararTextos(raw.substring(ini, fin + 1)) : '{"incisos":[]}';
 	}
 
 	/**

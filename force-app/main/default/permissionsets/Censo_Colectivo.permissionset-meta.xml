@@ -36,7 +36,7 @@
         <apexClass>FlotillaController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
-    <description>Acceso a pólizas colectivas desde Crear Oportunidad: censos (GroupCensus, GroupCensusMember, GroupClass) y cotizaciones de flotilla (Inciso_Flotilla__c).</description>
+    <description>Acceso a pólizas empresariales desde Crear Oportunidad: censos (GroupCensus, GroupCensusMember, GroupClass) y cotizaciones de flotilla (Inciso_Flotilla__c).</description>
     <fieldPermissions>
         <editable>true</editable>
         <field>GroupCensus.Oportunidad__c</field>

@@ -70,7 +70,7 @@
         <default>false</default>
         <label>Otro</label>
     </customValue>
-    <description>Motivos de baja de un asegurado de una póliza colectiva (endoso o renovación). Se administran en Configuración; el código lee los valores activos.</description>
+    <description>Motivos de baja de un asegurado de una póliza empresarial (endoso o renovación). Se administran en Configuración; el código lee los valores activos.</description>
     <masterLabel>Motivo de baja colectivo</masterLabel>
     <sorted>false</sorted>
 </GlobalValueSet>

@@ -124,7 +124,7 @@ private class ColectivoControllerTest {
 		System.assert(g.Opciones_Pago__c.contains('Semestral'), 'Formas de pago guardadas');
 		System.assertEquals(3678217.32, [SELECT Prima_Total__c FROM Quote WHERE Id = :q2].Prima_Total__c, 'Respeta la prima total');
 
-		System.assertEquals(2, cot.size(), 'Dos cotizaciones colectivas');
+		System.assertEquals(2, cot.size(), 'Dos cotizaciones empresariales');
 		Map<String, Object> primera = cot[0];
 		System.assertEquals(2, ((List<Object>) primera.get('categorias')).size(), 'GNP con dos categorías');
 		System.assertEquals(2, ((List<Object>) primera.get('formasPago')).size(), 'Formas de pago');
@@ -160,7 +160,7 @@ private class ColectivoControllerTest {
 		Id q2 = ColectivoController.guardarCotizacionColectiva(opp.Id, cotizacionSmnyl(smnyl.Id));
 		String guardado = [SELECT Descripcion__c FROM Opportunity WHERE Id = :opp.Id].Descripcion__c;
 		System.assert(guardado == null || !guardado.startsWith(ColectivoController.MARCA_COMPARATIVO),
-			'Las colectivas no guardan comparativo en la oportunidad');
+			'Las empresariales no guardan comparativo en la oportunidad');
 		Test.startTest();
 		ColectivoController.eliminarCotizacionColectiva(q1);
 		ColectivoController.eliminarCotizacionColectiva(null);

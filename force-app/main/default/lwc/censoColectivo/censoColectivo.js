@@ -11,45 +11,23 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import {
     fold, tieneDatos, numero, fecha, fechaVisible, moneda, abrirTabla, detectarEncabezado,
-    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
+    opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
+import {
+    CAMPOS_CENSO, mapeoCenso, normalizarCenso, payloadMiembro, conteoMovimientos, MOVIMIENTOS, movimientosPorRevisar, AVISO_SIN_CONTACTO
+} from 'c/clasificadorArchivos';
+import movimientosSinContacto from '@salesforce/apex/CensoColectivoController.movimientosSinContacto';
+import revisarCambios from '@salesforce/apex/CensoColectivoController.revisarCambios';
+import aplicarBajas from '@salesforce/apex/CensoColectivoController.aplicarBajas';
+import complementarCenso from '@salesforce/apex/CensoColectivoController.complementarCenso';
 import getCenso from '@salesforce/apex/CensoColectivoController.getCenso';
 import guardarCenso from '@salesforce/apex/CensoColectivoController.guardarCenso';
 import eliminarCenso from '@salesforce/apex/CensoColectivoController.eliminarCenso';
 import analizarCensoPdf from '@salesforce/apex/CensoColectivoController.analizarCensoPdf';
 
 // Campos del censo: clave (la misma que devuelve la IA), etiqueta y encabezados con que suele venir.
-const CAMPOS = [
-    { key: 'nombreCompleto', label: 'Nombre completo', alias: ['nombre completo', 'nombre del asegurado', 'nombre asegurado', 'asegurado', 'nombre y apellidos', 'nombre del empleado', 'empleado', 'nombre completo del asegurado'] },
-    { key: 'nombre', label: 'Nombre(s)', alias: ['nombre', 'nombres', 'nombre s', 'primer nombre'] },
-    { key: 'apellidoPaterno', label: 'Apellido paterno', alias: ['apellido paterno', 'paterno', 'ap paterno', 'primer apellido', 'a paterno', 'patern'] },
-    { key: 'apellidoMaterno', label: 'Apellido materno', alias: ['apellido materno', 'materno', 'ap materno', 'segundo apellido', 'a materno', 'matern'] },
-    { key: 'apellidos', label: 'Apellidos', alias: ['apellidos', 'apellido'] },
-    { key: 'fechaNacimiento', label: 'Fecha de nacimiento', tipo: 'fecha', alias: ['fecha de nacimiento', 'fecha nacimiento', 'f nacimiento', 'nacimiento', 'fec nac', 'f nac', 'fecha nac', 'fnac', 'fnacim', 'fecnac'] },
-    { key: 'edad', label: 'Edad', tipo: 'numero', alias: ['edad', 'edad actual', 'edad alcanzada'] },
-    { key: 'sexo', label: 'Sexo', alias: ['sexo', 'genero', 'sex'] },
-    { key: 'parentesco', label: 'Parentesco', alias: ['parentesco', 'tipo de asegurado', 'tipo asegurado', 'relacion', 'dependencia', 'tipo de dependiente'] },
-    { key: 'categoria', label: 'Categoría', alias: ['categoria', 'grupo', 'clase', 'nivel', 'grupo asegurado', 'subgrupo', 'regla', 'catego'] },
-    { key: 'sueldoMensual', label: 'Sueldo mensual', tipo: 'numero', alias: ['sueldo mensual', 'salario mensual', 'sueldo', 'salario', 'sueldo base'] },
-    { key: 'sueldoAnual', label: 'Sueldo anual', tipo: 'numero', alias: ['sueldo anual', 'salario anual', 'ingreso anual'] },
-    { key: 'sumaAsegurada', label: 'Suma asegurada', tipo: 'numero', alias: ['suma asegurada', 'sa', 's a', 'suma aseg', 'int sa'] },
-    { key: 'prima', label: 'Prima', tipo: 'numero', alias: ['prima', 'prima neta', 'prima anual', 'prima total', 'costo', 'prima individual'] },
-    { key: 'certificado', label: 'Certificado', alias: ['certificado', 'no certificado', 'num certificado', 'numero de certificado', 'cert', 'no de certificado', 'certif'] },
-    { key: 'fechaAlta', label: 'Fecha de alta', tipo: 'fecha', alias: ['fecha de alta', 'fecha alta', 'alta', 'fecha de ingreso', 'fecha ingreso', 'antiguedad', 'fecha de antiguedad', 'fingpo'] },
-    { key: 'numEmpleado', label: 'Núm. de empleado', alias: ['numero de empleado', 'no empleado', 'num empleado', 'no de empleado', 'nomina', 'no nomina', 'id empleado', 'clave empleado', 'clave'] },
-    { key: 'rfc', label: 'RFC', alias: ['rfc'] },
-    { key: 'email', label: 'Correo', alias: ['email', 'correo', 'correo electronico', 'e mail', 'mail'] },
-    { key: 'telefono', label: 'Teléfono', alias: ['telefono', 'celular', 'tel', 'movil'] }
-];
-
-// Parentescos que se reconocen (texto normalizado -> valor que se muestra y se guarda).
-const PARENTESCOS = [
-    { valor: 'Titular', claves: ['titular', 'empleado', 'asegurado titular', 'principal', 'trabajador', 't', 'e', 'tit', 'asegurado', 'socio', 'self', 'miembro', 'colaborador'] },
-    { valor: 'Cónyuge', claves: ['conyuge', 'esposo', 'esposa', 'c', 'concubino', 'concubina', 'pareja', 'spouse', 'esp'] },
-    { valor: 'Hijo(a)', claves: ['hijo', 'hija', 'hijo a', 'hijos', 'h', 'child', 'dependiente hijo'] },
-    { valor: 'Padre/Madre', claves: ['padre', 'madre', 'papa', 'mama', 'parent'] },
-    { valor: 'Suegro(a)', claves: ['suegro', 'suegra'] }
-];
+// Se comparten con Crear Póliza (emisión de colectivos con varios archivos) en c/clasificadorArchivos.
+const CAMPOS = CAMPOS_CENSO;
 
 const POR_PAGINA = 50;
 // Asegurados por llamada a Apex (el controlador acepta hasta 4,500).
@@ -66,6 +44,8 @@ export default class CensoColectivo extends LightningElement {
     @track paso = 'resumen';
     @track mapeo = {};
     @track renglones = [];
+    // Vista previa de los cambios del archivo (dato anterior y nuevo).
+    @track cambiosRevision = [];
     cargando = false;
     progreso = '';
     errorMensaje = '';
@@ -187,11 +167,11 @@ export default class CensoColectivo extends LightningElement {
     // Descarga una plantilla CSV con las columnas que se reconocen automáticamente.
     descargarPlantilla() {
         const filas = [
-            'Certificado,Num. empleado,Nombre,Apellido paterno,Apellido materno,Fecha de nacimiento,Sexo,Parentesco,Categoria,Sueldo mensual,Suma asegurada,Fecha de alta,RFC,Correo,Telefono',
-            '001,E-100,Juan,Perez,Lopez,14/03/1985,H,Titular,Directivos,45000,1000000,01/01/2020,PELJ850314AB1,juan.perez@empresa.com,5512345678',
-            '001,E-100,Maria,Sosa,Ruiz,02/07/1988,M,Conyuge,Directivos,,,01/01/2020,,,',
-            '001,E-100,Sofia,Perez,Sosa,10/05/2015,M,Hijo,Directivos,,,01/01/2020,,,',
-            '002,E-101,Pedro,Gomez,Diaz,22/11/1990,H,Titular,Empleados,18000,500000,15/06/2022,,,'
+            'Certificado,Num. empleado,Nombre,Apellido paterno,Apellido materno,Fecha de nacimiento,Genero,Parentesco,Categoria,Fecha de movimiento,RFC,Correo,Telefono',
+            '001,E-100,Juan,Perez,Lopez,14/03/1985,H,Titular,Directivos,01/01/2020,PELJ850314AB1,juan.perez@empresa.com,5512345678',
+            '001,E-100,Maria,Sosa,Ruiz,02/07/1988,M,Conyuge,Directivos,01/01/2020,,,',
+            '001,E-100,Sofia,Perez,Sosa,10/05/2015,M,Hijo,Directivos,01/01/2020,,,',
+            '002,E-101,Pedro,Gomez,Diaz,22/11/1990,H,Titular,Empleados,15/06/2022,,,'
         ];
         const a = document.createElement('a');
         a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + filas.join('\r\n'));
@@ -202,6 +182,22 @@ export default class CensoColectivo extends LightningElement {
     // ============================================================
     // Lectura del archivo
     // ============================================================
+    // Zona de carga propia (la del componente estándar es muy pequeña): clic o arrastrar y soltar.
+    arrastrando = false;
+    get claseZona() { return 'censo-zona' + (this.arrastrando ? ' censo-zona-activa' : ''); }
+    elegirArchivo() {
+        const input = this.template.querySelector('input.censo-input');
+        if (input) { input.click(); }
+    }
+    sobreZona(e) { e.preventDefault(); this.arrastrando = true; }
+    fueraZona() { this.arrastrando = false; }
+    soltarArchivo(e) {
+        e.preventDefault();
+        this.arrastrando = false;
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) { this.handleArchivo({ target: { files: [f], value: null } }); }
+    }
+
     async handleArchivo(event) {
         const file = event.target.files && event.target.files[0];
         event.target.value = null;
@@ -265,13 +261,7 @@ export default class CensoColectivo extends LightningElement {
 
     // Mapeo automático; "Nombre" sin columnas de apellidos es el nombre completo.
     mapeoAutomatico(filas, h) {
-        const mapeo = mapeoAutomatico(filas, h, CAMPOS);
-        if (mapeo.nombre !== undefined && mapeo.nombreCompleto === undefined
-            && mapeo.apellidoPaterno === undefined && mapeo.apellidos === undefined) {
-            mapeo.nombreCompleto = mapeo.nombre;
-            delete mapeo.nombre;
-        }
-        return mapeo;
+        return mapeoCenso(filas, h);
     }
 
     get opcionesColumnas() {
@@ -370,139 +360,65 @@ export default class CensoColectivo extends LightningElement {
     // Normalización y validación
     // ============================================================
     validar(datos) {
-        // "M" es Mujer salvo que el archivo use M/F (Masculino/Femenino).
-        const usaMF = datos.some((d) => ['f', 'femenino', 'fem'].includes(this.fold(d.sexo)));
-        this._sexo12 = this.sexoPorCodigo(datos);
-        const renglones = datos
-            .map((d) => this.normalizar(d, usaMF))
-            .filter((r) => r.nombreCompleto || r.parentescoOriginal || r.fechaNacimiento)
-            // Renglones de totales/subtotales al final de muchos censos.
-            .filter((r) => !/^(sub)?total(es)?\b/.test(this.fold(r.nombreCompleto)));
-
-        // Liga dependientes con su titular: mismo certificado o núm. de empleado; si no, el titular anterior.
-        const porLlave = {};
-        const vistos = {};
-        let ultimoTitular = null;
-        renglones.forEach((r, i) => {
-            r.idx = i;
-            if (r.esTitular) {
-                ultimoTitular = i;
-                [r.certificado, r.numEmpleado].forEach((k) => { if (k) { porLlave[this.fold(k)] = i; } });
-            } else {
-                let t;
-                [r.certificado, r.numEmpleado].forEach((k) => {
-                    if (t === undefined && k) {
-                        const base = this.fold(String(k).split(/[-/]/)[0]);
-                        t = porLlave[this.fold(k)] ?? porLlave[base];
-                    }
-                });
-                r.titularIndex = t ?? ultimoTitular;
-                if (r.titularIndex === null || r.titularIndex === undefined) {
-                    r.errores.push('Dependiente sin titular antes de él');
-                } else {
-                    const tit = renglones[r.titularIndex];
-                    r.titularNombre = tit.nombreCompleto;
-                    if (!r.categoria) { r.categoria = tit.categoria; }
-                }
-            }
-            if (!r.nombreCompleto) { r.errores.push('Sin nombre'); }
-            const llave = this.fold(r.nombreCompleto) + '|' + (r.fechaNacimiento || r.edad || '');
-            if (r.nombreCompleto && vistos[llave] !== undefined) {
-                r.avisos.push(`Posible duplicado de la fila ${renglones[vistos[llave]].fila}`);
-            } else if (r.nombreCompleto) {
-                vistos[llave] = i;
-            }
-        });
-        // Un dependiente cuyo titular tiene errores tampoco se puede guardar.
-        renglones.forEach((r) => {
-            if (!r.esTitular && r.titularIndex != null && renglones[r.titularIndex].errores.length) {
-                r.errores.push(`Su titular (fila ${renglones[r.titularIndex].fila}) tiene errores`);
-            }
-        });
-        this.renglones = renglones;
+        // Normaliza, liga dependientes con su titular y marca errores/avisos (lógica compartida con Crear Póliza).
+        this.renglones = normalizarCenso(datos);
         this.filtro = 'todos';
         this.pagina = 1;
-        this.modoGuardar = 'reemplazar';
+        // Un archivo de movimientos (altas, bajas, cambios) complementa el censo: no lo reemplaza.
+        this.modoGuardar = this.hayMovimientos ? 'agregar' : 'reemplazar';
         this.paso = 'vista';
+        this.cambiosRevision = [];
+        this.revisarMovimientos();
+        this.cargarCambios();
     }
 
-    normalizar(d, usaMF) {
-        const txt = (v) => (v === undefined || v === null ? '' : String(v).replace(/\s+/g, ' ').trim());
-        const r = { fila: d.fila, errores: [], avisos: [] };
-        const apellidos = txt(d.apellidos) || [txt(d.apellidoPaterno), txt(d.apellidoMaterno)].filter((x) => x).join(' ');
-        r.nombre = txt(d.nombre);
-        r.apellidos = apellidos;
-        r.nombreCompleto = txt(d.nombreCompleto) || [r.nombre, apellidos].filter((x) => x).join(' ');
-        // Formato "APELLIDOS, NOMBRES".
-        if (!r.nombre && !apellidos && r.nombreCompleto.includes(',')) {
-            const [ap, nom] = r.nombreCompleto.split(',');
-            r.apellidos = txt(ap);
-            r.nombre = txt(nom);
-            r.nombreCompleto = [r.nombre, r.apellidos].filter((x) => x).join(' ');
+    // Cambios del archivo: dato anterior y dato nuevo de cada persona. Si la persona no existe se agrega (internamente
+    // es un alta) pero se muestra como cambio.
+    async cargarCambios() {
+        if (this.esLector || !this._opportunityId) { return; }
+        const renglones = this.renglones;
+        const cambios = renglones.filter((r) => !r.errores.length && r.movimiento === MOVIMIENTOS.CAMBIO)
+            .map((r) => ({ ...payloadMiembro(r), fila: r.fila ?? r.idx + 1, titularIndex: r.esTitular ? null : 0 }));
+        if (!cambios.length) { return; }
+        let res;
+        try {
+            res = await revisarCambios({ opportunityId: this._opportunityId, personasJson: JSON.stringify(cambios) }) || [];
+        } catch (e) {
+            return; // Solo es una vista previa: si falla, la carga sigue.
         }
-
-        const fn = this.fecha(d.fechaNacimiento);
-        if (fn.invalida) { r.avisos.push(`Fecha de nacimiento no válida (${txt(d.fechaNacimiento)})`); }
-        r.fechaNacimiento = fn.iso;
-        const fa = this.fecha(d.fechaAlta);
-        if (fa.invalida) { r.avisos.push(`Fecha de alta no válida (${txt(d.fechaAlta)})`); }
-        r.fechaAlta = fa.iso;
-        let edad = this.numero(d.edad);
-        if (r.fechaNacimiento) { edad = this.edadDe(r.fechaNacimiento); }
-        r.edad = edad === null ? null : Math.floor(edad);
-        if (r.edad === null) { r.avisos.push('Sin fecha de nacimiento ni edad'); }
-        else if (r.edad < 0 || r.edad > 99) { r.avisos.push(`Edad fuera de rango (${r.edad})`); }
-
-        const s = this.fold(d.sexo);
-        if (['h', 'hombre', 'masculino', 'masc', 'male', 'varon'].includes(s) || (s === 'm' && usaMF)) { r.sexo = 'Hombre'; }
-        else if (['mujer', 'f', 'femenino', 'fem', 'female'].includes(s) || (s === 'm' && !usaMF)) { r.sexo = 'Mujer'; }
-        else if (this._sexo12 && this._sexo12[s]) { r.sexo = this._sexo12[s]; }
-        else { r.sexo = ''; }
-
-        r.parentescoOriginal = txt(d.parentesco);
-        const p = this.fold(d.parentesco);
-        const encontrado = this.parentescoPorCodigo(p)
-            || PARENTESCOS.find((x) => x.claves.includes(p) || x.claves.some((k) => k.length > 3 && p.startsWith(k)));
-        r.parentesco = !p ? 'Titular' : (encontrado ? encontrado.valor : 'Otro');
-        if (p && !encontrado) { r.avisos.push(`Parentesco "${r.parentescoOriginal}" se guardará como Otro`); }
-        r.esTitular = r.parentesco === 'Titular';
-
-        r.categoria = txt(d.categoria);
-        const mensual = this.numero(d.sueldoMensual);
-        const anual = this.numero(d.sueldoAnual);
-        r.sueldoAnual = anual !== null ? anual : (mensual !== null ? Math.round(mensual * 12 * 100) / 100 : null);
-        r.sumaAsegurada = this.numero(d.sumaAsegurada);
-        r.prima = this.numero(d.prima);
-        r.certificado = txt(d.certificado).replace(/\.0+$/, '');
-        r.numEmpleado = txt(d.numEmpleado).replace(/\.0+$/, '');
-        r.rfc = txt(d.rfc).toUpperCase();
-        r.email = txt(d.email);
-        r.telefono = txt(d.telefono).replace(/\.0+$/, '');
-        return r;
+        if (renglones !== this.renglones) { return; }
+        this.cambiosRevision = res.map((c) => ({
+            ...c,
+            key: 'cr' + c.fila,
+            notaTxt: c.existe ? '' : 'No existía: se agrega',
+            difs: (c.diferencias || []).map((d, i) => ({ key: `cr${c.fila}-${i}`, ...d })),
+            sinDifs: !(c.diferencias || []).length
+        }));
     }
+    get hayCambiosRevision() { return this.cambiosRevision.length > 0; }
 
-    // Parentesco en código de aseguradora ("01" titular, "02" cónyuge, "03" en adelante hijos).
-    parentescoPorCodigo(p) {
-        if (!/^\d{1,2}$/.test(p)) { return null; }
-        const n = Number(p);
-        const valor = n <= 1 ? 'Titular' : (n === 2 ? 'Cónyuge' : 'Hijo(a)');
-        return PARENTESCOS.find((x) => x.valor === valor);
-    }
-
-    // Sexo en código 1/2: cada aseguradora lo usa distinto, así que se deduce de los nombres del archivo
-    // (los que terminan en "a" suelen ser mujeres y en "o" hombres). Regresa { '1': ..., '2': ... } o null.
-    sexoPorCodigo(datos) {
-        const votos = { 1: 0, 2: 0 };
-        let codigos = 0;
-        datos.forEach((d) => {
-            const s = this.fold(d.sexo);
-            if (s !== '1' && s !== '2') { return; }
-            codigos++;
-            const nombre = this.fold(d.nombre || d.nombreCompleto).split(' ')[0] || '';
-            if (/a$/.test(nombre)) { votos[s]++; } else if (/o$/.test(nombre)) { votos[s]--; }
-        });
-        if (!codigos || votos[1] === votos[2]) { return null; }
-        return votos[1] > votos[2] ? { 1: 'Mujer', 2: 'Hombre' } : { 1: 'Hombre', 2: 'Mujer' };
+    // Bajas de personas que no existen (ni en el censo ni como contacto del cliente): se marca el renglón con un aviso
+    // y se manda el mensaje; se puede guardar igual. Los cambios se revisan aparte (cargarCambios).
+    async revisarMovimientos() {
+        const revisar = movimientosPorRevisar(this.renglones).filter((p) => this.esLector || p.movimiento === MOVIMIENTOS.BAJA);
+        if (!revisar.length || !this._opportunityId) { return; }
+        const renglones = this.renglones;
+        let faltan;
+        try {
+            faltan = new Set(await movimientosSinContacto({
+                opportunityId: this._opportunityId, accountId: null, personasJson: JSON.stringify(revisar)
+            }) || []);
+        } catch (e) {
+            return; // Solo es un aviso: si la revisión falla, la carga sigue.
+        }
+        // Se cargó otro archivo mientras se revisaba.
+        if (renglones !== this.renglones || !faltan.size) { return; }
+        const esMovimiento = (r) => !r.errores.length && (r.movimiento === MOVIMIENTOS.BAJA || r.movimiento === MOVIMIENTOS.CAMBIO);
+        this.renglones = renglones.map((r) => (esMovimiento(r) && faltan.has(r.fila ?? r.idx + 1)
+            ? { ...r, avisos: [...r.avisos, `${r.movimiento}: ${AVISO_SIN_CONTACTO}`] }
+            : r));
+        this.toast('Censo', `${faltan.size} baja(s) o cambio(s) son de personas que no existen como contacto ni en el censo, `
+            + 'así que esas bajas no se pueden aplicar. Puedes continuar con lo demás.', 'info');
     }
 
     fecha(v) {
@@ -513,27 +429,39 @@ export default class CensoColectivo extends LightningElement {
         return numero(v);
     }
 
-    edadDe(iso) {
-        const [a, m, d] = iso.split('-').map(Number);
-        const hoy = new Date();
-        let e = hoy.getFullYear() - a;
-        if (hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d)) { e--; }
-        return e;
-    }
-
     // ============================================================
     // Vista previa
     // ============================================================
     get totalRenglones() { return this.renglones.length; }
     get conError() { return this.renglones.filter((r) => r.errores.length).length; }
     get conAviso() { return this.renglones.filter((r) => !r.errores.length && r.avisos.length).length; }
-    get validos() { return this.renglones.filter((r) => !r.errores.length); }
+    // Las bajas (y los dependientes de un titular dado de baja) no se guardan como asegurados.
+    get validos() { return this.renglones.filter((r) => !r.errores.length && !r.esBaja); }
+    get movimientos() { return conteoMovimientos(this.renglones); }
+    get hayMovimientos() { return this.movimientos.hay; }
     get totalValidos() { return this.validos.length; }
     get titularesValidos() { return this.validos.filter((r) => r.esTitular).length; }
     get dependientesValidos() { return this.totalValidos - this.titularesValidos; }
     get hayErrores() { return this.conError > 0; }
-    get sinValidos() { return this.totalValidos === 0 || this.cargando; }
-    get textoGuardar() { return this.esLector ? `Comparar ${this.totalValidos} asegurados` : `Guardar ${this.totalValidos} asegurados`; }
+    // Bajas del archivo (sin errores) que se aplican al guardar.
+    get bajas() { return this.esLector ? [] : movimientosPorRevisar(this.renglones).filter((p) => p.movimiento === MOVIMIENTOS.BAJA); }
+    // Lector (Movimientos): se entregan también los renglones de baja para que se comparen contra los asegurados
+    // existentes; los dependientes de un titular dado de baja no hacen falta (se dan de baja con él).
+    get paraComparar() {
+        return this.renglones.filter((r) => !r.errores.length && (!r.esBaja || r.movimiento === MOVIMIENTOS.BAJA));
+    }
+    get sinValidos() {
+        if (this.esLector) { return !this.paraComparar.length || this.cargando; }
+        return (this.totalValidos === 0 && !this.bajas.length) || this.cargando;
+    }
+    get mostrarModo() { return this.tieneCenso && !this.hayMovimientos; }
+    get textoGuardar() {
+        if (this.esLector) { return `Procesar registros (${this.paraComparar.length})`; }
+        const partes = [];
+        if (this.totalValidos) { partes.push(`Guardar ${this.totalValidos} asegurados`); }
+        if (this.bajas.length) { partes.push(`${partes.length ? 'aplicar' : 'Aplicar'} ${this.bajas.length} baja(s)`); }
+        return partes.join(' y ') || 'Guardar';
+    }
 
     get resumenVista() {
         const mapa = {};
@@ -557,16 +485,26 @@ export default class CensoColectivo extends LightningElement {
     }
 
     get opcionesFiltro() {
-        return [
+        const ops = [
             { label: `Todos (${this.totalRenglones})`, value: 'todos' },
             { label: `Con error (${this.conError})`, value: 'errores' },
             { label: `Con aviso (${this.conAviso})`, value: 'avisos' }
         ];
+        if (this.hayMovimientos) {
+            const m = this.movimientos;
+            ops.push(
+                { label: `Altas (${m.altas})`, value: MOVIMIENTOS.ALTA },
+                { label: `Bajas (${m.bajas})`, value: MOVIMIENTOS.BAJA },
+                { label: `Cambios (${m.cambios})`, value: MOVIMIENTOS.CAMBIO }
+            );
+        }
+        return ops;
     }
     handleFiltro(event) { this.filtro = event.detail.value; this.pagina = 1; }
     get filtrados() {
         if (this.filtro === 'errores') { return this.renglones.filter((r) => r.errores.length); }
         if (this.filtro === 'avisos') { return this.renglones.filter((r) => !r.errores.length && r.avisos.length); }
+        if (Object.values(MOVIMIENTOS).includes(this.filtro)) { return this.renglones.filter((r) => r.movimiento === this.filtro); }
         return this.renglones;
     }
     get renglonesVista() {
@@ -585,6 +523,8 @@ export default class CensoColectivo extends LightningElement {
             sueldoTxt: this.moneda(r.sueldoAnual),
             sumaTxt: this.moneda(r.sumaAsegurada),
             primaTxt: this.moneda(r.prima),
+            movimiento: r.movimiento || r.movimientoOriginal || '',
+            claseMovimiento: 'chip-movimiento' + (r.movimiento ? ' mov-' + r.movimiento.toLowerCase() : ''),
             mensajes: [...r.errores, ...r.avisos].join(' · '),
             claseFila: (r.errores.length ? 'fila-error' : (r.avisos.length ? 'fila-aviso' : '')) + (r.esTitular ? '' : ' fila-dependiente'),
             icono: r.errores.length ? 'utility:error' : (r.avisos.length ? 'utility:warning' : 'utility:success'),
@@ -611,15 +551,18 @@ export default class CensoColectivo extends LightningElement {
     // ============================================================
     async guardar() {
         const validos = this.validos;
-        if (!validos.length) { return; }
+        const bajas = this.bajas;
         if (this.esLector) {
-            // Se entrega la lista leída; titularIndex es la posición del titular en la misma lista.
-            const posicion = new Map(validos.map((r, j) => [r.idx, j]));
-            const miembros = validos.map((r) => ({ ...this.payload(r), titularIndex: r.esTitular ? null : (posicion.get(r.titularIndex) ?? null) }));
+            // Se entrega la lista leída (con las bajas); titularIndex es la posición del titular en la misma lista.
+            const lista = this.paraComparar;
+            if (!lista.length) { return; }
+            const posicion = new Map(lista.map((r, j) => [r.idx, j]));
+            const miembros = lista.map((r) => ({ ...this.payload(r), titularIndex: r.esTitular ? null : (posicion.get(r.titularIndex) ?? null) }));
             this.dispatchEvent(new CustomEvent('leido', { detail: { miembros, archivo: this.archivoNombre } }));
             this.cancelar();
             return;
         }
+        if (!validos.length && !bajas.length) { return; }
         // Grupos titular + dependientes, para no separarlos entre lotes.
         const nuevoIdx = new Map();
         validos.forEach((r, i) => nuevoIdx.set(r.idx, i));
@@ -639,6 +582,7 @@ export default class CensoColectivo extends LightningElement {
 
         this.cargando = true;
         let total = 0;
+        const movimientos = this.hayMovimientos;
         try {
             for (let i = 0; i < lotes.length; i++) {
                 this.progreso = lotes.length > 1 ? `Guardando lote ${i + 1} de ${lotes.length}…` : 'Guardando censo…';
@@ -647,13 +591,30 @@ export default class CensoColectivo extends LightningElement {
                     ...this.payload(r),
                     titularIndex: r.esTitular ? null : posicion.get(r.titularIndex)
                 }));
-                total = await guardarCenso({
-                    opportunityId: this._opportunityId,
-                    miembrosJson: JSON.stringify(payload),
-                    reemplazar: i === 0 && (this.modoGuardar === 'reemplazar' || !this.tieneCenso)
-                });
+                if (movimientos) {
+                    // Altas y cambios: se agregan los que falten y se completan los que ya están (sin duplicar).
+                    const r = await complementarCenso({ opportunityId: this._opportunityId, miembrosJson: JSON.stringify(payload) });
+                    total = (r && r.total) || total;
+                } else {
+                    total = await guardarCenso({
+                        opportunityId: this._opportunityId,
+                        miembrosJson: JSON.stringify(payload),
+                        reemplazar: i === 0 && (this.modoGuardar === 'reemplazar' || !this.tieneCenso)
+                    });
+                }
             }
-            this.toast('Censo', `Censo guardado: ${total} asegurados.`, 'success');
+            const partes = [];
+            if (lotes.length) { partes.push(`Censo guardado: ${total} asegurados.`); }
+            if (bajas.length) {
+                this.progreso = 'Aplicando bajas…';
+                const r = await aplicarBajas({ opportunityId: this._opportunityId, policyId: null, personasJson: JSON.stringify(bajas) }) || {};
+                partes.push(`${r.censo || 0} asegurado(s) dados de baja del censo.`);
+                const faltan = (r.noEncontrados || []).length;
+                if (faltan) {
+                    this.toast('Censo', `${faltan} baja(s) no se aplicaron porque esas personas no existen en el censo.`, 'info');
+                }
+            }
+            this.toast('Censo', partes.join(' '), 'success');
             this.cancelar();
             await this.cargarCenso();
         } catch (e) {
@@ -666,26 +627,7 @@ export default class CensoColectivo extends LightningElement {
 
     // Renglón validado en el formato de CensoColectivoController.MiembroEntrada (sin titularIndex).
     payload(r) {
-        return {
-            fila: r.fila,
-            nombreCompleto: r.nombreCompleto,
-            nombre: r.nombre,
-            apellidos: r.apellidos,
-            fechaNacimiento: r.fechaNacimiento || null,
-            edad: r.edad,
-            sexo: r.sexo,
-            parentesco: r.parentesco,
-            categoria: r.categoria,
-            sueldoAnual: r.sueldoAnual,
-            sumaAsegurada: r.sumaAsegurada,
-            prima: r.prima,
-            certificado: r.certificado,
-            fechaAlta: r.fechaAlta || null,
-            numEmpleado: r.numEmpleado,
-            rfc: r.rfc,
-            email: r.email,
-            telefono: r.telefono
-        };
+        return payloadMiembro(r);
     }
 
     // ============================================================

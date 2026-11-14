@@ -268,8 +268,8 @@ public with sharing class PdfOpportunityCreatorController {
 		if (start < 0 || last < start) {
 			return new Map<String, Object>();
 		}
-		String desdeInicio = payload.substring(start);
-		payload = payload.substring(start, last + 1);
+		String desdeInicio = JsonIa.repararTextos(payload.substring(start));
+		payload = JsonIa.repararTextos(payload.substring(start, last + 1));
 		try {
 			return (Map<String, Object>) JSON.deserializeUntyped(payload);
 		} catch (Exception e) {
@@ -1008,6 +1008,13 @@ public with sharing class PdfOpportunityCreatorController {
 		// Datos comunes (mismos para todas): se devuelven UNA sola vez, aparte.
 		Map<String, Object> detalle = buildDetalle(comparison);
 		Map<String, Object> cliente = buildCliente(comparison);
+		// Si la IA no reconoció al cliente (o tomó el nombre del agente), se busca en el texto de los PDFs por
+		// sus etiquetas habituales ("Estimado:", "Contratante:", "Asegurado titular:", etc.).
+		String nombreIa = stringOf(cliente.get('nombre'));
+		if (String.isBlank(nombreIa) || nombreIa.toUpperCase().contains('AVANZA')) {
+			String nombreTexto = nombreClienteDesdeTexto(pdfTexts);
+			if (String.isNotBlank(nombreTexto)) { cliente.put('nombre', nombreTexto); }
+		}
 
 		// Las cotizaciones solo traen lo que cambia entre aseguradoras.
 		// Se descartan las repetidas (misma aseguradora, plan, número y prima): la IA a veces
@@ -1386,6 +1393,47 @@ public with sharing class PdfOpportunityCreatorController {
 			'cp' => '',
 			'direccion' => ''
 		};
+	}
+
+	// Etiquetas con las que las aseguradoras ponen el nombre del cliente en la cotización.
+	private static final Pattern ETIQUETA_CLIENTE = Pattern.compile(
+		'(?i)(?:Estimad[oa]s?|Nombre del contratante|Contratante|Nombre del asegurado|Asegurado titular|Asegurado principal|'
+		+ 'Titular|Solicitante|Nombre del cliente|Cliente|Prospecto|Propuesta para|Cotizaci[oó]n para|Preparad[oa] para)\\s*:\\s*');
+	private static final Pattern PALABRA_NOMBRE = Pattern.compile('^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ\'.-]*$');
+
+	/**
+	 * @description: Busca el nombre del cliente en el texto de los PDFs, después de una etiqueta conocida
+	 * ("Estimado: RICARDO NAVARRETE VILLAGOMEZ"). Toma de 2 a 6 palabras sin números; si el nombre viene en
+	 * mayúsculas se detiene en la primera palabra que no lo esté (el texto que sigue a la etiqueta).
+	 * @param pdfTexts: textos extraídos de los PDFs.
+	 * @return el nombre encontrado, o '' si no hay ninguno.
+	 */
+	@TestVisible
+	private static String nombreClienteDesdeTexto(List<String> pdfTexts) {
+		if (pdfTexts == null) { return ''; }
+		for (String texto : pdfTexts) {
+			if (String.isBlank(texto)) { continue; }
+			Matcher m = ETIQUETA_CLIENTE.matcher(texto);
+			while (m.find()) {
+				String resto = texto.substring(m.end()).split('\n', 2)[0];
+				List<String> palabras = new List<String>();
+				Boolean mayusculas = null;
+				for (String p : resto.trim().split('\\s+')) {
+					String limpia = p.removeEnd(',').removeEnd('.');
+					if (!PALABRA_NOMBRE.matcher(limpia).matches()) { break; }
+					Boolean esMayus = limpia.equals(limpia.toUpperCase());   // equals: == no distingue mayúsculas
+					if (mayusculas == null) { mayusculas = esMayus; }
+					if (mayusculas && !esMayus) { break; }
+					// Nombre en tipo título: cada palabra empieza con mayúscula; una sigla (RFC, CP) ya no es parte del nombre.
+					if (!mayusculas && (!limpia.substring(0, 1).isAllUpperCase() || (esMayus && limpia.length() > 1))) { break; }
+					palabras.add(limpia);
+					if (palabras.size() == 6 || p.endsWith(',') || p.endsWith('.')) { break; }
+				}
+				String nombre = String.join(palabras, ' ');
+				if (palabras.size() >= 2 && !nombre.toUpperCase().contains('AVANZA')) { return nombre; }
+			}
+		}
+		return '';
 	}
 
 	/**

@@ -105,7 +105,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             this.cotizaciones = (await getCotizacionesColectivas({ opportunityId: this._opportunityId })) || [];
             this.dispatchEvent(new CustomEvent('colectivoactualizado', { detail: { cotizaciones: this.cotizaciones.length } }));
         } catch (e) {
-            this.toast('Cotización colectiva', this.mensaje(e), 'error');
+            this.toast('Cotización empresarial', this.mensaje(e), 'error');
         } finally {
             this.cargando = false;
         }
@@ -462,11 +462,11 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.cargando = true;
         try {
             await eliminarCotizacionColectiva({ quoteId: id });
-            this.toast('Cotización colectiva', 'Cotización eliminada.', 'success');
+            this.toast('Cotización empresarial', 'Cotización eliminada.', 'success');
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
         } catch (e) {
-            this.toast('Cotización colectiva', this.mensaje(e), 'error');
+            this.toast('Cotización empresarial', this.mensaje(e), 'error');
         } finally {
             this.cargando = false;
         }
@@ -477,10 +477,10 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.progreso = 'Generando comparativo PDF…';
         try {
             const docId = await generarComparativoPdf({ opportunityId: this._opportunityId });
-            this.toast('Cotización colectiva', 'Comparativo PDF generado y guardado en la oportunidad y en las cotizaciones.', 'success');
+            this.toast('Cotización empresarial', 'Comparativo PDF generado y guardado en la oportunidad y en las cotizaciones.', 'success');
             this[NavigationMixin.Navigate]({ type: 'standard__namedPage', attributes: { pageName: 'filePreview' }, state: { selectedRecordId: docId } });
         } catch (e) {
-            this.toast('Cotización colectiva', this.mensaje(e), 'error');
+            this.toast('Cotización empresarial', this.mensaje(e), 'error');
         } finally {
             this.cargando = false;
             this.progreso = '';
@@ -498,7 +498,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         event.target.value = null;
         if (!archivos.length) { return; }
         const { vistas, fallas } = await this.leerArchivos(archivos);
-        if (fallas.length) { this.toast('Cotización colectiva', fallas.join(' | '), 'error', 'sticky'); }
+        if (fallas.length) { this.toast('Cotización empresarial', fallas.join(' | '), 'error', 'sticky'); }
         await this.crearVistas(vistas);
     }
 
@@ -593,12 +593,12 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
             this.progreso = '';
         }
         if (creadas.length) {
-            this.toast('Cotización colectiva', `Cotización creada: ${creadas.join(', ')}.`, 'success');
+            this.toast('Cotización empresarial', `Cotización creada: ${creadas.join(', ')}.`, 'success');
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
         }
         if (conAvisos.length) { this.toast('Revisa la cotización creada', conAvisos.join(' | '), 'warning', 'sticky'); }
-        if (fallas.length) { this.toast('Cotización colectiva', fallas.join(' | '), 'error', 'sticky'); }
+        if (fallas.length) { this.toast('Cotización empresarial', fallas.join(' | '), 'error', 'sticky'); }
         this._pendientes = pendientes;
         this.siguientePendiente();
     }
@@ -726,7 +726,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.paso = vista ? 'vista' : 'resumen';
         if (vista) {
             this.archivoNombre = vista.archivo;
-            this.toast('Cotización colectiva', `Falta la aseguradora o la prima de ${vista.archivo}: revísala y guárdala.`, 'warning');
+            this.toast('Cotización empresarial', `Falta la aseguradora o la prima de ${vista.archivo}: revísala y guárdala.`, 'warning');
         }
     }
 
@@ -1045,12 +1045,12 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         this.progreso = 'Guardando cotización…';
         try {
             await this.guardarVista(this.vista);
-            this.toast('Cotización colectiva', 'Cotización guardada.', 'success');
+            this.toast('Cotización empresarial', 'Cotización guardada.', 'success');
             await this.cargar();
             this.dispatchEvent(new CustomEvent('cotizacioncreada'));
             this.siguientePendiente();
         } catch (err) {
-            this.toast('Cotización colectiva', this.mensaje(err), 'error');
+            this.toast('Cotización empresarial', this.mensaje(err), 'error');
         } finally {
             this.cargando = false;
             this.progreso = '';

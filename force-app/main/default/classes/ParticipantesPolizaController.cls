@@ -469,7 +469,7 @@ public with sharing class ParticipantesPolizaController {
 			+ '<div style="background:#1F4E9C;color:#ffffff;padding:16px;text-align:center;">'
 			+ '<div style="font-size:20px;font-weight:bold;">Constancia de baja</div>'
 			+ '<div style="font-size:12px;">Avanza Seguro Consultores</div></div>'
-			+ '<p style="margin-top:18px;">Se hace constar que la persona indicada fue dada de baja de la póliza colectiva con los siguientes datos:</p>'
+			+ '<p style="margin-top:18px;">Se hace constar que la persona indicada fue dada de baja de la póliza empresarial con los siguientes datos:</p>'
 			+ '<table style="width:100%;border-collapse:collapse;">' + tabla + '</table>'
 			+ '<p style="margin-top:18px;">A partir de la fecha de baja ya no cuenta con la cobertura de esta póliza. '
 			+ 'Conserve este documento para cualquier aclaración.</p>'

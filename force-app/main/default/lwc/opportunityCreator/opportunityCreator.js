@@ -1672,22 +1672,26 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // ENVIAR CORREO (Flow "Enviar Correo Oportunidad")
     // Solo disponible cuando la oportunidad está en etapa "Póliza".
     // ============================================================
-    // El botón del pie del formulario se muestra si la oportunidad abierta está en Póliza.
+    // El botón "Enviar Correo" del pie del formulario se muestra si la oportunidad abierta (ya creada) está en
+    // Gestión Comercial, En proceso de emisión o Póliza.
     get isEtapaPoliza() {
-        return this.isPolizaStage(this.opportunity?.StageName) && !!this.opportunity?.Id;
+        const stage = this.opportunity?.StageName;
+        return !!this.opportunity?.Id
+            && (stage === 'Gestion Comercial' || stage === 'En proceso de emision' || this.isPolizaStage(stage));
     }
-    // Variable de entrada del Flow: el Id de la oportunidad como recordId.
-    get correoFlowInputs() {
-        return [{ name: 'recordId', type: 'String', value: this.correoFlowOppId }];
-    }
+    // Variable de entrada del Flow: el Id de la oportunidad como recordId. Se arma UNA vez al abrir el modal: si se
+    // creara un arreglo nuevo en cada render, lightning-flow reiniciaría el flujo (y volvería a enviar el correo).
+    correoFlowInputs = [];
     // Abre el modal con el Flow. Toma el Id del botón (lista) o de la oportunidad abierta.
     handleEnviarCorreo(event) {
+        if (this.correoFlowOpen) { return; }   // ya hay un envío abierto (evita doble clic)
         const id = (event && event.currentTarget && event.currentTarget.dataset.id) || this.opportunity?.Id;
         if (!id) {
             this.showToast('Aviso', 'No se encontró la oportunidad para enviar el correo.', 'warning');
             return;
         }
         this.correoFlowOppId = id;
+        this.correoFlowInputs = [{ name: 'recordId', type: 'String', value: id }];
         this.correoFlowOpen = true;
     }
     closeCorreoFlow() {
@@ -1758,11 +1762,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isColectivaUbicaciones() {
         return this.isColectiva && (this.isRamoDanos || this.isRamoEmpresarial);
     }
-    // En flotilla no aplica el detalle de un solo vehículo: los vehículos vienen en los incisos. En Vida y Daños
-    // colectivos tampoco (asegurado principal / subramo): de la colectiva solo importan las primas.
+    // La sección "Detalles del ramo" es solo para individuales: en colectivos (flotilla, censo de personas,
+    // ubicaciones) los datos vienen del censo y de las cotizaciones de cada aseguradora.
     get mostrarDetalleRamo() {
-        return this.showCreateView && !this.isFlotilla
-            && !(this.isColectiva && (this.isRamoVida || this.isRamoDanos));
+        return this.showCreateView && !this.isFlotilla && !this.isColectiva;
     }
     // Censo de personas: colectivas de ramos que aseguran personas.
     get isCensoPersonas() {
@@ -1856,7 +1859,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get tipoContratacionOptions() {
         return [
             { label: 'Individual', value: 'Individual' },
-            { label: 'Colectiva', value: 'Colectiva' }
+            { label: 'Empresarial', value: 'Colectiva' }
         ];
     }
     get parentescoOptions() {
@@ -2439,7 +2442,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         h += `<p style="font-size:11px;color:#b85b00;margin:0 0 12px;">${d.totalQuotes} aseguradoras comparadas &middot; Cotizado por Avanza Seguro</p>`;
 
         h += '<table style="width:100%;border-collapse:collapse;">';
-        h += `<tr><th style="${th}">Concepto</th>`;
+        h += `<tr><th style="${th}">Aseguradora</th>`;
         d.columns.forEach((c) => {
             h += `<th style="${c.hasBadge ? thRec : th}">${esc(c.name)}`;
             if (c.hasBadge) { h += `<br><span style="font-size:10px;color:#b85b00;">${esc(c.badge)}</span>`; }
@@ -2665,7 +2668,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return {
             clase: 'chip-tipo chip-colectiva',
             icono,
-            texto: ['Colectiva', icono === 'utility:travel_and_places' ? '' : ramo, tamano].filter((x) => x).join(' · '),
+            texto: ['Empresarial', icono === 'utility:travel_and_places' ? '' : ramo, tamano].filter((x) => x).join(' · '),
             sub: r.cotizaciones ? n(r.cotizaciones, 'cotización', 'cotizaciones') : 'Sin cotizaciones'
         };
     }
@@ -2676,7 +2679,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return [
             { valor: 'todas', etiqueta: 'Todas', icono: 'utility:list', total: base.length },
             { valor: 'individual', etiqueta: 'Individuales', icono: 'utility:user', total: base.length - col },
-            { valor: 'colectiva', etiqueta: 'Colectivas', icono: 'utility:groups', total: col }
+            { valor: 'colectiva', etiqueta: 'Empresariales', icono: 'utility:groups', total: col }
         ].map((s) => ({ ...s, clase: 'segmento' + (s.valor === this.tipoFiltro ? ' segmento_activo' : '') + ' segmento_' + s.valor,
             presionado: s.valor === this.tipoFiltro ? 'true' : 'false' }));
     }
@@ -2831,6 +2834,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 isClosed,
                 isPoliza: this.isPolizaStage(opp.StageName),
                 isPolizaView: this.isPolizaStage(opp.StageName) || isClosed,
+                // Gestión Comercial / En proceso de emisión: también llevan "Enviar Correo" en la lista.
+                puedeEnviarCorreo: opp.StageName === 'Gestion Comercial' || opp.StageName === 'En proceso de emision',
                 typeLabel: this.getTypeLabel(opp.Type),
                 filaClase: `${statusClass} ${esColectiva ? 'fila-colectiva' : 'fila-individual'}`,
                 chipClase: chip.clase,
@@ -3477,8 +3482,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // deja para captura manual. Solo actúa si aún no hay agente asignado.
     async asignarAgenteDesdeArchivo(fileName) {
         if (!fileName) { return; }
-        // El del archivo tiene prioridad sobre el default (Abraham), pero NO sobre una
-        // selección manual del usuario.
+        // No reemplaza una selección manual del usuario.
         if (this.opportunity.Agente__c && !this._agenteEsDefault) { return; }
         const agente = this.agenteDesdeNombreArchivo(fileName);
         if (!agente) { return; }
@@ -4171,8 +4175,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (!files || !files.length) { return; }
         const existente = !!this.opportunity.Id;
         if (existente && !this.mostrarCotizacionesColectivas) {
-            this.showToast('Cotización colectiva',
-                'Esta oportunidad no es colectiva: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
+            this.showToast('Cotización empresarial',
+                'Esta oportunidad no es empresarial: cambia el tipo de contratación y el ramo, guárdala y vuelve a subir los archivos.',
                 'warning', 'sticky');
             return;
         }
@@ -4193,7 +4197,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         await this.esperarRender();
         const comp = this.template.querySelector('c-colectivo-personas[data-carga]');
         if (!comp) {
-            this.showToast('Cotización colectiva', 'No se encontró la sección de cotizaciones colectivas.', 'error');
+            this.showToast('Cotización empresarial', 'No se encontró la sección de cotizaciones empresariales.', 'error');
             return;
         }
         comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4240,7 +4244,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             Type: tipoOportunidad,
             Prima_Neta__c: prima || this.opportunity.Prima_Neta__c,
             Prima_neta__c: prima || this.opportunity.Prima_neta__c,
-            Description: this.opportunity.Description || 'Cotizaciones colectivas leídas por la IA: ' + resumen.map((x) =>
+            Description: this.opportunity.Description || 'Cotizaciones empresariales leídas por la IA: ' + resumen.map((x) =>
                 `${x.aseguradora || x.archivo} ${this.formatCurrency(x.primaTotal || x.primaNeta || 0)}`).join(' · ')
         };
         if (cliente && !this.opportunity.AccountId) {
@@ -4252,7 +4256,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.aplicarFechaCierreSugerida();
         this.setDefaultAgente({ archivos: files.map((f) => ({ nombre: f.name })) });
         this.showToast('La IA ya lo llenó',
-            `Se leyeron ${resumen.length} cotización(es) colectiva(s). Revisa los datos de la oportunidad y guarda: al guardar se crean las cotizaciones.`,
+            `Se leyeron ${resumen.length} cotización(es) empresarial(es). Revisa los datos de la oportunidad y guarda: al guardar se crean las cotizaciones.`,
             'success');
     }
 
@@ -4414,8 +4418,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (d && Array.isArray(d.quotes)) { d.quotes.forEach(q => { if (q) { fuentes.push(q.archivoOrigen || q.nombreArchivo); } }); }
         if (Array.isArray(this.uploadedQuotes)) { this.uploadedQuotes.forEach(q => { if (q) { fuentes.push(q.archivoOrigen || q.nombreArchivo); } }); }
 
-        // Toma el agente del PRIMER archivo cuyo 2° segmento exista en Producer.
-        let asignado = false;
+        // Toma el agente del PRIMER archivo cuyo 2° segmento exista en Producer. Si ninguno trae un agente
+        // válido, el Producer se deja en blanco para que el usuario lo elija (ya no se pone uno por defecto).
         for (const archivo of fuentes) {
             const agente = this.agenteDesdeNombreArchivo(archivo);
             if (!agente) { continue; }
@@ -4425,26 +4429,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
                     this.agenteEmail = res[0].email || '';
                     this._agenteEsDefault = false;
-                    asignado = true;
                     break;
                 }
             } catch (e) {
                 // Sigue con el siguiente archivo.
-            }
-        }
-
-        // Respaldo: si NINGÚN archivo trae un agente válido, se usa "Abraham Gonzalez".
-        // Se marca como DEFAULT para que un evento posterior con el nombre real lo reemplace.
-        if (!asignado && !this.opportunity.Agente__c) {
-            try {
-                const res = await searchAgentsProspectors({ searchTerm: 'Abraham Gonzalez' });
-                if (res && res.length > 0) {
-                    this.opportunity = { ...this.opportunity, Agente__c: res[0].Id, AgenteName: res[0].Name };
-                    this.agenteEmail = res[0].email || '';
-                    this._agenteEsDefault = true;
-                }
-            } catch (e) {
-                // Sin coincidencia: el usuario elige el agente a mano.
             }
         }
     }
@@ -4523,8 +4511,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Mismo número de aseguradoras/cotizaciones comparadas...
         const n = texto.match(/(\d+)\s+(?:aseguradoras?|cotizaciones?)\s+comparad[ao]s/i);
         if (n && Number(n[1]) !== actuales.length) { return false; }
-        // ...y la prima total de cada cotización actual aparece en el comparativo.
-        return actuales.every((q) => texto.includes(Math.round(Number(q.totalAmount)).toLocaleString('en-US')));
+        // ...y la prima total de cada cotización actual aparece en el comparativo. Se busca la parte entera
+        // (12,345 de "12,345.67") o redondeada (por si el comparativo trae la prima sin centavos).
+        const fmt = (v) => v.toLocaleString('en-US');
+        return actuales.every((q) => {
+            const total = Number(q.totalAmount);
+            return texto.includes(fmt(Math.trunc(total))) || texto.includes(fmt(Math.round(total)));
+        });
     }
     // HTML del comparativo a guardar en la oportunidad: el de la IA si sigue vigente; si no, el de las cotizaciones actuales.
     comparativoHtmlParaGuardar() {
@@ -4589,12 +4582,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Inyecta el HTML de la IA en un div lwc:dom="manual" (evita iframe/blob que
     // la CSP de Lightning bloquea y provocan "Script error").
     renderedCallback() {
-        if (!this._comparativoDirty) { return; }
         const host = this.template.querySelector('.comparativo-ia__host');
         if (!host) { return; }
+        // Se vuelve a llenar si el HTML cambió o si el contenedor es nuevo (al guardar, cambiar de modo o de
+        // pestaña la sección se vuelve a dibujar con el contenedor vacío).
+        if (!this._comparativoDirty && host === this._comparativoHost && host.childElementCount > 0) { return; }
         this._comparativoDirty = false;
+        this._comparativoHost = host;
         try {
             host.innerHTML = this.repararAcentos(this.comparativoHtml || '');
+            // La columna de los conceptos se titula "Aseguradora" (sus encabezados son las aseguradoras). Corrige
+            // también los comparativos de IA guardados antes con el título "Concepto".
+            host.querySelectorAll('th').forEach((celda) => {
+                if (/^\s*concepto\s*$/i.test(celda.textContent || '')) { celda.textContent = 'Aseguradora'; }
+            });
         } catch (e) {
             /* no romper el flujo si el HTML no se puede inyectar */
         }

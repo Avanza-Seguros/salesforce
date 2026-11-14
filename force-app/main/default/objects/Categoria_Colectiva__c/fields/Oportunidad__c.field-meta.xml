@@ -2,11 +2,11 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Oportunidad__c</fullName>
     <deleteConstraint>SetNull</deleteConstraint>
-    <description>Oportunidad colectiva.</description>
+    <description>Oportunidad empresarial.</description>
     <externalId>false</externalId>
     <label>Oportunidad</label>
     <referenceTo>Opportunity</referenceTo>
-    <relationshipLabel>Categorías colectivas</relationshipLabel>
+    <relationshipLabel>Categorías empresariales</relationshipLabel>
     <relationshipName>Categorias_Colectivas</relationshipName>
     <required>false</required>
     <trackTrending>false</trackTrending>

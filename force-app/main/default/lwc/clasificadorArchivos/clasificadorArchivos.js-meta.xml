@@ -2,5 +2,5 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>false</isExposed>
-    <description>Detecta el tipo de archivo de una póliza colectiva (carátula, censo, flotilla, ubicaciones) y convierte sus filas.</description>
+    <description>Detecta el tipo de archivo de una póliza empresarial (carátula, censo, flotilla, ubicaciones) y convierte sus filas.</description>
 </LightningComponentBundle>

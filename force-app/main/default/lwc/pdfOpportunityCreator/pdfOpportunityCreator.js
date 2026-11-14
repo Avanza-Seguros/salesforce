@@ -155,7 +155,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 	get esColectiva() { return this.tipo === "Colectiva"; }
 	get claseIndividual() { return this.esColectiva ? "pdf-tipo__btn" : "pdf-tipo__btn pdf-tipo__btn--activo"; }
 	get claseColectiva() { return this.esColectiva ? "pdf-tipo__btn pdf-tipo__btn--activo" : "pdf-tipo__btn"; }
-	get textoBoton() { return this.esColectiva ? "Leer cotizaciones colectivas y llenar por mí" : "Leer PDFs y llenar por mí"; }
+	get textoBoton() { return this.esColectiva ? "Leer cotizaciones empresariales y llenar por mí" : "Leer PDFs y llenar por mí"; }
 	handleTipo(event) {
 		this.tipo = event.currentTarget.dataset.tipo;
 		this._tipoManual = true;
@@ -180,7 +180,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 	}
 	get doneMessage() {
 		if (this.colectivoEnviado) {
-			return `Se enviaron ${this.extractedCount} archivo(s) como cotización colectiva: la IA los lee en "Cotizaciones colectivas" y se crean al guardar la oportunidad.`;
+			return `Se enviaron ${this.extractedCount} archivo(s) como cotización empresarial: la IA los lee en "Cotizaciones empresariales" y se crean al guardar la oportunidad.`;
 		}
 		const c = this.clienteDetectado || "el cliente";
 		return `Se extrajeron ${this.extractedCount} cotización(es) para ${c}. Revisa los datos en el formulario y guarda la oportunidad.`;
@@ -309,7 +309,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 		if (grandes.length) {
 			this.showToast(
 				"Cotización individual",
-				`${grandes.map((f) => f.name).join(", ")}: en individual solo se leen PDFs de hasta ~4.5 MB. Si es cotización colectiva, elige "Colectiva".`,
+				`${grandes.map((f) => f.name).join(", ")}: en individual solo se leen PDFs de hasta ~4.5 MB. Si es cotización empresarial, elige "Empresarial".`,
 				"warning"
 			);
 			return;
@@ -379,7 +379,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 	// guardar la oportunidad. Los archivos de hasta ~4.5 MB también se adjuntan a la oportunidad.
 	async continuarColectiva() {
 		this.isProcessing = true;
-		this.statusMessage = "Preparando las cotizaciones colectivas…";
+		this.statusMessage = "Preparando las cotizaciones empresariales…";
 		try {
 			const archivos = await this.filesToBase64(MAX_SIZE);
 			this.extractedCount = this.files.length;

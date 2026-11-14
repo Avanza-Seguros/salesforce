@@ -56,6 +56,8 @@ public with sharing class CensoColectivoController {
 		public Integer titularIndex;
 		// Número de fila del archivo, solo para mensajes de error.
 		public Integer fila;
+		// Tipo de movimiento del archivo: Alta, Baja o Cambio (vacío si el archivo no lo trae).
+		public String movimiento;
 	}
 
 	/**
@@ -170,7 +172,7 @@ public with sharing class CensoColectivoController {
 		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
 		Opportunity opp = opps[0];
 		if (opp.AccountId == null) {
-			throw error('La oportunidad no tiene cliente. En una póliza colectiva el cliente es la empresa contratante: asígnalo y guarda la oportunidad antes de cargar el censo.');
+			throw error('La oportunidad no tiene cliente. En una póliza empresarial el cliente es la empresa contratante: asígnalo y guarda la oportunidad antes de cargar el censo.');
 		}
 
 		Savepoint sp = Database.setSavepoint();
@@ -225,6 +227,496 @@ public with sharing class CensoColectivoController {
 			Database.rollback(sp);
 			throw error('No se pudo guardar el censo: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Complementa el censo de la oportunidad con un archivo más (emisión de colectivos con varios
+	 *               archivos): agrega solo a los asegurados que aún no están (mismo certificado y nombre; sin
+	 *               certificado, mismo nombre) y completa los datos vacíos de los que ya están. Un dependiente nuevo
+	 *               cuyo titular ya estaba en el censo se liga a ese titular. Crea el censo si no existe. Todo o nada.
+	 * @param opportunityId: Id de la oportunidad colectiva (debe tener cliente/empresa).
+	 * @param miembrosJson: JSON con la lista de MiembroEntrada (titularIndex = posición del titular en la lista).
+	 * @return mapa con "nuevos" (asegurados agregados), "completados" (ya estaban y se completaron) y "total".
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Integer> complementarCenso(Id opportunityId, String miembrosJson) {
+		List<MiembroEntrada> entrada;
+		try {
+			entrada = (List<MiembroEntrada>) JSON.deserialize(String.isBlank(miembrosJson) ? '[]' : miembrosJson, List<MiembroEntrada>.class);
+		} catch (Exception e) {
+			throw error('El censo no tiene un formato válido: ' + e.getMessage());
+		}
+		if (entrada.isEmpty()) { throw error('El censo no tiene asegurados para guardar.'); }
+		if (entrada.size() > MAX_MIEMBROS) {
+			throw error('El censo tiene ' + entrada.size() + ' asegurados; el máximo por carga es ' + MAX_MIEMBROS + '.');
+		}
+		List<Opportunity> opps = [SELECT Id, Name, AccountId FROM Opportunity WHERE Id = :opportunityId LIMIT 1];
+		if (opps.isEmpty()) { throw error('No se encontró la oportunidad.'); }
+		Opportunity opp = opps[0];
+		if (opp.AccountId == null) {
+			throw error('La oportunidad no tiene cliente. En una póliza empresarial el cliente es la empresa contratante: asígnalo antes de cargar el censo.');
+		}
+
+		Savepoint sp = Database.setSavepoint();
+		try {
+			GroupCensus censo = censoDe(opportunityId);
+			if (censo == null) { censo = asegurarCenso(opp); }
+			// Asegurados que ya están en el censo, por certificado + nombre y (para los que no traen certificado) por nombre.
+			Map<String, GroupCensusMember> porLlave = new Map<String, GroupCensusMember>();
+			Map<String, GroupCensusMember> porNombre = new Map<String, GroupCensusMember>();
+			List<GroupCensusMember> actuales = miembrosParaCambio(censo.Id);
+			for (GroupCensusMember m : actuales) {
+				porLlave.put(llaveParticipante(m.Certificado__c, m.Name), m);
+				String kn = llaveParticipante(null, m.Name);
+				if (!porNombre.containsKey(kn)) { porNombre.put(kn, m); }
+			}
+			Set<Id> usadosCambio = new Set<Id>();
+			Map<String, Id> categorias = categoriasDe(opp.AccountId, entrada);
+			Map<Id, GroupCensusMember> completar = new Map<Id, GroupCensusMember>();
+
+			// Titulares: los que ya están se completan; los nuevos se insertan.
+			Map<Integer, Id> titularPorIndice = new Map<Integer, Id>();
+			Map<Integer, GroupCensusMember> titularesNuevos = new Map<Integer, GroupCensusMember>();
+			List<GroupCensusMember> listaTitulares = new List<GroupCensusMember>();
+			List<Integer> filasTitulares = new List<Integer>();
+			for (Integer i = 0; i < entrada.size(); i++) {
+				MiembroEntrada e = entrada[i];
+				if (e.titularIndex != null) { continue; }
+				GroupCensusMember m = miembro(e, censo.Id, categorias);
+				// Cambio: se busca a la persona aunque cambie su nombre y se sobrescriben sus datos.
+				GroupCensusMember ya = e.movimiento == MOV_CAMBIO ? paraCambio(e, actuales, usadosCambio) : existente(porLlave, porNombre, m);
+				if (ya != null) {
+					titularPorIndice.put(i, ya.Id);
+					if (e.movimiento == MOV_CAMBIO ? aplicarCambio(ya, m) : completarMiembro(ya, m)) { completar.put(ya.Id, ya); }
+					continue;
+				}
+				titularesNuevos.put(i, m);
+				listaTitulares.add(m);
+				filasTitulares.add(e.fila);
+				registrar(porLlave, porNombre, m);
+			}
+			insertarConFila(listaTitulares, filasTitulares);
+			for (Integer i : titularesNuevos.keySet()) { titularPorIndice.put(i, titularesNuevos.get(i).Id); }
+
+			// Dependientes ligados a su titular (nuevo o el que ya estaba).
+			List<GroupCensusMember> dependientes = new List<GroupCensusMember>();
+			List<Integer> filasDependientes = new List<Integer>();
+			for (Integer i = 0; i < entrada.size(); i++) {
+				MiembroEntrada e = entrada[i];
+				if (e.titularIndex == null) { continue; }
+				Id titularId = titularPorIndice.get(e.titularIndex);
+				if (titularId == null) {
+					throw error('Fila ' + e.fila + ': el dependiente no tiene un titular válido en el censo.');
+				}
+				GroupCensusMember m = miembro(e, censo.Id, categorias);
+				GroupCensusMember ya = e.movimiento == MOV_CAMBIO ? paraCambio(e, actuales, usadosCambio) : existente(porLlave, porNombre, m);
+				if (ya != null) {
+					if (e.movimiento == MOV_CAMBIO ? aplicarCambio(ya, m) : completarMiembro(ya, m)) { completar.put(ya.Id, ya); }
+					continue;
+				}
+				m.PrimaryGroupCensusMemberId = titularId;
+				dependientes.add(m);
+				filasDependientes.add(e.fila);
+				registrar(porLlave, porNombre, m);
+			}
+			insertarConFila(dependientes, filasDependientes);
+			if (!completar.isEmpty()) { update completar.values(); }
+
+			return new Map<String, Integer>{
+				'nuevos' => listaTitulares.size() + dependientes.size(),
+				'completados' => completar.size(),
+				'total' => [SELECT COUNT() FROM GroupCensusMember WHERE GroupCensusId = :censo.Id]
+			};
+		} catch (AuraHandledException ahe) {
+			Database.rollback(sp);
+			throw ahe;
+		} catch (Exception e) {
+			Database.rollback(sp);
+			throw error('No se pudo complementar el censo: ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Renglón de baja o cambio del censo que se busca entre los asegurados y contactos existentes.
+	 */
+	public class PersonaMovimiento {
+		public Integer fila;
+		public String nombreCompleto;
+		public String certificado;
+		public String rfc;
+		public String movimiento;
+		public String fechaMovimiento;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Aplica las bajas del censo: quita del censo de la oportunidad a cada persona (con sus dependientes si
+	 *               es titular) y, si la póliza ya existe, deja inactivo a su participante (y a sus dependientes) con la
+	 *               fecha de movimiento como «Vigente hasta» (no se borra). La persona se busca por RFC, por certificado y
+	 *               nombre o por nombre (sin importar el orden). Las que no existen no se pueden dar de baja: se devuelven
+	 *               para avisar. Todo o nada.
+	 * @param opportunityId: oportunidad colectiva (puede ser null).
+	 * @param policyId: póliza (puede ser null si aún no existe).
+	 * @param personasJson: JSON con la lista de PersonaMovimiento (las bajas).
+	 * @return mapa con "censo" (asegurados quitados del censo), "poliza" (participantes dados de baja) y
+	 *         "noEncontrados" (filas de las personas que no existen).
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> aplicarBajas(Id opportunityId, Id policyId, String personasJson) {
+		List<PersonaMovimiento> personas;
+		try {
+			personas = (List<PersonaMovimiento>) JSON.deserialize(String.isBlank(personasJson) ? '[]' : personasJson, List<PersonaMovimiento>.class);
+		} catch (Exception e) {
+			throw error('La lista de bajas no tiene un formato válido: ' + e.getMessage());
+		}
+		Map<String, Object> res = new Map<String, Object>{ 'censo' => 0, 'poliza' => 0, 'noEncontrados' => new List<Integer>() };
+		if (personas.isEmpty()) { return res; }
+
+		// Asegurados del censo de la oportunidad.
+		Map<String, SObject> miembros = new Map<String, SObject>();
+		List<GroupCensusMember> todosMiembros = new List<GroupCensusMember>();
+		GroupCensus censo = censoDe(opportunityId);
+		if (censo != null) {
+			todosMiembros = [
+				SELECT Id, Name, Certificado__c, RFC__c, PrimaryGroupCensusMemberId FROM GroupCensusMember
+				WHERE GroupCensusId = :censo.Id LIMIT 10000
+			];
+			for (GroupCensusMember m : todosMiembros) {
+				indexar(miembros, m.RFC__c, m.Certificado__c, m.Name, m);
+			}
+		}
+		// Participantes activos de la póliza.
+		Map<String, SObject> participantes = new Map<String, SObject>();
+		List<InsurancePolicyParticipant> todosParticipantes = new List<InsurancePolicyParticipant>();
+		if (policyId != null) {
+			todosParticipantes = [
+				SELECT Id, ParticipantName, ParticipantCode, EffectiveFromDate, RelatedInsPolicyParticipantId, IsActiveParticipant
+				FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND IsActiveParticipant != false LIMIT 10000
+			];
+			for (InsurancePolicyParticipant p : todosParticipantes) {
+				indexar(participantes, null, p.ParticipantCode, p.ParticipantName, p);
+			}
+		}
+
+		Set<Id> bajaMiembros = new Set<Id>();
+		Map<Id, Date> bajaParticipantes = new Map<Id, Date>();
+		List<Integer> noEncontrados = new List<Integer>();
+		for (PersonaMovimiento p : personas) {
+			GroupCensusMember m = (GroupCensusMember) buscar(miembros, p);
+			InsurancePolicyParticipant ip = (InsurancePolicyParticipant) buscar(participantes, p);
+			if (m == null && ip == null) { noEncontrados.add(p.fila); continue; }
+			if (m != null) { bajaMiembros.add(m.Id); }
+			if (ip != null) {
+				Date f = String.isBlank(p.fechaMovimiento) ? Date.today() : fecha(p.fechaMovimiento);
+				if (f == null) { f = Date.today(); }
+				bajaParticipantes.put(ip.Id, f);
+			}
+		}
+		// Los dependientes se van con su titular.
+		List<GroupCensusMember> borrarDependientes = new List<GroupCensusMember>();
+		List<GroupCensusMember> borrarTitulares = new List<GroupCensusMember>();
+		for (GroupCensusMember m : todosMiembros) {
+			if (bajaMiembros.contains(m.Id) || bajaMiembros.contains(m.PrimaryGroupCensusMemberId)) {
+				(m.PrimaryGroupCensusMemberId == null ? borrarTitulares : borrarDependientes).add(m);
+			}
+		}
+		List<InsurancePolicyParticipant> inactivar = new List<InsurancePolicyParticipant>();
+		for (InsurancePolicyParticipant p : todosParticipantes) {
+			Date f = bajaParticipantes.containsKey(p.Id) ? bajaParticipantes.get(p.Id) : bajaParticipantes.get(p.RelatedInsPolicyParticipantId);
+			if (f == null) { continue; }
+			// La baja no puede ser anterior al alta.
+			if (p.EffectiveFromDate != null && f < p.EffectiveFromDate) { f = p.EffectiveFromDate; }
+			inactivar.add(new InsurancePolicyParticipant(Id = p.Id, IsActiveParticipant = false, EffectiveToDate = f,
+				ExpirationDate = Datetime.newInstance(f, Time.newInstance(12, 0, 0, 0))));
+		}
+
+		Savepoint sp = Database.setSavepoint();
+		try {
+			if (!borrarDependientes.isEmpty()) { delete borrarDependientes; }
+			if (!borrarTitulares.isEmpty()) { delete borrarTitulares; }
+			if (!inactivar.isEmpty()) { update inactivar; }
+		} catch (Exception e) {
+			Database.rollback(sp);
+			throw error('No se pudieron aplicar las bajas: ' + e.getMessage());
+		}
+		res.put('censo', borrarDependientes.size() + borrarTitulares.size());
+		res.put('poliza', inactivar.size());
+		res.put('noEncontrados', noEncontrados);
+		return res;
+	}
+
+	// Registra un asegurado/participante con sus llaves de búsqueda (RFC, certificado + nombre y nombre sin orden).
+	private static void indexar(Map<String, SObject> mapa, String rfc, String certificado, String nombre, SObject registro) {
+		if (String.isNotBlank(rfc)) { mapa.put('rfc:' + rfc.trim().toUpperCase(), registro); }
+		if (String.isNotBlank(certificado)) { mapa.put('cn:' + llaveParticipante(certificado, nombre), registro); }
+		String n = llavePersona(nombre);
+		if (String.isNotBlank(n) && !mapa.containsKey('n:' + n)) { mapa.put('n:' + n, registro); }
+	}
+
+	// Registro que corresponde a la persona: por RFC, por certificado y nombre o por nombre.
+	private static SObject buscar(Map<String, SObject> mapa, PersonaMovimiento p) {
+		SObject r = null;
+		if (String.isNotBlank(p.rfc)) { r = mapa.get('rfc:' + p.rfc.trim().toUpperCase()); }
+		if (r == null && String.isNotBlank(p.certificado)) { r = mapa.get('cn:' + llaveParticipante(p.certificado, p.nombreCompleto)); }
+		if (r == null && String.isNotBlank(p.nombreCompleto)) { r = mapa.get('n:' + llavePersona(p.nombreCompleto)); }
+		return r;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Para los renglones de baja o cambio del censo, indica cuáles no corresponden a nadie existente: no
+	 *               están en el censo de la oportunidad (mismo RFC, mismo certificado y nombre, o mismo nombre) ni son
+	 *               contactos del cliente (mismo RFC o mismo nombre, sin importar el orden de nombre y apellidos). Solo
+	 *               avisa; la carga puede continuar.
+	 * @param opportunityId: oportunidad colectiva (puede ser null).
+	 * @param accountId: cliente de la póliza; si es null se toma el de la oportunidad.
+	 * @param personasJson: JSON con la lista de PersonaMovimiento.
+	 * @return número de fila de los renglones que no se encontraron.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Integer> movimientosSinContacto(Id opportunityId, Id accountId, String personasJson) {
+		List<PersonaMovimiento> personas;
+		try {
+			personas = (List<PersonaMovimiento>) JSON.deserialize(String.isBlank(personasJson) ? '[]' : personasJson, List<PersonaMovimiento>.class);
+		} catch (Exception e) {
+			throw error('La lista de movimientos no tiene un formato válido: ' + e.getMessage());
+		}
+		List<Integer> sinContacto = new List<Integer>();
+		if (personas.isEmpty()) { return sinContacto; }
+
+		Set<String> rfcs = new Set<String>();
+		Set<String> certNombre = new Set<String>();
+		Set<String> nombres = new Set<String>();
+		if (accountId == null && opportunityId != null) {
+			for (Opportunity o : [SELECT AccountId FROM Opportunity WHERE Id = :opportunityId LIMIT 1]) { accountId = o.AccountId; }
+		}
+		GroupCensus censo = censoDe(opportunityId);
+		if (censo != null) {
+			for (GroupCensusMember m : [
+				SELECT Name, Certificado__c, RFC__c FROM GroupCensusMember WHERE GroupCensusId = :censo.Id LIMIT 10000
+			]) {
+				if (String.isNotBlank(m.RFC__c)) { rfcs.add(m.RFC__c.trim().toUpperCase()); }
+				if (String.isNotBlank(m.Certificado__c)) { certNombre.add(llaveParticipante(m.Certificado__c, m.Name)); }
+				nombres.add(llavePersona(m.Name));
+			}
+		}
+		if (accountId != null) {
+			for (Contact c : [SELECT Name, RFC__c FROM Contact WHERE AccountId = :accountId LIMIT 10000]) {
+				if (String.isNotBlank(c.RFC__c)) { rfcs.add(c.RFC__c.trim().toUpperCase()); }
+				nombres.add(llavePersona(c.Name));
+			}
+		}
+		for (PersonaMovimiento p : personas) {
+			Boolean existe = (String.isNotBlank(p.rfc) && rfcs.contains(p.rfc.trim().toUpperCase()))
+				|| (String.isNotBlank(p.certificado) && certNombre.contains(llaveParticipante(p.certificado, p.nombreCompleto)))
+				|| (String.isNotBlank(p.nombreCompleto) && nombres.contains(llavePersona(p.nombreCompleto)));
+			if (!existe) { sinContacto.add(p.fila); }
+		}
+		return sinContacto;
+	}
+
+	// Llave de una persona por nombre, sin acentos ni signos y sin importar el orden ("PEREZ LOPEZ JUAN" = "Juan Pérez López").
+	@TestVisible
+	private static String llavePersona(String nombre) {
+		List<String> partes = new List<String>();
+		for (String p : llaveParticipante(null, nombre).substringAfter('|').replace('Ñ', 'N').replaceAll('[^A-Z0-9 ]', ' ').normalizeSpace().split(' ')) {
+			if (String.isNotBlank(p)) { partes.add(p); }
+		}
+		partes.sort();
+		return String.join(partes, ' ');
+	}
+
+	private static final String MOV_CAMBIO = 'Cambio';
+
+	// Asegurados del censo con los campos que se comparan y se cambian.
+	private static List<GroupCensusMember> miembrosParaCambio(Id censoId) {
+		return [
+			SELECT Id, Name, FirstName, LastName, Certificado__c, Birthdate, Gender, RFC__c, Email, PhoneNumber, Suma_Asegurada__c, Prima__c,
+				AnnualEligibleSalary, GroupClassId, GroupClass.Name, SourceSystemIdentifier, PrimaryGroupCensusMemberId
+			FROM GroupCensusMember WHERE GroupCensusId = :censoId ORDER BY CreatedDate LIMIT 10000
+		];
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asegurado al que se refiere un renglón de cambio: por nombre (sin importar orden ni acentos) con el
+	 *               mismo certificado o solo por nombre; si el nombre cambió, por RFC o por certificado cuando deja una
+	 *               sola persona posible (misma fecha de nacimiento, o mismo tipo titular/dependiente).
+	 * @return asegurado o null si no se puede asegurar quién es.
+	 */
+	@TestVisible
+	private static GroupCensusMember paraCambio(MiembroEntrada e, List<GroupCensusMember> actuales, Set<Id> usados) {
+		String nombre = String.isNotBlank(e.nombreCompleto) ? e.nombreCompleto
+			: ((e.nombre == null ? '' : e.nombre) + ' ' + (e.apellidos == null ? '' : e.apellidos));
+		String n = llavePersona(nombre);
+		String c = llaveCert(e.certificado);
+		String rfc = String.isBlank(e.rfc) ? null : e.rfc.deleteWhitespace().toUpperCase();
+		Date fn = fecha(e.fechaNacimiento);
+		Boolean titular = e.titularIndex == null;
+		GroupCensusMember porNombreCert;
+		GroupCensusMember porNombreSolo;
+		GroupCensusMember porRfc;
+		List<GroupCensusMember> porCert = new List<GroupCensusMember>();
+		for (GroupCensusMember m : actuales) {
+			if (m.Id == null || usados.contains(m.Id)) { continue; }
+			Boolean mismoNombre = String.isNotBlank(n) && llavePersona(m.Name) == n;
+			Boolean mismoCert = String.isNotBlank(c) && llaveCert(m.Certificado__c) == c;
+			if (mismoNombre && mismoCert && porNombreCert == null) { porNombreCert = m; }
+			if (mismoNombre && porNombreSolo == null) { porNombreSolo = m; }
+			if (rfc != null && m.RFC__c != null && m.RFC__c.deleteWhitespace().toUpperCase() == rfc && porRfc == null) { porRfc = m; }
+			if (mismoCert) {
+				if (fn != null && m.Birthdate != null) {
+					if (fn == m.Birthdate) { porCert.add(m); }
+				} else if ((m.PrimaryGroupCensusMemberId == null) == titular) {
+					porCert.add(m);
+				}
+			}
+		}
+		GroupCensusMember r = porNombreCert != null ? porNombreCert
+			: (porNombreSolo != null ? porNombreSolo : (porRfc != null ? porRfc : (porCert.size() == 1 ? porCert[0] : null)));
+		if (r != null) { usados.add(r.Id); }
+		return r;
+	}
+
+	private static String llaveCert(String c) {
+		return String.isBlank(c) ? '' : c.trim().replaceFirst('^0+(?=.)', '').toUpperCase();
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Aplica un cambio del archivo: sobrescribe con los datos que trae el renglón, incluido el nombre.
+	 * @return true si cambió algún dato.
+	 */
+	@TestVisible
+	private static Boolean aplicarCambio(GroupCensusMember ya, GroupCensusMember nuevo) {
+		if (ya.Id == null) { return false; }
+		Boolean cambio = false;
+		for (String campo : new List<String>{ 'Name', 'FirstName', 'LastName', 'Certificado__c', 'Birthdate', 'Gender', 'RFC__c', 'Email',
+				'PhoneNumber', 'Suma_Asegurada__c', 'Prima__c', 'AnnualEligibleSalary', 'GroupClassId' }) {
+			Object v = nuevo.get(campo);
+			if (v == null || (v instanceof String && String.isBlank((String) v))) { continue; }
+			// El nombre solo se cambia si de verdad es otro (no por acentos u orden).
+			if (campo == 'Name' || campo == 'FirstName' || campo == 'LastName') {
+				if (llavePersona((String) nuevo.Name) == llavePersona(ya.Name)) { continue; }
+			}
+			if (v != ya.get(campo)) {
+				ya.put(campo, v);
+				cambio = true;
+			}
+		}
+		return cambio;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Vista previa de los cambios del archivo contra el censo de la oportunidad: por cada renglón de cambio,
+	 *               el dato anterior y el nuevo. Si la persona no existe, se agrega (internamente es un alta) y se
+	 *               muestra igual como cambio, con el dato anterior vacío.
+	 * @param opportunityId: oportunidad.
+	 * @param personasJson: renglones del archivo (MiembroEntrada).
+	 * @return lista de {fila, nombre, certificado, existe, diferencias: [{campo, antes, despues}]}.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Map<String, Object>> revisarCambios(Id opportunityId, String personasJson) {
+		List<MiembroEntrada> entrada;
+		try {
+			entrada = (List<MiembroEntrada>) JSON.deserialize(String.isBlank(personasJson) ? '[]' : personasJson, List<MiembroEntrada>.class);
+		} catch (Exception e) {
+			throw error('El archivo no tiene un formato válido: ' + e.getMessage());
+		}
+		GroupCensus censo = opportunityId == null ? null : censoDe(opportunityId);
+		List<GroupCensusMember> actuales = censo == null ? new List<GroupCensusMember>() : miembrosParaCambio(censo.Id);
+		Set<Id> usados = new Set<Id>();
+		List<Map<String, Object>> res = new List<Map<String, Object>>();
+		for (MiembroEntrada e : entrada) {
+			if (e.movimiento != MOV_CAMBIO) { continue; }
+			GroupCensusMember nuevo;
+			try { nuevo = miembro(e, null, new Map<String, Id>()); } catch (Exception ex) { continue; }
+			GroupCensusMember ya = paraCambio(e, actuales, usados);
+			GroupCensusMember antes = ya == null ? new GroupCensusMember() : ya;
+			List<Object> difs = new List<Object>();
+			if (ya == null || llavePersona(nuevo.Name) != llavePersona(ya.Name)) { agregarDif(difs, 'Nombre', antes.Name, nuevo.Name); }
+			agregarDif(difs, 'Certificado', antes.Certificado__c, nuevo.Certificado__c);
+			agregarDif(difs, 'Fecha de nacimiento', antes.Birthdate == null ? null : antes.Birthdate.format(),
+				nuevo.Birthdate == null ? null : nuevo.Birthdate.format());
+			agregarDif(difs, 'Sexo', antes.Gender, nuevo.Gender);
+			agregarDif(difs, 'RFC', antes.RFC__c, nuevo.RFC__c);
+			agregarDif(difs, 'Correo', antes.Email, nuevo.Email);
+			agregarDif(difs, 'Teléfono', antes.PhoneNumber, nuevo.PhoneNumber);
+			agregarDif(difs, 'Categoría', antes.GroupClassId == null ? null : antes.GroupClass.Name,
+				String.isBlank(e.categoria) ? null : e.categoria.normalizeSpace());
+			agregarDif(difs, 'Sueldo anual', monto(antes.AnnualEligibleSalary), monto(nuevo.AnnualEligibleSalary));
+			agregarDif(difs, 'Suma asegurada', monto(antes.Suma_Asegurada__c), monto(nuevo.Suma_Asegurada__c));
+			agregarDif(difs, 'Prima', monto(antes.Prima__c), monto(nuevo.Prima__c));
+			res.add(new Map<String, Object>{
+				'fila' => e.fila, 'nombre' => ya == null ? nuevo.Name : ya.Name, 'certificado' => ya == null ? nuevo.Certificado__c : ya.Certificado__c,
+				'existe' => ya != null, 'diferencias' => difs
+			});
+		}
+		return res;
+	}
+
+	// Agrega la diferencia solo si el archivo trae el dato y es distinto al actual.
+	private static void agregarDif(List<Object> difs, String campo, Object antes, Object despues) {
+		if (despues == null || (despues instanceof String && String.isBlank((String) despues))) { return; }
+		String a = antes == null ? '' : String.valueOf(antes);
+		String d = String.valueOf(despues);
+		if (a.normalizeSpace().equalsIgnoreCase(d.normalizeSpace())) { return; }
+		difs.add(new Map<String, Object>{ 'campo' => campo, 'antes' => String.isBlank(a) ? '—' : a, 'despues' => d });
+	}
+
+	private static String monto(Decimal d) {
+		return d == null ? null : d.setScale(2).format();
+	}
+
+	// Asegurado del censo que corresponde al renglón: mismo certificado y nombre; si alguno no tiene certificado, mismo nombre.
+	private static GroupCensusMember existente(Map<String, GroupCensusMember> porLlave, Map<String, GroupCensusMember> porNombre,
+			GroupCensusMember m) {
+		GroupCensusMember ya = porLlave.get(llaveParticipante(m.Certificado__c, m.Name));
+		if (ya != null) { return ya; }
+		ya = porNombre.get(llaveParticipante(null, m.Name));
+		if (ya != null && (String.isBlank(m.Certificado__c) || String.isBlank(ya.Certificado__c))) { return ya; }
+		return null;
+	}
+
+	private static void registrar(Map<String, GroupCensusMember> porLlave, Map<String, GroupCensusMember> porNombre, GroupCensusMember m) {
+		porLlave.put(llaveParticipante(m.Certificado__c, m.Name), m);
+		String kn = llaveParticipante(null, m.Name);
+		if (!porNombre.containsKey(kn)) { porNombre.put(kn, m); }
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Completa los datos vacíos de un asegurado que ya estaba en el censo con los del archivo nuevo (no
+	 *               sobrescribe lo ya capturado).
+	 * @param ya: asegurado existente (con los campos consultados).
+	 * @param nuevo: asegurado armado del archivo.
+	 * @return true si se cambió algún dato.
+	 */
+	@TestVisible
+	private static Boolean completarMiembro(GroupCensusMember ya, GroupCensusMember nuevo) {
+		if (ya.Id == null) { return false; }
+		Boolean cambio = false;
+		for (String campo : new List<String>{ 'Certificado__c', 'Birthdate', 'Gender', 'RFC__c', 'Email', 'PhoneNumber',
+				'Suma_Asegurada__c', 'Prima__c', 'AnnualEligibleSalary', 'GroupClassId', 'SourceSystemIdentifier' }) {
+			Object v = nuevo.get(campo);
+			Object actual = ya.get(campo);
+			if (v != null && (actual == null || (actual instanceof String && String.isBlank((String) actual)))) {
+				ya.put(campo, v);
+				cambio = true;
+			}
+		}
+		return cambio;
 	}
 
 	/**
@@ -321,7 +813,7 @@ public with sharing class CensoColectivoController {
 	/**
 	 * @creation date: 31/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Vigencia anterior de una póliza colectiva: la póliza más reciente de la misma empresa y ramo que empieza
+	 * @description: Vigencia anterior de una póliza empresarial: la póliza más reciente de la misma empresa y ramo que empieza
 	 *               antes de la fecha indicada. Es la póliza que se renueva.
 	 * @param accountId: empresa contratante.
 	 * @param ramo: ramo de la póliza (vacío = cualquiera).
@@ -657,7 +1149,7 @@ public with sharing class CensoColectivoController {
 		String p = raw.trim();
 		Integer ini = p.indexOf('{');
 		Integer fin = p.lastIndexOf('}');
-		return (ini >= 0 && fin > ini) ? p.substring(ini, fin + 1) : '{"asegurados":[]}';
+		return (ini >= 0 && fin > ini) ? JsonIa.repararTextos(p.substring(ini, fin + 1)) : '{"asegurados":[]}';
 	}
 
 	/**
@@ -1128,6 +1620,7 @@ public with sharing class CensoColectivoController {
 
 	// Valor del catálogo de parentescos para el cónyuge (así está escrito) y los valores con género que lo sustituyen.
 	public static final String CONYUGE = 'Conyugue';
+	public static final String CONYUGE_VISIBLE = 'Cónyuge';
 	private static final Set<String> VALORES_CONYUGE = new Set<String>{ 'marido', 'mujer', 'esposo', 'esposa', 'husband', 'wife', 'spouse', 'conyuge', 'conyugue' };
 
 	/**
@@ -1141,7 +1634,8 @@ public with sharing class CensoColectivoController {
 	 */
 	public static String parentescoPolizaVisible(String valor, Map<String, String> etiquetas) {
 		if (String.isBlank(valor)) { return null; }
-		if (VALORES_CONYUGE.contains(llave(valor))) { valor = CONYUGE; }
+		// El catálogo guarda «Conyugue»; en pantalla se muestra bien escrito.
+		if (VALORES_CONYUGE.contains(llave(valor))) { return CONYUGE_VISIBLE; }
 		return etiquetas != null && etiquetas.containsKey(valor) ? etiquetas.get(valor) : valor;
 	}
 

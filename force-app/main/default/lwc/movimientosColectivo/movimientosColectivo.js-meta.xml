@@ -3,7 +3,7 @@
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
     <masterLabel>Asegurados colectivos (altas, bajas y cambios)</masterLabel>
-    <description>Altas, bajas con motivo y cambios de asegurados de una póliza colectiva (endosos) y ajuste del censo en la renovación.</description>
+    <description>Altas, bajas con motivo y cambios de asegurados de una póliza empresarial (endosos) y ajuste del censo en la renovación.</description>
     <targets>
         <target>lightning__RecordPage</target>
     </targets>

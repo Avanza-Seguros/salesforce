@@ -3,7 +3,7 @@
     <allowInChatterGroups>false</allowInChatterGroups>
     <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
     <deploymentStatus>Deployed</deploymentStatus>
-    <description>Categoría (subgrupo) de una cotización colectiva de personas (GMM, Vida, Accidentes): asegurados, prima y parámetros del plan que cotizó la aseguradora.</description>
+    <description>Categoría (subgrupo) de una cotización empresarial de personas (GMM, Vida, Accidentes): asegurados, prima y parámetros del plan que cotizó la aseguradora.</description>
     <enableActivities>false</enableActivities>
     <enableBulkApi>true</enableBulkApi>
     <enableFeeds>false</enableFeeds>
@@ -14,13 +14,13 @@
     <enableSharing>true</enableSharing>
     <enableStreamingApi>true</enableStreamingApi>
     <externalSharingModel>Private</externalSharingModel>
-    <label>Categoría colectiva</label>
+    <label>Categoría empresarial</label>
     <nameField>
         <label>Categoría</label>
         <trackHistory>false</trackHistory>
         <type>Text</type>
     </nameField>
-    <pluralLabel>Categorías colectivas</pluralLabel>
+    <pluralLabel>Categorías empresariales</pluralLabel>
     <searchLayouts/>
     <sharingModel>ReadWrite</sharingModel>
     <visibility>Public</visibility>

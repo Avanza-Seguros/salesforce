@@ -41,8 +41,6 @@
                                 <th scope="col" class="num">Dependientes</th>
                                 <th scope="col" class="num">Total</th>
                                 <th scope="col" class="num">Edad promedio</th>
-                                <th scope="col" class="num">Sueldo anual total</th>
-                                <th scope="col" class="num">Suma asegurada total</th>
                                 <th scope="col" class="num">Prima total</th>
                             </tr>
                         </thead>
@@ -54,8 +52,6 @@
                                     <td class="num">{c.dependientes}</td>
                                     <td class="num"><strong>{c.total}</strong></td>
                                     <td class="num">{c.edadTxt}</td>
-                                    <td class="num">{c.sueldoTxt}</td>
-                                    <td class="num">{c.sumaTxt}</td>
                                     <td class="num">{c.primaTxt}</td>
                                 </tr>
                             </template>
@@ -81,9 +77,7 @@
                                         <th scope="col">Categoría</th>
                                         <th scope="col">Nacimiento</th>
                                         <th scope="col" class="num">Edad</th>
-                                        <th scope="col">Sexo</th>
-                                        <th scope="col" class="num">Sueldo anual</th>
-                                        <th scope="col" class="num">Suma asegurada</th>
+                                        <th scope="col">Género</th>
                                         <th scope="col" class="num">Prima</th>
                                     </tr>
                                 </thead>
@@ -101,8 +95,6 @@
                                             <td>{m.fechaTxt}</td>
                                             <td class="num">{m.edadTxt}</td>
                                             <td>{m.sexo}</td>
-                                            <td class="num">{m.sueldoTxt}</td>
-                                            <td class="num">{m.sumaTxt}</td>
                                             <td class="num">{m.primaTxt}</td>
                                         </tr>
                                     </template>
@@ -132,10 +124,15 @@
                             <span>Excel (.xlsx), CSV o PDF. En PDF la IA lee la lista de asegurados.</span>
                         </div>
                         <div class="censo-carga-acciones">
-                            <lightning-input type="file" label="Archivo del censo" variant="label-hidden"
-                                accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" onchange={handleArchivo}></lightning-input>
                             <lightning-button label="Descargar plantilla" icon-name="utility:download" onclick={descargarPlantilla}></lightning-button>
                         </div>
+                        <!-- Zona de carga a todo el ancho: clic para elegir o arrastrar el archivo. -->
+                        <div class={claseZona} role="button" tabindex="0" onclick={elegirArchivo} ondragover={sobreZona}
+                            ondragleave={fueraZona} ondrop={soltarArchivo}>
+                            <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
+                            <span><strong>Arrastra aquí el archivo</strong> o haz clic para seleccionarlo</span>
+                        </div>
+                        <input type="file" class="censo-input" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" onchange={handleArchivo} />
                     </div>
                 </template>
             </template>
@@ -186,12 +183,54 @@
                 </div>
 
                 <div class="censo-stats">
-                    <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Se guardarán</span></div>
+                    <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Asegurados</span></div>
                     <div class="stat"><span class="stat-num">{titularesValidos}</span><span class="stat-lbl">Titulares</span></div>
                     <div class="stat"><span class="stat-num">{dependientesValidos}</span><span class="stat-lbl">Dependientes</span></div>
                     <div class="stat stat-aviso"><span class="stat-num">{conAviso}</span><span class="stat-lbl">Con aviso</span></div>
                     <div class="stat stat-error"><span class="stat-num">{conError}</span><span class="stat-lbl">Con error</span></div>
+                    <template if:true={hayMovimientos}>
+                        <div class="stat stat-alta"><span class="stat-num">{movimientos.altas}</span><span class="stat-lbl">Altas</span></div>
+                        <div class="stat stat-baja"><span class="stat-num">{movimientos.bajas}</span><span class="stat-lbl">Bajas</span></div>
+                        <div class="stat stat-cambio"><span class="stat-num">{movimientos.cambios}</span><span class="stat-lbl">Cambios</span></div>
+                    </template>
                 </div>
+
+                <!-- Cambios del archivo: dato anterior y dato nuevo antes de guardar. -->
+                <template if:true={hayCambiosRevision}>
+                    <h4 class="censo-seccion-cambio">Cambios ({cambiosRevision.length})</h4>
+                    <div class="censo-cambios">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col">Fila</th>
+                                    <th scope="col">Certificado</th>
+                                    <th scope="col">Nombre</th>
+                                    <th scope="col">Dato</th>
+                                    <th scope="col">Dato anterior</th>
+                                    <th scope="col">Dato nuevo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={cambiosRevision} for:item="c">
+                                    <tr key={c.key}>
+                                        <td>{c.fila}</td>
+                                        <td>{c.certificado}</td>
+                                        <td>
+                                            <div class="nombre">{c.nombre}</div>
+                                            <div class="sub">{c.notaTxt}</div>
+                                        </td>
+                                        <td>
+                                            <template for:each={c.difs} for:item="d"><div key={d.key} class="dif-campo">{d.campo}</div></template>
+                                            <template if:true={c.sinDifs}><span class="sub">Sin datos distintos</span></template>
+                                        </td>
+                                        <td><template for:each={c.difs} for:item="d"><div key={d.key} class="dif-antes">{d.antes}</div></template></td>
+                                        <td><template for:each={c.difs} for:item="d"><div key={d.key} class="dif-nuevo">{d.despues}</div></template></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
 
                 <table class="slds-table slds-table_bordered slds-table_cell-buffer censo-tabla">
                     <thead>
@@ -201,8 +240,6 @@
                             <th scope="col" class="num">Dependientes</th>
                             <th scope="col" class="num">Total</th>
                             <th scope="col" class="num">Edad promedio</th>
-                            <th scope="col" class="num">Sueldo anual total</th>
-                            <th scope="col" class="num">Suma asegurada total</th>
                             <th scope="col" class="num">Prima total</th>
                         </tr>
                     </thead>
@@ -214,8 +251,6 @@
                                 <td class="num">{c.dependientes}</td>
                                 <td class="num"><strong>{c.total}</strong></td>
                                 <td class="num">{c.edadTxt}</td>
-                                <td class="num">{c.sueldoTxt}</td>
-                                <td class="num">{c.sumaTxt}</td>
                                 <td class="num">{c.primaTxt}</td>
                             </tr>
                         </template>
@@ -226,7 +261,7 @@
                     <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
                         <lightning-combobox label="Mostrar" value={filtro} options={opcionesFiltro} onchange={handleFiltro}></lightning-combobox>
                     </div>
-                    <template if:true={tieneCenso}>
+                    <template if:true={mostrarModo}>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
                             <lightning-radio-group label="Ya existe un censo" options={opcionesModo} value={modoGuardar}
                                 onchange={handleModo} type="button"></lightning-radio-group>
@@ -240,15 +275,14 @@
                             <tr class="slds-line-height_reset">
                                 <th scope="col"></th>
                                 <th scope="col">Fila</th>
+                                <template if:true={hayMovimientos}><th scope="col">Movimiento</th></template>
                                 <th scope="col">Certificado</th>
                                 <th scope="col">Nombre</th>
                                 <th scope="col">Parentesco</th>
                                 <th scope="col">Categoría</th>
                                 <th scope="col">Nacimiento</th>
                                 <th scope="col" class="num">Edad</th>
-                                <th scope="col">Sexo</th>
-                                <th scope="col" class="num">Sueldo anual</th>
-                                <th scope="col" class="num">Suma asegurada</th>
+                                <th scope="col">Género</th>
                                 <th scope="col" class="num">Prima</th>
                                 <th scope="col">Observaciones</th>
                             </tr>
@@ -258,6 +292,7 @@
                                 <tr key={r.key} class={r.claseFila}>
                                     <td><lightning-icon icon-name={r.icono} variant={r.variante} size="xx-small"></lightning-icon></td>
                                     <td>{r.fila}</td>
+                                    <template if:true={hayMovimientos}><td><span class={r.claseMovimiento}>{r.movimiento}</span></td></template>
                                     <td>{r.certificado}</td>
                                     <td>
                                         <div class="nombre">{r.nombre}</div>
@@ -268,8 +303,6 @@
                                     <td>{r.fechaTxt}</td>
                                     <td class="num">{r.edad}</td>
                                     <td>{r.sexo}</td>
-                                    <td class="num">{r.sueldoTxt}</td>
-                                    <td class="num">{r.sumaTxt}</td>
                                     <td class="num">{r.primaTxt}</td>
                                     <td class="mensajes">{r.mensajes}</td>
                                 </tr>

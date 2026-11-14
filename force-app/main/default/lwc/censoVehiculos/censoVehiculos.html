@@ -121,10 +121,15 @@
                             <span>Excel (.xlsx), CSV o PDF. En PDF la IA lee la lista de vehículos.</span>
                         </div>
                         <div class="censo-carga-acciones">
-                            <lightning-input type="file" label="Archivo del censo de vehículos" variant="label-hidden"
-                                accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" onchange={handleArchivo}></lightning-input>
                             <lightning-button label="Descargar plantilla" icon-name="utility:download" onclick={descargarPlantilla}></lightning-button>
                         </div>
+                        <!-- Zona de carga a todo el ancho: clic para elegir o arrastrar el archivo. -->
+                        <div class={claseZona} role="button" tabindex="0" onclick={elegirArchivo} ondragover={sobreZona}
+                            ondragleave={fueraZona} ondrop={soltarArchivo}>
+                            <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
+                            <span><strong>Arrastra aquí el archivo</strong> o haz clic para seleccionarlo</span>
+                        </div>
+                        <input type="file" class="censo-input" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" onchange={handleArchivo} />
                     </div>
                 </template>
             </template>
@@ -175,7 +180,7 @@
                 </div>
 
                 <div class="censo-stats">
-                    <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Se guardarán</span></div>
+                    <div class="stat"><span class="stat-num">{totalValidos}</span><span class="stat-lbl">Vehículos</span></div>
                     <div class="stat"><span class="stat-num">{conSerieValidos}</span><span class="stat-lbl">Con serie</span></div>
                     <div class="stat stat-aviso"><span class="stat-num">{conAviso}</span><span class="stat-lbl">Con aviso</span></div>
                     <div class="stat stat-error"><span class="stat-num">{conError}</span><span class="stat-lbl">Con error</span></div>

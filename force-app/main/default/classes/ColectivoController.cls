@@ -185,7 +185,7 @@ public with sharing class ColectivoController {
 	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Guarda la cotización colectiva de una aseguradora: Quote (primas, formas de pago) y una
+	 * @description: Guarda la cotización empresarial de una aseguradora: Quote (primas, formas de pago) y una
 	 *               Categoria_Colectiva__c por categoría. Sin categorías se guarda solo la cotización con sus primas
 	 *               y no se genera comparativo. La prima total es la del archivo o, si no viene,
 	 *               prima neta + derechos + recargo + IVA. Todo o nada.
@@ -250,7 +250,7 @@ public with sharing class ColectivoController {
 			if (datos.recargo != null) { q.put('Recargo_Fraccionado__c', datos.recargo); }
 			if (datos.iva != null) { q.put('IVA__c', datos.iva); }
 			if (datos.formasPago != null && !datos.formasPago.isEmpty()) { q.put('Opciones_Pago__c', JSON.serialize(datos.formasPago, true)); }
-			if (String.isNotBlank(datos.archivo)) { q.Description = ('Cotización colectiva cargada de: ' + datos.archivo).left(32000); }
+			if (String.isNotBlank(datos.archivo)) { q.Description = ('Cotización empresarial cargada de: ' + datos.archivo).left(32000); }
 			insert q;
 
 			List<Categoria_Colectiva__c> categorias = new List<Categoria_Colectiva__c>();
@@ -294,14 +294,14 @@ public with sharing class ColectivoController {
 			throw ahe;
 		} catch (Exception e) {
 			Database.rollback(sp);
-			throw error('No se pudo guardar la cotización colectiva: ' + e.getMessage());
+			throw error('No se pudo guardar la cotización empresarial: ' + e.getMessage());
 		}
 	}
 
 	/**
 	 * @creation date: 14/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Elimina una cotización colectiva con sus categorías.
+	 * @description: Elimina una cotización empresarial con sus categorías.
 	 * @param quoteId: Quote a eliminar.
 	 */
 	@AuraEnabled(cacheable=false)
@@ -373,7 +373,7 @@ public with sharing class ColectivoController {
 		for (Categoria_Colectiva__c c : [SELECT Cotizacion__c FROM Categoria_Colectiva__c WHERE Oportunidad__c = :opportunityId AND Cotizacion__c != null LIMIT 2000]) {
 			quoteIds.add(c.Cotizacion__c);
 		}
-		if (quoteIds.isEmpty()) { throw error('Agrega al menos una cotización colectiva para generar el comparativo.'); }
+		if (quoteIds.isEmpty()) { throw error('Agrega al menos una cotización empresarial para generar el comparativo.'); }
 		try {
 			Blob pdf;
 			if (Test.isRunningTest()) {
@@ -764,7 +764,7 @@ public with sharing class ColectivoController {
 		if (String.isBlank(raw)) { return '{"categorias":[]}'; }
 		Integer ini = raw.indexOf('{');
 		Integer fin = raw.lastIndexOf('}');
-		return (ini >= 0 && fin > ini) ? raw.substring(ini, fin + 1) : '{"categorias":[]}';
+		return (ini >= 0 && fin > ini) ? JsonIa.repararTextos(raw.substring(ini, fin + 1)) : '{"categorias":[]}';
 	}
 
 	/**

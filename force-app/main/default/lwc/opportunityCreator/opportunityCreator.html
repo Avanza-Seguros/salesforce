@@ -180,7 +180,7 @@
                                             <th scope="col">Tipo</th>
                                             <th scope="col">Canal</th>
                                             <th scope="col">Prima neta</th>
-                                            <th scope="col">Cierre</th>
+                                            <th scope="col">Vencimiento</th>
                                             <th scope="col">Propietario</th>
                                             <th scope="col">Acciones</th>
                                         </tr>
@@ -230,6 +230,12 @@
                                                             <button class="info-list-btn" onclick={handleViewOpportunity} data-id={opp.Id} title="Ver información (solo lectura)">
                                                                 <lightning-icon icon-name="utility:info" size="xx-small"></lightning-icon>
                                                                 <span>Información</span>
+                                                            </button>
+                                                        </template>
+                                                        <template if:true={opp.puedeEnviarCorreo}>
+                                                            <button class="poliza-list-btn" onclick={handleEnviarCorreo} data-id={opp.Id} title="Enviar correo de la oportunidad">
+                                                                <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon>
+                                                                <span>Enviar Correo</span>
                                                             </button>
                                                         </template>
                                                         <template if:false={opp.isPolizaView}>
@@ -487,7 +493,7 @@
                                             <h3>Tipo de contratación <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <lightning-combobox label="" value={opportunity.Tipo_Contratacion__c}
-                                            placeholder="Individual o Colectiva" options={tipoContratacionOptions}
+                                            placeholder="Individual o Empresarial" options={tipoContratacionOptions}
                                             onchange={handleTipoContratacionChange} disabled={isOpportunityReadOnly}
                                             data-field="Tipo_Contratacion__c" variant="label-hidden" dropdown-alignment="auto">
                                         </lightning-combobox>
@@ -555,7 +561,7 @@
                                     <div class="form-card">
                                         <div class="form-card-header">
                                             <lightning-icon icon-name="utility:date_input" size="x-small"></lightning-icon>
-                                            <h3>Fecha de Cierre <span class="required-asterisk">*</span></h3>
+                                            <h3>Vencimiento de oportunidad <span class="required-asterisk">*</span></h3>
                                         </div>
                                         <lightning-input type="date" label="" value={opportunity.CloseDate}
                                             onchange={handleInputChange} disabled={isOpportunityReadOnly} data-field="CloseDate"
@@ -1166,7 +1172,7 @@
                             </div>
                             <div class="section-title-group">
                                 <h2 class="section-title">Censo de asegurados</h2>
-                                <p class="section-subtitle">Titulares, dependientes y categorías de la póliza colectiva</p>
+                                <p class="section-subtitle">Titulares, dependientes y categorías de la póliza empresarial</p>
                             </div>
                             <div class="section-badge">{censoBadge}</div>
                         </div>
@@ -1211,7 +1217,7 @@
                                 <lightning-icon icon-name="standard:quotes" size="small"></lightning-icon>
                             </div>
                             <div class="section-title-group">
-                                <h2 class="section-title">Cotizaciones colectivas</h2>
+                                <h2 class="section-title">Cotizaciones empresariales</h2>
                                 <p class="section-subtitle">{colectivoSubtitulo}</p>
                             </div>
                             <div class="section-badge">{colectivoBadge}</div>
@@ -1583,7 +1589,7 @@
                                     <table class="doc-table">
                                         <thead>
                                             <tr>
-                                                <th class="doc-th doc-th-lbl">Cobertura</th>
+                                                <th class="doc-th doc-th-lbl">Aseguradora</th>
                                                 <template for:each={comparativoData.columns} for:item="col">
                                                     <th key={col.Id} class={col.headerClass}>
                                                         {col.name}
@@ -1737,17 +1743,19 @@
                                 </template>
                             </div>
 
-                            <!-- Comparativo generado por la IA (tal cual lo regresa el Prompt Builder) -->
+                            <!-- Comparativo generado por la IA (lo mismo que la pestaña "Comparativo IA") -->
                             <template if:true={hasComparativoHtml}>
                                 <div class="comparativo-ia">
                                     <div class="comparativo-ia__host" lwc:dom="manual"></div>
                                 </div>
                             </template>
 
-                            <!-- KPIs (solo si NO hay comparativo de IA) -->
+                            <!-- KPIs de la comparativa (solo si NO hay comparativo de IA) -->
                             <div class="comparison-kpis" if:false={hasComparativoHtml}>
                                 <div class="kpi-card kpi-best-price">
-                                    <div class="kpi-icon"><lightning-icon icon-name="utility:currency" size="small"></lightning-icon></div>
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:currency" size="small"></lightning-icon>
+                                    </div>
                                     <div class="kpi-content">
                                         <span class="kpi-label">Mejor precio</span>
                                         <span class="kpi-value">{comparisonSummary.bestPriceFormatted}</span>
@@ -1755,15 +1763,29 @@
                                     </div>
                                 </div>
                                 <div class="kpi-card kpi-highest-price">
-                                    <div class="kpi-icon"><lightning-icon icon-name="utility:up" size="small"></lightning-icon></div>
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:up" size="small"></lightning-icon>
+                                    </div>
                                     <div class="kpi-content">
                                         <span class="kpi-label">Precio más alto</span>
                                         <span class="kpi-value">{comparisonSummary.highestPriceFormatted}</span>
                                         <span class="kpi-detail">{comparisonSummary.highestPriceCompany}</span>
                                     </div>
                                 </div>
+                                <div class="kpi-card kpi-average">
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:chart" size="small"></lightning-icon>
+                                    </div>
+                                    <div class="kpi-content">
+                                        <span class="kpi-label">Prima promedio</span>
+                                        <span class="kpi-value">{comparisonSummary.averageFormatted}</span>
+                                        <span class="kpi-detail">{comparisonSummary.totalQuotes} cotizaciones</span>
+                                    </div>
+                                </div>
                                 <div class="kpi-card kpi-savings">
-                                    <div class="kpi-icon"><lightning-icon icon-name="utility:success" size="small"></lightning-icon></div>
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:success" size="small"></lightning-icon>
+                                    </div>
                                     <div class="kpi-content">
                                         <span class="kpi-label">Ahorro potencial</span>
                                         <span class="kpi-value">{comparisonSummary.savingsFormatted}</span>
@@ -1771,7 +1793,9 @@
                                     </div>
                                 </div>
                                 <div class="kpi-card kpi-coverage">
-                                    <div class="kpi-icon"><lightning-icon icon-name="utility:shield" size="small"></lightning-icon></div>
+                                    <div class="kpi-icon">
+                                        <lightning-icon icon-name="utility:shield" size="small"></lightning-icon>
+                                    </div>
                                     <div class="kpi-content">
                                         <span class="kpi-label">Más coberturas</span>
                                         <span class="kpi-value">{comparisonSummary.mostCoveragesCount}</span>
@@ -1780,7 +1804,9 @@
                                 </div>
                             </div>
 
-                            <!-- Documento comparativo (solo si NO hay comparativo de IA) -->
+                            <!-- ============================================== -->
+                            <!-- DOCUMENTO DEL COMPARATIVO (solo si NO hay IA)  -->
+                            <!-- ============================================== -->
                             <template if:true={showComparativaDoc}>
                                 <div class="comparativo-doc">
                                     <div class="doc-head">
@@ -1788,25 +1814,32 @@
                                         <p>{comparativoData.opportunityName} · {comparativoData.clienteName}<template if:true={comparativoData.mostrarVigencia}> · Vigencia {comparativoData.vigInicio} – {comparativoData.vigFin}</template></p>
                                         <span class="doc-tag">{comparativoData.totalQuotes} aseguradoras comparadas · Cotizado por Avanza Seguro</span>
                                     </div>
+
                                     <table class="doc-table">
                                         <thead>
                                             <tr>
-                                                <th class="doc-th doc-th-lbl">Cobertura</th>
+                                                <th class="doc-th doc-th-lbl">Aseguradora</th>
                                                 <template for:each={comparativoData.columns} for:item="col">
                                                     <th key={col.Id} class={col.headerClass}>
                                                         {col.name}
-                                                        <template if:true={col.hasBadge}><span class="doc-rec-badge">{col.badge}</span></template>
+                                                        <template if:true={col.hasBadge}>
+                                                            <span class="doc-rec-badge">{col.badge}</span>
+                                                        </template>
                                                     </th>
                                                 </template>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr class="doc-row-price">
-                                                <td class="doc-cell doc-cell-lbl doc-cell-lbl-price"><span class="doc-cn">PRECIO ANUAL (Prima Total)</span></td>
+                                                <td class="doc-cell doc-cell-lbl doc-cell-lbl-price">
+                                                    <span class="doc-cn">PRECIO ANUAL (Prima Total)</span>
+                                                </td>
                                                 <template for:each={comparativoData.columns} for:item="col">
                                                     <td key={col.Id} class={col.bodyClass}>
                                                         <strong>{col.priceFormatted}</strong>
-                                                        <template if:true={col.hasPriceSub}><span class="doc-sub">{col.priceSub}</span></template>
+                                                        <template if:true={col.hasPriceSub}>
+                                                            <span class="doc-sub">{col.priceSub}</span>
+                                                        </template>
                                                     </td>
                                                 </template>
                                             </tr>
@@ -1821,14 +1854,19 @@
                                             </template>
                                             <template if:true={comparativoData.mostrarVigencia}>
                                             <tr>
-                                                <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Vigencia (inicio – fin)</span></td>
+                                                <td class="doc-cell doc-cell-lbl">
+                                                    <span class="doc-cn">Vigencia (inicio – fin)</span>
+                                                </td>
                                                 <template for:each={comparativoData.columns} for:item="col">
                                                     <td key={col.Id} class={col.bodyClass}>{col.vigenciaLabel}</td>
                                                 </template>
                                             </tr>
                                             </template>
                                             <tr>
-                                                <td class="doc-cell doc-cell-lbl"><span class="doc-cn">Coberturas incluidas (total)</span></td>
+                                                <td class="doc-cell doc-cell-lbl">
+                                                    <span class="doc-cn">Coberturas incluidas (total)</span>
+                                                    <span class="doc-cd">Número de coberturas que trae cada cotización</span>
+                                                </td>
                                                 <template for:each={comparativoData.columns} for:item="col">
                                                     <td key={col.Id} class={col.bodyClass}>{col.coverageCount}</td>
                                                 </template>
@@ -1863,6 +1901,11 @@
                                         </tbody>
                                     </table>
 
+                                    <p class="doc-note">
+                                        Las columnas resaltadas en naranja son las opciones recomendadas según precio y número de coberturas.
+                                        Este documento es informativo; los detalles finales (sumas aseguradas, deducibles y coaseguros) se definen en cada póliza.
+                                    </p>
+
                                     <div class="doc-recs">
                                         <h2>Las mejores opciones — tú decides</h2>
                                         <div class="doc-twocol">
@@ -1874,9 +1917,29 @@
                                             </template>
                                         </div>
                                     </div>
+
                                     <div class="doc-decide">
                                         <h2>Recomendación</h2>
                                         <div class="doc-bottom">{comparativoData.recomendacion}</div>
+                                    </div>
+
+                                    <div class="doc-glos">
+                                        <h2>Glosario — términos de seguros en palabras sencillas</h2>
+                                        <dl>
+                                            <dt>Prima</dt><dd>El precio del seguro: lo que pagas por estar cubierto durante el periodo de vigencia.</dd>
+                                            <dt>Cobertura</dt><dd>Cada uno de los riesgos o servicios que la aseguradora se compromete a pagar o brindar.</dd>
+                                            <dt>Suma asegurada</dt><dd>El monto máximo que la aseguradora puede pagarte por una cobertura.</dd>
+                                            <dt>Deducible</dt><dd>La parte que tú pagas de tu bolsillo cuando usas el seguro; el resto lo cubre la aseguradora.</dd>
+                                            <dt>Coaseguro</dt><dd>Porcentaje del gasto que el asegurado paga después del deducible.</dd>
+                                            <dt>Fecha de cotización</dt><dd>La fecha en la que se solicitó la cotización del seguro.</dd>
+                                            <dt>Pérdida total</dt><dd>Cuando el bien asegurado se daña tanto, o se pierde, que la aseguradora paga su valor completo en vez de repararlo.</dd>
+                                            <dt>Responsabilidad Civil</dt><dd>Cubre los daños que tú le causes a otras personas o a sus bienes.</dd>
+                                        </dl>
+                                    </div>
+
+                                    <div class="doc-foot">
+                                        Documento generado el {comparativoData.generatedAt} con base en las cotizaciones registradas en Salesforce.
+                                        Información informativa, no es una póliza. · Avanza Seguro Consultores.
                                     </div>
                                 </div>
                             </template>

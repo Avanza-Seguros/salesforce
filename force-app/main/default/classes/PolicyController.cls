@@ -269,7 +269,7 @@ public with sharing class PolicyController {
 		Integer start = payload.indexOf('{');
 		Integer last = payload.lastIndexOf('}');
 		if (start < 0 || last < start) { return '{}'; }
-		return payload.substring(start, last + 1);
+		return JsonIa.repararTextos(payload.substring(start, last + 1));
 	}
 
 	/**
