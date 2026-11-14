@@ -240,6 +240,9 @@
                                         <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
                                     </div>
                                 </div>
+                                <template if:true={enPoliza}>
+                                    <c-datos-endoso></c-datos-endoso>
+                                </template>
                             </div>
                             <div class="slds-modal__footer">
                                 <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
@@ -281,6 +284,9 @@
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
                                 </div>
+                                <template if:true={enPoliza}>
+                                    <c-datos-endoso></c-datos-endoso>
+                                </template>
                             </div>
                             <div class="slds-modal__footer">
                                 <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
@@ -328,6 +334,9 @@
                                         <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
                                     </div>
                                 </div>
+                                <template if:true={enPoliza}>
+                                    <c-datos-endoso></c-datos-endoso>
+                                </template>
                             </div>
                             <div class="slds-modal__footer">
                                 <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>

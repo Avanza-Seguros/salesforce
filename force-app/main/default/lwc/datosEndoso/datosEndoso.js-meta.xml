@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>false</isExposed>
+    <masterLabel>Datos del endoso</masterLabel>
+    <description>Prima del endoso como la da la aseguradora y documento del endoso (se usa en los movimientos de asegurados, vehículos y ubicaciones).</description>
+</LightningComponentBundle>

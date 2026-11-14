@@ -127,7 +127,11 @@ public with sharing class MovimientosUbicacionesController {
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> aplicar(Id recordId, String movimientosJson) {
 		List<Movimiento> movs;
+		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }.
+		EndosoPoliza.Prima primaEndoso;
 		try {
+			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
 		} catch (Exception e) {
 			throw CensoColectivoController.error('Los movimientos no tienen un formato válido: ' + e.getMessage());
@@ -136,7 +140,11 @@ public with sharing class MovimientosUbicacionesController {
 		validar(movs);
 		Savepoint sp = Database.setSavepoint();
 		try {
-			return MovimientosColectivoController.esPoliza(recordId) ? aplicarPoliza(recordId, movs) : aplicarOportunidad(recordId, movs);
+			if (!MovimientosColectivoController.esPoliza(recordId)) { return aplicarOportunidad(recordId, movs); }
+			Map<String, Object> r = aplicarPoliza(recordId, movs);
+			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
+			r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso));
+			return r;
 		} catch (AuraHandledException e) {
 			Database.rollback(sp);
 			throw e;
@@ -323,6 +331,7 @@ public with sharing class MovimientosUbicacionesController {
 			if (!desde.isEmpty()) { update desde; }
 		}
 		if (!registro.isEmpty()) { insert registro; }
+		EndosoPoliza.agregar(registro);
 		return new Map<String, Object>{ 'altas' => altas, 'bajas' => bajas, 'cambios' => cambios };
 	}
 

@@ -125,7 +125,11 @@ public with sharing class MovimientosColectivoController {
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> aplicar(Id recordId, String movimientosJson) {
 		List<Movimiento> movs;
+		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }.
+		EndosoPoliza.Prima primaEndoso;
 		try {
+			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
 		} catch (Exception e) {
 			throw CensoColectivoController.error('Los movimientos no tienen un formato válido: ' + e.getMessage());
@@ -135,6 +139,8 @@ public with sharing class MovimientosColectivoController {
 		Savepoint sp = Database.setSavepoint();
 		try {
 			Map<String, Object> r = esPoliza(recordId) ? aplicarPoliza(recordId, movs) : aplicarOportunidad(recordId, movs);
+			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
+			if (esPoliza(recordId)) { r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso)); }
 			// Las altas que vienen de un cambio se cuentan como cambios.
 			Integer comoCambio = 0;
 			for (Movimiento m : movs) { if (m.tipo == ALTA && m.comoCambio == true) { comoCambio++; } }
@@ -493,6 +499,7 @@ public with sharing class MovimientosColectivoController {
 		// 3) Altas.
 		Integer altas = altasPoliza(pol, movs, cats, registro);
 		insert registro;
+		EndosoPoliza.agregar(registro);
 		return new Map<String, Object>{ 'altas' => altas, 'bajas' => bajas, 'cambios' => cambios };
 	}
 
@@ -1197,6 +1204,7 @@ public with sharing class MovimientosColectivoController {
 			// Al segundo, como se guarda (así la fecha devuelta es igual a la que se lee después).
 			l[0].Fecha_Cierre__c = Datetime.newInstance((Datetime.now().getTime() / 1000) * 1000);
 			update l[0];
+			EndosoPoliza.aprobarCerrados(new Set<Id>{ l[0].Id });
 			return l[0].Fecha_Cierre__c;
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudo cerrar el movimiento: ' + mensaje(e));

@@ -288,14 +288,29 @@ export default class MovimientosFlotilla extends LightningElement {
     }
 
     async enviar(movs) {
+        // Endoso de la aseguradora (prima y documento): solo en la póliza.
+        const endoso = this.enPoliza ? this.template.querySelector('c-datos-endoso') : null;
+        const prima = endoso ? endoso.prima : null;
         this.cargando = true;
         try {
-            const r = await aplicar({ recordId: this._recordId, movimientosJson: JSON.stringify(movs) });
+            const r = await aplicar({
+                recordId: this._recordId,
+                movimientosJson: this.enPoliza ? JSON.stringify({ movimientos: movs, endoso: prima }) : JSON.stringify(movs)
+            });
+            if (endoso && endoso.tieneArchivo && r.transaccionId) {
+                try {
+                    await endoso.subir(r.transaccionId);
+                } catch (err) {
+                    this.dispatchEvent(new ShowToastEvent({ title: 'Endoso', variant: 'warning',
+                        message: 'Los movimientos se aplicaron, pero no se pudo adjuntar el documento del endoso. Adjúntalo en la transacción del endoso.' }));
+                }
+            }
             const partes = [];
             if (r.altas) { partes.push(`${r.altas} altas`); }
             if (r.bajas) { partes.push(`${r.bajas} bajas`); }
             if (r.cambios) { partes.push(`${r.cambios} cambios`); }
-            this.toast('Movimientos', partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.', 'success');
+            this.toast('Movimientos', (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
+                + (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : ''), 'success');
             this.cerrarModal();
             this.vista = 'lista';
             this.revision = null;

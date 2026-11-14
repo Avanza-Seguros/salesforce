@@ -1,0 +1,32 @@
+<template>
+    <div class="endoso">
+        <div class="endoso-titulo">Endoso de la aseguradora <span class="endoso-opcional">(opcional)</span></div>
+        <p class="endoso-sub">Captura la prima tal como viene en el documento del endoso y adjúntalo. Queda en la transacción del endoso de la póliza.</p>
+        <div class="slds-grid slds-wrap slds-gutters_x-small">
+            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                <lightning-input type="number" formatter="currency" step="0.01" label="Prima neta" value={primaNeta}
+                    data-campo="primaNeta" onchange={handleCampo}></lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                <lightning-input type="number" formatter="currency" step="0.01" label="Derechos" value={derechos}
+                    data-campo="derechos" onchange={handleCampo}></lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                <lightning-input type="number" formatter="currency" step="0.01" label="IVA" value={iva}
+                    data-campo="iva" onchange={handleCampo}></lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                <lightning-input type="number" formatter="currency" step="0.01" label="Prima total" value={total}
+                    data-campo="total" onchange={handleCampo}></lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-1">
+                <label class="slds-form-element__label" for="archivo-endoso">Documento del endoso</label>
+                <div class="endoso-archivo">
+                    <input id="archivo-endoso" type="file" accept=".pdf,.jpg,.jpeg,.png" onchange={handleArchivo} />
+                    <template if:true={archivoNombre}><span class="endoso-sub">{archivoNombre}</span></template>
+                </div>
+                <template if:true={errorArchivo}><p class="endoso-error">{errorArchivo}</p></template>
+            </div>
+        </div>
+    </div>
+</template>

@@ -215,6 +215,64 @@ private class MovimientosFlotillaControllerTest {
 	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Endoso de la póliza (transacción de FSC): número, fecha y prima de la aseguradora, un detalle por
+	 *               vehículo ligado a su bien, movimientos ligados; el mismo número completa el endoso y, al cerrar
+	 *               todos sus movimientos, pasa a Aprobado.
+	 * @return void
+	 */
+	@isTest
+	static void testEndosoComoTransaccion() {
+		InsurancePolicy pol = poliza();
+		Date hoy = Date.today();
+		Id inc2 = inciso(pol.Id, SERIE_2);
+		Map<String, Object> primero = mov('cambio', inc2, new Map<String, Object>{ 'prima' => 12500 }, hoy);
+		primero.put('endoso', 'END-77');
+		Test.startTest();
+		Map<String, Object> r = MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ primero },
+			'endoso' => new Map<String, Object>{ 'primaNeta' => 1000, 'derechos' => 50, 'iva' => 168 }
+		}));
+		Id transId = (Id) r.get('transaccionId');
+		System.assertNotEquals(null, transId, 'Se registra el endoso');
+		// Mismo número de endoso: se completa el mismo endoso (alta de otro vehículo).
+		Map<String, Object> segundo = mov('alta', null, new Map<String, Object>{ 'serie' => SERIE_4, 'descripcion' => 'TOYOTA HILUX',
+			'modelo' => 2024, 'prima' => 15000 }, hoy);
+		segundo.put('endoso', 'END-77');
+		Map<String, Object> r2 = MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ segundo }, 'endoso' => null }));
+		Test.stopTest();
+		System.assertEquals(transId, r2.get('transaccionId'), 'El mismo número completa el endoso');
+
+		InsurancePolicyTransaction t = [SELECT TransactionNumber, Category, Status, TransactionAmount, TransactionFeeAmount,
+			TransactionTaxAmount, EffectiveFromDate, PriorTransactionId FROM InsurancePolicyTransaction WHERE Id = :transId];
+		System.assertEquals('END-77', t.TransactionNumber);
+		System.assertEquals(1000, t.TransactionAmount, 'Prima neta de la aseguradora');
+		System.assertEquals(50, t.TransactionFeeAmount);
+		System.assertEquals(168, t.TransactionTaxAmount);
+		System.assertEquals(hoy, t.EffectiveFromDate);
+		List<InsPolicyTransactionDetail> det = [SELECT Name, ReferenceObjectId, Premium FROM InsPolicyTransactionDetail
+			WHERE InsurancePolicyTransactionId = :transId ORDER BY CreatedDate, Id];
+		System.assertEquals(2, det.size(), 'Un detalle por vehículo');
+		for (InsPolicyTransactionDetail d : det) {
+			System.assertNotEquals(null, d.ReferenceObjectId, 'Ligado al bien de la póliza: ' + d.Name);
+		}
+		System.assertEquals(12500, det[0].Premium);
+		List<Movimiento_Poliza__c> movs = [SELECT Id, Transaccion__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id];
+		System.assertEquals(2, movs.size());
+		for (Movimiento_Poliza__c m : movs) { System.assertEquals(transId, m.Transaccion__c); }
+
+		// Al cerrar todos sus movimientos el endoso queda aprobado.
+		MovimientosColectivoController.cerrarMovimiento(movs[0].Id);
+		String pendiente = [SELECT Status FROM InsurancePolicyTransaction WHERE Id = :transId].Status;
+		MovimientosColectivoController.cerrarMovimiento(movs[1].Id);
+		String aprobado = [SELECT Status FROM InsurancePolicyTransaction WHERE Id = :transId].Status;
+		System.assertNotEquals(pendiente, aprobado, 'Cambia al cerrar el último movimiento');
+		System.assertEquals('Aprobado', aprobado);
+	}
+
+	/**
+	 * @creation date: 14/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Cada vehículo trae su último movimiento (estado, fecha de movimiento, creación y cierre) y el
 	 *               movimiento se puede cerrar una sola vez.
 	 * @return void
