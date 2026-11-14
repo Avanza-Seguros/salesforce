@@ -625,9 +625,12 @@ function unirPorLlave(base, nuevos, llave) {
  * (marca, año, descripción, serie, placas, pasajeros, motor, uso, clave), coberturas principales y primas del
  * inciso. Cada inciso ocupa varias páginas (carátula, texto legal, observaciones, UNE) y al final vienen el recibo
  * y el CFDI del inciso 1: solo la página con "DATOS DEL VEHÍCULO" es un vehículo, así que cada inciso sale una vez.
- * Con menos de dos vehículos, [] (póliza individual).
+ * También lee los endosos de alta (la carátula de uno o dos incisos nuevos, ej. "Inciso: 101"): la descripción sin la
+ * clave al inicio ("701788 - ITALIKA FT150"), placas y motor solo si traen dígitos ("NA", ".", "HECHO EN WULING" no
+ * son) y el valor convenido de las OBSERVACIONES del inciso.
+ * Con menos de "minimo" vehículos (2 por omisión: un solo vehículo es una póliza individual), [].
  */
-export function vehiculosDeCaratulas(texto) {
+export function vehiculosDeCaratulas(texto, minimo = 2) {
         const t = String(texto || '');
         const inicio = /DATOS DEL ASEGURADO/gi;
         const cortes = [];
@@ -636,12 +639,16 @@ export function vehiculosDeCaratulas(texto) {
         const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
         const uno = (re, txt) => { const r = re.exec(txt); return r ? limpio(r[1]) : ''; };
         const monto = (re, txt) => { const v = uno(re, txt); return v ? v.replace(/[$,\s]/g, '') : ''; };
+        // Placas / número de motor: "SN", "NA", "." o "HECHO" (de "HECHO EN WULING") no son un dato.
+        const conDigito = (v) => (/\d/.test(v) ? v : '');
         const vehiculos = [];
         const vistos = new Set();
         cortes.forEach((desde, i) => {
             const hasta = i + 1 < cortes.length ? cortes[i + 1] : t.length;
             let bloque = t.substring(desde, hasta);
             if (!/DATOS DEL VEH[IÍ]CULO/i.test(bloque) || !/N[uú]mero de Serie/i.test(bloque)) { return; }
+            // Valor convenido de las OBSERVACIONES (otra página del mismo inciso, antes de la siguiente carátula).
+            const valorConvenido = monto(/VALOR\s+CON?VENIDO\s*:?\s*\$?\s*([\d,]+(?:\.\d+)?)/i, bloque);
             const total = /Prima Total\s*:\s*\$?\s*[\d,]+(?:\.\d+)?/i.exec(bloque);
             if (total) { bloque = bloque.substring(0, total.index + total[0].length); }
             // Número de inciso: el del encabezado de la carátula (antes del bloque).
@@ -693,11 +700,11 @@ export function vehiculosDeCaratulas(texto) {
                 conductor: /[A-Za-zÁÉÍÓÚÑ]/.test(conductor) ? conductor : '',
                 marca: uno(/Marca\s*:\s*([^,\n]+?)\s*,?\s*Modelo\s*:/i, vehiculo),
                 anio: uno(/Modelo\s*:\s*((?:19|20)\d{2})/i, vehiculo),
-                descripcion: limpio(renglones.join(' ')),
+                descripcion: limpio(renglones.join(' ')).replace(/^\d+\s*-\s*/, ''),
                 serie,
-                placas: uno(/Placas\s*:\s*(\S+)/i, vehiculo),
+                placas: conDigito(uno(/Placas\s*:\s*(\S+)/i, vehiculo)),
                 pasajeros: uno(/Pasajeros\s*:\s*(\d+)/i, vehiculo),
-                motor: uno(/N[uú]mero de Motor\s*:\s*(\S+)/i, vehiculo),
+                motor: conDigito(uno(/N[uú]mero de Motor\s*:\s*(\S+)/i, vehiculo)),
                 uso,
                 tipoVehiculo: limpio(uso.split(/\s+USO\s+/i)[0]),
                 clave: uno(/Clave\s*:\s*([A-Z0-9-]+)/i, vehiculo),
@@ -711,28 +718,31 @@ export function vehiculosDeCaratulas(texto) {
                 primaNeta: monto(/Prima Neta\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
                 gastosExpedicion: monto(/Gastos de Expedici[oó]n\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
                 iva: monto(/I\.?\s*V\.?\s*A\.?\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
-                primaTotal: monto(/Prima Total\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo)
+                primaTotal: monto(/Prima Total\s*:\s*\$?\s*([\d,]+(?:\.\d+)?)/i, vehiculo),
+                valorConvenido
             });
         });
-        return vehiculos.length > 1 ? vehiculos : [];
+        return vehiculos.length >= minimo ? vehiculos : [];
 }
 
 /**
  * Incisos de una póliza con una carátula por inciso en el formato del censo / cotización de flotilla
- * (mismas llaves que regresa la IA en Extractor_Flotilla_Auto). [] si el PDF no tiene ese formato.
+ * (mismas llaves que regresa la IA en Extractor_Flotilla_Auto). Aquí basta un inciso (ej. el endoso de alta de un
+ * vehículo). [] si el PDF no tiene ese formato.
  */
 export function incisosDeCaratulas(texto) {
-    return vehiculosDeCaratulas(texto).map((v) => ({
+    return vehiculosDeCaratulas(texto, 1).map((v) => ({
         inciso: v.inciso,
         serie: v.serie,
         claveVehicular: v.clave,
         marca: v.marca,
         descripcion: v.descripcion,
         modelo: v.anio,
-        placas: /^S\/?N$/i.test(v.placas || '') ? '' : v.placas,
+        placas: v.placas,
         uso: v.uso,
         tipoVehiculo: v.tipoVehiculo,
-        tipoValor: v.tipoValor,
+        tipoValor: v.valorConvenido ? 'VALOR CONVENIDO' : v.tipoValor,
+        valor: v.valorConvenido,
         dedDM: v.deducibleDM,
         dedRT: v.deducibleRT,
         rc: v.responsabilidadCivil,

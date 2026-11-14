@@ -543,7 +543,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 datos = await this.analizarTextoPoliza(polizas[0].texto);
                 if (!datos) { return; }
                 polizas.slice(1).forEach((p) => {
-                    datos.vehiculos = unirVehiculos(datos.vehiculos, this.vehiculosDesdeTexto(p.texto));
+                    // Un PDF adicional puede ser el endoso de alta de un solo inciso: también cuenta.
+                    datos.vehiculos = unirVehiculos(datos.vehiculos, vehiculosDeCaratulas(p.texto, 1));
                     datos.ubicaciones = unirUbicaciones(datos.ubicaciones, this.ubicacionesDesdeTexto(p.texto));
                 });
                 // 2) Si la póliza (mismo número y vigencia) ya existe, se complementa en lugar de crear otra.
@@ -1192,6 +1193,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         datos.ubicaciones = this.ubicacionesDesdeTexto(texto);
         // Flotilla / colectiva de autos: todos los vehículos (incisos); Apex crea su bien e inciso de flotilla.
         datos.vehiculos = this.vehiculosDesdeTexto(texto);
+        // Endoso de alta de un solo inciso de una flotilla ("Inciso: 101"): es un inciso de flotilla, no una póliza
+        // individual (Apex lo trata como flotilla con _vehiculosArchivo).
+        const uno = datos.vehiculos.length ? [] : vehiculosDeCaratulas(texto, 1);
+        if (uno.length === 1 && Number(uno[0].inciso) > 1) {
+            datos.vehiculos = uno;
+            datos._vehiculosArchivo = true;
+        }
         // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
         datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
         return datos;

@@ -218,3 +218,54 @@ describe('corregirIncisos', () => {
             .toEqual([{ inciso: 3, serie: 'WBAFG2107CL510281' }, { inciso: 4, serie: 'XYZ' }]);
     });
 });
+
+// Endosos de alta de la misma póliza: la carátula de un solo inciso nuevo (ej. 101), con la clave al inicio de la
+// descripción, placas / motor que no son dato ("NA", ".", "HECHO EN WULING") y el valor convenido en OBSERVACIONES.
+const ENDOSO_101 = [
+    ...ENCABEZADO(101), ...ASEGURADO,
+    'DATOS DEL VEHÍCULO',
+    'Marca: ITALIKA, Modelo: 2024 Tipo:',
+    'Version: 701788 - ITALIKA FT150 Número de Serie: 3SCK2AET9R1083713',
+    'Placas: K6K20A Pasajeros: 2 Número de Motor: LC162FMJ062696E4',
+    'Uso: MOTOCICLETA USO NORMAL Clave: 701788 Tipo de Carga:',
+    'DAÑOS MATERIALES VALOR COMERCIAL 5 % $327.17',
+    ...PIE('841.32', '1,613.93'),
+    ...ENCABEZADO(101), 'OBSERVACIONES', 'OBSERVACIONES: VALOR COVENIDO 19,220.00', 'ANEXOS'
+].join('\n');
+const ENDOSO_102 = [
+    ...ENCABEZADO(102), ...ASEGURADO,
+    'DATOS DEL VEHÍCULO',
+    'Marca: CHEVROLET, Modelo: 2026 Tipo:',
+    '200048 - CHEVROLET TORNADO VAN LS L4 1.5L 103 CP',
+    'Version: Número de Serie: LZWNNNGN8TC826665',
+    '5 PUERTAS STD',
+    'Placas: NA Pasajeros: 2 Número de Motor: HECHO EN WULING',
+    'Uso: CAMIÓN USO NORMAL CARGA Clave: 200048 Tipo de Carga: PELIGROSA',
+    ...PIE('1,163.14', '1,987.24')
+].join('\n');
+
+describe('endosos de alta (un solo inciso)', () => {
+    it('incisosDeCaratulas lee el inciso aunque sea uno solo, con el valor convenido de las observaciones', () => {
+        const r = incisosDeCaratulas(ENDOSO_101);
+        expect(r).toHaveLength(1);
+        expect(r[0]).toEqual(expect.objectContaining({
+            inciso: '101', serie: '3SCK2AET9R1083713', marca: 'ITALIKA', modelo: '2024', descripcion: 'ITALIKA FT150',
+            placas: 'K6K20A', claveVehicular: '701788', tipoVehiculo: 'MOTOCICLETA', tipoValor: 'VALOR CONVENIDO',
+            valor: '19220.00', primaNeta: '841.32', prima: '1613.93'
+        }));
+    });
+
+    it('quita la clave de la descripción y descarta placas y motor que no son dato', () => {
+        const [v] = vehiculosDeCaratulas(ENDOSO_102, 1);
+        expect(v.descripcion).toBe('CHEVROLET TORNADO VAN LS L4 1.5L 103 CP 5 PUERTAS STD');
+        expect(v.placas).toBe('');
+        expect(v.motor).toBe('');
+        expect(v.inciso).toBe('102');
+        expect(v.serie).toBe('LZWNNNGN8TC826665');
+    });
+
+    it('por omisión un solo vehículo sigue siendo póliza individual; dos endosos juntos son flotilla', () => {
+        expect(vehiculosDeCaratulas(ENDOSO_101)).toEqual([]);
+        expect(vehiculosDeCaratulas([ENDOSO_101, ENDOSO_102].join('\n')).map((v) => v.inciso)).toEqual(['101', '102']);
+    });
+});
