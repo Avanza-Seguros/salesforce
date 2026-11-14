@@ -42,6 +42,10 @@ public with sharing class MovimientosColectivoController {
 		public String motivo;
 		public String endoso;
 		public String comentario;
+		// Alta que el archivo marcó como cambio (la persona no existía): se aplica como alta pero se registra y muestra como cambio.
+		public Boolean comoCambio;
+		// Baja en la póliza: correo personal del asegurado (el corporativo suele dejar de existir).
+		public String correoPersonal;
 	}
 
 	// ============================================================
@@ -76,7 +80,9 @@ public with sharing class MovimientosColectivoController {
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
 				res.put('polizaAnteriorId', pol.PriorPolicyId);
 				res.put('polizaAnteriorNombre', pol.PriorPolicyId == null ? null : pol.PriorPolicy.Name);
-				res.put('miembros', aseguradosPoliza(recordId, false));
+				List<Map<String, Object>> miembros = aseguradosPoliza(recordId, false);
+				contarArchivos(miembros);
+				res.put('miembros', miembros);
 			} else {
 				Opportunity opp = oportunidad(recordId);
 				accountId = opp.AccountId;
@@ -89,7 +95,9 @@ public with sharing class MovimientosColectivoController {
 				res.put('polizaAnteriorNombre', anterior == null ? null : anterior.Name);
 				res.put('polizaAnteriorFin', anterior == null || anterior.ExpirationDate == null ? null : anterior.ExpirationDate.date());
 				res.put('aseguradosAnterior', anterior == null ? 0 : aseguradosPoliza(anterior.Id, true).size());
-				res.put('miembros', aseguradosCenso(recordId));
+				List<Map<String, Object>> miembros = aseguradosCenso(recordId);
+				contarArchivos(miembros);
+				res.put('miembros', miembros);
 			}
 			res.put('categorias', categorias(accountId));
 			res.put('movimientos', historial(recordId));
@@ -126,7 +134,14 @@ public with sharing class MovimientosColectivoController {
 		validar(movs);
 		Savepoint sp = Database.setSavepoint();
 		try {
-			return esPoliza(recordId) ? aplicarPoliza(recordId, movs) : aplicarOportunidad(recordId, movs);
+			Map<String, Object> r = esPoliza(recordId) ? aplicarPoliza(recordId, movs) : aplicarOportunidad(recordId, movs);
+			// Las altas que vienen de un cambio se cuentan como cambios.
+			Integer comoCambio = 0;
+			for (Movimiento m : movs) { if (m.tipo == ALTA && m.comoCambio == true) { comoCambio++; } }
+			comoCambio = Math.min(comoCambio, (Integer) r.get('altas'));
+			r.put('altas', (Integer) r.get('altas') - comoCambio);
+			r.put('cambios', (Integer) r.get('cambios') + comoCambio);
+			return r;
 		} catch (AuraHandledException e) {
 			Database.rollback(sp);
 			throw e;
@@ -165,17 +180,35 @@ public with sharing class MovimientosColectivoController {
 		Map<String, Map<String, Object>> porCertNombre = new Map<String, Map<String, Object>>();
 		Map<String, Map<String, Object>> porNombreFecha = new Map<String, Map<String, Object>>();
 		Map<String, Map<String, Object>> porNombre = new Map<String, Map<String, Object>>();
+		Map<String, Map<String, Object>> porRfc = new Map<String, Map<String, Object>>();
+		Map<String, List<Map<String, Object>>> porCert = new Map<String, List<Map<String, Object>>>();
 		for (Map<String, Object> a : base) {
 			String n = llaveNombre((String) a.get('nombre'));
 			porCertNombre.put(cert((String) a.get('certificado')) + '|' + n, a);
 			porNombreFecha.put(n + '|' + String.valueOf(a.get('fechaNacimiento')), a);
 			porNombre.put(n, a);
+			if (String.isNotBlank((String) a.get('rfc'))) { porRfc.put(((String) a.get('rfc')).deleteWhitespace().toUpperCase(), a); }
+			String c = cert((String) a.get('certificado'));
+			if (String.isNotBlank(c)) {
+				if (!porCert.containsKey(c)) { porCert.put(c, new List<Map<String, Object>>()); }
+				porCert.get(c).add(a);
+			}
+		}
+
+		// Un archivo con tipo de movimiento (alta/baja/cambio) solo trae movimientos: los que no vienen no son baja.
+		for (CensoColectivoController.MiembroEntrada e : entrada) {
+			if (String.isNotBlank(e.movimiento)) { censoCompleto = false; break; }
 		}
 
 		Set<String> usados = new Set<String>();
 		Map<Integer, String> encontrado = new Map<Integer, String>();
 		List<Object> altas = new List<Object>();
 		List<Object> cambios = new List<Object>();
+		List<Object> bajas = new List<Object>();
+		// Bajas del archivo de personas que no son asegurados (no se puede hacer nada con ellas; solo se avisa).
+		List<Object> noEncontrados = new List<Object>();
+		// Altas del archivo de personas que ya están aseguradas (no se duplican; solo se avisa).
+		List<Object> duplicados = new List<Object>();
 		Integer sinCambios = 0;
 		for (Integer i = 0; i < entrada.size(); i++) {
 			CensoColectivoController.MiembroEntrada e = entrada[i];
@@ -185,6 +218,22 @@ public with sharing class MovimientosColectivoController {
 			if (a == null && String.isNotBlank(e.fechaNacimiento)) { a = porNombreFecha.get(n + '|' + e.fechaNacimiento.left(10)); }
 			if (a == null) { a = porNombre.get(n); }
 			if (a != null && usados.contains((String) a.get('id'))) { a = null; }
+			// Baja o cambio con otro nombre (p. ej. se corrigen nombre o apellidos): se busca por RFC o por certificado.
+			if (a == null && (e.movimiento == 'Cambio' || e.movimiento == 'Baja')) { a = porOtroDato(e, porRfc, porCert, usados); }
+			// Baja indicada en el archivo: se propone la baja del asegurado que ya existe.
+			if (e.movimiento == 'Baja') {
+				if (a == null) {
+					noEncontrados.add(new Map<String, Object>{ 'fila' => e.fila, 'nombre' => nombreDe(e), 'certificado' => e.certificado });
+					continue;
+				}
+				usados.add((String) a.get('id'));
+				bajas.add(new Map<String, Object>{
+					'id' => a.get('id'), 'nombre' => a.get('nombre'), 'parentesco' => a.get('parentesco'),
+					'certificado' => a.get('certificado'), 'titularId' => a.get('titularId'), 'titularNombre' => a.get('titularNombre'),
+					'fechaMovimiento' => e.fechaAlta
+				});
+				continue;
+			}
 			if (a == null) {
 				altas.add(i);
 				continue;
@@ -192,17 +241,35 @@ public with sharing class MovimientosColectivoController {
 			usados.add((String) a.get('id'));
 			encontrado.put(i, (String) a.get('id'));
 			List<Object> diferencias = diferencias(a, e);
+			// Cambio de nombre o apellidos: la misma persona con otro nombre (no un alta nueva).
+			Boolean otroNombre = e.movimiento == 'Cambio' && llaveNombre((String) a.get('nombre')) != n;
+			if (otroNombre) {
+				Map<String, Object> dn = dif('Nombre', a.get('nombre'), nombreDe(e));
+				if (diferencias.isEmpty()) { diferencias.add(dn); } else { diferencias.add(0, dn); }
+			}
+			// Alta indicada en el archivo de alguien que ya es asegurado: no se duplica y se avisa.
+			if (e.movimiento == 'Alta') {
+				duplicados.add(new Map<String, Object>{
+					'fila' => e.fila, 'nombre' => nombreDe(e), 'existente' => a.get('nombre'),
+					'certificado' => a.get('certificado'), 'conCambios' => !diferencias.isEmpty()
+				});
+			}
 			if (diferencias.isEmpty()) {
-				sinCambios++;
+				if (e.movimiento != 'Alta') { sinCambios++; }
 				continue;
 			}
-			// El nombre no se cambia desde el archivo (se reconoció aunque venga sin acentos o en otro orden).
-			e.nombreCompleto = null;
+			if (otroNombre) {
+				e.nombreCompleto = nombreDe(e);
+			} else {
+				// El nombre no se cambia (se reconoció aunque venga sin acentos o en otro orden).
+				e.nombreCompleto = null;
+			}
 			e.nombre = null;
 			e.apellidos = null;
 			cambios.add(new Map<String, Object>{
 				'id' => a.get('id'), 'nombre' => a.get('nombre'), 'parentesco' => a.get('parentesco'),
-				'certificado' => a.get('certificado'), 'diferencias' => diferencias, 'datos' => comoMapa(e)
+				'certificado' => a.get('certificado'), 'diferencias' => diferencias, 'datos' => comoMapa(e),
+				'fechaMovimiento' => e.movimiento == null ? null : e.fechaAlta
 			});
 		}
 
@@ -213,8 +280,14 @@ public with sharing class MovimientosColectivoController {
 			Map<String, Object> alta = new Map<String, Object>{
 				'ref' => i, 'nombre' => nombreDe(e), 'parentesco' => String.isBlank(e.parentesco) ? 'Titular' : e.parentesco,
 				'certificado' => e.certificado, 'categoria' => e.categoria, 'fechaNacimiento' => e.fechaNacimiento,
-				'sumaAsegurada' => e.sumaAsegurada, 'prima' => e.prima, 'datos' => comoMapa(e)
+				'sumaAsegurada' => e.sumaAsegurada, 'prima' => e.prima, 'datos' => comoMapa(e),
+				'fechaMovimiento' => e.fechaAlta
 			};
+			// El archivo lo marcó como cambio pero la persona no existe: internamente es alta, el usuario lo ve como cambio.
+			if (e.movimiento == 'Cambio') {
+				alta.put('comoCambio', true);
+				alta.put('diferencias', diferencias(new Map<String, Object>(), e));
+			}
 			if (e.titularIndex != null && e.titularIndex >= 0 && e.titularIndex < entrada.size()) {
 				alta.put('titularNombre', nombreDe(entrada[e.titularIndex]));
 				if (encontrado.containsKey(e.titularIndex)) { alta.put('titularId', encontrado.get(e.titularIndex)); }
@@ -223,17 +296,19 @@ public with sharing class MovimientosColectivoController {
 			altasRes.add(alta);
 		}
 
-		List<Object> bajas = new List<Object>();
 		if (censoCompleto == true) {
 			for (Map<String, Object> a : base) {
 				if (usados.contains((String) a.get('id'))) { continue; }
 				bajas.add(new Map<String, Object>{
 					'id' => a.get('id'), 'nombre' => a.get('nombre'), 'parentesco' => a.get('parentesco'),
-					'certificado' => a.get('certificado'), 'titularId' => a.get('titularId'), 'titularNombre' => a.get('titularNombre')
+					'certificado' => a.get('certificado'), 'titularId' => a.get('titularId'), 'titularNombre' => a.get('titularNombre'),
+					// No viene en el archivo: se propone, pero el usuario decide si es baja.
+					'faltante' => true
 				});
 			}
 		}
-		return new Map<String, Object>{ 'altas' => altasRes, 'bajas' => bajas, 'cambios' => cambios, 'sinCambios' => sinCambios };
+		return new Map<String, Object>{ 'altas' => altasRes, 'bajas' => bajas, 'cambios' => cambios, 'sinCambios' => sinCambios,
+			'noEncontrados' => noEncontrados, 'duplicados' => duplicados };
 	}
 
 	/**
@@ -346,6 +421,9 @@ public with sharing class MovimientosColectivoController {
 			p.EffectiveToDate = f;
 			p.ExpirationDate = Datetime.newInstance(f, Time.newInstance(12, 0, 0, 0));
 			p.Motivo_Baja__c = m.motivo;
+			// El correo del movimiento se envía después: queda pendiente.
+			p.Correo_Enviado__c = false;
+			if (!conTitular && String.isNotBlank(m.correoPersonal)) { p.Correo_Personal__c = m.correoPersonal.trim(); }
 			actualizar.put(p.Id, p);
 			Movimiento_Poliza__c r = registro(m, BAJA, CONTEXTO_ENDOSO, policyId, null, p.Id, p.ParticipantName, p.ParticipantCode);
 			if (conTitular) { r.Comentario__c = ('Baja junto con su titular. ' + (m.comentario == null ? '' : m.comentario)).trim().left(255); }
@@ -357,12 +435,35 @@ public with sharing class MovimientosColectivoController {
 		Map<String, Id> cats = categoriasDe(pol.NameInsuredId, movs);
 		Map<Id, Decimal> sumasActuales = sumasDe(policyId, ids);
 		Map<Id, Decimal> sumas = new Map<Id, Decimal>();
+		// Correo: vive en el contacto o en la cuenta del asegurado, no en el participante.
+		List<InsurancePolicyParticipant> conCorreo = new List<InsurancePolicyParticipant>();
+		for (Movimiento m : movs) {
+			if (m.tipo == CAMBIO && m.datos != null && String.isNotBlank(m.datos.email)) { conCorreo.add(participantes.get(Id.valueOf(m.id))); }
+		}
+		Map<Id, String> correosActuales = conCorreo.isEmpty() ? new Map<Id, String>() : ParticipantesPolizaController.correosDe(conCorreo);
+		Set<Id> cuentasPersona = new Set<Id>();
+		Set<Id> cuentasCorreo = new Set<Id>();
+		for (InsurancePolicyParticipant p : conCorreo) {
+			if (p.PrimaryParticipantContactId == null && p.PrimaryParticipantAccountId != null) { cuentasCorreo.add(p.PrimaryParticipantAccountId); }
+		}
+		if (!cuentasCorreo.isEmpty() && Schema.SObjectType.Account.fields.getMap().containsKey('ispersonaccount')) {
+			for (SObject a : Database.query('SELECT Id FROM Account WHERE Id IN :cuentasCorreo AND IsPersonAccount = true')) { cuentasPersona.add(a.Id); }
+		}
+		List<SObject> correosNuevos = new List<SObject>();
 		for (Movimiento m : movs) {
 			if (m.tipo != CAMBIO) { continue; }
 			InsurancePolicyParticipant p = participantes.get(Id.valueOf(m.id));
 			// Dependiente que salió con su titular en esta misma carga: ya no se cambia.
 			if (p.IsActiveParticipant == false) { continue; }
 			List<String> detalle = cambiarParticipante(p, m.datos, cats);
+			if (String.isNotBlank(m.datos.email)) {
+				String nuevo = m.datos.email.trim();
+				String antes = correosActuales.get(p.Id);
+				if (antes == null || !antes.equalsIgnoreCase(nuevo)) {
+					correosNuevos.add(registroCorreo(p, nuevo, cuentasPersona));
+					detalle.add('Correo: ' + texto(antes) + ' → ' + nuevo);
+				}
+			}
 			if (m.datos.sumaAsegurada != null) {
 				Decimal antes = sumasActuales.get(p.Id);
 				if (antes != m.datos.sumaAsegurada) {
@@ -371,6 +472,8 @@ public with sharing class MovimientosColectivoController {
 				}
 			}
 			if (detalle.isEmpty()) { continue; }
+			// El correo del cambio se envía después: queda pendiente.
+			p.Correo_Enviado__c = false;
 			actualizar.put(p.Id, p);
 			Movimiento_Poliza__c r = registro(m, CAMBIO, CONTEXTO_ENDOSO, policyId, null, p.Id, p.ParticipantName, p.ParticipantCode);
 			r.Detalle__c = String.join(detalle, '\n');
@@ -378,6 +481,13 @@ public with sharing class MovimientosColectivoController {
 			cambios++;
 		}
 		if (!actualizar.isEmpty()) { update actualizar.values(); }
+		if (!correosNuevos.isEmpty()) {
+			Map<Id, SObject> unicos = new Map<Id, SObject>();
+			for (SObject s : correosNuevos) { unicos.put(s.Id, s); }
+			List<SObject> l = unicos.values();
+			l.sort();
+			update l;
+		}
 		guardarSumas(policyId, sumas);
 
 		// 3) Altas.
@@ -487,6 +597,28 @@ public with sharing class MovimientosColectivoController {
 		}
 		guardarSumas(pol.Id, sumas);
 		return creados.size();
+	}
+
+	/**
+	 * @creation date: 11/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Registro donde se guarda el correo del asegurado: su contacto o, si no tiene, su cuenta (correo
+	 *               personal si es persona; si no, el correo de la cuenta).
+	 * @param p: participante.
+	 * @param correo: correo nuevo.
+	 * @return Contact o Account con el correo nuevo.
+	 */
+	private static SObject registroCorreo(InsurancePolicyParticipant p, String correo, Set<Id> cuentasPersona) {
+		if (p.PrimaryParticipantContactId != null) { return new Contact(Id = p.PrimaryParticipantContactId, Email = correo); }
+		if (p.PrimaryParticipantAccountId == null) {
+			throw CensoColectivoController.error(p.ParticipantName + ' no tiene contacto ni cuenta donde guardar el correo.');
+		}
+		Map<String, Schema.SObjectField> fm = Schema.SObjectType.Account.fields.getMap();
+		Account a = new Account(Id = p.PrimaryParticipantAccountId);
+		if (cuentasPersona.contains(a.Id)) { a.put('PersonEmail', correo); }
+		else if (fm.containsKey('correo_electronico__c')) { a.put('Correo_electronico__c', correo); }
+		else { throw CensoColectivoController.error('No hay un campo de correo en la cuenta de ' + p.ParticipantName + '.'); }
+		return a;
 	}
 
 	/**
@@ -769,7 +901,9 @@ public with sharing class MovimientosColectivoController {
 	private static String camposParticipante() {
 		return 'Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,'
 			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
-			+ ' EffectiveToDate, IsActiveParticipant, Motivo_Baja__c, Categoria__c' + (TIENE_CLASE ? ', GroupClassId, GroupClass.Name' : '');
+			+ ' EffectiveToDate, IsActiveParticipant, Motivo_Baja__c, Categoria__c, PrimaryParticipantContactId, PrimaryParticipantAccountId,'
+			+ ' Correo_Enviado__c, Fecha_Envio_Correo__c, Plantilla_Correo__c, Correo_Personal__c, CreatedDate'
+			+ (TIENE_CLASE ? ', GroupClassId, GroupClass.Name' : '');
 	}
 
 	/**
@@ -787,6 +921,8 @@ public with sharing class MovimientosColectivoController {
 		Map<Id, Decimal> sumas = sumasDe(policyId, new Map<Id, InsurancePolicyParticipant>(ps).keySet());
 		Map<String, String> motivos = etiquetas(Movimiento_Poliza__c.Motivo_Baja__c.getDescribe());
 		Map<String, String> relaciones = etiquetas(InsurancePolicyParticipant.RelationshipToInsured.getDescribe());
+		Map<Id, Movimiento_Poliza__c> ultimos = ultimosMovimientos(policyId);
+		Map<Id, String> correos = ParticipantesPolizaController.correosDe(ps);
 		List<Map<String, Object>> lista = new List<Map<String, Object>>();
 		for (InsurancePolicyParticipant p : ps) {
 			if (!esAsegurado(p.Role)) { continue; }
@@ -802,10 +938,246 @@ public with sharing class MovimientosColectivoController {
 				'sumaAsegurada' => sumas.get(p.Id), 'prima' => p.TermPremiumAmount, 'fechaAlta' => p.EffectiveFromDate,
 				'activo' => p.IsActiveParticipant != false,
 				'fechaBaja' => p.IsActiveParticipant == false ? p.EffectiveToDate : null,
-				'motivoBaja' => p.Motivo_Baja__c == null ? null : motivos.get(p.Motivo_Baja__c)
+				'motivoBaja' => p.Motivo_Baja__c == null ? null : motivos.get(p.Motivo_Baja__c),
+				'contactoId' => (String) p.PrimaryParticipantContactId, 'cuentaId' => (String) p.PrimaryParticipantAccountId,
+				'correo' => correos.get(p.Id), 'correoEnviado' => p.Correo_Enviado__c == true,
+				'fechaCorreo' => p.Fecha_Envio_Correo__c, 'plantillaCorreo' => p.Plantilla_Correo__c,
+				'correoPersonal' => p.Correo_Personal__c
 			});
+			Map<String, Object> fila = lista[lista.size() - 1];
+			ponerMovimiento(fila, ultimos.get(p.Id), p.IsActiveParticipant != false, p.EffectiveFromDate, p.EffectiveToDate);
+			// Sin registro de movimiento (carga inicial): se crea con el participante y se cierra con el primer correo.
+			if (fila.get('fechaCreacion') == null) {
+				fila.put('fechaCreacion', p.CreatedDate);
+				fila.put('fechaCierre', p.Fecha_Envio_Correo__c);
+			}
 		}
 		return porFamilia(lista);
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivos de un asegurado (participante de la póliza o asegurado del censo): los de su contacto, su
+	 *               cuenta y el propio registro. Los archivos nuevos se adjuntan al contacto (o, sin contacto, al registro).
+	 * @param registroId: InsurancePolicyParticipant o GroupCensusMember.
+	 * @return {destinoId, archivos: [{id, titulo, tipo, tamano, fecha}]}.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> archivosAsegurado(Id registroId) {
+		if (registroId == null) { throw CensoColectivoController.error('Falta el asegurado.'); }
+		try {
+			Id contacto;
+			Id cuenta;
+			if (registroId.getSObjectType() == InsurancePolicyParticipant.SObjectType) {
+				InsurancePolicyParticipant p = [SELECT PrimaryParticipantContactId, PrimaryParticipantAccountId FROM InsurancePolicyParticipant
+					WHERE Id = :registroId LIMIT 1];
+				contacto = p.PrimaryParticipantContactId;
+				cuenta = p.PrimaryParticipantAccountId;
+			} else if (registroId.getSObjectType() == GroupCensusMember.SObjectType) {
+				contacto = [SELECT ContactId FROM GroupCensusMember WHERE Id = :registroId LIMIT 1].ContactId;
+			}
+			Map<Id, List<Map<String, Object>>> a = ParticipantesPolizaController.archivosDe(new Set<Id>{ registroId, contacto, cuenta });
+			return new Map<String, Object>{
+				'destinoId' => contacto != null ? contacto : (cuenta != null ? cuenta : registroId),
+				'archivos' => ParticipantesPolizaController.unirArchivos(a, new List<Id>{ contacto, cuenta, registroId })
+			};
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudieron leer los archivos: ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 11/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda el documento de baja en el último movimiento de baja del asegurado. Es el único archivo que se
+	 *               adjunta en el correo de baja.
+	 * @param policyId: póliza.
+	 * @param participanteId: asegurado dado de baja.
+	 * @param nombre: nombre del archivo con extensión.
+	 * @param base64: contenido del archivo.
+	 * @return Id del documento (ContentDocument).
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Id subirDocumentoBaja(Id policyId, Id participanteId, String nombre, String base64) {
+		List<Movimiento_Poliza__c> movs = [
+			SELECT Id FROM Movimiento_Poliza__c
+			WHERE Poliza__c = :policyId AND Participante__c = :participanteId AND Tipo__c = 'Baja'
+			ORDER BY CreatedDate DESC, Id DESC LIMIT 1
+		];
+		if (movs.isEmpty()) { throw CensoColectivoController.error('No se encontró el movimiento de baja del asegurado.'); }
+		return subirArchivo(movs[0].Id, nombre, base64);
+	}
+
+	/**
+	 * @creation date: 11/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Sube un archivo (en base64) a la póliza u oportunidad. El LWC lo llama una vez por archivo, así que no
+	 *               hay límite en la cantidad de archivos (el componente estándar de carga solo admite 10 a la vez).
+	 * @param recordId: póliza u oportunidad.
+	 * @param nombre: nombre del archivo con extensión.
+	 * @param base64: contenido del archivo.
+	 * @return Id del documento (ContentDocument).
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Id subirArchivo(Id recordId, String nombre, String base64) {
+		if (recordId == null || String.isBlank(nombre) || String.isBlank(base64)) {
+			throw CensoColectivoController.error('El archivo está vacío.');
+		}
+		try {
+			String titulo = String.isBlank(nombre.substringBeforeLast('.')) ? nombre : nombre.substringBeforeLast('.');
+			ContentVersion cv = new ContentVersion(Title = titulo.left(255), PathOnClient = nombre,
+				VersionData = EncodingUtil.base64Decode(base64), FirstPublishLocationId = recordId);
+			insert cv;
+			return [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id].ContentDocumentId;
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo subir ' + nombre + ': ' + e.getMessage());
+		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Carga de varios archivos a la vez: los archivos se suben primero a la póliza (u oportunidad) y aquí
+	 *               se pasan a la persona que les toca (su contacto, su cuenta o el propio registro del asegurado). El
+	 *               archivo deja de estar en la póliza. Los que no se asignan se quedan en la póliza.
+	 * @param recordId: póliza u oportunidad donde se subieron.
+	 * @param asignacionesJson: lista de {documentId, registroId}.
+	 * @return número de archivos adjuntados.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Integer asignarArchivos(Id recordId, String asignacionesJson) {
+		List<Object> lista;
+		try {
+			lista = (List<Object>) JSON.deserializeUntyped(String.isBlank(asignacionesJson) ? '[]' : asignacionesJson);
+		} catch (Exception e) {
+			throw CensoColectivoController.error('Las asignaciones no tienen un formato válido.');
+		}
+		Map<Id, Id> registroPorDocumento = new Map<Id, Id>();
+		for (Object o : lista) {
+			Map<String, Object> a = (Map<String, Object>) o;
+			if (a.get('documentId') == null || a.get('registroId') == null) { continue; }
+			registroPorDocumento.put(Id.valueOf((String) a.get('documentId')), Id.valueOf((String) a.get('registroId')));
+		}
+		if (registroPorDocumento.isEmpty()) { return 0; }
+		Savepoint sp = Database.setSavepoint();
+		try {
+			Map<Id, Id> destino = destinosArchivo(new Set<Id>(registroPorDocumento.values()));
+			Set<Id> docs = registroPorDocumento.keySet();
+			// Enlaces que ya existen (no se duplican).
+			Set<String> existentes = new Set<String>();
+			Set<Id> destinos = new Set<Id>(destino.values());
+			for (ContentDocumentLink l : [SELECT ContentDocumentId, LinkedEntityId FROM ContentDocumentLink
+					WHERE ContentDocumentId IN :docs AND LinkedEntityId IN :destinos]) {
+				existentes.add(l.ContentDocumentId + '|' + l.LinkedEntityId);
+			}
+			List<ContentDocumentLink> nuevos = new List<ContentDocumentLink>();
+			for (Id doc : docs) {
+				Id d = destino.get(registroPorDocumento.get(doc));
+				if (d == null || existentes.contains(doc + '|' + d)) { continue; }
+				nuevos.add(new ContentDocumentLink(ContentDocumentId = doc, LinkedEntityId = d, ShareType = 'V'));
+			}
+			if (!nuevos.isEmpty()) { insert nuevos; }
+			// Ya no quedan en la póliza u oportunidad.
+			if (recordId != null) {
+				List<ContentDocumentLink> quitar = [SELECT Id FROM ContentDocumentLink WHERE LinkedEntityId = :recordId AND ContentDocumentId IN :docs];
+				if (!quitar.isEmpty()) { delete quitar; }
+			}
+			return docs.size();
+		} catch (Exception e) {
+			Database.rollback(sp);
+			throw CensoColectivoController.error('No se pudieron adjuntar los archivos: ' + e.getMessage());
+		}
+	}
+
+	// Registro donde se guardan los archivos de cada asegurado: su contacto, si no su cuenta, si no el propio registro.
+	private static Map<Id, Id> destinosArchivo(Set<Id> registros) {
+		Map<Id, Id> r = new Map<Id, Id>();
+		Set<Id> participantes = new Set<Id>();
+		Set<Id> miembros = new Set<Id>();
+		for (Id i : registros) {
+			r.put(i, i);
+			if (i.getSObjectType() == InsurancePolicyParticipant.SObjectType) { participantes.add(i); }
+			if (i.getSObjectType() == GroupCensusMember.SObjectType) { miembros.add(i); }
+		}
+		for (InsurancePolicyParticipant p : [SELECT Id, PrimaryParticipantContactId, PrimaryParticipantAccountId
+				FROM InsurancePolicyParticipant WHERE Id IN :participantes]) {
+			r.put(p.Id, p.PrimaryParticipantContactId != null ? p.PrimaryParticipantContactId
+				: (p.PrimaryParticipantAccountId != null ? p.PrimaryParticipantAccountId : p.Id));
+		}
+		for (GroupCensusMember m : [SELECT Id, ContactId FROM GroupCensusMember WHERE Id IN :miembros]) {
+			if (m.ContactId != null) { r.put(m.Id, m.ContactId); }
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Número de archivos por asegurado (de su contacto, su cuenta o el propio registro).
+	 * @param filas: asegurados con 'id', 'contactoId' y 'cuentaId'.
+	 */
+	private static void contarArchivos(List<Map<String, Object>> filas) {
+		Set<Id> ids = new Set<Id>();
+		for (Map<String, Object> f : filas) {
+			for (String k : new List<String>{ 'id', 'contactoId', 'cuentaId' }) {
+				if (f.get(k) != null) { ids.add(Id.valueOf((String) f.get(k))); }
+			}
+		}
+		Map<Id, List<Map<String, Object>>> a = ParticipantesPolizaController.archivosDe(ids);
+		for (Map<String, Object> f : filas) {
+			List<Id> de = new List<Id>();
+			for (String k : new List<String>{ 'contactoId', 'cuentaId', 'id' }) {
+				if (f.get(k) != null) { de.add(Id.valueOf((String) f.get(k))); }
+			}
+			f.put('archivos', ParticipantesPolizaController.unirArchivos(a, de).size());
+		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Último movimiento registrado (alta, baja o cambio) de cada participante de la póliza.
+	 * @param policyId: póliza.
+	 * @return movimiento más reciente por participante.
+	 */
+	public static Map<Id, Movimiento_Poliza__c> ultimosMovimientos(Id policyId) {
+		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
+		if (policyId == null) { return r; }
+		for (Movimiento_Poliza__c m : [
+			SELECT Participante__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			WHERE Poliza__c = :policyId AND Participante__c != null
+			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
+		]) {
+			if (!r.containsKey(m.Participante__c)) { r.put(m.Participante__c, m); }
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega 'tipoMovimiento' y 'fechaMovimiento' a la fila. Sin registro de movimiento se deduce:
+	 *               baja (fecha de fin) si no está activo, alta (fecha de inicio) si lo está.
+	 */
+	public static void ponerMovimiento(Map<String, Object> fila, Movimiento_Poliza__c ultimo, Boolean activo, Date desde, Date hasta) {
+		String tipo;
+		Date fecha;
+		if (ultimo != null && (activo || ultimo.Tipo__c == 'Baja')) {
+			tipo = ultimo.Tipo__c;
+			fecha = ultimo.Fecha_Movimiento__c;
+			// Creación del movimiento y su cierre (al enviar el correo al asegurado).
+			fila.put('fechaCreacion', ultimo.CreatedDate);
+			fila.put('fechaCierre', ultimo.Fecha_Cierre__c);
+		} else if (!activo) {
+			tipo = 'Baja';
+			fecha = hasta;
+		} else {
+			tipo = 'Alta';
+			fecha = desde;
+		}
+		fila.put('tipoMovimiento', tipo);
+		fila.put('fechaMovimiento', fecha);
 	}
 
 	/**
@@ -817,10 +1189,21 @@ public with sharing class MovimientosColectivoController {
 	 */
 	private static List<Map<String, Object>> aseguradosCenso(Id oppId) {
 		Map<String, String> sexos = etiquetas(GroupCensusMember.Gender.getDescribe());
+		// Último movimiento de la oportunidad por certificado y por nombre.
+		Map<String, Movimiento_Poliza__c> ultimos = new Map<String, Movimiento_Poliza__c>();
+		for (Movimiento_Poliza__c mv : [
+			SELECT Tipo__c, Fecha_Movimiento__c, Certificado__c, Asegurado__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			WHERE Oportunidad__c = :oppId ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
+		]) {
+			for (String k : new List<String>{ String.isBlank(mv.Certificado__c) ? null : 'c:' + mv.Certificado__c.trim().toLowerCase(),
+					String.isBlank(mv.Asegurado__c) ? null : 'n:' + llaveNombre(mv.Asegurado__c) }) {
+				if (k != null && !ultimos.containsKey(k)) { ultimos.put(k, mv); }
+			}
+		}
 		List<Map<String, Object>> lista = new List<Map<String, Object>>();
 		for (GroupCensusMember m : [
 			SELECT Id, Name, PrimaryGroupCensusMemberId, PrimaryGroupCensusMember.Name, AssociationWithPrimaryMbr, Gender, Birthdate,
-				Certificado__c, GroupClass.Name, Suma_Asegurada__c, Prima__c, RFC__c, JoinDate
+				Certificado__c, GroupClass.Name, Suma_Asegurada__c, Prima__c, RFC__c, JoinDate, ContactId
 			FROM GroupCensusMember WHERE GroupCensus.Oportunidad__c = :oppId
 			ORDER BY Certificado__c NULLS LAST, Name LIMIT 10000
 		]) {
@@ -832,8 +1215,12 @@ public with sharing class MovimientosColectivoController {
 				'parentesco' => CensoColectivoController.parentescoVisible(m.AssociationWithPrimaryMbr, esTitular),
 				'sexo' => m.Gender == null ? null : sexoVisible(sexos.get(m.Gender)), 'certificado' => m.Certificado__c,
 				'categoria' => m.GroupClass == null ? null : m.GroupClass.Name, 'fechaNacimiento' => m.Birthdate, 'rfc' => m.RFC__c,
-				'sumaAsegurada' => m.Suma_Asegurada__c, 'prima' => m.Prima__c, 'fechaAlta' => m.JoinDate, 'activo' => true
+				'sumaAsegurada' => m.Suma_Asegurada__c, 'prima' => m.Prima__c, 'fechaAlta' => m.JoinDate, 'activo' => true,
+				'contactoId' => (String) m.ContactId
 			});
+			Movimiento_Poliza__c ult = String.isBlank(m.Certificado__c) ? null : ultimos.get('c:' + m.Certificado__c.trim().toLowerCase());
+			if (ult == null && String.isNotBlank(m.Name)) { ult = ultimos.get('n:' + llaveNombre(m.Name)); }
+			ponerMovimiento(lista[lista.size() - 1], ult, true, m.JoinDate, null);
 		}
 		return porFamilia(lista);
 	}
@@ -918,9 +1305,8 @@ public with sharing class MovimientosColectivoController {
 			if (m.tipo != ALTA && String.isBlank(m.id)) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': falta el asegurado.');
 			}
-			if (m.tipo == BAJA && String.isBlank(m.motivo)) {
-				throw CensoColectivoController.error('Indica el motivo de baja de cada asegurado.');
-			}
+			// El motivo de baja es opcional: si viene vacío se guarda sin motivo.
+			if (String.isBlank(m.motivo)) { m.motivo = null; }
 			if (m.tipo != BAJA && m.datos == null) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': faltan los datos del asegurado.');
 			}
@@ -949,7 +1335,7 @@ public with sharing class MovimientosColectivoController {
 			Certificado__c = certificado == null ? null : certificado.left(80), Fecha_Movimiento__c = CensoColectivoController.fecha(m.fecha),
 			Numero_Endoso__c = String.isBlank(m.endoso) ? null : m.endoso.trim().left(80),
 			Comentario__c = String.isBlank(m.comentario) ? null : m.comentario.trim().left(255));
-		r.Tipo__c = tipo == ALTA ? 'Alta' : (tipo == BAJA ? 'Baja' : 'Cambio');
+		r.Tipo__c = tipo == ALTA && m.comoCambio != true ? 'Alta' : (tipo == BAJA ? 'Baja' : 'Cambio');
 		if (tipo == BAJA) { r.Motivo_Baja__c = m.motivo; }
 		return r;
 	}
@@ -996,7 +1382,50 @@ public with sharing class MovimientosColectivoController {
 		if (String.isNotBlank(e.rfc) && e.rfc.deleteWhitespace().toUpperCase() != (String) a.get('rfc')) {
 			l.add(dif('RFC', a.get('rfc'), e.rfc.deleteWhitespace().toUpperCase()));
 		}
+		// Correo: solo en la póliza (ahí el asegurado trae su correo del contacto o cuenta).
+		if (String.isNotBlank(e.email) && a.containsKey('correo')
+				&& (a.get('correo') == null || !e.email.trim().equalsIgnoreCase((String) a.get('correo')))) {
+			l.add(dif('Correo', a.get('correo'), e.email.trim()));
+		}
 		return l;
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asegurado de un renglón cuyo nombre no coincide: por RFC o, si el certificado deja una sola persona
+	 *               posible (por fecha de nacimiento o por ser titular/dependiente), por certificado.
+	 * @return asegurado o null si no se puede asegurar quién es.
+	 */
+	private static Map<String, Object> porOtroDato(CensoColectivoController.MiembroEntrada e, Map<String, Map<String, Object>> porRfc,
+			Map<String, List<Map<String, Object>>> porCert, Set<String> usados) {
+		if (String.isNotBlank(e.rfc)) {
+			Map<String, Object> a = porRfc.get(e.rfc.deleteWhitespace().toUpperCase());
+			if (a != null && !usados.contains((String) a.get('id'))) { return a; }
+		}
+		String c = cert(e.certificado);
+		if (String.isBlank(c) || !porCert.containsKey(c)) { return null; }
+		Boolean titular = String.isBlank(e.parentesco) || e.parentesco == 'Titular';
+		Date fn = CensoColectivoController.fecha(e.fechaNacimiento);
+		// Primero por fecha de nacimiento; si el cambio también corrige la fecha, por titular/dependiente (y parentesco).
+		List<Map<String, Object>> porFecha = new List<Map<String, Object>>();
+		List<Map<String, Object>> porRol = new List<Map<String, Object>>();
+		for (Map<String, Object> a : porCert.get(c)) {
+			if (usados.contains((String) a.get('id'))) { continue; }
+			if (fn != null && a.get('fechaNacimiento') != null && fn == (Date) a.get('fechaNacimiento')) { porFecha.add(a); }
+			if (a.get('esTitular') == titular) { porRol.add(a); }
+		}
+		if (porFecha.size() == 1) { return porFecha[0]; }
+		if (!porFecha.isEmpty()) { return null; }
+		if (porRol.size() > 1 && !titular) {
+			String par = CensoColectivoController.llave(e.parentesco).left(3);
+			List<Map<String, Object>> mismo = new List<Map<String, Object>>();
+			for (Map<String, Object> a : porRol) {
+				if (CensoColectivoController.llave((String) a.get('parentesco')).left(3) == par) { mismo.add(a); }
+			}
+			porRol = mismo;
+		}
+		return porRol.size() == 1 ? porRol[0] : null;
 	}
 
 	public static Map<String, Object> dif(String campo, Object antes, Object despues) {

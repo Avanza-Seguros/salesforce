@@ -34,7 +34,6 @@ export default class MovimientosFlotilla extends LightningElement {
     pagina = 1;
     modal = null;
     seleccion = new Set();
-    censoCompleto = 'completo';
     archivoNombre = '';
     @track comun = {};
     abierto = false;
@@ -304,13 +303,6 @@ export default class MovimientosFlotilla extends LightningElement {
     // ============================================================
     // Archivo de la aseguradora
     // ============================================================
-    get opcionesCenso() {
-        return [
-            { label: 'Censo completo (los que no vienen se dan de baja)', value: 'completo' },
-            { label: 'Solo movimientos (altas y cambios)', value: 'movimientos' }
-        ];
-    }
-    handleCensoCompleto(e) { this.censoCompleto = e.detail.value; }
 
     async handleLeido(e) {
         this.archivoNombre = e.detail.archivo;
@@ -319,11 +311,12 @@ export default class MovimientosFlotilla extends LightningElement {
             const r = await compararArchivo({
                 recordId: this._recordId,
                 incisosJson: JSON.stringify(e.detail.incisos),
-                censoCompleto: this.censoCompleto === 'completo'
+                // Siempre se comparan todos: los que no vienen se proponen como baja, pero desmarcados.
+                censoCompleto: true
             });
             this.revision = {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
-                bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
+                bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: !b.faltante, motivo: '' })),
                 cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
                 sinCambios: r.sinCambios,
                 duplicados: (r.duplicados || []).map((d, i) => ({
@@ -365,6 +358,13 @@ export default class MovimientosFlotilla extends LightningElement {
         return `${this.duplicadosRev.length} vehículo(s) del archivo están duplicados: no se duplicaron.`;
     }
     get textoBajas() { return `Bajas (${this.bajasRev.length})`; }
+    get todasBajas() { return this.bajasRev.length > 0 && this.bajasRev.every((b) => b.sel); }
+    get hayFaltantes() { return this.bajasRev.some((b) => b.faltante); }
+    get textoFaltantes() {
+        const n = this.bajasRev.filter((b) => b.faltante).length;
+        return `${n} vehículos vigentes no vienen en el archivo. Están desmarcados: marca solo los que sí se dan de baja `
+            + '(si el archivo es el censo completo, usa la casilla del encabezado para marcarlos todos).';
+    }
     get textoCambios() { return `Cambios (${this.cambiosRev.length})`; }
     get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} vehículos sin cambios.`; }
 

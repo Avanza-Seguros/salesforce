@@ -96,8 +96,10 @@ private class MovimientosColectivoControllerTest {
 		System.assertEquals(3, ((List<Object>) datos.get('miembros')).size(), 'Tres asegurados');
 		System.assert(!((List<Object>) datos.get('motivos')).isEmpty(), 'Motivos de baja configurados');
 
+		Map<String, Object> bajaJuan = mov('baja', juan, null);
+		bajaJuan.put('correoPersonal', 'juan.personal@test.com');
 		List<Object> movs = new List<Object>{
-			mov('baja', juan, null),
+			bajaJuan,
 			mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2500, 'sumaAsegurada' => 750000, 'categoria' => 'Gerentes',
 				'certificado' => '002-B', 'rfc' => 'GODP901122AAA', 'fechaNacimiento' => '1990-11-23', 'nombreCompleto' => 'Pedro Gómez Díaz Jr' }),
 			mov('alta', null, new Map<String, Object>{ 'nombre' => 'Ana', 'apellidos' => 'Ruiz Soto', 'parentesco' => 'Titular',
@@ -112,6 +114,8 @@ private class MovimientosColectivoControllerTest {
 		Test.stopTest();
 
 		System.assertEquals(2, r.get('bajas'), 'Baja del titular y de su cónyuge');
+		System.assertEquals('juan.personal@test.com', [SELECT Correo_Personal__c FROM InsurancePolicyParticipant WHERE Id = :juan].Correo_Personal__c,
+			'Se guarda el correo personal capturado en la baja');
 		System.assertEquals(1, r.get('cambios'));
 		System.assertEquals(2, r.get('altas'));
 		for (InsurancePolicyParticipant p : [SELECT IsActiveParticipant, Motivo_Baja__c, EffectiveToDate FROM InsurancePolicyParticipant
@@ -137,6 +141,15 @@ private class MovimientosColectivoControllerTest {
 
 		Map<String, Object> despues = MovimientosColectivoController.getDatos(pol.Id);
 		System.assertEquals(5, ((List<Object>) despues.get('movimientos')).size(), 'Historial');
+		// Cada asegurado muestra su último movimiento con su fecha.
+		for (Object o : (List<Object>) despues.get('miembros')) {
+			Map<String, Object> a = (Map<String, Object>) o;
+			if (a.get('id') == (String) pedro) {
+				System.assertEquals('Cambio', a.get('tipoMovimiento'), 'Último movimiento de Pedro');
+				System.assertEquals(Date.today(), a.get('fechaMovimiento'), 'Con la fecha del movimiento');
+			}
+			if (a.get('nombre') == 'Luis Ruiz') { System.assertEquals('Alta', a.get('tipoMovimiento')); }
+		}
 		// Alta duplicada: la persona ya está vigente.
 		try {
 			MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{
@@ -177,7 +190,246 @@ private class MovimientosColectivoControllerTest {
 		Map<String, Object> leo = (Map<String, Object>) altas[2];
 		System.assertEquals(3, leo.get('titularRef'), 'Leo depende del alta de Rosa');
 		System.assertEquals(1, ((List<Object>) completo.get('bajas')).size(), 'Pedro no viene en el censo completo');
+		System.assertEquals(true, ((Map<String, Object>) ((List<Object>) completo.get('bajas'))[0]).get('faltante'),
+			'Pedro no viene en el archivo: la baja se propone desmarcada');
 		System.assertEquals(0, ((List<Object>) parcial.get('bajas')).size(), 'Solo movimientos: no propone bajas');
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivo con tipo de movimiento: una baja de un asegurado existente se propone como baja (aunque se
+	 *               marque censo completo, solo trae movimientos) y la de alguien que no existe solo se avisa.
+	 * @return void
+	 */
+	@isTest
+	static void testCompararArchivoConBajas() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		String archivo = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'PEREZ GARCIA JUAN', 'certificado' => '001', 'movimiento' => 'Baja' },
+			new Map<String, Object>{ 'fila' => 3, 'nombreCompleto' => 'Nadie Existe', 'certificado' => '999', 'movimiento' => 'Baja' }
+		});
+		Test.startTest();
+		Map<String, Object> r = MovimientosColectivoController.compararArchivo(pol.Id, archivo, true);
+		Test.stopTest();
+		List<Object> bajas = (List<Object>) r.get('bajas');
+		System.assertEquals(1, bajas.size(), 'Solo Juan se propone como baja (no Pedro, que no viene): ' + r);
+		System.assertEquals(participante(pol.Id, 'Juan%'), Id.valueOf((String) ((Map<String, Object>) bajas[0]).get('id')));
+		System.assertEquals(null, ((Map<String, Object>) bajas[0]).get('faltante'), 'La baja la pide el archivo: va marcada');
+		System.assertEquals(1, ((List<Object>) r.get('noEncontrados')).size(), 'Nadie Existe solo se avisa');
+		System.assertEquals(0, ((List<Object>) r.get('altas')).size(), 'Una baja que no existe no se vuelve alta');
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Un cambio del archivo de alguien que no existe se aplica internamente como alta, pero se propone con sus
+	 *               datos nuevos, se cuenta y se registra como cambio.
+	 * @return void
+	 */
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivos del asegurado: se leen los del propio registro y se cuentan en la lista.
+	 * @return void
+	 */
+	@isTest
+	static void testArchivosAsegurado() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id juan = participante(pol.Id, 'Juan%');
+		ContentVersion cv = new ContentVersion(Title = 'Acta', PathOnClient = 'acta.pdf', VersionData = Blob.valueOf('pdf'));
+		insert cv;
+		Id docId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id].ContentDocumentId;
+		insert new ContentDocumentLink(ContentDocumentId = docId, LinkedEntityId = juan, ShareType = 'V');
+		Test.startTest();
+		Map<String, Object> r = MovimientosColectivoController.archivosAsegurado(juan);
+		Map<String, Object> datos = MovimientosColectivoController.getDatos(pol.Id);
+		Test.stopTest();
+		System.assertEquals(1, ((List<Object>) r.get('archivos')).size());
+		System.assertNotEquals(null, r.get('destinoId'), 'Hay dónde adjuntar');
+		for (Object o : (List<Object>) datos.get('miembros')) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			if (m.get('id') == (String) juan) { System.assertEquals(1, m.get('archivos'), 'El botón muestra cuántos tiene'); }
+		}
+		try { MovimientosColectivoController.archivosAsegurado(null); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
+	}
+
+	// Subida de archivos uno por uno (sin el límite de 10 del componente estándar).
+	@isTest
+	static void testSubirArchivo() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id doc = MovimientosColectivoController.subirArchivo(pol.Id, 'INE JUAN.pdf', EncodingUtil.base64Encode(Blob.valueOf('pdf')));
+		ContentDocument d = [SELECT Title FROM ContentDocument WHERE Id = :doc];
+		System.assertEquals('INE JUAN', d.Title);
+		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE ContentDocumentId = :doc AND LinkedEntityId = :pol.Id]);
+		try { MovimientosColectivoController.subirArchivo(pol.Id, 'vacio.pdf', ''); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
+	}
+
+	@isTest
+	static void testAsignarArchivos() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id juan = participante(pol.Id, 'Juan%');
+		ContentVersion cv = new ContentVersion(Title = 'INE Juan', PathOnClient = 'ine juan.pdf', VersionData = Blob.valueOf('pdf'));
+		insert cv;
+		Id docId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id].ContentDocumentId;
+		// Se subió a la póliza con la carga múltiple.
+		insert new ContentDocumentLink(ContentDocumentId = docId, LinkedEntityId = pol.Id, ShareType = 'V');
+		String json = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'documentId' => (String) docId, 'registroId' => (String) juan },
+			new Map<String, Object>{ 'documentId' => null, 'registroId' => (String) juan }
+		});
+		Test.startTest();
+		Integer n = MovimientosColectivoController.asignarArchivos(pol.Id, json);
+		// Repetirlo no duplica el enlace.
+		MovimientosColectivoController.asignarArchivos(pol.Id, json);
+		Map<String, Object> r = MovimientosColectivoController.archivosAsegurado(juan);
+		Test.stopTest();
+		System.assertEquals(1, n);
+		System.assertEquals(1, ((List<Object>) r.get('archivos')).size(), 'Quedó en el asegurado');
+		System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :pol.Id AND ContentDocumentId = :docId], 'Ya no está en la póliza');
+		System.assertEquals(0, MovimientosColectivoController.asignarArchivos(pol.Id, '[]'));
+		try { MovimientosColectivoController.asignarArchivos(pol.Id, 'no es json'); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
+	}
+
+	@isTest
+	static void testCambioDeNombre() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		String archivo = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Juan Carlos Pérez García', 'certificado' => '001', 'movimiento' => 'Cambio' }
+		});
+		Test.startTest();
+		Map<String, Object> r = MovimientosColectivoController.compararArchivo(pol.Id, archivo, false);
+		Test.stopTest();
+		System.assertEquals(0, ((List<Object>) r.get('altas')).size(), 'No se vuelve alta: ' + r);
+		List<Object> cambios = (List<Object>) r.get('cambios');
+		System.assertEquals(1, cambios.size(), 'Es un cambio de la misma persona');
+		Map<String, Object> c = (Map<String, Object>) cambios[0];
+		System.assertEquals(participante(pol.Id, 'Juan%'), Id.valueOf((String) c.get('id')));
+		Map<String, Object> d = (Map<String, Object>) ((List<Object>) c.get('diferencias'))[0];
+		System.assertEquals('Nombre', d.get('campo'));
+		System.assertEquals('Juan Carlos Pérez García', d.get('despues'));
+		System.assertEquals('Juan Carlos Pérez García', ((Map<String, Object>) c.get('datos')).get('nombreCompleto'), 'Se aplica el nombre nuevo');
+	}
+
+	@isTest
+	static void testDocumentoBaja() {
+		EmailTemplate tpl = new EmailTemplate(Name = 'Baja Test', DeveloperName = 'Baja_Movimientos_Test_X1',
+			TemplateType = 'text', FolderId = UserInfo.getUserId(), IsActive = true, Subject = 'Baja', Body = 'Tu baja');
+		System.runAs(new User(Id = UserInfo.getUserId())) { insert tpl; }
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id pedro = participante(pol.Id, 'Pedro%');
+		update new InsurancePolicyParticipant(Id = pedro, Correo_Enviado__c = true);
+		Map<String, Object> b = mov('baja', pedro, null);
+		b.put('correoPersonal', 'pedro.personal@test.com');
+		MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{ b }));
+		System.assertEquals(false, [SELECT Correo_Enviado__c FROM InsurancePolicyParticipant WHERE Id = :pedro].Correo_Enviado__c,
+			'La baja queda con correo pendiente (se envía después)');
+		// Otro archivo del asegurado que NO debe ir en el correo de baja.
+		MovimientosColectivoController.subirArchivo(pedro, 'alta.pdf', EncodingUtil.base64Encode(Blob.valueOf('alta')));
+
+		Test.startTest();
+		Id doc = MovimientosColectivoController.subirDocumentoBaja(pol.Id, pedro, 'baja.pdf', EncodingUtil.base64Encode(Blob.valueOf('baja')));
+		Map<String, Object> r;
+		try {
+			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ pedro }, tpl.Id, true);
+		} catch (AuraHandledException e) {
+			System.assertNotEquals(null, e.getMessage(), 'Org sin entrega de correo');
+		}
+		Test.stopTest();
+		Id movBaja = [SELECT Id FROM Movimiento_Poliza__c WHERE Participante__c = :pedro AND Tipo__c = 'Baja' LIMIT 1].Id;
+		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :movBaja AND ContentDocumentId = :doc],
+			'El documento queda en el movimiento de baja');
+		if (r != null) { System.assertNotEquals(null, r.get('enviados')); }
+		try {
+			MovimientosColectivoController.subirDocumentoBaja(pol.Id, participante(pol.Id, 'Juan%'), 'x.pdf', 'eA==');
+			System.assert(false, 'Sin baja no se puede');
+		} catch (AuraHandledException e) {
+			System.assert(true);
+		}
+	}
+
+	@isTest
+	static void testCambioDeCorreo() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		InsurancePolicyParticipant pedro = [SELECT Id, PrimaryParticipantContactId, PrimaryParticipantAccountId FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Pedro%' LIMIT 1];
+		Boolean dondeGuardar = pedro.PrimaryParticipantContactId != null || pedro.PrimaryParticipantAccountId != null;
+		Test.startTest();
+		try {
+			Map<String, Object> r = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+				mov('cambio', pedro.Id, new Map<String, Object>{ 'email' => 'pedro.nuevo@test.com' })
+			}));
+			System.assert(dondeGuardar, 'Sin contacto ni cuenta debe avisar');
+			System.assertEquals(1, r.get('cambios'), 'El correo cuenta como cambio');
+			System.assertEquals(false, [SELECT Correo_Enviado__c FROM InsurancePolicyParticipant WHERE Id = :pedro.Id].Correo_Enviado__c,
+				'El cambio queda con correo pendiente');
+		} catch (AuraHandledException e) {
+			System.assert(!dondeGuardar, 'Solo falla si no hay dónde guardar: ' + e.getMessage());
+		}
+		Test.stopTest();
+		if (dondeGuardar) {
+			List<InsurancePolicyParticipant> ps = [SELECT Id, PrimaryParticipantContactId, PrimaryParticipantAccountId FROM InsurancePolicyParticipant WHERE Id = :pedro.Id];
+			System.assertEquals('pedro.nuevo@test.com', ParticipantesPolizaController.correosDe(ps).get(pedro.Id), 'Correo actualizado');
+			System.assert([SELECT Detalle__c FROM Movimiento_Poliza__c WHERE Participante__c = :pedro.Id AND Tipo__c = 'Cambio' LIMIT 1]
+				.Detalle__c.contains('Correo'), 'Queda en el historial');
+		}
+	}
+
+	@isTest
+	static void testAltaDuplicada() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		String archivo = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Juan Pérez García', 'certificado' => '001',
+				'fechaNacimiento' => '1980-05-10', 'movimiento' => 'Alta' }
+		});
+		Map<String, Object> r = MovimientosColectivoController.compararArchivo(pol.Id, archivo, false);
+		System.assertEquals(0, ((List<Object>) r.get('altas')).size(), 'No se duplica: ' + r);
+		List<Object> dup = (List<Object>) r.get('duplicados');
+		System.assertEquals(1, dup.size(), 'Se avisa el duplicado');
+		System.assertEquals(0, r.get('sinCambios'), 'No se cuenta como sin cambios');
+	}
+
+	@isTest
+	static void testCambioDeNombreYFecha() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		String archivo = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Claudia Pérez Mendoza', 'certificado' => '0000000001',
+				'fechaNacimiento' => '2001-12-27', 'movimiento' => 'Cambio' }
+		});
+		Map<String, Object> r = MovimientosColectivoController.compararArchivo(pol.Id, archivo, false);
+		List<Object> cambios = (List<Object>) r.get('cambios');
+		System.assertEquals(1, cambios.size(), 'Se reconoce por certificado aunque cambie la fecha: ' + r);
+		Map<String, Object> c = (Map<String, Object>) cambios[0];
+		System.assertEquals(participante(pol.Id, 'Juan%'), Id.valueOf((String) c.get('id')));
+		Map<String, Object> d = (Map<String, Object>) ((List<Object>) c.get('diferencias'))[0];
+		System.assertEquals('Nombre', d.get('campo'));
+		System.assertNotEquals('—', d.get('antes'), 'Trae el nombre anterior');
+	}
+
+	@isTest
+	static void testCambioQueEsAlta() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		String archivo = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Rosa Nueva Luna', 'certificado' => '050', 'movimiento' => 'Cambio',
+				'prima' => 1200, 'categoria' => 'Empleados' }
+		});
+		Map<String, Object> r = MovimientosColectivoController.compararArchivo(pol.Id, archivo, false);
+		List<Object> altas = (List<Object>) r.get('altas');
+		System.assertEquals(1, altas.size(), 'Internamente es alta');
+		Map<String, Object> a = (Map<String, Object>) altas[0];
+		System.assertEquals(true, a.get('comoCambio'), 'Se ve como cambio');
+		System.assert(!((List<Object>) a.get('diferencias')).isEmpty(), 'Con sus datos nuevos');
+
+		Map<String, Object> m = mov('alta', null, (Map<String, Object>) a.get('datos'));
+		m.put('comoCambio', true);
+		Test.startTest();
+		Map<String, Object> res = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{ m }));
+		Test.stopTest();
+		System.assertEquals(0, res.get('altas'), 'No se cuenta como alta');
+		System.assertEquals(1, res.get('cambios'), 'Se cuenta como cambio');
+		System.assertEquals('Cambio', [SELECT Tipo__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id AND Asegurado__c LIKE 'Rosa%' LIMIT 1].Tipo__c);
+		System.assertEquals(1, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Rosa%'],
+			'La persona sí se agrega');
 	}
 
 	/**
@@ -299,7 +551,7 @@ private class MovimientosColectivoControllerTest {
 		Map<String, Object> malTitular = mov('alta', null, new Map<String, Object>{ 'nombreCompleto' => 'X Y' });
 		malTitular.put('titularRef', 5);
 		List<Object> casos = new List<Object>{
-			'[]', JSON.serialize(new List<Object>{ sinMotivo }), JSON.serialize(new List<Object>{ new Map<String, Object>{ 'tipo' => 'otro' } }),
+			'[]', JSON.serialize(new List<Object>{ new Map<String, Object>{ 'tipo' => 'otro' } }),
 			JSON.serialize(new List<Object>{ new Map<String, Object>{ 'tipo' => 'baja', 'id' => juan, 'motivo' => motivo() } }),
 			JSON.serialize(new List<Object>{ mov('alta', null, new Map<String, Object>()) }), JSON.serialize(new List<Object>{ malTitular }),
 			JSON.serialize(new List<Object>{ antes }), 'no es json'
@@ -311,6 +563,12 @@ private class MovimientosColectivoControllerTest {
 		System.assertEquals(casos.size(), errores, 'Cada caso inválido se rechaza');
 		System.assertEquals(true, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :juan].IsActiveParticipant, 'Nada se aplicó');
 		try { MovimientosColectivoController.compararArchivo(pol.Id, '{x', true); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
+
+		// El motivo de baja es opcional.
+		MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{ sinMotivo }));
+		InsurancePolicyParticipant sinMotivoAplicada = [SELECT IsActiveParticipant, Motivo_Baja__c FROM InsurancePolicyParticipant WHERE Id = :juan];
+		System.assertEquals(false, sinMotivoAplicada.IsActiveParticipant, 'La baja sin motivo se aplica');
+		System.assertEquals(null, sinMotivoAplicada.Motivo_Baja__c);
 		try { MovimientosColectivoController.getDatos(null); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
 
 		System.assertEquals('Mujer', MovimientosColectivoController.sexoDe('Hija'));

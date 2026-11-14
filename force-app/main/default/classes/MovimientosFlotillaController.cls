@@ -220,7 +220,9 @@ public with sharing class MovimientosFlotillaController {
 				for (Inciso_Flotilla__c i : actuales) {
 					if (usados.contains(i.Id)) { continue; }
 					bajas.add(new Map<String, Object>{
-						'id' => i.Id, 'inciso' => i.Numero_Inciso__c, 'serie' => i.Serie__c, 'descripcion' => i.Descripcion__c, 'placas' => i.Placas__c
+						'id' => i.Id, 'inciso' => i.Numero_Inciso__c, 'serie' => i.Serie__c, 'descripcion' => i.Descripcion__c, 'placas' => i.Placas__c,
+						// No viene en el archivo: se propone, pero el usuario decide si es baja.
+						'faltante' => true
 					});
 				}
 			}

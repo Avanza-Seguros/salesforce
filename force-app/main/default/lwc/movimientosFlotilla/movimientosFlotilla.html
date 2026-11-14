@@ -134,10 +134,6 @@
 
                 <!-- ====================== ARCHIVO ====================== -->
                 <template if:true={enArchivo}>
-                    <div class="mov-paso">
-                        <lightning-radio-group label="¿Qué trae el archivo?" options={opcionesCenso} value={censoCompleto}
-                            onchange={handleCensoCompleto} type="button"></lightning-radio-group>
-                    </div>
                     <c-censo-vehiculos modo="lector" onleido={handleLeido}></c-censo-vehiculos>
                     <div class="mov-pie">
                         <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
@@ -190,10 +186,13 @@
 
                         <template if:true={hayBajas}>
                             <h4 class="mov-seccion seccion-baja">{textoBajas}</h4>
+                            <template if:true={hayFaltantes}>
+                                <p class="sub mov-faltantes">{textoFaltantes}</p>
+                            </template>
                             <div class="mov-scroll">
                                 <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
                                     <thead><tr>
-                                        <th class="col-check"><input type="checkbox" data-lista="bajas" checked onchange={marcarTodos} aria-label="Todas" /></th>
+                                        <th class="col-check"><input type="checkbox" data-lista="bajas" checked={todasBajas} onchange={marcarTodos} aria-label="Todas" /></th>
                                         <th>Inciso</th><th>Vehículo</th><th>Placas</th><th>Motivo (si es distinto al general)</th>
                                     </tr></thead>
                                     <tbody>

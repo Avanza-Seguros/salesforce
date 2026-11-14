@@ -291,3 +291,8 @@
 .mov-duplicados .mov-lista {
     margin-bottom: 0;
 }
+
+/* Aviso de los que no vienen en el archivo (bajas propuestas, desmarcadas) */
+.mov-faltantes {
+    margin: 0 0 0.5rem;
+}

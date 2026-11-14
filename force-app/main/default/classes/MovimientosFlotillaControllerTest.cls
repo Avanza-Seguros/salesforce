@@ -169,6 +169,7 @@ private class MovimientosFlotillaControllerTest {
 		System.assertEquals(1, ((List<Object>) r.get('altas')).size());
 		System.assertEquals(1, ((List<Object>) r.get('cambios')).size());
 		System.assertEquals(1, ((List<Object>) r.get('bajas')).size(), 'El AVEO no viene en el censo completo');
+		System.assertEquals(true, ((Map<String, Object>) ((List<Object>) r.get('bajas'))[0]).get('faltante'), 'Se propone desmarcada');
 		System.assertEquals(1, r.get('sinCambios'));
 		Map<String, Object> c = (Map<String, Object>) ((List<Object>) r.get('cambios'))[0];
 		System.assertEquals(1, ((List<Object>) c.get('diferencias')).size(), 'Solo la prima: el tipo de vehículo no cuenta');

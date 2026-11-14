@@ -147,8 +147,100 @@
 }
 
 .col-acciones {
-    width: 5.5rem;
+    width: 7.5rem;
     white-space: nowrap;
+}
+
+/* Archivos del asegurado */
+.mov-archivos {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.archivo {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #ececec;
+}
+
+.archivo-cuerpo {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.col-orden {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.col-orden:hover {
+    color: #0176d3;
+}
+
+.flecha {
+    font-size: 0.625rem;
+    color: #0176d3;
+}
+
+.correo-enviado {
+    background: #ebf7e6;
+    color: #2e844a;
+}
+
+.correo-pendiente {
+    background: #fef6e6;
+    color: #8c4b02;
+}
+
+.correo-sin {
+    background: #f3f3f3;
+    color: #706e6b;
+}
+
+.col-correo {
+    max-width: 16rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.varios-zona {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px dashed #c9c9c9;
+    border-radius: 0.5rem;
+    background: #fafaf9;
+}
+
+.varios-input {
+    display: none;
+}
+
+.doc-baja-input {
+    display: none;
+}
+
+.doc-baja-fila {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2rem;
+}
+
+.texto-error {
+    color: #ba0517;
+}
+
+.archivo-nombre {
+    max-width: 16rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .col-motivo {
@@ -163,8 +255,9 @@
     padding-left: 1.5rem;
 }
 
+/* Dado de baja: el texto se ve igual que los vigentes; solo el estado va en rojo. */
 .fila-baja td {
-    color: #919191;
+    color: inherit;
 }
 
 .estado {
@@ -181,8 +274,18 @@
 }
 
 .estado-baja {
-    background: #f3f3f3;
-    color: #5c5c5c;
+    background: #fef1f1;
+    color: #ba0517;
+}
+
+.estado-alta {
+    background: #ebf7e6;
+    color: #2e844a;
+}
+
+.estado-cambio {
+    background: #eef4ff;
+    color: #0176d3;
 }
 
 .tipo {
@@ -199,6 +302,28 @@
 
 .tipo-cambio {
     color: #0176d3;
+}
+
+/* Cambios: dato anterior y dato nuevo, renglón a renglón. */
+.dif-campo,
+.dif-antes,
+.dif-nuevo {
+    min-height: 1.25rem;
+    line-height: 1.25rem;
+    white-space: nowrap;
+}
+
+.dif-campo {
+    font-weight: 600;
+}
+
+.dif-antes {
+    color: #5c5c5c;
+}
+
+.dif-nuevo {
+    color: #0176d3;
+    font-weight: 600;
 }
 
 .detalle {
@@ -261,10 +386,36 @@
     margin-top: 0.75rem;
 }
 
+.mov-duplicados {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0.25rem;
+    border-left: 4px solid #dd7a01;
+    background: #fef6e6;
+    color: #5c3a00;
+    font-size: 0.8125rem;
+}
+
+.mov-duplicados-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.mov-duplicados .mov-lista {
+    margin-bottom: 0;
+}
+
 .mov-lista {
     max-height: 8rem;
     overflow: auto;
     margin: 0 0 0.75rem 1rem;
     list-style: disc;
     font-size: 0.8125rem;
+}
+
+/* Aviso de los que no vienen en el archivo (bajas propuestas, desmarcadas) */
+.mov-faltantes {
+    margin: 0 0 0.5rem;
 }

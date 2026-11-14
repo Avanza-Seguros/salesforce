@@ -9,6 +9,7 @@
  *               Usa MovimientosColectivoController; el archivo se lee con c-censo-colectivo en modo "lector".
  */
 import { LightningElement, api, track } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda } from 'c/lectorArchivos';
@@ -16,11 +17,41 @@ import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosColectivoController.compararArchivo';
 import traerDePoliza from '@salesforce/apex/MovimientosColectivoController.traerDePoliza';
+import archivosAsegurado from '@salesforce/apex/MovimientosColectivoController.archivosAsegurado';
+import asignarArchivos from '@salesforce/apex/MovimientosColectivoController.asignarArchivos';
+import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
+import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.subirDocumentoBaja';
+import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
+import enviarCorreo from '@salesforce/apex/ParticipantesPolizaController.enviarCorreo';
+// Asegurados por llamada al enviar correo: menos si van con adjuntos (límite de memoria de Apex).
+const LOTE_CORREO = 25;
+const LOTE_CORREO_ADJUNTOS = 5;
+// Tamaño máximo por archivo al subir en lote (el contenido viaja en base64 a Apex, que admite unos 4 MB por llamada).
+const MAX_ARCHIVO_LOTE = 3 * 1024 * 1024;
 
 const POR_PAGINA = 50;
 const PARENTESCOS = ['Cónyuge', 'Hijo(a)', 'Padre/Madre', 'Suegro(a)', 'Otro'];
 
-export default class MovimientosColectivo extends LightningElement {
+// Datos del archivo que se muestran en las altas (solo las columnas que el archivo trae).
+const dato = (a, k) => {
+    const v = a.datos && a.datos[k] !== undefined && a.datos[k] !== null ? a.datos[k] : a[k];
+    return v === undefined || v === null ? '' : String(v).trim();
+};
+const COLUMNAS_ALTA = [
+    { key: 'categoria', label: 'Categoría', valor: (a) => dato(a, 'categoria') },
+    { key: 'fechaNacimiento', label: 'Fecha de nacimiento', valor: (a) => (dato(a, 'fechaNacimiento') ? fechaVisible(dato(a, 'fechaNacimiento')) : '') },
+    { key: 'edad', label: 'Edad', num: true, valor: (a) => dato(a, 'edad') },
+    { key: 'sexo', label: 'Género', valor: (a) => dato(a, 'sexo') },
+    { key: 'numEmpleado', label: 'Núm. empleado', valor: (a) => dato(a, 'numEmpleado') },
+    { key: 'rfc', label: 'RFC', valor: (a) => dato(a, 'rfc').toUpperCase() },
+    { key: 'email', label: 'Correo', valor: (a) => dato(a, 'email') },
+    { key: 'telefono', label: 'Teléfono', valor: (a) => dato(a, 'telefono') },
+    { key: 'prima', label: 'Prima', num: true, valor: (a) => (dato(a, 'prima') ? moneda(Number(dato(a, 'prima'))) : '') }
+];
+
+export default class MovimientosColectivo extends NavigationMixin(LightningElement) {
+    // Ventana de archivos del asegurado.
+    @track archivos = { id: null, nombre: '', destinoId: null, lista: [], cargando: false };
     @api readOnly = false;
     @track datos = null;
     @track revision = null;
@@ -30,10 +61,10 @@ export default class MovimientosColectivo extends LightningElement {
     vista = 'lista';
     filtro = 'vigentes';
     busqueda = '';
+    busquedaHistorial = '';
     pagina = 1;
     modal = null;
     seleccion = new Set();
-    censoCompleto = 'completo';
     archivoNombre = '';
     // Fecha, endoso, motivo y comentario comunes de la revisión del archivo.
     @track comun = {};
@@ -109,6 +140,9 @@ export default class MovimientosColectivo extends LightningElement {
     get totalMovimientos() { return ((this.datos && this.datos.movimientos) || []).length; }
     get textoHistorial() { return `Historial (${this.totalMovimientos})`; }
     get sinAsegurados() { return this.miembros.length === 0; }
+    // Los archivos solo se adjuntan a titulares (no a cónyuge, hijos u otros dependientes).
+    get titularesArchivo() { return this.miembros.filter((m) => m.esTitular); }
+    get sinTitulares() { return this.titularesArchivo.length === 0; }
     get puedeTraer() { return this.puedeEditar && this.enOportunidad && this.datos.aseguradosAnterior > 0; }
     get textoTraer() { return `Traer ${this.datos.aseguradosAnterior} asegurados vigentes de ${this.datos.polizaAnteriorNombre}`; }
 
@@ -119,19 +153,91 @@ export default class MovimientosColectivo extends LightningElement {
         return [
             { label: `Vigentes (${this.totalVigentes})`, value: 'vigentes' },
             { label: `Dados de baja (${this.totalBajas})`, value: 'bajas' },
+            { label: `Cambios (${this.miembros.filter((m) => m.tipoMovimiento === 'Cambio').length})`, value: 'cambios' },
+            { label: `Correo sin enviar (${this.miembros.filter((m) => this.sinEnviar(m)).length})`, value: 'sincorreo' },
+            { label: `Correo enviado (${this.miembros.filter((m) => m.correoEnviado).length})`, value: 'concorreo' },
             { label: `Todos (${this.miembros.length})`, value: 'todos' }
         ];
     }
     handleFiltro(e) { this.filtro = e.detail.value; this.pagina = 1; }
     handleBusqueda(e) { this.busqueda = e.target.value || ''; this.pagina = 1; }
 
+    // ============================================================
+    // Orden por columna (clic en el título)
+    // ============================================================
+    orden = { campo: null, asc: true };
+    ordenar(e) {
+        const campo = e.currentTarget.dataset.campo;
+        this.orden = this.orden.campo === campo ? { campo, asc: !this.orden.asc } : { campo, asc: true };
+        this.pagina = 1;
+    }
+    get flechas() {
+        const f = {};
+        ['certificado', 'nombre', 'parentesco', 'categoria', 'nacimiento', 'alta', 'movimiento', 'creacion', 'cierre', 'prima',
+            'estado', 'envio', 'correo'].forEach((c) => { f[c] = this.orden.campo === c ? (this.orden.asc ? '▲' : '▼') : ''; });
+        return f;
+    }
+    valorOrden(m, campo) {
+        switch (campo) {
+            case 'certificado': return m.certificado;
+            case 'nombre': return m.nombre;
+            case 'parentesco': return m.parentesco;
+            case 'categoria': return m.categoria;
+            case 'nacimiento': return m.fechaNacimiento;
+            case 'alta': return m.fechaAlta;
+            case 'movimiento': return m.fechaMovimiento;
+            case 'creacion': return m.fechaCreacion;
+            case 'cierre': return m.fechaCierre;
+            case 'prima': return m.prima;
+            case 'estado': return m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja');
+            // Sin correo, pendiente y enviado (por fecha de envío).
+            case 'envio': return m.correoEnviado ? `2${m.fechaCorreo || ''}` : (this.correoDe(m) ? '1' : '0');
+            case 'correo': return this.correoDe(m);
+            default: return null;
+        }
+    }
+    comparar(a, b) {
+        const { campo, asc } = this.orden;
+        const va = this.valorOrden(a, campo);
+        const vb = this.valorOrden(b, campo);
+        const vacioA = va === null || va === undefined || va === '';
+        const vacioB = vb === null || vb === undefined || vb === '';
+        // Los vacíos siempre al final.
+        if (vacioA || vacioB) { return vacioA === vacioB ? 0 : (vacioA ? 1 : -1); }
+        const r = typeof va === 'number' && typeof vb === 'number'
+            ? va - vb
+            : String(va).localeCompare(String(vb), 'es', { numeric: true, sensitivity: 'base' });
+        return asc ? r : -r;
+    }
+    // Las familias no se separan: el titular decide la posición y sus dependientes se ordenan debajo de él.
+    ordenarLista(lista) {
+        if (!this.orden.campo) { return lista; }
+        const ids = new Set(lista.map((m) => m.id));
+        const grupos = new Map();
+        lista.forEach((m) => {
+            const k = !m.esTitular && m.titularId && ids.has(m.titularId) ? m.titularId : m.id;
+            if (!grupos.has(k)) { grupos.set(k, { cabeza: null, deps: [] }); }
+            const g = grupos.get(k);
+            if (k === m.id) { g.cabeza = m; } else { g.deps.push(m); }
+        });
+        return [...grupos.values()]
+            .sort((g1, g2) => this.comparar(g1.cabeza, g2.cabeza))
+            .flatMap((g) => [g.cabeza, ...g.deps.sort((d1, d2) => this.comparar(d1, d2))]);
+    }
+
     get filtrados() {
+        return this.ordenarLista(this.filtradosSinOrden);
+    }
+    get filtradosSinOrden() {
         const q = this.fold(this.busqueda);
         return this.miembros.filter((m) => {
             if (this.filtro === 'vigentes' && !m.activo) { return false; }
             if (this.filtro === 'bajas' && m.activo) { return false; }
+            if (this.filtro === 'cambios' && m.tipoMovimiento !== 'Cambio') { return false; }
+            if (this.filtro === 'sincorreo' && !this.sinEnviar(m)) { return false; }
+            if (this.filtro === 'concorreo' && !m.correoEnviado) { return false; }
             if (!q) { return true; }
-            return this.fold(`${m.nombre} ${m.certificado || ''} ${m.titularNombre || ''} ${m.categoria || ''}`).includes(q);
+            return this.fold(`${m.nombre} ${m.certificado || ''} ${m.titularNombre || ''} ${m.categoria || ''} ${m.correo || ''}`).includes(q);
         });
     }
     get filas() {
@@ -143,12 +249,110 @@ export default class MovimientosColectivo extends LightningElement {
             claseFila: (m.esTitular ? '' : 'fila-dependiente') + (m.activo ? '' : ' fila-baja'),
             nacimientoTxt: fechaVisible(m.fechaNacimiento),
             altaTxt: fechaVisible(m.fechaAlta),
+            fechaMovimientoTxt: fechaVisible(m.fechaMovimiento),
             sumaTxt: moneda(m.sumaAsegurada),
             primaTxt: moneda(m.prima),
-            estado: m.activo ? 'Vigente' : `Baja ${fechaVisible(m.fechaBaja)}`,
-            claseEstado: m.activo ? 'estado estado-vigente' : 'estado estado-baja',
-            puedeMover: m.activo && this.puedeEditar
+            // Estado = último movimiento: Alta, Baja o Cambio.
+            estado: m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja'),
+            claseEstado: `estado estado-${String(m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
+            puedeMover: m.activo && this.puedeEditar,
+            textoArchivos: m.archivos ? `Archivos (${m.archivos})` : 'Adjuntar archivos',
+            // Resaltado cuando ya tiene archivos.
+            varianteArchivos: m.archivos ? 'brand' : 'border-filled',
+            // Creación del movimiento y su cierre (al enviar el correo).
+            fechaCreacionTxt: this.fechaHora(m.fechaCreacion),
+            fechaCierreTxt: this.fechaHora(m.fechaCierre),
+            // Correo: enviado (con fecha), pendiente o sin correo. Los dados de baja usan su correo personal.
+            correoMostrar: this.correoDe(m),
+            esCorreoPersonal: !m.activo && !!m.correoPersonal,
+            correoTxt: m.correoEnviado ? 'Enviado' : (this.correoDe(m) ? 'Pendiente' : 'Sin correo'),
+            claseCorreo: `estado ${m.correoEnviado ? 'correo-enviado' : (this.correoDe(m) ? 'correo-pendiente' : 'correo-sin')}`,
+            fechaCorreoTxt: m.correoEnviado ? this.fechaHora(m.fechaCorreo) : '',
+            tituloCorreo: m.correoEnviado
+                ? `Enviado el ${this.fechaHora(m.fechaCorreo)}${m.plantillaCorreo ? ' · ' + m.plantillaCorreo : ''}`
+                : (this.correoDe(m) ? `Aún no se envía el correo a ${this.correoDe(m)}` : 'El asegurado no tiene correo'),
+            puedeCorreo: this.enPoliza && !!this.correoDe(m),
+            textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         }));
+    }
+
+    // ============================================================
+    // Envío de correo (solo en la póliza)
+    // ============================================================
+    @track correo = { ids: [], plantilla: '', adjuntar: true, enviando: false, avance: '', errores: [], reenvio: false };
+    plantillas = [];
+    get enModalCorreo() { return this.modal === 'correo'; }
+    // Pendientes del filtro actual (todas las páginas): vigentes con correo a los que no se les ha enviado.
+    // Pendientes: altas, cambios y bajas cuyo correo aún no se envía (a la baja se le escribe a su correo personal).
+    // Se toman de todos los asegurados (no del filtro de la tabla), porque las bajas no salen en «Vigentes».
+    get pendientesCorreo() { return this.miembros.filter((m) => !m.correoEnviado && this.correoDe(m)); }
+    // Sin enviar: vigentes sin correo enviado y bajas con correo personal por enviar.
+    sinEnviar(m) { return !m.correoEnviado && (m.activo || !!this.correoDe(m)); }
+    // Correo al que se envía: el personal si está dado de baja y lo capturaron; si no, el de su contacto o cuenta.
+    correoDe(m) { return (!m.activo && m.correoPersonal) ? m.correoPersonal : m.correo; }
+    async cargarPlantillas() {
+        if (this.plantillas.length) { return; }
+        this.plantillas = (await getPlantillas()).map((t) => ({ value: t.id, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
+    }
+    get textoEnviarPendientes() { return `Enviar correo a pendientes (${this.pendientesCorreo.length})`; }
+    get sinPendientesCorreo() { return this.pendientesCorreo.length === 0; }
+    abrirCorreoPendientes() { this.abrirCorreo(this.pendientesCorreo.map((m) => m.id), false); }
+    abrirCorreoAsegurado(e) {
+        const m = this.miembros.find((x) => x.id === e.currentTarget.dataset.id);
+        if (m) { this.abrirCorreo([m.id], m.correoEnviado); }
+    }
+    async abrirCorreo(ids, reenvio) {
+        this.correo = { ...this.correo, ids, reenvio, enviando: false, avance: '', errores: [] };
+        this.modal = 'correo';
+        try {
+            await this.cargarPlantillas();
+        } catch (err) {
+            this.correo = { ...this.correo, errores: [this.textoError(err)] };
+        }
+    }
+    cambiarPlantilla(e) { this.correo = { ...this.correo, plantilla: e.detail.value }; }
+    cambiarAdjuntar(e) { this.correo = { ...this.correo, adjuntar: e.target.checked }; }
+    get textoDestinatarios() {
+        const ids = new Set(this.correo.ids);
+        const d = this.miembros.filter((m) => ids.has(m.id));
+        if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoDe(d[0])}).`; }
+        return `Se enviará a ${d.length} asegurados con correo que aún no lo reciben.`;
+    }
+    get avisoReenvio() { return this.correo.reenvio ? 'A este asegurado ya se le envió un correo; se enviará de nuevo.' : ''; }
+    get hayErroresCorreo() { return this.correo.errores.length > 0; }
+    get erroresCorreo() { return this.correo.errores.map((t, i) => ({ key: String(i), texto: t })); }
+    get sinEnviarCorreo() { return !this.correo.plantilla || !this.correo.ids.length || this.correo.enviando; }
+    get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : 'Enviar'; }
+    async enviarCorreos() {
+        const { ids, plantilla, adjuntar } = this.correo;
+        const lote = adjuntar ? LOTE_CORREO_ADJUNTOS : LOTE_CORREO;
+        let enviados = 0;
+        const errores = [];
+        this.correo = { ...this.correo, enviando: true, errores: [] };
+        for (let i = 0; i < ids.length; i += lote) {
+            this.correo = { ...this.correo, avance: `Enviando ${Math.min(i + lote, ids.length)} de ${ids.length}…` };
+            try {
+                const r = await enviarCorreo({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar });
+                enviados += r.enviados || 0;
+                errores.push(...(r.errores || []));
+            } catch (err) {
+                errores.push(this.textoError(err));
+                break;
+            }
+        }
+        this.correo = { ...this.correo, enviando: false, avance: '', errores };
+        if (enviados) {
+            this.toast('Correo enviado', `Se envió a ${enviados} asegurado${enviados === 1 ? '' : 's'}`
+                + (errores.length ? `; ${errores.length} no se pudieron enviar.` : '.'), errores.length ? 'warning' : 'success');
+            await this.cargar();
+        }
+        if (!errores.length) { this.modal = null; }
+    }
+    textoError(e) { return (e && e.body && e.body.message) || (e && e.message) || 'Ocurrió un error inesperado.'; }
+    fechaHora(v) {
+        if (!v) { return ''; }
+        const d = new Date(v);
+        return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
     get paginas() { return Math.max(1, Math.ceil(this.filtrados.length / POR_PAGINA)); }
     get textoPagina() { return `Página ${this.pagina} de ${this.paginas} · ${this.filtrados.length} asegurados`; }
@@ -195,7 +399,252 @@ export default class MovimientosColectivo extends LightningElement {
     get enModalAlta() { return this.modal === 'alta'; }
     get enModalCambio() { return this.modal === 'cambio'; }
     get hayModal() { return !!this.modal; }
-    cerrarModal() { this.modal = null; this.form = {}; }
+    get enModalArchivos() { return this.modal === 'archivos'; }
+
+    // ============================================================
+    // Archivos del asegurado
+    // ============================================================
+    async abrirArchivos(e) {
+        const id = e.currentTarget.dataset.id;
+        const m = this.miembros.find((x) => x.id === id);
+        if (!m || !m.esTitular) { return; }
+        this.archivos = { id, nombre: m.nombre, destinoId: null, lista: [], cargando: true };
+        this.modal = 'archivos';
+        await this.cargarArchivos();
+    }
+    async cargarArchivos() {
+        const id = this.archivos.id;
+        try {
+            const r = await archivosAsegurado({ registroId: id });
+            if (this.archivos.id !== id) { return; }
+            this.archivos = { ...this.archivos, destinoId: r.destinoId, lista: r.archivos || [], cargando: false };
+            // Actualiza el contador del botón en la lista.
+            this.datos = { ...this.datos, miembros: this.miembros.map((x) => (x.id === id ? { ...x, archivos: this.archivos.lista.length } : x)) };
+        } catch (err) {
+            this.archivos = { ...this.archivos, cargando: false };
+            this.mostrarError(err);
+        }
+    }
+    async archivosSubidos(e) {
+        const n = (e.detail.files || []).length;
+        this.toast('Archivos', `${n} archivo(s) adjuntado(s).`, 'success');
+        this.archivos = { ...this.archivos, cargando: true };
+        await this.cargarArchivos();
+    }
+    get archivosLista() {
+        return this.archivos.lista.map((a) => ({
+            ...a,
+            titulo: a.titulo + (a.tipo ? '.' + a.tipo : ''),
+            icono: this.iconoArchivo(a.tipo),
+            detalle: [a.tipo ? a.tipo.toUpperCase() : '', this.tamanoTxt(a.tamano), a.fecha ? fechaVisible(a.fecha) : ''].filter((x) => x).join(' · ')
+        }));
+    }
+    get hayArchivos() { return this.archivos.lista.length > 0; }
+    get textoArchivos() { return `Archivos adjuntos (${this.archivos.lista.length})`; }
+    // Vista previa de un archivo adjunto (no confundir con verArchivo, que abre la carga del censo).
+    previsualizarArchivo(e) {
+        e.preventDefault();
+        const id = e.currentTarget.dataset.id;
+        if (!id) { return; }
+        this[NavigationMixin.Navigate]({ type: 'standard__namedPage', attributes: { pageName: 'filePreview' },
+            state: { selectedRecordId: id } });
+    }
+    iconoArchivo(tipo) {
+        const t = String(tipo || '').toLowerCase();
+        if (t === 'pdf') { return 'doctype:pdf'; }
+        if (t === 'csv') { return 'doctype:csv'; }
+        if (['xls', 'xlsx'].includes(t)) { return 'doctype:excel'; }
+        if (['doc', 'docx'].includes(t)) { return 'doctype:word'; }
+        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(t)) { return 'doctype:image'; }
+        if (t === 'zip') { return 'doctype:zip'; }
+        if (t === 'txt') { return 'doctype:txt'; }
+        return 'doctype:unknown';
+    }
+    tamanoTxt(b) {
+        if (b == null) { return ''; }
+        if (b < 1024) { return `${b} B`; }
+        if (b < 1024 * 1024) { return `${Math.round(b / 1024)} KB`; }
+        return `${(b / 1024 / 1024).toFixed(1)} MB`;
+    }
+    cerrarModal() {
+        if (this.modal === 'archivosVarios' && this.subiendoVarios) { return; }
+        if (this.modal === 'correo' && this.correo.enviando) { return; }
+        if (this.modal === 'archivosVarios' && this.totalSubidos) {
+            this.toast('Archivos', 'Los archivos que no se adjuntaron se quedaron en la póliza.', 'info');
+        }
+        this.modal = null;
+        this.form = {};
+        this.varios = { filas: [], cargando: false };
+    }
+
+    // ============================================================
+    // Varios archivos de distintas personas: se detecta a quién va cada uno por el nombre del archivo.
+    // ============================================================
+    @track varios = { filas: [], cargando: false };
+    get enModalArchivosVarios() { return this.modal === 'archivosVarios'; }
+    abrirArchivosVarios() {
+        this.varios = { filas: [], cargando: false };
+        this.modal = 'archivosVarios';
+    }
+    // Archivos grandes con el componente estándar (máximo 10 por selección).
+    archivosVariosSubidos(e) {
+        const nuevos = (e.detail.files || []).map((f) => {
+            const d = this.detectarPersona(f.name);
+            return { key: f.documentId, documentId: f.documentId, nombre: f.name, registroId: d.id, deteccion: d.como, estado: 'listo' };
+        });
+        this.varios = { ...this.varios, filas: [...this.varios.filas, ...nuevos] };
+    }
+    // Selección sin límite de cantidad: cada archivo se sube por separado a la póliza.
+    elegirArchivosVarios() {
+        const input = this.template.querySelector('input.varios-input');
+        if (input) { input.value = null; input.click(); }
+    }
+    archivosElegidos(e) {
+        this.subirVarios([...(e.target.files || [])]);
+    }
+    arrastrarSobre(e) { e.preventDefault(); }
+    soltarArchivos(e) {
+        e.preventDefault();
+        this.subirVarios([...((e.dataTransfer && e.dataTransfer.files) || [])]);
+    }
+    async subirVarios(archivos) {
+        if (!archivos.length) { return; }
+        // Los File se guardan fuera del estado reactivo.
+        const porKey = new Map();
+        const nuevos = archivos.map((f, i) => {
+            const d = this.detectarPersona(f.name);
+            const grande = f.size > MAX_ARCHIVO_LOTE;
+            const key = `n${Date.now()}-${i}`;
+            porKey.set(key, f);
+            return {
+                key, documentId: null, nombre: f.name, registroId: d.id, deteccion: d.como,
+                estado: grande ? 'error' : 'pendiente',
+                error: grande ? 'Pesa más de 3 MB: súbelo con «Archivos de más de 3 MB».' : ''
+            };
+        });
+        this.varios = { ...this.varios, filas: [...this.varios.filas, ...nuevos] };
+        const cola = nuevos.filter((n) => n.estado === 'pendiente');
+        // Hasta 3 archivos subiendo a la vez.
+        const trabajador = async () => {
+            while (cola.length) {
+                const n = cola.shift();
+                this.actualizarFila(n.key, { estado: 'subiendo' });
+                try {
+                    const base64 = await this.leerBase64(porKey.get(n.key));
+                    const documentId = await subirArchivo({ recordId: this._recordId, nombre: n.nombre, base64 });
+                    this.actualizarFila(n.key, { estado: 'listo', documentId });
+                } catch (err) {
+                    this.actualizarFila(n.key, { estado: 'error',
+                        error: (err && err.body && err.body.message) || (err && err.message) || 'No se pudo subir.' });
+                }
+            }
+        };
+        await Promise.all([trabajador(), trabajador(), trabajador()]);
+    }
+    actualizarFila(key, cambios) {
+        this.varios = { ...this.varios, filas: this.varios.filas.map((f) => (f.key === key ? { ...f, ...cambios } : f)) };
+    }
+    leerBase64(archivo) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(',')[1] || '');
+            r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+            r.readAsDataURL(archivo);
+        });
+    }
+    get subiendoVarios() { return this.varios.filas.some((f) => f.estado === 'pendiente' || f.estado === 'subiendo'); }
+    get textoSubiendo() {
+        const total = this.varios.filas.filter((f) => f.estado !== 'error').length;
+        const listos = this.varios.filas.filter((f) => f.estado === 'listo').length;
+        return `Subiendo archivos: ${listos} de ${total}…`;
+    }
+    // Busca en el nombre del archivo el RFC, el nombre completo o el certificado de un asegurado.
+    detectarPersona(nombreArchivo) {
+        const base = this.fold(String(nombreArchivo || '').replace(/\.[^.]+$/, ''));
+        const tokens = base.split(/[^a-z0-9]+/).filter((t) => t);
+        const pegado = tokens.join('');
+        const set = new Set(tokens);
+        const ignorar = new Set(['de', 'del', 'la', 'las', 'los', 'y']);
+        let mejor = null;
+        let empate = false;
+        this.titularesArchivo.forEach((m) => {
+            let puntos = 0;
+            let como = '';
+            const rfc = this.fold(m.rfc).replace(/[^a-z0-9]/g, '');
+            if (rfc.length >= 10 && pegado.includes(rfc.substring(0, 10))) {
+                puntos = 100; como = 'Por RFC';
+            } else {
+                const partes = this.fold(m.nombre).split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !ignorar.has(t));
+                const hallados = partes.filter((t) => set.has(t)).length;
+                if (partes.length >= 2 && hallados === partes.length) { puntos = 90; como = 'Por nombre'; }
+                else if (hallados >= 2) { puntos = 60 + hallados; como = 'Por nombre (parcial)'; }
+                const c = this.fold(m.certificado).replace(/[^a-z0-9]/g, '');
+                if (c.length >= 3 && set.has(c)) {
+                    if (puntos) { puntos += 5; } else { puntos = 70; como = 'Por certificado'; }
+                }
+            }
+            // Prefiere a los vigentes sobre los dados de baja con el mismo puntaje.
+            if (puntos && m.activo) { puntos += 0.5; }
+            if (!puntos) { return; }
+            if (!mejor || puntos > mejor.puntos) { mejor = { id: m.id, puntos, como }; empate = false; }
+            else if (puntos === mejor.puntos) { empate = true; }
+        });
+        if (!mejor || empate) { return { id: null, como: empate ? 'Coincide con varias personas' : 'No detectado' }; }
+        return { id: mejor.id, como: mejor.como };
+    }
+    get opcionesPersonas() {
+        const ops = [{ label: '— Sin asignar (se queda en la póliza) —', value: '' }];
+        [...this.titularesArchivo]
+            .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)))
+            .forEach((m) => ops.push({
+                label: `${m.nombre}${m.certificado ? ' (' + m.certificado + ')' : ''}${m.activo ? '' : ' · baja'}`,
+                value: m.id
+            }));
+        return ops;
+    }
+    asignarPersona(e) {
+        const doc = e.target.dataset.id;
+        const valor = e.detail.value || null;
+        this.varios = {
+            ...this.varios,
+            filas: this.varios.filas.map((f) => (f.key === doc
+                ? { ...f, registroId: valor, deteccion: valor ? 'Asignado a mano' : 'Sin asignar' } : f))
+        };
+    }
+    get variosFilas() {
+        return this.varios.filas.map((f) => ({
+            ...f,
+            registroId: f.registroId || '',
+            claseDeteccion: f.registroId ? (f.deteccion === 'Asignado a mano' ? 'tipo tipo-cambio' : 'tipo tipo-alta') : 'tipo tipo-baja',
+            estadoTxt: { pendiente: 'En espera', subiendo: 'Subiendo…', listo: 'Subido', error: 'No se subió' }[f.estado] || '',
+            claseEstado: f.estado === 'error' ? 'sub texto-error' : 'sub',
+            conError: f.estado === 'error'
+        }));
+    }
+    get hayVarios() { return this.varios.filas.length > 0; }
+    get totalAsignados() { return this.varios.filas.filter((f) => f.registroId && f.documentId).length; }
+    get totalSubidos() { return this.varios.filas.filter((f) => f.documentId).length; }
+    get textoVarios() { return `${this.varios.filas.length} archivo(s) · ${this.totalAsignados} con persona detectada o asignada`; }
+    get sinAsignados() { return this.totalAsignados === 0 || this.varios.cargando || this.subiendoVarios; }
+    get textoAdjuntarVarios() { return `Adjuntar ${this.totalAsignados} archivo(s)`; }
+    async adjuntarVarios() {
+        const asignaciones = this.varios.filas.filter((f) => f.registroId && f.documentId)
+            .map((f) => ({ documentId: f.documentId, registroId: f.registroId }));
+        if (!asignaciones.length) { return; }
+        this.varios = { ...this.varios, cargando: true };
+        try {
+            const n = await asignarArchivos({ recordId: this._recordId, asignacionesJson: JSON.stringify(asignaciones) });
+            const pendientes = this.totalSubidos - asignaciones.length;
+            this.toast('Archivos', `${n} archivo(s) adjuntado(s) a cada asegurado.`
+                + (pendientes ? ` ${pendientes} sin asignar se quedaron en la póliza.` : ''), 'success');
+            this.modal = null;
+            this.varios = { filas: [], cargando: false };
+            await this.cargar();
+        } catch (err) {
+            this.varios = { ...this.varios, cargando: false };
+            this.mostrarError(err);
+        }
+    }
 
     get hoy() {
         const d = new Date();
@@ -209,8 +658,47 @@ export default class MovimientosColectivo extends LightningElement {
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
         if (!ids.length) { return; }
-        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '' };
+        const correos = {};
+        ids.forEach((id) => {
+            const m = this.miembros.find((x) => x.id === id);
+            correos[id] = (m && m.correoPersonal) || '';
+        });
+        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', correos, documentos: {} };
+        // Los archivos (File) quedan fuera del estado reactivo; en el formulario solo va su nombre.
+        this._documentosBaja = new Map();
         this.modal = 'baja';
+    }
+    // Correo personal de cada asegurado que se da de baja (los dependientes salen con su titular sin correo propio).
+    get bajaCorreos() {
+        const correos = this.form.correos || {};
+        const documentos = this.form.documentos || {};
+        return (this.form.ids || []).map((id) => {
+            const m = this.miembros.find((x) => x.id === id) || {};
+            return { id, etiqueta: `Correo personal de ${m.nombre || 'asegurado'}`, valor: correos[id] || '',
+                corporativo: m.correo ? `Correo registrado: ${m.correo}` : 'No tiene correo registrado',
+                etiquetaDocumento: `Documento de baja de ${m.nombre || 'asegurado'} (opcional)`,
+                documento: documentos[id] || '' };
+        });
+    }
+    // Documento de baja (endoso o constancia): es lo único que se adjunta al correo de baja.
+    handleDocumentoBaja(e) {
+        const id = e.target.dataset.id;
+        const f = e.target.files && e.target.files[0];
+        e.target.value = null;
+        if (!f) { return; }
+        if (f.size > MAX_ARCHIVO_LOTE) {
+            this.toast('Documento de baja', `${f.name} pesa más de 3 MB.`, 'warning');
+            return;
+        }
+        this._documentosBaja.set(id, f);
+        this.form = { ...this.form, documentos: { ...(this.form.documentos || {}), [id]: f.name } };
+    }
+    elegirDocumentoBaja(e) {
+        const input = this.template.querySelector(`input.doc-baja-input[data-id="${e.target.dataset.id}"]`);
+        if (input) { input.click(); }
+    }
+    handleCorreoPersonal(e) {
+        this.form = { ...this.form, correos: { ...(this.form.correos || {}), [e.target.dataset.id]: (e.target.value || '').trim() } };
     }
     get bajaNombres() {
         const ids = new Set(this.form.ids || []);
@@ -245,7 +733,7 @@ export default class MovimientosColectivo extends LightningElement {
         this.form = {
             id: m.id, nombreActual: m.nombre, original: { ...m }, nombreCompleto: m.nombre, certificado: m.certificado || '',
             fechaNacimiento: m.fechaNacimiento || '', categoria: m.categoria || '', sumaAsegurada: m.sumaAsegurada, prima: m.prima,
-            rfc: m.rfc || '', sexo: m.sexo || '', fecha: this.fechaDefault, endoso: '', comentario: ''
+            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: ''
         };
         this.modal = 'cambio';
     }
@@ -265,8 +753,40 @@ export default class MovimientosColectivo extends LightningElement {
     async guardarBaja() {
         if (!this.validarForm()) { return; }
         const f = this.form;
-        const movs = f.ids.map((id) => ({ tipo: 'baja', id, fecha: f.fecha, motivo: f.motivo, endoso: f.endoso, comentario: f.comentario }));
-        await this.enviar(movs);
+        const enPoliza = this.enPoliza;
+        const correos = f.correos || {};
+        // El correo de baja no se envía aquí: queda pendiente y se envía después desde «Enviar correo».
+        // El documento de baja es opcional y se guarda en el movimiento para adjuntarlo en ese envío.
+        const docs = this._documentosBaja || new Map();
+        const movs = f.ids.map((id) => ({
+            tipo: 'baja', id, fecha: f.fecha, motivo: f.motivo || null, endoso: f.endoso, comentario: f.comentario,
+            correoPersonal: enPoliza ? correos[id] || null : null
+        }));
+        const ok = await this.enviar(movs);
+        if (!ok || !enPoliza || !docs.size) { return; }
+        await this.subirDocumentosBaja(f.ids, docs);
+    }
+    // Guarda el documento de baja (si se adjuntó) en el movimiento de cada asegurado.
+    async subirDocumentosBaja(ids, docs) {
+        this.cargando = true;
+        const errores = [];
+        try {
+            for (const id of ids) {
+                const f = docs.get(id);
+                if (!f) { continue; }
+                try {
+                    const base64 = await this.leerBase64(f);
+                    await subirDocumentoBaja({ policyId: this._recordId, participanteId: id, nombre: f.name, base64 });
+                } catch (err) {
+                    errores.push(`${f.name}: ${this.textoError(err)}`);
+                }
+            }
+            if (errores.length) {
+                this.toast('Documento de baja', `La baja se aplicó, pero no se guardó el documento: ${errores.join(' · ')}`, 'warning');
+            }
+        } finally {
+            this.cargando = false;
+        }
     }
 
     async guardarAlta() {
@@ -297,6 +817,7 @@ export default class MovimientosColectivo extends LightningElement {
         if (distinto(f.prima, o.prima)) { datos.prima = f.prima; }
         if (distinto(f.rfc, o.rfc)) { datos.rfc = f.rfc; }
         if (distinto(f.sexo, o.sexo)) { datos.sexo = f.sexo; }
+        if (this.enPoliza && f.email && distinto(f.email.trim().toLowerCase(), (o.correo || '').toLowerCase())) { datos.email = f.email.trim(); }
         if (!Object.keys(datos).length) {
             this.toast('Cambio', 'No modificaste ningún dato.', 'info');
             return;
@@ -318,8 +839,10 @@ export default class MovimientosColectivo extends LightningElement {
             this.revision = null;
             await this.cargar();
             this.avisarCambio();
+            return true;
         } catch (e) {
             this.mostrarError(e);
+            return false;
         } finally {
             this.cargando = false;
         }
@@ -328,13 +851,6 @@ export default class MovimientosColectivo extends LightningElement {
     // ============================================================
     // Archivo de la aseguradora
     // ============================================================
-    get opcionesCenso() {
-        return [
-            { label: 'Censo completo (los que no vienen se dan de baja)', value: 'completo' },
-            { label: 'Solo movimientos (altas y cambios)', value: 'movimientos' }
-        ];
-    }
-    handleCensoCompleto(e) { this.censoCompleto = e.detail.value; }
 
     async handleLeido(e) {
         this.archivoNombre = e.detail.archivo;
@@ -343,16 +859,34 @@ export default class MovimientosColectivo extends LightningElement {
             const r = await compararArchivo({
                 recordId: this._recordId,
                 miembrosJson: JSON.stringify(e.detail.miembros),
-                censoCompleto: this.censoCompleto === 'completo'
+                // Siempre se comparan todos: los que no vienen se proponen como baja, pero desmarcados.
+                censoCompleto: true
             });
             this.revision = {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
-                bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
+                bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: !b.faltante, motivo: '' })),
                 cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
-                sinCambios: r.sinCambios
+                sinCambios: r.sinCambios,
+                duplicados: (r.duplicados || []).map((d, i) => ({
+                    ...d,
+                    key: 'd' + i,
+                    detalle: (d.existente && d.existente !== d.nombre ? `ya existe como ${d.existente}` : 'ya existe')
+                        + (d.certificado ? ` (certificado ${d.certificado})` : '')
+                        + (d.conCambios ? '; sus datos distintos se muestran en Cambios' : '')
+                }))
             };
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
             this.vista = 'revision';
+            // Bajas del archivo de personas que no son asegurados: no se puede hacer nada con ellas, solo se avisa.
+            const faltan = r.noEncontrados || [];
+            if (faltan.length) {
+                const nombres = faltan.slice(0, 5).map((x) => x.nombre).join(', ') + (faltan.length > 5 ? ` y ${faltan.length - 5} más` : '');
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Bajas de personas que no existen',
+                    message: `${faltan.length} baja(s) del archivo no corresponden a ningún asegurado, así que no se pueden aplicar: ${nombres}.`,
+                    variant: 'info', mode: 'sticky'
+                }));
+            }
         } catch (err) {
             this.mostrarError(err);
         } finally {
@@ -361,20 +895,57 @@ export default class MovimientosColectivo extends LightningElement {
     }
 
     get altasRev() {
-        return (this.revision ? this.revision.altas : []).map((a) => ({
+        const cols = this.columnasAltas;
+        return this.altasSinCambio.map((a) => ({
             ...a,
             esDependiente: a.titularId || a.titularRef !== undefined && a.titularRef !== null,
-            nacimientoTxt: fechaVisible(a.fechaNacimiento),
-            sumaTxt: moneda(a.sumaAsegurada),
-            primaTxt: moneda(a.prima)
+            fechaMovTxt: this.fechaMovTxt(a),
+            celdas: cols.map((c) => ({ key: a.key + '-' + c.key, clase: c.clase, valor: c.valor(a) || '—' }))
         }));
     }
-    get bajasRev() { return this.revision ? this.revision.bajas : []; }
+    get altasSinCambio() {
+        // Las altas que el archivo marcó como cambio se muestran en la sección de cambios.
+        return (this.revision ? this.revision.altas : []).filter((a) => !a.comoCambio);
+    }
+    // Columnas opcionales de las altas: solo las que el archivo trae en al menos un renglón.
+    get columnasAltas() {
+        const altas = this.altasSinCambio;
+        return COLUMNAS_ALTA
+            .filter((c) => altas.some((a) => c.valor(a)))
+            .map((c) => ({ ...c, clase: c.num ? 'num' : '' }));
+    }
+    get bajasRev() {
+        return (this.revision ? this.revision.bajas : []).map((b) => ({ ...b, fechaMovTxt: this.fechaMovTxt(b) }));
+    }
+    // Fecha del movimiento que trae el archivo; sin ella se usa la fecha general.
+    fechaMovTxt(x) {
+        return x.fechaMovimiento ? fechaVisible(x.fechaMovimiento) : 'General';
+    }
     get cambiosRev() {
-        return (this.revision ? this.revision.cambios : []).map((c) => ({
-            ...c,
-            difs: c.diferencias.map((d, i) => ({ key: c.key + i, texto: `${d.campo}: ${d.antes} → ${d.despues}` }))
-        }));
+        if (!this.revision) { return []; }
+        // Cambios reales y altas que el archivo marcó como cambio (la persona no existía): todos se ven como CAMBIO.
+        const lista = [
+            ...this.revision.cambios.map((c) => ({ ...c, lista: 'cambios' })),
+            ...this.revision.altas.filter((a) => a.comoCambio).map((a) => ({ ...a, lista: 'altas' }))
+        ];
+        return lista.map((c) => {
+            const difs = (c.diferencias || []).map((d) => ({ campo: d.campo, antes: d.antes, despues: d.despues }));
+            if (c.comoCambio) {
+                // La persona no existe en la póliza: no hay dato anterior y se muestran todos los datos que trae el archivo.
+                const ya = new Set(difs.map((d) => d.campo));
+                COLUMNAS_ALTA.forEach((col) => {
+                    const v = col.valor(c);
+                    if (v && !ya.has(col.label)) { difs.push({ campo: col.label, despues: v }); }
+                });
+                difs.forEach((d) => { d.antes = 'Sin registro'; });
+            }
+            return {
+                ...c,
+                fechaMovTxt: this.fechaMovTxt(c),
+                difs: difs.map((d, i) => ({ ...d, key: c.key + '-' + i })),
+                sinDifs: !difs.length
+            };
+        });
     }
     get hayAltas() { return this.altasRev.length > 0; }
     get hayBajas() { return this.bajasRev.length > 0; }
@@ -382,7 +953,20 @@ export default class MovimientosColectivo extends LightningElement {
     get sinDiferencias() { return !this.hayAltas && !this.hayBajas && !this.hayCambios; }
     get textoAltas() { return `Altas (${this.altasRev.length})`; }
     get textoBajas() { return `Bajas (${this.bajasRev.length})`; }
+    get todasBajas() { return this.bajasRev.length > 0 && this.bajasRev.every((b) => b.sel); }
+    get hayFaltantes() { return this.bajasRev.some((b) => b.faltante); }
+    get textoFaltantes() {
+        const n = this.bajasRev.filter((b) => b.faltante).length;
+        return `${n} asegurados vigentes no vienen en el archivo. Están desmarcados: marca solo los que sí se dan de baja `
+            + '(si el archivo es el censo completo, usa la casilla del encabezado para marcarlos todos).';
+    }
     get textoCambios() { return `Cambios (${this.cambiosRev.length})`; }
+    get duplicadosRev() { return this.revision ? this.revision.duplicados || [] : []; }
+    get hayDuplicados() { return this.duplicadosRev.length > 0; }
+    get textoDuplicados() {
+        const n = this.duplicadosRev.length;
+        return `${n} alta(s) del archivo ya están aseguradas: no se duplicaron.`;
+    }
     get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} asegurados sin cambios.`; }
     get bajasSeleccionadas() { return this.bajasRev.some((b) => b.sel); }
 
@@ -395,7 +979,15 @@ export default class MovimientosColectivo extends LightningElement {
     marcarTodos(e) {
         const { lista } = e.target.dataset;
         const r = { ...this.revision };
-        r[lista] = r[lista].map((x) => ({ ...x, sel: e.target.checked }));
+        const marcado = e.target.checked;
+        if (lista === 'cambios') {
+            r.cambios = r.cambios.map((x) => ({ ...x, sel: marcado }));
+            r.altas = r.altas.map((x) => (x.comoCambio ? { ...x, sel: marcado } : x));
+        } else if (lista === 'altas') {
+            r.altas = r.altas.map((x) => (x.comoCambio ? x : { ...x, sel: marcado }));
+        } else {
+            r[lista] = r[lista].map((x) => ({ ...x, sel: marcado }));
+        }
         this.revision = r;
     }
     motivoBaja(e) {
@@ -413,14 +1005,12 @@ export default class MovimientosColectivo extends LightningElement {
         const c = this.comun;
         const movs = [];
         this.revision.bajas.filter((b) => b.sel).forEach((b) => {
-            movs.push({ tipo: 'baja', id: b.id, fecha: c.fecha, motivo: b.motivo || c.motivo, endoso: c.endoso, comentario: c.comentario });
+            // El motivo es opcional.
+            movs.push({ tipo: 'baja', id: b.id, fecha: b.fechaMovimiento || c.fecha, motivo: b.motivo || c.motivo || null,
+                endoso: c.endoso, comentario: c.comentario });
         });
-        if (movs.some((m) => !m.motivo)) {
-            this.toast('Bajas', 'Indica el motivo de baja (general o por asegurado).', 'warning');
-            return;
-        }
         this.revision.cambios.filter((x) => x.sel).forEach((x) => {
-            movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: c.fecha, endoso: c.endoso, comentario: c.comentario });
+            movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: x.fechaMovimiento || c.fecha, endoso: c.endoso, comentario: c.comentario });
         });
         // Altas: titulares primero; el dependiente apunta a la posición del alta de su titular.
         const altas = this.revision.altas.filter((a) => a.sel);
@@ -428,13 +1018,14 @@ export default class MovimientosColectivo extends LightningElement {
         let omitidos = 0;
         altas.filter((a) => !a.titularId && (a.titularRef === undefined || a.titularRef === null)).forEach((a) => {
             posicion.set(a.ref, movs.length);
-            movs.push({ tipo: 'alta', datos: a.datos, fecha: c.fecha, endoso: c.endoso, comentario: c.comentario });
+            movs.push({ tipo: 'alta', datos: a.datos, fecha: a.fechaMovimiento || c.fecha, endoso: c.endoso, comentario: c.comentario,
+                comoCambio: a.comoCambio === true });
         });
         altas.filter((a) => a.titularId || (a.titularRef !== undefined && a.titularRef !== null)).forEach((a) => {
             const ref = a.titularId ? null : posicion.get(a.titularRef);
             if (!a.titularId && ref === undefined) { omitidos++; return; }
             movs.push({ tipo: 'alta', datos: a.datos, titularId: a.titularId || null, titularRef: a.titularId ? null : ref,
-                fecha: c.fecha, endoso: c.endoso, comentario: c.comentario });
+                fecha: a.fechaMovimiento || c.fecha, endoso: c.endoso, comentario: c.comentario, comoCambio: a.comoCambio === true });
         });
         if (!movs.length) {
             this.toast('Movimientos', 'No seleccionaste ningún movimiento.', 'info');
@@ -442,7 +1033,7 @@ export default class MovimientosColectivo extends LightningElement {
         }
         if (omitidos) {
             const ok = await LightningConfirm.open({
-                message: `${omitidos} dependientes no se darán de alta porque su titular no está seleccionado. ¿Continuar?`,
+                message: `${omitidos} dependientes no se aplicarán porque su titular no está seleccionado. ¿Continuar?`,
                 variant: 'header', label: 'Altas de dependientes', theme: 'warning'
             });
             if (!ok) { return; }
@@ -453,7 +1044,7 @@ export default class MovimientosColectivo extends LightningElement {
     // ============================================================
     // Historial
     // ============================================================
-    get historial() {
+    get historialCompleto() {
         return ((this.datos && this.datos.movimientos) || []).map((m) => ({
             ...m,
             fechaTxt: fechaVisible(m.fecha),
@@ -461,7 +1052,19 @@ export default class MovimientosColectivo extends LightningElement {
             detalleTxt: [m.motivo, m.detalle, m.comentario].filter((x) => x).join(' · ')
         }));
     }
-    get sinHistorial() { return this.historial.length === 0; }
+    // Buscador del historial: folio, tipo, fecha, asegurado, certificado, endoso, detalle o usuario.
+    get historial() {
+        const q = this.fold(this.busquedaHistorial);
+        if (!q) { return this.historialCompleto; }
+        return this.historialCompleto.filter((h) => this.fold([h.nombre, h.tipo, h.fechaTxt, h.asegurado, h.certificado, h.endoso,
+            h.detalleTxt, h.usuario].filter((x) => x).join(' ')).includes(q));
+    }
+    handleBusquedaHistorial(e) { this.busquedaHistorial = e.target.value || ''; }
+    get sinHistorial() { return this.historialCompleto.length === 0; }
+    get sinResultadosHistorial() { return !this.sinHistorial && this.historial.length === 0; }
+    get textoResultadosHistorial() {
+        return this.busquedaHistorial ? `${this.historial.length} de ${this.historialCompleto.length} movimientos` : '';
+    }
 
     // ============================================================
     // Utilidades
