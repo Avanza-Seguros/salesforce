@@ -77,6 +77,7 @@
                                     <tr class="slds-line-height_reset">
                                         <th scope="col" class="col-check"></th>
                                         <th scope="col">Inciso</th>
+                                        <th scope="col">Serie</th>
                                         <th scope="col">Vehículo</th>
                                         <th scope="col">Modelo</th>
                                         <th scope="col">Placas</th>
@@ -103,10 +104,8 @@
                                                 </template>
                                             </td>
                                             <td>{v.inciso}</td>
-                                            <td>
-                                                <div class="nombre">{v.descripcion}</div>
-                                                <div class="sub">{v.serie}</div>
-                                            </td>
+                                            <td class="col-serie">{v.serie}</td>
+                                            <td><div class="nombre">{v.descripcion}</div></td>
                                             <td>{v.modelo}</td>
                                             <td>{v.placas}</td>
                                             <td>{v.uso}</td>
@@ -208,14 +207,15 @@
                                 <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
                                     <thead><tr>
                                         <th class="col-check"><input type="checkbox" data-lista="bajas" checked={todasBajas} onchange={marcarTodos} aria-label="Todas" /></th>
-                                        <th>Inciso</th><th>Vehículo</th><th>Placas</th><th>Motivo (si es distinto al general)</th>
+                                        <th>Inciso</th><th>Serie</th><th>Vehículo</th><th>Placas</th><th>Motivo (si es distinto al general)</th>
                                     </tr></thead>
                                     <tbody>
                                         <template for:each={bajasRev} for:item="b">
                                             <tr key={b.key}>
                                                 <td class="col-check"><input type="checkbox" data-lista="bajas" data-key={b.key} checked={b.sel} onchange={marcar} aria-label="Aplicar" /></td>
                                                 <td>{b.inciso}</td>
-                                                <td><div class="nombre">{b.descripcion}</div><div class="sub">{b.serie}</div></td>
+                                                <td class="col-serie">{b.serie}</td>
+                                                <td><div class="nombre">{b.descripcion}</div></td>
                                                 <td>{b.placas}</td>
                                                 <td class="col-motivo">
                                                     <lightning-combobox label="Motivo" variant="label-hidden" value={b.motivo} options={motivos}
@@ -234,14 +234,15 @@
                                 <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
                                     <thead><tr>
                                         <th class="col-check"><input type="checkbox" data-lista="altas" checked onchange={marcarTodos} aria-label="Todas" /></th>
-                                        <th>Inciso</th><th>Vehículo</th><th>Modelo</th><th>Placas</th><th class="num">Valor</th><th class="num">Prima</th>
+                                        <th>Inciso</th><th>Serie</th><th>Vehículo</th><th>Modelo</th><th>Placas</th><th class="num">Valor</th><th class="num">Prima</th>
                                     </tr></thead>
                                     <tbody>
                                         <template for:each={altasRev} for:item="a">
                                             <tr key={a.key}>
                                                 <td class="col-check"><input type="checkbox" data-lista="altas" data-key={a.key} checked={a.sel} onchange={marcar} aria-label="Aplicar" /></td>
                                                 <td>{a.inciso}</td>
-                                                <td><div class="nombre">{a.descripcion}</div><div class="sub">{a.serie}</div></td>
+                                                <td class="col-serie">{a.serie}</td>
+                                                <td><div class="nombre">{a.descripcion}</div></td>
                                                 <td>{a.modelo}</td>
                                                 <td>{a.placas}</td>
                                                 <td class="num">{a.valorTxt}</td>
@@ -259,14 +260,15 @@
                                 <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
                                     <thead><tr>
                                         <th class="col-check"><input type="checkbox" data-lista="cambios" checked onchange={marcarTodos} aria-label="Todos" /></th>
-                                        <th>Inciso</th><th>Vehículo</th><th>Cambios</th>
+                                        <th>Inciso</th><th>Serie</th><th>Vehículo</th><th>Cambios</th>
                                     </tr></thead>
                                     <tbody>
                                         <template for:each={cambiosRev} for:item="c">
                                             <tr key={c.key}>
                                                 <td class="col-check"><input type="checkbox" data-lista="cambios" data-key={c.key} checked={c.sel} onchange={marcar} aria-label="Aplicar" /></td>
                                                 <td>{c.inciso}</td>
-                                                <td><div class="nombre">{c.descripcion}</div><div class="sub">{c.serie}</div></td>
+                                                <td class="col-serie">{c.serie}</td>
+                                                <td><div class="nombre">{c.descripcion}</div></td>
                                                 <td>
                                                     <template for:each={c.difs} for:item="d"><div key={d.key}>{d.texto}</div></template>
                                                 </td>

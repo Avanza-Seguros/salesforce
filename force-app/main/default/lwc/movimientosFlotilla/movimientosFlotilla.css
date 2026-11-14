@@ -328,3 +328,10 @@
 .mov-excel-todas {
     font-weight: 600;
 }
+
+/* Serie (VIN) en su propia columna */
+.col-serie {
+    white-space: nowrap;
+    font-family: monospace;
+    font-size: 0.75rem;
+}
