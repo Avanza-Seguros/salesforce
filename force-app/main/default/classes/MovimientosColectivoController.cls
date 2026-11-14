@@ -955,8 +955,6 @@ public with sharing class MovimientosColectivoController {
 			Map<String, Object> fila = lista[lista.size() - 1];
 			ponerMovimiento(fila, ultimos.get(p.Id), p.IsActiveParticipant != false, p.EffectiveFromDate, p.EffectiveToDate);
 			ponerNombre(fila, contactos.get(p.PrimaryParticipantContactId));
-			Movimiento_Poliza__c ult = ultimos.get(p.Id);
-			if (ult != null) { fila.put('movimientoNumero', ult.Name); fila.put('numeroEndoso', ult.Numero_Endoso__c); }
 			// Sin registro de movimiento (carga inicial): se crea con el participante y se cierra con el primer correo.
 			if (fila.get('fechaCreacion') == null) {
 				fila.put('fechaCreacion', p.CreatedDate);
@@ -1203,7 +1201,7 @@ public with sharing class MovimientosColectivoController {
 	/**
 	 * @creation date: 10/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Agrega 'tipoMovimiento' y 'fechaMovimiento' a la fila. Sin registro de movimiento se deduce:
+	 * @description: Agrega 'tipoMovimiento', 'fechaMovimiento', 'movimientoNumero' y 'numeroEndoso' a la fila. Sin registro de movimiento se deduce:
 	 *               baja (fecha de fin) si no está activo, alta (fecha de inicio) si lo está.
 	 */
 	public static void ponerMovimiento(Map<String, Object> fila, Movimiento_Poliza__c ultimo, Boolean activo, Date desde, Date hasta) {
@@ -1215,6 +1213,10 @@ public with sharing class MovimientosColectivoController {
 			// Creación del movimiento y su cierre (al enviar el correo al asegurado).
 			fila.put('fechaCreacion', ultimo.CreatedDate);
 			fila.put('fechaCierre', ultimo.Fecha_Cierre__c);
+			// Número del movimiento y de endoso (para el Excel), si se consultaron.
+			Map<String, Object> campos = ultimo.getPopulatedFieldsAsMap();
+			if (campos.containsKey('Name')) { fila.put('movimientoNumero', ultimo.Name); }
+			if (campos.containsKey('Numero_Endoso__c')) { fila.put('numeroEndoso', ultimo.Numero_Endoso__c); }
 		} else if (!activo) {
 			tipo = 'Baja';
 			fecha = hasta;

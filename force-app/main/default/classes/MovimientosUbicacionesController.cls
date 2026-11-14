@@ -579,9 +579,9 @@ public with sharing class MovimientosUbicacionesController {
 		Map<String, Movimiento_Poliza__c> ultimos = new Map<String, Movimiento_Poliza__c>();
 		Boolean esPoliza = MovimientosColectivoController.esPoliza(recordId);
 		for (Movimiento_Poliza__c m : esPoliza
-				? [SELECT Id, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				? [SELECT Id, Name, Numero_Endoso__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 					WHERE Poliza__c = :recordId AND Oportunidad__c = null AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]
-				: [SELECT Id, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				: [SELECT Id, Name, Numero_Endoso__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 					WHERE Oportunidad__c = :recordId AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]) {
 			String k = PolicyController.llaveDireccion(m.Asegurado__c);
 			if (String.isNotBlank(k) && !ultimos.containsKey(k)) { ultimos.put(k, m); }

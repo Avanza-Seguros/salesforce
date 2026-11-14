@@ -489,14 +489,17 @@ export default class MovimientosFlotilla extends LightningElement {
     generarExcel() {
         const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
         const registros = this.vehiculos.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
+        const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [
-                ['Inciso', (r) => (r.inciso == null ? null : Number(r.inciso))], ['Vehículo', (r) => r.descripcion], ['Serie', (r) => r.serie],
+                ['Número de movimiento', (r) => r.movimientoNumero || ''], ['Vehículo', (r) => r.descripcion], ['Serie', (r) => r.serie],
                 ['Modelo', (r) => (r.modelo == null ? null : Number(r.modelo))], ['Placas', (r) => r.placas], ['Uso', (r) => r.uso],
-                ['Paquete', (r) => r.paquete], ['Vigencia desde', (r) => fechaVisible(this.vigenciaDesde(r))],
-                ['Vigencia hasta', (r) => fechaVisible(this.vigenciaHasta(r))], ['Fecha de movimiento', (r) => fechaVisible(r.fechaMovimiento)],
-                ['Fecha de creación', (r) => this.fechaHoraTxt(r.fechaCreacion)], ['Fecha de cierre', (r) => this.fechaHoraTxt(r.fechaCierre)],
+                ['Movimiento interno', (r) => r.numeroEndoso || ''], ['Tipo de petición', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')],
+                ['Fecha de petición', (r) => fechaVisible(r.fechaMovimiento)], ['Poliza', () => poliza], ['Paquete', (r) => r.paquete],
+                ['Inciso', (r) => (r.inciso == null ? null : Number(r.inciso))], ['Vigencia desde', (r) => fechaVisible(this.vigenciaDesde(r))],
+                ['Vigencia hasta', (r) => fechaVisible(this.vigenciaHasta(r))],
                 ['Valor', (r) => (r.valor == null ? null : Number(r.valor))], ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
-                ['Estado', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')], ['Motivo de baja', (r) => r.motivoBaja]
+                ['Descripción', (r) => r.motivoBaja || '']
             ];
         const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
         const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
