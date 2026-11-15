@@ -352,24 +352,17 @@ export default class MovimientosFlotilla extends LightningElement {
                 ? await compararArchivo({
                     recordId: this._recordId,
                     incisosJson: JSON.stringify(incisos),
-                    // Siempre se comparan todos: los que no vienen se proponen como baja, pero desmarcados.
+                    // Los vehículos que no vienen en el archivo no se tocan (abajo se quitan las bajas que propone el servidor).
                     censoCompleto: true
                 })
                 : { altas: [], bajas: [], cambios: [], sinCambios: 0, duplicados: [] };
             this.agregarEndosos(r, endosos);
             this.revision = {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
-                bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: !b.faltante, motivo: '' })),
+                bajas: r.bajas.filter((b) => !b.faltante).map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
                 cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
                 sinCambios: r.sinCambios,
-                duplicados: (r.duplicados || []).map((d, i) => ({
-                    ...d,
-                    key: 'd' + i,
-                    nombre: this.nombre(d),
-                    detalle: d.repetidoEnArchivo
-                        ? `viene repetido en el archivo (registro ${d.fila}, ya leído en el registro ${d.filaOriginal}): se toma una sola vez`
-                        : 'ya está vigente en ' + (this.enPoliza ? 'la póliza' : 'el censo') + ' con los mismos datos: no se da de alta otra vez'
-                }))
+                duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
             };
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
             this.endosoLeido = null;
@@ -430,6 +423,25 @@ export default class MovimientosFlotilla extends LightningElement {
         }
     }
 
+    // Alta rechazada: viene repetido en el archivo o el vehículo ya está vigente. Se muestra con qué registro choca.
+    rechazo(d, i) {
+        const base = { ...d, key: 'd' + i, nombre: this.nombre(d), filaTxt: d.fila ? `Registro ${d.fila}` : '—' };
+        if (d.repetidoEnArchivo) {
+            return { ...base, motivo: 'Viene repetido en el archivo (misma serie o placas)',
+                existenteTxt: `Igual al registro ${d.filaOriginal} del archivo: se toma una sola vez.` };
+        }
+        const datos = [
+            d.incisoExistente ? `Inciso ${d.incisoExistente}` : null,
+            d.descripcionExistente,
+            d.modeloExistente ? `modelo ${d.modeloExistente}` : null,
+            d.serieExistente ? `serie ${d.serieExistente}` : null,
+            d.placasExistente ? `placas ${d.placasExistente}` : null,
+            d.fechaAlta ? `alta ${fechaVisible(d.fechaAlta)}` : null
+        ].filter((x) => x);
+        return { ...base, motivo: `Ya está vigente en ${this.enPoliza ? 'la póliza' : 'el censo'} con los mismos datos`,
+            existenteTxt: datos.join(' · ') };
+    }
+
     get altasRev() {
         return (this.revision ? this.revision.altas : []).map((a) => ({ ...a, valorTxt: moneda(a.valor), primaTxt: moneda(a.prima) }));
     }
@@ -450,7 +462,7 @@ export default class MovimientosFlotilla extends LightningElement {
     get duplicadosRev() { return this.revision ? this.revision.duplicados || [] : []; }
     get hayDuplicados() { return this.duplicadosRev.length > 0; }
     get textoDuplicados() {
-        return `${this.duplicadosRev.length} vehículo(s) del archivo están duplicados: no se duplicaron.`;
+        return `Altas rechazadas (${this.duplicadosRev.length}): ya existen.`;
     }
     get textoBajas() { return `Bajas (${this.bajasRev.length})`; }
     get todasBajas() { return this.bajasRev.length > 0 && this.bajasRev.every((b) => b.sel); }
@@ -461,7 +473,7 @@ export default class MovimientosFlotilla extends LightningElement {
             + '(si el archivo es el censo completo, usa la casilla del encabezado para marcarlos todos).';
     }
     get textoCambios() { return `Cambios (${this.cambiosRev.length})`; }
-    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} vehículos sin cambios.`; }
+    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} vehículos del archivo ya existen igual y no se tocan.`; }
 
     marcar(e) {
         const { lista, key } = e.target.dataset;

@@ -396,11 +396,12 @@ export default class MovimientosUbicaciones extends LightningElement {
         const duplicados = [];
         let sinCambios = 0;
         lista.forEach((x, i) => {
-            const fila = i + 1;
+            const fila = x.fila || i + 1;
             const k = llaveDomicilio(x.direccion);
             if (vistos.has(k)) {
-                duplicados.push({ key: 'd' + i, nombre: x.direccion,
-                    detalle: `viene repetida en el archivo (registro ${fila}, ya leída en el registro ${vistos.get(k)}): se toma una sola vez` });
+                const otra = vistos.get(k);
+                duplicados.push({ key: 'd' + i, nombre: x.direccion, filaTxt: `Registro ${fila}`, motivo: 'Viene repetida en el archivo',
+                    existenteTxt: `Igual al registro ${otra} del archivo: se toma una sola vez.` });
                 return;
             }
             vistos.set(k, fila);
@@ -415,7 +416,12 @@ export default class MovimientosUbicaciones extends LightningElement {
                 // Por inciso solo si el domicilio de esa ubicación no viene también en el archivo (sería otra).
                 if (c && !llavesArchivo.has(llaveDomicilio(c.direccion))) { u = c; }
             }
-            if (u && usados.has(u.id)) { u = null; }
+            if (u && usados.has(u.id)) {
+                // Ya se tomó esa ubicación con otro registro del archivo: la segunda alta se rechaza.
+                duplicados.push({ key: 'd' + i, nombre: x.direccion, filaTxt: `Registro ${fila}`,
+                    motivo: `Ya está vigente en ${this.enPoliza ? 'la póliza' : 'el censo'}`, existenteTxt: this.datosUbicacion(u) });
+                return;
+            }
             if (!u) {
                 altas.push({ key: 'a' + i, sel: true, ...datos, sumaTxt: moneda(datos.sumaAsegurada), primaTxt: moneda(datos.prima), datos });
                 return;
@@ -449,10 +455,16 @@ export default class MovimientosUbicaciones extends LightningElement {
             cambios.push({ key: 'c' + u.id, sel: true, id: u.id, inciso: u.inciso, direccion: u.direccion, datos: nuevos,
                 difs: difs.map((t, j) => ({ key: u.id + j, texto: t })) });
         });
-        const bajas = vigentes.filter((u) => !usados.has(u.id)).map((u) => ({
-            key: 'b' + u.id, sel: false, faltante: true, motivo: '', id: u.id, inciso: u.inciso, direccion: u.direccion, giro: u.giro
-        }));
-        return { altas, bajas, cambios, duplicados, sinCambios };
+        // Las vigentes que no vienen en el archivo no se tocan.
+        return { altas, bajas: [], cambios, duplicados, sinCambios };
+    }
+    datosUbicacion(u) {
+        return [
+            u.inciso !== null && u.inciso !== undefined ? `Inciso ${u.inciso}` : null,
+            u.direccion,
+            u.giro ? `giro ${u.giro}` : null,
+            u.sumaAsegurada ? `suma asegurada ${moneda(u.sumaAsegurada)}` : null
+        ].filter((x) => x).join(' · ');
     }
 
     get altasRev() { return this.revision ? this.revision.altas : []; }
@@ -467,8 +479,8 @@ export default class MovimientosUbicaciones extends LightningElement {
     get textoAltas() { return `Altas (${this.altasRev.length})`; }
     get textoBajas() { return `Bajas (${this.bajasRev.length})`; }
     get textoCambios() { return `Cambios (${this.cambiosRev.length})`; }
-    get textoDuplicados() { return `${this.duplicadosRev.length} ubicación(es) del archivo están repetidas: no se duplicaron.`; }
-    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} ubicaciones sin cambios.`; }
+    get textoDuplicados() { return `Altas rechazadas (${this.duplicadosRev.length}): ya existen.`; }
+    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} ubicaciones del archivo ya existen igual y no se tocan.`; }
     get todasBajas() { return this.hayBajas && this.bajasRev.every((b) => b.sel); }
     get todasAltas() { return this.hayAltas && this.altasRev.every((b) => b.sel); }
     get todosCambios() { return this.hayCambios && this.cambiosRev.every((b) => b.sel); }

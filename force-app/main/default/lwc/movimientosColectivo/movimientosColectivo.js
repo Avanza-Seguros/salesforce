@@ -915,21 +915,15 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             const r = await compararArchivo({
                 recordId: this._recordId,
                 miembrosJson: JSON.stringify(e.detail.miembros),
-                // Siempre se comparan todos: los que no vienen se proponen como baja, pero desmarcados.
-                censoCompleto: true
+                // Solo se muestra lo que el archivo trae: los asegurados que no vienen no se tocan (no se proponen como baja).
+                censoCompleto: false
             });
             this.revision = {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
-                bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: !b.faltante, motivo: '' })),
+                bajas: r.bajas.filter((b) => !b.faltante).map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
                 cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
                 sinCambios: r.sinCambios,
-                duplicados: (r.duplicados || []).map((d, i) => ({
-                    ...d,
-                    key: 'd' + i,
-                    detalle: (d.existente && d.existente !== d.nombre ? `ya existe como ${d.existente}` : 'ya existe')
-                        + (d.certificado ? ` (certificado ${d.certificado})` : '')
-                        + (d.conCambios ? '; sus datos distintos se muestran en Cambios' : '')
-                }))
+                duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
             };
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
             this.vista = 'revision';
@@ -948,6 +942,30 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         } finally {
             this.cargando = false;
         }
+    }
+
+    // Alta rechazada: viene repetida en el archivo o la persona ya está asegurada. Se muestra con qué registro choca.
+    rechazo(d, i) {
+        const donde = this.enPoliza ? 'la póliza' : 'el censo';
+        if (d.repetidoEnArchivo) {
+            return { ...d, key: 'd' + i, filaTxt: d.fila ? `Registro ${d.fila}` : '—', motivo: 'Viene repetida en el archivo',
+                existenteTxt: `Igual al registro ${d.filaOriginal} del archivo: se toma una sola vez.` };
+        }
+        const datos = [
+            d.existente,
+            d.parentesco,
+            d.titularNombre ? `dependiente de ${d.titularNombre}` : null,
+            d.certificado ? `certificado ${d.certificado}` : null,
+            d.fechaNacimiento ? `nacimiento ${fechaVisible(d.fechaNacimiento)}` : null,
+            d.categoria ? `categoría ${d.categoria}` : null,
+            d.sumaAsegurada ? `suma asegurada ${moneda(d.sumaAsegurada)}` : null,
+            d.fechaAlta ? `alta ${fechaVisible(d.fechaAlta)}` : null
+        ].filter((x) => x);
+        return {
+            ...d, key: 'd' + i, filaTxt: d.fila ? `Registro ${d.fila}` : '—',
+            motivo: `Ya está asegurada en ${donde}` + (d.conCambios ? ' (con datos distintos: ver Cambios)' : ''),
+            existenteTxt: datos.join(' · ')
+        };
     }
 
     get altasRev() {
@@ -1028,9 +1046,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get hayDuplicados() { return this.duplicadosRev.length > 0; }
     get textoDuplicados() {
         const n = this.duplicadosRev.length;
-        return `${n} alta(s) del archivo ya están aseguradas: no se duplicaron.`;
+        return `Altas rechazadas (${n}): ya existen.`;
     }
-    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} asegurados sin cambios.`; }
+    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} asegurados del archivo ya existen igual y no se tocan.`; }
     get bajasSeleccionadas() { return this.bajasRev.some((b) => b.sel); }
 
     marcar(e) {

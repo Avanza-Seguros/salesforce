@@ -153,14 +153,27 @@
                     <template if:true={hayDuplicados}>
                         <div class="mov-duplicados">
                             <div class="mov-duplicados-titulo">
-                                <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
+                                <lightning-icon icon-name="utility:ban" variant="warning" size="x-small"></lightning-icon>
                                 <strong>{textoDuplicados}</strong>
                             </div>
-                            <ul class="mov-lista">
-                                <template for:each={duplicadosRev} for:item="d">
-                                    <li key={d.key}><strong>{d.nombre}</strong> — {d.detalle}</li>
-                                </template>
-                            </ul>
+                            <p class="mov-duplicados-sub">No se dan de alta porque ya existen. Si el archivo trae datos distintos de ese registro, el cambio aparece en Cambios.</p>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla mov-tabla-rechazos">
+                                    <thead><tr>
+                                        <th>Registro del archivo</th><th>Alta rechazada</th><th>Motivo</th><th>Registro que ya existe</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={duplicadosRev} for:item="d">
+                                            <tr key={d.key}>
+                                                <td>{d.filaTxt}</td>
+                                                <td><div class="nombre">{d.nombre}</div></td>
+                                                <td>{d.motivo}</td>
+                                                <td>{d.existenteTxt}</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </template>
 

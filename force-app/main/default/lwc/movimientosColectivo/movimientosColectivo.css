@@ -441,3 +441,12 @@
 .mov-excel-todas {
     font-weight: 600;
 }
+
+/* Altas rechazadas: tabla dentro del aviso */
+.mov-duplicados-sub {
+    margin: 0 0 0.5rem;
+}
+
+.mov-duplicados .mov-tabla-rechazos {
+    background: #ffffff;
+}

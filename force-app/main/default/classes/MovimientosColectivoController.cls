@@ -224,10 +224,22 @@ public with sharing class MovimientosColectivoController {
 		// Altas del archivo de personas que ya están aseguradas (no se duplican; solo se avisa).
 		List<Object> duplicados = new List<Object>();
 		Integer sinCambios = 0;
+		// Renglones ya leídos (nombre, nacimiento, certificado y movimiento): uno repetido no se da de alta dos veces.
+		Map<String, Integer> vistos = new Map<String, Integer>();
 		for (Integer i = 0; i < entrada.size(); i++) {
 			CensoColectivoController.MiembroEntrada e = entrada[i];
 			String n = llaveNombre(nombreDe(e));
 			if (String.isBlank(n)) { continue; }
+			Integer fila = e.fila != null ? e.fila : i + 1;
+			String llaveFila = n + '|' + (String.isBlank(e.fechaNacimiento) ? '' : e.fechaNacimiento.left(10)) + '|'
+				+ cert(e.certificado) + '|' + (e.movimiento == null ? '' : e.movimiento);
+			if (vistos.containsKey(llaveFila)) {
+				duplicados.add(new Map<String, Object>{
+					'fila' => fila, 'nombre' => nombreDe(e), 'repetidoEnArchivo' => true, 'filaOriginal' => vistos.get(llaveFila)
+				});
+				continue;
+			}
+			vistos.put(llaveFila, fila);
 			Map<String, Object> a = porCertNombre.get(cert(e.certificado) + '|' + n);
 			if (a == null && String.isNotBlank(e.fechaNacimiento)) { a = porNombreFecha.get(n + '|' + e.fechaNacimiento.left(10)); }
 			if (a == null) { a = porNombre.get(n); }
@@ -264,8 +276,11 @@ public with sharing class MovimientosColectivoController {
 			// Alta indicada en el archivo de alguien que ya es asegurado: no se duplica y se avisa.
 			if (e.movimiento == 'Alta') {
 				duplicados.add(new Map<String, Object>{
-					'fila' => e.fila, 'nombre' => nombreDe(e), 'existente' => a.get('nombre'),
-					'certificado' => a.get('certificado'), 'conCambios' => !diferencias.isEmpty()
+					'fila' => fila, 'nombre' => nombreDe(e), 'existente' => a.get('nombre'),
+					'certificado' => a.get('certificado'), 'conCambios' => !diferencias.isEmpty(),
+					'parentesco' => a.get('parentesco'), 'titularNombre' => a.get('titularNombre'),
+					'fechaNacimiento' => a.get('fechaNacimiento'), 'categoria' => a.get('categoria'),
+					'sumaAsegurada' => a.get('sumaAsegurada'), 'fechaAlta' => a.get('fechaAlta'), 'repetidoEnArchivo' => false
 				});
 			}
 			if (diferencias.isEmpty()) {

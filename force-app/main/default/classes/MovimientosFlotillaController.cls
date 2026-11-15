@@ -215,7 +215,9 @@ public with sharing class MovimientosFlotillaController {
 				if (difs.isEmpty() && censoCompleto != true) {
 					duplicados.add(new Map<String, Object>{
 						'fila' => e.fila != null ? e.fila : ref + 1, 'inciso' => actual.Numero_Inciso__c, 'serie' => actual.Serie__c, 'descripcion' => actual.Descripcion__c,
-						'repetidoEnArchivo' => false
+						'repetidoEnArchivo' => false, 'incisoExistente' => actual.Numero_Inciso__c, 'serieExistente' => actual.Serie__c,
+						'descripcionExistente' => actual.Descripcion__c, 'modeloExistente' => actual.Modelo__c,
+						'placasExistente' => actual.Placas__c, 'fechaAlta' => actual.Fecha_Alta__c
 					});
 				}
 				if (difs.isEmpty()) { sinCambios++; continue; }

@@ -340,3 +340,12 @@
 .col-vigencia {
     white-space: nowrap;
 }
+
+/* Altas rechazadas: tabla dentro del aviso */
+.mov-duplicados-sub {
+    margin: 0 0 0.5rem;
+}
+
+.mov-duplicados .mov-tabla-rechazos {
+    background: #ffffff;
+}
