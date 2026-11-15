@@ -192,7 +192,7 @@
 
                 <!-- ====================== ARCHIVO ====================== -->
                 <template if:true={enArchivo}>
-                    <c-censo-colectivo modo="lector" onleido={handleLeido}></c-censo-colectivo>
+                    <c-censo-colectivo modo="lector" lee-endosos={enPoliza} onleido={handleLeido} onendoso={handleEndosoLeido}></c-censo-colectivo>
                     <div class="mov-pie">
                         <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
                     </div>

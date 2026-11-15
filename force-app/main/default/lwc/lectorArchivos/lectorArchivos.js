@@ -624,10 +624,25 @@ function textoPorRenglones(items) {
         const y = it.transform[5];
         let fila = filas.find((f) => Math.abs(f.y - y) <= 3);
         if (!fila) { fila = { y, partes: [] }; filas.push(fila); }
-        fila.partes.push({ x, s: it.str.trim() });
+        const ancho = Number(it.width) || 0;
+        fila.partes.push({ x, fin: x + ancho, s: it.str.trim(), alto: Math.abs(it.transform[3]) || 8 });
     });
     filas.sort((a, b) => b.y - a.y);
-    return filas.map((f) => f.partes.sort((a, b) => a.x - b.x).map((p) => p.s).join(' ').replace(/\s+/g, ' ').trim()).join('\n');
+    return filas.map((f) => juntarPartes(f.partes.sort((a, b) => a.x - b.x))).join('\n');
+}
+
+// Junta las partes de un renglón. Algunos PDF (p. ej. los endosos de Afirme Vida) traen cada letra por separado: las
+// letras pegadas (sin hueco entre una y otra) forman una palabra; un hueco del ancho de un espacio separa palabras.
+function juntarPartes(partes) {
+    let texto = '';
+    let anterior = null;
+    partes.forEach((p) => {
+        const pegada = anterior && p.s.length === 1 && anterior.letra
+            && p.x - anterior.fin < Math.max(0.6, 0.12 * p.alto);
+        texto += (texto && !pegada ? ' ' : '') + p.s;
+        anterior = { fin: Math.max(p.fin, anterior && pegada ? anterior.fin : 0), letra: p.s.length === 1 };
+    });
+    return texto.replace(/\s+/g, ' ').trim();
 }
 
 /**

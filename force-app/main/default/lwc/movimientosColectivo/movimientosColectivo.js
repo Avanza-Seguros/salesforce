@@ -143,6 +143,20 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     verLista() { this.vista = 'lista'; this.revision = null; }
     verHistorial() { this.vista = 'historial'; }
     verEndosos() { this.vista = 'endosos'; }
+
+    // PDF de endosos sin asegurados (Vida o GMM): se abre «Registrar endoso» con sus datos, uno tras otro.
+    handleEndosoLeido(e) {
+        this._endososPendientes = (e.detail && e.detail.endosos) || [];
+        this.vista = 'endosos';
+    }
+    renderedCallback() {
+        if (!this._endososPendientes || !this._endososPendientes.length || this.vista !== 'endosos') { return; }
+        const c = this.template.querySelector('c-endosos-poliza');
+        if (!c) { return; }
+        const lista = this._endososPendientes;
+        this._endososPendientes = null;
+        c.registrarLeidos(lista);
+    }
     verArchivo() { this.vista = 'archivo'; this.revision = null; }
 
     get miembros() { return (this.datos && this.datos.miembros) || []; }
@@ -871,6 +885,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.revision = null;
             await this.cargar();
             this.avisarCambio();
+            if (this._endososDespues && this._endososDespues.length) {
+                this._endososPendientes = this._endososDespues;
+                this._endososDespues = null;
+                this.vista = 'endosos';
+            }
             return true;
         } catch (e) {
             this.mostrarError(e);
@@ -886,6 +905,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
 
     async handleLeido(e) {
         this.archivoNombre = e.detail.archivo;
+        // PDF de endosos sin asegurados que venían junto con el archivo: se registran después de aplicar la revisión.
+        this._endososDespues = (e.detail && e.detail.endosos) || [];
         // Soporte de recibo con número de endoso por renglón: cada movimiento va a su endoso, con su prima.
         this.primasArchivo = primasPorEndoso(e.detail.miembros);
         this.endososArchivo = [...new Set((e.detail.miembros || []).map((x) => (x.numeroEndoso ? String(x.numeroEndoso).trim() : '')).filter((x) => x))];

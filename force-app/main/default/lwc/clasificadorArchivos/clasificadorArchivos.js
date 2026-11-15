@@ -835,11 +835,12 @@ export function endosoDeTexto(texto, nombreArchivo) {
     };
     const lineas = t.split('\n');
 
-    // Número: junto a la etiqueta ("Endoso No. 16"), junto al número de póliza ("3201-033679-00   38") o del archivo.
+    // Número: junto a la etiqueta ("Endoso No. 16"), junto al número de póliza ("3201-033679-00   38"; en Vida
+    // "005-0000364872-00 0000321804 - B", con la letra del endoso) o del archivo.
     let numero = '';
     const enLinea = /Endoso\s+No\.?\s*:?[ \t]*(\d+)/i.exec(t);
-    const conPoliza = /\b\d{3,5}-\d{5,8}-\d{2}\s+(\d{1,6})\b/.exec(t);
-    if (enLinea) { numero = enLinea[1]; } else if (conPoliza) { numero = conPoliza[1]; }
+    const conPoliza = /\b\d{3,5}-\d{5,10}-\d{2}\s+(\d{1,10})(?:\s*-\s*([A-Z])\b)?/.exec(t);
+    if (enLinea) { numero = enLinea[1]; } else if (conPoliza) { numero = conPoliza[1].replace(/^0+(?=\d)/, '') + (conPoliza[2] ? '-' + conPoliza[2] : ''); }
     if (!numero) {
         const delArchivo = /endoso[^0-9]*(?:\d[\d-]*[_\s-]+)?0*(\d+)\.[a-z]+$/i.exec(String(nombreArchivo || ''));
         if (delArchivo) { numero = delArchivo[1]; }
@@ -852,7 +853,10 @@ export function endosoDeTexto(texto, nombreArchivo) {
     const tipoDe = /Endoso\s+de\s+Tipo\s*:[ \t]*([^\n]+)/i.exec(t);
     const tipoLinea = new RegExp('Tipo\\s+de\\s+Endoso\\s*:[ \\t]*(' + TIPO + '[A-ZÁÉÍÓÚÑ ]*)', 'i').exec(t);
     const tipoSolo = new RegExp('^\\s*(' + TIPO + '(?: [A-ZÁÉÍÓÚÑ]+){0,4})\\s*$', 'm').exec(t);
+    // Cualquier otro tipo en mayúsculas junto a la etiqueta ("Tipo de Endoso: DE MOVIMIENTOS SIN COBRO DE PRIMAS").
+    const tipoOtro = /Tipo\s+de\s+Endoso\s*:[ \t]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ]{2,80})/.exec(t);
     if (tipoDe) { tipo = limpio(tipoDe[1]); } else if (tipoLinea) { tipo = limpio(tipoLinea[1]); } else if (tipoSolo) { tipo = limpio(tipoSolo[1]); }
+    else if (tipoOtro) { tipo = limpio(tipoOtro[1]); }
     const f = tipo.toUpperCase();
     let movimiento = /BAJA|CANCELACI|EXCLUSI/.test(f) ? 'baja' : (/ALTA|INCLUSI/.test(f) ? 'alta' : 'cambio');
 
@@ -893,6 +897,8 @@ export function endosoDeTexto(texto, nombreArchivo) {
     let inicio = -1;
     lineas.forEach((l, i) => { if (/Inciso\s+No\.?/i.test(l)) { inicio = i; } });
     if (inicio < 0) { inicio = lineas.findIndex((l) => /Endoso\s+de\s+Tipo\s*:/i.test(l)); }
+    // Vida: el detalle va en el "Texto Aclaratorio".
+    if (inicio < 0) { inicio = lineas.findIndex((l) => /Texto\s+Aclaratorio\s*:?\s*$/i.test(l)); }
     let detalle = '';
     if (inicio >= 0) {
         const partes = [];

@@ -126,6 +126,10 @@ export default class EndososPoliza extends NavigationMixin(LightningElement) {
         this.enRegistro = false;
         this.regArchivo = null;
         this.regValores = null;
+        // Endosos leídos en Asegurados que faltan por registrar.
+        if ((this._porRegistrar || []).length) {
+            Promise.resolve().then(() => this.siguienteLeido());
+        }
     }
     handleReg(e) {
         this.reg = { ...this.reg, [e.target.dataset.campo]: e.detail.value };
@@ -146,25 +150,48 @@ export default class EndososPoliza extends NavigationMixin(LightningElement) {
         try {
             const texto = (await paginasPdf(this, file, () => {})).join('\n');
             const c = clausulaDeTexto(texto);
-            const x = c ? null : endosoDeTexto(texto, file.name);
-            if (c) {
-                this.reg = { ...this.reg, descripcion: c.descripcion || this.reg.descripcion, fecha: c.fecha || this.reg.fecha };
-                this.regAviso = 'Datos tomados del PDF: revisa la descripción y captura el número de endoso si lo tiene.';
-            } else if (x) {
-                this.reg = { ...this.reg, numero: x.numero || this.reg.numero, fecha: x.fecha || this.reg.fecha,
-                    descripcion: [x.tipo, x.detalle].filter((y) => y).join(' · ').substring(0, 200) || this.reg.descripcion };
-                this.regValores = { primaNeta: x.primaNeta ?? null, derechos: x.derechos ?? null, iva: x.iva ?? null, total: x.total ?? null };
-                this.regAviso = (x.incisos || []).length || x.general
-                    ? 'Este endoso mueve registros: cárgalo desde «Cargar endoso» o «Cargar archivo» para aplicar sus movimientos.'
-                    : 'Datos tomados del PDF: revísalos antes de registrar.';
-            } else {
-                this.regAviso = 'No se reconocieron los datos del PDF: captúralos; el archivo queda adjunto.';
-            }
+            this.aplicarLeido(c, c ? null : endosoDeTexto(texto, file.name));
         } catch (err) {
             this.regAviso = 'No se pudo leer el PDF: captura los datos; el archivo queda adjunto.';
         } finally {
             this.leyendo = false;
         }
+    }
+    // Datos leídos del PDF (cláusula de GMM o endoso de la aseguradora) en el formulario.
+    aplicarLeido(c, x) {
+        if (c) {
+            this.reg = { ...this.reg, descripcion: c.descripcion || this.reg.descripcion, fecha: c.fecha || this.reg.fecha };
+            this.regAviso = 'Datos tomados del PDF: revisa la descripción y captura el número de endoso si lo tiene.';
+        } else if (x) {
+            this.reg = { ...this.reg, numero: x.numero || this.reg.numero, fecha: x.fecha || this.reg.fecha,
+                descripcion: [x.tipo, x.detalle].filter((y) => y).join(' · ').substring(0, 200) || this.reg.descripcion };
+            const hayPrima = ['primaNeta', 'derechos', 'iva', 'total'].some((k) => x[k] !== null && x[k] !== undefined);
+            this.regValores = hayPrima ? { primaNeta: x.primaNeta ?? null, derechos: x.derechos ?? null, iva: x.iva ?? null, total: x.total ?? null } : null;
+            this.regAviso = (x.incisos || []).length
+                ? 'Este endoso mueve registros: cárgalo desde «Cargar endoso» o «Cargar archivo» para aplicar sus movimientos.'
+                : 'Datos tomados del PDF: revísalos antes de registrar.';
+        } else {
+            this.regAviso = 'No se reconocieron los datos del PDF: captúralos; el archivo queda adjunto.';
+        }
+    }
+    /**
+     * Endosos leídos de PDF en otra pantalla (Asegurados): se abre «Registrar endoso» con los datos del primero; al
+     * registrarlo o cancelarlo sigue el siguiente.
+     * @param lista: [{ endoso, clausula, documento }].
+     */
+    @api
+    registrarLeidos(lista) {
+        this._porRegistrar = [...(lista || [])];
+        this.siguienteLeido();
+    }
+    siguienteLeido() {
+        const x = (this._porRegistrar || []).shift();
+        if (!x) { return; }
+        this.abrirRegistro();
+        this.regArchivo = x.documento || null;
+        this.aplicarLeido(x.clausula || null, x.endoso || null);
+        const quedan = (this._porRegistrar || []).length;
+        if (quedan) { this.regAviso += ` Después sigue${quedan > 1 ? 'n' : ''} ${quedan} endoso${quedan > 1 ? 's' : ''} más.`; }
     }
     get textoArchivoReg() { return this.regArchivo ? this.regArchivo.name : 'Sin documento'; }
 

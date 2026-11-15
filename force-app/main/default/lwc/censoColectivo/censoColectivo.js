@@ -14,7 +14,8 @@ import {
     opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
 } from 'c/lectorArchivos';
 import {
-    CAMPOS_CENSO, mapeoCenso, normalizarCenso, payloadMiembro, conteoMovimientos, MOVIMIENTOS, movimientosPorRevisar, AVISO_SIN_CONTACTO
+    CAMPOS_CENSO, mapeoCenso, normalizarCenso, payloadMiembro, conteoMovimientos, MOVIMIENTOS, movimientosPorRevisar, AVISO_SIN_CONTACTO,
+    endosoDeTexto, clausulaDeTexto
 } from 'c/clasificadorArchivos';
 import movimientosSinContacto from '@salesforce/apex/CensoColectivoController.movimientosSinContacto';
 import revisarCambios from '@salesforce/apex/CensoColectivoController.revisarCambios';
@@ -80,6 +81,11 @@ export default class CensoColectivo extends LightningElement {
     recargar() {
         return this.cargarCenso();
     }
+
+    // En la póliza: el PDF de un endoso de la aseguradora que no trae asegurados (Vida o GMM: cláusula, beneficio
+    // adicional, cambio de forma de administración...) no va a la IA; se entrega para registrarlo como endoso.
+    @api leeEndosos = false;
+    _endosos = [];
 
     get esLector() { return this.modo === 'lector'; }
     get mostrarCenso() { return !this.esLector; }
@@ -213,6 +219,7 @@ export default class CensoColectivo extends LightningElement {
         this._totalArchivos = files.length;
         this._acumulado = [];
         this._rangos = [];
+        this._endosos = [];
         this.errorMensaje = '';
         await this.siguienteArchivo();
     }
@@ -221,6 +228,11 @@ export default class CensoColectivo extends LightningElement {
             if (this._acumulado.length) {
                 this.archivoNombre = this._rangos.map((r) => r.nombre).join(', ');
                 this.validar(this._acumulado);
+            } else if (this._endosos.length) {
+                // Solo endosos sin asegurados: se registran como endosos.
+                const endosos = this._endosos;
+                this.cancelar();
+                this.dispatchEvent(new CustomEvent('endoso', { detail: { endosos } }));
             } else if (this.paso === 'mapeo') {
                 this.cancelar();
             }
@@ -376,6 +388,7 @@ export default class CensoColectivo extends LightningElement {
         this._cola = [];
         this._acumulado = [];
         this._rangos = [];
+        this._endosos = [];
     }
     volverAMapeo() {
         // Con un solo Excel se puede volver a su mapeo; con varios archivos se empieza de nuevo.
@@ -395,6 +408,15 @@ export default class CensoColectivo extends LightningElement {
         const bloques = await bloquesPdf(this, file, BLOQUE_PDF, (m) => { this.progreso = m; });
         if (!bloques.length) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide el censo en Excel.');
+        }
+        if (this.esLector && this.leeEndosos) {
+            const texto = bloques.join('\n');
+            const clausula = clausulaDeTexto(texto);
+            const endoso = clausula ? null : endosoDeTexto(texto, file.name);
+            if (clausula || endoso) {
+                this._endosos.push({ endoso, clausula, documento: file, archivo: file.name });
+                return;
+            }
         }
         const datos = [];
         for (let i = 0; i < bloques.length; i++) {
@@ -614,7 +636,7 @@ export default class CensoColectivo extends LightningElement {
             if (!lista.length) { return; }
             const posicion = new Map(lista.map((r, j) => [r.idx, j]));
             const miembros = lista.map((r) => ({ ...this.payload(r), titularIndex: r.esTitular ? null : (posicion.get(r.titularIndex) ?? null) }));
-            this.dispatchEvent(new CustomEvent('leido', { detail: { miembros, archivo: this.archivoNombre } }));
+            this.dispatchEvent(new CustomEvent('leido', { detail: { miembros, archivo: this.archivoNombre, endosos: this._endosos } }));
             this.cancelar();
             return;
         }
