@@ -1098,7 +1098,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 .replace(/\s+/g, ' ').trim();
             const target = norm(clean);
             const tt = target.split(' ').filter(Boolean);
-            let exact = res.find(a => norm(a.Name) === target);
+            // Sin la razón social al final ("UST GLOBAL DE MEXICO" = "UST Global de México, S.A. de C.V.").
+            const razon = /^(s|a|de|c|v|sa|cv|sapi|sab|rl|r|l|sc|ac|srl|sofom|mi|ip)$/;
+            const sinRazon = (s) => {
+                const w = s.split(' ').filter(Boolean);
+                while (w.length > 1 && razon.test(w[w.length - 1])) { w.pop(); }
+                return w.join(' ');
+            };
+            let exact = res.find(a => norm(a.Name) === target)
+                || res.find(a => sinRazon(norm(a.Name)) === sinRazon(target));
             if (!exact) {
                 exact = res.find(a => {
                     const at = norm(a.Name).split(' ').filter(Boolean);
@@ -2912,6 +2920,23 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     handleInputChange(event) {
         const field = event.target.dataset.field;
         if (field) this.opportunity[field] = event.target.value;
+        // Lo que escribe el usuario ya se ve con formato al salir del campo: no hace falta volver a crearlo.
+        if (field === 'Prima_Neta__c') { this._primaMostrada = event.target.value; }
+    }
+
+    // La prima neta que llega por código (IA, cotizaciones, oportunidad cargada) no toma el formato de moneda del
+    // lightning-input hasta que se sale del campo: al cambiar, el campo se vuelve a crear y ya aparece "$274,164.00".
+    _primaVersion = 0;
+    _primaMostrada;
+    get primaNetaInputs() { return ['prima-neta-' + this._primaVersion]; }
+    refrescarPrimaNeta() {
+        const v = this.opportunity ? this.opportunity.Prima_Neta__c : null;
+        if (String(v ?? '') === String(this._primaMostrada ?? '')) { return; }
+        const input = this.template.querySelector('.prima-neta-input');
+        // Mientras el usuario escribe no se toca.
+        if (input && this.template.activeElement === input) { return; }
+        this._primaMostrada = v;
+        if (input) { this._primaVersion += 1; }
     }
     handleComboboxChange(event) {
         const field = event.target.dataset.field;
@@ -4582,6 +4607,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Inyecta el HTML de la IA en un div lwc:dom="manual" (evita iframe/blob que
     // la CSP de Lightning bloquea y provocan "Script error").
     renderedCallback() {
+        this.refrescarPrimaNeta();
         const host = this.template.querySelector('.comparativo-ia__host');
         if (!host) { return; }
         // Se vuelve a llenar si el HTML cambió o si el contenedor es nuevo (al guardar, cambiar de modo o de

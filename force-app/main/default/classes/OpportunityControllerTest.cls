@@ -178,6 +178,25 @@ private class OpportunityControllerTest {
         }
     }
 
+    /**
+     * @creation date: 15/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: La cotización trae "UST GLOBAL DE MEXICO" y la cuenta es "UST Global de México, S.A. de C.V.":
+     *               la búsqueda la encuentra aunque falten los acentos y la razón social.
+     */
+    @isTest
+    static void testSearchAccountsSinAcentos() {
+        Account acc = new Account(Name = 'UST Global de México, S.A. de C.V.');
+        insert acc;
+        Test.startTest();
+        List<OpportunityController.AccountResult> res = OpportunityController.searchAccounts('UST GLOBAL DE MEXICO');
+        List<OpportunityController.AccountResult> conRazon = OpportunityController.searchAccounts('UST GLOBAL DE MEXICO S.A. DE C.V.');
+        Test.stopTest();
+        System.assertEquals(1, res.size(), 'Encuentra la cuenta sin acentos');
+        System.assertEquals(acc.Id, res[0].Id);
+        System.assertEquals(acc.Id, conRazon[0].Id, 'Con la razón social escrita de otra forma');
+    }
+
     @isTest
     static void testSearchContactsWithData() {
         Account acc = [SELECT Id FROM Account LIMIT 1];

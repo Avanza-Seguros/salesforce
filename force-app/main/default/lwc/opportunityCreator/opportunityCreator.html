@@ -573,13 +573,16 @@
                                             <lightning-icon icon-name="utility:moneybag" size="x-small"></lightning-icon>
                                             <h3>Prima Neta <span class="required-asterisk">*</span></h3>
                                         </div>
-                                        <lightning-input type="number" formatter="currency" step="0.01" min="0.01"
+                                        <!-- Se vuelve a crear cuando la prima llega de la IA o de las cotizaciones, para que se vea con formato de moneda. -->
+                                        <template for:each={primaNetaInputs} for:item="pk">
+                                        <lightning-input key={pk} type="number" formatter="currency" step="0.01" min="0.01"
                                             label="" value={opportunity.Prima_Neta__c}
                                             onchange={handleInputChange} disabled={isOpportunityReadOnly}
-                                            data-field="Prima_Neta__c" variant="label-hidden"
+                                            data-field="Prima_Neta__c" variant="label-hidden" class="prima-neta-input"
                                             placeholder="0.00" required
                                             message-when-range-underflow="La prima neta debe ser mayor a 0" message-when-value-missing="La prima neta es obligatoria">
                                         </lightning-input>
+                                        </template>
                                     </div>
                                 </div>
                             </div>

@@ -586,6 +586,24 @@ public with sharing class OpportunityController {
 			if (String.isNotBlank(p)) { palabras.add(p); }
 		}
 		if (palabras.isEmpty()) { return out; }
+		out = buscarPorPalabras(palabras, tieneMiddle);
+		if (!out.isEmpty()) { return out; }
+		// Sin resultados: LIKE distingue acentos ("UST GLOBAL DE MEXICO" no encuentra "UST Global de México, S.A. de
+		// C.V."). Se vuelve a buscar con cada vocal (con o sin acento) y la n/ñ como comodín de una letra, sin
+		// puntuación y sin la razón social ("S.A. DE C.V."), que puede venir escrita de otra forma.
+		Set<String> razon = new Set<String>{ 'S', 'A', 'C', 'V', 'SA', 'CV', 'DE', 'SAPI', 'SAB', 'RL', 'SC', 'AC', 'SRL', 'SOFOM' };
+		List<String> sinAcentos = new List<String>();
+		for (String p : palabras) {
+			String q = p.replaceAll('[.,;:()"\']', '');
+			if (String.isBlank(q) || razon.contains(q.toUpperCase())) { continue; }
+			sinAcentos.add(q.replaceAll('[aeiouáéíóúüAEIOUÁÉÍÓÚÜnñNÑ]', '_'));
+		}
+		return sinAcentos.isEmpty() ? out : buscarPorPalabras(sinAcentos, tieneMiddle);
+	}
+
+	// Cuentas cuyo nombre contiene todas las palabras (en cualquier orden); las palabras son patrones de LIKE.
+	private static List<AccountResult> buscarPorPalabras(List<String> palabras, Boolean tieneMiddle) {
+		List<AccountResult> out = new List<AccountResult>();
 		// Cada palabra debe encontrarse en ALGUNO de los campos de nombre. En cuentas
 		// persona el Name compuesto puede NO incluir el segundo nombre (apellido paterno):
 		// "INGRID ARACELY ROSALES GUZMAN" queda como Name "INGRID ARACELY GUZMAN" y ROSALES
