@@ -388,7 +388,14 @@ export default class PortalPolizas extends LightningElement {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Asegurados / Vehículos / Ubicaciones
+    // Asegurados, Vehículos o Ubicaciones, según el ramo (igual que la página de la póliza en Salesforce).
+    get tituloBienes() {
+        const r = String((this.detalle && this.detalle.poliza && this.detalle.poliza.ramo) || '').toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (r.startsWith('auto')) return 'Vehículos';
+        if (r.startsWith('dano') || r.startsWith('empresarial')) return 'Ubicaciones';
+        return 'Asegurados';
+    }
 
     get tablaAsegurados() {
         const datos = this.pestanas.asegurados.datos;
@@ -492,8 +499,8 @@ export default class PortalPolizas extends LightningElement {
         if (datos.tipo !== 'personas') {
             return {
                 noAplica: datos.tipo === 'vehiculos'
-                    ? 'En pólizas de automóviles los vehículos están en la pestaña Asegurados / Vehículos / Ubicaciones.'
-                    : 'En pólizas de daños y empresariales las ubicaciones están en la pestaña Asegurados / Vehículos / Ubicaciones.'
+                    ? 'En pólizas de automóviles los vehículos están en la pestaña Vehículos.'
+                    : 'En pólizas de daños y empresariales las ubicaciones están en la pestaña Ubicaciones.'
             };
         }
         const texto = this.busquedaParticipantes.trim().toLowerCase();

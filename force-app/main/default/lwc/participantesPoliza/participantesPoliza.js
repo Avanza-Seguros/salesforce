@@ -75,8 +75,10 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     // Flotillas y ubicaciones aseguran bienes: aquí solo están las personas; los bienes van en su propia pestaña.
     get avisoBienes() {
         const r = this.fold(this.poliza.ramo);
-        return RAMOS_BIENES.some((x) => r.startsWith(x))
-            ? 'Esta póliza asegura bienes: los vehículos o ubicaciones están en la pestaña «Asegurados / Vehículos / Ubicaciones».' : '';
+        if (!RAMOS_BIENES.some((x) => r.startsWith(x))) { return ''; }
+        return r.startsWith('auto')
+            ? 'Esta póliza asegura vehículos: están en la pestaña «Vehículos».'
+            : 'Esta póliza asegura bienes: las ubicaciones están en la pestaña «Ubicaciones».';
     }
     get textoLimite() { return this.datos && this.datos.limite ? 'Se muestran los primeros 5,000 participantes.' : ''; }
 

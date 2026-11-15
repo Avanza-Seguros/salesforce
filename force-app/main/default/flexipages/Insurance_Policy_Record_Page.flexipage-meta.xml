@@ -773,6 +773,26 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
+                <componentName>movimientosColectivo</componentName>
+                <identifier>c_movimientosColectivo_vehiculos</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-7b1c2e44-vehiculos-colectivos</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentName>movimientosColectivo</componentName>
+                <identifier>c_movimientosColectivo_ubicaciones</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-7b1c2e44-ubicaciones-colectivos</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
                 <componentName>participantesPoliza</componentName>
                 <identifier>c_participantesPoliza</identifier>
             </componentInstance>
@@ -821,10 +841,76 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>title</name>
-                    <value>Asegurados / Vehículos / Ubicaciones</value>
+                    <value>Asegurados</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab4</identifier>
+                <visibilityRule>
+                    <booleanFilter>1 AND 2 AND 3</booleanFilter>
+                    <criteria>
+                        <leftValue>{!Record.Ramo__c}</leftValue>
+                        <operator>NE</operator>
+                        <rightValue>Automoviles</rightValue>
+                    </criteria>
+                    <criteria>
+                        <leftValue>{!Record.Ramo__c}</leftValue>
+                        <operator>NE</operator>
+                        <rightValue>Danos</rightValue>
+                    </criteria>
+                    <criteria>
+                        <leftValue>{!Record.Ramo__c}</leftValue>
+                        <operator>NE</operator>
+                        <rightValue>Empresarial</rightValue>
+                    </criteria>
+                </visibilityRule>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-7b1c2e44-vehiculos-colectivos</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Vehículos</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tab4_vehiculos</identifier>
+                <visibilityRule>
+                    <criteria>
+                        <leftValue>{!Record.Ramo__c}</leftValue>
+                        <operator>EQUAL</operator>
+                        <rightValue>Automoviles</rightValue>
+                    </criteria>
+                </visibilityRule>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-7b1c2e44-ubicaciones-colectivos</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Ubicaciones</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tab4_ubicaciones</identifier>
+                <visibilityRule>
+                    <booleanFilter>1 OR 2</booleanFilter>
+                    <criteria>
+                        <leftValue>{!Record.Ramo__c}</leftValue>
+                        <operator>EQUAL</operator>
+                        <rightValue>Danos</rightValue>
+                    </criteria>
+                    <criteria>
+                        <leftValue>{!Record.Ramo__c}</leftValue>
+                        <operator>EQUAL</operator>
+                        <rightValue>Empresarial</rightValue>
+                    </criteria>
+                </visibilityRule>
             </componentInstance>
         </itemInstances>
         <itemInstances>
