@@ -26,7 +26,7 @@
                     <p class="section-subtitle">{topbarSubtitle}</p>
                 </div>
             </div>
-            <template if:true={isEditable}>
+            <template if:true={mostrarPdfIndividual}>
                 <button class="action-btn secondary pdf-btn" onclick={handleAnalizarPdf} disabled={analizando}>
                     <lightning-icon icon-name="doc:pdf" size="x-small"></lightning-icon>
                     <span>Analizar PDF de Póliza</span>
@@ -34,7 +34,80 @@
                 <input type="file" accept="application/pdf"
                        class="pdf-file-input" onchange={handleFileSelected}></input>
             </template>
+            <!-- Colectivos: varios archivos (carátula, censo, flotilla, ubicaciones) y complemento de la póliza -->
+            <template if:true={mostrarCargaColectiva}>
+                <button class="action-btn secondary pdf-btn" onclick={handleCargarArchivos} disabled={analizando}
+                        title="PDF de la póliza, censo de asegurados, flotilla o ubicaciones (Excel, CSV o PDF)">
+                    <lightning-icon icon-name="utility:upload" size="x-small"></lightning-icon>
+                    <span>{textoBotonArchivos}</span>
+                </button>
+                <input type="file" multiple accept={aceptaColectivo}
+                       class="pdf-file-input colectivo-file-input" onchange={handleArchivosColectivo}></input>
+            </template>
         </div>
+
+        <!-- Zona para arrastrar y soltar el archivo de la póliza (también abre el selector al hacer clic) -->
+        <template if:true={mostrarZonaArrastre}>
+            <div class={claseZonaArrastre} role="button" tabindex="0"
+                 onclick={handleClicZonaArrastre} ondragenter={handleDragOver} ondragover={handleDragOver}
+                 ondragleave={handleDragLeave} ondrop={handleDrop}>
+                <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
+                <div class="drop-zone__texto">
+                    <strong>{textoZonaArrastre}</strong>
+                    <span>o haz clic para seleccionarlo</span>
+                </div>
+            </div>
+        </template>
+
+        <!-- Revisión de los archivos de un colectivo: tipo detectado (se puede corregir) y qué se hará con cada uno -->
+        <template if:true={mostrarCarga}>
+            <section role="dialog" aria-modal="true" aria-labelledby="carga-titulo" class="slds-modal slds-fade-in-open slds-modal_medium">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <h2 id="carga-titulo" class="slds-modal__title slds-hyphenate">Archivos de la póliza</h2>
+                        <p class="slds-m-top_x-small carga-subtitulo">{subtituloCarga}</p>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium carga-contenido">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer carga-tabla">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col">Archivo</th>
+                                    <th scope="col" class="carga-col-tipo">Contenido</th>
+                                    <th scope="col">Qué se hará</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={cargaVista} for:item="a">
+                                    <tr key={a.key}>
+                                        <td class="slds-cell-wrap">
+                                            <span class="carga-archivo">{a.etiquetaArchivo}</span>
+                                            <span class="carga-tamano">{a.tamano}</span>
+                                        </td>
+                                        <td>
+                                            <lightning-combobox variant="label-hidden" label="Contenido" options={a.opciones}
+                                                value={a.tipo} data-key={a.key} onchange={handleTipoArchivo}
+                                                dropdown-alignment="auto"></lightning-combobox>
+                                        </td>
+                                        <td class="slds-cell-wrap">{a.detalle}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <template if:true={avisoCarga}>
+                            <p class="carga-aviso">
+                                <lightning-icon icon-name="utility:warning" variant="warning" size="xx-small"></lightning-icon>
+                                <span>{avisoCarga}</span>
+                            </p>
+                        </template>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <button class="slds-button slds-button_neutral" onclick={cancelarCarga}>Cancelar</button>
+                        <button class="slds-button slds-button_brand" onclick={procesarCarga} disabled={analizando}>{textoProcesar}</button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
 
         <template if:false={loading}>
 

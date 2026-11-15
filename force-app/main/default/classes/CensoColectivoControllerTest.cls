@@ -117,6 +117,178 @@ private class CensoColectivoControllerTest {
 	}
 
 	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Complementar el censo con otro archivo: no duplica a quien ya está (completa sus datos vacíos),
+	 * agrega a los nuevos y liga un dependiente nuevo a su titular que ya estaba en el censo.
+	 * @return void
+	 */
+	@isTest
+	static void testComplementarCenso() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		CensoColectivoController.guardarCenso(opp.Id, censoJson(), true);
+		String segundo = JSON.serialize(new List<Object>{
+			// Ya estaba (mismo certificado y nombre): solo se completa su teléfono.
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Pedro', 'parentesco' => 'Titular', 'telefono' => '5550000000' },
+			// Titular que ya estaba y un dependiente nuevo suyo.
+			new Map<String, Object>{ 'fila' => 3, 'nombre' => 'Juan', 'apellidos' => 'Pérez García', 'certificado' => '001', 'parentesco' => 'Titular' },
+			new Map<String, Object>{ 'fila' => 4, 'nombreCompleto' => 'Luis Pérez López', 'edad' => 5, 'parentesco' => 'Hijo(a)', 'titularIndex' => 1 },
+			// Titular nuevo.
+			new Map<String, Object>{ 'fila' => 5, 'nombreCompleto' => 'Ana Torres', 'edad' => 30, 'parentesco' => 'Titular', 'certificado' => '003' }
+		});
+
+		Test.startTest();
+		Map<String, Integer> r = CensoColectivoController.complementarCenso(opp.Id, segundo);
+		Map<String, Integer> otraVez = CensoColectivoController.complementarCenso(opp.Id, segundo);
+		Test.stopTest();
+
+		System.assertEquals(2, r.get('nuevos'), 'Agrega solo a Luis y Ana: ' + r);
+		System.assertEquals(6, r.get('total'));
+		System.assertEquals(0, otraVez.get('nuevos'), 'Repetir la carga no duplica');
+		System.assertEquals(6, otraVez.get('total'));
+		System.assertEquals('5550000000', [SELECT PhoneNumber FROM GroupCensusMember WHERE Name = 'Pedro'].PhoneNumber,
+			'Completa el dato vacío del que ya estaba');
+		System.assertEquals('Juan Pérez García', [SELECT PrimaryGroupCensusMember.Name FROM GroupCensusMember WHERE Name = 'Luis Pérez López']
+			.PrimaryGroupCensusMember.Name, 'El dependiente nuevo se liga a su titular existente');
+		try {
+			CensoColectivoController.complementarCenso(opp.Id, '[]');
+			System.assert(false, 'Debe rechazar un censo vacío');
+		} catch (AuraHandledException e) {
+			System.assert(true);
+		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cambio de nombre: se reconoce a la persona por su certificado, la vista previa muestra el dato anterior
+	 *               y el nuevo, y al guardar se cambia a la misma persona (no se agrega otra).
+	 * @return void
+	 */
+	@isTest
+	static void testCambioDeNombre() {
+		Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+		CensoColectivoController.guardarCenso(opp.Id, censoJson(), true);
+		Integer antes = [SELECT COUNT() FROM GroupCensusMember];
+		String archivo = JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 2, 'nombre' => 'Juan Carlos', 'apellidos' => 'Pérez García', 'certificado' => '001',
+				'parentesco' => 'Titular', 'prima' => 999, 'movimiento' => 'Cambio' },
+			new Map<String, Object>{ 'fila' => 3, 'nombreCompleto' => 'Nadie Nuevo', 'certificado' => '777', 'parentesco' => 'Titular',
+				'movimiento' => 'Cambio' }
+		});
+
+		Test.startTest();
+		List<Map<String, Object>> vista = CensoColectivoController.revisarCambios(opp.Id, archivo);
+		Map<String, Integer> r = CensoColectivoController.complementarCenso(opp.Id, archivo);
+		Test.stopTest();
+
+		System.assertEquals(2, vista.size());
+		System.assertEquals(true, vista[0].get('existe'), 'Juan se reconoce por certificado');
+		Map<String, Object> nombre = (Map<String, Object>) ((List<Object>) vista[0].get('diferencias'))[0];
+		System.assertEquals('Nombre', nombre.get('campo'));
+		System.assertEquals('Juan Pérez García', nombre.get('antes'), 'Dato anterior');
+		System.assertEquals('Juan Carlos Pérez García', nombre.get('despues'), 'Dato nuevo');
+		System.assertEquals(false, vista[1].get('existe'), 'No existía: se agrega pero se ve como cambio');
+
+		System.assertEquals(1, r.get('nuevos'), 'Solo se agrega a quien no existía: ' + r);
+		System.assertEquals(antes + 1, [SELECT COUNT() FROM GroupCensusMember]);
+		System.assertEquals(0, [SELECT COUNT() FROM GroupCensusMember WHERE Name = 'Juan Pérez García'], 'No queda el nombre anterior');
+		GroupCensusMember juan = [SELECT Prima__c FROM GroupCensusMember WHERE Name = 'Juan Carlos Pérez García'];
+		System.assertEquals(999, juan.Prima__c, 'Se cambian sus datos');
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bajas y cambios del censo: detecta a las personas que no existen ni en el censo ni como contacto del
+	 * cliente (por RFC, certificado y nombre, o nombre en cualquier orden y sin acentos).
+	 * @return void
+	 */
+	@isTest
+	static void testMovimientosSinContacto() {
+		Opportunity opp = [SELECT Id, AccountId FROM Opportunity LIMIT 1];
+		CensoColectivoController.guardarCenso(opp.Id, censoJson(), true);
+		insert new List<Contact>{
+			new Contact(AccountId = opp.AccountId, FirstName = 'Mariana', LastName = 'López Ruiz'),
+			new Contact(AccountId = opp.AccountId, FirstName = 'Otro', LastName = 'Nombre', RFC__c = 'ROTO800101AAA')
+		};
+		String personas = JSON.serialize(new List<Object>{
+			// En el censo, con el nombre en otro orden y sin acentos.
+			new Map<String, Object>{ 'fila' => 1, 'nombreCompleto' => 'PEREZ GARCIA JUAN', 'movimiento' => 'Baja' },
+			// Contacto del cliente por RFC (el nombre no coincide).
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Nombre Distinto', 'rfc' => 'roto800101aaa', 'movimiento' => 'Cambio' },
+			// Contacto del cliente por nombre.
+			new Map<String, Object>{ 'fila' => 3, 'nombreCompleto' => 'LOPEZ RUIZ MARIANA', 'movimiento' => 'Cambio' },
+			// No existe.
+			new Map<String, Object>{ 'fila' => 4, 'nombreCompleto' => 'Nadie Existe', 'certificado' => '999', 'movimiento' => 'Baja' }
+		});
+
+		Test.startTest();
+		List<Integer> faltan = CensoColectivoController.movimientosSinContacto(opp.Id, null, personas);
+		List<Integer> vacio = CensoColectivoController.movimientosSinContacto(opp.Id, null, '[]');
+		Test.stopTest();
+
+		System.assertEquals(new List<Integer>{ 4 }, faltan, 'Solo la fila 4 no existe');
+		System.assert(vacio.isEmpty());
+		System.assertEquals(CensoColectivoController.llavePersona('Juan Pérez García'), CensoColectivoController.llavePersona('PEREZ  GARCIA, JUAN'));
+		try {
+			CensoColectivoController.movimientosSinContacto(opp.Id, null, '{no es json');
+			System.assert(false, 'Debe rechazar un JSON inválido');
+		} catch (AuraHandledException e) {
+			System.assert(true);
+		}
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bajas del archivo: quitan del censo a la persona y a sus dependientes, dejan inactivos sus
+	 * participantes en la póliza y devuelven las que no existen (solo se avisa).
+	 * @return void
+	 */
+	@isTest
+	static void testAplicarBajas() {
+		Opportunity opp = [SELECT Id, AccountId FROM Opportunity LIMIT 1];
+		CensoColectivoController.guardarCenso(opp.Id, censoJson(), true);
+		InsurancePolicy pol = new InsurancePolicy(Name = 'POL-BAJAS-1', NameInsuredId = opp.AccountId, SourceOpportunityId = opp.Id,
+			Status = 'Inicial', PremiumAmount = 1200, PaymentDueDate = Date.today().addDays(30), EffectiveDate = Datetime.now(),
+			ExpirationDate = Datetime.now().addDays(365));
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { pol.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert pol;
+		CensoColectivoController.copiarCensoAPoliza(opp.Id, pol.Id);
+		String bajas = JSON.serialize(new List<Object>{
+			// Titular (nombre en otro orden): se va con sus dependientes.
+			new Map<String, Object>{ 'fila' => 1, 'nombreCompleto' => 'PEREZ GARCIA JUAN', 'certificado' => '001', 'movimiento' => 'Baja',
+				'fechaMovimiento' => String.valueOf(Date.today()) },
+			// No existe: no se puede dar de baja.
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Nadie Existe', 'movimiento' => 'Baja' }
+		});
+
+		Test.startTest();
+		Map<String, Object> r = CensoColectivoController.aplicarBajas(opp.Id, pol.Id, bajas);
+		Map<String, Object> vacio = CensoColectivoController.aplicarBajas(opp.Id, null, '[]');
+		Test.stopTest();
+
+		System.assertEquals(3, r.get('censo'), 'Juan y sus dos dependientes salen del censo: ' + r);
+		System.assertEquals(1, [SELECT COUNT() FROM GroupCensusMember WHERE GroupCensus.Oportunidad__c = :opp.Id], 'Solo queda Pedro');
+		System.assert((Integer) r.get('poliza') >= 1, 'Inactiva al titular en la póliza: ' + r);
+		InsurancePolicyParticipant juan = [SELECT IsActiveParticipant, EffectiveToDate FROM InsurancePolicyParticipant
+			WHERE InsurancePolicyId = :pol.Id AND ParticipantName LIKE 'Juan%' LIMIT 1];
+		System.assertEquals(false, juan.IsActiveParticipant, 'El participante queda inactivo (no se borra)');
+		System.assertNotEquals(null, juan.EffectiveToDate);
+		System.assertEquals(new List<Integer>{ 2 }, (List<Integer>) r.get('noEncontrados'));
+		System.assertEquals(0, vacio.get('censo'));
+		try {
+			CensoColectivoController.aplicarBajas(opp.Id, null, '{no es json');
+			System.assert(false, 'Debe rechazar un JSON inválido');
+		} catch (AuraHandledException e) {
+			System.assert(true);
+		}
+	}
+
+	/**
 	 * @creation date: 12/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Valida los errores: censo vacío, JSON inválido, dependiente sin titular, renglón sin nombre
@@ -258,8 +430,9 @@ private class CensoColectivoControllerTest {
 			'Completa las fechas que faltan');
 		System.assertEquals(contactos, [SELECT COUNT() FROM Contact WHERE AccountId = :opp.AccountId], 'No duplica contactos');
 		System.assertEquals(new List<String>{ 'Conyugue', 'Cónyuge', 'Spouse' }, CensoColectivoController.parentescoPoliza('Cónyuge', 'Mujer'));
-		System.assertEquals('Conyugue', CensoColectivoController.parentescoPolizaVisible('Marido', new Map<String, String>()));
-		System.assertEquals('Conyugue', CensoColectivoController.parentescoPolizaVisible('Mujer', null));
+		System.assertEquals('Cónyuge', CensoColectivoController.parentescoPolizaVisible('Marido', new Map<String, String>()));
+		System.assertEquals('Cónyuge', CensoColectivoController.parentescoPolizaVisible('Mujer', null));
+		System.assertEquals('Cónyuge', CensoColectivoController.parentescoPolizaVisible('Conyugue', new Map<String, String>{ 'Conyugue' => 'CONYUGUE' }));
 		System.assertEquals('Hijo', CensoColectivoController.parentescoPolizaVisible('Hijo', new Map<String, String>{ 'Hijo' => 'Hijo' }));
 		System.assertEquals(null, CensoColectivoController.parentescoPolizaVisible(null, null));
 		System.assertEquals(new List<String>{ 'Hijo' }, CensoColectivoController.parentescoPoliza('Secundario', 'Hombre'));

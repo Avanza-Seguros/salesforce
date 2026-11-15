@@ -73,6 +73,44 @@ public with sharing class PolizaNumeroUnico {
 	}
 
 	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Emisión de colectivos: localiza la póliza que ya tiene el número y la vigencia leídos de la
+	 * carátula para complementarla en lugar de crear otra. Solo la devuelve si el usuario puede editarla; si existe
+	 * pero no tiene acceso, devuelve el mensaje de póliza repetida.
+	 * @param numero: Número de póliza leído del PDF
+	 * @param vigenciaDesde: Inicio de vigencia (AAAA-MM-DD); puede venir vacío
+	 * @param policyId: Id de la póliza que se está editando (se excluye de la búsqueda; puede ser null)
+	 * @return Mapa con "policyId" (póliza a complementar), "nombre" y "oportunidadId", o "error"; vacío si no existe
+	 */
+	@AuraEnabled
+	public static Map<String, Object> polizaExistente(String numero, String vigenciaDesde, Id policyId) {
+		Map<String, Object> res = new Map<String, Object>();
+		Date inicio = null;
+		if (String.isNotBlank(vigenciaDesde)) {
+			try { inicio = Date.valueOf(vigenciaDesde.left(10)); } catch (Exception e) { inicio = null; }
+		}
+		String llave = llave(numero, inicio);
+		if (llave == null) { return res; }
+		for (InsurancePolicy ex : new SinCompartir().existentes(new Set<String>{ llave })) {
+			if (ex.Id == policyId) { continue; }
+			List<UserRecordAccess> acceso = [
+				SELECT RecordId, HasEditAccess FROM UserRecordAccess
+				WHERE UserId = :UserInfo.getUserId() AND RecordId = :ex.Id LIMIT 1
+			];
+			if (acceso.isEmpty() || !acceso[0].HasEditAccess) {
+				res.put('error', mensaje(numero, inicio, ex));
+				return res;
+			}
+			res.put('policyId', ex.Id);
+			res.put('nombre', ex.Name);
+			res.put('oportunidadId', ex.SourceOpportunityId);
+			return res;
+		}
+		return res;
+	}
+
+	/**
 	 * @creation date: 09/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Arma la llave única de la póliza: número normalizado y fecha de inicio de vigencia
@@ -145,10 +183,24 @@ public with sharing class PolizaNumeroUnico {
 		 * @return Pólizas encontradas
 		 */
 		List<InsurancePolicy> existentes(Set<String> llaves) {
-			return [
-				SELECT Id, Name, numeroPolizaUnico__c, NameInsured.Name
+			List<InsurancePolicy> res = [
+				SELECT Id, Name, numeroPolizaUnico__c, NameInsured.Name, SourceOpportunityId
 				FROM InsurancePolicy WHERE numeroPolizaUnico__c IN :llaves
 			];
+			// Pólizas registradas antes de la regla no tienen llave: se comparan por número e inicio de vigencia.
+			Set<String> numeros = new Set<String>();
+			for (String l : llaves) { numeros.add(l.substringBefore('|')); }
+			for (InsurancePolicy p : [
+				SELECT Id, Name, numeroPolizaUnico__c, NameInsured.Name, SourceOpportunityId, EffectiveDate
+				FROM InsurancePolicy WHERE numeroPolizaUnico__c = null AND Name IN :numeros
+			]) {
+				String k = llave(p.Name, fecha(p.EffectiveDate));
+				if (k != null && llaves.contains(k)) {
+					p.numeroPolizaUnico__c = k;
+					res.add(p);
+				}
+			}
+			return res;
 		}
 	}
 }

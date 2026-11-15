@@ -175,6 +175,29 @@
 .action-btn.secondary lightning-icon { --sds-c-icon-color-foreground-default: #0052CC; }
 .pdf-file-input { display: none; }
 
+/* ----- ZONA PARA ARRASTRAR Y SOLTAR ----- */
+.drop-zone {
+    display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+    margin: 0.75rem 0 1rem; padding: 1rem;
+    border: 2px dashed #9fb3c8; border-radius: 10px; background: #f7f9fc;
+    color: #475467; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.drop-zone:hover { border-color: #0176d3; background: #eef5fc; }
+.drop-zone_activa { border-color: #0176d3; background: #e3f0fc; }
+.drop-zone_deshabilitada { opacity: 0.6; cursor: progress; }
+.drop-zone__texto { display: flex; flex-direction: column; font-size: 0.85rem; }
+.drop-zone__texto strong { color: #1c2433; font-size: 0.9rem; }
+
+/* ----- CARGA DE ARCHIVOS DE COLECTIVOS ----- */
+.carga-subtitulo { font-size: 0.82rem; color: #475467; }
+/* Espacio para que la lista del combo no quede cortada dentro del modal. */
+.carga-contenido { min-height: 14rem; overflow: visible; }
+.carga-tabla td { vertical-align: middle; }
+.carga-col-tipo { width: 14rem; }
+.carga-archivo { display: block; font-weight: 600; word-break: break-word; }
+.carga-tamano { display: block; color: #667085; font-size: 0.75rem; }
+.carga-aviso { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.75rem; font-size: 0.82rem; color: #8C4B02; font-weight: 600; }
+
 /* ----- ESTADOS ----- */
 .policy-state {
     display: flex;

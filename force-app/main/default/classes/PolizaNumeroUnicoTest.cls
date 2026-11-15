@@ -112,6 +112,54 @@ private class PolizaNumeroUnicoTest {
 	}
 
 	/**
+	 * @creation date: 13/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Una póliza registrada antes de la regla (sin llave) también cuenta: no se puede emitir otra con
+	 * el mismo número y la misma vigencia.
+	 * @return void
+	 */
+	@isTest
+	static void testPolizaSinLlaveTambienCuenta() {
+		Account acc = new Account(Name = 'Cuenta Póliza Sin Llave');
+		insert acc;
+		InsurancePolicy vieja = poliza(acc.Id, '0971568955');
+		PolizaNumeroUnico.aplicarEnPruebas = false;   // como si se hubiera creado antes de la regla
+		insert vieja;
+		System.assertEquals(null, [SELECT numeroPolizaUnico__c FROM InsurancePolicy WHERE Id = :vieja.Id].numeroPolizaUnico__c);
+
+		System.assert(PolizaNumeroUnico.validarNumeroPoliza('0971568955', '2026-01-01', null).contains('Ya existe una póliza'));
+		System.assertEquals(null, PolizaNumeroUnico.validarNumeroPoliza('0971568955', '2027-01-01', null), 'Otra vigencia está libre');
+		System.assertEquals(vieja.Id, PolizaNumeroUnico.polizaExistente('0971568955', '2026-01-01', null).get('policyId'));
+		Database.SaveResult r = Database.insert(poliza(acc.Id, '0971568955'), false);
+		System.assert(!r.isSuccess(), 'Debe rechazar la nueva con el mismo número y vigencia');
+	}
+
+	/**
+	 * @creation date: 10/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Emisión de colectivos: localiza la póliza existente (mismo número y vigencia) para complementarla.
+	 * @return void
+	 */
+	@isTest
+	static void testPolizaExistente() {
+		Account acc = new Account(Name = 'Cuenta Póliza Existente');
+		insert acc;
+		InsurancePolicy p = poliza(acc.Id, 'COL-777');
+		insert p;
+		Test.startTest();
+		Map<String, Object> encontrada = PolizaNumeroUnico.polizaExistente(' col-777 ', '2026-01-01', null);
+		Map<String, Object> propia = PolizaNumeroUnico.polizaExistente('COL-777', '2026-01-01', p.Id);
+		Map<String, Object> otraVigencia = PolizaNumeroUnico.polizaExistente('COL-777', '2027-01-01', null);
+		Map<String, Object> sinNumero = PolizaNumeroUnico.polizaExistente(null, null, null);
+		Test.stopTest();
+		System.assertEquals(p.Id, encontrada.get('policyId'), 'Encuentra la póliza con el mismo número y vigencia');
+		System.assertEquals(oportunidad(acc.Id), encontrada.get('oportunidadId'));
+		System.assert(propia.isEmpty(), 'La póliza que se edita no cuenta');
+		System.assert(otraVigencia.isEmpty(), 'Otra vigencia es otra póliza');
+		System.assert(sinNumero.isEmpty());
+	}
+
+	/**
 	 * @creation date: 02/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Valida que una póliza sin oportunidad se pueda guardar y que también reciba su llave única.

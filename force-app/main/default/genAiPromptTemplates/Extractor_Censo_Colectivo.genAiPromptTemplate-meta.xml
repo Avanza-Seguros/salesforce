@@ -20,8 +20,10 @@ Reglas:
 - "categoria": categoría, grupo, nivel o clase del asegurado si aparece (ej. "Directivos", "Empleados", "Grupo 1").
 - Montos como número, sin símbolo de moneda ni comas de miles. "sueldoMensual" o "sueldoAnual" según indique el documento; "sumaAsegurada" si viene por asegurado; "prima": prima individual del asegurado si viene (columna Prima, Prima neta, Costo).
 - "certificado": número de certificado del asegurado si aparece. "numEmpleado": número de empleado o nómina si aparece.
+- "fechaAlta": tómala de la columna "Fecha de movimiento" (Fecha mov., F. Movimiento). NO uses la fecha de alta, de ingreso ni de antigüedad; si no hay fecha de movimiento, ponla en null.
+- "tipoMovimiento": "Alta", "Baja" o "Cambio" según la columna Tipo de movimiento / Movimiento (A/B/C, ALTA/BAJA/CAMBIO, M = Cambio); null si el documento no la trae.
 Devuelve exactamente esta estructura:
-{ "asegurados": [ { "nombreCompleto": "string o null", "nombre": "string o null", "apellidos": "string o null", "fechaNacimiento": "YYYY-MM-DD o null", "edad": number o null, "sexo": "Hombre | Mujer | null", "parentesco": "string o null", "categoria": "string o null", "sueldoMensual": number o null, "sueldoAnual": number o null, "sumaAsegurada": number o null, "prima": number o null, "certificado": "string o null", "fechaAlta": "YYYY-MM-DD o null", "numEmpleado": "string o null", "rfc": "string o null", "email": "string o null", "telefono": "string o null" } ] }
+{ "asegurados": [ { "nombreCompleto": "string o null", "nombre": "string o null", "apellidos": "string o null", "fechaNacimiento": "YYYY-MM-DD o null", "edad": number o null, "sexo": "Hombre | Mujer | null", "parentesco": "string o null", "categoria": "string o null", "sueldoMensual": number o null, "sueldoAnual": number o null, "sumaAsegurada": number o null, "prima": number o null, "certificado": "string o null", "fechaAlta": "YYYY-MM-DD o null", "tipoMovimiento": "Alta, Baja, Cambio o null","numEmpleado": "string o null", "rfc": "string o null", "email": "string o null", "telefono": "string o null" } ] }
 TEXTO DEL CENSO:
 {!$Input:TextoCenso}
 </content>

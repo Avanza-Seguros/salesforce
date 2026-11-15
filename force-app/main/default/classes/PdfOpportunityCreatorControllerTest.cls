@@ -640,7 +640,13 @@ private class PdfOpportunityCreatorControllerTest {
 
         Map<String, Object> cli = PdfOpportunityCreatorController.buildCliente(new Map<String, Object>{ 'cliente' => 'Diego Torres' });
         System.assertEquals('Diego Torres', cli.get('nombre'));
-        Map<String, Object> det = PdfOpportunityCreatorController.buildDetalle(
+
+        // Nombre del cliente desde el texto del PDF (Plan Seguro: "Estimado: NOMBRE").
+        System.assertEquals('RICARDO NAVARRETE VILLAGOMEZ', PdfOpportunityCreatorController.nombreClienteDesdeTexto(new List<String>{
+            'Costo total 231,787.89 Estimado:  RICARDO NAVARRETE VILLAGOMEZ Es un plan de salud ideal para personas' }));
+        System.assertEquals('Ana María López', PdfOpportunityCreatorController.nombreClienteDesdeTexto(new List<String>{
+            'Nombre del agente: AVANZA SEGURO CONSULTORES Contratante: Ana María López RFC LOPA800101' }));
+        System.assertEquals('', PdfOpportunityCreatorController.nombreClienteDesdeTexto(new List<String>{ 'Sin datos del cliente 123' }));        Map<String, Object> det = PdfOpportunityCreatorController.buildDetalle(
             new Map<String, Object>{ 'vehiculo_detalle' => new Map<String, Object>{ 'marca' => 'NISSAN' } });
         System.assertEquals('NISSAN', det.get('marca'));
         System.assertNotEquals(null, PdfOpportunityCreatorController.buildDetalle(new Map<String, Object>()));
