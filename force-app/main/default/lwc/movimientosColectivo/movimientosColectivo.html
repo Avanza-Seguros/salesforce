@@ -79,7 +79,8 @@
                                 <lightning-button label={textoEnviarPendientes} icon-name="utility:email" onclick={abrirCorreoPendientes}
                                     disabled={sinPendientesCorreo}></lightning-button>
                             </template>
-                            <lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button>
+                            <!-- Excel de movimientos: solo pólizas empresariales. -->
+                            <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
                             <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
                         </div>
                     </div>
@@ -103,9 +104,13 @@
                                         <th scope="col" class="col-orden" data-campo="categoria" onclick={ordenar} title="Ordenar">Categoría <span class="flecha">{flechas.categoria}</span></th>
                                         <th scope="col" class="col-orden" data-campo="nacimiento" onclick={ordenar} title="Ordenar">Nacimiento <span class="flecha">{flechas.nacimiento}</span></th>
                                         <th scope="col" class="col-orden" data-campo="alta" onclick={ordenar} title="Ordenar">Alta <span class="flecha">{flechas.alta}</span></th>
-                                        <th scope="col" class="col-orden" data-campo="movimiento" onclick={ordenar} title="Ordenar">Fecha de movimiento <span class="flecha">{flechas.movimiento}</span></th>
+                                        <template if:true={conFechasMovimiento}>
+                                            <th scope="col" class="col-orden" data-campo="movimiento" onclick={ordenar} title="Ordenar">Fecha de movimiento <span class="flecha">{flechas.movimiento}</span></th>
+                                        </template>
                                         <template if:true={enPoliza}>
                                             <th scope="col" class="col-orden" data-campo="creacion" onclick={ordenar} title="Ordenar">Fecha de creación <span class="flecha">{flechas.creacion}</span></th>
+                                        </template>
+                                        <template if:true={conFechaCierre}>
                                             <th scope="col" class="col-orden" data-campo="cierre" onclick={ordenar} title="Ordenar">Fecha de cierre <span class="flecha">{flechas.cierre}</span></th>
                                         </template>
                                         <th scope="col" class="num col-orden" data-campo="prima" onclick={ordenar} title="Ordenar">Prima <span class="flecha">{flechas.prima}</span></th>
@@ -135,11 +140,9 @@
                                             <td>{m.categoria}</td>
                                             <td>{m.nacimientoTxt}</td>
                                             <td>{m.altaTxt}</td>
-                                            <td>{m.fechaMovimientoTxt}</td>
-                                            <template if:true={enPoliza}>
-                                                <td>{m.fechaCreacionTxt}</td>
-                                                <td>{m.fechaCierreTxt}</td>
-                                            </template>
+                                            <template if:true={conFechasMovimiento}><td>{m.fechaMovimientoTxt}</td></template>
+                                            <template if:true={enPoliza}><td>{m.fechaCreacionTxt}</td></template>
+                                            <template if:true={conFechaCierre}><td>{m.fechaCierreTxt}</td></template>
                                             <td class="num">{m.primaTxt}</td>
                                             <td>
                                                 <span class={m.claseEstado}>{m.estado}</span>

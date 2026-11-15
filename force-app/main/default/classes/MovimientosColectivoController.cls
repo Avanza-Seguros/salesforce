@@ -76,6 +76,7 @@ public with sharing class MovimientosColectivoController {
 				res.put('flotilla', MovimientosFlotillaController.esFlotilla(pol.Ramo__c));
 				res.put('ubicaciones', MovimientosUbicacionesController.esUbicaciones(pol.Ramo__c));
 				res.put('nombre', pol.Name);
+				res.put('tipoContratacion', tipoContratacion(recordId));
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
 				res.put('polizaAnteriorId', pol.PriorPolicyId);
@@ -1141,6 +1142,18 @@ public with sharing class MovimientosColectivoController {
 			}
 			f.put('archivos', ParticipantesPolizaController.unirArchivos(a, de).size());
 		}
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Tipo de contratación de la póliza (Individual / Colectiva) según su oportunidad de origen.
+	 * @param policyId: póliza.
+	 * @return 'Individual', 'Colectiva' o null si la póliza no viene de una oportunidad.
+	 */
+	public static String tipoContratacion(Id policyId) {
+		List<InsurancePolicy> l = [SELECT SourceOpportunityId, SourceOpportunity.Tipo_Contratacion__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+		return l.isEmpty() || l[0].SourceOpportunityId == null ? null : l[0].SourceOpportunity.Tipo_Contratacion__c;
 	}
 
 	/**

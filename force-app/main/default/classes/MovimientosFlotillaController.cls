@@ -73,6 +73,7 @@ public with sharing class MovimientosFlotillaController {
 				res.put('contexto', 'poliza');
 				res.put('aplica', esFlotilla(pol.Ramo__c));
 				res.put('nombre', pol.Name);
+				res.put('tipoContratacion', MovimientosColectivoController.tipoContratacion(recordId));
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
 				List<Object> vs = vehiculos(incisosPoliza(recordId, false, null));

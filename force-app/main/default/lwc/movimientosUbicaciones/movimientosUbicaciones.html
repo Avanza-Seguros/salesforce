@@ -57,7 +57,8 @@
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
                             </template>
-                            <lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button>
+                            <!-- Excel de movimientos: solo pólizas empresariales. -->
+                            <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
                             <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
                         </div>
                     </div>
@@ -78,11 +79,9 @@
                                         <th scope="col">Ubicación</th>
                                         <th scope="col">Giro</th>
                                         <th scope="col">Alta</th>
-                                        <th scope="col">Fecha de movimiento</th>
-                                        <template if:true={enPoliza}>
-                                            <th scope="col">Fecha de creación</th>
-                                            <th scope="col">Fecha de cierre</th>
-                                        </template>
+                                        <template if:true={conFechasMovimiento}><th scope="col">Fecha de movimiento</th></template>
+                                        <template if:true={enPoliza}><th scope="col">Fecha de creación</th></template>
+                                        <template if:true={conFechaCierre}><th scope="col">Fecha de cierre</th></template>
                                         <th scope="col" class="num">Suma asegurada</th>
                                         <th scope="col" class="num">Prima</th>
                                         <th scope="col">Estado</th>
@@ -105,11 +104,9 @@
                                             </td>
                                             <td>{u.giro}</td>
                                             <td>{u.altaTxt}</td>
-                                            <td>{u.fechaMovimientoTxt}</td>
-                                            <template if:true={enPoliza}>
-                                                <td>{u.fechaCreacionTxt}</td>
-                                                <td>{u.fechaCierreTxt}</td>
-                                            </template>
+                                            <template if:true={conFechasMovimiento}><td>{u.fechaMovimientoTxt}</td></template>
+                                            <template if:true={enPoliza}><td>{u.fechaCreacionTxt}</td></template>
+                                            <template if:true={conFechaCierre}><td>{u.fechaCierreTxt}</td></template>
                                             <td class="num">{u.sumaTxt}</td>
                                             <td class="num">{u.primaTxt}</td>
                                             <td>

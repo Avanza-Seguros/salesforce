@@ -104,6 +104,16 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // ============================================================
     get enPoliza() { return !!this.datos && this.datos.contexto === 'poliza'; }
     get enOportunidad() { return !!this.datos && this.datos.contexto === 'oportunidad'; }
+    // Póliza individual: sin fecha de movimiento ni de cierre (solo las empresariales las muestran). El tipo sale de la
+    // oportunidad de origen; si la póliza no viene de una, es individual cuando tiene un solo registro.
+    get esIndividual() {
+        if (!this.enPoliza) { return false; }
+        const t = this.datos.tipoContratacion;
+        if (t) { return t !== 'Colectiva'; }
+        return (this.datos.miembros || []).filter((m) => m.esTitular).length <= 1;
+    }
+    get conFechasMovimiento() { return !this.esIndividual; }
+    get conFechaCierre() { return this.enPoliza && !this.esIndividual; }
     // En la oportunidad solo aplica cuando el cliente ya tiene una póliza del ramo (renovación).
     get visible() { return !!this.datos && this.datos.aplica !== false && (this.enPoliza || (this.enOportunidad && !!this.datos.polizaAnteriorId)); }
     get noAplica() { return this.enPoliza && this.datos.aplica === false; }

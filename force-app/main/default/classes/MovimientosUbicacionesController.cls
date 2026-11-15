@@ -88,6 +88,7 @@ public with sharing class MovimientosUbicacionesController {
 				res.put('contexto', 'poliza');
 				res.put('aplica', esUbicaciones(pol.Ramo__c));
 				res.put('nombre', pol.Name);
+				res.put('tipoContratacion', MovimientosColectivoController.tipoContratacion(recordId));
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
 				res.put('ubicaciones', conMovimiento(ubicacionesPoliza(bienes(recordId, false, null)), recordId));

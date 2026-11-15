@@ -59,7 +59,8 @@
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
                                 <lightning-button label="Cargar vehículos" icon-name="utility:upload" onclick={verArchivo}></lightning-button>
                             </template>
-                            <lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button>
+                            <!-- Excel de movimientos: solo pólizas empresariales. -->
+                            <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
                             <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
                         </div>
                     </div>
@@ -83,11 +84,9 @@
                                         <th scope="col">Placas</th>
                                         <th scope="col">Uso</th>
                                         <th scope="col">Vigencia</th>
-                                        <th scope="col">Fecha de movimiento</th>
-                                        <template if:true={enPoliza}>
-                                            <th scope="col">Fecha de creación</th>
-                                            <th scope="col">Fecha de cierre</th>
-                                        </template>
+                                        <template if:true={conFechasMovimiento}><th scope="col">Fecha de movimiento</th></template>
+                                        <template if:true={enPoliza}><th scope="col">Fecha de creación</th></template>
+                                        <template if:true={conFechaCierre}><th scope="col">Fecha de cierre</th></template>
                                         <th scope="col" class="num">Valor</th>
                                         <th scope="col" class="num">Prima</th>
                                         <th scope="col">Estado</th>
@@ -110,11 +109,9 @@
                                             <td>{v.placas}</td>
                                             <td>{v.uso}</td>
                                             <td class="col-vigencia">{v.vigenciaTxt}</td>
-                                            <td>{v.fechaMovimientoTxt}</td>
-                                            <template if:true={enPoliza}>
-                                                <td>{v.fechaCreacionTxt}</td>
-                                                <td>{v.fechaCierreTxt}</td>
-                                            </template>
+                                            <template if:true={conFechasMovimiento}><td>{v.fechaMovimientoTxt}</td></template>
+                                            <template if:true={enPoliza}><td>{v.fechaCreacionTxt}</td></template>
+                                            <template if:true={conFechaCierre}><td>{v.fechaCierreTxt}</td></template>
                                             <td class="num">{v.valorTxt}</td>
                                             <td class="num">{v.primaTxt}</td>
                                             <td>
