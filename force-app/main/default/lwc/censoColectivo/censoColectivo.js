@@ -61,6 +61,11 @@ export default class CensoColectivo extends LightningElement {
     verAsegurados = false;
     _opportunityId;
     _tabla = null;
+    _cola = [];
+    _totalArchivos = 0;
+    _acumulado = [];
+    _rangos = [];
+    _archivoActual = '';
 
     @api
     get opportunityId() { return this._opportunityId; }
@@ -194,35 +199,74 @@ export default class CensoColectivo extends LightningElement {
     soltarArchivo(e) {
         e.preventDefault();
         this.arrastrando = false;
-        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (f) { this.handleArchivo({ target: { files: [f], value: null } }); }
+        const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+        if (files.length) { this.handleArchivo({ target: { files, value: null } }); }
     }
 
+    // Uno o varios archivos: cada Excel pasa por el mapeo de columnas y cada PDF se lee solo; al final se revisan todos
+    // juntos. Las filas se numeran seguidas entre archivos (las del segundo archivo continúan después del primero).
     async handleArchivo(event) {
-        const file = event.target.files && event.target.files[0];
+        const files = Array.from((event.target && event.target.files) || []);
         event.target.value = null;
-        if (!file) { return; }
-        const ext = file.name.toLowerCase().split('.').pop();
-        this.archivoNombre = file.name;
+        if (!files.length) { return; }
+        this._cola = files;
+        this._totalArchivos = files.length;
+        this._acumulado = [];
+        this._rangos = [];
         this.errorMensaje = '';
+        await this.siguienteArchivo();
+    }
+    async siguienteArchivo() {
+        if (!this._cola.length) {
+            if (this._acumulado.length) {
+                this.archivoNombre = this._rangos.map((r) => r.nombre).join(', ');
+                this.validar(this._acumulado);
+            } else if (this.paso === 'mapeo') {
+                this.cancelar();
+            }
+            return;
+        }
+        const file = this._cola.shift();
+        const n = this._totalArchivos - this._cola.length;
+        this._archivoActual = file.name;
+        this.archivoNombre = this._totalArchivos > 1 ? `${file.name} (archivo ${n} de ${this._totalArchivos})` : file.name;
+        const ext = file.name.toLowerCase().split('.').pop();
         this.cargando = true;
         this.progreso = 'Leyendo archivo…';
+        let enMapeo = false;
         try {
             if (ext === 'pdf') {
                 await this.procesarPdf(file);
-                return;
+            } else {
+                this._tabla = await abrirTabla(file);
+                this.hojas = this._tabla.hojas.map((h) => ({ label: h, value: h }));
+                this.hojaActual = this._tabla.hojas.length ? this._tabla.hojas[0] : '';
+                this.filasCrudas = await this._tabla.leerHoja(this.hojaActual);
+                this.prepararMapeo();
+                enMapeo = true;
             }
-            this._tabla = await abrirTabla(file);
-            this.hojas = this._tabla.hojas.map((h) => ({ label: h, value: h }));
-            this.hojaActual = this._tabla.hojas.length ? this._tabla.hojas[0] : '';
-            this.filasCrudas = await this._tabla.leerHoja(this.hojaActual);
-            this.prepararMapeo();
         } catch (e) {
-            this.toast('Censo', this.mensaje(e), 'error');
+            this.toast('Censo', this._totalArchivos > 1 ? `${file.name}: ${this.mensaje(e)}` : this.mensaje(e), 'error');
         } finally {
             this.cargando = false;
             this.progreso = '';
         }
+        // Un Excel espera a que se confirme su mapeo (aplicarMapeo sigue con el siguiente archivo).
+        if (!enMapeo) { await this.siguienteArchivo(); }
+    }
+    // Junta los renglones leídos de un archivo; las filas siguen la numeración del archivo anterior.
+    agregarArchivo(datos) {
+        const base = this._rangos.length ? this._rangos[this._rangos.length - 1].hasta : 0;
+        let hasta = base;
+        datos.forEach((d) => { d.fila = base + Number(d.fila || 0); hasta = Math.max(hasta, d.fila); });
+        this._rangos.push({ nombre: this._archivoActual, desde: base + 1, hasta });
+        this._acumulado.push(...datos);
+    }
+    // Archivo de donde viene una fila (solo cuando se cargó más de uno).
+    archivoDe(fila) {
+        if (this._rangos.length < 2) { return ''; }
+        const r = this._rangos.find((x) => fila >= x.desde && fila <= x.hasta);
+        return r ? r.nombre : '';
     }
 
     get hayVariasHojas() { return this.hojas.length > 1; }
@@ -319,7 +363,8 @@ export default class CensoColectivo extends LightningElement {
                 return o;
             })
             .filter((o, i) => this.tieneDatos(this.filasCrudas[ini + i]));
-        this.validar(datos);
+        this.agregarArchivo(datos);
+        this.siguienteArchivo();
     }
 
     cancelar() {
@@ -328,9 +373,19 @@ export default class CensoColectivo extends LightningElement {
         this.renglones = [];
         this.filasCrudas = [];
         this._tabla = null;
+        this._cola = [];
+        this._acumulado = [];
+        this._rangos = [];
     }
     volverAMapeo() {
-        if (this.filasCrudas.length) { this.paso = 'mapeo'; } else { this.cancelar(); }
+        // Con un solo Excel se puede volver a su mapeo; con varios archivos se empieza de nuevo.
+        if (this._totalArchivos === 1 && this.filasCrudas.length) {
+            this._acumulado = [];
+            this._rangos = [];
+            this.paso = 'mapeo';
+        } else {
+            this.cancelar();
+        }
     }
 
     // ============================================================
@@ -353,7 +408,7 @@ export default class CensoColectivo extends LightningElement {
             throw new Error('La IA no encontró asegurados en el PDF.');
         }
         this.filasCrudas = [];
-        this.validar(datos);
+        this.agregarArchivo(datos);
     }
 
     // ============================================================
@@ -512,6 +567,7 @@ export default class CensoColectivo extends LightningElement {
         return this.filtrados.slice(ini, ini + POR_PAGINA).map((r) => ({
             key: 'r' + r.idx,
             fila: r.fila,
+            archivo: this.archivoDe(r.fila),
             nombre: r.nombreCompleto || '(sin nombre)',
             parentesco: r.parentesco,
             titular: r.esTitular ? '' : (r.titularNombre || ''),

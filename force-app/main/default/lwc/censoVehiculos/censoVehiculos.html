@@ -118,7 +118,7 @@
                     <div class="censo-carga">
                         <div class="censo-carga-texto">
                             <strong>{tituloCarga}</strong>
-                            <span>Excel (.xlsx), CSV o PDF. En PDF la IA lee la lista de vehículos.</span>
+                            <span>Excel (.xlsx), CSV o PDF; puedes subir varios a la vez. En PDF la IA lee la lista de vehículos.</span>
                         </div>
                         <div class="censo-carga-acciones">
                             <lightning-button label="Descargar plantilla" icon-name="utility:download" onclick={descargarPlantilla}></lightning-button>
@@ -127,9 +127,9 @@
                         <div class={claseZona} role="button" tabindex="0" onclick={elegirArchivo} ondragover={sobreZona}
                             ondragleave={fueraZona} ondrop={soltarArchivo}>
                             <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
-                            <span><strong>Arrastra aquí el archivo</strong> o haz clic para seleccionarlo</span>
+                            <span><strong>Arrastra aquí uno o varios archivos</strong> o haz clic para seleccionarlos</span>
                         </div>
-                        <input type="file" class="censo-input" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" onchange={handleArchivo} />
+                        <input type="file" class="censo-input" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf" multiple onchange={handleArchivo} />
                     </div>
                 </template>
             </template>
@@ -240,7 +240,7 @@
                             <template for:each={renglonesVista} for:item="r">
                                 <tr key={r.key} class={r.claseFila}>
                                     <td><lightning-icon icon-name={r.icono} variant={r.variante} size="xx-small"></lightning-icon></td>
-                                    <td>{r.fila}</td>
+                                    <td>{r.fila}<template if:true={r.archivo}><div class="sub">{r.archivo}</div></template></td>
                                     <td>{r.inciso}</td>
                                     <td>{r.serie}</td>
                                     <td><div class="nombre">{r.descripcion}</div></td>
