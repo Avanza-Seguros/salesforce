@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fecha_Cierre__c</fullName>
+    <description>Fecha de cierre del movimiento: se llena al enviar el correo al asegurado desde Asegurados de la póliza.</description>
+    <externalId>false</externalId>
+    <label>Fecha de cierre</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>
