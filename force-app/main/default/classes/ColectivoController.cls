@@ -97,6 +97,7 @@ public with sharing class ColectivoController {
 	public class CotizacionEntrada {
 		public Id aseguradoraId;
 		public String numeroCotizacion;
+		public String plan;
 		public String vigenciaDesde;
 		public String vigenciaHasta;
 		public String formaPago;
@@ -244,6 +245,7 @@ public with sharing class ColectivoController {
 			if (String.isNotBlank(datos.formaPago)) { q.put('Forma_de_pago__c', datos.formaPago.left(40)); }
 			q.put('Frecuencia_de_prima__c', valorPicklist(Quote.Frecuencia_de_prima__c, frecuencia(datos.formaPago), 'Anual'));
 			if (String.isNotBlank(datos.numeroCotizacion)) { q.put('NumeroCotizacion__c', datos.numeroCotizacion.left(60)); }
+			if (String.isNotBlank(datos.plan)) { q.put('Plan__c', datos.plan.left(100)); }
 			if (total != null) { q.put('Prima_Total__c', total); q.put('PrimaAnual__c', total); }
 			if (neta != null) { q.put('Prima_Neta__c', neta); }
 			if (datos.derechos != null) { q.put('Derechos_Poliza__c', datos.derechos); }

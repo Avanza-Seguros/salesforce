@@ -22,6 +22,8 @@ import generarComparativoPdf from '@salesforce/apex/ColectivoController.generarC
 
 // Palabras que no sirven para reconocer a la aseguradora en el texto.
 const GENERICAS = new Set(['seguros', 'seguro', 'compania', 'mexico', 'grupo', 'life', 'general', 'generales', 'de', 'cv', 'sa', 'del', 'corporativos']);
+// Palabras comunes del español que no identifican a una aseguradora aunque estén en su nombre.
+const COMUNES = new Set(['por','mas','los','las','con','para','que','una','sus','the','and','plus','plan','vida','salud']);
 // Texto máximo que se manda a la IA en cada llamada. Un PDF más largo (pólizas o cotizaciones de cientos de páginas)
 // se compacta y se lee por partes, hasta MAX_PARTES.
 const MAX_TEXTO = 55000;
@@ -885,7 +887,8 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         const anual = formasPago.find((f) => /anual|contado/i.test(f.forma));
         const totalPoliza = numero(d.primaTotal) ?? sumaCategorias('primaTotal');
         const encabezado = {
-            aseguradoraId: this.aseguradoraPorTexto(`${d.aseguradora || ''} ${this.archivoNombre} ${texto.substring(0, 2000)}`),
+            aseguradoraId: this.aseguradoraPorTexto(`${d.aseguradora || ''} ${this.archivoNombre}`, texto.substring(0, 2000)),
+            plan: this.planDeTexto(d, texto),
             numeroCotizacion: this.txt(d.numeroCotizacion),
             vigenciaDesde: fecha(d.vigenciaDesde).iso || vigencia.desde || '',
             vigenciaHasta: fecha(d.vigenciaHasta).iso || vigencia.hasta || '',
@@ -956,16 +959,33 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
         return [...porForma.values()].map((f, i) => ({ ...f, key: `f${i}` }));
     }
 
-    aseguradoraPorTexto(texto) {
-        const t = ` ${fold(texto)} `;
-        let mejor = '';
-        let puntos = 0;
-        (this.aseguradoras || []).forEach((a) => {
-            const palabras = fold(a.nombre).split(' ').filter((p) => p.length >= 3 && !GENERICAS.has(p));
-            const p = palabras.filter((w) => t.includes(` ${w} `)).length;
-            if (p > puntos) { puntos = p; mejor = a.id; }
-        });
-        return mejor;
+    // Busca primero en lo que dijo la IA y en el nombre del archivo; si ahí no hay ninguna, en el texto del documento.
+    // Gana el nombre completo de la aseguradora como frase; las palabras comunes del español ("por", "más") no cuentan,
+    // para que "Ve por Más (Bx+)" no gane en cualquier texto.
+    aseguradoraPorTexto(...fuentes) {
+        for (const fuente of fuentes) {
+            const t = ` ${fold(fuente)} `;
+            if (!t.trim()) { continue; }
+            let mejor = '';
+            let puntos = 0;
+            (this.aseguradoras || []).forEach((a) => {
+                const nombre = fold(a.nombre);
+                const palabras = nombre.split(' ').filter((p) => p.length >= 3 && !GENERICAS.has(p) && !COMUNES.has(p));
+                let p = palabras.filter((w) => t.includes(` ${w} `)).length;
+                if (nombre && t.includes(` ${nombre} `)) { p += 10; }
+                if (p > puntos) { puntos = p; mejor = a.id; }
+            });
+            if (mejor) { return mejor; }
+        }
+        return '';
+    }
+
+    // Plan de la cotización: el que dio la IA o el título del documento ("COTIZACIÓN VIDA GRUPO PRESTACIONES").
+    planDeTexto(d, texto) {
+        if (this.txt(d.plan)) { return this.txt(d.plan); }
+        const m = String(texto || '').substring(0, 3000)
+            .match(/^\s*COTIZACI[OÓ]N\s+(?:DE\s+(?:SEGURO\s+(?:DE\s+)?)?)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ]{3,80}?)\s*$/m);
+        return m ? m[1].trim().replace(/\s+/g, ' ') : '';
     }
 
     // ============================================================
@@ -1060,7 +1080,7 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     guardarVista(vista) {
         const e = vista.encabezado;
         const datos = {
-            aseguradoraId: e.aseguradoraId, numeroCotizacion: e.numeroCotizacion || null,
+            aseguradoraId: e.aseguradoraId, numeroCotizacion: e.numeroCotizacion || null, plan: e.plan || null,
             vigenciaDesde: e.vigenciaDesde || null, vigenciaHasta: e.vigenciaHasta || null, formaPago: e.formaPago || null,
             primaNeta: numero(e.primaNeta), derechos: numero(e.derechos), recargo: numero(e.recargo), iva: numero(e.iva),
             primaTotal: this.totalDe(e), archivo: vista.archivo,

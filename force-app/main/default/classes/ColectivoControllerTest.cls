@@ -51,7 +51,7 @@ private class ColectivoControllerTest {
 	static String cotizacionGnp(Id asegId) {
 		return JSON.serialize(new Map<String, Object>{
 			'aseguradoraId' => asegId, 'vigenciaDesde' => '2026-08-01', 'vigenciaHasta' => '2027-08-01', 'formaPago' => 'Anual',
-			'derechos' => 50765, 'numeroCotizacion' => 'GIMAME', 'archivo' => 'gnp.xlsm',
+			'derechos' => 50765, 'numeroCotizacion' => 'GIMAME', 'plan' => 'GMM GRUPO EMPRESARIAL', 'archivo' => 'gnp.xlsm',
 			'formasPago' => new List<Object>{
 				new Map<String, Object>{ 'forma' => 'Anual', 'recargoPct' => 0, 'numeroPagos' => 1, 'primaTotal' => 2426432.8 },
 				new Map<String, Object>{ 'forma' => 'Semestral', 'recargoPct' => 4, 'numeroPagos' => 2, 'primaTotal' => 2523490.11, 'primerPago' => 1261745.06 }
@@ -113,13 +113,14 @@ private class ColectivoControllerTest {
 		Id doc2 = ColectivoController.generarComparativoPdf(opp.Id);
 		Test.stopTest();
 
-		Quote g = [SELECT Name, Prima_Total__c, Prima_Neta__c, Derechos_Poliza__c, IVA__c, Product__c, Ramos__c, Opciones_Pago__c, Vigencia_Inicio__c
+		Quote g = [SELECT Name, Plan__c, Prima_Total__c, Prima_Neta__c, Derechos_Poliza__c, IVA__c, Product__c, Ramos__c, Opciones_Pago__c, Vigencia_Inicio__c
 			FROM Quote WHERE Id = :q1];
 		System.assertEquals(2375667.8 + 50765, g.Prima_Total__c, 'Sin total ni IVA: neta (suma de categorías) + derechos');
 		System.assertEquals(2375667.8, g.Prima_Neta__c, 'Prima neta = suma de categorías');
 		System.assertEquals(null, g.IVA__c, 'Sin IVA');
 		System.assertNotEquals(null, g.Product__c, 'Producto GMM de la aseguradora');
 		System.assertEquals('GMM', g.Ramos__c, 'Ramo');
+		System.assertEquals('GMM GRUPO EMPRESARIAL', g.Plan__c, 'Plan de la cotización');
 		System.assert(g.Name.contains('355 asegurados'), 'Nombre con asegurados: ' + g.Name);
 		System.assert(g.Opciones_Pago__c.contains('Semestral'), 'Formas de pago guardadas');
 		System.assertEquals(3678217.32, [SELECT Prima_Total__c FROM Quote WHERE Id = :q2].Prima_Total__c, 'Respeta la prima total');
