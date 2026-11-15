@@ -47,7 +47,14 @@ export const CAMPOS_CENSO = [
     { key: 'certificado', label: 'Certificado', alias: ['certificado', 'no certificado', 'num certificado', 'numero de certificado', 'cert', 'no de certificado', 'certif'] },
     // El alta del participante se toma de la fecha de movimiento (no de la fecha de alta, ingreso o antigüedad).
     { key: 'fechaAlta', label: 'Fecha de movimiento', tipo: 'fecha', excluir: ['tipo', 'clave', 'motivo'], alias: ['fecha de movimiento', 'fecha movimiento', 'fecha de mov', 'fecha mov', 'fec mov', 'f movimiento', 'f mov', 'fecmov', 'fmov', 'fecha mto', 'fecha de mto'] },
-    { key: 'tipoMovimiento', label: 'Tipo de movimiento (alta/baja/cambio)', excluir: ['fecha', 'motivo'], alias: ['tipo de movimiento', 'tipo movimiento', 'tipo de mov', 'tipo mov', 'tipo de movto', 'tipo movto', 'movimiento', 'movto', 'mov', 'clave de movimiento', 'clave movimiento', 'cve mov', 'cve movimiento', 'tipo de operacion', 'operacion', 'a b c', 'abc'] },
+    { key: 'tipoMovimiento', label: 'Tipo de movimiento (alta/baja/cambio)', excluir: ['fecha', 'motivo'], alias: ['tipo de movimiento', 'tipo movimiento', 'tipo de mov', 'tipo mov', 'tipo de movto', 'tipo movto', 'movimiento', 'movto', 'mov', 'clave de movimiento', 'clave movimiento', 'cve mov', 'cve movimiento', 'tipo de operacion', 'operacion', 'a b c', 'abc', 'tipo'] },
+    // Soporte de recibo de la aseguradora (GMM, p. ej. el ajuste "AJF"): cada renglón trae el número de movimiento o
+    // endoso en que entró y lo que cobra o devuelve; de ahí salen los endosos con su prima.
+    { key: 'numeroEndoso', label: 'Número de endoso (No. Mvto.)', excluir: ['tipo', 'fecha', 'motivo'], alias: ['no mvto', 'no movto', 'num mvto', 'no de mvto', 'numero de mvto', 'no movimiento', 'no de movimiento', 'numero de movimiento', 'num movimiento', 'no endoso', 'no de endoso', 'numero de endoso', 'num endoso', 'endoso'] },
+    { key: 'recargo', label: 'Recargo', tipo: 'numero', alias: ['recargo', 'recargos', 'recargo fraccionado', 'recargo por pago fraccionado'] },
+    { key: 'derechos', label: 'Derechos / gastos de expedición', tipo: 'numero', alias: ['gastos de expedicion', 'gastos expedicion', 'gastos de exp', 'gastos exp', 'derechos', 'derecho de poliza', 'derechos de poliza'] },
+    { key: 'iva', label: 'IVA', tipo: 'numero', alias: ['iva', 'i v a', 'impuesto'] },
+    { key: 'primaMovimiento', label: 'Prima del movimiento (complemento)', tipo: 'numero', excluir: ['solo'], alias: ['complemento', 'prima del movimiento', 'importe del movimiento', 'prima del endoso', 'prima endoso', 'importe endoso'] },
     { key: 'numEmpleado', label: 'Núm. de empleado', alias: ['numero de empleado', 'no empleado', 'num empleado', 'no de empleado', 'nomina', 'no nomina', 'id empleado', 'clave empleado', 'clave'] },
     { key: 'rfc', label: 'RFC', alias: ['rfc'] },
     { key: 'email', label: 'Correo', alias: ['email', 'correo', 'correo electronico', 'e mail', 'mail'] },
@@ -417,6 +424,11 @@ function normalizarRenglon(d, usaMF, sexo12) {
     r.rfc = txt(d.rfc).toUpperCase();
     r.email = txt(d.email);
     r.telefono = sinDecimalCero(d.telefono);
+    r.numeroEndoso = sinDecimalCero(d.numeroEndoso);
+    r.recargo = numero(d.recargo);
+    r.derechos = numero(d.derechos);
+    r.iva = numero(d.iva);
+    r.primaMovimiento = numero(d.primaMovimiento);
 
     r.movimientoOriginal = txt(d.tipoMovimiento);
     const mov = movimientoDe(d.tipoMovimiento);
@@ -509,11 +521,49 @@ export function payloadMiembro(r) {
         certificado: r.certificado,
         fechaAlta: r.fechaAlta || null,
         movimiento: r.movimiento || null,
+        numeroEndoso: r.numeroEndoso || null,
+        recargo: r.recargo ?? null,
+        derechos: r.derechos ?? null,
+        iva: r.iva ?? null,
+        primaMovimiento: r.primaMovimiento ?? null,
         numEmpleado: r.numEmpleado,
         rfc: r.rfc,
         email: r.email,
         telefono: r.telefono
     };
+}
+
+/**
+ * Prima de cada endoso del archivo (soporte de recibo de la aseguradora): { 'número': { primaNeta, derechos, iva,
+ * total } }. El total es la suma de lo que cobra o devuelve cada movimiento (complemento, ya con IVA). Los derechos
+ * (gastos de expedición) se cobran completos; el IVA sale de la tasa de cada renglón (IVA entre prima de tarifa,
+ * recargo y gastos; 16% si no se puede calcular) y la prima neta es lo que queda. Solo los endosos con complemento.
+ * @param miembros: renglones con numeroEndoso, prima, recargo, derechos, iva y primaMovimiento.
+ */
+export function primasPorEndoso(miembros) {
+    const res = {};
+    const r2 = (n) => Math.round(n * 100) / 100;
+    (miembros || []).forEach((m) => {
+        const num = m && m.numeroEndoso ? String(m.numeroEndoso).trim() : '';
+        const comp = m ? m.primaMovimiento : null;
+        if (!num || comp === null || comp === undefined || Number.isNaN(Number(comp))) { return; }
+        const total = Number(comp);
+        const der = Number(m.derechos || 0);
+        const gravable = Number(m.prima || 0) + Number(m.recargo || 0) + der;
+        const iva = Number(m.iva || 0);
+        const tasa = gravable && iva ? Math.abs(iva / gravable) : 0.16;
+        const base = total / (1 + tasa);
+        const p = res[num] || (res[num] = { primaNeta: 0, derechos: 0, iva: 0, total: 0 });
+        p.primaNeta += base - der;
+        p.derechos += der;
+        p.iva += total - base;
+        p.total += total;
+    });
+    Object.keys(res).forEach((k) => {
+        const p = res[k];
+        res[k] = { primaNeta: r2(p.primaNeta), derechos: r2(p.derechos), iva: r2(p.iva), total: r2(p.total) };
+    });
+    return res;
 }
 
 /**
@@ -1061,4 +1111,60 @@ export function corregirIncisos(incisos, paginas) {
         const n = porVin.get(String(x.serie ?? '').replace(/\s/g, '').toUpperCase());
         return n && String(numero(x.inciso)) !== n ? { ...x, inciso: Number(n) } : x;
     });
+}
+
+/**
+ * Endoso de GMM sin movimientos de asegurados (cláusula o beneficio adicional que se adhiere a la póliza, o la lista
+ * "ENDOSOS QUE INTEGRAN LA POLIZA"), leído del texto del PDF. Da lo necesario para registrarlo como endoso:
+ * descripción (nombre del endoso y categorías a las que aplica) y fecha (inicio de vigencia o fecha del documento).
+ * null si el texto no es de ese tipo.
+ * @param texto: texto del PDF.
+ */
+export function clausulaDeTexto(texto) {
+    const t = String(texto || '').replace(/\r/g, '');
+    const plano = t.replace(/\s+/g, ' ');
+    const iso = (m) => (m ? `${m[3]}-${m[2]}-${m[1]}` : null);
+    const categorias = (lista) => [...new Set(lista)].sort();
+    // Lista de endosos de la póliza: "1 - Clave endoso 2019024 Nombre endoso: Complicaciones Vacuna COVID19. Aplica
+    // para las categorías: 01."
+    if (/ENDOSOS\s+QUE\s+INTEGRAN\s+LA\s+P[OÓ]LIZA/i.test(plano)) {
+        const nombres = new Map();
+        const cats = [];
+        const re = /Clave\s+endoso\s+(\w+)\s+Nombre\s+endoso:\s*(.+?)\.\s*Apl\s*i\s*c\s*a\s+para\s+las\s+categor[ií]as:\s*([\d,\s]+)/gi;
+        let m;
+        while ((m = re.exec(plano)) !== null) {
+            nombres.set(m[1], m[2].replace(/\s+/g, ' ').trim());
+            m[3].split(/[,\s]+/).filter((x) => x).forEach((x) => cats.push(x));
+        }
+        if (!nombres.size) { return null; }
+        const c = categorias(cats);
+        return {
+            descripcion: [...nombres.entries()].map(([k, v]) => `${v} (clave ${k})`).join('; ')
+                + (c.length ? ` · categorías ${c.join(', ')}` : ''),
+            fecha: iso(plano.match(/Fecha:\s*(\d{2})\/(\d{2})\/(\d{4})/i)),
+            categorias: c
+        };
+    }
+    // Cláusula: "BENEFICIO ADICIONAL PARA ... COLECTIVO / Beneficio que se adhiere y forma parte integrante de la Póliza
+    // ... aplicable a la categoría 00, cuya vigencia es del 01/12/2023 al 01/12/2024".
+    if (!/se\s+adhiere\s+y\s+forma\s+parte\s+integrante/i.test(plano)) { return null; }
+    const lineas = t.split('\n').map((l) => l.trim()).filter((l) => l && !/^=== PAGINA/.test(l));
+    const i = lineas.findIndex((l) => /se\s+adhiere\s+y\s+forma\s+parte/i.test(l));
+    // Título: los renglones en mayúsculas antes de "Beneficio que se adhiere".
+    const titulo = [];
+    for (let j = i - 1; j >= 0 && titulo.length < 4; j--) {
+        if (lineas[j] !== lineas[j].toUpperCase() || !/[A-ZÁÉÍÓÚÑ]{3}/.test(lineas[j])) { break; }
+        titulo.unshift(lineas[j]);
+    }
+    const cats = [];
+    const re = /aplicable\s+a\s+la\s+categor[ií]a\s+(\d+)/gi;
+    let m;
+    while ((m = re.exec(plano)) !== null) { cats.push(m[1]); }
+    const c = categorias(cats);
+    const nombre = titulo.join(' ').replace(/\s+-\s+/g, '-').replace(/\s+/g, ' ').trim() || 'Beneficio adicional';
+    return {
+        descripcion: nombre + (c.length ? ` · ${c.length > 1 ? 'categorías' : 'categoría'} ${c.join(', ')}` : ''),
+        fecha: iso(plano.match(/vigencia\s+es\s+del\s+(\d{2})\/(\d{2})\/(\d{4})/i)),
+        categorias: c
+    };
 }

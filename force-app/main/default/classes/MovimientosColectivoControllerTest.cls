@@ -161,6 +161,70 @@ private class MovimientosColectivoControllerTest {
 	}
 
 	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Soporte de recibo de GMM con varios endosos: cada renglón trae su número de endoso (No. Mvto.); cada
+	 *               movimiento queda en su endoso con la prima de ese endoso. Endoso sin movimientos (cláusula de GMM).
+	 * @return void
+	 */
+	@isTest
+	static void testVariosEndososYEndosoSinMovimientos() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id pedro = participante(pol.Id, 'Pedro%');
+		// El número de endoso de cada renglón llega a la revisión.
+		Map<String, Object> rev = MovimientosColectivoController.compararArchivo(pol.Id, JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'fila' => 1, 'nombreCompleto' => 'Rosa Núñez Vega', 'parentesco' => 'Titular', 'sexo' => 'Mujer',
+				'certificado' => '010', 'movimiento' => 'Alta', 'numeroEndoso' => '5', 'primaMovimiento' => 3603.66 },
+			new Map<String, Object>{ 'fila' => 2, 'nombreCompleto' => 'Pedro Gómez Díaz', 'certificado' => '002', 'movimiento' => 'Baja',
+				'numeroEndoso' => '15' }
+		}), false);
+		System.assertEquals('5', ((Map<String, Object>) ((List<Object>) rev.get('altas'))[0]).get('numeroEndoso'));
+		System.assertEquals('15', ((Map<String, Object>) ((List<Object>) rev.get('bajas'))[0]).get('numeroEndoso'));
+
+		Map<String, Object> alta = mov('alta', null, new Map<String, Object>{ 'nombreCompleto' => 'Rosa Núñez Vega', 'parentesco' => 'Titular',
+			'sexo' => 'Mujer', 'certificado' => '010' });
+		alta.put('endoso', '5');
+		Map<String, Object> baja = mov('baja', pedro, null);
+		baja.put('endoso', '15');
+		Test.startTest();
+		Map<String, Object> r = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ alta, baja },
+			'endoso' => new Map<String, Object>{ 'total' => 999 },
+			'endosos' => new Map<String, Object>{
+				'5' => new Map<String, Object>{ 'primaNeta' => 3000.5, 'derechos' => 0, 'iva' => 603.16, 'total' => 3603.66 },
+				'15' => new Map<String, Object>{ 'primaNeta' => -2000, 'iva' => -320, 'total' => -2320 }
+			}
+		}));
+		Id sinMovs = EndosoPoliza.registrarEndoso(pol.Id, null, 'Beneficio adicional COVID-19 · categorías 00, 01', '2023-12-01',
+			JSON.serialize(new Map<String, Object>{ 'total' => 0 }));
+		Test.stopTest();
+
+		System.assertEquals(2, r.get('endosos'), 'Un endoso por número');
+		Map<String, InsurancePolicyTransaction> porNumero = new Map<String, InsurancePolicyTransaction>();
+		for (InsurancePolicyTransaction t : [SELECT TransactionNumber, TransactionAmount, TransactionTaxAmount, PriorTransactionId
+				FROM InsurancePolicyTransaction WHERE InsurancePolicyId = :pol.Id AND TransactionNumber != null]) {
+			porNumero.put(t.TransactionNumber, t);
+		}
+		System.assertEquals(3000.5, porNumero.get('5').TransactionAmount, 'Prima del endoso 5');
+		System.assertEquals(-320, porNumero.get('15').TransactionTaxAmount, 'IVA del endoso 15 (devolución)');
+		// Se aplican primero las bajas: el endoso 5 (alta) sigue al 15 (baja).
+		System.assertEquals(porNumero.get('15').Id, porNumero.get('5').PriorTransactionId, 'Los endosos nuevos quedan encadenados');
+		System.assertEquals('15', [SELECT Transaccion__r.TransactionNumber FROM Movimiento_Poliza__c
+			WHERE Poliza__c = :pol.Id AND Tipo__c = 'Baja' LIMIT 1].Transaccion__r.TransactionNumber, 'La baja quedó en su endoso');
+
+		InsurancePolicyTransaction c = [SELECT Name, EffectiveFromDate, TransactionNumber FROM InsurancePolicyTransaction WHERE Id = :sinMovs];
+		System.assert(c.Name.contains('Beneficio adicional COVID-19'), c.Name);
+		System.assertEquals(Date.newInstance(2023, 12, 1), c.EffectiveFromDate);
+		List<Map<String, Object>> endosos = EndosoPoliza.getEndosos(pol.Id);
+		System.assertEquals(3, endosos.size(), 'Los dos del archivo y el de la cláusula');
+		for (Map<String, Object> e : endosos) {
+			if (e.get('id') == sinMovs) { System.assertEquals(0, ((List<Object>) e.get('movimientos')).size(), 'Sin movimientos'); }
+		}
+		// Mismo número: se actualiza el endoso existente.
+		System.assertEquals(porNumero.get('5').Id, EndosoPoliza.registrarEndoso(pol.Id, '5', 'Alta', null, null));
+	}
+
+	/**
 	 * @creation date: 31/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Archivo de la aseguradora contra la póliza: reconoce a la persona aunque el nombre venga en otro orden y

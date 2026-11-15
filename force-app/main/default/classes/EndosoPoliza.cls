@@ -51,6 +51,25 @@ public with sharing class EndosoPoliza {
 	}
 
 	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima de cada endoso cuando el JSON trae { endosos: { 'número': { primaNeta, derechos, iva, total } } }.
+	 * @return mapa número de endoso -> prima (vacío si no viene).
+	 */
+	public static Map<String, Prima> primas(String json) {
+		Map<String, Prima> res = new Map<String, Prima>();
+		if (String.isBlank(json) || !json.trim().startsWith('{')) { return res; }
+		Map<String, Object> m = (Map<String, Object>) System.JSON.deserializeUntyped(json);
+		if (!(m.get('endosos') instanceof Map<String, Object>)) { return res; }
+		Map<String, Object> e = (Map<String, Object>) m.get('endosos');
+		for (String k : e.keySet()) {
+			if (e.get(k) == null || String.isBlank(k)) { continue; }
+			res.put(k.trim(), (Prima) System.JSON.deserialize(System.JSON.serialize(e.get(k)), Prima.class));
+		}
+		return res;
+	}
+
+	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Registra (o completa) el endoso con los movimientos insertados en esta transacción de Apex.
@@ -59,57 +78,99 @@ public with sharing class EndosoPoliza {
 	 * @return Id de la transacción del endoso, o null si no hubo movimientos.
 	 */
 	public static Id registrar(Id policyId, Prima p) {
+		List<Id> l = registrarTodos(policyId, p, null);
+		return l.isEmpty() ? null : l[0];
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Registra (o completa) un endoso por cada número de endoso de los movimientos insertados en esta
+	 *               transacción de Apex (p. ej. el soporte de recibo de GMM trae varios: 5, 15, 16...). Los movimientos
+	 *               sin número van juntos en un endoso. Cada endoso toma su prima de "porNumero"; con un solo endoso,
+	 *               si no viene ahí, toma "p" (la que se capturó en pantalla).
+	 * @param policyId: póliza.
+	 * @param p: prima capturada (opcional).
+	 * @param porNumero: prima por número de endoso (opcional).
+	 * @return Ids de las transacciones, en el orden de los movimientos.
+	 */
+	public static List<Id> registrarTodos(Id policyId, Prima p, Map<String, Prima> porNumero) {
 		Set<Id> ids = new Map<Id, Movimiento_Poliza__c>(insertados).keySet();
 		insertados = new List<Movimiento_Poliza__c>();
-		if (ids.isEmpty() || policyId == null) { return null; }
-		List<Movimiento_Poliza__c> movs = [
+		List<Id> res = new List<Id>();
+		if (ids.isEmpty() || policyId == null) { return res; }
+		// Movimientos por número de endoso ('' = sin número), en el orden en que se registraron.
+		Map<String, List<Movimiento_Poliza__c>> grupos = new Map<String, List<Movimiento_Poliza__c>>();
+		List<Movimiento_Poliza__c> todos = [
 			SELECT Id, Name, Tipo__c, Fecha_Movimiento__c, Numero_Endoso__c, Asegurado__c, Certificado__c, Participante__c,
 				Participante__r.StandardPremiumAmount, Inciso__c, Inciso__r.Vehiculo__c, Inciso__r.Prima__c
 			FROM Movimiento_Poliza__c WHERE Id IN :ids ORDER BY CreatedDate, Id
 		];
-		String numero = null;
-		Date fecha = null;
-		for (Movimiento_Poliza__c m : movs) {
-			if (numero == null && String.isNotBlank(m.Numero_Endoso__c)) { numero = m.Numero_Endoso__c.trim(); }
-			if (m.Fecha_Movimiento__c != null && (fecha == null || m.Fecha_Movimiento__c < fecha)) { fecha = m.Fecha_Movimiento__c; }
+		for (Movimiento_Poliza__c m : todos) {
+			String k = String.isBlank(m.Numero_Endoso__c) ? '' : m.Numero_Endoso__c.trim();
+			if (!grupos.containsKey(k)) { grupos.put(k, new List<Movimiento_Poliza__c>()); }
+			grupos.get(k).add(m);
 		}
-		if (fecha == null) { fecha = Date.today(); }
 		String categoria = valor(InsurancePolicyTransaction.Category.getDescribe(), 'Endorsement');
+		String pendiente = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente');
 
 		// Mismo número de endoso en la póliza: se completa ese endoso.
-		InsurancePolicyTransaction t = null;
-		if (numero != null) {
+		Map<String, InsurancePolicyTransaction> existentes = new Map<String, InsurancePolicyTransaction>();
+		Set<String> numeros = new Set<String>(grupos.keySet());
+		numeros.remove('');
+		if (!numeros.isEmpty()) {
 			for (InsurancePolicyTransaction ex : [
-				SELECT Id, Name, Status, TransactionEffectiveDate, EffectiveFromDate FROM InsurancePolicyTransaction
-				WHERE InsurancePolicyId = :policyId AND TransactionNumber = :numero AND Category = :categoria
-				ORDER BY CreatedDate LIMIT 1
-			]) { t = ex; }
-		}
-		if (t == null) {
-			InsurancePolicy pol = [SELECT Name FROM InsurancePolicy WHERE Id = :policyId];
-			t = new InsurancePolicyTransaction(InsurancePolicyId = policyId, TransactionNumber = numero, Category = categoria);
-			t.Name = ('Endoso ' + (numero != null ? numero : fechaTexto(fecha)) + ' - ' + pol.Name).left(80);
-			t.Status = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente');
-			t.TransactionEffectiveDate = Datetime.newInstance(fecha, Time.newInstance(12, 0, 0, 0));
-			t.EffectiveFromDate = fecha;
-			// El endoso sigue a la transacción anterior de la póliza (la emisión u otro endoso).
-			for (InsurancePolicyTransaction anterior : [
-				SELECT Id FROM InsurancePolicyTransaction WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate DESC, Id DESC LIMIT 1
-			]) { t.PriorTransactionId = anterior.Id; }
-		} else if (t.Status != valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente')) {
-			// Se le agregan movimientos abiertos: vuelve a quedar pendiente.
-			t.Status = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente');
-		}
-		// Prima de la aseguradora: la que viene en el documento del endoso (no se calcula).
-		if (p != null) {
-			if (p.primaNeta != null) { t.TransactionAmount = p.primaNeta; }
-			if (p.derechos != null) { t.TransactionFeeAmount = p.derechos; }
-			if (p.iva != null) { t.TransactionTaxAmount = p.iva; }
-			if (p.total != null) {
-				try { t.put('TotalTransactionAmount', p.total); } catch (Exception ignore) { /* Calculado por la plataforma en algunos orgs. */ }
+				SELECT Id, Name, Status, TransactionNumber FROM InsurancePolicyTransaction
+				WHERE InsurancePolicyId = :policyId AND TransactionNumber IN :numeros AND Category = :categoria
+				ORDER BY CreatedDate
+			]) {
+				if (!existentes.containsKey(ex.TransactionNumber.trim())) { existentes.put(ex.TransactionNumber.trim(), ex); }
 			}
 		}
-		upsert t;
+		String poliza = [SELECT Name FROM InsurancePolicy WHERE Id = :policyId].Name;
+		// El endoso nuevo sigue a la transacción anterior de la póliza (la emisión u otro endoso).
+		Id anterior = null;
+		for (InsurancePolicyTransaction x : [
+			SELECT Id FROM InsurancePolicyTransaction WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate DESC, Id DESC LIMIT 1
+		]) { anterior = x.Id; }
+
+		List<String> llaves = new List<String>(grupos.keySet());
+		List<InsurancePolicyTransaction> ts = new List<InsurancePolicyTransaction>();
+		List<Boolean> esNueva = new List<Boolean>();
+		for (String k : llaves) {
+			Date fecha = null;
+			for (Movimiento_Poliza__c m : grupos.get(k)) {
+				if (m.Fecha_Movimiento__c != null && (fecha == null || m.Fecha_Movimiento__c < fecha)) { fecha = m.Fecha_Movimiento__c; }
+			}
+			if (fecha == null) { fecha = Date.today(); }
+			String numero = k == '' ? null : k;
+			InsurancePolicyTransaction t = numero == null ? null : existentes.get(numero);
+			esNueva.add(t == null);
+			if (t == null) {
+				t = new InsurancePolicyTransaction(InsurancePolicyId = policyId, TransactionNumber = numero, Category = categoria);
+				t.Name = ('Endoso ' + (numero != null ? numero : fechaTexto(fecha)) + ' - ' + poliza).left(80);
+				t.Status = pendiente;
+				t.TransactionEffectiveDate = Datetime.newInstance(fecha, Time.newInstance(12, 0, 0, 0));
+				t.EffectiveFromDate = fecha;
+			} else if (t.Status != pendiente) {
+				// Se le agregan movimientos abiertos: vuelve a quedar pendiente.
+				t.Status = pendiente;
+			}
+			// Prima de la aseguradora: la que viene en el documento del endoso (no se calcula). Con un solo endoso, si
+			// no viene por número, la que se capturó.
+			Prima pk = porNumero != null && porNumero.containsKey(k) ? porNumero.get(k) : (llaves.size() == 1 ? p : null);
+			ponerPrima(t, pk);
+			ts.add(t);
+		}
+		upsert ts;
+		// Los endosos nuevos quedan encadenados: cada uno sigue al anterior.
+		List<InsurancePolicyTransaction> cadena = new List<InsurancePolicyTransaction>();
+		for (Integer i = 0; i < ts.size(); i++) {
+			if (!esNueva[i]) { continue; }
+			if (anterior != null) { cadena.add(new InsurancePolicyTransaction(Id = ts[i].Id, PriorTransactionId = anterior)); }
+			anterior = ts[i].Id;
+		}
+		if (!cadena.isEmpty()) { update cadena; }
 
 		// Bienes de la póliza: por vehículo (bien del cliente) y por número de inciso (ubicaciones).
 		Map<Id, InsurancePolicyAsset> porVehiculo = new Map<Id, InsurancePolicyAsset>();
@@ -122,32 +183,47 @@ public with sharing class EndosoPoliza {
 			if (mt.find()) { porInciso.put('Inciso ' + Integer.valueOf(mt.group(1)), a); }
 		}
 		List<InsPolicyTransactionDetail> detalles = new List<InsPolicyTransactionDetail>();
-		for (Movimiento_Poliza__c m : movs) {
-			m.Transaccion__c = t.Id;
-			Id ref = null;
-			Decimal prima = null;
-			if (m.Participante__c != null) {
-				ref = m.Participante__c;
-				prima = m.Participante__r.StandardPremiumAmount;
-			} else if (m.Inciso__c != null) {
-				InsurancePolicyAsset a = m.Inciso__r.Vehiculo__c == null ? null : porVehiculo.get(m.Inciso__r.Vehiculo__c);
-				ref = a == null ? null : a.Id;
-				prima = m.Inciso__r.Prima__c;
-			} else if (String.isNotBlank(m.Certificado__c) && porInciso.containsKey(m.Certificado__c.trim())) {
-				InsurancePolicyAsset a = porInciso.get(m.Certificado__c.trim());
-				ref = a.Id;
-				prima = a.StandardPremiumAmount;
+		for (Integer i = 0; i < llaves.size(); i++) {
+			Id tId = ts[i].Id;
+			res.add(tId);
+			for (Movimiento_Poliza__c m : grupos.get(llaves[i])) {
+				m.Transaccion__c = tId;
+				Id ref = null;
+				Decimal prima = null;
+				if (m.Participante__c != null) {
+					ref = m.Participante__c;
+					prima = m.Participante__r.StandardPremiumAmount;
+				} else if (m.Inciso__c != null) {
+					InsurancePolicyAsset a = m.Inciso__r.Vehiculo__c == null ? null : porVehiculo.get(m.Inciso__r.Vehiculo__c);
+					ref = a == null ? null : a.Id;
+					prima = m.Inciso__r.Prima__c;
+				} else if (String.isNotBlank(m.Certificado__c) && porInciso.containsKey(m.Certificado__c.trim())) {
+					InsurancePolicyAsset a = porInciso.get(m.Certificado__c.trim());
+					ref = a.Id;
+					prima = a.StandardPremiumAmount;
+				}
+				InsPolicyTransactionDetail d = new InsPolicyTransactionDetail(InsurancePolicyTransactionId = tId,
+					Name = ((m.Tipo__c == null ? 'Movimiento' : m.Tipo__c) + ' - ' + (m.Asegurado__c == null ? m.Name : m.Asegurado__c)).left(80));
+				if (ref != null) { d.ReferenceObjectId = ref; }
+				// La baja no suma prima: lo que devuelve la aseguradora va en la prima del endoso.
+				if (m.Tipo__c != 'Baja' && prima != null) { d.Premium = prima; }
+				detalles.add(d);
 			}
-			InsPolicyTransactionDetail d = new InsPolicyTransactionDetail(InsurancePolicyTransactionId = t.Id,
-				Name = ((m.Tipo__c == null ? 'Movimiento' : m.Tipo__c) + ' - ' + (m.Asegurado__c == null ? m.Name : m.Asegurado__c)).left(80));
-			if (ref != null) { d.ReferenceObjectId = ref; }
-			// La baja no suma prima: lo que devuelve la aseguradora va en la prima del endoso.
-			if (m.Tipo__c != 'Baja' && prima != null) { d.Premium = prima; }
-			detalles.add(d);
 		}
 		if (!detalles.isEmpty()) { insert detalles; }
-		update movs;
-		return t.Id;
+		update todos;
+		return res;
+	}
+
+	// Prima de la aseguradora en la transacción (solo lo que viene).
+	private static void ponerPrima(InsurancePolicyTransaction t, Prima p) {
+		if (p == null) { return; }
+		if (p.primaNeta != null) { t.TransactionAmount = p.primaNeta; }
+		if (p.derechos != null) { t.TransactionFeeAmount = p.derechos; }
+		if (p.iva != null) { t.TransactionTaxAmount = p.iva; }
+		if (p.total != null) {
+			try { t.put('TotalTransactionAmount', p.total); } catch (Exception ignore) { /* Calculado por la plataforma en algunos orgs. */ }
+		}
 	}
 
 	/**
@@ -192,6 +268,65 @@ public with sharing class EndosoPoliza {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static List<Map<String, Object>> getEndosos(Id policyId) {
+		return endososDe(policyId);
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Registra un endoso de la aseguradora que no mueve asegurados, vehículos ni ubicaciones (p. ej. una
+	 *               cláusula o beneficio adicional de GMM): número, fecha en que surte efecto, descripción y prima. Queda
+	 *               aprobado porque no tiene movimientos que cerrar. Si ya hay un endoso con ese número en la póliza, se
+	 *               actualiza. El documento se adjunta después (datosEndoso.subir).
+	 * @param policyId: póliza.
+	 * @param numero: número de endoso (opcional).
+	 * @param descripcion: nombre o descripción del endoso (opcional).
+	 * @param fecha: fecha en que surte efecto, AAAA-MM-DD (hoy si no viene).
+	 * @param primaJson: prima { primaNeta, derechos, iva, total } en JSON (opcional).
+	 * @return Id de la transacción del endoso.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Id registrarEndoso(Id policyId, String numero, String descripcion, String fecha, String primaJson) {
+		try {
+			if (policyId == null) { throw new AuraHandledException('Falta la póliza.'); }
+			String num = String.isBlank(numero) ? null : numero.trim().left(255);
+			Date f = String.isBlank(fecha) ? Date.today() : Date.valueOf(fecha.left(10));
+			String categoria = valor(InsurancePolicyTransaction.Category.getDescribe(), 'Endorsement');
+			String aprobado = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Aprobado');
+			InsurancePolicyTransaction t = null;
+			if (num != null) {
+				for (InsurancePolicyTransaction ex : [
+					SELECT Id FROM InsurancePolicyTransaction
+					WHERE InsurancePolicyId = :policyId AND TransactionNumber = :num AND Category = :categoria ORDER BY CreatedDate LIMIT 1
+				]) { t = ex; }
+			}
+			String poliza = [SELECT Name FROM InsurancePolicy WHERE Id = :policyId].Name;
+			if (t == null) {
+				t = new InsurancePolicyTransaction(InsurancePolicyId = policyId, TransactionNumber = num, Category = categoria);
+				for (InsurancePolicyTransaction anterior : [
+					SELECT Id FROM InsurancePolicyTransaction WHERE InsurancePolicyId = :policyId ORDER BY CreatedDate DESC, Id DESC LIMIT 1
+				]) { t.PriorTransactionId = anterior.Id; }
+			}
+			t.Name = ('Endoso ' + (num != null ? num : fechaTexto(f)) + (String.isBlank(descripcion) ? '' : ' - ' + descripcion.trim())
+				+ ' - ' + poliza).left(255);
+			t.TransactionEffectiveDate = Datetime.newInstance(f, Time.newInstance(12, 0, 0, 0));
+			t.EffectiveFromDate = f;
+			if (aprobado != null) { t.Status = aprobado; }
+			if (String.isNotBlank(primaJson) && primaJson.trim() != 'null') {
+				ponerPrima(t, (Prima) System.JSON.deserialize(primaJson, Prima.class));
+			}
+			upsert t;
+			return t.Id;
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			AuraHandledException ex = new AuraHandledException(e.getMessage());
+			ex.setMessage(e.getMessage());
+			throw ex;
+		}
+	}
+
+	private static List<Map<String, Object>> endososDe(Id policyId) {
 		try {
 			List<Map<String, Object>> res = new List<Map<String, Object>>();
 			if (policyId == null) { return res; }

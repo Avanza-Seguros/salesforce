@@ -146,7 +146,7 @@
 
                 <!-- ====================== ENDOSOS ====================== -->
                 <template if:true={enEndosos}>
-                    <c-endosos-poliza record-id={recordId}></c-endosos-poliza>
+                    <c-endosos-poliza record-id={recordId} puede-editar={puedeEditar} onregistrado={cargar}></c-endosos-poliza>
                     <div class="mov-pie">
                         <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
                     </div>

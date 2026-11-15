@@ -6,6 +6,12 @@
         <template if:true={errorMensaje}>
             <div class="end-error">{errorMensaje}</div>
         </template>
+        <template if:true={puedeEditar}>
+            <div class="end-acciones">
+                <lightning-button label="Registrar endoso" icon-name="utility:add" onclick={abrirRegistro}
+                    title="Endoso de la aseguradora que no mueve registros (p. ej. una cláusula o beneficio adicional)"></lightning-button>
+            </div>
+        </template>
         <template if:true={sinEndosos}>
             <div class="end-vacio">
                 <lightning-icon icon-name="utility:file" size="small"></lightning-icon>
@@ -45,6 +51,7 @@
                                 </td>
                                 <td>
                                     <a href="#" class="nombre" data-id={x.id} onclick={verEndoso}>{x.numeroTxt}</a>
+                                    <div class="sub nombre-endoso">{x.nombre}</div>
                                     <div class="sub">{x.creadoTxt}<template if:true={x.usuario}> · {x.usuario}</template></div>
                                 </td>
                                 <td>{x.fechaTxt}</td>
@@ -101,6 +108,46 @@
                     </tbody>
                 </table>
             </div>
+        </template>
+
+        <template if:true={enRegistro}>
+            <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="reg-titulo" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <div class="slds-modal__header">
+                        <h2 id="reg-titulo" class="slds-text-heading_medium">Registrar endoso</h2>
+                    </div>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <p class="sub slds-m-bottom_small">Para endosos de la aseguradora que no dan de alta, baja ni cambian registros
+                            (p. ej. una cláusula o beneficio adicional). Si eliges el PDF se proponen sus datos.</p>
+                        <div class="slds-m-bottom_small">
+                            <input type="file" class="reg-pdf slds-hide" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange={handlePdf} />
+                            <lightning-button label="Elegir documento del endoso" icon-name="utility:upload" onclick={elegirPdf}></lightning-button>
+                            <span class="sub slds-m-left_small">{textoArchivoReg}</span>
+                            <template if:true={leyendo}><lightning-spinner alternative-text="Leyendo PDF" size="small"></lightning-spinner></template>
+                        </div>
+                        <template if:true={regAviso}><div class="end-aviso">{regAviso}</div></template>
+                        <div class="slds-grid slds-wrap slds-gutters_x-small reg-form">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input label="Número de endoso" value={reg.numero} data-campo="numero" onchange={handleReg}></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input type="date" label="Surte efecto" value={reg.fecha} data-campo="fecha" onchange={handleReg} required></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-1">
+                                <lightning-textarea label="Descripción" value={reg.descripcion} data-campo="descripcion" onchange={handleReg}
+                                    max-length="200" required></lightning-textarea>
+                            </div>
+                        </div>
+                        <c-datos-endoso valores-iniciales={regValores} archivo-inicial={regArchivo}></c-datos-endoso>
+                    </div>
+                    <div class="slds-modal__footer">
+                        <lightning-button label="Cancelar" onclick={cerrarRegistro}></lightning-button>
+                        <lightning-button label="Registrar endoso" variant="brand" class="slds-m-left_x-small" onclick={guardarRegistro}
+                            disabled={cargando}></lightning-button>
+                    </div>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
     </div>
 </template>

@@ -111,3 +111,22 @@
     position: relative;
     min-height: 4rem;
 }
+
+.end-acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.5rem;
+}
+
+.nombre-endoso {
+    max-width: 22rem;
+    white-space: normal;
+}
+
+.end-aviso {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: #fef1e6;
+    color: #a96404;
+}

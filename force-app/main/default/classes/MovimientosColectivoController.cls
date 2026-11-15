@@ -126,10 +126,13 @@ public with sharing class MovimientosColectivoController {
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> aplicar(Id recordId, String movimientosJson) {
 		List<Movimiento> movs;
-		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }.
+		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }; con { endosos: { número: prima } }
+		// cada número de endoso lleva su prima (soporte de recibo con varios endosos).
 		EndosoPoliza.Prima primaEndoso;
+		Map<String, EndosoPoliza.Prima> primasEndosos;
 		try {
 			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			primasEndosos = EndosoPoliza.primas(movimientosJson);
 			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
 		} catch (Exception e) {
@@ -141,7 +144,11 @@ public with sharing class MovimientosColectivoController {
 		try {
 			Map<String, Object> r = esPoliza(recordId) ? aplicarPoliza(recordId, movs) : aplicarOportunidad(recordId, movs);
 			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
-			if (esPoliza(recordId)) { r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso)); }
+			if (esPoliza(recordId)) {
+				List<Id> endosos = EndosoPoliza.registrarTodos(recordId, primaEndoso, primasEndosos);
+				r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
+				r.put('endosos', endosos.size());
+			}
 			// Las altas que vienen de un cambio se cuentan como cambios.
 			Integer comoCambio = 0;
 			for (Movimiento m : movs) { if (m.tipo == ALTA && m.comoCambio == true) { comoCambio++; } }
@@ -237,7 +244,7 @@ public with sharing class MovimientosColectivoController {
 				bajas.add(new Map<String, Object>{
 					'id' => a.get('id'), 'nombre' => a.get('nombre'), 'parentesco' => a.get('parentesco'),
 					'certificado' => a.get('certificado'), 'titularId' => a.get('titularId'), 'titularNombre' => a.get('titularNombre'),
-					'fechaMovimiento' => e.fechaAlta
+					'fechaMovimiento' => e.fechaAlta, 'numeroEndoso' => e.numeroEndoso
 				});
 				continue;
 			}
@@ -276,7 +283,7 @@ public with sharing class MovimientosColectivoController {
 			cambios.add(new Map<String, Object>{
 				'id' => a.get('id'), 'nombre' => a.get('nombre'), 'parentesco' => a.get('parentesco'),
 				'certificado' => a.get('certificado'), 'diferencias' => diferencias, 'datos' => comoMapa(e),
-				'fechaMovimiento' => e.movimiento == null ? null : e.fechaAlta
+				'fechaMovimiento' => e.movimiento == null ? null : e.fechaAlta, 'numeroEndoso' => e.numeroEndoso
 			});
 		}
 
@@ -288,7 +295,7 @@ public with sharing class MovimientosColectivoController {
 				'ref' => i, 'nombre' => nombreDe(e), 'parentesco' => String.isBlank(e.parentesco) ? 'Titular' : e.parentesco,
 				'certificado' => e.certificado, 'categoria' => e.categoria, 'fechaNacimiento' => e.fechaNacimiento,
 				'sumaAsegurada' => e.sumaAsegurada, 'prima' => e.prima, 'datos' => comoMapa(e),
-				'fechaMovimiento' => e.fechaAlta
+				'fechaMovimiento' => e.fechaAlta, 'numeroEndoso' => e.numeroEndoso
 			};
 			// El archivo lo marcó como cambio pero la persona no existe: internamente es alta, el usuario lo ve como cambio.
 			if (e.movimiento == 'Cambio') {

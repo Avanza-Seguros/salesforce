@@ -224,6 +224,9 @@
                     </template>
 
                     <template if:false={sinDiferencias}>
+                        <template if:true={hayEndososArchivo}>
+                            <div class="mov-paso"><lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small"></lightning-icon>{textoEndososArchivo}</div>
+                        </template>
                         <div class="slds-grid slds-wrap slds-gutters_x-small modal-form">
                             <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                 <lightning-input type="date" label={etiquetaFecha} value={comun.fecha} data-campo="fecha" onchange={handleComun} required></lightning-input>
@@ -348,7 +351,7 @@
 
                 <!-- ====================== ENDOSOS ====================== -->
                 <template if:true={enEndosos}>
-                    <c-endosos-poliza record-id={recordId}></c-endosos-poliza>
+                    <c-endosos-poliza record-id={recordId} puede-editar={puedeEditar} onregistrado={cargar}></c-endosos-poliza>
                     <div class="mov-pie">
                         <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
                     </div>

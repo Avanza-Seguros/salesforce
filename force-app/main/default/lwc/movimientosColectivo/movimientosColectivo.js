@@ -13,6 +13,7 @@ import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
+import { primasPorEndoso } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosColectivoController.compararArchivo';
@@ -838,7 +839,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         await this.enviar([{ tipo: 'cambio', id: f.id, datos, fecha: f.fecha, endoso: f.endoso, comentario: f.comentario }]);
     }
 
-    async enviar(movs) {
+    // primasEndosos: prima de cada número de endoso que trae el archivo de la aseguradora (soporte de recibo de GMM).
+    async enviar(movs, primasEndosos) {
         // Endoso de la aseguradora (prima y documento): solo en la póliza.
         const endoso = this.enPoliza ? this.template.querySelector('c-datos-endoso') : null;
         const prima = endoso ? endoso.prima : null;
@@ -846,7 +848,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         try {
             const r = await aplicar({
                 recordId: this._recordId,
-                movimientosJson: this.enPoliza ? JSON.stringify({ movimientos: movs, endoso: prima }) : JSON.stringify(movs)
+                movimientosJson: this.enPoliza
+                    ? JSON.stringify({ movimientos: movs, endoso: prima, endosos: primasEndosos || null })
+                    : JSON.stringify(movs)
             });
             if (endoso && endoso.tieneArchivo && r.transaccionId) {
                 try {
@@ -861,7 +865,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             if (r.bajas) { partes.push(`${r.bajas} bajas`); }
             if (r.cambios) { partes.push(`${r.cambios} cambios`); }
             this.toast('Movimientos', (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
-                + (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : ''), 'success');
+                + (r.endosos > 1 ? ` Quedaron en ${r.endosos} endosos de la póliza.` : (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : '')), 'success');
             this.cerrarModal();
             this.vista = 'lista';
             this.revision = null;
@@ -882,6 +886,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
 
     async handleLeido(e) {
         this.archivoNombre = e.detail.archivo;
+        // Soporte de recibo con número de endoso por renglón: cada movimiento va a su endoso, con su prima.
+        this.primasArchivo = primasPorEndoso(e.detail.miembros);
+        this.endososArchivo = [...new Set((e.detail.miembros || []).map((x) => (x.numeroEndoso ? String(x.numeroEndoso).trim() : '')).filter((x) => x))];
         this.cargando = true;
         try {
             const r = await compararArchivo({
@@ -945,9 +952,16 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get bajasRev() {
         return (this.revision ? this.revision.bajas : []).map((b) => ({ ...b, fechaMovTxt: this.fechaMovTxt(b) }));
     }
-    // Fecha del movimiento que trae el archivo; sin ella se usa la fecha general.
+    // Fecha del movimiento que trae el archivo (sin ella se usa la fecha general) y su número de endoso.
     fechaMovTxt(x) {
-        return x.fechaMovimiento ? fechaVisible(x.fechaMovimiento) : 'General';
+        return (x.fechaMovimiento ? fechaVisible(x.fechaMovimiento) : 'General') + (x.numeroEndoso ? ` · Endoso ${x.numeroEndoso}` : '');
+    }
+    get hayEndososArchivo() { return (this.endososArchivo || []).length > 0; }
+    get textoEndososArchivo() {
+        const l = this.endososArchivo || [];
+        const lista = l.slice(0, 12).join(', ') + (l.length > 12 ? ` y ${l.length - 12} más` : '');
+        return `El archivo trae ${l.length} ${l.length === 1 ? 'endoso' : 'endosos'} (${lista}): cada movimiento queda en su endoso, `
+            + 'con la prima que trae el archivo. El número de endoso y la prima de abajo solo aplican a los movimientos sin número.';
     }
     get cambiosRev() {
         if (!this.revision) { return []; }
@@ -1035,10 +1049,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.revision.bajas.filter((b) => b.sel).forEach((b) => {
             // El motivo es opcional.
             movs.push({ tipo: 'baja', id: b.id, fecha: b.fechaMovimiento || c.fecha, motivo: b.motivo || c.motivo || null,
-                endoso: c.endoso, comentario: c.comentario });
+                endoso: b.numeroEndoso || c.endoso, comentario: c.comentario });
         });
         this.revision.cambios.filter((x) => x.sel).forEach((x) => {
-            movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: x.fechaMovimiento || c.fecha, endoso: c.endoso, comentario: c.comentario });
+            movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: x.fechaMovimiento || c.fecha, endoso: x.numeroEndoso || c.endoso, comentario: c.comentario });
         });
         // Altas: titulares primero; el dependiente apunta a la posición del alta de su titular.
         const altas = this.revision.altas.filter((a) => a.sel);
@@ -1046,14 +1060,14 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         let omitidos = 0;
         altas.filter((a) => !a.titularId && (a.titularRef === undefined || a.titularRef === null)).forEach((a) => {
             posicion.set(a.ref, movs.length);
-            movs.push({ tipo: 'alta', datos: a.datos, fecha: a.fechaMovimiento || c.fecha, endoso: c.endoso, comentario: c.comentario,
+            movs.push({ tipo: 'alta', datos: a.datos, fecha: a.fechaMovimiento || c.fecha, endoso: a.numeroEndoso || c.endoso, comentario: c.comentario,
                 comoCambio: a.comoCambio === true });
         });
         altas.filter((a) => a.titularId || (a.titularRef !== undefined && a.titularRef !== null)).forEach((a) => {
             const ref = a.titularId ? null : posicion.get(a.titularRef);
             if (!a.titularId && ref === undefined) { omitidos++; return; }
             movs.push({ tipo: 'alta', datos: a.datos, titularId: a.titularId || null, titularRef: a.titularId ? null : ref,
-                fecha: a.fechaMovimiento || c.fecha, endoso: c.endoso, comentario: c.comentario, comoCambio: a.comoCambio === true });
+                fecha: a.fechaMovimiento || c.fecha, endoso: a.numeroEndoso || c.endoso, comentario: c.comentario, comoCambio: a.comoCambio === true });
         });
         if (!movs.length) {
             this.toast('Movimientos', 'No seleccionaste ningún movimiento.', 'info');
@@ -1066,7 +1080,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             });
             if (!ok) { return; }
         }
-        await this.enviar(movs);
+        await this.enviar(movs, this.primasArchivo);
     }
 
     // ============================================================

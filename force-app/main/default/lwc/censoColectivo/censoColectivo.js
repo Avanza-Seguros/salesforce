@@ -579,7 +579,7 @@ export default class CensoColectivo extends LightningElement {
             sueldoTxt: this.moneda(r.sueldoAnual),
             sumaTxt: this.moneda(r.sumaAsegurada),
             primaTxt: this.moneda(r.prima),
-            movimiento: r.movimiento || r.movimientoOriginal || '',
+            movimiento: (r.movimiento || r.movimientoOriginal || '') + (r.numeroEndoso ? ` · End. ${r.numeroEndoso}` : ''),
             claseMovimiento: 'chip-movimiento' + (r.movimiento ? ' mov-' + r.movimiento.toLowerCase() : ''),
             mensajes: [...r.errores, ...r.avisos].join(' · '),
             claseFila: (r.errores.length ? 'fila-error' : (r.avisos.length ? 'fila-aviso' : '')) + (r.esTitular ? '' : ' fila-dependiente'),

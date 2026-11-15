@@ -58,6 +58,12 @@ public with sharing class CensoColectivoController {
 		public Integer fila;
 		// Tipo de movimiento del archivo: Alta, Baja o Cambio (vacío si el archivo no lo trae).
 		public String movimiento;
+		// Soporte de recibo de la aseguradora (GMM): número de movimiento o endoso del renglón y lo que cobra o devuelve.
+		public String numeroEndoso;
+		public Decimal recargo;
+		public Decimal derechos;
+		public Decimal iva;
+		public Decimal primaMovimiento;
 	}
 
 	/**
