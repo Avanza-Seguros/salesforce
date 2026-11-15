@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Mis pólizas (sitio)</masterLabel>
+    <description>Pólizas del cliente que entra al sitio: listado con búsqueda y detalle con documentos.</description>
+    <targets>
+        <target>lightningCommunity__Page</target>
+        <target>lightningCommunity__Default</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightningCommunity__Default">
+            <property name="titulo" type="String" label="Título" default="Mis pólizas" />
+            <property name="mensajeVacio" type="String" label="Mensaje sin pólizas"
+                default="Aún no tienes pólizas registradas. Si crees que es un error, contacta a tu asesor." />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

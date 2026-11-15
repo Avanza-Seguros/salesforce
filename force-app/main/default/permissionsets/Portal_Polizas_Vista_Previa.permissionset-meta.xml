@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Portal Pólizas Vista Previa</label>
+    <description>Usuarios internos: ver la página Mis pólizas del sitio Avanza Seguro como cualquier cuenta cliente.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <classAccesses>
+        <apexClass>PortalPolizasController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>PortalPolizasPestanas</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Portal_Polizas_Vista_Previa</name>
+    </customPermissions>
+</PermissionSet>
