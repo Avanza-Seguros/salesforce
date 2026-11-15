@@ -1,0 +1,106 @@
+<template>
+    <div class="end">
+        <template if:true={cargando}>
+            <div class="end-cargando"><lightning-spinner alternative-text="Cargando endosos" size="small"></lightning-spinner></div>
+        </template>
+        <template if:true={errorMensaje}>
+            <div class="end-error">{errorMensaje}</div>
+        </template>
+        <template if:true={sinEndosos}>
+            <div class="end-vacio">
+                <lightning-icon icon-name="utility:file" size="small"></lightning-icon>
+                <p>La póliza todavía no tiene endosos. Se registran al aplicar altas, bajas o cambios, o al cargar el PDF del endoso de la aseguradora.</p>
+            </div>
+        </template>
+
+        <template if:true={hayEndosos}>
+            <div class="end-barra">
+                <lightning-input type="search" label="Buscar endoso" variant="label-hidden" class="end-buscar"
+                    placeholder="Buscar por número, fecha, estado, registro o detalle" value={busqueda} onchange={handleBusqueda}></lightning-input>
+                <span class="sub">{textoTotal}</span>
+            </div>
+            <template if:true={sinResultados}>
+                <div class="end-vacio"><p>Ningún endoso coincide con la búsqueda.</p></div>
+            </template>
+            <div class="end-scroll">
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer end-tabla">
+                    <thead><tr>
+                        <th class="col-abrir"></th>
+                        <th>Endoso</th>
+                        <th>Surte efecto</th>
+                        <th>Estado</th>
+                        <th>Movimientos</th>
+                        <th class="num">Prima neta</th>
+                        <th class="num">Derechos</th>
+                        <th class="num">IVA</th>
+                        <th class="num">Prima total</th>
+                        <th>Documento</th>
+                    </tr></thead>
+                    <tbody>
+                        <template for:each={filas} for:item="x">
+                            <tr key={x.id} class="end-fila">
+                                <td class="col-abrir">
+                                    <lightning-button-icon icon-name={x.iconoAbrir} variant="bare" alternative-text={x.textoAbrir} title={x.textoAbrir}
+                                        data-id={x.id} onclick={toggle}></lightning-button-icon>
+                                </td>
+                                <td>
+                                    <a href="#" class="nombre" data-id={x.id} onclick={verEndoso}>{x.numeroTxt}</a>
+                                    <div class="sub">{x.creadoTxt}<template if:true={x.usuario}> · {x.usuario}</template></div>
+                                </td>
+                                <td>{x.fechaTxt}</td>
+                                <td><span class={x.claseEstado}>{x.estado}</span></td>
+                                <td>
+                                    {x.movimientosTxt}
+                                    <template if:true={x.pendientesTxt}><div class="sub">{x.pendientesTxt}</div></template>
+                                </td>
+                                <td class="num">{x.primaNetaTxt}</td>
+                                <td class="num">{x.derechosTxt}</td>
+                                <td class="num">{x.ivaTxt}</td>
+                                <td class="num"><strong>{x.totalTxt}</strong></td>
+                                <td>
+                                    <template if:true={x.hayDocumentos}>
+                                        <template for:each={x.documentos} for:item="d">
+                                            <div key={d.id}>
+                                                <a href="#" data-id={d.id} onclick={verDocumento} title="Ver documento">
+                                                    <lightning-icon icon-name="doctype:pdf" size="xx-small" class="slds-m-right_xx-small"></lightning-icon>{d.titulo}
+                                                </a>
+                                            </div>
+                                        </template>
+                                    </template>
+                                    <template if:false={x.hayDocumentos}><span class="sub">Sin documento</span></template>
+                                </td>
+                            </tr>
+                            <template if:true={x.abierto}>
+                                <tr key={x.keyDetalle} class="end-detalle">
+                                    <td></td>
+                                    <td colspan="9">
+                                        <table class="slds-table slds-table_cell-buffer end-movs">
+                                            <thead><tr>
+                                                <th>Movimiento</th><th>Tipo</th><th>Registro</th><th>Fecha</th><th>Cierre</th><th>Detalle</th>
+                                            </tr></thead>
+                                            <tbody>
+                                                <template for:each={x.movs} for:item="m">
+                                                    <tr key={m.id}>
+                                                        <td>{m.nombre}</td>
+                                                        <td><span class={m.claseTipo}>{m.tipo}</span></td>
+                                                        <td>
+                                                            <div>{m.registro}</div>
+                                                            <template if:true={m.certificado}><div class="sub">{m.certificado}</div></template>
+                                                        </td>
+                                                        <td>{m.fechaTxt}</td>
+                                                        <td>{m.cierreTxt}</td>
+                                                        <td class="detalle">{m.detalleTxt}</td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </template>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+    </div>
+</template>

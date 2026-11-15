@@ -303,6 +303,17 @@ private class MovimientosFlotillaControllerTest {
 		System.assertEquals(r.get('transaccionId'), mov.Transaccion__c);
 		System.assert(mov.Detalle__c.contains('sin cambio'), mov.Detalle__c);
 		System.assert(error, 'Un cambio sin datos ni endoso no es válido');
+
+		// Endosos para la pantalla: el endoso con su prima, su movimiento y sus documentos.
+		insert new ContentVersion(Title = 'endoso_38', PathOnClient = 'endoso_38.pdf', VersionData = Blob.valueOf('pdf'),
+			FirstPublishLocationId = (Id) r.get('transaccionId'));
+		List<Map<String, Object>> endosos = EndosoPoliza.getEndosos(pol.Id);
+		System.assertEquals(1, endosos.size());
+		System.assertEquals('38', endosos[0].get('numero'));
+		System.assertEquals(1, ((List<Object>) endosos[0].get('movimientos')).size());
+		System.assertEquals(1, ((List<Object>) endosos[0].get('documentos')).size());
+		System.assertEquals(1, endosos[0].get('abiertos'));
+		System.assertEquals(0, EndosoPoliza.getEndosos(null).size());
 	}
 
 	/**

@@ -181,6 +181,78 @@ public with sharing class EndosoPoliza {
 		return null;
 	}
 
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Endosos de la póliza para mostrarlos en pantalla (más reciente primero): número, estado, fecha en
+	 *               que surte efecto, prima de la aseguradora (neta, derechos, IVA y total), quién lo registró, sus
+	 *               movimientos (tipo, registro, detalle, comentario, fecha y cierre) y los documentos adjuntos.
+	 * @param policyId: póliza.
+	 * @return lista de endosos como mapas.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static List<Map<String, Object>> getEndosos(Id policyId) {
+		try {
+			List<Map<String, Object>> res = new List<Map<String, Object>>();
+			if (policyId == null) { return res; }
+			String categoria = valor(InsurancePolicyTransaction.Category.getDescribe(), 'Endorsement');
+			Map<String, String> estados = new Map<String, String>();
+			for (Schema.PicklistEntry pe : InsurancePolicyTransaction.Status.getDescribe().getPicklistValues()) {
+				estados.put(pe.getValue(), pe.getLabel());
+			}
+			List<InsurancePolicyTransaction> ts = [
+				SELECT Id, Name, TransactionNumber, Status, EffectiveFromDate, TransactionAmount, TransactionFeeAmount,
+					TransactionTaxAmount, TotalTransactionAmount, CreatedDate, CreatedBy.Name
+				FROM InsurancePolicyTransaction WHERE InsurancePolicyId = :policyId AND Category = :categoria
+				ORDER BY EffectiveFromDate DESC NULLS LAST, CreatedDate DESC LIMIT 500
+			];
+			if (ts.isEmpty()) { return res; }
+			Set<Id> ids = new Map<Id, InsurancePolicyTransaction>(ts).keySet();
+			Map<Id, List<Map<String, Object>>> movs = new Map<Id, List<Map<String, Object>>>();
+			for (Movimiento_Poliza__c m : [
+				SELECT Id, Name, Transaccion__c, Tipo__c, Asegurado__c, Certificado__c, Detalle__c, Comentario__c,
+					Fecha_Movimiento__c, Fecha_Cierre__c
+				FROM Movimiento_Poliza__c WHERE Transaccion__c IN :ids ORDER BY CreatedDate, Id
+			]) {
+				if (!movs.containsKey(m.Transaccion__c)) { movs.put(m.Transaccion__c, new List<Map<String, Object>>()); }
+				movs.get(m.Transaccion__c).add(new Map<String, Object>{
+					'id' => m.Id, 'nombre' => m.Name, 'tipo' => m.Tipo__c, 'registro' => m.Asegurado__c,
+					'certificado' => m.Certificado__c, 'detalle' => m.Detalle__c, 'comentario' => m.Comentario__c,
+					'fecha' => m.Fecha_Movimiento__c, 'cierre' => m.Fecha_Cierre__c
+				});
+			}
+			Map<Id, List<Map<String, Object>>> docs = new Map<Id, List<Map<String, Object>>>();
+			for (ContentDocumentLink l : [
+				SELECT LinkedEntityId, ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension
+				FROM ContentDocumentLink WHERE LinkedEntityId IN :ids
+			]) {
+				if (!docs.containsKey(l.LinkedEntityId)) { docs.put(l.LinkedEntityId, new List<Map<String, Object>>()); }
+				docs.get(l.LinkedEntityId).add(new Map<String, Object>{
+					'id' => l.ContentDocumentId,
+					'titulo' => l.ContentDocument.Title + (String.isBlank(l.ContentDocument.FileExtension) ? '' : '.' + l.ContentDocument.FileExtension)
+				});
+			}
+			for (InsurancePolicyTransaction t : ts) {
+				List<Map<String, Object>> lm = movs.containsKey(t.Id) ? movs.get(t.Id) : new List<Map<String, Object>>();
+				Integer abiertos = 0;
+				for (Map<String, Object> m : lm) { if (m.get('cierre') == null) { abiertos++; } }
+				res.add(new Map<String, Object>{
+					'id' => t.Id, 'nombre' => t.Name, 'numero' => t.TransactionNumber,
+					'estado' => estados.containsKey(t.Status) ? estados.get(t.Status) : t.Status,
+					'fecha' => t.EffectiveFromDate, 'primaNeta' => t.TransactionAmount, 'derechos' => t.TransactionFeeAmount,
+					'iva' => t.TransactionTaxAmount, 'total' => t.TotalTransactionAmount, 'creado' => t.CreatedDate,
+					'usuario' => t.CreatedBy == null ? null : t.CreatedBy.Name, 'movimientos' => lm, 'abiertos' => abiertos,
+					'documentos' => docs.containsKey(t.Id) ? docs.get(t.Id) : new List<Map<String, Object>>()
+				});
+			}
+			return res;
+		} catch (Exception e) {
+			AuraHandledException ex = new AuraHandledException(e.getMessage());
+			ex.setMessage(e.getMessage());
+			throw ex;
+		}
+	}
+
 	private static String fechaTexto(Date d) {
 		return String.valueOf(d.day()).leftPad(2, '0') + '/' + String.valueOf(d.month()).leftPad(2, '0') + '/' + d.year();
 	}

@@ -99,8 +99,10 @@ export default class MovimientosUbicaciones extends LightningElement {
 
     get enLista() { return this.vista === 'lista'; }
     get enHistorial() { return this.vista === 'historial'; }
+    get enEndosos() { return this.vista === 'endosos'; }
     verLista() { this.vista = 'lista'; }
     verHistorial() { this.vista = 'historial'; }
+    verEndosos() { this.vista = 'endosos'; }
 
     get ubicaciones() { return (this.datos && this.datos.ubicaciones) || []; }
     get vigentes() { return this.ubicaciones.filter((u) => u.activo); }

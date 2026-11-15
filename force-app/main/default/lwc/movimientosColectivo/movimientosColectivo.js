@@ -138,8 +138,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get enArchivo() { return this.vista === 'archivo'; }
     get enRevision() { return this.vista === 'revision'; }
     get enHistorial() { return this.vista === 'historial'; }
+    get enEndosos() { return this.vista === 'endosos'; }
     verLista() { this.vista = 'lista'; this.revision = null; }
     verHistorial() { this.vista = 'historial'; }
+    verEndosos() { this.vista = 'endosos'; }
     verArchivo() { this.vista = 'archivo'; this.revision = null; }
 
     get miembros() { return (this.datos && this.datos.miembros) || []; }
