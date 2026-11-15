@@ -65,19 +65,21 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
 
   @wire(getRecord, {
     recordId: "$recordId",
-    fields: [DESCRIPTION_FIELD, COMPARATIVO_FIELD, TIPO_CONTRATACION_FIELD]
+    // optionalFields: si el usuario no tiene acceso a alguno de estos campos (permisos del perfil), se omite ese
+    // campo en lugar de fallar toda la carga.
+    optionalFields: [DESCRIPTION_FIELD, COMPARATIVO_FIELD, TIPO_CONTRATACION_FIELD]
   })
   wiredOpp({ data, error }) {
     if (data) {
       this.description = getFieldValue(data, DESCRIPTION_FIELD) || "";
-      console.log("description::: " + this.description); 
       this.parse();
       this.comparativoHtml = getFieldValue(data, COMPARATIVO_FIELD) || "";
       this.tipoContratacion = getFieldValue(data, TIPO_CONTRATACION_FIELD) || "";
       this._comparativoDirty = true;
       this.loaded = true;
     } else if (error) {
-      this.errorMsg = "No se pudo cargar la descripción de la oportunidad.";
+      const detalle = error && error.body ? (Array.isArray(error.body) ? error.body.map((e) => e.message).join(", ") : error.body.message) : "";
+      this.errorMsg = "No se pudo cargar la descripción de la oportunidad." + (detalle ? " (" + detalle + ")" : "");
       this.loaded = true;
     }
   }
@@ -94,16 +96,22 @@ export default class OpportunityAnalysisViewer extends NavigationMixin(
   // Inyecta el HTML de la IA en un div con lwc:dom="manual". Se evita el iframe
   // (srcdoc y blob: los bloquea la CSP de Lightning y causaban "Script error").
   renderedCallback() {
-    if (!this._comparativoDirty) {
-      return;
-    }
     const host = this.template.querySelector(".comparativo-ia__host");
     if (!host) {
       return;
     }
+    // Se vuelve a llenar si el HTML cambió o si el contenedor se volvió a dibujar vacío.
+    if (!this._comparativoDirty && host === this._comparativoHost && host.childElementCount > 0) {
+      return;
+    }
     this._comparativoDirty = false;
+    this._comparativoHost = host;
     try {
       host.innerHTML = this.comparativoHtml || "";
+      // La columna de los conceptos se titula "Aseguradora" (también en comparativos guardados con "Concepto").
+      host.querySelectorAll("th").forEach((celda) => {
+        if (/^\s*concepto\s*$/i.test(celda.textContent || "")) { celda.textContent = "Aseguradora"; }
+      });
     } catch (e) {
       // No romper el componente si el HTML no se puede inyectar.
     }
