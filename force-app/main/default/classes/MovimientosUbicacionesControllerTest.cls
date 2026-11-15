@@ -83,6 +83,46 @@ private class MovimientosUbicacionesControllerTest {
 	}
 
 	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Endoso de aplicación general de la aseguradora: un cambio sin datos en cada ubicación vigente,
+	 *               con su número de endoso, en la misma transacción; sin número de endoso no es válido.
+	 * @return void
+	 */
+	@isTest
+	static void testEndosoGeneral() {
+		InsurancePolicy pol = poliza();
+		Id b1 = bien(pol.Id, 1);
+		Id b2 = bien(pol.Id, 2);
+		List<Object> movs = new List<Object>();
+		for (Id b : new List<Id>{ b1, b2 }) {
+			movs.add(new Map<String, Object>{ 'tipo' => 'cambio', 'id' => b, 'fecha' => String.valueOf(Date.today()), 'endoso' => '16',
+				'comentario' => 'Modificación de Póliza: se reinstala la suma asegurada' });
+		}
+		Test.startTest();
+		Map<String, Object> r = MovimientosUbicacionesController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => movs,
+			'endoso' => new Map<String, Object>{ 'primaNeta' => 694.86, 'derechos' => 350, 'iva' => 167.18, 'total' => 1212.04 }
+		}));
+		Boolean error = false;
+		try {
+			MovimientosUbicacionesController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+				new Map<String, Object>{ 'tipo' => 'cambio', 'id' => b1, 'fecha' => String.valueOf(Date.today()) } }));
+		} catch (AuraHandledException e) {
+			error = true;
+		}
+		Test.stopTest();
+		System.assertEquals(2, r.get('cambios'));
+		System.assertNotEquals(null, r.get('transaccionId'), 'Se registra el endoso');
+		for (Movimiento_Poliza__c m : [SELECT Numero_Endoso__c, Detalle__c, Transaccion__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id]) {
+			System.assertEquals('16', m.Numero_Endoso__c);
+			System.assertEquals(r.get('transaccionId'), m.Transaccion__c);
+			System.assert(m.Detalle__c.contains('sin cambio'), m.Detalle__c);
+		}
+		System.assert(error, 'Un cambio sin datos ni endoso no es válido');
+	}
+
+	/**
 	 * @creation date: 01/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Endoso: baja con motivo, cambio de suma, prima y giro, alta de una ubicación nueva y reingreso.

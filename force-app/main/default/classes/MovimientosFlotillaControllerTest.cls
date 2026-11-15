@@ -271,6 +271,41 @@ private class MovimientosFlotillaControllerTest {
 	}
 
 	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Endoso de la aseguradora sin datos del vehículo que cambiar (ej. cambio de observaciones): el
+	 *               cambio sin datos se registra con su número de endoso y queda en la transacción; sin número de
+	 *               endoso no es válido.
+	 * @return void
+	 */
+	@isTest
+	static void testEndosoSinCambioDeDatos() {
+		InsurancePolicy pol = poliza();
+		Id inc2 = inciso(pol.Id, SERIE_2);
+		Map<String, Object> m = new Map<String, Object>{ 'tipo' => 'cambio', 'id' => inc2, 'fecha' => String.valueOf(Date.today()),
+			'endoso' => '38', 'comentario' => 'CAMBIO DE DATOS: se modifican las observaciones' };
+		Test.startTest();
+		Map<String, Object> r = MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ m },
+			'endoso' => new Map<String, Object>{ 'primaNeta' => 0, 'derechos' => 0, 'iva' => 0, 'total' => 0 }
+		}));
+		Boolean error = false;
+		m.remove('endoso');
+		try {
+			MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{ m }));
+		} catch (AuraHandledException e) {
+			error = true;
+		}
+		Test.stopTest();
+		System.assertNotEquals(null, r.get('transaccionId'), 'Se registra el endoso');
+		Movimiento_Poliza__c mov = [SELECT Tipo__c, Numero_Endoso__c, Detalle__c, Transaccion__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id];
+		System.assertEquals('38', mov.Numero_Endoso__c);
+		System.assertEquals(r.get('transaccionId'), mov.Transaccion__c);
+		System.assert(mov.Detalle__c.contains('sin cambio'), mov.Detalle__c);
+		System.assert(error, 'Un cambio sin datos ni endoso no es válido');
+	}
+
+	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Cada vehículo trae su último movimiento (estado, fecha de movimiento, creación y cierre) y el

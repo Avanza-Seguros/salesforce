@@ -254,8 +254,16 @@ public with sharing class MovimientosUbicacionesController {
 			}
 			if (a.Fecha_Baja__c != null) { throw CensoColectivoController.error(nombre(a) + ' está dada de baja: no se puede cambiar.'); }
 			Map<String, Object> antes = ubicacion(a);
-			List<String> detalle = cambiarBien(a, m.datos, propiedades);
-			if (detalle.isEmpty()) { continue; }
+			// Endoso de la aseguradora sin datos que cambiar (ej. de aplicación general): se registra igual.
+			List<String> detalle = m.datos == null ? new List<String>() : cambiarBien(a, m.datos, propiedades);
+			if (detalle.isEmpty() && String.isBlank(m.endoso)) { continue; }
+			if (detalle.isEmpty()) {
+				Movimiento_Poliza__c sinDatos = registro(m, CAMBIO, CONTEXTO_ENDOSO, policyId, null, antes);
+				sinDatos.Detalle__c = 'Endoso de la aseguradora sin cambio en los datos de la ubicación.';
+				registro.add(sinDatos);
+				cambios++;
+				continue;
+			}
 			actualizar.put(a.Id, a);
 			Movimiento_Poliza__c r = registro(m, CAMBIO, CONTEXTO_ENDOSO, policyId, null, antes);
 			r.Detalle__c = String.join(detalle, '\n');
@@ -375,7 +383,7 @@ public with sharing class MovimientosUbicacionesController {
 				registro.add(registro(m, BAJA, CONTEXTO_RENOVACION, polizaId, oppId, antes));
 				continue;
 			}
-			List<String> detalle = cambiarRenglon(c, m.datos);
+			List<String> detalle = m.datos == null ? new List<String>() : cambiarRenglon(c, m.datos);
 			if (detalle.isEmpty()) { continue; }
 			actualizar.add(c);
 			Movimiento_Poliza__c r = registro(m, CAMBIO, CONTEXTO_RENOVACION, polizaId, oppId, antes);
@@ -703,7 +711,8 @@ public with sharing class MovimientosUbicacionesController {
 			}
 			// El motivo de baja es opcional: si viene vacío se guarda sin motivo.
 			if (String.isBlank(m.motivo)) { m.motivo = null; }
-			if (m.tipo != BAJA && m.datos == null) {
+			// Un cambio sin datos solo es válido como endoso de la aseguradora (se registra sin modificar la ubicación).
+			if (m.tipo != BAJA && m.datos == null && !(m.tipo == CAMBIO && String.isNotBlank(m.endoso))) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': faltan los datos de la ubicación.');
 			}
 			if (m.tipo == ALTA && String.isBlank(m.datos.direccion)) {

@@ -11,7 +11,8 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
-import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
+import { fechaVisible, moneda, descargarExcel, paginasPdf } from 'c/lectorArchivos';
+import { endosoDeTexto } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosUbicacionesController.getDatos';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosUbicacionesController.aplicar';
@@ -23,6 +24,10 @@ export default class MovimientosUbicaciones extends LightningElement {
     @api readOnly = false;
     @track datos = null;
     @track form = {};
+    // Endoso leído del PDF de la aseguradora: tipo, detalle, ubicaciones que toca, prima y el documento.
+    @track endosoInfo = null;
+    endosoLeido = null;
+    documentoEndoso = null;
     cargando = false;
     errorMensaje = '';
     vista = 'lista';
@@ -196,7 +201,115 @@ export default class MovimientosUbicaciones extends LightningElement {
     get enModalAlta() { return this.modal === 'alta'; }
     get enModalCambio() { return this.modal === 'cambio'; }
     get hayModal() { return !!this.modal; }
-    cerrarModal() { this.modal = null; this.form = {}; }
+    get enModalEndoso() { return this.modal === 'endoso'; }
+    cerrarModal() { this.modal = null; this.form = {}; this.endosoInfo = null; this.endosoLeido = null; this.documentoEndoso = null; }
+
+    // ============================================================
+    // Endoso de la aseguradora (PDF): se lee sin IA y se aplica como cambio (o baja) de las ubicaciones que toca.
+    // Uno de aplicación general (no menciona ubicaciones) es un cambio en cada ubicación vigente.
+    // ============================================================
+    get puedeCargarEndoso() { return this.puedeEditar && this.enPoliza; }
+    elegirEndoso() {
+        const input = this.template.querySelector('input.endoso-input');
+        if (input) { input.click(); }
+    }
+    async handleEndosoArchivo(e) {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = null;
+        if (!file) { return; }
+        this.cargando = true;
+        try {
+            const paginas = await paginasPdf(this, file);
+            const x = endosoDeTexto(paginas.join('\n'), file.name);
+            if (!x) {
+                this.toast('Endoso', `${file.name} no parece un endoso de la aseguradora (no trae número ni tipo de endoso).`, 'warning');
+                return;
+            }
+            // Lo que toca el endoso: de aplicación general, todas las ubicaciones vigentes; si trae incisos, cada uno con
+            // su movimiento (el alta trae los datos de la ubicación nueva; la baja y el cambio se buscan por inciso).
+            const vigentes = this.ubicaciones.filter((u) => u.activo !== false);
+            const porInciso = new Map();
+            vigentes.filter((u) => u.inciso !== null && u.inciso !== undefined).forEach((u) => porInciso.set(String(Number(u.inciso)), u));
+            const etiqueta = { alta: 'Alta', baja: 'Baja', cambio: 'Cambio' };
+            const objetivos = [];
+            const faltan = [];
+            if (x.general) {
+                vigentes.forEach((u) => objetivos.push({ key: u.id, id: u.id, tipo: x.movimiento === 'baja' ? 'baja' : 'cambio' }));
+            } else {
+                (x.incisos || []).forEach((i) => {
+                    const tipo = i.movimiento || x.movimiento;
+                    if (tipo === 'alta') {
+                        objetivos.push({ key: 'a' + i.inciso, tipo, datos: {
+                            inciso: Number(i.inciso), direccion: i.direccion || '', giro: i.giro || '',
+                            sumaAsegurada: i.sumaAsegurada ?? null, prima: i.prima ?? null } });
+                        return;
+                    }
+                    const u = porInciso.get(String(Number(i.inciso)));
+                    if (u) { objetivos.push({ key: u.id, id: u.id, tipo }); } else { faltan.push(i.inciso); }
+                });
+            }
+            if (faltan.length) {
+                this.toast('Endoso', `No hay ubicación vigente con el inciso ${faltan.join(', ')} del endoso ${x.numero}.`, 'warning');
+            }
+            const porId = new Map(vigentes.map((u) => [u.id, u]));
+            this.endosoInfo = {
+                ...x,
+                archivo: file.name,
+                alcance: x.general
+                    ? `Aplicación general: se registra ${x.movimiento === 'baja' ? 'la baja de' : 'un cambio en'} cada ubicación vigente.`
+                    : `Movimientos al inciso: ${(x.incisos || []).map((i) => i.inciso).join(', ')}.`,
+                objetivos: objetivos.map((o) => ({
+                    ...o,
+                    sel: true,
+                    texto: o.tipo === 'alta'
+                        ? `Alta · Inciso ${o.datos.inciso} · ${o.datos.direccion || 'sin domicilio'}`
+                            + (o.datos.sumaAsegurada ? ` · Suma asegurada ${moneda(o.datos.sumaAsegurada)}` : '')
+                        : `${etiqueta[o.tipo]} · ${this.nombre(porId.get(o.id))}`
+                }))
+            };
+            this.form = {
+                fecha: x.fecha || this.fechaDefault,
+                endoso: x.numero || '',
+                motivo: '',
+                comentario: [x.tipo, x.detalle].filter((y) => y).join(': ').substring(0, 255)
+            };
+            const conPrima = [x.primaNeta, x.derechos, x.iva, x.total].some((v) => v !== null && v !== undefined);
+            this.endosoLeido = conPrima ? { primaNeta: x.primaNeta, derechos: x.derechos, iva: x.iva, total: x.total } : null;
+            this.documentoEndoso = file;
+            this.modal = 'endoso';
+        } catch (err) {
+            this.toast('Endoso', (err && (err.body && err.body.message || err.message)) || 'No se pudo leer el endoso.', 'error');
+        } finally {
+            this.cargando = false;
+        }
+    }
+    get objetivosEndoso() { return this.endosoInfo ? this.endosoInfo.objetivos : []; }
+    get todosObjetivosEndoso() { return this.objetivosEndoso.length > 0 && this.objetivosEndoso.every((o) => o.sel); }
+    get textoObjetivosEndoso() {
+        const n = this.objetivosEndoso.filter((o) => o.sel).length;
+        return `${n} de ${this.objetivosEndoso.length} ubicaciones`;
+    }
+    get sinObjetivosEndoso() { return !this.objetivosEndoso.some((o) => o.sel); }
+    get hayBajasEndoso() { return this.objetivosEndoso.some((o) => o.tipo === 'baja'); }
+    marcarObjetivoEndoso(e) {
+        const key = e.target.dataset.key;
+        this.endosoInfo = { ...this.endosoInfo, objetivos: this.objetivosEndoso.map((o) => (o.key === key ? { ...o, sel: e.target.checked } : o)) };
+    }
+    marcarTodosObjetivosEndoso(e) {
+        this.endosoInfo = { ...this.endosoInfo, objetivos: this.objetivosEndoso.map((o) => ({ ...o, sel: e.target.checked })) };
+    }
+    async guardarEndoso() {
+        if (!this.validarForm()) { return; }
+        const f = this.form;
+        const sel = this.objetivosEndoso.filter((o) => o.sel);
+        if (!sel.length) { return; }
+        const comun = { fecha: f.fecha, endoso: f.endoso, comentario: f.comentario };
+        await this.enviar(sel.map((o) => {
+            if (o.tipo === 'alta') { return { tipo: 'alta', datos: o.datos, ...comun }; }
+            if (o.tipo === 'baja') { return { tipo: 'baja', id: o.id, motivo: f.motivo || null, ...comun }; }
+            return { tipo: 'cambio', id: o.id, datos: null, ...comun };
+        }));
+    }
 
     get hoy() {
         const d = new Date();

@@ -22,6 +22,27 @@ export default class DatosEndoso extends LightningElement {
     get iva() { return this.valores.iva; }
     get total() { return this.valores.total; }
 
+    // Prima leída del documento del endoso (se puede corregir).
+    @api
+    get valoresIniciales() { return this._valoresIniciales; }
+    set valoresIniciales(v) {
+        this._valoresIniciales = v;
+        if (v) { this.valores = { ...v }; }
+    }
+    // Documento del endoso que ya se subió para leerlo: se adjunta sin volver a elegirlo.
+    @api
+    get archivoInicial() { return this._archivoInicial; }
+    set archivoInicial(f) {
+        this._archivoInicial = f;
+        if (!f) { return; }
+        if (f.size > MAX_BYTES) {
+            this.errorArchivo = 'El archivo pesa más de 3.5 MB: adjúntalo después en la transacción del endoso.';
+            return;
+        }
+        this.archivo = f;
+        this.archivoNombre = f.name;
+    }
+
     handleCampo(e) {
         const v = e.target.value;
         this.valores = { ...this.valores, [e.target.dataset.campo]: v === '' || v === null || v === undefined ? null : Number(v) };

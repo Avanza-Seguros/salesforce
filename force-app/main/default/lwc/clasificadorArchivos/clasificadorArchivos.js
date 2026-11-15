@@ -755,6 +755,182 @@ export function incisosDeCaratulas(texto) {
     }));
 }
 
+/**
+ * Endoso de la aseguradora, leído del texto sin IA. Formatos de Afirme:
+ *  - Autos ("ENDOSO-B"): "INFORMACIÓN GENERAL DEL ENDOSO", "Endoso No.", "Tipo de Endoso: CAMBIO DE DATOS",
+ *    "Vigencia del Endoso", "Inciso No. 102 - 200048 - CHEVROLET ..." y las primas junto a su etiqueta.
+ *  - Daños ("elabora endoso a la póliza"): "Endoso No. 16", "Endoso de Tipo: Modificación de Póliza",
+ *    "MOVIMIENTOS DE APLICACIÓN GENERAL" (toca toda la póliza, no una ubicación) y las primas en una tabla
+ *    ("Concepto Prima Neta Recargo Derecho IVA (16%) Total" / "Prima $694.86 $0.00 $350.00 $167.18 $1,212.04").
+ * Regresa número de endoso, tipo y movimiento que implica (alta, baja o cambio), si es de aplicación general (sin
+ * incisos), fecha en que surte efecto, incisos que toca (número, clave y descripción), detalle de la modificación y
+ * desglose de primas. null si el texto no es un endoso.
+ * @param texto: texto del PDF.
+ * @param nombreArchivo: nombre del archivo (de ahí sale el número de endoso si el texto no lo trae, ej. "_000038").
+ */
+export function endosoDeTexto(texto, nombreArchivo) {
+    const t = String(texto || '');
+    if (!/Endoso\s+No\.?\s*:?/i.test(t) || !/(Tipo\s+de\s+Endoso|Endoso\s+de\s+Tipo)/i.test(t)
+        || !/(INFORMACI[OÓ]N GENERAL DEL ENDOSO|\bENDOSO-[A-Z]\b|PRESENTE CONTRATO SUFRE|elabora endoso)/i.test(t)) {
+        return null;
+    }
+    const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+    const montoNum = (v) => (v == null || v === '' ? null : Number(String(v).replace(/[$,\s]/g, '')));
+    // Monto junto a su etiqueta, antes ("$0.00 Prima Neta") o después ("Gastos Expedición $0.00").
+    const monto = (etiqueta) => {
+        const despues = new RegExp(etiqueta + '\\s*:?\\s*\\$\\s*([\\d,]+(?:\\.\\d+)?)', 'i').exec(t);
+        if (despues) { return montoNum(despues[1]); }
+        const antes = new RegExp('\\$\\s*([\\d,]+(?:\\.\\d+)?)\\s*' + etiqueta, 'i').exec(t);
+        return antes ? montoNum(antes[1]) : null;
+    };
+    const lineas = t.split('\n');
+
+    // Número: junto a la etiqueta ("Endoso No. 16"), junto al número de póliza ("3201-033679-00   38") o del archivo.
+    let numero = '';
+    const enLinea = /Endoso\s+No\.?\s*:?[ \t]*(\d+)/i.exec(t);
+    const conPoliza = /\b\d{3,5}-\d{5,8}-\d{2}\s+(\d{1,6})\b/.exec(t);
+    if (enLinea) { numero = enLinea[1]; } else if (conPoliza) { numero = conPoliza[1]; }
+    if (!numero) {
+        const delArchivo = /endoso[^0-9]*(?:\d[\d-]*[_\s-]+)?0*(\d+)\.[a-z]+$/i.exec(String(nombreArchivo || ''));
+        if (delArchivo) { numero = delArchivo[1]; }
+    }
+    numero = numero.replace(/^0+(?=\d)/, '');
+
+    // Tipo: "Endoso de Tipo: ...", junto a "Tipo de Endoso:" o un renglón que es solo el tipo ("CAMBIO DE DATOS").
+    const TIPO = '(?:ALTA|BAJA|CAMBIO|MODIFICACI[OÓ]N|CANCELACI[OÓ]N|INCLUSI[OÓ]N|EXCLUSI[OÓ]N|AUMENTO|DISMINUCI[OÓ]N|CORRECCI[OÓ]N)';
+    let tipo = '';
+    const tipoDe = /Endoso\s+de\s+Tipo\s*:[ \t]*([^\n]+)/i.exec(t);
+    const tipoLinea = new RegExp('Tipo\\s+de\\s+Endoso\\s*:[ \\t]*(' + TIPO + '[A-ZÁÉÍÓÚÑ ]*)', 'i').exec(t);
+    const tipoSolo = new RegExp('^\\s*(' + TIPO + '(?: [A-ZÁÉÍÓÚÑ]+){0,4})\\s*$', 'm').exec(t);
+    if (tipoDe) { tipo = limpio(tipoDe[1]); } else if (tipoLinea) { tipo = limpio(tipoLinea[1]); } else if (tipoSolo) { tipo = limpio(tipoSolo[1]); }
+    const f = tipo.toUpperCase();
+    let movimiento = /BAJA|CANCELACI|EXCLUSI/.test(f) ? 'baja' : (/ALTA|INCLUSI/.test(f) ? 'alta' : 'cambio');
+
+    // Fecha en que surte efecto: la primera fecha después de "Vigencia del Endoso" o, si no, de "Desde".
+    let fecha = null;
+    const vig = /Vigencia\s+del\s+Endoso/i.exec(t) || /\bDesde\b/i.exec(t);
+    const fm = /(\d{2})\/(\d{2})\/(\d{4})/.exec(vig ? t.substring(vig.index) : '');
+    if (fm) { fecha = `${fm[3]}-${fm[2]}-${fm[1]}`; }
+
+    // Incisos: "Inciso No. 102 - 200048 - CHEVROLET TORNADO VAN ... (CAMIONES FLOTILLA) :".
+    const incisos = [];
+    const vistos = new Set();
+    const reInciso = /Inciso\s+No\.?\s*:?\s*(\d+)\s*-\s*([A-Z0-9]+)\s*-\s*([^\n]*?)\s*(?:\(([^)\n]*)\))?\s*:?[ \t]*$/gim;
+    let m;
+    while ((m = reInciso.exec(t)) !== null) {
+        if (vistos.has(m[1])) { continue; }
+        vistos.add(m[1]);
+        incisos.push({ inciso: m[1], clave: m[2], descripcion: limpio(m[3]), paquete: limpio(m[4]) });
+    }
+    // Movimientos al inciso (Daños): tabla "Inciso/ Sección Movimiento Realizado" con renglones como
+    // "30 Datos de Riesgo Alta de Inciso". Cada inciso trae su movimiento y, si es alta, su especificación.
+    const movimientoDe = (txt) => (/BAJA|CANCELACI|EXCLUSI/i.test(txt) ? 'baja' : (/ALTA|INCLUSI/i.test(txt) ? 'alta' : 'cambio'));
+    const iMov = lineas.findIndex((l) => /MOVIMIENTOS AL INCISO/i.test(l));
+    if (iMov >= 0) {
+        for (let i = iMov + 1; i < lineas.length; i++) {
+            const l = limpio(lineas[i]);
+            if (/^Concepto\b|^\$|Prima Neta/i.test(l)) { break; }
+            const mi = /^(\d+)\s+(.*?)\s*\b((?:Alta|Baja|Cancelaci[oó]n|Modificaci[oó]n|Cambio|Inclusi[oó]n|Exclusi[oó]n)\b.*)$/i.exec(l);
+            if (!mi || vistos.has(mi[1])) { continue; }
+            vistos.add(mi[1]);
+            incisos.push({ inciso: mi[1], seccion: limpio(mi[2]), descripcion: limpio(mi[3]), movimiento: movimientoDe(mi[3]),
+                ...especificacionUbicacion(t, mi[1]) });
+        }
+    }
+    const general = !incisos.length;
+
+    // Detalle: lo que sigue al último renglón de inciso (o al tipo del endoso) hasta las primas o el texto fijo.
+    let inicio = -1;
+    lineas.forEach((l, i) => { if (/Inciso\s+No\.?/i.test(l)) { inicio = i; } });
+    if (inicio < 0) { inicio = lineas.findIndex((l) => /Endoso\s+de\s+Tipo\s*:/i.test(l)); }
+    let detalle = '';
+    if (inicio >= 0) {
+        const partes = [];
+        for (let i = inicio + 1; i < lineas.length; i++) {
+            const l = limpio(lineas[i]);
+            if (/^\$|^Concepto\b|^MOVIMIENTOS AL INCISO|Prima Neta|Descuento|Financiamiento|Gastos Expedici|I\.V\.A|Los dem[aá]s t|REG\. C\.N\.S|Art[ií]culo \d|En testimonio|Funcionario|Moneda|Forma de pago/i.test(l)) { break; }
+            // "2 Se agrega Texto:": sin el número de movimiento.
+            if (l) { partes.push(l.replace(/^\d+\s+(?=[A-ZÁÉÍÓÚÑ])/i, '')); }
+        }
+        detalle = limpio(partes.join(' ')).replace(/\.{2,}/g, '.').substring(0, 1000);
+    }
+    // Movimientos al inciso: van en el detalle ("Inciso 30 (Datos de Riesgo): Alta de Inciso").
+    const porInciso = incisos.filter((i) => i.seccion !== undefined)
+        .map((i) => `Inciso ${i.inciso}${i.seccion ? ` (${i.seccion})` : ''}: ${i.descripcion}`);
+    if (porInciso.length) { detalle = limpio([detalle, porInciso.join('; ')].filter((x) => x).join(' · ')).substring(0, 1000); }
+
+    // Primas: en tabla ("Concepto Prima Neta Recargo Derecho IVA Total" y abajo los montos) o junto a su etiqueta.
+    let primaNeta = null;
+    let derechos = null;
+    let iva = null;
+    let total = null;
+    const iTabla = lineas.findIndex((l) => /^\s*Concepto\s+Prima\s+Neta\b/i.test(l));
+    const fila = iTabla >= 0 ? lineas.slice(iTabla + 1, iTabla + 4).find((l) => /\$\s*[\d,]+\.\d+/.test(l)) : null;
+    if (fila) {
+        const encabezado = lineas[iTabla];
+        const columnas = [['neta', /Prima\s+Neta/i], ['recargo', /Recargo/i], ['derecho', /Derecho/i], ['iva', /IVA|I\.V\.A/i], ['total', /Total/i]]
+            .map(([k, re]) => ({ k, pos: encabezado.search(re) }))
+            .filter((c) => c.pos >= 0)
+            .sort((a, b) => a.pos - b.pos);
+        const montos = (fila.match(/\$\s*[\d,]+(?:\.\d+)?/g) || []).map(montoNum);
+        const de = (k) => { const i = columnas.findIndex((c) => c.k === k); return i >= 0 && i < montos.length ? montos[i] : null; };
+        primaNeta = de('neta');
+        derechos = de('derecho');
+        iva = de('iva');
+        total = de('total');
+    } else {
+        primaNeta = monto('Prima\\s+Neta');
+        derechos = monto('Gastos\\s+(?:de\\s+)?Expedici[oó]n');
+        iva = monto('I\\.?\\s*V\\.?\\s*A\\.?');
+        const financiamiento = monto('Financiamiento');
+        total = monto('Prima\\s+Total');
+        if (total === null && [primaNeta, derechos, iva].some((v) => v !== null)) {
+            total = [primaNeta, derechos, iva, financiamiento].reduce((s, v) => s + (v || 0), 0);
+        }
+    }
+    // Con movimientos al inciso, el del endoso es el de sus incisos (si todos son alta, es alta; si todos baja, baja).
+    const movs = incisos.filter((i) => i.movimiento).map((i) => i.movimiento);
+    if (movs.length && movs.every((x) => x === movs[0])) { movimiento = movs[0]; }
+    // Un solo inciso dado de alta: su prima es la prima neta del endoso.
+    const altas = incisos.filter((i) => i.movimiento === 'alta');
+    if (altas.length === 1 && incisos.length === 1 && primaNeta !== null) { altas[0].prima = primaNeta; }
+    return { numero, tipo, movimiento, general, fecha, incisos, detalle, primaNeta, derechos, iva, total };
+}
+
+/**
+ * Especificación de una ubicación en un endoso / póliza de Daños de Afirme ("ESPECIFICACIÓN UBICACIÓN 30"): domicilio,
+ * giro y suma asegurada (la de Incendio de sus secciones: edificio y contenidos). Vacío si no viene.
+ */
+export function especificacionUbicacion(texto, inciso) {
+    const t = String(texto || '');
+    const re = /ESPECIFICACI[OÓ]N\s+UBICACI[OÓ]N\s+(\d+)/gi;
+    let desde = -1;
+    let hasta = t.length;
+    let m;
+    while ((m = re.exec(t)) !== null) {
+        if (m[1] === String(inciso)) {
+            if (desde < 0) { desde = m.index; }
+        } else if (desde >= 0) {
+            hasta = m.index;
+            break;
+        }
+    }
+    if (desde < 0) { return {}; }
+    const b = t.substring(desde, hasta);
+    const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+    const dir = /Ubicaci[oó]n\s*:\s*([\s\S]*?)\n\s*Tipo\s+Constructivo/i.exec(b);
+    const giro = /Giro\s+o\s+Actividad\s*:\s*([^\n]+)/i.exec(b);
+    let suma = 0;
+    const reInc = /Incendio\s+y\/o\s+Rayo\s+\$\s*([\d,]+(?:\.\d+)?)/gi;
+    let x;
+    while ((x = reInc.exec(b)) !== null) { suma += Number(x[1].replace(/,/g, '')); }
+    return {
+        direccion: dir ? limpio(dir[1]).replace(/\s+,/g, ',') : '',
+        giro: giro ? limpio(giro[1]) : '',
+        sumaAsegurada: suma || null
+    };
+}
+
 // Un VIN: 17 caracteres sin I, O ni Q.
 const VIN = /^[A-HJ-NPR-Z0-9]{17}$/;
 

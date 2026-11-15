@@ -25,6 +25,9 @@ export default class MovimientosFlotilla extends LightningElement {
     @api readOnly = false;
     @track datos = null;
     @track revision = null;
+    // Endoso leído del documento de la aseguradora: prima y documento para c-datos-endoso.
+    endosoLeido = null;
+    documentoEndoso = null;
     @track form = {};
     cargando = false;
     errorMensaje = '';
@@ -339,14 +342,19 @@ export default class MovimientosFlotilla extends LightningElement {
 
     async handleLeido(e) {
         this.archivoNombre = e.detail.archivo;
+        const incisos = e.detail.incisos || [];
+        const endosos = e.detail.endosos || [];
         this.cargando = true;
         try {
-            const r = await compararArchivo({
-                recordId: this._recordId,
-                incisosJson: JSON.stringify(e.detail.incisos),
-                // Siempre se comparan todos: los que no vienen se proponen como baja, pero desmarcados.
-                censoCompleto: true
-            });
+            const r = incisos.length
+                ? await compararArchivo({
+                    recordId: this._recordId,
+                    incisosJson: JSON.stringify(incisos),
+                    // Siempre se comparan todos: los que no vienen se proponen como baja, pero desmarcados.
+                    censoCompleto: true
+                })
+                : { altas: [], bajas: [], cambios: [], sinCambios: 0, duplicados: [] };
+            this.agregarEndosos(r, endosos);
             this.revision = {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
                 bajas: r.bajas.map((b) => ({ ...b, key: 'b' + b.id, sel: !b.faltante, motivo: '' })),
@@ -362,11 +370,61 @@ export default class MovimientosFlotilla extends LightningElement {
                 }))
             };
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
+            this.endosoLeido = null;
+            this.documentoEndoso = null;
+            if (endosos.length) {
+                // Datos del endoso: número, fecha en que surte efecto, detalle, prima y el documento para adjuntarlo.
+                const x = endosos[0];
+                this.comun = {
+                    ...this.comun,
+                    fecha: x.fecha || this.fechaDefault,
+                    endoso: endosos.map((y) => y.numero).filter((y) => y).join(', '),
+                    comentario: [x.tipo, x.detalle].filter((y) => y).join(': ').substring(0, 255)
+                };
+                const conPrima = [x.primaNeta, x.derechos, x.iva, x.total].some((v) => v !== null && v !== undefined);
+                this.endosoLeido = conPrima ? { primaNeta: x.primaNeta, derechos: x.derechos, iva: x.iva, total: x.total } : null;
+                this.documentoEndoso = x.documento || null;
+            }
             this.vista = 'revision';
         } catch (err) {
             this.mostrarError(err);
         } finally {
             this.cargando = false;
+        }
+    }
+
+    // Endosos que no son alta (cambio de datos, baja): el inciso se busca por número entre los vehículos vigentes. Uno
+    // de aplicación general (no menciona incisos) es un cambio en cada vehículo vigente.
+    agregarEndosos(r, endosos) {
+        const vigentes = this.vehiculos.filter((v) => v.activo !== false);
+        const porInciso = new Map();
+        vigentes.filter((v) => v.inciso !== null && v.inciso !== undefined).forEach((v) => porInciso.set(String(Number(v.inciso)), v));
+        const faltan = [];
+        endosos.filter((x) => x.movimiento !== 'alta').forEach((x) => {
+            const afectados = [];
+            if (x.general) {
+                afectados.push(...vigentes);
+            } else {
+                (x.incisos || []).forEach((i) => {
+                    const v = porInciso.get(String(Number(i.inciso)));
+                    if (v) { afectados.push(v); } else { faltan.push(`inciso ${i.inciso} (endoso ${x.numero || 's/n'})`); }
+                });
+            }
+            afectados.forEach((v) => {
+                if (x.movimiento === 'baja') {
+                    if (!r.bajas.some((b) => b.id === v.id)) {
+                        r.bajas.push({ id: v.id, inciso: v.inciso, serie: v.serie, descripcion: v.descripcion, placas: v.placas, faltante: false });
+                    }
+                } else if (!r.cambios.some((c) => c.id === v.id)) {
+                    r.cambios.push({
+                        id: v.id, inciso: v.inciso, serie: v.serie, descripcion: v.descripcion, datos: null, diferencias: [],
+                        textoEndoso: `Endoso ${x.numero || ''} · ${x.tipo || 'Cambio'}: ${x.detalle || 'sin detalle'}`.replace(/\s+·/, ' ·')
+                    });
+                }
+            });
+        });
+        if (faltan.length) {
+            this.toast('Endoso', `No se encontró entre los vehículos vigentes: ${faltan.join('; ')}.`, 'warning');
         }
     }
 
@@ -377,7 +435,9 @@ export default class MovimientosFlotilla extends LightningElement {
     get cambiosRev() {
         return (this.revision ? this.revision.cambios : []).map((c) => ({
             ...c,
-            difs: c.diferencias.map((d, i) => ({ key: c.key + i, texto: `${d.campo}: ${d.antes} → ${d.despues}` }))
+            difs: c.textoEndoso
+                ? [{ key: c.key + 'e', texto: c.textoEndoso }]
+                : c.diferencias.map((d, i) => ({ key: c.key + i, texto: `${d.campo}: ${d.antes} → ${d.despues}` }))
         }));
     }
     get hayAltas() { return this.altasRev.length > 0; }

@@ -348,8 +348,16 @@ public with sharing class MovimientosFlotillaController {
 				Inciso_Flotilla__c inc = incisos.get(Id.valueOf(m.id));
 				if (inc.Fecha_Baja__c != null) { throw CensoColectivoController.error(nombre(inc) + ' está dado de baja: no se puede cambiar.'); }
 				String placasAntes = inc.Placas__c;
-				List<String> detalle = cambiarInciso(inc, m.datos);
-				if (detalle.isEmpty()) { continue; }
+				// Endoso de la aseguradora sin datos que cambiar (ej. cambio de observaciones): se registra igual.
+				List<String> detalle = m.datos == null ? new List<String>() : cambiarInciso(inc, m.datos);
+				if (detalle.isEmpty() && String.isBlank(m.endoso)) { continue; }
+				if (detalle.isEmpty()) {
+					Movimiento_Poliza__c sinDatos = registro(m, CAMBIO, CONTEXTO_ENDOSO, policyId, null, inc);
+					sinDatos.Detalle__c = 'Endoso de la aseguradora sin cambio en los datos del vehículo.';
+					registro.add(sinDatos);
+					cambios++;
+					continue;
+				}
 				actualizar.put(inc.Id, inc);
 				InsurancePolicyAsset a = bienes.get(inc.Vehiculo__c);
 				if (a != null && m.datos.prima != null && a.StandardPremiumAmount != m.datos.prima) {
@@ -498,7 +506,7 @@ public with sharing class MovimientosFlotillaController {
 				registro.add(r);
 				continue;
 			}
-			List<String> detalle = cambiarInciso(inc, m.datos);
+			List<String> detalle = m.datos == null ? new List<String>() : cambiarInciso(inc, m.datos);
 			if (detalle.isEmpty()) { continue; }
 			actualizar.add(inc);
 			Movimiento_Poliza__c r = registro(m, CAMBIO, CONTEXTO_RENOVACION, polizaId, oppId, inc);
@@ -755,7 +763,8 @@ public with sharing class MovimientosFlotillaController {
 			}
 			// El motivo de baja es opcional: si viene vacío se guarda sin motivo.
 			if (String.isBlank(m.motivo)) { m.motivo = null; }
-			if (m.tipo != BAJA && m.datos == null) {
+			// Un cambio sin datos solo es válido como endoso de la aseguradora (se registra sin modificar el vehículo).
+			if (m.tipo != BAJA && m.datos == null && !(m.tipo == CAMBIO && String.isNotBlank(m.endoso))) {
 				throw CensoColectivoController.error('Movimiento ' + (i + 1) + ': faltan los datos del vehículo.');
 			}
 			if (m.tipo == ALTA && String.isBlank(m.datos.serie) && String.isBlank(m.datos.descripcion)) {

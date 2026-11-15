@@ -54,6 +54,11 @@
                         <div class="mov-acciones">
                             <template if:true={puedeEditar}>
                                 <lightning-button label="Alta de ubicación" icon-name="utility:add" onclick={abrirAlta}></lightning-button>
+                                <template if:true={puedeCargarEndoso}>
+                                    <lightning-button label="Cargar endoso" icon-name="utility:upload" onclick={elegirEndoso}
+                                        title="PDF del endoso de la aseguradora"></lightning-button>
+                                    <input type="file" class="endoso-input slds-hide" accept=".pdf" onchange={handleEndosoArchivo} />
+                                </template>
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
                             </template>
@@ -291,6 +296,49 @@
                             </div>
                         </template>
 
+                        <template if:true={enModalEndoso}>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Endoso {endosoInfo.numero} · {endosoInfo.tipo}</h2></div>
+                            <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <p class="sub">{endosoInfo.archivo} · {endosoInfo.alcance}</p>
+                                <template if:true={endosoInfo.detalle}><p class="slds-m-vertical_x-small">{endosoInfo.detalle}</p></template>
+                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm} required></lightning-input>
+                                    </div>
+                                    <template if:true={hayBajasEndoso}>
+                                        <div class="slds-col slds-size_1-of-3">
+                                            <lightning-combobox label="Motivo de baja (opcional)" value={form.motivo} options={motivos}
+                                                data-campo="motivo" onchange={handleForm} placeholder="Sin motivo"></lightning-combobox>
+                                        </div>
+                                    </template>
+                                    <div class="slds-col slds-size_1-of-1">
+                                        <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
+                                    </div>
+                                </div>
+                                <p class="slds-m-top_small"><strong>Movimientos del endoso ({textoObjetivosEndoso})</strong></p>
+                                <label class="mov-excel-fecha mov-excel-todas">
+                                    <input type="checkbox" checked={todosObjetivosEndoso} onchange={marcarTodosObjetivosEndoso} />
+                                    <span>Todas</span>
+                                </label>
+                                <div class="mov-excel-lista">
+                                    <template for:each={objetivosEndoso} for:item="o">
+                                        <label key={o.key} class="mov-excel-fecha">
+                                            <input type="checkbox" data-key={o.key} checked={o.sel} onchange={marcarObjetivoEndoso} />
+                                            <span>{o.texto}</span>
+                                        </label>
+                                    </template>
+                                </div>
+                                <c-datos-endoso valores-iniciales={endosoLeido} archivo-inicial={documentoEndoso}></c-datos-endoso>
+                            </div>
+                            <div class="slds-modal__footer">
+                                <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
+                                <lightning-button label="Aplicar endoso" variant="brand" class="slds-m-left_x-small" onclick={guardarEndoso}
+                                    disabled={sinObjetivosEndoso}></lightning-button>
+                            </div>
+                        </template>
                         <template if:true={enModalCambio}>
                             <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Cambio de datos: {form.nombreActual}</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">

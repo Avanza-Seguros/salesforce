@@ -15,7 +15,7 @@ import {
     fold, tieneDatos, numero, moneda, abrirTabla, detectarEncabezado,
     mapeoAutomatico, opcionesColumnas, opcionesEncabezado, paginasPdf, inicioDatos
 } from 'c/lectorArchivos';
-import { incisosDeCaratulas, unirIncisosIa, bloquesPorInciso, corregirIncisos } from 'c/clasificadorArchivos';
+import { incisosDeCaratulas, unirIncisosIa, bloquesPorInciso, corregirIncisos, endosoDeTexto } from 'c/clasificadorArchivos';
 import getCensoVehiculos from '@salesforce/apex/CensoVehiculosController.getCensoVehiculos';
 import guardarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.guardarCensoVehiculos';
 import eliminarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.eliminarCensoVehiculos';
@@ -77,6 +77,8 @@ export default class CensoVehiculos extends LightningElement {
     _acumulado = [];
     _rangos = [];
     _archivoActual = '';
+    // Endosos de la aseguradora leídos (en el lector de la póliza): número, tipo, incisos, primas y el documento.
+    _endosos = [];
 
     @api
     get opportunityId() { return this._opportunityId; }
@@ -214,6 +216,7 @@ export default class CensoVehiculos extends LightningElement {
         this._totalArchivos = files.length;
         this._acumulado = [];
         this._rangos = [];
+        this._endosos = [];
         this.errorMensaje = '';
         await this.siguienteArchivo();
     }
@@ -222,6 +225,12 @@ export default class CensoVehiculos extends LightningElement {
             if (this._acumulado.length) {
                 this.archivoNombre = this._rangos.map((r) => r.nombre).join(', ');
                 this.validar(this._acumulado);
+            } else if (this._endosos.length) {
+                // Solo endosos (cambio de datos, baja…): pasan directo a la revisión de movimientos.
+                const endosos = this._endosos;
+                this.cancelar();
+                this.dispatchEvent(new CustomEvent('leido', { detail: {
+                    incisos: [], endosos, archivo: endosos.map((x) => x.archivo).join(', ') } }));
             } else if (this.paso === 'mapeo') {
                 this.cancelar();
             }
@@ -359,6 +368,7 @@ export default class CensoVehiculos extends LightningElement {
         this._cola = [];
         this._acumulado = [];
         this._rangos = [];
+        this._endosos = [];
     }
     volverAMapeo() {
         // Con un solo Excel se puede volver a su mapeo; con varios archivos se empieza de nuevo.
@@ -378,6 +388,13 @@ export default class CensoVehiculos extends LightningElement {
         const paginas = await paginasPdf(this, file, (m) => { this.progreso = m; });
         if (!paginas.some((p) => p.trim())) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide el listado en Excel.');
+        }
+        // Endoso de la aseguradora: un alta trae la carátula del inciso nuevo (se lee abajo); los demás (cambio de datos,
+        // baja) solo traen el inciso, el detalle y la prima, y pasan así a la revisión de movimientos.
+        const endoso = this.esLector ? endosoDeTexto(paginas.join('\n'), file.name) : null;
+        if (endoso) {
+            this._endosos.push({ ...endoso, archivo: file.name, documento: file });
+            if (endoso.movimiento !== 'alta') { return; }
         }
         // Póliza con una carátula por inciso (ej. Afirme): se lee directo del texto, sin IA. Por bloques, un inciso
         // queda partido entre dos bloques y la IA lo repetía o le cruzaba los datos del inciso vecino.
@@ -600,7 +617,8 @@ export default class CensoVehiculos extends LightningElement {
         const validos = this.validos;
         if (!validos.length) { return; }
         if (this.esLector) {
-            this.dispatchEvent(new CustomEvent('leido', { detail: { incisos: validos.map((r) => this.payload(r)), archivo: this.archivoNombre } }));
+            this.dispatchEvent(new CustomEvent('leido', { detail: {
+                incisos: validos.map((r) => this.payload(r)), endosos: this._endosos, archivo: this.archivoNombre } }));
             this.cancelar();
             return;
         }
