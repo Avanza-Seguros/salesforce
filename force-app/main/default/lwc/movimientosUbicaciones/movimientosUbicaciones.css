@@ -301,3 +301,29 @@
 .mov-excel-todas {
     font-weight: 600;
 }
+
+/* Ubicaciones repetidas del archivo */
+.mov-duplicados {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0.25rem;
+    border-left: 4px solid #dd7a01;
+    background: #fef6e6;
+    color: #5c3a00;
+}
+
+.mov-duplicados-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.mov-duplicados .mov-lista {
+    margin-bottom: 0;
+}
+
+/* Aviso de las que no vienen en el archivo (bajas propuestas, desmarcadas) */
+.mov-faltantes {
+    margin: 0 0 0.5rem;
+}

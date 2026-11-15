@@ -11,8 +11,8 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
-import { fechaVisible, moneda, descargarExcel, paginasPdf } from 'c/lectorArchivos';
-import { endosoDeTexto } from 'c/clasificadorArchivos';
+import { fold, fechaVisible, moneda, descargarExcel, paginasPdf, abrirTabla } from 'c/lectorArchivos';
+import { endosoDeTexto, especificacionUbicacion, mapeoComo, ubicacionesDesdeTabla, TIPOS } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosUbicacionesController.getDatos';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosUbicacionesController.aplicar';
@@ -20,12 +20,28 @@ import traerDePoliza from '@salesforce/apex/MovimientosUbicacionesController.tra
 
 const POR_PAGINA = 50;
 
+// Domicilio comparable: sin acentos, signos, "C.P." ni palabras de relleno ("No.", "Num.", "Col.").
+function llaveDomicilio(v) {
+    return fold(v).replace(/\b(c p|cp|codigo postal|no|num|numero|col|colonia|int|ext|interior|exterior)\b/g, ' ')
+        .replace(/\s+/g, '');
+}
+
+// Ubicaciones de un PDF de póliza de Daños de Afirme: una "ESPECIFICACIÓN UBICACIÓN n" por inciso.
+function ubicacionesDePdf(texto) {
+    const numeros = [...new Set([...String(texto || '').matchAll(/ESPECIFICACI[OÓ]N\s+UBICACI[OÓ]N\s+(\d+)/gi)].map((m) => m[1]))];
+    return numeros.map((n) => ({ inciso: n, ...especificacionUbicacion(texto, n) })).filter((u) => u.direccion);
+}
+
 export default class MovimientosUbicaciones extends LightningElement {
     @api readOnly = false;
     @track datos = null;
     @track form = {};
     // Endoso leído del PDF de la aseguradora: tipo, detalle, ubicaciones que toca, prima y el documento.
     @track endosoInfo = null;
+    // Revisión del archivo de ubicaciones: altas, bajas, cambios y repetidas.
+    @track revision = null;
+    @track comun = {};
+    archivoNombre = '';
     endosoLeido = null;
     documentoEndoso = null;
     cargando = false;
@@ -100,7 +116,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     get enLista() { return this.vista === 'lista'; }
     get enHistorial() { return this.vista === 'historial'; }
     get enEndosos() { return this.vista === 'endosos'; }
-    verLista() { this.vista = 'lista'; }
+    verLista() { this.vista = 'lista'; this.revision = null; }
     verHistorial() { this.vista = 'historial'; }
     verEndosos() { this.vista = 'endosos'; }
 
@@ -210,80 +226,63 @@ export default class MovimientosUbicaciones extends LightningElement {
     // Endoso de la aseguradora (PDF): se lee sin IA y se aplica como cambio (o baja) de las ubicaciones que toca.
     // Uno de aplicación general (no menciona ubicaciones) es un cambio en cada ubicación vigente.
     // ============================================================
-    get puedeCargarEndoso() { return this.puedeEditar && this.enPoliza; }
-    elegirEndoso() {
-        const input = this.template.querySelector('input.endoso-input');
-        if (input) { input.click(); }
-    }
-    async handleEndosoArchivo(e) {
-        const file = e.target.files && e.target.files[0];
-        e.target.value = null;
-        if (!file) { return; }
-        this.cargando = true;
-        try {
-            const paginas = await paginasPdf(this, file);
-            const x = endosoDeTexto(paginas.join('\n'), file.name);
-            if (!x) {
-                this.toast('Endoso', `${file.name} no parece un endoso de la aseguradora (no trae número ni tipo de endoso).`, 'warning');
-                return;
-            }
-            // Lo que toca el endoso: de aplicación general, todas las ubicaciones vigentes; si trae incisos, cada uno con
-            // su movimiento (el alta trae los datos de la ubicación nueva; la baja y el cambio se buscan por inciso).
-            const vigentes = this.ubicaciones.filter((u) => u.activo !== false);
-            const porInciso = new Map();
-            vigentes.filter((u) => u.inciso !== null && u.inciso !== undefined).forEach((u) => porInciso.set(String(Number(u.inciso)), u));
-            const etiqueta = { alta: 'Alta', baja: 'Baja', cambio: 'Cambio' };
-            const objetivos = [];
-            const faltan = [];
-            if (x.general) {
-                vigentes.forEach((u) => objetivos.push({ key: u.id, id: u.id, tipo: x.movimiento === 'baja' ? 'baja' : 'cambio' }));
-            } else {
-                (x.incisos || []).forEach((i) => {
-                    const tipo = i.movimiento || x.movimiento;
-                    if (tipo === 'alta') {
-                        objetivos.push({ key: 'a' + i.inciso, tipo, datos: {
-                            inciso: Number(i.inciso), direccion: i.direccion || '', giro: i.giro || '',
-                            sumaAsegurada: i.sumaAsegurada ?? null, prima: i.prima ?? null } });
-                        return;
-                    }
-                    const u = porInciso.get(String(Number(i.inciso)));
-                    if (u) { objetivos.push({ key: u.id, id: u.id, tipo }); } else { faltan.push(i.inciso); }
-                });
-            }
-            if (faltan.length) {
-                this.toast('Endoso', `No hay ubicación vigente con el inciso ${faltan.join(', ')} del endoso ${x.numero}.`, 'warning');
-            }
-            const porId = new Map(vigentes.map((u) => [u.id, u]));
-            this.endosoInfo = {
-                ...x,
-                archivo: file.name,
-                alcance: x.general
-                    ? `Aplicación general: se registra ${x.movimiento === 'baja' ? 'la baja de' : 'un cambio en'} cada ubicación vigente.`
-                    : `Movimientos al inciso: ${(x.incisos || []).map((i) => i.inciso).join(', ')}.`,
-                objetivos: objetivos.map((o) => ({
-                    ...o,
-                    sel: true,
-                    texto: o.tipo === 'alta'
-                        ? `Alta · Inciso ${o.datos.inciso} · ${o.datos.direccion || 'sin domicilio'}`
-                            + (o.datos.sumaAsegurada ? ` · Suma asegurada ${moneda(o.datos.sumaAsegurada)}` : '')
-                        : `${etiqueta[o.tipo]} · ${this.nombre(porId.get(o.id))}`
-                }))
-            };
-            this.form = {
-                fecha: x.fecha || this.fechaDefault,
-                endoso: x.numero || '',
-                motivo: '',
-                comentario: [x.tipo, x.detalle].filter((y) => y).join(': ').substring(0, 255)
-            };
-            const conPrima = [x.primaNeta, x.derechos, x.iva, x.total].some((v) => v !== null && v !== undefined);
-            this.endosoLeido = conPrima ? { primaNeta: x.primaNeta, derechos: x.derechos, iva: x.iva, total: x.total } : null;
-            this.documentoEndoso = file;
-            this.modal = 'endoso';
-        } catch (err) {
-            this.toast('Endoso', (err && (err.body && err.body.message || err.message)) || 'No se pudo leer el endoso.', 'error');
-        } finally {
-            this.cargando = false;
+    // Abre el modal del endoso con lo que toca; false si el texto no es un endoso.
+    leerEndoso(file, texto) {
+        const x = endosoDeTexto(texto, file.name);
+        if (!x) { return false; }
+        // Lo que toca el endoso: de aplicación general, todas las ubicaciones vigentes; si trae incisos, cada uno con
+        // su movimiento (el alta trae los datos de la ubicación nueva; la baja y el cambio se buscan por inciso).
+        const vigentes = this.ubicaciones.filter((u) => u.activo !== false);
+        const porInciso = new Map();
+        vigentes.filter((u) => u.inciso !== null && u.inciso !== undefined).forEach((u) => porInciso.set(String(Number(u.inciso)), u));
+        const etiqueta = { alta: 'Alta', baja: 'Baja', cambio: 'Cambio' };
+        const objetivos = [];
+        const faltan = [];
+        if (x.general) {
+            vigentes.forEach((u) => objetivos.push({ key: u.id, id: u.id, tipo: x.movimiento === 'baja' ? 'baja' : 'cambio' }));
+        } else {
+            (x.incisos || []).forEach((i) => {
+                const tipo = i.movimiento || x.movimiento;
+                if (tipo === 'alta') {
+                    objetivos.push({ key: 'a' + i.inciso, tipo, datos: {
+                        inciso: Number(i.inciso), direccion: i.direccion || '', giro: i.giro || '',
+                        sumaAsegurada: i.sumaAsegurada ?? null, prima: i.prima ?? null } });
+                    return;
+                }
+                const u = porInciso.get(String(Number(i.inciso)));
+                if (u) { objetivos.push({ key: u.id, id: u.id, tipo }); } else { faltan.push(i.inciso); }
+            });
         }
+        if (faltan.length) {
+            this.toast('Endoso', `No hay ubicación vigente con el inciso ${faltan.join(', ')} del endoso ${x.numero}.`, 'warning');
+        }
+        const porId = new Map(vigentes.map((u) => [u.id, u]));
+        this.endosoInfo = {
+            ...x,
+            archivo: file.name,
+            alcance: x.general
+                ? `Aplicación general: se registra ${x.movimiento === 'baja' ? 'la baja de' : 'un cambio en'} cada ubicación vigente.`
+                : `Movimientos al inciso: ${(x.incisos || []).map((i) => i.inciso).join(', ')}.`,
+            objetivos: objetivos.map((o) => ({
+                ...o,
+                sel: true,
+                texto: o.tipo === 'alta'
+                    ? `Alta · Inciso ${o.datos.inciso} · ${o.datos.direccion || 'sin domicilio'}`
+                        + (o.datos.sumaAsegurada ? ` · Suma asegurada ${moneda(o.datos.sumaAsegurada)}` : '')
+                    : `${etiqueta[o.tipo]} · ${this.nombre(porId.get(o.id))}`
+            }))
+        };
+        this.form = {
+            fecha: x.fecha || this.fechaDefault,
+            endoso: x.numero || '',
+            motivo: '',
+            comentario: [x.tipo, x.detalle].filter((y) => y).join(': ').substring(0, 255)
+        };
+        const conPrima = [x.primaNeta, x.derechos, x.iva, x.total].some((v) => v !== null && v !== undefined);
+        this.endosoLeido = conPrima ? { primaNeta: x.primaNeta, derechos: x.derechos, iva: x.iva, total: x.total } : null;
+        this.documentoEndoso = file;
+        this.modal = 'endoso';
+        return true;
     }
     get objetivosEndoso() { return this.endosoInfo ? this.endosoInfo.objetivos : []; }
     get todosObjetivosEndoso() { return this.objetivosEndoso.length > 0 && this.objetivosEndoso.every((o) => o.sel); }
@@ -311,6 +310,201 @@ export default class MovimientosUbicaciones extends LightningElement {
             if (o.tipo === 'baja') { return { tipo: 'baja', id: o.id, motivo: f.motivo || null, ...comun }; }
             return { tipo: 'cambio', id: o.id, datos: null, ...comun };
         }));
+    }
+
+    // ============================================================
+    // Archivo de la aseguradora (Excel / CSV / PDF): igual que «Cargar vehículos». Se compara contra las ubicaciones
+    // vigentes y se revisan las altas, bajas y cambios antes de aplicarlos. Un PDF de endoso se lee como endoso.
+    // ============================================================
+    get enRevision() { return this.vista === 'revision'; }
+    elegirArchivo() {
+        const input = this.template.querySelector('input.archivo-input');
+        if (input) { input.click(); }
+    }
+    async handleArchivo(e) {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = null;
+        if (!file) { return; }
+        this.cargando = true;
+        try {
+            let ubicaciones;
+            if (/\.pdf$/i.test(file.name)) {
+                const paginas = await paginasPdf(this, file);
+                const texto = paginas.join('\n');
+                if (endosoDeTexto(texto, file.name)) {
+                    if (!this.enPoliza) {
+                        this.toast('Ubicaciones', `${file.name} es un endoso: los endosos se cargan en la póliza.`, 'warning');
+                        return;
+                    }
+                    this.leerEndoso(file, texto);
+                    return;
+                }
+                ubicaciones = ubicacionesDePdf(texto);
+            } else {
+                ubicaciones = await this.ubicacionesDeTabla(file);
+            }
+            if (!ubicaciones.length) {
+                this.toast('Ubicaciones', `No se encontraron ubicaciones en ${file.name}. Revisa que tenga la columna de domicilio`
+                    + ' (en PDF solo se leen las especificaciones de ubicación de Afirme; si no, usa el Excel).', 'warning');
+                return;
+            }
+            this.archivoNombre = file.name;
+            this.revision = this.compararUbicaciones(ubicaciones);
+            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
+            this.endosoLeido = null;
+            this.documentoEndoso = null;
+            this.vista = 'revision';
+        } catch (err) {
+            this.toast('Ubicaciones', (err && (err.body && err.body.message || err.message)) || 'No se pudo leer el archivo.', 'error');
+        } finally {
+            this.cargando = false;
+        }
+    }
+
+    // Primera hoja del libro que tiene columnas de ubicaciones (domicilio, giro, suma asegurada...).
+    async ubicacionesDeTabla(file) {
+        const libro = await abrirTabla(file);
+        const hojas = libro.hojas.length ? libro.hojas : [null];
+        for (const h of hojas) {
+            // eslint-disable-next-line no-await-in-loop
+            const filas = await libro.leerHoja(h);
+            const m = mapeoComo(TIPOS.UBICACIONES, filas || []);
+            if (m.valido) {
+                const lista = ubicacionesDesdeTabla(filas, m.encabezado, m.mapeo);
+                if (lista.length) { return lista; }
+            }
+        }
+        return [];
+    }
+
+    // Ubicaciones del archivo contra las vigentes. Se reconocen por domicilio y, si el domicilio viene escrito distinto,
+    // por número de inciso. Las vigentes que no vienen se proponen como baja, desmarcadas.
+    compararUbicaciones(lista) {
+        const vigentes = this.vigentes;
+        const porDir = new Map();
+        const porInciso = new Map();
+        vigentes.forEach((u) => {
+            const k = llaveDomicilio(u.direccion);
+            if (k && !porDir.has(k)) { porDir.set(k, u); }
+            if (u.inciso !== null && u.inciso !== undefined && u.inciso !== '') { porInciso.set(String(Number(u.inciso)), u); }
+        });
+        const llavesArchivo = new Set(lista.map((y) => llaveDomicilio(y.direccion)));
+        const usados = new Set();
+        const vistos = new Map();
+        const altas = [];
+        const cambios = [];
+        const duplicados = [];
+        let sinCambios = 0;
+        lista.forEach((x, i) => {
+            const fila = i + 1;
+            const k = llaveDomicilio(x.direccion);
+            if (vistos.has(k)) {
+                duplicados.push({ key: 'd' + i, nombre: x.direccion,
+                    detalle: `viene repetida en el archivo (registro ${fila}, ya leída en el registro ${vistos.get(k)}): se toma una sola vez` });
+                return;
+            }
+            vistos.set(k, fila);
+            const inciso = x.inciso !== undefined && x.inciso !== null && x.inciso !== '' && !isNaN(Number(x.inciso)) ? Number(x.inciso) : null;
+            const datos = {
+                inciso, direccion: x.direccion, giro: x.giro || null, sumaAsegurada: x.sumaAsegurada ?? null,
+                prima: x.primaNeta ?? x.primaTotal ?? null
+            };
+            let u = porDir.get(k);
+            if (!u && inciso !== null) {
+                const c = porInciso.get(String(inciso));
+                // Por inciso solo si el domicilio de esa ubicación no viene también en el archivo (sería otra).
+                if (c && !llavesArchivo.has(llaveDomicilio(c.direccion))) { u = c; }
+            }
+            if (u && usados.has(u.id)) { u = null; }
+            if (!u) {
+                altas.push({ key: 'a' + i, sel: true, ...datos, sumaTxt: moneda(datos.sumaAsegurada), primaTxt: moneda(datos.prima), datos });
+                return;
+            }
+            usados.add(u.id);
+            const difs = [];
+            const nuevos = {};
+            const igualTexto = (a, b) => this.fold(a) === this.fold(b);
+            const igualNum = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) < 0.5;
+            if (inciso !== null && Number(u.inciso) !== inciso) {
+                difs.push(`Inciso: ${u.inciso ?? '—'} → ${inciso}`);
+                nuevos.inciso = inciso;
+            }
+            if (!this.enPoliza && datos.direccion && !igualTexto(u.direccion, datos.direccion)) {
+                difs.push(`Domicilio: ${u.direccion || '—'} → ${datos.direccion}`);
+                nuevos.direccion = datos.direccion;
+            }
+            if (datos.giro && !igualTexto(u.giro, datos.giro)) {
+                difs.push(`Giro: ${u.giro || '—'} → ${datos.giro}`);
+                nuevos.giro = datos.giro;
+            }
+            if (datos.sumaAsegurada !== null && !igualNum(u.sumaAsegurada, datos.sumaAsegurada)) {
+                difs.push(`Suma asegurada: ${moneda(u.sumaAsegurada) || '—'} → ${moneda(datos.sumaAsegurada)}`);
+                nuevos.sumaAsegurada = datos.sumaAsegurada;
+            }
+            if (datos.prima !== null && !igualNum(u.prima, datos.prima)) {
+                difs.push(`Prima: ${moneda(u.prima) || '—'} → ${moneda(datos.prima)}`);
+                nuevos.prima = datos.prima;
+            }
+            if (!difs.length) { sinCambios++; return; }
+            cambios.push({ key: 'c' + u.id, sel: true, id: u.id, inciso: u.inciso, direccion: u.direccion, datos: nuevos,
+                difs: difs.map((t, j) => ({ key: u.id + j, texto: t })) });
+        });
+        const bajas = vigentes.filter((u) => !usados.has(u.id)).map((u) => ({
+            key: 'b' + u.id, sel: false, faltante: true, motivo: '', id: u.id, inciso: u.inciso, direccion: u.direccion, giro: u.giro
+        }));
+        return { altas, bajas, cambios, duplicados, sinCambios };
+    }
+
+    get altasRev() { return this.revision ? this.revision.altas : []; }
+    get bajasRev() { return this.revision ? this.revision.bajas : []; }
+    get cambiosRev() { return this.revision ? this.revision.cambios : []; }
+    get duplicadosRev() { return this.revision ? this.revision.duplicados : []; }
+    get hayAltas() { return this.altasRev.length > 0; }
+    get hayBajas() { return this.bajasRev.length > 0; }
+    get hayCambios() { return this.cambiosRev.length > 0; }
+    get hayDuplicados() { return this.duplicadosRev.length > 0; }
+    get sinDiferencias() { return !this.hayAltas && !this.hayBajas && !this.hayCambios; }
+    get textoAltas() { return `Altas (${this.altasRev.length})`; }
+    get textoBajas() { return `Bajas (${this.bajasRev.length})`; }
+    get textoCambios() { return `Cambios (${this.cambiosRev.length})`; }
+    get textoDuplicados() { return `${this.duplicadosRev.length} ubicación(es) del archivo están repetidas: no se duplicaron.`; }
+    get textoSinCambios() { return `${this.revision ? this.revision.sinCambios : 0} ubicaciones sin cambios.`; }
+    get todasBajas() { return this.hayBajas && this.bajasRev.every((b) => b.sel); }
+    get todasAltas() { return this.hayAltas && this.altasRev.every((b) => b.sel); }
+    get todosCambios() { return this.hayCambios && this.cambiosRev.every((b) => b.sel); }
+    get hayFaltantes() { return this.bajasRev.some((b) => b.faltante); }
+    get textoFaltantes() {
+        const n = this.bajasRev.filter((b) => b.faltante).length;
+        return `${n} ubicaciones vigentes no vienen en el archivo. Están desmarcadas: marca solo las que sí se dan de baja `
+            + '(si el archivo es el listado completo, usa la casilla del encabezado para marcarlas todas).';
+    }
+    marcar(e) {
+        const { lista, key } = e.target.dataset;
+        this.revision = { ...this.revision, [lista]: this.revision[lista].map((x) => (x.key === key ? { ...x, sel: e.target.checked } : x)) };
+    }
+    marcarTodos(e) {
+        const { lista } = e.target.dataset;
+        this.revision = { ...this.revision, [lista]: this.revision[lista].map((x) => ({ ...x, sel: e.target.checked })) };
+    }
+    motivoBaja(e) {
+        const key = e.target.dataset.key;
+        this.revision = { ...this.revision, bajas: this.revision.bajas.map((x) => (x.key === key ? { ...x, motivo: e.detail.value } : x)) };
+    }
+    handleComun(e) { this.comun = { ...this.comun, [e.target.dataset.campo]: e.detail.value }; }
+
+    async aplicarRevision() {
+        if (!this.validarForm()) { return; }
+        const c = this.comun;
+        const comun = { fecha: c.fecha, endoso: c.endoso, comentario: c.comentario };
+        const movs = [];
+        this.revision.bajas.filter((b) => b.sel).forEach((b) => movs.push({ tipo: 'baja', id: b.id, motivo: b.motivo || c.motivo || null, ...comun }));
+        this.revision.cambios.filter((x) => x.sel).forEach((x) => movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, ...comun }));
+        this.revision.altas.filter((a) => a.sel).forEach((a) => movs.push({ tipo: 'alta', datos: a.datos, ...comun }));
+        if (!movs.length) {
+            this.toast('Movimientos', 'No seleccionaste ningún movimiento.', 'info');
+            return;
+        }
+        await this.enviar(movs);
     }
 
     get hoy() {
@@ -420,6 +614,7 @@ export default class MovimientosUbicaciones extends LightningElement {
                 + (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : ''), 'success');
             this.cerrarModal();
             this.vista = 'lista';
+            this.revision = null;
             await this.cargar();
             this.avisarCambio();
         } catch (e) {

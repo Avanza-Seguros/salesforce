@@ -37,7 +37,8 @@
                     <template if:true={puedeTraer}>
                         <div class="mov-aviso">
                             <lightning-icon icon-name="utility:refresh" size="x-small"></lightning-icon>
-                            <span>Parte de las ubicaciones vigentes de la póliza anterior y después aplica las altas, bajas y cambios de la renovación.</span>
+                            <span>Parte de las ubicaciones vigentes de la póliza anterior y después aplica las altas, bajas y cambios de la renovación.
+                                Si la aseguradora mandó el listado nuevo, usa «Cargar ubicaciones».</span>
                             <lightning-button label={textoTraer} icon-name="utility:download" onclick={handleTraer}></lightning-button>
                         </div>
                     </template>
@@ -54,13 +55,11 @@
                         <div class="mov-acciones">
                             <template if:true={puedeEditar}>
                                 <lightning-button label="Alta de ubicación" icon-name="utility:add" onclick={abrirAlta}></lightning-button>
-                                <template if:true={puedeCargarEndoso}>
-                                    <lightning-button label="Cargar endoso" icon-name="utility:upload" onclick={elegirEndoso}
-                                        title="PDF del endoso de la aseguradora"></lightning-button>
-                                    <input type="file" class="endoso-input slds-hide" accept=".pdf" onchange={handleEndosoArchivo} />
-                                </template>
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
+                                <lightning-button label="Cargar ubicaciones" icon-name="utility:upload" onclick={elegirArchivo}
+                                    title="Listado de ubicaciones de la aseguradora (Excel, CSV o PDF) o el PDF de un endoso"></lightning-button>
+                                <input type="file" class="archivo-input slds-hide" accept=".xlsx,.xlsm,.xls,.csv,.pdf" onchange={handleArchivo} />
                             </template>
                             <!-- Excel de movimientos: solo pólizas empresariales. -->
                             <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
@@ -142,6 +141,141 @@
                             <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguiente} disabled={sinSiguiente}></lightning-button-icon>
                         </div>
                     </template>
+                </template>
+
+                <!-- ====================== REVISIÓN DEL ARCHIVO ====================== -->
+                <template if:true={enRevision}>
+                    <div class="mov-paso">
+                        <strong>Diferencias de {archivoNombre} contra las ubicaciones vigentes</strong>
+                        <p class="sub">{textoSinCambios} Las ubicaciones se reconocen por domicilio (o por inciso si el domicilio viene escrito distinto). Desmarca lo que no quieras aplicar.</p>
+                    </div>
+
+                    <template if:true={hayDuplicados}>
+                        <div class="mov-duplicados">
+                            <div class="mov-duplicados-titulo">
+                                <lightning-icon icon-name="utility:warning" variant="warning" size="x-small"></lightning-icon>
+                                <strong>{textoDuplicados}</strong>
+                            </div>
+                            <ul class="mov-lista">
+                                <template for:each={duplicadosRev} for:item="d">
+                                    <li key={d.key}><strong>{d.nombre}</strong> — {d.detalle}</li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+
+                    <template if:true={sinDiferencias}>
+                        <div class="mov-vacio"><p>El archivo coincide con las ubicaciones vigentes: no hay movimientos.</p></div>
+                    </template>
+
+                    <template if:false={sinDiferencias}>
+                        <div class="slds-grid slds-wrap slds-gutters_x-small modal-form">
+                            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                                <lightning-input type="date" label={etiquetaFecha} value={comun.fecha} data-campo="fecha" onchange={handleComun} required></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                                <lightning-input label="Número de endoso" value={comun.endoso} data-campo="endoso" onchange={handleComun}></lightning-input>
+                            </div>
+                            <template if:true={hayBajas}>
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
+                                    <lightning-combobox label="Motivo de baja (general, opcional)" value={comun.motivo} options={motivos}
+                                        data-campo="motivo" onchange={handleComun} placeholder="Sin motivo"></lightning-combobox>
+                                </div>
+                            </template>
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
+                                <lightning-input label="Comentario" value={comun.comentario} data-campo="comentario" onchange={handleComun} max-length="255"></lightning-input>
+                            </div>
+                        </div>
+                        <template if:true={enPoliza}>
+                            <c-datos-endoso valores-iniciales={endosoLeido} archivo-inicial={documentoEndoso}></c-datos-endoso>
+                        </template>
+
+                        <template if:true={hayBajas}>
+                            <h4 class="mov-seccion seccion-baja">{textoBajas}</h4>
+                            <template if:true={hayFaltantes}>
+                                <p class="sub mov-faltantes">{textoFaltantes}</p>
+                            </template>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                    <thead><tr>
+                                        <th class="col-check"><input type="checkbox" data-lista="bajas" checked={todasBajas} onchange={marcarTodos} aria-label="Todas" /></th>
+                                        <th>Inciso</th><th>Domicilio</th><th>Giro</th><th>Motivo (si es distinto al general)</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={bajasRev} for:item="b">
+                                            <tr key={b.key}>
+                                                <td class="col-check"><input type="checkbox" data-lista="bajas" data-key={b.key} checked={b.sel} onchange={marcar} aria-label="Aplicar" /></td>
+                                                <td>{b.inciso}</td>
+                                                <td><div class="nombre">{b.direccion}</div></td>
+                                                <td>{b.giro}</td>
+                                                <td class="col-motivo">
+                                                    <lightning-combobox label="Motivo" variant="label-hidden" value={b.motivo} options={motivos}
+                                                        data-key={b.key} onchange={motivoBaja} placeholder="General"></lightning-combobox>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+
+                        <template if:true={hayAltas}>
+                            <h4 class="mov-seccion seccion-alta">{textoAltas}</h4>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                    <thead><tr>
+                                        <th class="col-check"><input type="checkbox" data-lista="altas" checked={todasAltas} onchange={marcarTodos} aria-label="Todas" /></th>
+                                        <th>Inciso</th><th>Domicilio</th><th>Giro</th><th class="num">Suma asegurada</th><th class="num">Prima</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={altasRev} for:item="a">
+                                            <tr key={a.key}>
+                                                <td class="col-check"><input type="checkbox" data-lista="altas" data-key={a.key} checked={a.sel} onchange={marcar} aria-label="Aplicar" /></td>
+                                                <td>{a.inciso}</td>
+                                                <td><div class="nombre">{a.direccion}</div></td>
+                                                <td>{a.giro}</td>
+                                                <td class="num">{a.sumaTxt}</td>
+                                                <td class="num">{a.primaTxt}</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+
+                        <template if:true={hayCambios}>
+                            <h4 class="mov-seccion seccion-cambio">{textoCambios}</h4>
+                            <div class="mov-scroll">
+                                <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
+                                    <thead><tr>
+                                        <th class="col-check"><input type="checkbox" data-lista="cambios" checked={todosCambios} onchange={marcarTodos} aria-label="Todos" /></th>
+                                        <th>Inciso</th><th>Domicilio</th><th>Cambios</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={cambiosRev} for:item="c">
+                                            <tr key={c.key}>
+                                                <td class="col-check"><input type="checkbox" data-lista="cambios" data-key={c.key} checked={c.sel} onchange={marcar} aria-label="Aplicar" /></td>
+                                                <td>{c.inciso}</td>
+                                                <td><div class="nombre">{c.direccion}</div></td>
+                                                <td>
+                                                    <template for:each={c.difs} for:item="d"><div key={d.key}>{d.texto}</div></template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+                    </template>
+
+                    <div class="mov-pie">
+                        <lightning-button label="Cancelar" onclick={verLista}></lightning-button>
+                        <lightning-button label="Cargar otro archivo" onclick={elegirArchivo}></lightning-button>
+                        <input type="file" class="archivo-input slds-hide" accept=".xlsx,.xlsm,.xls,.csv,.pdf" onchange={handleArchivo} />
+                        <template if:false={sinDiferencias}>
+                            <lightning-button label="Aplicar movimientos" variant="brand" icon-name="utility:check" onclick={aplicarRevision}></lightning-button>
+                        </template>
+                    </div>
                 </template>
 
                 <!-- ====================== ENDOSOS ====================== -->
