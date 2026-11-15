@@ -131,6 +131,21 @@
 }
 
 .part-vistas,
+.col-orden {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.col-orden:hover {
+    color: #0176d3;
+}
+
+.flecha {
+    font-size: 0.625rem;
+    color: #0176d3;
+}
+
 .part-filtros {
     display: flex;
     flex-wrap: wrap;
@@ -192,8 +207,9 @@
     background: #fcfcfc;
 }
 
+/* Dado de baja: el texto se ve igual que los vigentes; solo el estado va en rojo. */
 .fila-baja td {
-    color: #919191;
+    color: inherit;
 }
 
 .fila-abierta td {
@@ -214,8 +230,18 @@
 }
 
 .estado-baja {
-    background: #f3f3f3;
-    color: #5c5c5c;
+    background: #fef1f1;
+    color: #ba0517;
+}
+
+.estado-alta {
+    background: #ebf7e6;
+    color: #2e844a;
+}
+
+.estado-cambio {
+    background: #eef4ff;
+    color: #0176d3;
 }
 
 .fila-detalle td {
@@ -277,6 +303,17 @@
     border-bottom: 1px solid #ececec;
 }
 
+.archivo {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.archivo-cuerpo {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .part-paginacion {
     display: flex;
     align-items: center;
@@ -295,6 +332,40 @@
     border-radius: 0.5rem;
     color: #5c5c5c;
     background: #fafaf9;
+}
+
+.col-correo {
+    max-width: 16rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.part-acciones {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.correo {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+
+.correo-enviado {
+    background: #ebf7e6;
+    color: #2e844a;
+}
+
+.correo-pendiente {
+    background: #fef6e6;
+    color: #8c4b02;
+}
+
+.correo-sin {
+    background: #f3f3f3;
+    color: #706e6b;
 }
 
 .part-vacio p {

@@ -81,14 +81,16 @@
                             <thead>
                                 <tr class="slds-line-height_reset">
                                     <th scope="col" class="col-abrir"></th>
-                                    <th scope="col">Cert.</th>
-                                    <th scope="col">Asegurado</th>
-                                    <template if:true={conParentesco}><th scope="col">Parentesco</th></template>
-                                    <template if:true={conCategoria}><th scope="col">Categoría</th></template>
-                                    <th scope="col">Nacimiento</th>
-                                    <template if:true={conSuma}><th scope="col" class="num">Suma asegurada</th></template>
-                                    <template if:true={conPrima}><th scope="col" class="num">Prima</th></template>
-                                    <th scope="col">Estado</th>
+                                    <th scope="col" class="col-orden" data-campo="certificado" onclick={ordenar}>Cert. <span class="flecha">{flechas.certificado}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="nombre" onclick={ordenar}>Titular <span class="flecha">{flechas.nombre}</span></th>
+                                    <template if:true={conParentesco}><th scope="col" class="col-orden" data-campo="parentesco" onclick={ordenar}>Parentesco <span class="flecha">{flechas.parentesco}</span></th></template>
+                                    <template if:true={conCategoria}><th scope="col" class="col-orden" data-campo="categoria" onclick={ordenar}>Categoría <span class="flecha">{flechas.categoria}</span></th></template>
+                                    <th scope="col" class="col-orden" data-campo="nacimiento" onclick={ordenar}>Nacimiento <span class="flecha">{flechas.nacimiento}</span></th>
+                                    <template if:true={conPrima}><th scope="col" class="num col-orden" data-campo="prima" onclick={ordenar}>Prima <span class="flecha">{flechas.prima}</span></th></template>
+                                    <th scope="col" class="col-orden" data-campo="fechaMovimiento" onclick={ordenar}>Fecha de movimiento <span class="flecha">{flechas.fechaMovimiento}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="estado" onclick={ordenar}>Estado <span class="flecha">{flechas.estado}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="envio" onclick={ordenar}>Envío de correo <span class="flecha">{flechas.envio}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="correo" onclick={ordenar}>Correo <span class="flecha">{flechas.correo}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -99,19 +101,21 @@
                                                 data-id={p.id} onclick={toggleDetalle}></lightning-button-icon>
                                         </td>
                                         <td>{p.certificado}</td>
-                                        <td>
-                                            <div class={p.claseNombre}>{p.nombre}</div>
-                                            <div class="sub">{p.contactoTxt}</div>
-                                        </td>
+                                        <td><div class={p.claseNombre}>{p.nombre}</div></td>
                                         <template if:true={conParentesco}><td>{p.parentescoTxt}</td></template>
                                         <template if:true={conCategoria}><td>{p.categoria}</td></template>
                                         <td>{p.nacimientoTxt}</td>
-                                        <template if:true={conSuma}><td class="num">{p.sumaTxt}</td></template>
                                         <template if:true={conPrima}><td class="num">{p.primaTxt}</td></template>
+                                        <td>{p.fechaMovimientoTxt}</td>
                                         <td>
                                             <span class={p.claseEstado}>{p.estado}</span>
                                             <template if:true={p.motivoBaja}><div class="sub">{p.motivoBaja}</div></template>
                                         </td>
+                                        <td>
+                                            <span class={p.claseCorreo} title={p.tituloCorreo}>{p.correoTxt}</span>
+                                            <template if:true={p.fechaCorreoTxt}><div class="sub">{p.fechaCorreoTxt}</div></template>
+                                        </td>
+                                        <td class="col-correo">{p.correoDir}</td>
                                     </tr>
                                     <template if:true={p.abierto}>
                                         <tr key={p.keyDetalle} class="fila-detalle">
@@ -143,16 +147,22 @@
                                                             data-id={p.id} onclick={abrirRegistro}></lightning-button>
                                                     </div>
                                                     <div class="detalle-bloque">
-                                                        <h4>Coberturas</h4>
-                                                        <template if:true={p.hayCoberturas}>
+                                                        <h4>Archivos</h4>
+                                                        <template if:true={p.hayArchivos}>
                                                             <ul class="lista">
-                                                                <template for:each={p.coberturasTxt} for:item="c">
-                                                                    <li key={c.key}><strong>{c.nombre}</strong><div class="sub">{c.detalle}</div></li>
+                                                                <template for:each={p.archivosTxt} for:item="a">
+                                                                    <li key={a.key} class="archivo">
+                                                                        <lightning-icon icon-name={a.icono} size="x-small" alternative-text={a.tipo}></lightning-icon>
+                                                                        <div class="archivo-cuerpo">
+                                                                            <a href="#" data-id={a.id} onclick={verArchivo} title="Ver archivo">{a.titulo}</a>
+                                                                            <div class="sub">{a.detalle}</div>
+                                                                        </div>
+                                                                    </li>
                                                                 </template>
                                                             </ul>
                                                         </template>
-                                                        <template if:false={p.hayCoberturas}>
-                                                            <p class="sub">Sin coberturas individuales: aplican las de la póliza.</p>
+                                                        <template if:false={p.hayArchivos}>
+                                                            <p class="sub">No hay archivos adjuntos para este contacto.</p>
                                                         </template>
                                                         <template if:true={p.hayBeneficiarios}>
                                                             <h4 class="slds-m-top_small">Beneficiarios</h4>
@@ -182,12 +192,14 @@
                             <thead>
                                 <tr class="slds-line-height_reset">
                                     <th scope="col" class="col-abrir"></th>
-                                    <th scope="col">Nombre</th>
-                                    <th scope="col">Rol</th>
-                                    <th scope="col">Parentesco</th>
-                                    <template if:true={enBeneficiarios}><th scope="col" class="num">Porcentaje</th></template>
-                                    <th scope="col">Contacto</th>
-                                    <th scope="col">Estado</th>
+                                    <th scope="col" class="col-orden" data-campo="nombre" onclick={ordenar}>Nombre <span class="flecha">{flechas.nombre}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="rol" onclick={ordenar}>Rol <span class="flecha">{flechas.rol}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="parentesco" onclick={ordenar}>Parentesco <span class="flecha">{flechas.parentesco}</span></th>
+                                    <template if:true={enBeneficiarios}><th scope="col" class="num col-orden" data-campo="porcentaje" onclick={ordenar}>Porcentaje <span class="flecha">{flechas.porcentaje}</span></th></template>
+                                    <th scope="col" class="col-orden" data-campo="fechaMovimiento" onclick={ordenar}>Fecha de movimiento <span class="flecha">{flechas.fechaMovimiento}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="estado" onclick={ordenar}>Estado <span class="flecha">{flechas.estado}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="envio" onclick={ordenar}>Envío de correo <span class="flecha">{flechas.envio}</span></th>
+                                    <th scope="col" class="col-orden" data-campo="correo" onclick={ordenar}>Correo <span class="flecha">{flechas.correo}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -204,12 +216,17 @@
                                         <td>{p.rolesTexto}</td>
                                         <td>{p.parentesco}</td>
                                         <template if:true={enBeneficiarios}><td class="num">{p.porcentajeTxt}</td></template>
-                                        <td>{p.contactoTxt}</td>
+                                        <td>{p.fechaMovimientoTxt}</td>
                                         <td><span class={p.claseEstado}>{p.estado}</span></td>
+                                        <td>
+                                            <span class={p.claseCorreo} title={p.tituloCorreo}>{p.correoTxt}</span>
+                                            <template if:true={p.fechaCorreoTxt}><div class="sub">{p.fechaCorreoTxt}</div></template>
+                                        </td>
+                                        <td class="col-correo">{p.correoDir}</td>
                                     </tr>
                                     <template if:true={p.abierto}>
                                         <tr key={p.keyDetalle} class="fila-detalle">
-                                            <td colspan="7">
+                                            <td colspan="9">
                                                 <div class="detalle">
                                                     <div class="detalle-bloque">
                                                         <h4>{p.personaTitulo}</h4>

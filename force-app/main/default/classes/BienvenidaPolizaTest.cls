@@ -1,87 +1,93 @@
+/**
+ *   @name: BienvenidaPolizaTest
+ *   @description: Pruebas de BienvenidasPoliza: el correo de bienvenida se envía una sola vez y solo a Correo__c.
+ *                 No depende de tipos de registro ni de pasar la oportunidad a Closed Won (validaciones de la org).
+ */
 @isTest
 public class BienvenidaPolizaTest {
 
+    static String activeStage() {
+        List<OpportunityStage> s = [
+            SELECT MasterLabel FROM OpportunityStage WHERE IsActive = true AND IsClosed = false ORDER BY SortOrder LIMIT 1
+        ];
+        return s.isEmpty() ? 'Prospecting' : s[0].MasterLabel;
+    }
+
     @testSetup
     static void setup() {
-        Account acc = new Account();
-        acc.Name = 'Luxoft Mexico S.A. De C.V.';
+        Account acc = new Account(Name = 'Luxoft Mexico S.A. De C.V.');
         insert acc;
-        
-        Agente__c ag = new Agente__c();
-        ag.Name = 'Juan Perez';
-        ag.Status__c = 'nuevo';
-        ag.Estado_Civil__c = 'Casado';
-        insert ag;
-        
-        RecordType bajaRecordType = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Oportunidad_Individual' LIMIT 1];
+        Contact c = new Contact(LastName = 'Pérez', FirstName = 'Juan', AccountId = acc.Id, Email = 'juan.perez@ejemplo.com');
+        insert c;
 
-        Opportunity opp = new Opportunity();
-        opp.Name = 'TEST OPP CTE1';
-        opp.AccountId = acc.Id;
-        opp.StageName = 'Necesidad';
-        opp.Cotizante__c = ag.Id;
-        opp.Ramo__c = 'Auto';
-        opp.Correo__c = 'test@gmail.com';
-        opp.CloseDate = Date.today();
-        opp.RecordTypeId = bajaRecordType.Id;
+        Opportunity opp = new Opportunity(Name = 'TEST OPP CTE1', AccountId = acc.Id, StageName = activeStage(),
+            Ramo__c = 'Vida', Correo__c = 'test@ejemplo.com', CloseDate = Date.today().addDays(30));
         insert opp;
+        // Algunos flujos de la org reescriben el correo al crear la oportunidad: se vuelve a poner.
+        update new Opportunity(Id = opp.Id, Ramo__c = 'Vida', Correo__c = 'test@ejemplo.com');
 
-        opp.StageName = 'Closed Won';
-        update opp;
-   
-        ContentVersion content = new ContentVersion(); 
-        content.Title = 'Header_Picture1'; 
-        content.PathOnClient = '/' + content.Title + '.jpg'; 
-        Blob bodyBlob = Blob.valueOf('Unit Test ContentVersion Body'); 
-        content.VersionData = bodyBlob;
-        content.Origin = 'H';
+        ContentVersion content = new ContentVersion(Title = 'Header_Picture1', PathOnClient = '/Header_Picture1.jpg',
+            VersionData = Blob.valueOf('Unit Test ContentVersion Body'), Origin = 'H');
         insert content;
-        
-        ContentDocumentLink contentlink = new ContentDocumentLink();
-        contentlink.LinkedEntityId = opp.Id;
-        contentlink.ContentDocumentId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :content.Id].ContentDocumentId;
-        contentlink.ShareType = 'I';
-        contentlink.Visibility = 'AllUsers';
-        insert contentlink;      
+        insert new ContentDocumentLink(LinkedEntityId = opp.Id, ShareType = 'I', Visibility = 'AllUsers',
+            ContentDocumentId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :content.Id].ContentDocumentId);
     }
-    
-    static testmethod void EnvioBienvenidas() {
+
+    @isTest
+    static void enviaUnaSolaVezPorTransaccion() {
+        Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
         Test.startTest();
-        Opportunity opp = [SELECT Id, AccountId, StageName FROM Opportunity WHERE StageName = 'Closed Won' LIMIT 1];
-        opp.StageName = 'Concluido';
-        update opp;
+        BienvenidasPoliza.EnvioEmail(opp.Id);
+        Integer despuesDelPrimero = Limits.getEmailInvocations();
+        BienvenidasPoliza.EnvioEmail(opp.Id);
+        Integer despuesDelSegundo = Limits.getEmailInvocations();
         Test.stopTest();
-        
-        // Verifica si el estado se actualizó correctamente
-        Opportunity updatedOpp = [SELECT StageName FROM Opportunity WHERE Id = :opp.Id];
-        System.assertEquals('Concluido', updatedOpp.StageName, 'La oportunidad debe estar en estado Concluido');
+        System.assertEquals(despuesDelPrimero, despuesDelSegundo, 'La segunda llamada no debe volver a enviar');
+        System.assert(BienvenidasPoliza.enviadas.contains(opp.Id));
     }
-    
-    static testmethod void sendEmailTest() {
+
+    @isTest
+    static void conCorreoYPlantilla() {
+        Opportunity opp = [SELECT Id, Correo__c, Ramo__c FROM Opportunity LIMIT 1];
+        System.assertEquals('test@ejemplo.com', opp.Correo__c, 'El correo debe quedar en la oportunidad');
         Test.startTest();
-        
-        // Recuperar la oportunidad una vez
-        Opportunity opp = [SELECT Id, AccountId, Correo__c FROM Opportunity WHERE StageName = 'Closed Won' LIMIT 1];
-        
-        // Simular diferentes valores válidos de Ramo__c
-        List<String> ramoValues = new List<String>{'Auto', 'Vida', 'Danos', 'Retiro', 'Gastos Medicos', 'RC', 'Mascota', 'Fianzas', 'Administrativa', 'Accidentes', 'Viajes'};
-        
-        for (String ramo : ramoValues) {
-            opp.Ramo__c = ramo;
-            opp.Correo__c = 'test@gmail.com';
-            update opp;
-            BienvenidasPoliza.EnvioEmail(opp.Id);
-        }
-        
-        // Probar caso donde no hay correo en la oportunidad
-        opp.Ramo__c = 'Auto';
+        BienvenidasPoliza.EnvioEmail(opp.Id);           // con contacto: usa la plantilla
+        BienvenidasPoliza.enviadas.clear();
+        delete [SELECT Id FROM Contact];
+        BienvenidasPoliza.EnvioEmail(opp.Id);           // sin contacto: asunto y contenido de la plantilla
+        Test.stopTest();
+    }
+
+    @isTest
+    static void ramosYContacto() {
+        Opportunity opp = [SELECT Id, AccountId, Contacto__c, Account.PersonContactId FROM Opportunity LIMIT 1];
+        Contact c = [SELECT Id FROM Contact LIMIT 1];
+        System.assertEquals('Bienvenida_Vida_Poliza', BienvenidasPoliza.plantillaDe('Vida'));
+        System.assertEquals('Bienvenida_General_Poliza', BienvenidasPoliza.plantillaDe('RC'));
+        System.assertEquals(null, BienvenidasPoliza.plantillaDe(null));
+        System.assertEquals(c.Id, BienvenidasPoliza.contactoDe(opp));
+        System.assertEquals(null, BienvenidasPoliza.contactoDe(new Opportunity()));
+    }
+
+    @isTest
+    static void sinContactoNiCorreo() {
+        Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+        delete [SELECT Id FROM Contact];
+        Test.startTest();
+        opp.Ramo__c = 'RC';
+        update opp;
+        BienvenidasPoliza.EnvioEmail(opp.Id);   // sin contacto: asunto y contenido de la plantilla
+        BienvenidasPoliza.enviadas.clear();
         opp.Correo__c = null;
         update opp;
-        BienvenidasPoliza.EnvioEmail(opp.Id);
-        
+        BienvenidasPoliza.EnvioEmail(opp.Id);   // sin correo: no envía
+        BienvenidasPoliza.enviadas.clear();
+        opp.Ramo__c = 'Dental';
+        opp.Correo__c = 'test@ejemplo.com';
+        update opp;
+        BienvenidasPoliza.EnvioEmail(opp.Id);   // ramo sin plantilla: no envía
+        BienvenidasPoliza.EnvioEmail(null);
         Test.stopTest();
-        
-        // Verificar que se intentaron enviar correos electrónicos
-        System.assert(true, 'Se enviaron correos electrónicos de prueba.');
+        System.assert(BienvenidasPoliza.enviadas.contains(opp.Id));
     }
 }

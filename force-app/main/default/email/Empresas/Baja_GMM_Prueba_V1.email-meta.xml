@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Plantilla de prueba para el correo de baja desde Asegurados de la póliza. Se envía al correo personal con el documento de baja adjunto. Los marcadores {{NOMBRE_ASEGURADO}}, {{POLIZA}}, {{CERTIFICADO}}, {{ASEGURADORA}}, {{VIGENCIA}} y {{CORREO_SERVICIO}} se llenan al enviar.</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Baja GMM Prueba V1</name>
+    <style>none</style>
+    <subject>Confirmación de baja de tu Seguro de Gastos Médicos Mayores (PRUEBA)</subject>
+    <type>custom</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Plantilla de prueba para el envío de correo desde Asegurados de la póliza. Los marcadores {{NOMBRE_ASEGURADO}}, {{POLIZA}}, {{CERTIFICADO}}, {{ASEGURADORA}}, {{VIGENCIA}} y {{CORREO_SERVICIO}} se llenan al enviar.</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Bienvenida GMM Prueba V1</name>
+    <style>none</style>
+    <subject>¡Bienvenido a tu Seguro de Gastos Médicos Mayores! (PRUEBA)</subject>
+    <type>custom</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

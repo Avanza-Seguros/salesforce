@@ -5,116 +5,90 @@
         <label>Envio Correo Agente</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
-        <actionName>emailSimple</actionName>
-        <actionType>emailSimple</actionType>
+        <actionName>EnvioCorreoPlantilla</actionName>
+        <actionType>apex</actionType>
         <connector>
             <targetReference>Envio_Correo_Cliente</targetReference>
         </connector>
         <flowTransactionModel>CurrentTransaction</flowTransactionModel>
         <inputParameters>
-            <name>recipientAddresses</name>
+            <name>adjuntarArchivos</name>
             <value>
-                <collectionElements>
-                    <elementReference>agente</elementReference>
-                </collectionElements>
+                <booleanValue>true</booleanValue>
             </value>
         </inputParameters>
         <inputParameters>
-            <name>senderType</name>
+            <name>destinatarioId</name>
             <value>
-                <inputConfiguratorMode>Custom</inputConfiguratorMode>
-                <stringValue>OrgWideEmailAddress</stringValue>
+                <elementReference>Obtener_Poliza.Producer.ContactId</elementReference>
             </value>
         </inputParameters>
         <inputParameters>
-            <name>senderAddress</name>
+            <name>plantilla</name>
             <value>
-                <inputConfiguratorMode>Custom</inputConfiguratorMode>
+                <stringValue>X122_POLIZA_AGENTE</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>registroId</name>
+            <value>
+                <elementReference>recordId</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>remitente</name>
+            <value>
                 <stringValue>info@avanzaseguro.com</stringValue>
             </value>
         </inputParameters>
-        <inputParameters>
-            <name>useEmailTemplate</name>
-            <value>
-                <stringValue>True</stringValue>
-            </value>
-        </inputParameters>
-        <inputParameters>
-            <name>emailTemplateName</name>
-            <value>
-                <inputConfiguratorMode>Custom</inputConfiguratorMode>
-                <setupReference>unfiled$public/X122_POLIZA_AGENTE</setupReference>
-                <setupReferenceType>EmailTemplate</setupReferenceType>
-            </value>
-        </inputParameters>
-        <inputParameters>
-            <name>recipientId</name>
-            <value>
-                <elementReference>Obtener_Poliza.SourceOpportunity.Agente_Relacionado__r.OwnerId</elementReference>
-                <inputConfiguratorMode>Resource</inputConfiguratorMode>
-            </value>
-        </inputParameters>
-        <nameSegment>emailSimple</nameSegment>
+        <nameSegment>EnvioCorreoPlantilla</nameSegment>
         <offset>0</offset>
-        <versionString>3.0.1</versionString>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
     </actionCalls>
     <actionCalls>
         <name>Envio_Correo_Cliente</name>
         <label>Envio Correo Cliente</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
-        <actionName>emailSimple</actionName>
-        <actionType>emailSimple</actionType>
+        <actionName>EnvioCorreoPlantilla</actionName>
+        <actionType>apex</actionType>
         <connector>
             <targetReference>Confirmacion</targetReference>
         </connector>
         <flowTransactionModel>CurrentTransaction</flowTransactionModel>
         <inputParameters>
-            <name>recipientAddresses</name>
+            <name>adjuntarArchivos</name>
             <value>
-                <collectionElements>
-                    <elementReference>cliente</elementReference>
-                </collectionElements>
+                <booleanValue>true</booleanValue>
             </value>
         </inputParameters>
         <inputParameters>
-            <name>senderType</name>
+            <name>destinatarioId</name>
             <value>
-                <inputConfiguratorMode>Custom</inputConfiguratorMode>
-                <stringValue>OrgWideEmailAddress</stringValue>
+                <elementReference>Obtener_Contacto.Id</elementReference>
             </value>
         </inputParameters>
         <inputParameters>
-            <name>senderAddress</name>
+            <name>plantilla</name>
             <value>
-                <inputConfiguratorMode>Custom</inputConfiguratorMode>
+                <stringValue>X123_POLIZA_CLIENTE</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>registroId</name>
+            <value>
+                <elementReference>recordId</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>remitente</name>
+            <value>
                 <stringValue>info@avanzaseguro.com</stringValue>
             </value>
         </inputParameters>
-        <inputParameters>
-            <name>useEmailTemplate</name>
-            <value>
-                <stringValue>True</stringValue>
-            </value>
-        </inputParameters>
-        <inputParameters>
-            <name>emailTemplateName</name>
-            <value>
-                <inputConfiguratorMode>Custom</inputConfiguratorMode>
-                <setupReference>unfiled$public/X123_POLIZA_CLIENTE</setupReference>
-                <setupReferenceType>EmailTemplate</setupReferenceType>
-            </value>
-        </inputParameters>
-        <inputParameters>
-            <name>recipientId</name>
-            <value>
-                <elementReference>Obtener_Poliza.SourceOpportunity.Contacto__c</elementReference>
-                <inputConfiguratorMode>Resource</inputConfiguratorMode>
-            </value>
-        </inputParameters>
-        <nameSegment>emailSimple</nameSegment>
+        <nameSegment>EnvioCorreoPlantilla</nameSegment>
         <offset>0</offset>
-        <versionString>3.0.1</versionString>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
     </actionCalls>
     <apiVersion>67.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
@@ -127,18 +101,18 @@
             <assignToReference>agente</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Obtener_Poliza.SourceOpportunity.Agente_Relacionado__r.Email__c</elementReference>
+                <elementReference>Obtener_Poliza.Producer.ContactId</elementReference>
             </value>
         </assignmentItems>
         <assignmentItems>
             <assignToReference>cliente</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Obtener_Poliza.SourceOpportunity.Contacto__r.Email</elementReference>
+                <elementReference>Obtener_Contacto.Id</elementReference>
             </value>
         </assignmentItems>
         <connector>
-            <targetReference>Envio_Correo_Agente</targetReference>
+            <targetReference>Confirmar_Envio</targetReference>
         </connector>
     </assignments>
     <customProperties>
@@ -170,13 +144,34 @@
     </processMetadataValues>
     <processType>Flow</processType>
     <recordLookups>
+        <name>Obtener_Contacto</name>
+        <label>Obtener Contacto</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Asigna_Correos</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>AccountId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>Obtener_Poliza.NameInsuredId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Contact</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordLookups>
         <name>Obtener_Poliza</name>
         <label>Obtener Poliza</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
-            <targetReference>Asigna_Correos</targetReference>
+            <targetReference>Obtener_Contacto</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -191,6 +186,25 @@
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
     <screens>
+        <name>Confirmar_Envio</name>
+        <label>Confirmar Envio</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector>
+            <targetReference>Envio_Correo_Agente</targetReference>
+        </connector>
+        <fields>
+            <name>Texto_Confirmar</name>
+            <fieldText>&lt;p&gt;Se enviará el correo con los PDFs adjuntos a:&lt;/p&gt;&lt;p&gt;&lt;b&gt;Agente:&lt;/b&gt; {!Obtener_Poliza.Producer.Name}&lt;/p&gt;&lt;p&gt;&lt;b&gt;Cliente:&lt;/b&gt; {!Obtener_Contacto.Name}&lt;/p&gt;&lt;p&gt;Da clic en Siguiente para enviarlo.&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <screens>
         <name>Confirmacion</name>
         <label>Confirmacion</label>
         <locationX>0</locationX>
@@ -200,7 +214,7 @@
         <allowPause>false</allowPause>
         <fields>
             <name>Mensaje</name>
-            <fieldText>&lt;p&gt;&lt;span style=&quot;background-color: rgb(255, 255, 255);&quot;&gt;Correo enviado correctamente al agente y al contacto de la Poliza.&lt;/span&gt;&lt;/p&gt;</fieldText>
+            <fieldText>&lt;p&gt;Agente: {!Envio_Correo_Agente.mensaje}&lt;/p&gt;&lt;p&gt;Cliente: {!Envio_Correo_Cliente.mensaje}&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
             <styleProperties>
                 <verticalAlignment>

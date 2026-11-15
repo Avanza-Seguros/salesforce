@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bienvenido a tu seguro (PRUEBA)</title>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+<tr><td align="center" style="padding:20px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border:1px solid #D5DEEE;">
+
+  <!-- Aviso de prueba -->
+  <tr><td style="background:#FFF4D6;color:#7A5B00;font-size:12px;text-align:center;padding:8px;">
+    CORREO DE PRUEBA – Información ficticia, sin validez
+  </td></tr>
+
+  <!-- Encabezado -->
+  <tr><td style="background:#1F4E9C;color:#ffffff;padding:30px 30px 25px 30px;text-align:center;">
+    <div style="font-size:26px;font-weight:bold;">¡Bienvenido!</div>
+    <div style="font-size:16px;margin-top:6px;">A tu Seguro de Gastos Médicos Mayores</div>
+  </td></tr>
+
+  <!-- Saludo -->
+  <tr><td style="padding:25px 30px 10px 30px;font-size:15px;line-height:22px;">
+    Hola <strong>{{NOMBRE_ASEGURADO}}</strong>,<br><br>
+    Nos encanta que formes parte de nuestra familia. Tu póliza de Seguro de Gastos Médicos Mayores tiene muchos beneficios que puedes utilizar.
+  </td></tr>
+
+  <!-- Adjuntos -->
+  <tr><td style="padding:10px 30px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF3FB;border-left:4px solid #1F4E9C;">
+      <tr><td style="padding:15px 18px;font-size:14px;line-height:21px;">
+        <strong style="color:#1F4E9C;">En este correo encontrarás:</strong><br>
+        Certificado y credencial individual de tu seguro de Gastos Médicos Mayores con <strong>{{ASEGURADORA}}</strong>.<br><br>
+        <span style="color:#1F4E9C;">Póliza:</span> {{POLIZA}} &nbsp;|&nbsp;
+        <span style="color:#1F4E9C;">Certificado:</span> {{CERTIFICADO}}<br>
+        <span style="color:#1F4E9C;">Vigencia:</span> {{VIGENCIA}}
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <!-- Condiciones generales GMM -->
+  <tr><td style="padding:20px 30px 5px 30px;font-size:15px;line-height:22px;">
+    <div style="font-size:17px;font-weight:bold;color:#1F4E9C;margin-bottom:6px;">Condiciones generales</div>
+    Para conocer más sobre tu seguro puedes descargar las condiciones generales en el siguiente enlace.
+  </td></tr>
+  <tr><td style="padding:10px 30px 20px 30px;">
+    <a href="{{LINK_CONDICIONES_GMM}}" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;padding:10px 22px;font-size:14px;font-weight:bold;">Descargar condiciones generales</a>
+  </td></tr>
+
+  <!-- Dental -->
+  <tr><td style="padding:15px 30px 5px 30px;border-top:1px solid #D5DEEE;font-size:15px;line-height:22px;">
+    <div style="font-size:17px;font-weight:bold;color:#1F4E9C;margin-bottom:6px;">Beneficio dental</div>
+    Consulta la red dental y descarga las condiciones generales de tu plan dental.
+  </td></tr>
+  <tr><td style="padding:10px 30px 20px 30px;">
+    <a href="{{LINK_RED_DENTAL}}" style="display:inline-block;border:2px solid #1F4E9C;color:#1F4E9C;text-decoration:none;padding:8px 18px;font-size:14px;font-weight:bold;margin-right:8px;">Red dental</a>
+    <a href="{{LINK_CONDICIONES_DENTAL}}" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;padding:10px 18px;font-size:14px;font-weight:bold;">Condiciones generales</a>
+  </td></tr>
+
+  <!-- Visión -->
+  <tr><td style="padding:15px 30px 5px 30px;border-top:1px solid #D5DEEE;font-size:15px;line-height:22px;">
+    <div style="font-size:17px;font-weight:bold;color:#1F4E9C;margin-bottom:6px;">Beneficio de visión</div>
+    Consulta la red de visión seleccionando “ópticas” y descarga las condiciones generales de tu plan visión.
+  </td></tr>
+  <tr><td style="padding:10px 30px 20px 30px;">
+    <a href="{{LINK_RED_VISION}}" style="display:inline-block;border:2px solid #1F4E9C;color:#1F4E9C;text-decoration:none;padding:8px 18px;font-size:14px;font-weight:bold;margin-right:8px;">Red visión</a>
+    <a href="{{LINK_CONDICIONES_VISION}}" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;padding:10px 18px;font-size:14px;font-weight:bold;">Condiciones generales</a>
+  </td></tr>
+
+  <!-- Dudas -->
+  <tr><td style="padding:15px 30px 20px 30px;border-top:1px solid #D5DEEE;font-size:15px;line-height:22px;">
+    <div style="font-size:17px;font-weight:bold;color:#1F4E9C;margin-bottom:6px;">¿Tienes dudas?</div>
+    Si tienes alguna pregunta sobre tu póliza de gastos médicos mayores, escríbenos a
+    <a href="mailto:{{CORREO_SERVICIO}}" style="color:#1F4E9C;font-weight:bold;">{{CORREO_SERVICIO}}</a>.<br>
+    Si deseas ver un video con mayor información, <a href="{{LINK_VIDEO}}" style="color:#1F4E9C;font-weight:bold;">da clic aquí</a>.
+  </td></tr>
+
+  <!-- Otros seguros -->
+  <tr><td style="background:#EEF3FB;padding:20px 30px;font-size:14px;line-height:21px;text-align:center;">
+    En <strong>Avanza Seguro Consultores</strong> contamos con una amplia gama de seguros para cubrir tus necesidades:<br>
+    <span style="color:#1F4E9C;font-weight:bold;">Educación · Retiro · Vida · Auto · Mascotas · Responsabilidad Civil</span><br><br>
+    Contáctanos si deseas una asesoría gratuita.
+  </td></tr>
+
+  <!-- Pie -->
+  <tr><td style="background:#1F4E9C;color:#ffffff;padding:18px 30px;text-align:center;font-size:14px;font-weight:bold;">
+    Avanza Seguro Consultores | Contigo siempre
+  </td></tr>
+  <tr><td style="padding:15px 30px;font-size:10px;line-height:14px;color:#777777;">
+    Este correo electrónico y sus archivos anexos podrían contener información confidencial y está destinado únicamente a la persona a quien se dirige. Si lo recibiste por error, avísanos respondiendo este mensaje y elimínalo.
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

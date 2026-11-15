@@ -83,7 +83,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     get stats() {
         const r = this.resumen;
         return [
-            { key: 'a', num: r.asegurado || 0, lbl: 'Asegurados' },
+            { key: 'a', num: r.asegurado || 0, lbl: 'Titulares' },
             { key: 'd', num: r.dependiente || 0, lbl: 'Dependientes' },
             { key: 'b', num: r.beneficiario || 0, lbl: 'Beneficiarios' },
             { key: 'o', num: r.otro || 0, lbl: 'Otros roles' },
@@ -102,7 +102,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     }
     get vistas() {
         return [
-            { value: 'asegurados', label: `Asegurados (${this.cuenta('asegurados')})` },
+            { value: 'asegurados', label: `Titulares (${this.cuenta('asegurados')})` },
             { value: 'beneficiarios', label: `Beneficiarios (${this.cuenta('beneficiarios')})` },
             { value: 'otros', label: `Otros roles (${this.cuenta('otros')})` }
         ].map((v) => ({ ...v, variante: v.value === this.vista ? 'brand' : 'neutral' }));
@@ -116,6 +116,9 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
         return [
             { label: `Vigentes (${this.resumen.vigentes || 0})`, value: 'vigentes' },
             { label: `Dados de baja (${this.resumen.bajas || 0})`, value: 'bajas' },
+            { label: `Cambios (${this.participantes.filter((p) => p.tipoMovimiento === 'Cambio').length})`, value: 'cambios' },
+            { label: `Correo sin enviar (${this.participantes.filter((p) => p.activo && !p.correoEnviado).length})`, value: 'sincorreo' },
+            { label: `Correo enviado (${this.participantes.filter((p) => p.correoEnviado).length})`, value: 'concorreo' },
             { label: 'Todos', value: 'todos' }
         ];
     }
@@ -125,6 +128,9 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     pasaFiltro(p) {
         if (this.estado === 'vigentes' && !p.activo) { return false; }
         if (this.estado === 'bajas' && p.activo) { return false; }
+        if (this.estado === 'cambios' && p.tipoMovimiento !== 'Cambio') { return false; }
+        if (this.estado === 'sincorreo' && (!p.activo || p.correoEnviado)) { return false; }
+        if (this.estado === 'concorreo' && !p.correoEnviado) { return false; }
         const q = this.fold(this.busqueda);
         if (!q) { return true; }
         const c = p.contacto || p.cuenta || {};
@@ -159,13 +165,58 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
         const ids = new Set(this.titulares.map((t) => t.id));
         const grupos = [];
         this.titulares.forEach((t) => {
-            const suyos = (deps.get(t.id) || []).filter((d) => this.pasaFiltro(d));
+            const suyos = this.ordenarLista((deps.get(t.id) || []).filter((d) => this.pasaFiltro(d)));
             if (this.pasaFiltro(t) || suyos.length) { grupos.push({ titular: t, dependientes: suyos }); }
         });
         [...deps.keys()].filter((k) => !ids.has(k)).forEach((k) => {
             deps.get(k).filter((d) => this.pasaFiltro(d)).forEach((d) => grupos.push({ titular: d, dependientes: [] }));
         });
-        return grupos;
+        // Se ordena por el titular; sus dependientes quedan debajo de él.
+        if (!this.orden.campo) { return grupos; }
+        return grupos.sort((a, b) => this.comparar(a.titular, b.titular));
+    }
+
+    // ============================================================
+    // Orden por columna (clic en el encabezado; otro clic invierte)
+    // ============================================================
+    orden = { campo: '', asc: true };
+    ordenar(e) {
+        const campo = e.currentTarget.dataset.campo;
+        this.orden = { campo, asc: this.orden.campo === campo ? !this.orden.asc : true };
+        this.pagina = 1;
+    }
+    get flechas() {
+        const f = {};
+        if (this.orden.campo) { f[this.orden.campo] = this.orden.asc ? '▲' : '▼'; }
+        return f;
+    }
+    valorOrden(p, campo) {
+        const c = p.contacto || p.cuenta || {};
+        switch (campo) {
+            case 'nacimiento': return p.fechaNacimiento || c.fechaNacimiento || '';
+            case 'prima': return p.prima;
+            case 'porcentaje': return p.porcentaje;
+            case 'estado': return p.tipoMovimiento || (p.activo ? 'Alta' : 'Baja');
+            case 'envio': return p.correoEnviado ? 'Enviado' : (c.correo ? 'Pendiente' : 'Sin correo');
+            case 'correo': return c.correo || '';
+            case 'rol': return p.rolesTexto || '';
+            default: return p[campo];
+        }
+    }
+    comparar(a, b) {
+        const x = this.valorOrden(a, this.orden.campo);
+        const y = this.valorOrden(b, this.orden.campo);
+        const vacioX = x === null || x === undefined || x === '';
+        const vacioY = y === null || y === undefined || y === '';
+        // Los vacíos siempre al final.
+        if (vacioX || vacioY) { return vacioX === vacioY ? 0 : (vacioX ? 1 : -1); }
+        const r = typeof x === 'number' && typeof y === 'number'
+            ? x - y
+            : String(x).localeCompare(String(y), 'es', { numeric: true, sensitivity: 'base' });
+        return this.orden.asc ? r : -r;
+    }
+    ordenarLista(lista) {
+        return this.orden.campo ? [...lista].sort((a, b) => this.comparar(a, b)) : lista;
     }
     get filasAsegurados() {
         const ini = (this.pagina - 1) * POR_PAGINA;
@@ -186,7 +237,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     // ============================================================
     get listaVista() {
         const grupo = this.enBeneficiarios ? 'beneficiario' : 'otro';
-        return this.participantes.filter((p) => p.grupo === grupo && this.pasaFiltro(p));
+        return this.ordenarLista(this.participantes.filter((p) => p.grupo === grupo && this.pasaFiltro(p)));
     }
     get filasLista() {
         const ini = (this.pagina - 1) * POR_PAGINA;
@@ -198,11 +249,10 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     // Columnas según lo que trae la póliza
     // ============================================================
     get conCategoria() { return this.participantes.some((p) => p.categoria); }
-    get conSuma() { return this.participantes.some((p) => p.sumaAsegurada != null); }
     get conPrima() { return this.participantes.some((p) => p.prima != null); }
     get conParentesco() { return this.participantes.some((p) => p.parentesco || p.titularNombre); }
     get columnasAsegurados() {
-        return 5 + (this.conCategoria ? 1 : 0) + (this.conSuma ? 1 : 0) + (this.conPrima ? 1 : 0) + (this.conParentesco ? 1 : 0);
+        return 8 + (this.conCategoria ? 1 : 0) +(this.conPrima ? 1 : 0) + (this.conParentesco ? 1 : 0);
     }
 
     // ============================================================
@@ -228,12 +278,21 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             nacimientoTxt: nacimiento ? `${fechaVisible(nacimiento)} (${this.edad(nacimiento)} años)` : '',
             parentescoTxt: p.parentesco || (esDependiente ? 'Dependiente' : (p.grupo === 'asegurado' ? 'Titular' : '')),
             deTxt: p.titularNombre ? `de ${p.titularNombre}` : '',
-            sumaTxt: moneda(p.sumaAsegurada),
             primaTxt: moneda(p.prima),
             porcentajeTxt: p.porcentaje != null ? `${p.porcentaje}%` : '',
-            estado: p.activo ? 'Vigente' : `Baja${p.hasta ? ' ' + fechaVisible(p.hasta) : ''}`,
-            claseEstado: p.activo ? 'estado estado-vigente' : 'estado estado-baja',
+            // Estado = último movimiento: Alta, Baja o Cambio.
+            estado: p.tipoMovimiento || (p.activo ? 'Alta' : 'Baja'),
+            claseEstado: `estado estado-${String(p.tipoMovimiento || (p.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
+            fechaMovimientoTxt: p.fechaMovimiento ? fechaVisible(p.fechaMovimiento) : '',
             contactoTxt: [c.correo, c.celular || c.telefono].filter((x) => x).join(' · '),
+            // Correo: enviado (con fecha), pendiente o sin correo.
+            correoDir: c.correo || '',
+            correoTxt: p.correoEnviado ? 'Enviado' : (c.correo ? 'Pendiente' : 'Sin correo'),
+            claseCorreo: `estado ${p.correoEnviado ? 'correo-enviado' : (c.correo ? 'correo-pendiente' : 'correo-sin')}`,
+            fechaCorreoTxt: p.correoEnviado && p.fechaCorreo ? this.fechaHora(p.fechaCorreo) : '',
+            tituloCorreo: p.correoEnviado
+                ? `Enviado el ${this.fechaHora(p.fechaCorreo)}${p.plantillaCorreo ? ' · ' + p.plantillaCorreo : ''}`
+                : (c.correo ? `Aún no se envía el correo a ${c.correo}` : 'El participante no tiene correo'),
             // Detalle
             datosPersona: this.lineas(c, p),
             hayPersona: !!(p.contacto || p.cuenta),
@@ -253,7 +312,8 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
                 ['Porcentaje', p.porcentaje != null ? `${p.porcentaje}%` : ''],
                 ['Menor de edad', p.menor ? 'Sí' : ''],
                 ['Tutor', p.tutor ? p.tutor.nombre : ''],
-                ['Contratante', p.contratante ? 'Sí' : '']
+                ['Contratante', p.contratante ? 'Sí' : ''],
+                ['Correo enviado', p.correoEnviado ? `${this.fechaHora(p.fechaCorreo)}${p.plantillaCorreo ? ' · ' + p.plantillaCorreo : ''}` : '']
             ].filter(([, v]) => v).map(([etiqueta, valor]) => ({ key: etiqueta, etiqueta, valor })),
             coberturasTxt: (p.coberturas || []).map((cob) => ({
                 key: cob.id,
@@ -262,6 +322,16 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
                     cob.prima != null ? 'Prima ' + moneda(cob.prima) : ''].filter((x) => x).join(' · ')
             })),
             hayCoberturas: (p.coberturas || []).length > 0,
+            archivosTxt: (p.archivos || []).map((a) => ({
+                key: a.id,
+                id: a.id,
+                titulo: a.titulo + (a.tipo ? '.' + a.tipo : ''),
+                tipo: a.tipo || 'archivo',
+                icono: this.iconoArchivo(a.tipo),
+                detalle: [a.tipo ? a.tipo.toUpperCase() : '', this.tamanoTxt(a.tamano), a.fecha ? fechaVisible(a.fecha) : '']
+                    .filter((x) => x).join(' · ')
+            })),
+            hayArchivos: (p.archivos || []).length > 0,
             beneficiarios,
             hayBeneficiarios: beneficiarios.length > 0
         };
@@ -292,17 +362,49 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
         this.abiertos = s;
     }
 
+    // Vista previa del archivo (Salesforce Files).
+    verArchivo(e) {
+        e.preventDefault();
+        const id = e.currentTarget.dataset.id;
+        if (!id) { return; }
+        this[NavigationMixin.Navigate]({ type: 'standard__namedPage', attributes: { pageName: 'filePreview' },
+            state: { selectedRecordId: id } });
+    }
+    iconoArchivo(tipo) {
+        const t = String(tipo || '').toLowerCase();
+        if (t === 'pdf') { return 'doctype:pdf'; }
+        if (['xls', 'xlsx', 'csv'].includes(t)) { return t === 'csv' ? 'doctype:csv' : 'doctype:excel'; }
+        if (['doc', 'docx'].includes(t)) { return 'doctype:word'; }
+        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(t)) { return 'doctype:image'; }
+        if (t === 'zip') { return 'doctype:zip'; }
+        if (t === 'txt') { return 'doctype:txt'; }
+        return 'doctype:unknown';
+    }
+    tamanoTxt(b) {
+        if (b == null) { return ''; }
+        if (b < 1024) { return `${b} B`; }
+        if (b < 1024 * 1024) { return `${Math.round(b / 1024)} KB`; }
+        return `${(b / 1024 / 1024).toFixed(1)} MB`;
+    }
+
     abrirRegistro(e) {
         const id = e.currentTarget.dataset.id;
         if (!id) { return; }
         this[NavigationMixin.Navigate]({ type: 'standard__recordPage', attributes: { recordId: id, actionName: 'view' } });
     }
 
+    // Fecha y hora del envío de correo (el envío se hace desde Asegurados de la póliza).
+    fechaHora(v) {
+        if (!v) { return ''; }
+        const d = new Date(v);
+        return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
     // ============================================================
     // Paginación
     // ============================================================
     get paginas() { return Math.max(1, Math.ceil(this.totalPaginable / POR_PAGINA)); }
-    get textoPagina() { return `Página ${this.pagina} de ${this.paginas} · ${this.totalPaginable} ${this.enAsegurados ? 'asegurados' : 'participantes'}`; }
+    get textoPagina() { return `Página ${this.pagina} de ${this.paginas} · ${this.totalPaginable} ${this.enAsegurados ? 'titulares' : 'participantes'}`; }
     get sinAnterior() { return this.pagina <= 1; }
     get sinSiguiente() { return this.pagina >= this.paginas; }
     get conPaginas() { return this.paginas > 1; }
