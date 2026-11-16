@@ -496,13 +496,10 @@ export default class PortalPolizas extends LightningElement {
     get tablaParticipantes() {
         const datos = this.pestanas.participantes.datos;
         if (!datos) return undefined;
-        if (datos.tipo !== 'personas') {
-            return {
-                noAplica: datos.tipo === 'vehiculos'
-                    ? 'En pólizas de automóviles los vehículos están en la pestaña Vehículos.'
-                    : 'En pólizas de daños y empresariales las ubicaciones están en la pestaña Ubicaciones.'
-            };
-        }
+        // En autos, daños y empresarial se muestran los participantes con una nota de dónde están los bienes.
+        const notaBienes = datos.tipo === 'vehiculos'
+            ? 'Esta póliza asegura vehículos: están en la pestaña Vehículos.'
+            : (datos.tipo === 'ubicaciones' ? 'Esta póliza asegura bienes: las ubicaciones están en la pestaña Ubicaciones.' : null);
         const texto = this.busquedaParticipantes.trim().toLowerCase();
         const todas = datos.filas;
         const filtradas = todas.filter((f) => {
@@ -523,6 +520,7 @@ export default class PortalPolizas extends LightningElement {
             soloMiGrupo: datos.soloMiGrupo,
             hayFilas: todas.length > 0,
             resumen: partes.join(' · ') + (filtradas.length !== todas.length ? ` · mostrando ${filtradas.length}` : ''),
+            notaBienes,
             filas: filtradas.slice(0, this.limiteParticipantes).map((f) => ({
                 ...f,
                 clase: [f.dependiente ? 'fila_dependiente' : '', f.activo ? '' : 'fila_baja'].join(' ').trim(),

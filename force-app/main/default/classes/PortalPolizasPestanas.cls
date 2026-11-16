@@ -428,8 +428,8 @@ public without sharing class PortalPolizasPestanas {
 			InsurancePolicy p = [SELECT Ramo__c, Moneda__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
 			Bienes salida = new Bienes();
 			salida.moneda = String.isBlank(p.Moneda__c) ? 'MXN' : p.Moneda__c;
+			// En autos, daños y empresarial también hay participantes (contratante, asegurado, beneficiario preferente).
 			salida.tipo = tipoRamo(p.Ramo__c);
-			if (salida.tipo != 'personas') { return salida; }
 
 			Map<String, String> rolEtiquetas = MovimientosColectivoController.etiquetas(InsurancePolicyParticipant.Role.getDescribe());
 			Map<String, String> relaciones = MovimientosColectivoController.etiquetas(

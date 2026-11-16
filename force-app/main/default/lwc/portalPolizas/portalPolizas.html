@@ -316,8 +316,8 @@
                             </template>
                             <div lwc:elseif={pestanaParticipantes.error} class="aviso aviso_error" role="alert">{pestanaParticipantes.error}</div>
                             <template lwc:elseif={tablaParticipantes}>
-                                <p lwc:if={tablaParticipantes.noAplica} class="subtitulo">{tablaParticipantes.noAplica}</p>
-                                <template lwc:else>
+                                <div lwc:if={tablaParticipantes.notaBienes} class="aviso" role="note">{tablaParticipantes.notaBienes}</div>
+                                <template lwc:if={tablaParticipantes}>
                                     <p lwc:if={tablaParticipantes.soloMiGrupo} class="nota">Se muestran solo tú, tus dependientes y tus beneficiarios.</p>
                                     <template lwc:if={tablaParticipantes.hayFilas}>
                                         <div class="controles">
