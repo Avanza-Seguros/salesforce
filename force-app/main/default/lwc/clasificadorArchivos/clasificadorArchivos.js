@@ -820,6 +820,8 @@ export function incisosDeCaratulas(texto) {
  */
 export function endosoDeTexto(texto, nombreArchivo) {
     const t = String(texto || '');
+    const hdi = endosoHdi(t);
+    if (hdi) { return hdi; }
     if (!/Endoso\s+No\.?\s*:?/i.test(t) || !/(Tipo\s+de\s+Endoso|Endoso\s+de\s+Tipo)/i.test(t)
         || !/(INFORMACI[OÓ]N GENERAL DEL ENDOSO|\bENDOSO-[A-Z]\b|PRESENTE CONTRATO SUFRE|elabora endoso)/i.test(t)) {
         return null;
@@ -890,6 +892,27 @@ export function endosoDeTexto(texto, nombreArchivo) {
             incisos.push({ inciso: mi[1], seccion: limpio(mi[2]), descripcion: limpio(mi[3]), movimiento: movimientoDe(mi[3]),
                 ...especificacionUbicacion(t, mi[1]) });
         }
+        // Tabla partida en renglones (el número del inciso queda solo, a media descripción): el inciso es el número
+        // suelto que tiene su "ESPECIFICACIÓN UBICACIÓN n" y el movimiento es todo el texto de la tabla.
+        if (!incisos.some((x) => x.seccion !== undefined)) {
+            const bloque = [];
+            const sueltos = [];
+            for (let i = iMov + 1; i < lineas.length; i++) {
+                const l = limpio(lineas[i]);
+                if (/^Concepto\b|^\$|Prima Neta/i.test(l)) { break; }
+                if (/^\d{1,4}$/.test(l)) { sueltos.push(l); continue; }
+                if (!l || /^(Inciso\/?|Secci[oó]n Movimiento Realizado|Ubicaci[oó]n|Sección)$/i.test(l)
+                    || /^[A-ZÁÉÍÓÚÑ ]+$/.test(l) && !/[a-z]/.test(l) && l.split(' ').length <= 3) { continue; }
+                bloque.push(l);
+            }
+            const desc = limpio(bloque.join(' '));
+            sueltos.filter((n) => new RegExp(`ESPECIFICACI[OÓ]N\\s+UBICACI[OÓ]N\\s+${n}\\b`, 'i').test(t)).forEach((n) => {
+                if (vistos.has(n) || !desc) { return; }
+                vistos.add(n);
+                incisos.push({ inciso: n, seccion: '', descripcion: desc.substring(0, 600), movimiento: movimientoDe(desc),
+                    ...especificacionUbicacion(t, n) });
+            });
+        }
     }
     const general = !incisos.length;
 
@@ -951,6 +974,54 @@ export function endosoDeTexto(texto, nombreArchivo) {
     const altas = incisos.filter((i) => i.movimiento === 'alta');
     if (altas.length === 1 && incisos.length === 1 && primaNeta !== null) { altas[0].prima = primaNeta; }
     return { numero, tipo, movimiento, general, fecha, incisos, detalle, primaNeta, derechos, iva, total };
+}
+
+const MESES_CORTOS = { ENE: '01', FEB: '02', MAR: '03', ABR: '04', MAY: '05', JUN: '06', JUL: '07', AGO: '08', SEP: '09', SEPT: '09', OCT: '10', NOV: '11', DIC: '12' };
+
+/**
+ * Endoso de Daños de HDI ("ENDOSO EMPRESA"): "No. de Póliza: 49 - 5277 Inciso: 6 Endoso: D0087", el tipo en el renglón
+ * siguiente ("CANCELACIÓN DE CIS"), "Vigencia: Desde las 12 Hrs. del 14/OCT/2026", el "Detalle del Endoso" y las primas
+ * del formato de pago ("Prima Neta -2,726.08", "Derecho de Póliza 0.00", "I.V.A. 16.00% -436.17", "Total a pagar ...").
+ * Cada inciso de HDI es una ubicación. null si no es un endoso de HDI.
+ */
+function endosoHdi(t) {
+    const cab = /No\.\s*de\s+P[oó]liza\s*:\s*([\d -]+?)\s+Inciso\s*:\s*(\d+)\s+Endoso\s*:\s*([A-Z0-9-]+)/i.exec(t);
+    if (!cab || !/ENDOSO\s+EMPRESA|Detalle\s+del\s+Endoso/i.test(t)) { return null; }
+    const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+    const num = (v) => (v == null ? null : Number(String(v).replace(/[$,\s]/g, '')));
+    const lineas = t.split('\n').map(limpio);
+    const iEnc = lineas.findIndex((l) => /^ENDOSO\s+EMPRESA$/i.test(l));
+    const tipo = iEnc >= 0 && lineas[iEnc + 1] && !/^Operaci[oó]n/i.test(lineas[iEnc + 1]) ? lineas[iEnc + 1] : 'Endoso';
+    // Detalle: lo que sigue a "Detalle del Endoso:" hasta la tabla de primas.
+    const partes = [];
+    const iDet = lineas.findIndex((l) => /^Detalle\s+del\s+Endoso\s*:?$/i.test(l));
+    for (let i = iDet + 1; iDet >= 0 && i < lineas.length; i++) {
+        const l = lineas[i];
+        if (/^(Reducci[oó]n|Prima\s+Neta|-?\$|Art[ií]culo\s+\d)/i.test(l)) { break; }
+        if (l && !/^SE HACE CONSTAR POR MEDIO DEL PRESENTE ENDOSO QUE:?$/i.test(l)) { partes.push(l); }
+    }
+    const detalle = limpio(partes.join(' ')).substring(0, 1000);
+    const que = `${tipo} ${detalle}`.toUpperCase();
+    const movimiento = /CANCELA|BAJA|EXCLU/.test(que) ? 'baja' : (/\bALTA\b|INCLU|SE AGREGA/.test(que) ? 'alta' : 'cambio');
+    const fm = /Vigencia\s*:\s*Desde[^\n]*?(\d{1,2})\/([A-Z]{3,4})\/(\d{4})/i.exec(t);
+    const fecha = fm && MESES_CORTOS[fm[2].toUpperCase()] ? `${fm[3]}-${MESES_CORTOS[fm[2].toUpperCase()]}-${fm[1].padStart(2, '0')}` : null;
+    const monto = (re) => { const x = re.exec(t); return x ? num(x[1]) : null; };
+    const primaNeta = monto(/^\s*Prima\s+Neta\s+(-?[\d,]+\.\d+)\s*$/im);
+    const derechos = monto(/^\s*Derecho\s+de\s+P[oó]liza\s+(-?[\d,]+\.\d+)/im);
+    const iva = monto(/^\s*I\.V\.A\.[^\n]*?(-?[\d,]+\.\d+)\s*$/im);
+    const total = monto(/^\s*Total\s+a\s+pagar\s+(-?[\d,]+\.\d+)/im);
+    const inciso = String(Number(cab[2]));
+    return {
+        numero: cab[3].toUpperCase(),
+        tipo: tipo.charAt(0) + tipo.slice(1).toLowerCase(),
+        movimiento,
+        general: false,
+        fecha,
+        incisos: [{ inciso, seccion: '', descripcion: tipo, movimiento }],
+        detalle: limpio(`Inciso ${inciso}: ${detalle || tipo}`).substring(0, 1000),
+        primaNeta, derechos, iva, total,
+        aseguradora: 'HDI'
+    };
 }
 
 /**

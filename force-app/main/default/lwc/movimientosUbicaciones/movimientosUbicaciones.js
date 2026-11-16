@@ -250,7 +250,12 @@ export default class MovimientosUbicaciones extends LightningElement {
                     return;
                 }
                 const u = porInciso.get(String(Number(i.inciso)));
-                if (u) { objetivos.push({ key: u.id, id: u.id, tipo }); } else { faltan.push(i.inciso); }
+                if (!u) { faltan.push(i.inciso); return; }
+                // Cambio con la especificación de la ubicación: la suma asegurada a quedar se actualiza.
+                const nuevaSuma = tipo === 'cambio' && i.sumaAsegurada && Math.abs(Number(u.sumaAsegurada || 0) - i.sumaAsegurada) >= 0.5
+                    ? i.sumaAsegurada : null;
+                objetivos.push({ key: u.id, id: u.id, tipo, datos: nuevaSuma ? { sumaAsegurada: nuevaSuma } : null,
+                    sumaAntes: u.sumaAsegurada });
             });
         }
         if (faltan.length) {
@@ -270,6 +275,7 @@ export default class MovimientosUbicaciones extends LightningElement {
                     ? `Alta · Inciso ${o.datos.inciso} · ${o.datos.direccion || 'sin domicilio'}`
                         + (o.datos.sumaAsegurada ? ` · Suma asegurada ${moneda(o.datos.sumaAsegurada)}` : '')
                     : `${etiqueta[o.tipo]} · ${this.nombre(porId.get(o.id))}`
+                        + (o.datos && o.datos.sumaAsegurada ? ` · Suma asegurada ${moneda(o.sumaAntes) || '—'} → ${moneda(o.datos.sumaAsegurada)}` : '')
             }))
         };
         this.form = {
@@ -308,7 +314,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         await this.enviar(sel.map((o) => {
             if (o.tipo === 'alta') { return { tipo: 'alta', datos: o.datos, ...comun }; }
             if (o.tipo === 'baja') { return { tipo: 'baja', id: o.id, motivo: f.motivo || null, ...comun }; }
-            return { tipo: 'cambio', id: o.id, datos: null, ...comun };
+            return { tipo: 'cambio', id: o.id, datos: o.datos || null, ...comun };
         }));
     }
 
