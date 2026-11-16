@@ -426,7 +426,10 @@ export default class MovimientosFlotilla extends LightningElement {
             });
         });
         if (faltan.length) {
-            this.toast('Endoso', `No se encontró entre los vehículos vigentes: ${faltan.join('; ')}.`, 'warning');
+            this.toast(faltan.length === 1 ? 'Movimiento no aplicado' : 'Movimientos no aplicados',
+                `${faltan.length === 1 ? 'El siguiente inciso no corresponde' : 'Los siguientes incisos no corresponden'} a ningún vehículo `
+                + `vigente de la póliza, por lo que no ${faltan.length === 1 ? 'será procesado' : 'serán procesados'}: ${faltan.join('; ')}. `
+                + 'Se recomienda validar la información con la aseguradora.', 'warning');
         }
     }
 

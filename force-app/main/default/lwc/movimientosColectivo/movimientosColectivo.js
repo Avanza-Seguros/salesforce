@@ -931,9 +931,14 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             const faltan = r.noEncontrados || [];
             if (faltan.length) {
                 const nombres = faltan.slice(0, 5).map((x) => x.nombre).join(', ') + (faltan.length > 5 ? ` y ${faltan.length - 5} más` : '');
+                const uno = faltan.length === 1;
                 this.dispatchEvent(new ShowToastEvent({
-                    title: 'Bajas de personas que no existen',
-                    message: `${faltan.length} baja(s) del archivo no corresponden a ningún asegurado, así que no se pueden aplicar: ${nombres}.`,
+                    title: uno ? 'Baja no aplicada' : 'Bajas no aplicadas',
+                    message: (uno
+                        ? `La baja de ${nombres} no corresponde a ningún asegurado registrado en la póliza, por lo que no será procesada. `
+                        : `${faltan.length} bajas incluidas en el archivo no corresponden a asegurados registrados en la póliza, `
+                            + `por lo que no serán procesadas: ${nombres}. `)
+                        + 'Se recomienda validar la información con la aseguradora.',
                     variant: 'info', mode: 'sticky'
                 }));
             }

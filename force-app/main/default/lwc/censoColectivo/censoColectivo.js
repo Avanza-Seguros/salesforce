@@ -494,8 +494,9 @@ export default class CensoColectivo extends LightningElement {
         this.renglones = renglones.map((r) => (esMovimiento(r) && faltan.has(r.fila ?? r.idx + 1)
             ? { ...r, avisos: [...r.avisos, `${r.movimiento}: ${AVISO_SIN_CONTACTO}`] }
             : r));
-        this.toast('Censo', `${faltan.size} baja(s) o cambio(s) son de personas que no existen como contacto ni en el censo, `
-            + 'así que esas bajas no se pueden aplicar. Puedes continuar con lo demás.', 'info');
+        this.toast('Censo', `${faltan.size === 1 ? 'Un movimiento de baja o cambio corresponde a una persona que no está registrada'
+            : `${faltan.size} movimientos de baja o cambio corresponden a personas que no están registradas`} en el censo ni como `
+            + 'contacto del cliente; las bajas no serán procesadas. El resto de la información puede guardarse normalmente.', 'info');
     }
 
     fecha(v) {
@@ -689,7 +690,8 @@ export default class CensoColectivo extends LightningElement {
                 partes.push(`${r.censo || 0} asegurado(s) dados de baja del censo.`);
                 const faltan = (r.noEncontrados || []).length;
                 if (faltan) {
-                    this.toast('Censo', `${faltan} baja(s) no se aplicaron porque esas personas no existen en el censo.`, 'info');
+                    this.toast('Censo', `${faltan === 1 ? 'Una baja no fue procesada porque la persona no está registrada'
+                        : `${faltan} bajas no fueron procesadas porque las personas no están registradas`} en el censo. Se recomienda validar la información con la aseguradora.`, 'info');
                 }
             }
             this.toast('Censo', partes.join(' '), 'success');

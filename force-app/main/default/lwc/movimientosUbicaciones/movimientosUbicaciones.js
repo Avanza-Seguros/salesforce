@@ -259,7 +259,10 @@ export default class MovimientosUbicaciones extends LightningElement {
             });
         }
         if (faltan.length) {
-            this.toast('Endoso', `No hay ubicación vigente con el inciso ${faltan.join(', ')} del endoso ${x.numero}.`, 'warning');
+            this.toast(faltan.length === 1 ? 'Movimiento no aplicado' : 'Movimientos no aplicados',
+                `${faltan.length === 1 ? 'El inciso' : 'Los incisos'} ${faltan.join(', ')} del endoso ${x.numero || 's/n'} no `
+                + `${faltan.length === 1 ? 'corresponde' : 'corresponden'} a ninguna ubicación vigente de la póliza, por lo que no `
+                + `${faltan.length === 1 ? 'será procesado' : 'serán procesados'}. Se recomienda validar la información con la aseguradora.`, 'warning');
         }
         const porId = new Map(vigentes.map((u) => [u.id, u]));
         this.endosoInfo = {

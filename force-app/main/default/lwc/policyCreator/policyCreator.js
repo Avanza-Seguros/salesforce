@@ -826,10 +826,12 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             + (p.certificado ? ` (cert. ${p.certificado})` : '') + ` — fila ${p.fila} de ${p.archivo}`);
         if (lista.length > MAX) { lineas.push(`… y ${lista.length - MAX} más`); }
         await LightningAlert.open({
-            message: `${lista.length} movimiento(s) son de personas que no existen, así que no se puede hacer nada con ellos:\n`
+            message: `${lista.length === 1 ? 'El siguiente movimiento corresponde a una persona que no está registrada'
+                : `Los siguientes ${lista.length} movimientos corresponden a personas que no están registradas`} en la póliza:\n`
                 + lineas.join('\n')
-                + '\n\nEsas bajas no se aplican y esos cambios se agregan como asegurados nuevos. El resto de la carga continúa.',
-            variant: 'header', label: 'Personas que no existen', theme: 'info'
+                + '\n\nLas bajas no serán procesadas y los cambios se registrarán como altas de asegurados. '
+                + 'El resto de la carga continuará normalmente. Se recomienda validar la información con la aseguradora.',
+            variant: 'header', label: 'Movimientos no localizados', theme: 'info'
         });
     }
 
