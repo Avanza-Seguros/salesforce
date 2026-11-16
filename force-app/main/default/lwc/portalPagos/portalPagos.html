@@ -13,7 +13,7 @@
         </template>
         <div lwc:elseif={error} class="aviso aviso_error" role="alert">{error}</div>
         <section lwc:elseif={sinPolizas} class="panel">
-            <p class="vacio">Aún no tienes pólizas registradas. Si crees que es un error, contacta a tu ejecutivo.</p>
+            <p class="vacio">{mensajeVacio}</p>
         </section>
 
         <template lwc:if={hayPolizas}>

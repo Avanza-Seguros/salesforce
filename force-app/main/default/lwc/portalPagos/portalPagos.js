@@ -5,6 +5,7 @@ import { LightningElement, api, wire } from 'lwc';
 import basePath from '@salesforce/community/basePath';
 import dashboard from '@salesforce/apex/PortalPolizasController.dashboard';
 import pagos from '@salesforce/apex/PortalPolizasPestanas.pagos';
+import puedeVistaPrevia from '@salesforce/apex/PortalPolizasController.puedeVistaPrevia';
 
 const MONEDAS = { MXN: 'MXN', MXP: 'MXN', MN: 'MXN', PESOS: 'MXN', PESO: 'MXN', 'MONEDA NACIONAL': 'MXN',
     USD: 'USD', DLLS: 'USD', DLS: 'USD', DOLARES: 'USD', DOLAR: 'USD', EUR: 'EUR', EUROS: 'EUR' };
@@ -25,6 +26,12 @@ export default class PortalPagos extends LightningElement {
     plan;
     cargandoPlan = false;
     errorPlan;
+
+    puede = false;
+    @wire(puedeVistaPrevia)
+    recibirPermiso({ data }) {
+        this.puede = data === true;
+    }
 
     @wire(dashboard, { cuentaVistaPrevia: '$cuentaVistaPrevia' })
     recibir({ data, error }) {
@@ -90,6 +97,11 @@ export default class PortalPagos extends LightningElement {
     }
     get sinPolizas() {
         return !this.cargando && !this.error && this.polizas.length === 0;
+    }
+    get mensajeVacio() {
+        return this.puede && !this.cuentaVistaPrevia
+            ? 'Elige arriba la cuenta del cliente (vista previa de administrador) para ver sus pagos.'
+            : 'Aún no tienes pólizas registradas. Si crees que es un error, contacta a tu ejecutivo.';
     }
     get monedaPrincipal() {
         const cuenta = {};

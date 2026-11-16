@@ -13,7 +13,7 @@
         </template>
         <div lwc:elseif={error} class="aviso aviso_error" role="alert">{error}</div>
         <section lwc:elseif={sinPersonas} class="panel panel_vacio">
-            <p>Tu empresa todavía no tiene personas registradas. Si crees que es un error, contacta a tu ejecutivo.</p>
+            <p>{mensajeVacio}</p>
         </section>
 
         <template lwc:if={hayPersonas}>

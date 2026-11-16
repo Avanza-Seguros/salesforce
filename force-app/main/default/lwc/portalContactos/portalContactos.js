@@ -3,6 +3,7 @@
 // inactivos, filtro por producto (GMM, Vida, Dental, Adicional) y sus datos de contacto.
 import { LightningElement, api, wire } from 'lwc';
 import contactos from '@salesforce/apex/PortalSitioController.contactos';
+import puedeVistaPrevia from '@salesforce/apex/PortalPolizasController.puedeVistaPrevia';
 
 const POR_PAGINA = 24;
 const PRODUCTOS = ['GMM', 'Vida', 'Dental', 'Adicional'];
@@ -20,6 +21,12 @@ export default class PortalContactos extends LightningElement {
     estado = 'activos';
     producto = 'todos';
     mostrar = POR_PAGINA;
+
+    puede = false;
+    @wire(puedeVistaPrevia)
+    recibirPermiso({ data }) {
+        this.puede = data === true;
+    }
 
     @wire(contactos, { cuentaVistaPrevia: '$cuentaVistaPrevia' })
     recibir({ data, error }) {
@@ -53,6 +60,15 @@ export default class PortalContactos extends LightningElement {
     }
     get sinPersonas() {
         return !this.cargando && !this.error && this.personas.length === 0;
+    }
+    // Sin empresa: el administrador aún no elige cuenta en la vista previa, o el usuario no está ligado a una empresa.
+    get mensajeVacio() {
+        if (this.datos && !this.datos.cuenta) {
+            return this.puede
+                ? 'Elige arriba la cuenta del cliente (vista previa de administrador) para ver a las personas de su empresa.'
+                : 'Tu usuario no está ligado a ninguna empresa. Contacta a tu ejecutivo para revisarlo.';
+        }
+        return 'Tu empresa todavía no tiene personas registradas. Si crees que es un error, contacta a tu ejecutivo.';
     }
     get nombreCuenta() {
         return (this.datos && this.datos.cuenta) || '';
