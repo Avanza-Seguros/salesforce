@@ -193,6 +193,16 @@
                                     <span class={r.venceClase} title={r.cierreTexto}>{r.venceTexto}</span>
                                     <span class="avatar" style={r.propietarioEstilo} title={r.propietario}
                                         role="img" aria-label={r.propietarioAria}>{r.propietarioIni}</span>
+                                    <template lwc:if={incrustado}>
+                                        <button lwc:if={r.puedeCorreo} type="button" class="boton-icono" data-id={r.id}
+                                            aria-label={r.correoAria} title="Enviar correo de la oportunidad" onclick={handleCorreo}>
+                                            <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
+                                        </button>
+                                        <button type="button" class="boton-icono" data-id={r.id} data-name={r.nombre}
+                                            aria-label={r.archivosAria} title="Ver archivos" onclick={handleArchivos}>
+                                            <lightning-icon icon-name="utility:attach" size="x-small"></lightning-icon>
+                                        </button>
+                                    </template>
                                     <button type="button" class="boton-icono" data-id={r.id} aria-label={r.abrirAria}
                                         title="Abrir en Crear Oportunidad" onclick={handleAbrirEditor}>
                                         <lightning-icon icon-name="utility:edit" size="x-small"></lightning-icon>

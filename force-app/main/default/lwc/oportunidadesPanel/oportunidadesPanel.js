@@ -48,6 +48,8 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     @api metaMensual = 10;
     /** Días hacia adelante para el aviso de oportunidades por vencer. */
     @api diasPorVencer = 45;
+    // Dentro de Crear Oportunidad: los botones avisan con el evento «accion» en lugar de navegar a la pestaña.
+    @api incrustado = false;
 
     datos;
     cargando = true;
@@ -180,6 +182,9 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 tipo,
                 etapaValor: o.etapa,
                 etapa: etapa.etiqueta,
+                puedeCorreo: o.etapa === 'Gestion Comercial' || o.etapa === 'En proceso de emision',
+                correoAria: `Enviar correo de ${nombre}`,
+                archivosAria: `Ver archivos de ${nombre}`,
                 etapaClase: `chip chip-${etapa.clave}`,
                 ramoIni: ramo.ini,
                 ramoEtiqueta: ramo.etiqueta,
@@ -537,6 +542,10 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
         this.navegarCreador('pdf');
     }
     navegarCreador(accion) {
+        if (this.incrustado) {
+            this.dispatchEvent(new CustomEvent('accion', { detail: { accion } }));
+            return;
+        }
         this[NavigationMixin.Navigate]({
             type: 'standard__navItemPage',
             attributes: { apiName: PESTANA_CREAR_OPORTUNIDAD },
@@ -547,11 +556,23 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     // Abre la oportunidad en el editor de Crear Oportunidad (mismo flujo que la lista de ese componente).
     navegarEditor(id) {
         if (!id) { return; }
+        if (this.incrustado) {
+            this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'editar', id } }));
+            return;
+        }
         this[NavigationMixin.Navigate]({
             type: 'standard__navItemPage',
             attributes: { apiName: PESTANA_CREAR_OPORTUNIDAD },
             state: { c__opportunityId: id }
         });
+    }
+    // Solo dentro de Crear Oportunidad: enviar el correo de la oportunidad y ver sus archivos (modales de ese componente).
+    handleCorreo(event) {
+        this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'correo', id: event.currentTarget.dataset.id } }));
+    }
+    handleArchivos(event) {
+        const { id, name } = event.currentTarget.dataset;
+        this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'archivos', id, nombre: name } }));
     }
     handleAbrirEditor(event) {
         this.navegarEditor(event.currentTarget.dataset.id);

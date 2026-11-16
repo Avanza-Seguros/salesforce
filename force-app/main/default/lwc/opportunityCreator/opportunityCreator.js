@@ -4013,6 +4013,26 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     getDefaultDental()      { return { plan: '', numAsegurados: 1, red: '' }; }
     getDefaultVision()      { return { plan: '', numAsegurados: 1, red: '' }; }
     getDefaultTransporte()  { return { bienesCubiertos: '', medioTransporte: '', origen: '', destino: '', limiteEmbarque: '' }; }
+    // Botones del Panel de Oportunidades (vista principal): nueva, desde PDFs o editar una existente.
+    async handleAccionPanel(event) {
+        const { accion, id } = event.detail || {};
+        if (accion === 'nueva') {
+            this.handleCreateNew();
+        } else if (accion === 'pdf') {
+            this.handleCreateFromPdf();
+        } else if (id) {
+            // Mismos manejadores que tenía la lista: editar (en Póliza/Ganada/Perdida abre la póliza en solo
+            // lectura), enviar correo y ver archivos.
+            const evento = { currentTarget: { dataset: { id, name: (event.detail && event.detail.nombre) || '' } } };
+            if (accion === 'editar') {
+                await this.handleEditOpportunity(evento);
+            } else if (accion === 'correo') {
+                this.handleEnviarCorreo(evento);
+            } else if (accion === 'archivos') {
+                await this.handleVerArchivos(evento);
+            }
+        }
+    }
     handleBackToList() {
         this.viewMode = VIEW_MODES.LIST;
         this.resetWizard();
