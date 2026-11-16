@@ -145,6 +145,41 @@ private class InsuredSubjectServiceTest {
 	}
 
 	@IsTest
+	static void fleetIncisosUpdateThePolicyWithoutTouchingItsAssets() {
+		InsurancePolicy policy = createPolicy('Inicial');
+		List<Inciso_Flotilla__c> incisos = new List<Inciso_Flotilla__c>{
+			new Inciso_Flotilla__c(Poliza__c = policy.Id, Numero_Inciso__c = 1),
+			new Inciso_Flotilla__c(Poliza__c = policy.Id, Numero_Inciso__c = 2),
+			new Inciso_Flotilla__c(Poliza__c = policy.Id, Numero_Inciso__c = 3)
+		};
+
+		Test.startTest();
+		insert incisos;
+		System.assertEquals(
+			'Flotilla · 3 incisos',
+			subjectOf(policy.Id),
+			'El alta de incisos de flotilla se refleja sin bienes de la póliza'
+		);
+		update new Inciso_Flotilla__c(
+			Id = incisos[2].Id,
+			Fecha_Baja__c = Date.today()
+		);
+		System.assertEquals(
+			'Flotilla · 2 incisos',
+			subjectOf(policy.Id),
+			'La baja del inciso deja de contar'
+		);
+		delete incisos[1];
+		Test.stopTest();
+
+		System.assertNotEquals(
+			'Flotilla · 2 incisos',
+			subjectOf(policy.Id),
+			'El borrado del inciso también recalcula'
+		);
+	}
+
+	@IsTest
 	static void anExpiredPolicyKeepsItsAssetEvenIfInactive() {
 		InsurancePolicy policy = createPolicy('Vencido');
 
@@ -160,6 +195,44 @@ private class InsuredSubjectServiceTest {
 			'NISSAN NP300 2024',
 			subjectOf(policy.Id),
 			'Con la póliza vencida, la casilla apagada no es una baja'
+		);
+	}
+
+	@IsTest
+	static void aCancelledPolicyKeepsTheAssetsClosedOnItsCancellation() {
+		InsurancePolicy policy = createPolicy('Inicial');
+		Date cancelledOn = Date.today().addDays(-10);
+		insert new List<InsurancePolicyAsset>{
+			new InsurancePolicyAsset(
+				InsurancePolicyId = policy.Id,
+				AssetName = 'AUTOPISTA MEXICO-ACAPULCO KM 21',
+				IsActive = false,
+				EffectiveToDate = cancelledOn
+			),
+			new InsurancePolicyAsset(
+				InsurancePolicyId = policy.Id,
+				AssetName = 'BODEGA DADA DE BAJA ANTES',
+				IsActive = false,
+				EffectiveToDate = cancelledOn.addDays(-20)
+			)
+		};
+
+		Test.startTest();
+		update new InsurancePolicy(
+			Id = policy.Id,
+			Status = 'Cancelado',
+			CancellationDate = Datetime.newInstance(
+				cancelledOn,
+				Time.newInstance(6, 0, 0, 0)
+			)
+		);
+		InsuredSubjectService.recalculate(new Set<Id>{ policy.Id });
+		Test.stopTest();
+
+		System.assertEquals(
+			'AUTOPISTA MEXICO-ACAPULCO KM 21',
+			subjectOf(policy.Id),
+			'Lo que se cerró el día de la cancelación sigue a la vista; lo dado de baja antes, no'
 		);
 	}
 

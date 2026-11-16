@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+	>Lista completa de pólizas, sin el tope de 2.000 filas de las vistas y los informes.</description>
+    <label>Todas las pólizas</label>
+    <lwcComponent>allPolicies</lwcComponent>
+    <motif>Custom55: Paper</motif>
+</CustomTab>

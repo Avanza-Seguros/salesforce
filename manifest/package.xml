@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
+        <members>AllPoliciesController</members>
+        <members>AllPoliciesControllerTest</members>
         <members>AppLogFinalizer</members>
         <members>AppLogger</members>
         <members>AppLoggerTest</members>
@@ -32,6 +34,8 @@
         <members>PolicyPaymentReceiptReversalService</members>
         <members>PolicyPaymentReceiptReversalServiceTest</members>
         <members>PolicyInstallmentsControllerTest</members>
+        <members>PolicyReportLinkController</members>
+        <members>PolicyReportLinkControllerTest</members>
         <members>PolicyTermsController</members>
         <members>PolicyTermsControllerTest</members>
         <members>InsuredSubjectService</members>
@@ -90,6 +94,7 @@
     <types>
         <members>InsurancePolicyTrigger</members>
         <members>InsuredSubjectAssetTrigger</members>
+        <members>InsuredSubjectFleetIncisoTrigger</members>
         <members>InsuredSubjectParticipantTrigger</members>
         <members>PaymentPlanTrigger</members>
         <members>PaymentPlanInstallmentTrigger</members>
@@ -413,6 +418,7 @@
         <name>PermissionSet</name>
     </types>
     <types>
+        <members>allPolicies</members>
         <members>reconciliationManualApprove</members>
         <members>reconciliationManualReject</members>
         <members>reconciliationManualReprocess</members>
@@ -493,6 +499,7 @@
         <members>PolicyPaymentReceipt__c</members>
         <members>InboundPolicyUpdate__c</members>
         <members>PaymentPlanInstallment__c</members>
+        <members>Todas_las_polizas</members>
         <name>CustomTab</name>
     </types>
     <types>
@@ -565,10 +572,25 @@
     <version>66.0</version>
     <types>
         <members>Cobranza</members>
+        <members>Polizas</members>
         <name>ReportFolder</name>
     </types>
     <types>
         <members>Cobranza/Cartera_Vencida</members>
+        <members>Polizas/Todas_las_polizas</members>
         <name>Report</name>
+    </types>
+    <types>
+        <members>InsurancePolicy.Ver_todas_informe</members>
+        <members>InsurancePolicy.Ver_todas_lista</members>
+        <name>WebLink</name>
+    </types>
+    <types>
+        <members>TodasLasPolizasInforme</members>
+        <name>ApexPage</name>
+    </types>
+    <types>
+        <members>Polizas_de_Seguro</members>
+        <name>ReportType</name>
     </types>
 </Package>

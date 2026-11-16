@@ -8,15 +8,15 @@ const COLUMNS = [
 		label: "Vigencia",
 		fieldName: "policyUrl",
 		type: "url",
-		initialWidth: 220,
+		initialWidth: 200,
 		typeAttributes: { label: { fieldName: "periodLabel" }, target: "_self" },
 		cellAttributes: { class: { fieldName: "currentClass" } }
 	},
 	{
 		label: "Número de póliza",
-		fieldName: "policyNumber",
+		fieldName: "numberLabel",
 		type: "text",
-		initialWidth: 170,
+		initialWidth: 260,
 		cellAttributes: { class: { fieldName: "currentClass" } }
 	},
 	{

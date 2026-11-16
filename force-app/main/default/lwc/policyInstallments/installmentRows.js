@@ -209,6 +209,7 @@ function addDays(isoDate, days) {
 /**
  * Un inciso está de baja si tiene fecha o motivo de baja, si su cobertura termina antes que la
  * póliza, o si está apagado con la póliza viva (al vencer la póliza se apagan todos y no es baja).
+ * Una póliza cancelada termina el día de la cancelación: lo que se cerró ese día no es baja.
  * Es la misma regla que usa el campo «Asegurado o bien» de la póliza.
  */
 function droppedOn(endDate, isActive, explicitDate, reason, policy) {
@@ -218,7 +219,8 @@ function droppedOn(endDate, isActive, explicitDate, reason, policy) {
 	if (reason) {
 		return endDate || NO_DATE;
 	}
-	const policyEnd = policy && policy.ExpirationDate;
+	const policyEnd =
+		policy && (policy.CancellationDate || policy.ExpirationDate);
 	if (endDate && policyEnd && endDate < addDays(policyEnd, -1)) {
 		return endDate;
 	}
@@ -319,9 +321,14 @@ function droppedSuffix(inciso) {
 		: ` · Baja ${formatDate(inciso.dropped)}`;
 }
 
-/** Pinta en gris una fila de un inciso dado de baja, y lo que cuelga de ella. */
+/**
+ * Pinta en gris una fila de un inciso dado de baja, y lo que cuelga de ella. Un recibo
+ * pagado conserva su verde: el cobro se hizo aunque el inciso ya no esté.
+ */
 function greyOut(row) {
-	row.statusClass = "slds-text-color_weak";
+	if (row.statusClass !== "slds-text-color_success") {
+		row.statusClass = "slds-text-color_weak";
+	}
 	row.overdueClass = "slds-text-color_weak";
 	row.subjectClass = "slds-text-color_weak";
 	(row._children || []).forEach(greyOut);

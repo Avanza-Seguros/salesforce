@@ -56,6 +56,7 @@ public with sharing class PolicyInstallmentsController {
 				paymentPlan__r.planStatus__c,
 				paymentPlan__r.insurancePolicy__r.Status,
 				paymentPlan__r.insurancePolicy__r.ExpirationDate,
+				paymentPlan__r.insurancePolicy__r.CancellationDate,
 				policyAsset__c,
 				policyAsset__r.AssetCode,
 				policyAsset__r.AssetName,

@@ -411,6 +411,22 @@ describe("buildRows", () => {
 			});
 		});
 
+		it("un recibo pagado de un inciso de baja sigue en verde", () => {
+			const pagado = recibo("f5", "2025-11-16", baja, {
+				installmentStatus__c: "Conciliado",
+				matchedAmount__c: 100,
+				outstandingAmount__c: 0
+			});
+			const { rows } = buildRows([...records, pagado]);
+			const fila = rows
+				.flatMap((r) => r._children || [])
+				.find((h) => h.Id === "f5");
+
+			expect(fila.sequenceLabel).toMatch(/^Inciso 3 · Baja/);
+			expect(fila.statusClass).toBe("slds-text-color_success");
+			expect(fila.subjectClass).toBe("slds-text-color_weak");
+		});
+
 		it("agrupa por inciso con sus recibos por fecha", () => {
 			const { rows, totals } = buildRows(records, "inciso");
 
@@ -439,6 +455,26 @@ describe("buildRows", () => {
 			]);
 
 			expect(rows[0]._children[0].sequenceLabel).toBe("Inciso 9");
+		});
+
+		it("una póliza cancelada no pone de baja a los incisos cerrados el día de la cancelación", () => {
+			const cancelada = {
+				Status: "Cancelado",
+				ExpirationDate: "2027-08-21T06:00:00.000Z",
+				CancellationDate: "2026-08-21T06:00:00.000Z"
+			};
+			const cerrado = bien("ipa8", {
+				AssetCode: "8",
+				IsActive: false,
+				EffectiveToDate: "2026-08-21"
+			});
+			const { rows } = buildRows([
+				recibo("c1", "2025-12-16", cerrado, {
+					paymentPlan__r: { Name: "PP", insurancePolicy__r: cancelada }
+				})
+			]);
+
+			expect(rows[0]._children[0].sequenceLabel).toBe("Inciso 8");
 		});
 
 		it("un certificado dice el nombre de la persona y los reemplazados siguen colgando de él", () => {

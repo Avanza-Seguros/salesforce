@@ -80,6 +80,37 @@ public with sharing class InsuredSubjectService {
 	}
 
 	/**
+	 * @creation date: 12/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Recalcula las pólizas de los incisos de flotilla que cambiaron. Las pantallas
+	 *               de flotillas dan de alta y de baja ahí, a veces sin tocar el bien de la póliza.
+	 * @param records: Registros nuevos del trigger, o los borrados.
+	 * @param oldMap: Valores anteriores; nulo al insertar.
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	public static void onFleetIncisosChanged(
+		List<Inciso_Flotilla__c> records,
+		Map<Id, Inciso_Flotilla__c> oldMap
+	) {
+		Set<Id> policyIds = new Set<Id>();
+		for (Inciso_Flotilla__c inciso : records) {
+			policyIds.add(inciso.Poliza__c);
+			Inciso_Flotilla__c previous = oldMap == null
+				? null
+				: oldMap.get(inciso.Id);
+			if (previous != null) {
+				policyIds.add(previous.Poliza__c);
+			}
+		}
+		policyIds.remove(null);
+		if (!policyIds.isEmpty()) {
+			recalculate(policyIds);
+		}
+	}
+
+	/**
 	 * @creation date: 08/11/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Recalcula las pólizas de los asegurados que cambiaron.
@@ -126,7 +157,7 @@ public with sharing class InsuredSubjectService {
 
 		Map<Id, InsurancePolicy> policies = new Map<Id, InsurancePolicy>(
 			[
-				SELECT Id, Status, ExpirationDate, insuredSubject__c
+				SELECT Id, Status, ExpirationDate, CancellationDate, insuredSubject__c
 				FROM InsurancePolicy
 				WHERE Id IN :ids
 			]
@@ -155,7 +186,7 @@ public with sharing class InsuredSubjectService {
 	 * @creation date: 08/11/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Arma el texto de cada póliza a partir de sus bienes, incisos y asegurados.
-	 * @param policies: Pólizas con Status y ExpirationDate.
+	 * @param policies: Pólizas con Status, ExpirationDate y CancellationDate.
 	 * @return: Map<Id, String> Texto por póliza; nulo si no tiene bien ni asegurado.
 	 * @exception:
 	 * @throws:
@@ -202,7 +233,8 @@ public with sharing class InsuredSubjectService {
 			WHERE Poliza__c IN :byId.keySet() AND Fecha_Baja__c = NULL
 			ORDER BY Numero_Inciso__c
 		]) {
-			addUnique(
+			// Cada inciso cuenta aunque dos vehículos se describan igual.
+			addEach(
 				incisosByPolicy,
 				inciso.Poliza__c,
 				withSerial(inciso.Descripcion__c, inciso.Serie__c)
@@ -340,16 +372,20 @@ public with sharing class InsuredSubjectService {
 	 * Un bien o un asegurado está fuera de la póliza si terminó antes que ella (una baja
 	 * fija la fecha de fin del día de la baja) o si su casilla de activo está apagada
 	 * mientras la póliza sigue viva. Con la póliza vencida o cancelada, la casilla apagada
-	 * no dice nada: se apaga con la póliza.
+	 * no dice nada: se apaga con la póliza. Una póliza cancelada termina el día de la
+	 * cancelación, y sus bienes, que se cierran ese mismo día, siguen contando.
 	 */
 	private static Boolean isDroppedOut(
 		Boolean isActive,
 		Date endDate,
 		InsurancePolicy policy
 	) {
-		if (endDate != null && policy?.ExpirationDate != null) {
+		Datetime policyEnd = policy?.CancellationDate != null
+			? policy.CancellationDate
+			: policy?.ExpirationDate;
+		if (endDate != null && policyEnd != null) {
 			// Un día de holgura por la hora con la que se guarda el fin de la póliza.
-			if (endDate < policy.ExpirationDate.date().addDays(-1)) {
+			if (endDate < policyEnd.date().addDays(-1)) {
 				return true;
 			}
 		}
@@ -397,6 +433,17 @@ public with sharing class InsuredSubjectService {
 				: text + SEPARATOR + 'serie ' + vin;
 		}
 		return String.isBlank(text) ? null : text;
+	}
+
+	private static void addEach(
+		Map<Id, List<String>> target,
+		Id policyId,
+		String text
+	) {
+		if (!target.containsKey(policyId)) {
+			target.put(policyId, new List<String>());
+		}
+		target.get(policyId).add(String.isBlank(text) ? '(sin descripción)' : text);
 	}
 
 	private static void addUnique(

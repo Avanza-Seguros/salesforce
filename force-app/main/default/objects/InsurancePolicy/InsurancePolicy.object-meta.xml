@@ -147,6 +147,8 @@
         <customTabListAdditionalFields
 		>PremiumAmount</customTabListAdditionalFields>
         <customTabListAdditionalFields>Status</customTabListAdditionalFields>
+        <listViewButtons>Ver_todas_informe</listViewButtons>
+        <listViewButtons>Ver_todas_lista</listViewButtons>
         <lookupDialogsAdditionalFields
 		>termPeriod__c</lookupDialogsAdditionalFields>
         <lookupDialogsAdditionalFields

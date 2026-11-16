@@ -35,7 +35,10 @@ export function buildRows(terms) {
 		return {
 			...term,
 			policyUrl: `/${term.policyId}`,
-			periodLabel: term.isCurrent ? `${period} · esta` : period,
+			periodLabel: period,
+			numberLabel: term.isCurrent
+				? `${term.policyNumber} · la que estás viendo`
+				: term.policyNumber,
 			currentClass: term.isCurrent ? "slds-text-title_bold" : "",
 			renewalLabel: renewal.label,
 			renewalClass: renewal.className,

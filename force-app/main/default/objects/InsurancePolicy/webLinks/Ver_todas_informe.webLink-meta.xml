@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ver_todas_informe</fullName>
+    <availability>online</availability>
+    <description
+	>Abre el informe «Todas las pólizas», que se puede exportar completo a Excel (en pantalla, como las vistas, muestra 2.000).</description>
+    <displayType>massActionButton</displayType>
+    <linkType>page</linkType>
+    <masterLabel>Ver todas (informe)</masterLabel>
+    <openType>replace</openType>
+    <page>TodasLasPolizasInforme</page>
+    <protected>false</protected>
+    <requireRowSelection>false</requireRowSelection>
+</WebLink>

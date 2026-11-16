@@ -1,0 +1,86 @@
+<template>
+	<lightning-card icon-name="standard:contract">
+		<div slot="title">
+			<span class="slds-text-heading_small total">{headerTitle}</span>
+			<span
+				class="slds-text-color_weak slds-text-body_small slds-m-left_small loaded"
+				>{loadedLabel}</span
+			>
+		</div>
+		<div class="slds-p-horizontal_small">
+			<div
+				class="slds-grid slds-wrap slds-gutters_x-small slds-grid_vertical-align-end"
+			>
+				<div class="slds-col slds-size_1-of-1 slds-medium-size_5-of-12">
+					<lightning-input
+						type="search"
+						label="Buscar"
+						placeholder="Número de póliza o nombre del asegurado"
+						onchange={handleSearchChange}
+					></lightning-input>
+				</div>
+				<div class="slds-col slds-size_1-of-2 slds-medium-size_3-of-12">
+					<lightning-combobox
+						class="carrier-filter"
+						label="Aseguradora"
+						value={carrierId}
+						options={carrierOptions}
+						onchange={handleCarrierChange}
+					></lightning-combobox>
+				</div>
+				<div class="slds-col slds-size_1-of-2 slds-medium-size_2-of-12">
+					<lightning-combobox
+						class="status-filter"
+						label="Estado"
+						value={status}
+						options={statusOptions}
+						onchange={handleStatusChange}
+					></lightning-combobox>
+				</div>
+				<div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+					<lightning-button
+						class="clear-button"
+						label="Limpiar"
+						icon-name="utility:clear"
+						disabled={clearDisabled}
+						onclick={handleClear}
+					></lightning-button>
+				</div>
+			</div>
+
+			<template lwc:if={error}>
+				<p
+					class="slds-text-color_error slds-text-body_small slds-p-top_x-small error"
+				>
+					{error}
+				</p>
+			</template>
+
+			<template lwc:if={isEmpty}>
+				<p
+					class="slds-text-color_weak slds-text-body_small slds-p-top_x-small empty"
+				>
+					No hay pólizas que cumplan estos filtros.
+				</p>
+			</template>
+
+			<div class="table-scroll slds-m-top_small">
+				<lightning-datatable
+					key-field="Id"
+					data={rows}
+					columns={columns}
+					hide-checkbox-column
+					show-row-number-column
+					sorted-by={sortedBy}
+					sorted-direction={sortDirection}
+					default-sort-direction="asc"
+					onsort={handleSort}
+					enable-infinite-loading={hasMore}
+					load-more-offset="40"
+					is-loading={isLoading}
+					onloadmore={handleLoadMore}
+				></lightning-datatable>
+			</div>
+		</div>
+	</lightning-card>
+</template>
