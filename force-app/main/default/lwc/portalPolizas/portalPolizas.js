@@ -123,6 +123,8 @@ export default class PortalPolizas extends LightningElement {
                 }))
             };
             this.errorDetalle = undefined;
+            // La pestaña activa se carga al abrir la póliza (antes lo hacía lightning-tabset al mostrarse).
+            this.cargarPestana(this.pestana);
             this.cargandoDetalle = false;
         } else if (error) {
             this.errorDetalle = this.mensaje(error);
@@ -327,10 +329,27 @@ export default class PortalPolizas extends LightningElement {
     get pestanaParticipantes() { return this.pestanas.participantes; }
 
     handlePestana(event) {
-        const clave = event.target.value;
+        const clave = event.currentTarget.dataset.value;
         this.pestana = clave;
         this.cargarPestana(clave);
     }
+
+    // Pestañas del detalle con el mismo estilo que los filtros (botones de color, la activa rellena).
+    get opcionesPestanas() {
+        return this.opciones([
+            { label: 'Información Póliza', value: 'info' },
+            { label: 'Pagos', value: 'pagos' },
+            { label: 'Vigencias', value: 'vigencias' },
+            { label: this.tituloBienes, value: 'asegurados' },
+            { label: 'Participantes', value: 'participantes' }
+        ], this.pestana);
+    }
+
+    get verInfo() { return this.pestana === 'info'; }
+    get verPagos() { return this.pestana === 'pagos'; }
+    get verVigencias() { return this.pestana === 'vigencias'; }
+    get verAsegurados() { return this.pestana === 'asegurados'; }
+    get verParticipantes() { return this.pestana === 'participantes'; }
 
     async cargarPestana(clave) {
         const actual = this.pestanas[clave];

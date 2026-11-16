@@ -148,9 +148,16 @@
                     </div>
 
                     <!-- Mismas pestañas que la página de la póliza en Salesforce -->
-                    <lightning-tabset active-tab-value={pestana}>
+                    <div class="filtros pestanas" role="tablist" aria-label="Secciones de la póliza">
+                        <template for:each={opcionesPestanas} for:item="o">
+                            <button key={o.value} class={o.clase} role="tab" data-value={o.value} aria-selected={o.presionado}
+                                onclick={handlePestana}>
+                                <span class="filtro_punto"></span>{o.label}
+                            </button>
+                        </template>
+                    </div>
                         <!-- Información Póliza -->
-                        <lightning-tab label="Información Póliza" value="info" onactive={handlePestana}>
+                        <div lwc:if={verInfo} class="pestana_panel" role="tabpanel">
                             <template lwc:if={pestanaInfo.cargando}>
                                 <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
                             </template>
@@ -197,10 +204,10 @@
                     <template lwc:else>
                         <p class="subtitulo">No hay documentos disponibles para esta póliza.</p>
                     </template>
-                        </lightning-tab>
+                        </div>
 
                         <!-- Pagos -->
-                        <lightning-tab label="Pagos" value="pagos" onactive={handlePestana}>
+                        <div lwc:if={verPagos} class="pestana_panel" role="tabpanel">
                             <template lwc:if={pestanaPagos.cargando}>
                                 <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
                             </template>
@@ -235,10 +242,10 @@
                                 </template>
                                 <p lwc:else class="subtitulo">Esta póliza todavía no tiene cuotas registradas.</p>
                             </template>
-                        </lightning-tab>
+                        </div>
 
                         <!-- Vigencias -->
-                        <lightning-tab label="Vigencias" value="vigencias" onactive={handlePestana}>
+                        <div lwc:if={verVigencias} class="pestana_panel" role="tabpanel">
                             <template lwc:if={pestanaVigencias.cargando}>
                                 <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
                             </template>
@@ -266,10 +273,10 @@
                                     </table>
                                 </div>
                             </template>
-                        </lightning-tab>
+                        </div>
 
                         <!-- Asegurados, Vehículos o Ubicaciones, según el ramo -->
-                        <lightning-tab label={tituloBienes} value="asegurados" onactive={handlePestana}>
+                        <div lwc:if={verAsegurados} class="pestana_panel" role="tabpanel">
                             <template lwc:if={pestanaAsegurados.cargando}>
                                 <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
                             </template>
@@ -310,10 +317,10 @@
                                 </template>
                                 <p lwc:else class="subtitulo">{tablaAsegurados.vacio}</p>
                             </template>
-                        </lightning-tab>
+                        </div>
 
                         <!-- Participantes -->
-                        <lightning-tab label="Participantes" value="participantes" onactive={handlePestana}>
+                        <div lwc:if={verParticipantes} class="pestana_panel" role="tabpanel">
                             <template lwc:if={pestanaParticipantes.cargando}>
                                 <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
                             </template>
@@ -358,8 +365,7 @@
                                     <p lwc:else class="subtitulo">No hay participantes registrados en esta póliza.</p>
                                 </template>
                             </template>
-                        </lightning-tab>
-                    </lightning-tabset>
+                        </div>
                 </section>
             </template>
         </template>

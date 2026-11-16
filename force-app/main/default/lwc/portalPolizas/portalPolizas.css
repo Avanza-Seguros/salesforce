@@ -423,6 +423,16 @@ button.documento:disabled { cursor: progress; opacity: 0.7; }
 .filtro_tono2 { --tono: #2f9aa8; --tono-suave: #e6f5f6; --tono-fin: #52c1c9; }
 .filtro_tono3 { --tono: #8a63c9; --tono-suave: #f2edfb; --tono-fin: #b08ae6; }
 .filtro_tono4 { --tono: #c27a3a; --tono-suave: #fbf1e7; --tono-fin: #e0a066; }
+/* Pestañas del detalle: los mismos botones de color, un poco más grandes y separados del contenido. */
+.pestanas {
+    margin: 1.25rem 0 1rem;
+    padding: 0.5rem;
+    border: 1px solid var(--pp-borde);
+    border-radius: var(--pp-radio);
+    background: var(--pp-fondo-suave);
+}
+.pestanas .filtro { padding: 0.5625rem 1.125rem; font-size: 0.875rem; }
+.pestana_panel { padding-top: 0.25rem; }
 .filtro_punto { width: 8px; height: 8px; border-radius: 50%; background: var(--tono); box-shadow: 0 0 0 3px var(--tono-suave); }
 .filtro_cuenta {
     min-width: 1.375rem;

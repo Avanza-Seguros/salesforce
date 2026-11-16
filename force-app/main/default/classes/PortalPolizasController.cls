@@ -60,6 +60,122 @@ public without sharing class PortalPolizasController {
 		@AuraEnabled public Integer polizas;
 	}
 
+	public class CuotaDashboard {
+		@AuraEnabled public Id id;
+		@AuraEnabled public Id polizaId;
+		@AuraEnabled public String numero;
+		@AuraEnabled public String ramo;
+		@AuraEnabled public String moneda;
+		@AuraEnabled public Date vence;
+		@AuraEnabled public Decimal pendiente;
+		@AuraEnabled public Boolean vencida;
+		@AuraEnabled public Integer diasMora;
+	}
+
+	public class MesDashboard {
+		@AuraEnabled public Date inicio;
+		@AuraEnabled public Decimal monto = 0;
+		@AuraEnabled public Integer cuotas = 0;
+	}
+
+	public class Dashboard {
+		@AuraEnabled public List<Poliza> polizas = new List<Poliza>();
+		@AuraEnabled public List<CuotaDashboard> proximasCuotas = new List<CuotaDashboard>();
+		@AuraEnabled public List<MesDashboard> pagosPorMes = new List<MesDashboard>();
+		@AuraEnabled public Decimal totalPendiente = 0;
+		@AuraEnabled public Decimal totalVencido = 0;
+		@AuraEnabled public Integer cuotasVencidas = 0;
+		@AuraEnabled public Decimal pagadoUltimoAnio = 0;
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Datos del Dashboard del sitio: las pólizas del usuario y, de sus cuotas (sin las reemplazadas por
+	 * un recibo nuevo ni las canceladas o condonadas), lo pendiente, lo vencido, las próximas a pagar, lo que se
+	 * pagará en cada uno de los próximos 6 meses y lo pagado en los últimos 12.
+	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
+	 * @return Dashboard
+	 */
+	@AuraEnabled(cacheable=true)
+	public static Dashboard dashboard(Id cuentaVistaPrevia) {
+		try {
+			Dashboard d = new Dashboard();
+			Map<Id, String> roles = polizasDelUsuario(cuentaVistaPrevia);
+			if (roles.isEmpty()) { return d; }
+			Set<Id> ids = roles.keySet();
+			Map<Id, Poliza> porId = new Map<Id, Poliza>();
+			for (InsurancePolicy p : Database.query(consulta() + ' WHERE Id IN :ids ORDER BY ExpirationDate DESC NULLS LAST, Name')) {
+				Poliza o = convertir(p, roles.get(p.Id));
+				d.polizas.add(o);
+				porId.put(o.id, o);
+			}
+			Date hoy = Date.today();
+			Date primerMes = hoy.toStartOfMonth();
+			for (Integer i = 0; i < 6; i++) {
+				MesDashboard m = new MesDashboard();
+				m.inicio = primerMes.addMonths(i);
+				d.pagosPorMes.add(m);
+			}
+			List<PaymentPlanInstallment__c> cuotas = [
+				SELECT Id, dueDate__c, expectedAmount__c, matchedAmount__c, outstandingAmount__c, installmentStatus__c,
+					daysOverdue__c, replacesInstallment__c, paymentPlan__r.insurancePolicy__c, matchedReceipt__r.receiptDate__c
+				FROM PaymentPlanInstallment__c
+				WHERE paymentPlan__r.insurancePolicy__c IN :ids
+				ORDER BY dueDate__c ASC NULLS LAST
+				LIMIT 5000
+			];
+			Set<Id> reemplazadas = new Set<Id>();
+			for (PaymentPlanInstallment__c c : cuotas) {
+				if (c.replacesInstallment__c != null) { reemplazadas.add(c.replacesInstallment__c); }
+			}
+			Date haceUnAnio = hoy.addYears(-1);
+			for (PaymentPlanInstallment__c c : cuotas) {
+				if (reemplazadas.contains(c.Id)) { continue; }
+				String estado = c.installmentStatus__c;
+				if (estado == 'Conciliado') {
+					Date pago = c.matchedReceipt__r?.receiptDate__c;
+					if (pago != null && pago >= haceUnAnio && c.matchedAmount__c != null) { d.pagadoUltimoAnio += c.matchedAmount__c; }
+					continue;
+				}
+				if (estado != 'Pendiente' && estado != 'Vencido') { continue; }
+				Decimal pendiente = c.outstandingAmount__c == null ? 0 : c.outstandingAmount__c;
+				if (pendiente <= 0) { continue; }
+				Boolean vencida = estado == 'Vencido' || (c.dueDate__c != null && c.dueDate__c < hoy);
+				d.totalPendiente += pendiente;
+				if (vencida) {
+					d.totalVencido += pendiente;
+					d.cuotasVencidas++;
+				} else if (c.dueDate__c != null) {
+					Integer mes = primerMes.monthsBetween(c.dueDate__c.toStartOfMonth());
+					if (mes >= 0 && mes < 6) {
+						d.pagosPorMes[mes].monto += pendiente;
+						d.pagosPorMes[mes].cuotas++;
+					}
+				}
+				if (d.proximasCuotas.size() < 8) {
+					Poliza p = porId.get(c.paymentPlan__r.insurancePolicy__c);
+					CuotaDashboard q = new CuotaDashboard();
+					q.id = c.Id;
+					q.polizaId = p?.id;
+					q.numero = p?.numero;
+					q.ramo = p?.ramo;
+					q.moneda = p == null ? 'MXN' : p.moneda;
+					q.vence = c.dueDate__c;
+					q.pendiente = pendiente;
+					q.vencida = vencida;
+					q.diasMora = c.daysOverdue__c != null && c.daysOverdue__c > 0 ? c.daysOverdue__c.intValue() : null;
+					d.proximasCuotas.add(q);
+				}
+			}
+			return d;
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			throw error(e);
+		}
+	}
+
 	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
