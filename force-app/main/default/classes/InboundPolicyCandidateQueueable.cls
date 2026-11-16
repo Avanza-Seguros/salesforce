@@ -32,6 +32,7 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 	private static final String REASON_AMBIGUOUS_TERM = 'VIGENCIA_AMBIGUA';
 	private static final String REASON_NO_POLICY = 'SIN_POLIZA';
 	private static final String REASON_NO_NUMBER = 'SIN_NUMERO';
+	private static final String REASON_FLEET_CERTIFICATE = 'CERTIFICADO_DE_FLOTILLA';
 
 	@TestVisible
 	private static Boolean forceFailureForTest = false;
@@ -312,6 +313,16 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 				result.get(numUpper).add(policy);
 			}
 		}
+		// Un certificado de flotilla de HDI («49-4785-42») no es una póliza propia: se cobra en
+		// su póliza madre («49-4785»). Solo se busca así cuando el número exacto no existe, para
+		// que las individuales («49-43035-1») sigan encontrándose por su número.
+		Set<String> unresolved = new Set<String>();
+		for (String num : policyNumbers) {
+			if (!result.containsKey(num)) {
+				unresolved.add(num);
+			}
+		}
+		result.putAll(FleetIncisoService.fleetPoliciesFor(unresolved));
 		return result;
 	}
 
@@ -342,7 +353,12 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 			return new PolicyMatchResult(null, REASON_NO_POLICY);
 		}
 		if (matches.size() == 1) {
-			return new PolicyMatchResult(matches[0].Id, REASON_SINGLE_WINNER);
+			return new PolicyMatchResult(
+				matches[0].Id,
+				isFleetCertificate(payment, matches[0])
+					? REASON_FLEET_CERTIFICATE
+					: REASON_SINGLE_WINNER
+			);
 		}
 
 		Date reference = referenceDateFor(payment);
@@ -362,6 +378,24 @@ public with sharing class InboundPolicyCandidateQueueable implements Queueable {
 			return new PolicyMatchResult(null, REASON_AMBIGUOUS_TERM);
 		}
 		return new PolicyMatchResult(winner, REASON_BY_TERM);
+	}
+
+	/**
+	 * @creation date: 08/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Indica si la poliza se encontro como madre de un certificado y no por su
+	 *               numero exacto. Queda en el motivo para que se vea por que el pago cayo ahi.
+	 * @param payment: Pago con su numero normalizado.
+	 * @param policy: Poliza elegida.
+	 * @return true si el numero del pago no es el de la poliza.
+	 */
+	private static Boolean isFleetCertificate(
+		InboundInsurancePayment__c payment,
+		InsurancePolicy policy
+	) {
+		String num = payment.sourcePolicyNumber__c;
+		return !num.equalsIgnoreCase(policy.Name) &&
+			!num.equalsIgnoreCase(policy.PolicyName);
 	}
 
 	/**

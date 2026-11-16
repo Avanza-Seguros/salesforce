@@ -134,6 +134,10 @@
     <picklistValues>
         <picklist>policyMatchReason__c</picklist>
         <values>
+            <fullName>CERTIFICADO_DE_FLOTILLA</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>RESUELTO_POR_VIGENCIA</fullName>
             <default>false</default>
         </values>

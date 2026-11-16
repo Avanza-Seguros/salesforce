@@ -11,7 +11,27 @@
 				</p>
 			</template>
 
+			<template if:true={insuredSubject}>
+				<p class="slds-text-body_small slds-p-bottom_x-small">
+					<span class="slds-text-color_weak">Qué cubre esta póliza:&nbsp;</span
+					>{insuredSubject}
+				</p>
+			</template>
+
 			<template if:true={hasRows}>
+				<template if:true={fleet}>
+					<div class="slds-p-bottom_x-small">
+						<lightning-radio-group
+							name="agrupar"
+							label="Agrupar"
+							options={groupOptions}
+							value={groupBy}
+							type="button"
+							variant="label-inline"
+							onchange={handleGroupChange}
+						></lightning-radio-group>
+					</div>
+				</template>
 				<template if:true={hasReplacedReceipts}>
 					<div class="slds-p-bottom_x-small slds-text-align_right">
 						<lightning-button-group>
@@ -26,14 +46,17 @@
 						</lightning-button-group>
 					</div>
 				</template>
-				<lightning-tree-grid
-					expanded-rows={expandedRows}
-					key-field="Id"
-					data={rows}
-					columns={columns}
-					hide-checkbox-column
-					resize-column-disabled
-				></lightning-tree-grid>
+				<div class={tableClass}>
+					<lightning-tree-grid
+						expanded-rows={expandedRows}
+						key-field="Id"
+						data={rows}
+						columns={columns}
+						hide-checkbox-column
+						min-column-width="70"
+						ontoggle={handleToggle}
+					></lightning-tree-grid>
+				</div>
 
 				<div
 					class="slds-grid slds-wrap slds-grid_align-spread slds-p-vertical_x-small slds-p-horizontal_xx-small slds-text-body_small slds-border_top"
@@ -76,6 +99,9 @@
 				>
 					Los recibos que la aseguradora canceló y volvió a emitir se abren
 					desde la flecha de su cuota. No cuentan para los totales.
+					<template if:true={fleet}>
+						Los incisos dados de baja se ven en gris, al final de su grupo.
+					</template>
 				</p>
 				<template if:true={hasEstimated}>
 					<div

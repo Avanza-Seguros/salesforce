@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
-	>Deja ver los datos de cobranza de la póliza y de sus cuotas. Solo lectura de campos, más la lectura de las comunicaciones de póliza (canal de pólizas) y su pestaña. No da acceso de escritura, clases ni permisos del sistema.</description>
+	>Deja ver los datos de cobranza de la póliza y de sus cuotas. Solo lectura de campos, más la lectura de las comunicaciones de póliza y su pestaña y la pantalla «Todas las pólizas». No da acceso de escritura ni permisos del sistema.</description>
+    <classAccesses>
+        <apexClass>AllPoliciesController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Cobranza: ver póliza y cuotas</label>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.carrierProductName__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
         <field>InsurancePolicy.dataOrigin__c</field>
@@ -256,6 +265,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InboundPolicyUpdate__c.sourcePolicyStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InboundPolicyUpdate__c.sourcePremiumFrequency__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -327,6 +341,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>InsurancePolicy.insuredAssetDescription__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InsurancePolicy.insuredSubject__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -456,7 +475,17 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>PaymentPlanInstallment__c.policyAsset__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>PaymentPlanInstallment__c.policyNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PaymentPlanInstallment__c.policyParticipant__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -550,6 +579,10 @@
     </tabSettings>
     <tabSettings>
         <tab>InboundPolicyUpdate__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>Todas_las_polizas</tab>
         <visibility>Visible</visibility>
     </tabSettings>
 </PermissionSet>

@@ -110,6 +110,10 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
+                <field>sourcePolicyStatus__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
                 <field>sourcePolicyStatusRaw__c</field>
             </layoutItems>
             <layoutItems>

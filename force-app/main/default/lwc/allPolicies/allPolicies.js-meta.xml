@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Todas las pólizas</masterLabel>
+    <description
+	>Lista completa de pólizas sin el tope de 2.000 filas de las vistas e informes: carga continua al bajar, búsqueda, filtros por aseguradora y estado y orden por columna.</description>
+    <targets>
+        <target>lightning__Tab</target>
+        <target>lightning__AppPage</target>
+    </targets>
+</LightningComponentBundle>

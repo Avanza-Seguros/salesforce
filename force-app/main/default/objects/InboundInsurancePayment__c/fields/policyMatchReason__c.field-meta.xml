@@ -37,6 +37,11 @@
                 <default>false</default>
                 <label>SIN_NUMERO</label>
             </value>
+            <value>
+                <fullName>CERTIFICADO_DE_FLOTILLA</fullName>
+                <default>false</default>
+                <label>CERTIFICADO_DE_FLOTILLA</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

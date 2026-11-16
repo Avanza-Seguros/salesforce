@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Report xmlns="http://soap.sforce.com/2006/04/metadata">
+    <columns>
+        <field>InsurancePolicy$Name</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$Aseguradora__c</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$Ramo__c</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$NameInsured</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$PremiumFrequency</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$EffectiveDate</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$ExpirationDate</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$PremiumAmount</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$Status</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$insuredSubject__c</field>
+    </columns>
+    <columns>
+        <field>InsurancePolicy$CreatedDate</field>
+    </columns>
+    <description
+	>Todas las pólizas. En pantalla se ven las primeras 2.000; «Exportar» saca todas a Excel.</description>
+    <format>Tabular</format>
+    <name>Todas las pólizas</name>
+    <params>
+        <name>co</name>
+        <value>1</value>
+    </params>
+    <reportType>Polizas_de_Seguro__c</reportType>
+    <scope>organization</scope>
+    <showDetails>true</showDetails>
+    <showGrandTotal>true</showGrandTotal>
+    <showSubTotals>true</showSubTotals>
+    <sortColumn>InsurancePolicy$Name</sortColumn>
+    <sortOrder>Asc</sortOrder>
+    <timeFrameFilter>
+        <dateColumn>InsurancePolicy$CreatedDate</dateColumn>
+        <interval>INTERVAL_CUSTOM</interval>
+    </timeFrameFilter>
+</Report>

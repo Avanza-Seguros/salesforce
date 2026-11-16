@@ -1,0 +1,9 @@
+<apex:page
+	standardController="InsurancePolicy"
+	recordSetVar="policies"
+	extensions="PolicyReportLinkController"
+	action="{!openReport}"
+	lightningStylesheets="true"
+>
+	<apex:pageMessages />
+</apex:page>

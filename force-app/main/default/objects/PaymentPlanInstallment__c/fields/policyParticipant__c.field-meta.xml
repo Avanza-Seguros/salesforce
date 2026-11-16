@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>policyParticipant__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <description
+	>Certificado de la colectiva al que corresponde este recibo, cuando el inciso es una persona. Vacío en una póliza individual. Un asegurado con recibos no se puede borrar: se da de baja.</description>
+    <label>Inciso (persona)</label>
+    <referenceTo>InsurancePolicyParticipant</referenceTo>
+    <relationshipLabel>Recibos del certificado</relationshipLabel>
+    <relationshipName>Installments</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

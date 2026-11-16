@@ -16,7 +16,8 @@ public with sharing class PolicyInstallmentsController {
 	 * @author: Javier Torres - Volestra
 	 * @description: Devuelve todas las cuotas de los planes de la poliza indicada,
 	 *               ordenadas por vencimiento. Incluye de que recibo de la aseguradora viene
-	 *               cada una y a cual reemplaza, que es lo que permite agruparlas.
+	 *               cada una y a cual reemplaza, que es lo que permite agruparlas, y en una
+	 *               flotilla o colectiva el inciso (bien o persona) al que pertenece.
 	 * @param policyId: Id de la InsurancePolicy.
 	 * @return Lista de PaymentPlanInstallment__c con los campos de cobranza.
 	 */
@@ -33,6 +34,8 @@ public with sharing class PolicyInstallmentsController {
 				Name,
 				sequenceNumber__c,
 				dueDate__c,
+				periodStartDate__c,
+				periodEndDate__c,
 				expectedAmount__c,
 				matchedAmount__c,
 				outstandingAmount__c,
@@ -50,7 +53,24 @@ public with sharing class PolicyInstallmentsController {
 				matchedReceipt__r.receiptDate__c,
 				paymentPlan__c,
 				paymentPlan__r.Name,
-				paymentPlan__r.planStatus__c
+				paymentPlan__r.planStatus__c,
+				paymentPlan__r.insurancePolicy__r.Status,
+				paymentPlan__r.insurancePolicy__r.ExpirationDate,
+				paymentPlan__r.insurancePolicy__r.CancellationDate,
+				policyAsset__c,
+				policyAsset__r.AssetCode,
+				policyAsset__r.AssetName,
+				policyAsset__r.IsActive,
+				policyAsset__r.EffectiveToDate,
+				policyAsset__r.Fecha_Baja__c,
+				policyAsset__r.Motivo_Baja__c,
+				policyAsset__r.CustomerProperty.Vin,
+				policyParticipant__c,
+				policyParticipant__r.ParticipantCode,
+				policyParticipant__r.ParticipantName,
+				policyParticipant__r.IsActiveParticipant,
+				policyParticipant__r.EffectiveToDate,
+				policyParticipant__r.Motivo_Baja__c
 			FROM PaymentPlanInstallment__c
 			WHERE paymentPlan__r.insurancePolicy__c = :policyId
 			ORDER BY dueDate__c ASC NULLS LAST, sequenceNumber__c ASC

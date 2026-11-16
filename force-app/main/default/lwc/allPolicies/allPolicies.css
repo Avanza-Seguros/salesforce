@@ -1,0 +1,4 @@
+/* Alto fijo: la tabla se desplaza por dentro y su barra horizontal queda siempre a la vista. */
+.table-scroll {
+	height: 70vh;
+}

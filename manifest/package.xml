@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
+        <members>AllPoliciesController</members>
+        <members>AllPoliciesControllerTest</members>
         <members>AppLogFinalizer</members>
         <members>AppLogger</members>
         <members>AppLoggerTest</members>
@@ -32,6 +34,15 @@
         <members>PolicyPaymentReceiptReversalService</members>
         <members>PolicyPaymentReceiptReversalServiceTest</members>
         <members>PolicyInstallmentsControllerTest</members>
+        <members>PolicyReportLinkController</members>
+        <members>PolicyReportLinkControllerTest</members>
+        <members>PolicyTermsController</members>
+        <members>PolicyTermsControllerTest</members>
+        <members>InsuredSubjectService</members>
+        <members>FleetIncisoService</members>
+        <members>FleetIncisoServiceTest</members>
+        <members>InsuredSubjectServiceTest</members>
+        <members>InsuredSubjectBackfillBatch</members>
         <members>PolicyPaymentReceiptQueueable</members>
         <members>PolicyPaymentReceiptQueueableTest</members>
         <members>PaymentInstallmentMatchQueueable</members>
@@ -82,6 +93,9 @@
     </types>
     <types>
         <members>InsurancePolicyTrigger</members>
+        <members>InsuredSubjectAssetTrigger</members>
+        <members>InsuredSubjectFleetIncisoTrigger</members>
+        <members>InsuredSubjectParticipantTrigger</members>
         <members>PaymentPlanTrigger</members>
         <members>PaymentPlanInstallmentTrigger</members>
         <members>PolicyPaymentReceiptTrigger</members>
@@ -178,6 +192,7 @@
         <members>InboundInsurancePayment__c.sourceSystem__c</members>
         <members>InboundInsurancePayment__c.sourceVatCommission__c</members>
         <members>InboundInsurancePayment__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundInsurancePayment__c.sourcePolicyStatus__c</members>
         <members>InboundInsurancePayment__c.sourceCustomerName__c</members>
         <members>InboundInsurancePayment__c.sourceIsCollective__c</members>
         <members>InboundInsurancePayment__c.sourceRetryCount__c</members>
@@ -276,6 +291,10 @@
         <members>PaymentPlanInstallment__c.carrierReceiptNumber__c</members>
         <members>PaymentPlanInstallment__c.replacesInstallment__c</members>
         <members>InsurancePolicy.insuredAssetDescription__c</members>
+        <members>InsurancePolicy.insuredSubject__c</members>
+        <members>PaymentPlanInstallment__c.policyAsset__c</members>
+        <members>PaymentPlanInstallment__c.policyParticipant__c</members>
+        <members>CustomerProperty.RegistrationNumber</members>
         <members>InsurancePolicy.planPremiumAmount__c</members>
         <members>InsurancePolicy.planPremiumMismatch__c</members>
         <members>InsurancePolicy.premiumMismatchAmount__c</members>
@@ -321,6 +340,7 @@
         <members>InboundPolicyUpdate__c.sourcePolicyRenewalDate__c</members>
         <members>InboundPolicyUpdate__c.sourcePolicyStartDate__c</members>
         <members>InboundPolicyUpdate__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyStatus__c</members>
         <members>InboundPolicyUpdate__c.sourcePremiumFrequency__c</members>
         <members>InboundPolicyUpdate__c.sourceProductName__c</members>
         <members>InboundPolicyUpdate__c.sourceRenewalFlag__c</members>
@@ -354,6 +374,7 @@
         <members>InsurancePolicy.ExpirationDate</members>
         <members>InsurancePolicy.PremiumAmount</members>
         <members>InsurancePolicy.Status</members>
+        <members>InsurancePolicy.carrierProductName__c</members>
         <members>InsurancePolicy.dataOrigin__c</members>
         <members>InsurancePolicy.deducedData__c</members>
         <members>InsurancePolicy.handleLookupKey__c</members>
@@ -399,10 +420,12 @@
         <name>PermissionSet</name>
     </types>
     <types>
+        <members>allPolicies</members>
         <members>reconciliationManualApprove</members>
         <members>reconciliationManualReject</members>
         <members>reconciliationManualReprocess</members>
         <members>policyInstallments</members>
+        <members>policyTerms</members>
         <members>inboundRefundResolve</members>
         <members>policyPaymentReceiptReverse</members>
         <members>inboundPolicyStatusReprocess</members>
@@ -452,6 +475,7 @@
         <members
 		>InboundInsurancePayment__c.Estados_de_poliza_por_revisar</members>
         <members>InsurancePolicy.All_InsurancePolicies</members>
+        <members>InsurancePolicy.Polizas_Asegurado_O_Bien</members>
         <members>InsurancePolicy.Polizas_Vigentes</members>
         <members>InsurancePolicy.Polizas_Iniciales</members>
         <members>InsurancePolicy.Polizas_Vencidas</members>
@@ -477,11 +501,13 @@
         <members>PolicyPaymentReceipt__c</members>
         <members>InboundPolicyUpdate__c</members>
         <members>PaymentPlanInstallment__c</members>
+        <members>Todas_las_polizas</members>
         <name>CustomTab</name>
     </types>
     <types>
         <members>InsurancePolicy.PremiumFieldsRequired</members>
         <members>PolicyPaymentReceipt__c.ReversalIsTerminal</members>
+        <members>PaymentPlanInstallment__c.OneIncisoOnly</members>
         <members
 		>PolicyPaymentReceipt__c.ReversalRequiresReasonAndNotes</members>
         <members>Opportunity.BloquearCerrada</members>
@@ -548,10 +574,25 @@
     <version>66.0</version>
     <types>
         <members>Cobranza</members>
+        <members>Polizas</members>
         <name>ReportFolder</name>
     </types>
     <types>
         <members>Cobranza/Cartera_Vencida</members>
+        <members>Polizas/Todas_las_polizas</members>
         <name>Report</name>
+    </types>
+    <types>
+        <members>InsurancePolicy.Ver_todas_informe</members>
+        <members>InsurancePolicy.Ver_todas_lista</members>
+        <name>WebLink</name>
+    </types>
+    <types>
+        <members>TodasLasPolizasInforme</members>
+        <name>ApexPage</name>
+    </types>
+    <types>
+        <members>Polizas_de_Seguro</members>
+        <name>ReportType</name>
     </types>
 </Package>

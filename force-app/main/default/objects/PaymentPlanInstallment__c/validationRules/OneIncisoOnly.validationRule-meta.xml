@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>OneIncisoOnly</fullName>
+    <active>true</active>
+    <description
+	>Un recibo es de un bien o de una persona, nunca de los dos.</description>
+    <errorConditionFormula
+	>AND(NOT(ISBLANK(policyAsset__c)), NOT(ISBLANK(policyParticipant__c)))</errorConditionFormula>
+    <errorDisplayField>policyParticipant__c</errorDisplayField>
+    <errorMessage
+	>El recibo apunta a un bien o a una persona, no a los dos.</errorMessage>
+</ValidationRule>
