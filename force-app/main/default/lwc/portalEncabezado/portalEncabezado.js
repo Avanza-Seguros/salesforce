@@ -86,6 +86,13 @@ export default class PortalEncabezado extends NavigationMixin(LightningElement) 
         return `${this.base}${valor && valor.startsWith('/') ? '' : '/'}${valor || ''}`;
     }
 
+    // Navegación dentro del sitio: el sitio ya antepone su base (/s) a las rutas relativas, así que se pasa la ruta sin
+    // ella (con la base quedaba /s/s/... y salía «Invalid Page»). Los href sí llevan la base completa.
+    ir(valor) {
+        const ruta = `${valor && valor.startsWith('/') ? '' : '/'}${valor || ''}`;
+        this[NavigationMixin.Navigate]({ type: 'standard__webPage', attributes: { url: ruta } });
+    }
+
     // ---------- Menú ----------
 
     get menu() {
@@ -145,7 +152,7 @@ export default class PortalEncabezado extends NavigationMixin(LightningElement) 
         event.preventDefault();
         this.abierto = null;
         this.menuMovil = false;
-        this[NavigationMixin.Navigate]({ type: 'standard__webPage', attributes: { url: this.url(valor, tipo) } });
+        this.ir(valor);
     }
 
     handleTeclaMenu(event) {
@@ -165,7 +172,7 @@ export default class PortalEncabezado extends NavigationMixin(LightningElement) 
         event.preventDefault();
         const texto = this.busqueda.trim();
         const destino = `/mis-polizas${texto ? `?buscar=${encodeURIComponent(texto)}` : ''}`;
-        this[NavigationMixin.Navigate]({ type: 'standard__webPage', attributes: { url: this.url(destino) } });
+        this.ir(destino);
     }
 
     // ---------- Avisos y usuario ----------
