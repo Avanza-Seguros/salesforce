@@ -3,7 +3,7 @@
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
     <masterLabel>Contactos de la empresa (sitio)</masterLabel>
-    <description>Personas de la empresa del cliente con su cobertura y datos de contacto.</description>
+    <description>Personas aseguradas de la empresa del cliente, tomadas del censo.</description>
     <targets>
         <target>lightningCommunity__Page</target>
         <target>lightningCommunity__Default</target>
@@ -12,7 +12,7 @@
         <targetConfig targets="lightningCommunity__Default">
             <property name="titulo" type="String" label="Título" default="Personas de tu empresa" />
             <property name="subtitulo" type="String" label="Subtítulo"
-                default="Consulta a tus colaboradores, su cobertura y cómo contactarlos." />
+                default="Colaboradores y dependientes asegurados en el censo de tu empresa." />
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

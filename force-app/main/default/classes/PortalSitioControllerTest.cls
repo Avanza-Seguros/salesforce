@@ -76,12 +76,14 @@ private class PortalSitioControllerTest {
 	static void testContactos() {
 		Account cuenta = new Account(Name = 'Empresa Contactos');
 		insert cuenta;
-		insert new List<Contact>{
-			new Contact(AccountId = cuenta.Id, LastName = 'Activo', FirstName = 'Ana', Title = 'Gerente', Email = 'ana@example.com',
-				Activo__c = true, Activo_GMM__c = true, Activo_Vida__c = true),
-			new Contact(AccountId = cuenta.Id, LastName = 'Baja', FirstName = 'Beto', Activo__c = false, Activo_Dentegra__c = true,
-				Activo_Adicional__c = true)
-		};
+		GroupCensus censo = new GroupCensus(Name = 'Censo prueba', AccountId = cuenta.Id, Status = 'Draft', Type = 'Quote');
+		insert censo;
+		GroupCensusMember titular = new GroupCensusMember(Name = 'ANA LOPEZ', FirstName = 'ANA', Lastname = 'LOPEZ',
+			GroupCensusId = censo.Id, RelationshipToPrimaryMember = 'Self', Certificado__c = '0000000001',
+			Birthdate = Date.today().addYears(-30), JoinDate = Date.newInstance(2020, 1, 1), Prima__c = 1000);
+		insert titular;
+		insert new GroupCensusMember(Name = 'LUIS LOPEZ', FirstName = 'LUIS', Lastname = 'LOPEZ', GroupCensusId = censo.Id,
+			RelationshipToPrimaryMember = 'Secundario', PrimaryGroupCensusMemberId = titular.Id, Certificado__c = '0000000001', Edad__c = 4, Prima__c = 500);
 
 		Test.startTest();
 		PortalSitioController.Contactos vacio = PortalSitioController.contactos(null);
@@ -89,12 +91,16 @@ private class PortalSitioControllerTest {
 		PortalSitioController.Contactos c = PortalSitioController.contactos(null);
 		Test.stopTest();
 
-		System.assertEquals(0, vacio.personas.size(), 'Sin cuenta no hay contactos');
+		System.assertEquals(0, vacio.personas.size(), 'Sin cuenta no hay personas');
 		System.assertEquals('Empresa Contactos', c.cuenta, 'Nombre de la cuenta');
-		System.assertEquals(2, c.personas.size(), 'Dos personas');
-		System.assertEquals(true, c.personas[0].activo, 'Activos primero');
-		System.assertEquals(new List<String>{ 'GMM', 'Vida' }, c.personas[0].productos, 'Productos del activo');
-		System.assertEquals(new List<String>{ 'Dental', 'Adicional' }, c.personas[1].productos, 'Productos del inactivo');
+		System.assertEquals(2, c.personas.size(), 'Titular y dependiente');
+		System.assertEquals('ANA LOPEZ', c.personas[0].nombre, 'El titular va primero');
+		System.assertEquals('Titular', c.personas[0].parentesco, 'Parentesco del titular');
+		System.assertEquals(30, c.personas[0].edad, 'Edad por fecha de nacimiento');
+		System.assertEquals(false, c.personas[1].titular, 'Dependiente');
+		System.assertEquals('ANA LOPEZ', c.personas[1].titularNombre, 'Titular del dependiente');
+		System.assertEquals(4, c.personas[1].edad, 'Sin nacimiento usa la edad del censo');
+		System.assertEquals(Date.newInstance(2020, 1, 1), c.personas[1].alta, 'El dependiente toma el alta del titular');
 	}
 
 	/**

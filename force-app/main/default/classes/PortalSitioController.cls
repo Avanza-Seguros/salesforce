@@ -2,7 +2,7 @@
  * @creation date: 16/11/2026
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Datos generales del sitio Avanza Seguro: el menú y el usuario para el encabezado, las personas de la
- * empresa del cliente (página Contactos) y su ejecutivo de cuenta. Sin sharing porque el usuario del sitio no ve los
+ * empresa del cliente (página Mi empresa, desde el censo) y su ejecutivo de cuenta. Sin sharing porque el usuario del sitio no ve los
  * registros de su empresa; todo se limita a la cuenta del usuario (o a la de la vista previa del administrador).
  */
 public without sharing class PortalSitioController {
@@ -30,24 +30,32 @@ public without sharing class PortalSitioController {
 	public class Persona {
 		@AuraEnabled public Id id;
 		@AuraEnabled public String nombre;
-		@AuraEnabled public String puesto;
-		@AuraEnabled public String area;
+		@AuraEnabled public String parentesco;
+		@AuraEnabled public Boolean titular = false;
+		@AuraEnabled public String titularNombre;
+		@AuraEnabled public String certificado;
+		@AuraEnabled public Date nacimiento;
+		@AuraEnabled public Integer edad;
+		@AuraEnabled public String genero;
+		@AuraEnabled public String grupo;
+		@AuraEnabled public Date alta;
+		@AuraEnabled public Decimal prima;
+		@AuraEnabled public Decimal sumaAsegurada;
 		@AuraEnabled public String correo;
 		@AuraEnabled public String telefono;
-		@AuraEnabled public String celular;
-		@AuraEnabled public Date nacimiento;
-		@AuraEnabled public Date ingreso;
-		@AuraEnabled public Boolean activo = false;
-		@AuraEnabled public Boolean cumpleHoy = false;
-		@AuraEnabled public String certificado;
-		@AuraEnabled public String parentesco;
-		@AuraEnabled public List<String> productos = new List<String>();
+		@AuraEnabled public String ramo;
 	}
 
 	public class Contactos {
 		@AuraEnabled public String cuenta;
 		@AuraEnabled public List<Persona> personas = new List<Persona>();
 	}
+
+	// Parentesco del censo (RelationshipToPrimaryMember) como se muestra en el sitio.
+	static final Map<String, String> PARENTESCOS = new Map<String, String>{
+		'Self' => 'Titular', 'Auto' => 'Titular', 'Principal' => 'Titular', 'Cónyuge' => 'Cónyuge',
+		'Secundario' => 'Dependiente', 'Suegro' => 'Suegro(a)', 'Otros' => 'Otro'
+	};
 
 	public class Ejecutivo {
 		@AuraEnabled public String nombre;
@@ -140,8 +148,9 @@ public without sharing class PortalSitioController {
 	/**
 	 * @creation date: 16/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Personas (contactos) de la empresa del usuario, activas primero y por nombre, con los productos
-	 * en los que están activas (GMM, Vida, Dental, Adicional).
+	 * @description: Personas de la empresa del usuario tomadas del censo (GroupCensusMember): titulares, cónyuges y
+	 * dependientes vigentes (las bajas se borran del censo). Si la cuenta tiene varios censos, se usa el más reciente de
+	 * cada ramo. Orden: ramo, certificado y el titular antes que sus dependientes.
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @return Contactos
 	 */
@@ -152,33 +161,55 @@ public without sharing class PortalSitioController {
 			Id cuenta = PortalPolizasController.identidad(cuentaVistaPrevia)[0];
 			if (cuenta == null) { return c; }
 			c.cuenta = [SELECT Name FROM Account WHERE Id = :cuenta LIMIT 1].Name;
-			for (Contact x : [
-				SELECT Id, Name, Title, Department, Email, Phone, MobilePhone, Birthdate, Fecha_de_ingreso_a_la_empresa__c,
-					Activo__c, Activo_GMM__c, Activo_Vida__c, Activo_Dentegra__c, Activo_Adicional__c, Cumplea_os_Hoy__c,
-					Certificado_GMM__c, toLabel(Parentesco_GMM__c)
-				FROM Contact
-				WHERE AccountId = :cuenta
-				ORDER BY Activo__c DESC, Name ASC
-				LIMIT 3000
+
+			// El censo más reciente de cada ramo.
+			Map<String, Id> censoPorRamo = new Map<String, Id>();
+			Map<Id, String> ramoDelCenso = new Map<Id, String>();
+			for (GroupCensus g : [
+				SELECT Id, toLabel(Oportunidad__r.Ramo__c) FROM GroupCensus
+				WHERE AccountId = :cuenta ORDER BY CreatedDate DESC LIMIT 50
 			]) {
+				String ramo = g.Oportunidad__r?.Ramo__c;
+				String clave = ramo == null ? '' : ramo;
+				if (censoPorRamo.containsKey(clave)) { continue; }
+				censoPorRamo.put(clave, g.Id);
+				ramoDelCenso.put(g.Id, ramo);
+			}
+			if (censoPorRamo.isEmpty()) { return c; }
+
+			List<GroupCensusMember> miembros = [
+				SELECT Id, Name, FirstName, Lastname, RelationshipToPrimaryMember, PrimaryGroupCensusMemberId,
+					PrimaryGroupCensusMember.Name, Certificado__c, Birthdate, Edad__c, toLabel(Gender), GroupClass.Name,
+					JoinDate, Prima__c, Suma_Asegurada__c, Email, PhoneNumber, GroupCensusId
+				FROM GroupCensusMember
+				WHERE GroupCensusId IN :censoPorRamo.values()
+				ORDER BY Certificado__c ASC NULLS LAST, PrimaryGroupCensusMemberId ASC NULLS FIRST, Name ASC
+				LIMIT 5000
+			];
+			// Fecha de alta de los dependientes: si no la traen, la de su titular.
+			Map<Id, Date> altaTitular = new Map<Id, Date>();
+			for (GroupCensusMember m : miembros) {
+				if (m.PrimaryGroupCensusMemberId == null) { altaTitular.put(m.Id, m.JoinDate); }
+			}
+			for (GroupCensusMember m : miembros) {
 				Persona p = new Persona();
-				p.id = x.Id;
-				p.nombre = x.Name;
-				p.puesto = x.Title;
-				p.area = x.Department;
-				p.correo = x.Email;
-				p.telefono = x.Phone;
-				p.celular = x.MobilePhone;
-				p.nacimiento = x.Birthdate;
-				p.ingreso = x.Fecha_de_ingreso_a_la_empresa__c;
-				p.activo = x.Activo__c == true;
-				p.cumpleHoy = x.Cumplea_os_Hoy__c == true;
-				p.certificado = x.Certificado_GMM__c;
-				p.parentesco = x.Parentesco_GMM__c;
-				if (x.Activo_GMM__c == true) { p.productos.add('GMM'); }
-				if (x.Activo_Vida__c == true) { p.productos.add('Vida'); }
-				if (x.Activo_Dentegra__c == true) { p.productos.add('Dental'); }
-				if (x.Activo_Adicional__c == true) { p.productos.add('Adicional'); }
+				p.id = m.Id;
+				p.nombre = String.isNotBlank(m.Name) ? m.Name : String.join(new List<String>{ m.FirstName, m.Lastname }, ' ').trim();
+				p.titular = m.PrimaryGroupCensusMemberId == null;
+				String rel = m.RelationshipToPrimaryMember;
+				p.parentesco = PARENTESCOS.containsKey(rel) ? PARENTESCOS.get(rel) : (p.titular ? 'Titular' : (rel == null ? 'Dependiente' : rel));
+				p.titularNombre = p.titular ? null : m.PrimaryGroupCensusMember?.Name;
+				p.certificado = m.Certificado__c;
+				p.nacimiento = m.Birthdate;
+				p.edad = m.Birthdate != null ? edad(m.Birthdate) : (m.Edad__c == null ? null : m.Edad__c.intValue());
+				p.genero = m.Gender;
+				p.grupo = m.GroupClass?.Name;
+				p.alta = m.JoinDate != null ? m.JoinDate : altaTitular.get(m.PrimaryGroupCensusMemberId);
+				p.prima = m.Prima__c;
+				p.sumaAsegurada = m.Suma_Asegurada__c;
+				p.correo = m.Email;
+				p.telefono = m.PhoneNumber;
+				p.ramo = ramoDelCenso.get(m.GroupCensusId);
 				c.personas.add(p);
 			}
 			return c;
@@ -187,6 +218,21 @@ public without sharing class PortalSitioController {
 		} catch (Exception e) {
 			throw PortalPolizasController.errorSitio(e);
 		}
+	}
+
+	/**
+	 * @creation date: 16/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Edad cumplida a hoy.
+	 * @param nacimiento: Fecha de nacimiento
+	 * @return Años cumplidos
+	 */
+	@TestVisible
+	static Integer edad(Date nacimiento) {
+		Date hoy = Date.today();
+		Integer anios = hoy.year() - nacimiento.year();
+		if (hoy.month() < nacimiento.month() || (hoy.month() == nacimiento.month() && hoy.day() < nacimiento.day())) { anios--; }
+		return anios;
 	}
 
 	/**
