@@ -157,6 +157,9 @@
                     <div class="mov-paso">
                         <strong>Diferencias de {archivoNombre} contra los vehículos vigentes</strong>
                         <p class="sub">{textoSinCambios} Los vehículos se reconocen por serie (o por placas si el renglón no trae serie). Desmarca lo que no quieras aplicar.</p>
+                        <template if:true={hayEndososLeidos}>
+                            <p class="sub">{textoEndososLeidos}</p>
+                        </template>
                     </div>
 
                     <template if:true={hayDuplicados}>

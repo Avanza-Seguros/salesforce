@@ -77,6 +77,8 @@ export default class CensoVehiculos extends LightningElement {
     _acumulado = [];
     _rangos = [];
     _archivoActual = '';
+    // Número del endoso de alta que se está leyendo (sus renglones van a ese endoso).
+    _endosoActual = null;
     // Endosos de la aseguradora leídos (en el lector de la póliza): número, tipo, incisos, primas y el documento.
     _endosos = [];
 
@@ -239,6 +241,7 @@ export default class CensoVehiculos extends LightningElement {
         const file = this._cola.shift();
         const n = this._totalArchivos - this._cola.length;
         this._archivoActual = file.name;
+        this._endosoActual = null;
         this.archivoNombre = this._totalArchivos > 1 ? `${file.name} (archivo ${n} de ${this._totalArchivos})` : file.name;
         const ext = file.name.toLowerCase().split('.').pop();
         this.cargando = true;
@@ -269,8 +272,16 @@ export default class CensoVehiculos extends LightningElement {
         const base = this._rangos.length ? this._rangos[this._rangos.length - 1].hasta : 0;
         let hasta = base;
         datos.forEach((d) => { d.fila = base + Number(d.fila || 0); hasta = Math.max(hasta, d.fila); });
-        this._rangos.push({ nombre: this._archivoActual, desde: base + 1, hasta });
+        this._rangos.push({ nombre: this._archivoActual, desde: base + 1, hasta, endoso: this._endosoActual });
         this._acumulado.push(...datos);
+    }
+    endososPorFila(renglones) {
+        const res = {};
+        renglones.forEach((r) => {
+            const x = this._rangos.find((y) => r.fila >= y.desde && r.fila <= y.hasta);
+            if (x && x.endoso) { res[r.fila] = x.endoso; }
+        });
+        return res;
     }
     // Archivo de donde viene una fila (solo cuando se cargó más de uno).
     archivoDe(fila) {
@@ -395,6 +406,7 @@ export default class CensoVehiculos extends LightningElement {
         if (endoso) {
             this._endosos.push({ ...endoso, archivo: file.name, documento: file });
             if (endoso.movimiento !== 'alta') { return; }
+            this._endosoActual = endoso.numero || null;
         }
         // Póliza con una carátula por inciso (ej. Afirme): se lee directo del texto, sin IA. Por bloques, un inciso
         // queda partido entre dos bloques y la IA lo repetía o le cruzaba los datos del inciso vecino.
@@ -618,7 +630,9 @@ export default class CensoVehiculos extends LightningElement {
         if (!validos.length) { return; }
         if (this.esLector) {
             this.dispatchEvent(new CustomEvent('leido', { detail: {
-                incisos: validos.map((r) => this.payload(r)), endosos: this._endosos, archivo: this.archivoNombre } }));
+                incisos: validos.map((r) => this.payload(r)), endosos: this._endosos, archivo: this.archivoNombre,
+                // Renglones que vienen de un endoso de alta: fila -> número de endoso.
+                endososPorFila: this.endososPorFila(validos) } }));
             this.cancelar();
             return;
         }

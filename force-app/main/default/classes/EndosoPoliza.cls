@@ -22,6 +22,9 @@ public with sharing class EndosoPoliza {
 		public Decimal total;
 	}
 
+	// Transacción de cada número de endoso que registró la última llamada a registrarTodos (para adjuntar su documento).
+	public static Map<String, Id> ultimosPorNumero = new Map<String, Id>();
+
 	// Movimientos de póliza insertados en la transacción de Apex en curso (los agrega cada controlador).
 	@TestVisible
 	private static List<Movimiento_Poliza__c> insertados = new List<Movimiento_Poliza__c>();
@@ -87,7 +90,8 @@ public with sharing class EndosoPoliza {
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Registra (o completa) un endoso por cada número de endoso de los movimientos insertados en esta
 	 *               transacción de Apex (p. ej. el soporte de recibo de GMM trae varios: 5, 15, 16...). Los movimientos
-	 *               sin número van juntos en un endoso. Cada endoso toma su prima de "porNumero"; con un solo endoso,
+	 *               sin número (altas, bajas o cambios de un listado o capturados sin número) no son un endoso de la
+	 *               aseguradora: no se registran. Cada endoso toma su prima de "porNumero"; con un solo endoso,
 	 *               si no viene ahí, toma "p" (la que se capturó en pantalla).
 	 * @param policyId: póliza.
 	 * @param p: prima capturada (opcional).
@@ -97,6 +101,7 @@ public with sharing class EndosoPoliza {
 	public static List<Id> registrarTodos(Id policyId, Prima p, Map<String, Prima> porNumero) {
 		Set<Id> ids = new Map<Id, Movimiento_Poliza__c>(insertados).keySet();
 		insertados = new List<Movimiento_Poliza__c>();
+		ultimosPorNumero = new Map<String, Id>();
 		List<Id> res = new List<Id>();
 		if (ids.isEmpty() || policyId == null) { return res; }
 		// Movimientos por número de endoso ('' = sin número), en el orden en que se registraron.
@@ -111,6 +116,9 @@ public with sharing class EndosoPoliza {
 			if (!grupos.containsKey(k)) { grupos.put(k, new List<Movimiento_Poliza__c>()); }
 			grupos.get(k).add(m);
 		}
+		// Sin número de endoso no hay endoso de la aseguradora.
+		grupos.remove('');
+		if (grupos.isEmpty()) { return res; }
 		String categoria = valor(InsurancePolicyTransaction.Category.getDescribe(), 'Endorsement');
 		String pendiente = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente');
 
@@ -186,6 +194,7 @@ public with sharing class EndosoPoliza {
 		for (Integer i = 0; i < llaves.size(); i++) {
 			Id tId = ts[i].Id;
 			res.add(tId);
+			ultimosPorNumero.put(llaves[i], tId);
 			for (Movimiento_Poliza__c m : grupos.get(llaves[i])) {
 				m.Transaccion__c = tId;
 				Id ref = null;

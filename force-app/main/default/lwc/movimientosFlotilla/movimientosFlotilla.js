@@ -16,6 +16,7 @@ import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosFlotillaController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosFlotillaController.compararArchivo';
+import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import traerDePoliza from '@salesforce/apex/MovimientosFlotillaController.traerDePoliza';
 
 const POR_PAGINA = 50;
@@ -40,6 +41,8 @@ export default class MovimientosFlotilla extends LightningElement {
     fechasExcel = [];
     seleccion = new Set();
     archivoNombre = '';
+    // Endosos leídos de sus PDF en la carga del archivo (cada uno es un endoso con su número, fecha, prima y documento).
+    _endososLeidos = [];
     @track comun = {};
     abierto = false;
     _recordId;
@@ -306,15 +309,23 @@ export default class MovimientosFlotilla extends LightningElement {
         // Endoso de la aseguradora (prima y documento): solo en la póliza.
         const endoso = this.enPoliza ? this.template.querySelector('c-datos-endoso') : null;
         const prima = endoso ? endoso.prima : null;
+        // Endosos leídos de sus PDF: solo en la revisión del archivo.
+        if (this.vista !== 'revision') { this._endososLeidos = []; }
         this.cargando = true;
         try {
             const r = await aplicar({
                 recordId: this._recordId,
-                movimientosJson: this.enPoliza ? JSON.stringify({ movimientos: movs, endoso: prima }) : JSON.stringify(movs)
+                movimientosJson: this.enPoliza
+                    ? JSON.stringify({ movimientos: movs, endoso: prima, endosos: this.primasEndososLeidos() })
+                    : JSON.stringify(movs)
             });
-            if (endoso && endoso.tieneArchivo && r.transaccionId) {
+            if (this.enPoliza) { await this.subirDocumentosEndosos(r.transacciones); }
+            this._endososLeidos = [];
+            // El documento capturado abajo va al endoso del número general (o al primero, si no hay número general).
+            const destino = (r.transacciones && this.comun && this.comun.endoso && r.transacciones[this.comun.endoso.trim()]) || r.transaccionId;
+            if (endoso && endoso.tieneArchivo && destino) {
                 try {
-                    await endoso.subir(r.transaccionId);
+                    await endoso.subir(destino);
                 } catch (err) {
                     this.dispatchEvent(new ShowToastEvent({ title: 'Endoso', variant: 'warning',
                         message: 'Los movimientos se aplicaron, pero no se pudo adjuntar el documento del endoso. Adjúntalo en la transacción del endoso.' }));
@@ -346,6 +357,11 @@ export default class MovimientosFlotilla extends LightningElement {
         this.archivoNombre = e.detail.archivo;
         const incisos = e.detail.incisos || [];
         const endosos = e.detail.endosos || [];
+        // Cada PDF de endoso es un endoso: sus movimientos llevan su número, fecha y prima, y se le adjunta su PDF.
+        // Lo que viene del listado (sin endoso) no es un endoso.
+        this._endososLeidos = endosos.filter((x) => x.numero);
+        const porFila = e.detail.endososPorFila || {};
+        const endosoDeFila = (fila) => (fila === null || fila === undefined ? null : porFila[fila] || null);
         this.cargando = true;
         try {
             const r = incisos.length
@@ -358,28 +374,17 @@ export default class MovimientosFlotilla extends LightningElement {
                 : { altas: [], bajas: [], cambios: [], sinCambios: 0, duplicados: [] };
             this.agregarEndosos(r, endosos);
             this.revision = {
-                altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
-                bajas: r.bajas.filter((b) => !b.faltante).map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
-                cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
+                altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true,
+                    endoso: a.endoso || endosoDeFila(incisos[a.ref] ? incisos[a.ref].fila : null) })),
+                bajas: r.bajas.filter((b) => !b.faltante).map((b) => ({ ...b, key: 'b' + b.id + (b.endoso || ''), sel: true, motivo: '' })),
+                cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true, endoso: c.endoso || endosoDeFila(c.fila) })),
                 sinCambios: r.sinCambios,
                 duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
             };
+            // Los datos generales (número, fecha, prima y documento) solo aplican a los movimientos sin endoso propio.
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
             this.endosoLeido = null;
             this.documentoEndoso = null;
-            if (endosos.length) {
-                // Datos del endoso: número, fecha en que surte efecto, detalle, prima y el documento para adjuntarlo.
-                const x = endosos[0];
-                this.comun = {
-                    ...this.comun,
-                    fecha: x.fecha || this.fechaDefault,
-                    endoso: endosos.map((y) => y.numero).filter((y) => y).join(', '),
-                    comentario: [x.tipo, x.detalle].filter((y) => y).join(': ').substring(0, 255)
-                };
-                const conPrima = [x.primaNeta, x.derechos, x.iva, x.total].some((v) => v !== null && v !== undefined);
-                this.endosoLeido = conPrima ? { primaNeta: x.primaNeta, derechos: x.derechos, iva: x.iva, total: x.total } : null;
-                this.documentoEndoso = x.documento || null;
-            }
             this.vista = 'revision';
         } catch (err) {
             this.mostrarError(err);
@@ -407,12 +412,14 @@ export default class MovimientosFlotilla extends LightningElement {
             }
             afectados.forEach((v) => {
                 if (x.movimiento === 'baja') {
-                    if (!r.bajas.some((b) => b.id === v.id)) {
-                        r.bajas.push({ id: v.id, inciso: v.inciso, serie: v.serie, descripcion: v.descripcion, placas: v.placas, faltante: false });
+                    if (!r.bajas.some((b) => b.id === v.id && b.endoso === x.numero)) {
+                        r.bajas.push({ id: v.id, inciso: v.inciso, serie: v.serie, descripcion: v.descripcion, placas: v.placas, faltante: false,
+                            endoso: x.numero || null });
                     }
-                } else if (!r.cambios.some((c) => c.id === v.id)) {
+                } else if (!r.cambios.some((c) => c.id === v.id && c.endoso === x.numero)) {
                     r.cambios.push({
-                        id: v.id, inciso: v.inciso, serie: v.serie, descripcion: v.descripcion, datos: null, diferencias: [],
+                        id: v.id + '|' + (x.numero || ''), registroId: v.id, endoso: x.numero || null,
+                        inciso: v.inciso, serie: v.serie, descripcion: v.descripcion, datos: null, diferencias: [],
                         textoEndoso: `Endoso ${x.numero || ''} · ${x.tipo || 'Cambio'}: ${x.detalle || 'sin detalle'}`.replace(/\s+·/, ' ·')
                     });
                 }
@@ -503,19 +510,72 @@ export default class MovimientosFlotilla extends LightningElement {
         const movs = [];
         this.revision.bajas.filter((b) => b.sel).forEach((b) => {
             // El motivo es opcional.
-            movs.push({ tipo: 'baja', id: b.id, fecha: c.fecha, motivo: b.motivo || c.motivo || null, endoso: c.endoso, comentario: c.comentario });
+            movs.push({ tipo: 'baja', id: b.id, motivo: b.motivo || c.motivo || null, ...this.datosDeEndoso(b.endoso) });
         });
         this.revision.cambios.filter((x) => x.sel).forEach((x) => {
-            movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: c.fecha, endoso: c.endoso, comentario: c.comentario });
+            movs.push({ tipo: 'cambio', id: x.registroId || x.id, datos: x.datos, ...this.datosDeEndoso(x.endoso) });
         });
         this.revision.altas.filter((a) => a.sel).forEach((a) => {
-            movs.push({ tipo: 'alta', datos: a.datos, fecha: c.fecha, endoso: c.endoso, comentario: c.comentario });
+            movs.push({ tipo: 'alta', datos: a.datos, ...this.datosDeEndoso(a.endoso) });
         });
         if (!movs.length) {
             this.toast('Movimientos', 'No seleccionaste ningún movimiento.', 'info');
             return;
         }
         await this.enviar(movs);
+    }
+
+    // Número, fecha y comentario del movimiento: los de su endoso (leído de su PDF) o, sin endoso, los generales.
+    datosDeEndoso(numero) {
+        const c = this.comun;
+        const x = numero ? (this._endososLeidos || []).find((y) => y.numero === numero) : null;
+        if (!x) { return { fecha: c.fecha, endoso: c.endoso, comentario: c.comentario }; }
+        return {
+            fecha: x.fecha || c.fecha,
+            endoso: x.numero,
+            comentario: c.comentario || [x.tipo, x.detalle].filter((y) => y).join(': ').substring(0, 255)
+        };
+    }
+    get hayEndososLeidos() { return (this._endososLeidos || []).length > 0; }
+    get textoEndososLeidos() {
+        const l = (this._endososLeidos || []).map((x) => `${x.numero} (${x.archivo})`);
+        return `Se registra un endoso por cada PDF, con su fecha, prima y documento: ${l.join(', ')}. `
+            + 'Los movimientos del listado no son endosos: solo llevan número si lo capturas abajo.';
+    }
+    // Prima de cada endoso leído, por número.
+    primasEndososLeidos() {
+        const res = {};
+        (this._endososLeidos || []).forEach((x) => {
+            if ([x.primaNeta, x.derechos, x.iva, x.total].some((v) => v !== null && v !== undefined)) {
+                res[x.numero] = { primaNeta: x.primaNeta, derechos: x.derechos, iva: x.iva, total: x.total };
+            }
+        });
+        return res;
+    }
+    // Sube el PDF de cada endoso leído a su endoso (transacción).
+    async subirDocumentosEndosos(transacciones) {
+        const fallas = [];
+        for (const x of this._endososLeidos || []) {
+            const tId = transacciones && transacciones[x.numero];
+            if (!x.documento || !tId) { continue; }
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                const base64 = await new Promise((resolve, reject) => {
+                    const lector = new FileReader();
+                    lector.onload = () => resolve(String(lector.result).split(',')[1]);
+                    lector.onerror = () => reject(lector.error);
+                    lector.readAsDataURL(x.documento);
+                });
+                // eslint-disable-next-line no-await-in-loop
+                await subirArchivo({ recordId: tId, nombre: x.documento.name, base64 });
+            } catch (err) {
+                fallas.push(x.numero);
+            }
+        }
+        if (fallas.length) {
+            this.dispatchEvent(new ShowToastEvent({ title: 'Endoso', variant: 'warning',
+                message: `Los movimientos se aplicaron, pero no se pudo adjuntar el PDF del endoso ${fallas.join(', ')}. Adjúntalo en el endoso.` }));
+        }
     }
 
     // ============================================================

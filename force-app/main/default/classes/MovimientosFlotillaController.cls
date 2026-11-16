@@ -121,8 +121,11 @@ public with sharing class MovimientosFlotillaController {
 		List<Movimiento> movs;
 		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }.
 		EndosoPoliza.Prima primaEndoso;
+		// Con { endosos: { número: prima } } cada endoso leído de su PDF lleva su prima.
+		Map<String, EndosoPoliza.Prima> primasEndosos;
 		try {
 			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			primasEndosos = EndosoPoliza.primas(movimientosJson);
 			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
 		} catch (Exception e) {
@@ -134,8 +137,10 @@ public with sharing class MovimientosFlotillaController {
 		try {
 			if (!MovimientosColectivoController.esPoliza(recordId)) { return aplicarOportunidad(recordId, movs); }
 			Map<String, Object> r = aplicarPoliza(recordId, movs);
-			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
-			r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso));
+			// Un endoso de la póliza (transacción de FSC) por cada número de endoso de los movimientos aplicados.
+			List<Id> endosos = EndosoPoliza.registrarTodos(recordId, primaEndoso, primasEndosos);
+			r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
+			r.put('transacciones', EndosoPoliza.ultimosPorNumero);
 			return r;
 		} catch (AuraHandledException e) {
 			Database.rollback(sp);
@@ -223,7 +228,7 @@ public with sharing class MovimientosFlotillaController {
 				if (difs.isEmpty()) { sinCambios++; continue; }
 				cambios.add(new Map<String, Object>{
 					'id' => actual.Id, 'inciso' => actual.Numero_Inciso__c, 'serie' => actual.Serie__c, 'descripcion' => actual.Descripcion__c,
-					'diferencias' => difs, 'datos' => MovimientosColectivoController.comoMapa(e)
+					'diferencias' => difs, 'datos' => MovimientosColectivoController.comoMapa(e), 'fila' => e.fila
 				});
 			}
 			List<Object> bajas = new List<Object>();
