@@ -1311,12 +1311,22 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // Póliza sin oportunidad: busca (o crea) al cliente por RFC o nombre, y toma la aseguradora y el ramo del PDF.
     // Lo encontrado se agrega a los datos base (completan lo vacío al guardar) y se muestra en el formulario.
     async completarSinOportunidad(datos, texto) {
-        const r = (await datosSinOportunidad({
+        const r = { ...((await datosSinOportunidad({
             datosJson: JSON.stringify(datos),
             textoInicio: String(texto || '').substring(0, 4000)
-        })) || {};
+        })) || {}) };
         const base = { ...(this._datosBase || {}) };
         Object.keys(r).filter((k) => !k.startsWith('_')).forEach((k) => { base[k] = r[k]; });
+        // Sin oportunidad no hay fecha de pago por defecto (con oportunidad la da la cotización). Muchas carátulas
+        // no traen fecha límite ni recibos: el primer pago vence al inicio de la vigencia.
+        const cob = datos.cobranza || {};
+        const conFechaPago = cob.fechaVencimientoPrimerPago
+            || (Array.isArray(cob.recibos) && cob.recibos[0] && cob.recibos[0].fechaLimite);
+        const inicio = datos.vigenciaDesde ? String(datos.vigenciaDesde).substring(0, 10) : null;
+        if (!conFechaPago && !base.PaymentDueDate && inicio && /^\d{4}-\d{2}-\d{2}$/.test(inicio)) {
+            base.PaymentDueDate = inicio;
+            r.PaymentDueDate = this._dtFlags.PaymentDueDate === false ? inicio : inicio + 'T12:00:00.000Z';
+        }
         this._datosBase = base;
         this.template.querySelectorAll('lightning-input-field').forEach((f) => {
             const v = r[f.fieldName];
@@ -1364,7 +1374,36 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
         // Número de póliza SIN endoso ni inciso (ej. Quálitas: "0971273390 000000 0001").
         datos.numeroPoliza = this.limpiarNumeroPoliza(datos.numeroPoliza, texto);
+        this.limpiarNombreContratante(datos, texto);
         return datos;
+    }
+
+    // Carátulas con el contratante a la izquierda y la territorialidad a la derecha en los mismos renglones
+    // (ej. Seguros Monterrey: "MARTHA CAROLINA BARAJAS TERRITORIALIDAD NACIONAL / GONZALEZ D ZONA JALISCO"): la IA a
+    // veces junta ambas columnas en el nombre. Si el nombre trae la territorialidad, se arma solo con la columna
+    // del contratante (los renglones entre "CONTRATANTE … PÓLIZA" y "DOMICILIO", sin lo de la territorialidad).
+    limpiarNombreContratante(datos, texto) {
+        const sucio = (n) => typeof n === 'string' && /TERRITORIAL/i.test(n);
+        const cont = datos.contratante || {};
+        const aseg = datos.asegurado || {};
+        if (!sucio(cont.nombre) && !sucio(datos.aseguradoNombre) && !sucio(aseg.nombre)) { return; }
+        const lineas = String(texto || '').split('\n');
+        const i = lineas.findIndex((l) => /^CONTRATANTE\s+P[ÓO]\s?LIZA\b/i.test(l));
+        if (i < 0) { return; }
+        const partes = [];
+        for (let k = i + 1; k < lineas.length && k <= i + 3; k++) {
+            if (/^DOMICILIO\b/i.test(lineas[k])) { break; }
+            const p = lineas[k]
+                .replace(/\s*\bTERRITORIALID\s?AD\b.*$/i, '')
+                .replace(/\s+(D\s+)?ZONA\b.*$/i, '')
+                .trim();
+            if (p) { partes.push(p); }
+        }
+        const limpio = partes.join(' ').replace(/\s+/g, ' ').trim();
+        if (!limpio || sucio(limpio)) { return; }
+        if (sucio(cont.nombre)) { datos.contratante = { ...cont, nombre: limpio }; }
+        if (sucio(datos.aseguradoNombre)) { datos.aseguradoNombre = limpio; }
+        if (sucio(aseg.nombre)) { datos.asegurado = { ...aseg, nombre: limpio }; }
     }
 
     // Guarda automáticamente la póliza tras subir el PDF y la deja en SOLO LECTURA.
