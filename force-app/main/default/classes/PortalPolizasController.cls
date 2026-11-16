@@ -122,6 +122,8 @@ public without sharing class PortalPolizasController {
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @return Dashboard
 	 */
+	static final String ESTADO_CANCELADO = 'Cancelado';
+
 	@AuraEnabled(cacheable=true)
 	public static Dashboard dashboard(Id cuentaVistaPrevia) {
 		return dashboardInterno(cuentaVistaPrevia);
@@ -220,12 +222,25 @@ public without sharing class PortalPolizasController {
 				m.inicio = primerHistorial.addMonths(i);
 				d.pagadoPorMes.add(m);
 			}
-			// Bienes asegurados de las pólizas vigentes.
-			Map<Id, String> ramosVigentes = new Map<Id, String>();
-			for (Poliza o : d.polizas) {
-				if (o.vigente == true) { ramosVigentes.put(o.id, o.ramo); }
+			// Estado (valor, no etiqueta), fin de vigencia y renovaciones de cada póliza.
+			Map<Id, InsurancePolicy> estados = new Map<Id, InsurancePolicy>([
+				SELECT Id, Status, ExpirationDate, PriorPolicyId, RenewedFromPolicyId FROM InsurancePolicy WHERE Id IN :ids
+			]);
+			Set<Id> renovadas = new Set<Id>();
+			for (InsurancePolicy e : estados.values()) {
+				if (e.PriorPolicyId != null) { renovadas.add(e.PriorPolicyId); }
+				if (e.RenewedFromPolicyId != null) { renovadas.add(e.RenewedFromPolicyId); }
 			}
-			d.bienes = PortalPolizasPestanas.contarBienes(ramosVigentes, roles, cuentaVistaPrevia);
+			// Bienes asegurados, como en Salesforce: también los de pólizas vencidas, sin las canceladas ni las que ya
+			// se renovaron en otra póliza del cliente (para no contar dos veces lo mismo).
+			Map<Id, String> ramosBienes = new Map<Id, String>();
+			for (Poliza o : d.polizas) {
+				InsurancePolicy e = estados.get(o.id);
+				if (e != null && e.Status == ESTADO_CANCELADO) { continue; }
+				if (o.vigente != true && renovadas.contains(o.id)) { continue; }
+				ramosBienes.put(o.id, o.ramo);
+			}
+			d.bienes = PortalPolizasPestanas.contarBienes(ramosBienes, roles, cuentaVistaPrevia);
 			movimientosYEndosos(d, roles, porId);
 			List<PaymentPlanInstallment__c> cuotas = [
 				SELECT Id, dueDate__c, expectedAmount__c, matchedAmount__c, outstandingAmount__c, installmentStatus__c,
@@ -256,6 +271,10 @@ public without sharing class PortalPolizasController {
 					continue;
 				}
 				if (estado != 'Pendiente' && estado != 'Vencido') { continue; }
+				// No se cobran cuotas de pólizas canceladas ni las que vencen después de que terminó la póliza.
+				InsurancePolicy e = estados.get(c.paymentPlan__r.insurancePolicy__c);
+				if (e != null && (e.Status == ESTADO_CANCELADO || (e.ExpirationDate != null && c.dueDate__c != null
+						&& c.dueDate__c > e.ExpirationDate.date()))) { continue; }
 				Decimal pendiente = c.outstandingAmount__c == null ? 0 : c.outstandingAmount__c;
 				if (pendiente <= 0) { continue; }
 				Boolean vencida = estado == 'Vencido' || (c.dueDate__c != null && c.dueDate__c < hoy);

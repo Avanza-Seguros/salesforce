@@ -187,7 +187,10 @@ private class PortalPolizasControllerTest {
 				dueDate__c = Date.today().toStartOfMonth().addMonths(1).addDays(4), expectedAmount__c = 500,
 				installmentStatus__c = 'Pendiente'),
 			new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 3, dueDate__c = Date.today(),
-				expectedAmount__c = 200, installmentStatus__c = 'Cancelado')
+				expectedAmount__c = 200, installmentStatus__c = 'Cancelado'),
+			// Vence después del fin de vigencia: no se cuenta.
+			new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 4, dueDate__c = Date.today().addDays(400),
+				expectedAmount__c = 1000, installmentStatus__c = 'Pendiente')
 		};
 		PortalPolizasController.cuentaPrueba = mia.Id;
 
@@ -196,7 +199,7 @@ private class PortalPolizasControllerTest {
 		Test.stopTest();
 
 		System.assertEquals(1, d.polizas.size(), 'Una póliza');
-		System.assertEquals(800, d.totalPendiente, 'Pendiente sin la cuota reemplazada ni la cancelada');
+		System.assertEquals(800, d.totalPendiente, 'Pendiente sin la cuota reemplazada, la cancelada ni la de después de la vigencia');
 		System.assertEquals(300, d.totalVencido, 'Vencido');
 		System.assertEquals(1, d.cuotasVencidas, 'Una cuota vencida');
 		System.assertEquals(6, d.pagosPorMes.size(), 'Seis meses');
