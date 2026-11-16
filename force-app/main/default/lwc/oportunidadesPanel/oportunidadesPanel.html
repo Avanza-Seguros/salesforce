@@ -1,0 +1,329 @@
+<template>
+    <div class="panel">
+        <!-- ============================================================ -->
+        <!-- HERO                                                          -->
+        <!-- ============================================================ -->
+        <section class="hero" aria-labelledby="panel-titulo">
+            <div class="hero-brillo hero-brillo-1" aria-hidden="true"></div>
+            <div class="hero-brillo hero-brillo-2" aria-hidden="true"></div>
+            <div class="hero-principal">
+                <div class="hero-encabezado">
+                    <span class="hero-insignia" aria-hidden="true">
+                        <lightning-icon icon-name="utility:trophy" size="small" variant="inverse"></lightning-icon>
+                    </span>
+                    <div class="hero-titulos">
+                        <span class="hero-eyebrow">Oportunidades</span>
+                        <h1 id="panel-titulo" class="hero-titulo">{saludo}</h1>
+                    </div>
+                </div>
+                <p class="hero-texto">
+                    Tienes <strong>{porVencerTexto}</strong> por vencer en los próximos {horizonteTexto}.
+                    Cada una que conviertes en póliza te acerca a la meta.
+                </p>
+                <div class="hero-acciones">
+                    <button type="button" class="pill pill-blanco" onclick={handleNueva}>
+                        <lightning-icon icon-name="utility:add" size="x-small" class="pill-icono"></lightning-icon>
+                        Nueva oportunidad
+                    </button>
+                    <button type="button" class="pill pill-ia" onclick={handleCrearPdf}>
+                        <lightning-icon icon-name="utility:sparkles" size="x-small" variant="inverse" class="pill-icono"></lightning-icon>
+                        Crear desde PDFs con IA
+                    </button>
+                </div>
+            </div>
+            <div class="hero-kpis">
+                <div class="kpi">
+                    <span class="kpi-etiqueta">Oportunidades abiertas</span>
+                    <span class="kpi-valor">{totalAbiertas}</span>
+                    <span class="kpi-sub">{desgloseAbiertas}</span>
+                </div>
+                <div class="kpi">
+                    <span class="kpi-etiqueta">Valor total</span>
+                    <span class="kpi-valor">{valorTotal}</span>
+                    <span class="kpi-sub">Prima en juego</span>
+                </div>
+                <div class="kpi kpi-meta">
+                    <div class="meta-cuerpo">
+                        <div class="meta-cabecera">
+                            <span class="kpi-etiqueta">Meta del mes · pólizas</span>
+                            <strong>{metaTexto}</strong>
+                        </div>
+                        <div class="meta-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                            aria-valuenow={metaPorcentaje} aria-label={metaAria}>
+                            <div class="meta-relleno" style={metaBarraEstilo}></div>
+                        </div>
+                        <span class="kpi-sub">{metaMensaje}</span>
+                    </div>
+                    <span class="meta-cohete" aria-hidden="true">
+                        <lightning-icon icon-name="utility:rocket" size="medium" variant="inverse"></lightning-icon>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <template lwc:if={cargando}>
+            <div class="tarjeta estado-carga" role="status">
+                <lightning-spinner alternative-text="Cargando oportunidades" size="small"></lightning-spinner>
+                <span>Cargando oportunidades…</span>
+            </div>
+        </template>
+
+        <template lwc:if={error}>
+            <div class="tarjeta estado-error" role="alert">
+                <lightning-icon icon-name="utility:error" size="small" variant="error"></lightning-icon>
+                <span>{error}</span>
+                <button type="button" class="pill pill-secundario" onclick={handleRecargar}>Reintentar</button>
+            </div>
+        </template>
+
+        <template lwc:if={hayDatos}>
+            <!-- ============================================================ -->
+            <!-- LOGROS                                                        -->
+            <!-- ============================================================ -->
+            <div class="logros">
+                <div class="tarjeta logro">
+                    <span class={rachaClase} aria-hidden="true">
+                        <lightning-icon icon-name="utility:favorite" size="small"></lightning-icon>
+                    </span>
+                    <span class="logro-textos">
+                        <strong class="logro-titulo">{rachaTitulo}</strong>
+                        <span class="logro-sub">{rachaTexto}</span>
+                    </span>
+                </div>
+                <div class="tarjeta logro">
+                    <span class="logro-icono logro-rey" aria-hidden="true">
+                        <lightning-icon icon-name="utility:trophy" size="small"></lightning-icon>
+                    </span>
+                    <span class="logro-textos">
+                        <strong class="logro-titulo">Rey de Autos</strong>
+                        <span class="logro-sub">{reyTexto}</span>
+                    </span>
+                </div>
+                <div class="tarjeta logro">
+                    <span class="logro-icono logro-siguiente" aria-hidden="true">
+                        <lightning-icon icon-name="utility:sparkles" size="small"></lightning-icon>
+                    </span>
+                    <span class="logro-textos">
+                        <strong class="logro-titulo">Siguiente logro</strong>
+                        <span class="logro-sub">{siguienteLogro}</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- EMBUDO                                                        -->
+            <!-- ============================================================ -->
+            <section class="tarjeta embudo" aria-labelledby="embudo-titulo">
+                <div class="seccion-cabecera">
+                    <h2 id="embudo-titulo" class="seccion-titulo">Tu embudo de ventas</h2>
+                    <span class="seccion-nota">Con los filtros actuales · toca una etapa para filtrar</span>
+                </div>
+                <div class="embudo-grid">
+                    <template for:each={embudo} for:item="e">
+                        <button key={e.valor} type="button" class={e.clase} data-valor={e.valor}
+                            aria-pressed={e.presionado} aria-label={e.aria} onclick={handleEtapa}>
+                            <span class="etapa-cabecera">
+                                <span class="etapa-nombre">{e.etiqueta}</span>
+                                <span class="etapa-punto" aria-hidden="true"></span>
+                            </span>
+                            <span class="etapa-conteo">{e.conteo}</span>
+                            <span class="etapa-prima">{e.prima}</span>
+                            <span class="etapa-barra" aria-hidden="true"><span class="etapa-relleno" style={e.barraEstilo}></span></span>
+                        </button>
+                    </template>
+                </div>
+            </section>
+
+            <div class="cuerpo">
+                <!-- ============================================================ -->
+                <!-- LISTA / TABLERO                                               -->
+                <!-- ============================================================ -->
+                <section class="tarjeta listado" aria-label="Lista de oportunidades">
+                    <div class="filtros">
+                        <div class="buscador">
+                            <lightning-icon icon-name="utility:search" size="x-small" class="buscador-icono"></lightning-icon>
+                            <label for="buscar" class="slds-assistive-text">Buscar oportunidades</label>
+                            <input id="buscar" type="search" class="buscador-input" value={busqueda}
+                                placeholder="Buscar por nombre, cuenta o propietario" oninput={handleBusqueda} />
+                        </div>
+                        <div class="segmentos" role="group" aria-label="Tipo de contratación">
+                            <template for:each={filtrosTipo} for:item="t">
+                                <button key={t.valor} type="button" class={t.clase} data-valor={t.valor}
+                                    aria-pressed={t.presionado} onclick={handleTipo}>{t.etiqueta}</button>
+                            </template>
+                        </div>
+                        <button type="button" class={vencidasClase} aria-pressed={vencidasPresionado} onclick={handleVencidas}>
+                            <lightning-icon icon-name="utility:clock" size="x-small" class="pill-icono"></lightning-icon>
+                            Sólo vencidas
+                        </button>
+                        <div class="segmentos" role="group" aria-label="Tipo de vista">
+                            <button type="button" class={listaClase} aria-pressed={listaPresionado}
+                                aria-label="Vista de lista" title="Vista de lista" onclick={handleVistaLista}>
+                                <lightning-icon icon-name="utility:list" size="x-small"></lightning-icon>
+                            </button>
+                            <button type="button" class={tableroClase} aria-pressed={tableroPresionado}
+                                aria-label="Vista de tablero" title="Vista de tablero" onclick={handleVistaTablero}>
+                                <lightning-icon icon-name="utility:kanban" size="x-small"></lightning-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <template lwc:if={etapaFiltro}>
+                        <div class="filtro-activo">
+                            <span>Etapa: <strong>{etapaFiltroTexto}</strong></span>
+                            <button type="button" class="enlace" onclick={handleQuitarEtapa}>Quitar filtro</button>
+                        </div>
+                    </template>
+
+                    <template lwc:if={esLista}>
+                        <ul class="filas" role="list">
+                            <template for:each={filas} for:item="r">
+                                <li key={r.id} class="fila">
+                                    <span class={r.ramoClase} title={r.ramoEtiqueta} aria-hidden="true">{r.ramoIni}</span>
+                                    <div class="fila-principal">
+                                        <button type="button" class="fila-nombre" data-id={r.id} onclick={handleAbrirRegistro}>{r.nombre}</button>
+                                        <span class="fila-sub">{r.sub}</span>
+                                    </div>
+                                    <div class="fila-datos">
+                                    <span class={r.etapaClase}>{r.etapa}</span>
+                                    <div class="fila-prima">
+                                        <strong>{r.primaTexto}</strong>
+                                        <span>{r.detalleVenta}</span>
+                                    </div>
+                                    <span class={r.venceClase} title={r.cierreTexto}>{r.venceTexto}</span>
+                                    <span class="avatar" style={r.propietarioEstilo} title={r.propietario}
+                                        role="img" aria-label={r.propietarioAria}>{r.propietarioIni}</span>
+                                    <button type="button" class="boton-icono" data-id={r.id} aria-label={r.abrirAria}
+                                        title="Abrir en Crear Oportunidad" onclick={handleAbrirEditor}>
+                                        <lightning-icon icon-name="utility:edit" size="x-small"></lightning-icon>
+                                    </button>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                        <template lwc:if={sinFilas}>
+                            <div class="vacio">No hay oportunidades con este filtro.</div>
+                        </template>
+                        <template lwc:if={hayMas}>
+                            <div class="mas">
+                                <button type="button" class="pill pill-secundario" onclick={handleMostrarMas}>Mostrar más</button>
+                            </div>
+                        </template>
+                    </template>
+
+                    <template lwc:if={esTablero}>
+                        <div class="tablero" tabindex="0" aria-label="Tablero por etapa (desplázate horizontalmente)">
+                            <div class="tablero-grid">
+                                <template for:each={columnas} for:item="c">
+                                    <div key={c.valor} class={c.clase}>
+                                        <div class="columna-cabecera">
+                                            <strong>{c.etiqueta}</strong>
+                                            <span class={c.badgeClase}>{c.conteo}</span>
+                                        </div>
+                                        <span class="columna-prima">{c.prima}</span>
+                                        <template for:each={c.tarjetas} for:item="k">
+                                            <button key={k.id} type="button" class="tarjeta-kanban" data-id={k.id} onclick={handleAbrirRegistro}>
+                                                <span class="kanban-cabecera">
+                                                    <span class={k.ramoClaseChica} aria-hidden="true">{k.ramoIni}</span>
+                                                    <strong>{k.nombre}</strong>
+                                                </span>
+                                                <span class="kanban-ramo">{k.ramoEtiqueta} · {k.tipo}</span>
+                                                <span class="kanban-pie">
+                                                    <strong>{k.primaTexto}</strong>
+                                                    <span class={k.venceClase}>{k.venceTexto}</span>
+                                                </span>
+                                            </button>
+                                        </template>
+                                        <template lwc:if={c.hayMas}>
+                                            <span class="columna-mas">{c.masTexto}</span>
+                                        </template>
+                                        <template lwc:if={c.vacia}>
+                                            <span class="columna-vacia">Sin oportunidades</span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="pie">{pieTexto}</div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- LATERAL                                                       -->
+                <!-- ============================================================ -->
+                <aside class="lateral">
+                    <section class="tarjeta ranking" aria-labelledby="ranking-titulo">
+                        <div class="lateral-cabecera">
+                            <lightning-icon icon-name="utility:trophy" size="small" class="icono-oro"></lightning-icon>
+                            <h2 id="ranking-titulo" class="seccion-titulo">Ranking del mes</h2>
+                        </div>
+                        <template lwc:if={hayRanking}>
+                            <ol class="podio" aria-label="Podio del mes">
+                                <template for:each={podio} for:item="p">
+                                    <li key={p.usuarioId} class={p.clase}>
+                                        <span class="avatar avatar-grande" style={p.avatarEstilo} aria-hidden="true">{p.ini}</span>
+                                        <span class="podio-nombre">{p.nombreCorto}</span>
+                                        <div class="podio-bloque">
+                                            <strong>{p.lugar}º</strong>
+                                            <span>{p.puntos}</span>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ol>
+                            <template lwc:if={hayRestoRanking}>
+                                <ol class="ranking-lista">
+                                    <template for:each={restoRanking} for:item="a">
+                                        <li key={a.usuarioId} class={a.filaClase}>
+                                            <span class="ranking-lugar">{a.lugar}º</span>
+                                            <span class="ranking-nombre">{a.nombre}</span>
+                                            <span class="ranking-puntos">{a.puntos}</span>
+                                        </li>
+                                    </template>
+                                </ol>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <p class="lateral-vacio">Aún no hay pólizas emitidas este mes. ¡La primera te pone en el podio!</p>
+                        </template>
+                        <span class="lateral-nota">Pólizas emitidas este mes desde oportunidades (sin canceladas).</span>
+                    </section>
+
+                    <section class="tarjeta rescate" aria-labelledby="rescate-titulo">
+                        <div class="lateral-cabecera">
+                            <lightning-icon icon-name="utility:clock" size="small" class="icono-rojo"></lightning-icon>
+                            <h2 id="rescate-titulo" class="seccion-titulo">Rescata antes de perder</h2>
+                        </div>
+                        <template lwc:if={hayUrgentes}>
+                            <ul class="rescate-lista">
+                                <template for:each={urgentes} for:item="u">
+                                    <li key={u.id} class="rescate-item">
+                                        <div class="rescate-textos">
+                                            <strong>{u.nombre}</strong>
+                                            <span>{u.urgenteTexto}</span>
+                                        </div>
+                                        <button type="button" class="pill pill-navy pill-chica" data-id={u.id}
+                                            aria-label={u.retomarAria} onclick={handleAbrirEditor}>Retomar</button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <template lwc:else>
+                            <p class="lateral-vacio">Nada urgente: ninguna oportunidad vence en los próximos 7 días.</p>
+                        </template>
+                    </section>
+
+                    <section class="tip" aria-labelledby="tip-titulo">
+                        <span id="tip-titulo" class="tip-eyebrow">
+                            <lightning-icon icon-name="utility:sparkles" size="x-small" variant="inverse"></lightning-icon>
+                            Tip del día
+                        </span>
+                        <p class="tip-texto">{tip.texto}</p>
+                        <template lwc:if={tipTieneBoton}>
+                            <button type="button" class="pill pill-blanco-morado" onclick={handleTip}>{tip.boton}</button>
+                        </template>
+                    </section>
+                </aside>
+            </div>
+        </template>
+    </div>
+</template>

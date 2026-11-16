@@ -1,0 +1,85 @@
+<template>
+    <header class="encabezado" onkeydown={handleTeclaMenu}>
+        <div class="barra">
+            <a class="logo" href={urlInicio} aria-label="Avanza Seguro, inicio" data-valor="/" onclick={handleEnlace}>
+                <svg class="logo_marca" aria-hidden="true" width="40" height="36" viewBox="0 0 40 36">
+                    <path d="M20 2 L37 33 Q28 26 20 27 Q12 26 3 33 Z" fill="#2F7BF5"></path>
+                    <path d="M20 2 L37 33 Q30 29 22 30 Z" fill="#0B2559" opacity="0.85"></path>
+                    <path d="M3 33 Q12 24 22 26 Q14 29 9 34 Z" fill="#7CC4FA"></path>
+                </svg>
+                <span class="logo_texto"><span class="logo_avanza">avanza</span><span class="logo_seguro">seguro</span></span>
+            </a>
+
+            <button class="boton_movil" aria-label="Menú" aria-expanded={expandidoMovil} aria-controls="menu-principal" onclick={handleMovil}>
+                <lightning-icon icon-name={iconoMovil} size="small"></lightning-icon>
+            </button>
+
+            <nav id="menu-principal" class={claseNav} aria-label="Menú principal">
+                <ul class="nav_lista">
+                    <template for:each={menu} for:item="e">
+                        <li key={e.clave} class="nav_item">
+                            <template lwc:if={e.tieneHijos}>
+                                <button class={e.clase} aria-expanded={e.expandido} aria-haspopup="true" aria-current={e.actual}
+                                    data-clave={e.clave} onclick={handleSubmenu}>
+                                    {e.etiqueta}
+                                    <svg class={e.claseIcono} aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M6 9l6 6 6-6"></path>
+                                    </svg>
+                                </button>
+                                <ul lwc:if={e.abierto} class="submenu">
+                                    <template for:each={e.hijos} for:item="h">
+                                        <li key={h.clave}>
+                                            <a class={h.clase} href={h.href} target={h.destino} aria-current={h.actual}
+                                                data-valor={h.valor} data-tipo={h.tipo} data-destino={h.destino} onclick={handleEnlace}>{h.etiqueta}</a>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <template lwc:else>
+                                <a class={e.clase} href={e.href} target={e.destino} aria-current={e.actual}
+                                    data-valor={e.valor} data-tipo={e.tipo} data-destino={e.destino} onclick={handleEnlace}>{e.etiqueta}</a>
+                            </template>
+                        </li>
+                    </template>
+                </ul>
+            </nav>
+
+            <div class="acciones">
+                <div class="busqueda" role="search">
+                    <label for="busqueda-polizas" class="solo_lector">Buscar póliza</label>
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#55637D" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+                    <input id="busqueda-polizas" class="busqueda_campo" type="search" placeholder={placeholderBusqueda}
+                        value={busqueda} oninput={handleBusqueda} onkeydown={handleBuscar} />
+                </div>
+
+                <a class="avisos" href={urlAvisos} aria-label={etiquetaAlertas} title={etiquetaAlertas} data-valor="/mi-dashboard" onclick={handleEnlace}>
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 21h4"></path></svg>
+                    <span lwc:if={hayAlertas} class="avisos_numero">{textoAlertas}</span>
+                </a>
+
+                <div class="usuario">
+                    <button class="usuario_boton" aria-haspopup="true" aria-expanded={expandidoUsuario} onclick={handleUsuario}>
+                        <span class="avatar">
+                            <img lwc:if={foto} src={foto} alt="" />
+                            <span lwc:else>{iniciales}</span>
+                        </span>
+                        <span class="usuario_texto">
+                            <span class="usuario_nombre">{nombre}</span>
+                            <span lwc:if={cuenta} class="usuario_cuenta">{cuenta}</span>
+                        </span>
+                        <svg class="nav_flecha" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+                    </button>
+                    <ul lwc:if={usuarioAbierto} class="submenu submenu_usuario">
+                        <li><a class="submenu_enlace" href={urlPerfil}>Mi perfil</a></li>
+                        <li><a class="submenu_enlace" href={urlAjustes}>Configuración</a></li>
+                        <li><a class="submenu_enlace submenu_salir" href={urlSalir}>Cerrar sesión</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+</template>

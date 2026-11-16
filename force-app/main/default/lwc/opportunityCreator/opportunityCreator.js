@@ -2572,9 +2572,20 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // ============================================================
     _pendingOpportunityId = null;
     _opportunitiesLoaded = false;
+    _pendingAccion = null;
     @wire(CurrentPageReference)
     wiredPageRef(pageRef) {
         if (!pageRef || !pageRef.state) return;
+        // Acceso directo desde el Panel de Oportunidades: c__accion = 'nueva' (formulario nuevo)
+        // o 'pdf' (crear desde PDFs). Hace lo mismo que los botones de la lista.
+        const accion = pageRef.state.c__accion;
+        if (accion === 'nueva' || accion === 'pdf') {
+            this._pendingAccion = accion;
+            if (this._opportunitiesLoaded) {
+                this.aplicarAccionPendiente();
+            }
+            return;
+        }
         const oppId = pageRef.state.c__opportunityId;
         if (!oppId) return;
         this._pendingOpportunityId = oppId;
@@ -2589,6 +2600,17 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (this._pendingOpportunityId) {
             await this.openOpportunityInEditMode(this._pendingOpportunityId);
             this._pendingOpportunityId = null;
+        }
+        this.aplicarAccionPendiente();
+    }
+    // Abre "Crear Oportunidad" o "Crear desde PDFs" si llegó la acción por la URL.
+    aplicarAccionPendiente() {
+        const accion = this._pendingAccion;
+        this._pendingAccion = null;
+        if (accion === 'nueva') {
+            this.handleCreateNew();
+        } else if (accion === 'pdf') {
+            this.handleCreateFromPdf();
         }
     }
     async loadOpportunities() {

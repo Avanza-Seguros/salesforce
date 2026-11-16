@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Encabezado (sitio)</masterLabel>
+    <description>Encabezado del sitio: logo, menú publicado tipo píldora, buscador de pólizas, avisos y menú del usuario.</description>
+    <targets>
+        <target>lightningCommunity__Page</target>
+        <target>lightningCommunity__Default</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightningCommunity__Default">
+            <property name="textoInicio" type="String" label="Texto de Inicio" default="Inicio" />
+            <property name="placeholderBusqueda" type="String" label="Texto del buscador"
+                default="Busca tu póliza por número, ramo o aseguradora" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

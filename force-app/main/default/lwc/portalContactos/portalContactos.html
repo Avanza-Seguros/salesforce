@@ -1,0 +1,99 @@
+<template>
+    <div class="pagina">
+        <c-portal-vista-previa pagina="Contactos" oncambio={handleVistaPrevia}></c-portal-vista-previa>
+
+        <div class="cabecera">
+            <span class="cabecera_etiqueta">Contactos</span>
+            <h1 class="cabecera_titulo">{titulo}</h1>
+            <p class="cabecera_sub">{subtitulo}<template lwc:if={nombreCuenta}> · {nombreCuenta}</template></p>
+        </div>
+
+        <template lwc:if={cargando}>
+            <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
+        </template>
+        <div lwc:elseif={error} class="aviso aviso_error" role="alert">{error}</div>
+        <section lwc:elseif={sinPersonas} class="panel panel_vacio">
+            <p>Tu empresa todavía no tiene personas registradas. Si crees que es un error, contacta a tu ejecutivo.</p>
+        </section>
+
+        <template lwc:if={hayPersonas}>
+            <ul class="resumen">
+                <template for:each={resumen} for:item="r">
+                    <li key={r.clave} class="resumen_dato">
+                        <span class="resumen_valor">{r.valor}</span>
+                        <span class="resumen_etiqueta">{r.etiqueta}</span>
+                    </li>
+                </template>
+            </ul>
+
+            <section class="panel">
+                <div class="controles">
+                    <div class="busqueda" role="search">
+                        <label for="buscar-personas" class="solo_lector">Buscar persona</label>
+                        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#55637D" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+                        <input id="buscar-personas" class="busqueda_campo" type="search"
+                            placeholder="Busca por nombre, puesto, área, correo o certificado" value={busqueda} oninput={handleBusqueda} />
+                    </div>
+                    <div class="filtros" role="group" aria-label="Estado">
+                        <template for:each={opcionesEstado} for:item="o">
+                            <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleEstado}>{o.label}</button>
+                        </template>
+                    </div>
+                </div>
+                <div class="filtros filtros_productos" role="group" aria-label="Producto">
+                    <template for:each={opcionesProducto} for:item="o">
+                        <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleProducto}>{o.label}</button>
+                    </template>
+                    <span class="conteo" aria-live="polite">{textoResultados}</span>
+                </div>
+
+                <ul lwc:if={hayResultados} class="tarjetas">
+                    <template for:each={tarjetas} for:item="p">
+                        <li key={p.id} class={p.clase}>
+                            <div class="tarjeta_cabecera">
+                                <span class="avatar" style={p.estiloAvatar} aria-hidden="true">{p.iniciales}</span>
+                                <div class="tarjeta_nombre">
+                                    <span class="nombre" title={p.nombre}>{p.nombre}</span>
+                                    <span lwc:if={p.linea} class="linea">{p.linea}</span>
+                                </div>
+                                <span class={p.estadoClase}>{p.estadoTexto}</span>
+                            </div>
+                            <div lwc:if={p.hayProductos} class="chips" aria-label="Productos">
+                                <template for:each={p.productosLista} for:item="x">
+                                    <span key={x.clave} class={x.clase}>{x.texto}</span>
+                                </template>
+                            </div>
+                            <ul class="datos">
+                                <li lwc:if={p.urlCorreo}>
+                                    <lightning-icon icon-name="utility:email" size="xx-small" class="dato_icono"></lightning-icon>
+                                    <a href={p.urlCorreo} class="dato_enlace">{p.correo}</a>
+                                </li>
+                                <li lwc:if={p.urlTelefono}>
+                                    <lightning-icon icon-name="utility:call" size="xx-small" class="dato_icono"></lightning-icon>
+                                    <a href={p.urlTelefono} class="dato_enlace">{p.telefonoTexto}</a>
+                                </li>
+                                <li lwc:if={p.certificadoTexto}>
+                                    <lightning-icon icon-name="utility:identity" size="xx-small" class="dato_icono"></lightning-icon>
+                                    <span>{p.certificadoTexto}</span>
+                                </li>
+                                <li lwc:if={p.ingresoTexto}>
+                                    <lightning-icon icon-name="utility:date_input" size="xx-small" class="dato_icono"></lightning-icon>
+                                    <span>{p.ingresoTexto}</span>
+                                </li>
+                                <li lwc:if={p.cumpleHoy} class="cumple">
+                                    <lightning-icon icon-name="utility:favorite" size="xx-small" class="dato_icono"></lightning-icon>
+                                    <span>Hoy es su cumpleaños</span>
+                                </li>
+                            </ul>
+                        </li>
+                    </template>
+                </ul>
+                <p lwc:else class="sin_resultados">No hay personas con estos filtros.</p>
+                <div lwc:if={hayMas} class="mas">
+                    <button class="boton boton_secundario" onclick={handleMas}>{textoMas}</button>
+                </div>
+            </section>
+        </template>
+    </div>
+</template>

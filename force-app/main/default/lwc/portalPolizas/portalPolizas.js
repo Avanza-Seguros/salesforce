@@ -1,6 +1,7 @@
 // portalPolizas/portalPolizas.js
 // Pólizas del cliente en el sitio Avanza Seguro: listado con búsqueda y filtro, y detalle con documentos.
 import { LightningElement, api, wire } from 'lwc';
+import { CurrentPageReference } from 'lightning/navigation';
 import basePath from '@salesforce/community/basePath';
 import misPolizas from '@salesforce/apex/PortalPolizasController.misPolizas';
 import detallePoliza from '@salesforce/apex/PortalPolizasController.detallePoliza';
@@ -91,6 +92,23 @@ export default class PortalPolizas extends LightningElement {
     buscandoCuentas = false;
     errorCuentas;
     temporizadorBusqueda;
+
+    // Parámetros de la URL: ?buscar= (búsqueda del encabezado), ?poliza= (abre una póliza) y ?pestana= (pestaña del detalle).
+    estadoUrl;
+    @wire(CurrentPageReference)
+    recibirPagina(ref) {
+        const estado = (ref && ref.state) || {};
+        const clave = JSON.stringify([estado.buscar, estado.poliza, estado.pestana]);
+        if (clave === this.estadoUrl) return;
+        this.estadoUrl = clave;
+        if (estado.buscar) {
+            this.busqueda = estado.buscar;
+            this.filtro = 'todas';
+        }
+        if (estado.poliza) {
+            this.abrirPoliza(estado.poliza, estado.pestana);
+        }
+    }
 
     @wire(puedeVistaPrevia)
     recibirPermiso({ data }) {
@@ -286,13 +304,20 @@ export default class PortalPolizas extends LightningElement {
     }
 
     handleAbrir(event) {
-        const id = event.currentTarget.dataset.id;
+        this.abrirPoliza(event.currentTarget.dataset.id);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    abrirPoliza(id, pestana) {
+        if (!id) return;
         this.detalle = undefined;
         this.errorDetalle = undefined;
         this.cargandoDetalle = true;
         this.reiniciarPestanas();
+        if (pestana && ['info', 'pagos', 'vigencias', 'asegurados', 'participantes'].includes(pestana)) {
+            this.pestana = pestana;
+        }
         this.seleccionadaId = id;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     handleTeclaTarjeta(event) {

@@ -1,0 +1,36 @@
+<template>
+    <div lwc:if={puede} class="vista_previa">
+        <div class="vista_previa_titulo">
+            <lightning-icon icon-name="utility:preview" size="x-small"></lightning-icon>
+            <span>Vista previa de administrador</span>
+        </div>
+        <template lwc:if={cuentaId}>
+            <div class="vista_previa_actual">
+                <span>{textoActual} <strong>{nombre}</strong></span>
+                <button class="vista_previa_cambiar" onclick={handleQuitar}>Cambiar cuenta</button>
+            </div>
+        </template>
+        <template lwc:else>
+            <lightning-input
+                type="search"
+                label="Cuenta del cliente"
+                placeholder="Escribe al menos 2 letras del nombre de la cuenta"
+                value={texto}
+                onchange={handleTexto}
+                is-loading={buscando}
+            ></lightning-input>
+            <div lwc:if={error} class="aviso_error" role="alert">{error}</div>
+            <p lwc:if={sinCuentas} class="vista_previa_nota">No hay cuentas titulares de pólizas con ese nombre.</p>
+            <ul lwc:if={hayCuentas} class="vista_previa_cuentas">
+                <template for:each={cuentas} for:item="c">
+                    <li key={c.id}>
+                        <button class="vista_previa_cuenta" data-id={c.id} data-nombre={c.nombre} onclick={handleElegir}>
+                            <span class="cuenta_nombre">{c.nombre}</span>
+                            <span class="cuenta_meta">{c.detalle}</span>
+                        </button>
+                    </li>
+                </template>
+            </ul>
+        </template>
+    </div>
+</template>

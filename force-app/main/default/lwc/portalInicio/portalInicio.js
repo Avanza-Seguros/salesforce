@@ -7,6 +7,8 @@ import USER_ID from '@salesforce/user/Id';
 import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
 import FIRST_NAME from '@salesforce/schema/User.FirstName';
 import dashboard from '@salesforce/apex/PortalPolizasController.dashboard';
+import pagos from '@salesforce/apex/PortalPolizasPestanas.pagos';
+import ejecutivo from '@salesforce/apex/PortalSitioController.ejecutivo';
 
 // El campo Moneda de la póliza es texto libre (MXN, PESOS, USD, UDI...): se lleva a un código ISO para darle formato con $.
 const MONEDAS = { MXN: 'MXN', MXP: 'MXN', MN: 'MXN', PESOS: 'MXN', PESO: 'MXN', 'MONEDA NACIONAL': 'MXN',
@@ -18,6 +20,8 @@ function codigoMoneda(codigo) {
 
 const DIAS_RENOVACION = 90;
 const DURACION_CONTEO = 1100;
+const MAX_POLIZAS = 4;
+const MAX_MOVIMIENTOS = 5;
 
 const FUNCIONES = [
     { clave: 'f1', icono: 'utility:clock', titulo: 'Disponible 24/7',
@@ -50,6 +54,9 @@ export default class PortalInicio extends LightningElement {
     funciones = FUNCIONES;
     pasos = PASOS;
     animacion;
+    polizaPago;
+    plan;
+    asesor;
 
     @wire(getRecord, { recordId: USER_ID, fields: [FIRST_NAME] })
     usuario;
@@ -59,11 +66,26 @@ export default class PortalInicio extends LightningElement {
         if (data) {
             this.datos = data;
             this.cargando = false;
+            const q = (data.proximasCuotas || [])[0];
+            this.polizaPago = q ? q.polizaId : undefined;
             this.contar();
         } else if (error) {
             this.datos = undefined;
             this.cargando = false;
         }
+    }
+
+    // Cuotas de la póliza del próximo pago, para la barra de avance.
+    @wire(pagos, { policyId: '$polizaPago', cuentaVistaPrevia: null })
+    recibirPlan({ data, error }) {
+        if (data) this.plan = data;
+        else if (error) this.plan = undefined;
+    }
+
+    @wire(ejecutivo, { cuentaVistaPrevia: null })
+    recibirEjecutivo({ data, error }) {
+        if (data) this.asesor = data;
+        else if (error) this.asesor = undefined;
     }
 
     disconnectedCallback() {
@@ -190,13 +212,107 @@ export default class PortalInicio extends LightningElement {
         return Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a])[0] || 'MXN';
     }
 
+    // ---------- Mis pólizas (tarjetas) ----------
+
+    get tarjetasPolizas() {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        return [...this.vigentes]
+            .sort((a, b) => String(a.finVigencia || '9999').localeCompare(String(b.finVigencia || '9999')))
+            .slice(0, MAX_POLIZAS)
+            .map((p) => {
+                const dias = p.finVigencia ? Math.round((this.aFecha(p.finVigencia) - hoy) / 86400000) : null;
+                const renovar = dias !== null && dias >= 0 && dias <= DIAS_RENOVACION;
+                return {
+                    id: p.id,
+                    ramo: p.ramo || p.tipo || 'Póliza',
+                    numero: `Póliza ${p.numero}`,
+                    aseguradora: p.aseguradora || '',
+                    bien: p.bienAsegurado || p.descripcion || '',
+                    vigencia: `Vigente hasta ${this.fecha(p.finVigencia, true)}`,
+                    chip: renovar ? `Renueva en ${dias} día${dias === 1 ? '' : 's'}` : 'Vigente',
+                    chipClase: `chip${renovar ? ' chip_alerta' : ''}`,
+                    url: `${basePath || ''}/mis-polizas?poliza=${p.id}`
+                };
+            });
+    }
+    get hayTarjetas() {
+        return this.tarjetasPolizas.length > 0;
+    }
+    get masPolizas() {
+        const resto = this.vigentes.length - MAX_POLIZAS;
+        return resto > 0 ? `Ver ${resto} póliza${resto === 1 ? '' : 's'} más` : 'Ver todas mis pólizas';
+    }
+
+    // ---------- Próximo pago (tarjeta con avance) ----------
+
+    get pago() {
+        const q = this.proximaCuota;
+        if (!q) return null;
+        const p = this.plan || null;
+        const total = (p && p.totalImporte) || 0;
+        const pct = total ? Math.min(100, Math.round(((p.totalPagado || 0) / total) * 100)) : 0;
+        return {
+            titulo: q.vencida ? 'Pago vencido' : 'Próximo pago',
+            monto: this.moneda(q.pendiente, q.moneda, 2),
+            detalle: `Póliza ${q.numero}${q.ramo ? ` · ${q.ramo}` : ''}`,
+            vence: `${q.vencida ? 'Venció' : 'Vence'} el ${this.fecha(q.vence, true)}`,
+            clase: `pago${q.vencida ? ' pago_vencido' : ''}`,
+            hayAvance: !!p && total > 0,
+            pagado: p ? this.moneda(p.totalPagado, p.moneda) : '',
+            pendiente: p ? this.moneda(p.totalPendiente, p.moneda) : '',
+            pct,
+            pctTexto: `${pct}% de la póliza pagado`,
+            estilo: `width: ${Math.max(pct, 2)}%`
+        };
+    }
+    get urlPagos() {
+        return `${basePath || ''}/mis-pagos`;
+    }
+
+    // ---------- Movimientos recientes ----------
+
+    get movimientos() {
+        const iconos = { Alta: 'utility:add', Baja: 'utility:dash', Cambio: 'utility:edit' };
+        return ((this.datos && this.datos.movimientos) || []).slice(0, MAX_MOVIMIENTOS).map((m) => ({
+            id: m.id,
+            icono: iconos[m.tipo] || 'utility:change_record_type',
+            iconoClase: `mov_icono mov_${String(m.tipo || 'otro').toLowerCase()}`,
+            titulo: `${m.tipo || 'Movimiento'} · ${m.nombre || 'Sin nombre'}`,
+            meta: [`Póliza ${m.poliza || ''}`.trim(), m.endoso ? `endoso ${m.endoso}` : null].filter(Boolean).join(' · '),
+            fecha: this.fecha(m.fecha)
+        }));
+    }
+    get hayMovimientos() {
+        return this.movimientos.length > 0;
+    }
+
+    // ---------- Ejecutivo ----------
+
+    get ejecutivoInfo() {
+        const e = this.asesor;
+        if (!e) return null;
+        const partes = String(e.nombre || '').trim().split(/\s+/);
+        return {
+            ...e,
+            iniciales: ((partes[0] || '').charAt(0) + (partes.length > 1 ? partes[partes.length - 1].charAt(0) : '')).toUpperCase(),
+            puestoTexto: e.puesto || 'Ejecutivo de cuenta',
+            mailto: e.correo ? `mailto:${e.correo}` : null,
+            tel: e.telefono ? `tel:${String(e.telefono).replace(/[^\d+]/g, '')}` : null
+        };
+    }
+
     // ---------- Accesos rápidos ----------
 
     get accesos() {
         return [
             { clave: 'a1', icono: 'utility:description', titulo: 'Mis pólizas', url: this.urlMisPolizas,
                 texto: 'Coberturas, vigencias, asegurados, pagos y documentos de cada póliza.' },
-            { clave: 'a2', icono: 'utility:metrics', titulo: 'Dashboard', url: this.urlDashboard,
+            { clave: 'a2', icono: 'utility:moneybag', titulo: 'Pagos y recibos', url: this.urlPagos,
+                texto: 'Próximo pago, cuotas por póliza y recibos ya aplicados.' },
+            { clave: 'a3', icono: 'utility:groups', titulo: 'Personas de tu empresa', url: `${basePath || ''}/contactos-empresa`,
+                texto: 'Colaboradores, su cobertura y cómo contactarlos.' },
+            { clave: 'a4', icono: 'utility:metrics', titulo: 'Dashboard', url: this.urlDashboard,
                 texto: 'Indicadores, historial de pagos, endosos y movimientos de un vistazo.' }
         ];
     }
@@ -208,21 +324,22 @@ export default class PortalInicio extends LightningElement {
         return new Date(a, m - 1, d);
     }
 
-    fecha(valor) {
+    fecha(valor, conAnio) {
         if (!valor) return '—';
-        return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(this.aFecha(valor));
+        const opciones = conAnio ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' };
+        return new Intl.DateTimeFormat('es-MX', opciones).format(this.aFecha(valor));
     }
 
-    moneda(n, codigo) {
+    moneda(n, codigo, decimales = 0) {
         const iso = codigoMoneda(codigo);
+        const opciones = { minimumFractionDigits: decimales, maximumFractionDigits: decimales };
         if (iso === 'UDI') {
-            return `${Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })} UDIS`;
+            return `${Number(n || 0).toLocaleString('es-MX', opciones)} UDIS`;
         }
         try {
-            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: iso, maximumFractionDigits: 0 })
-                .format(n || 0);
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: iso, ...opciones }).format(n || 0);
         } catch (e) {
-            return `$${Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
+            return `$${Number(n || 0).toLocaleString('es-MX', opciones)}`;
         }
     }
 }

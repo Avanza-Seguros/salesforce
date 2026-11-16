@@ -83,6 +83,99 @@
             </template>
         </ul>
 
+        <!-- ===== Mis pólizas, próximo pago, movimientos y ejecutivo ===== -->
+        <div lwc:if={hayPolizas} class="tablero">
+            <div class="tablero_principal">
+                <section class="caja">
+                    <div class="caja_cabecera">
+                        <h2 class="caja_titulo">Mis pólizas</h2>
+                        <a class="caja_enlace" href={urlMisPolizas}>{masPolizas}</a>
+                    </div>
+                    <div lwc:if={hayTarjetas} class="polizas">
+                        <template for:each={tarjetasPolizas} for:item="p">
+                            <a key={p.id} class="poliza" href={p.url}>
+                                <span class="poliza_cabecera">
+                                    <span class="poliza_ramo">{p.ramo}</span>
+                                    <span class={p.chipClase}>{p.chip}</span>
+                                </span>
+                                <span class="poliza_numero">{p.numero}</span>
+                                <span lwc:if={p.bien} class="poliza_bien">{p.bien}</span>
+                                <span class="poliza_pie">
+                                    <span>{p.aseguradora}</span>
+                                    <span>{p.vigencia}</span>
+                                </span>
+                            </a>
+                        </template>
+                    </div>
+                    <p lwc:else class="caja_vacio">No tienes pólizas vigentes en este momento.</p>
+                </section>
+
+                <section class="caja">
+                    <div class="caja_cabecera">
+                        <h2 class="caja_titulo">Movimientos recientes</h2>
+                        <a class="caja_enlace" href={urlDashboard}>Ver historial</a>
+                    </div>
+                    <ul lwc:if={hayMovimientos} class="movs">
+                        <template for:each={movimientos} for:item="m">
+                            <li key={m.id} class="mov">
+                                <span class={m.iconoClase}><lightning-icon icon-name={m.icono} size="xx-small"></lightning-icon></span>
+                                <span class="mov_texto">
+                                    <strong>{m.titulo}</strong>
+                                    <span>{m.meta}</span>
+                                </span>
+                                <span class="mov_fecha">{m.fecha}</span>
+                            </li>
+                        </template>
+                    </ul>
+                    <p lwc:else class="caja_vacio">Aún no hay altas, bajas ni cambios registrados en tus pólizas.</p>
+                </section>
+            </div>
+
+            <div class="tablero_lateral">
+                <section lwc:if={pago} class={pago.clase}>
+                    <span class="pago_etiqueta">{pago.titulo}</span>
+                    <span class="pago_monto">{pago.monto}</span>
+                    <span class="pago_detalle">{pago.detalle}</span>
+                    <span class="pago_vence">{pago.vence}</span>
+                    <template lwc:if={pago.hayAvance}>
+                        <div class="pago_barra" role="progressbar" aria-label="Avance de pago de la póliza"
+                            aria-valuemin="0" aria-valuemax="100" aria-valuenow={pago.pct}>
+                            <span class="pago_relleno" style={pago.estilo}></span>
+                        </div>
+                        <span class="pago_avance">{pago.pctTexto}</span>
+                        <span class="pago_totales"><span>Pagado {pago.pagado}</span><span>Pendiente {pago.pendiente}</span></span>
+                    </template>
+                    <a class="boton boton_principal pago_boton" href={urlPagos}>Ver pagos y recibos</a>
+                </section>
+                <section lwc:else class="pago pago_ok">
+                    <span class="pago_etiqueta">Pagos</span>
+                    <span class="pago_monto_ok">Estás al corriente</span>
+                    <span class="pago_detalle">No tienes cuotas pendientes por ahora.</span>
+                    <a class="boton boton_principal pago_boton" href={urlPagos}>Ver pagos y recibos</a>
+                </section>
+
+                <section lwc:if={ejecutivoInfo} class="caja ejecutivo">
+                    <span class="ejecutivo_etiqueta">Tu ejecutivo Avanza</span>
+                    <div class="ejecutivo_persona">
+                        <img lwc:if={ejecutivoInfo.foto} class="ejecutivo_foto" src={ejecutivoInfo.foto} alt="" />
+                        <span lwc:else class="ejecutivo_iniciales" aria-hidden="true">{ejecutivoInfo.iniciales}</span>
+                        <span class="ejecutivo_texto">
+                            <strong>{ejecutivoInfo.nombre}</strong>
+                            <span>{ejecutivoInfo.puestoTexto}</span>
+                        </span>
+                    </div>
+                    <div class="ejecutivo_acciones">
+                        <a lwc:if={ejecutivoInfo.mailto} class="boton_contacto" href={ejecutivoInfo.mailto}>
+                            <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon> Escribir
+                        </a>
+                        <a lwc:if={ejecutivoInfo.tel} class="boton_contacto" href={ejecutivoInfo.tel}>
+                            <lightning-icon icon-name="utility:call" size="xx-small"></lightning-icon> Llamar
+                        </a>
+                    </div>
+                </section>
+            </div>
+        </div>
+
         <!-- ===== Accesos rápidos ===== -->
         <section class="seccion">
             <div class="seccion_cabecera">
