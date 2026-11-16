@@ -450,3 +450,19 @@
 .mov-duplicados .mov-tabla-rechazos {
     background: #ffffff;
 }
+
+/* Enlace para ver si el registro existe en otras pólizas */
+.enlace-otras {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: #0b5cab;
+    text-align: left;
+    cursor: pointer;
+}
+
+.enlace-otras:hover,
+.enlace-otras:focus-visible {
+    text-decoration: underline;
+}

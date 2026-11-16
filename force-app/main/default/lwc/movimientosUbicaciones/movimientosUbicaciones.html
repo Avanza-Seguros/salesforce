@@ -104,7 +104,8 @@
                                             </td>
                                             <td>{u.inciso}</td>
                                             <td>
-                                                <div class="nombre">{u.direccion}</div>
+                                                <div class="nombre"><button class="enlace-otras" data-id={u.id} data-titulo={u.direccion}
+                                                    onclick={verOtrasPolizas} title="Ver si esta ubicación existe en otras pólizas">{u.direccion}</button></div>
                                                 <div class="sub">{u.nombre}</div>
                                             </td>
                                             <td>{u.giro}</td>
@@ -550,4 +551,5 @@
             </template>
         </div>
     </template>
+    <c-otras-polizas></c-otras-polizas>
 </template>

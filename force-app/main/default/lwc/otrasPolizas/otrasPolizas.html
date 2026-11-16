@@ -1,0 +1,63 @@
+<template>
+    <template if:true={abierto}>
+        <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="otras-titulo" class="slds-modal slds-fade-in-open slds-modal_medium"
+            onkeydown={handleTecla}>
+            <div class="slds-modal__container">
+                <div class="slds-modal__header">
+                    <h2 id="otras-titulo" class="slds-text-heading_medium slds-hyphenate">¿Existe en otras pólizas?</h2>
+                    <p class="subtitulo">{encabezado}</p>
+                </div>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template if:true={cargando}>
+                        <div class="cargando"><lightning-spinner alternative-text="Buscando en otras pólizas" size="small"></lightning-spinner></div>
+                    </template>
+                    <template if:true={error}>
+                        <div class="aviso aviso-error" role="alert">{error}</div>
+                    </template>
+                    <template if:true={sinFilas}>
+                        <div class="vacio">
+                            <lightning-icon icon-name="utility:success" size="small" variant="success"></lightning-icon>
+                            <p>No aparece en ninguna otra póliza.</p>
+                        </div>
+                    </template>
+                    <template if:true={hayFilas}>
+                        <p class="resumen">{resumen}</p>
+                        <div class="tabla-scroll">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                                <thead><tr>
+                                    <th>Póliza</th><th>Aseguradora</th><th>Ramo</th><th>Vigencia</th><th>En esa póliza</th><th>Coincide por</th>
+                                </tr></thead>
+                                <tbody>
+                                    <template for:each={filas} for:item="p">
+                                        <tr key={p.polizaId} class={p.claseFila}>
+                                            <td>
+                                                <a href={p.url} target="_blank" rel="noopener" class="poliza">{p.poliza}</a>
+                                                <div class="sub">{p.estadoPoliza}</div>
+                                            </td>
+                                            <td>
+                                                {p.aseguradoraTxt}
+                                                <template if:true={p.otraAseguradora}><div><span class="marca-otra">Otra aseguradora</span></div></template>
+                                            </td>
+                                            <td>{p.ramo}</td>
+                                            <td class="nowrap">{p.vigenciaTxt}</td>
+                                            <td>
+                                                <span class={p.claseRegistro}>{p.registroTxt}</span>
+                                                <div class="sub">{p.detalle}</div>
+                                            </td>
+                                            <td>{p.coincide}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                    <template if:true={criterio}><p class="criterio">{criterio}</p></template>
+                </div>
+                <div class="slds-modal__footer">
+                    <lightning-button label="Cerrar" onclick={cerrar}></lightning-button>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

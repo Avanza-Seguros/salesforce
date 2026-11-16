@@ -134,7 +134,8 @@
                                             </td>
                                             <td>{m.certificado}</td>
                                             <td>
-                                                <div class="nombre">{m.nombre}</div>
+                                                <div class="nombre"><button class="enlace-otras" data-id={m.id} data-titulo={m.nombre}
+                                                    onclick={verOtrasPolizas} title="Ver si este asegurado existe en otras pólizas">{m.nombre}</button></div>
                                                 <template if:false={m.esTitular}><div class="sub">de {m.titularNombre}</div></template>
                                             </td>
                                             <td>{m.parentesco}</td>
@@ -758,4 +759,5 @@
             </template>
         </div>
     </template>
+    <c-otras-polizas></c-otras-polizas>
 </template>

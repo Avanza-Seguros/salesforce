@@ -701,4 +701,11 @@ export default class MovimientosFlotilla extends LightningElement {
         this.errorMensaje = '';
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
+
+    // Abre la ventana con las otras pólizas (de cualquier aseguradora) donde ya existe el registro.
+    verOtrasPolizas(e) {
+        const { id, titulo } = e.currentTarget.dataset;
+        const v = this.template.querySelector('c-otras-polizas');
+        if (v && id) { v.abrir(id, this._recordId, titulo); }
+    }
 }

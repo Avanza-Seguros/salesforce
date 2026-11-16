@@ -105,7 +105,8 @@
                                             </td>
                                             <td>{v.inciso}</td>
                                             <td class="col-serie">{v.serie}</td>
-                                            <td><div class="nombre">{v.descripcion}</div></td>
+                                            <td><div class="nombre"><button class="enlace-otras" data-id={v.id} data-titulo={v.descripcion}
+                                                onclick={verOtrasPolizas} title="Ver si este vehículo existe en otras pólizas">{v.descripcion}</button></div></td>
                                             <td>{v.modelo}</td>
                                             <td>{v.placas}</td>
                                             <td>{v.uso}</td>
@@ -541,4 +542,5 @@
             </template>
         </div>
     </template>
+    <c-otras-polizas></c-otras-polizas>
 </template>
