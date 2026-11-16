@@ -24,7 +24,10 @@ private class VisualforcePdfRendererTest {
     Test.setCurrentPage(pr);
 
     OpportunityComparisonPdfController ctrl = new OpportunityComparisonPdfController();
-    System.assertEquals(html, ctrl.htmlBody);
+    // Un fragmento se envuelve en un documento completo con el estilo del PDF (@page) y conserva su contenido.
+    System.assert(ctrl.htmlBody.startsWith('<html><head>'), 'Debe envolver el fragmento en un documento HTML.');
+    System.assert(ctrl.htmlBody.contains('@page'), 'Debe incluir el estilo de página del PDF.');
+    System.assert(ctrl.htmlBody.contains('<body>' + html + '</body>'), 'Debe conservar el HTML guardado en el cuerpo.');
 
     OpportunityComparisonPdfController.remove(key);
   }
