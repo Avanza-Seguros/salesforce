@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Inicio (sitio)</masterLabel>
+    <description>Página de Inicio del sitio: portada con el resumen del cliente, accesos rápidos y la tecnología del portal.</description>
+    <targets>
+        <target>lightningCommunity__Page</target>
+        <target>lightningCommunity__Default</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightningCommunity__Default">
+            <property name="titulo" type="String" label="Título" default="Tus seguros, en un solo lugar" />
+            <property name="subtitulo" type="String" label="Subtítulo"
+                default="Consulta tus pólizas, pagos y documentos en tiempo real, con la tecnología de Avanza Seguro." />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

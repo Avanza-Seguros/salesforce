@@ -1,0 +1,154 @@
+<template>
+    <div class="inicio">
+        <!-- ===== Portada ===== -->
+        <section class="portada">
+            <div class="portada_fondo" aria-hidden="true">
+                <span class="rejilla_luz"></span>
+                <span class="orbe orbe_1"></span>
+                <span class="orbe orbe_2"></span>
+                <span class="orbe orbe_3"></span>
+                <span class="trazo trazo_1"></span>
+                <span class="trazo trazo_2"></span>
+                <span class="trazo trazo_3"></span>
+            </div>
+
+            <div class="portada_contenido">
+                <div class="portada_texto">
+                    <span class="etiqueta_tec">
+                        <span class="etiqueta_punto"></span>
+                        Portal digital Avanza Seguro
+                    </span>
+                    <p class="saludo">{saludo}</p>
+                    <h1 class="titulo">{titulo}</h1>
+                    <p class="subtitulo">{subtitulo}</p>
+                    <div class="botones">
+                        <a class="boton boton_principal" href={urlMisPolizas}>
+                            Ver mis pólizas
+                            <lightning-icon icon-name="utility:forward" size="xx-small" class="boton_icono"></lightning-icon>
+                        </a>
+                        <a class="boton boton_vidrio" href={urlDashboard}>Ir al dashboard</a>
+                    </div>
+                </div>
+
+                <!-- Tarjeta digital con el estado real del cliente -->
+                <div class="tarjeta" aria-label="Resumen de tu protección">
+                    <span class="tarjeta_escaner" aria-hidden="true"></span>
+                    <div class="tarjeta_cabecera">
+                        <span class="tarjeta_marca">
+                            <lightning-icon icon-name="utility:shield" size="x-small" class="tarjeta_icono"></lightning-icon>
+                            Avanza Seguro
+                        </span>
+                        <span class="estado">
+                            <span class={estadoClase}></span>
+                            {estadoTexto}
+                        </span>
+                    </div>
+                    <div class="tarjeta_cuerpo">
+                        <div class="anillo_caja">
+                            <svg class="anillo" viewBox="0 0 120 120" aria-hidden="true">
+                                <circle class="anillo_pista" cx="60" cy="60" r="52"></circle>
+                                <circle class="anillo_valor" cx="60" cy="60" r="52" style={anillo}></circle>
+                            </svg>
+                            <div class="anillo_texto">
+                                <span class="anillo_numero">{numVigentes}</span>
+                                <span class="anillo_etiqueta">vigentes</span>
+                            </div>
+                        </div>
+                        <div class="tarjeta_datos">
+                            <span class="tarjeta_dato_etiqueta">Pólizas</span>
+                            <span class="tarjeta_dato_valor">{textoAnillo}</span>
+                            <span class="tarjeta_linea" aria-hidden="true"><span class="tarjeta_linea_luz"></span></span>
+                            <span class="tarjeta_dato_etiqueta">Sincronizado</span>
+                            <span class="tarjeta_dato_valor">En tiempo real</span>
+                        </div>
+                    </div>
+                    <div class="tarjeta_pie" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Resumen del cliente ===== -->
+        <ul class="resumen">
+            <template for:each={resumen} for:item="r">
+                <li key={r.clave} class={r.clase}>
+                    <span class="dato_icono"><lightning-icon icon-name={r.icono} size="x-small"></lightning-icon></span>
+                    <div class="dato_texto">
+                        <span class="dato_etiqueta">{r.etiqueta}</span>
+                        <span class="dato_valor">{r.valor}</span>
+                        <span class="dato_detalle">{r.detalle}</span>
+                    </div>
+                </li>
+            </template>
+        </ul>
+
+        <!-- ===== Accesos rápidos ===== -->
+        <section class="seccion">
+            <div class="seccion_cabecera">
+                <span class="seccion_etiqueta">Accesos rápidos</span>
+                <h2 class="seccion_titulo">¿Qué quieres hacer hoy?</h2>
+            </div>
+            <div class="accesos">
+                <template for:each={accesos} for:item="a">
+                    <a key={a.clave} class="acceso" href={a.url}>
+                        <span class="acceso_icono"><lightning-icon icon-name={a.icono} size="small"></lightning-icon></span>
+                        <span class="acceso_texto">
+                            <span class="acceso_titulo">{a.titulo}</span>
+                            <span class="acceso_detalle">{a.texto}</span>
+                        </span>
+                        <span class="acceso_flecha"><lightning-icon icon-name="utility:chevronright" size="x-small"></lightning-icon></span>
+                    </a>
+                </template>
+            </div>
+        </section>
+
+        <!-- ===== Tecnología ===== -->
+        <section class="seccion seccion_tec">
+            <div class="seccion_cabecera">
+                <span class="seccion_etiqueta">Tecnología Avanza</span>
+                <h2 class="seccion_titulo">Un portal pensado para que no te preocupes por nada</h2>
+                <p class="seccion_sub">Combinamos la experiencia de tu asesor con herramientas digitales que trabajan por ti todo el tiempo.</p>
+            </div>
+            <ul class="funciones">
+                <template for:each={funciones} for:item="f">
+                    <li key={f.clave} class="funcion">
+                        <span class="funcion_icono"><lightning-icon icon-name={f.icono} size="small"></lightning-icon></span>
+                        <h3 class="funcion_titulo">{f.titulo}</h3>
+                        <p class="funcion_texto">{f.texto}</p>
+                    </li>
+                </template>
+            </ul>
+        </section>
+
+        <!-- ===== Cómo funciona ===== -->
+        <section class="seccion">
+            <div class="seccion_cabecera">
+                <span class="seccion_etiqueta">Así de fácil</span>
+                <h2 class="seccion_titulo">Tu seguro, en tres pasos</h2>
+            </div>
+            <ol class="pasos">
+                <template for:each={pasos} for:item="p">
+                    <li key={p.clave} class="paso">
+                        <span class="paso_numero">{p.numero}</span>
+                        <h3 class="paso_titulo">{p.titulo}</h3>
+                        <p class="paso_texto">{p.texto}</p>
+                    </li>
+                </template>
+            </ol>
+        </section>
+
+        <!-- ===== Llamado final ===== -->
+        <section class="cierre">
+            <div class="cierre_fondo" aria-hidden="true"><span class="rejilla_luz"></span></div>
+            <div class="cierre_texto">
+                <h2 class="cierre_titulo">Toda tu protección, siempre contigo</h2>
+                <p class="cierre_sub">Revisa el detalle de cada póliza y descarga tus documentos cuando los necesites.</p>
+            </div>
+            <a class="boton boton_principal" href={urlMisPolizas}>
+                Ir a mis pólizas
+                <lightning-icon icon-name="utility:forward" size="xx-small" class="boton_icono"></lightning-icon>
+            </a>
+        </section>
+    </div>
+</template>

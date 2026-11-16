@@ -7,6 +7,14 @@ import dashboard from '@salesforce/apex/PortalPolizasController.dashboard';
 import puedeVistaPrevia from '@salesforce/apex/PortalPolizasController.puedeVistaPrevia';
 import buscarCuentas from '@salesforce/apex/PortalPolizasController.buscarCuentas';
 
+// El campo Moneda de la póliza es texto libre (MXN, PESOS, USD, UDI...): se lleva a un código ISO para darle formato con $.
+const MONEDAS = { MXN: 'MXN', MXP: 'MXN', MN: 'MXN', PESOS: 'MXN', PESO: 'MXN', 'MONEDA NACIONAL': 'MXN',
+    USD: 'USD', DLLS: 'USD', DLS: 'USD', DOLARES: 'USD', DOLAR: 'USD', EUR: 'EUR', EUROS: 'EUR' };
+function codigoMoneda(codigo) {
+    const clave = String(codigo || 'MXN').normalize('NFD').replace(/[\u0300-\u036f.]/g, '').trim().toUpperCase();
+    return MONEDAS[clave] || (/^UDIS?$/.test(clave) ? 'UDI' : clave);
+}
+
 const DIAS_RENOVACION = 90;
 const MAX_BARRAS = 6;
 
@@ -65,7 +73,7 @@ export default class PortalDashboard extends LightningElement {
     }
     get monedaPrincipal() {
         const cuenta = {};
-        this.vigentes.forEach((p) => { cuenta[p.moneda || 'MXN'] = (cuenta[p.moneda || 'MXN'] || 0) + 1; });
+        this.vigentes.forEach((p) => { const m = codigoMoneda(p.moneda); cuenta[m] = (cuenta[m] || 0) + 1; });
         return Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a])[0] || 'MXN';
     }
     get fechaHoy() {
@@ -82,7 +90,7 @@ export default class PortalDashboard extends LightningElement {
         const mon = this.monedaPrincipal;
         const primas = {};
         this.vigentes.forEach((p) => {
-            if (p.prima != null) { primas[p.moneda || 'MXN'] = (primas[p.moneda || 'MXN'] || 0) + p.prima; }
+            if (p.prima != null) { primas[codigoMoneda(p.moneda)] = (primas[codigoMoneda(p.moneda)] || 0) + p.prima; }
         });
         const otras = Object.keys(primas).filter((k) => k !== mon).map((k) => this.moneda(primas[k], k));
         const renovar = this.renovaciones.length;
@@ -146,7 +154,7 @@ export default class PortalDashboard extends LightningElement {
             const k = p.ramo || p.tipo || 'Sin ramo';
             g[k] = g[k] || { valor: 0, prima: 0 };
             g[k].valor++;
-            if ((p.moneda || 'MXN') === mon && p.prima != null) { g[k].prima += p.prima; }
+            if (codigoMoneda(p.moneda) === mon && p.prima != null) { g[k].prima += p.prima; }
         });
         return this.barras(g, (f) => `${f.valor} · ${this.moneda(f.prima || 0, mon)}`);
     }
@@ -367,11 +375,15 @@ export default class PortalDashboard extends LightningElement {
     }
 
     moneda(n, codigo) {
+        const iso = codigoMoneda(codigo);
+        if (iso === 'UDI') {
+            return `${Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })} UDIS`;
+        }
         try {
-            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: codigo || 'MXN', maximumFractionDigits: 0 })
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: iso, maximumFractionDigits: 0 })
                 .format(n || 0);
         } catch (e) {
-            return `${Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })} ${codigo || ''}`.trim();
+            return `$${Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
         }
     }
 

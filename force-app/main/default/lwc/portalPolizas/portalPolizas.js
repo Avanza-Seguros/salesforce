@@ -13,6 +13,14 @@ import vigencias from '@salesforce/apex/PortalPolizasPestanas.vigencias';
 import asegurados from '@salesforce/apex/PortalPolizasPestanas.asegurados';
 import participantes from '@salesforce/apex/PortalPolizasPestanas.participantes';
 
+// El campo Moneda de la póliza es texto libre (MXN, PESOS, USD, UDI...): se lleva a un código ISO para darle formato con $.
+const MONEDAS = { MXN: 'MXN', MXP: 'MXN', MN: 'MXN', PESOS: 'MXN', PESO: 'MXN', 'MONEDA NACIONAL': 'MXN',
+    USD: 'USD', DLLS: 'USD', DLS: 'USD', DOLARES: 'USD', DOLAR: 'USD', EUR: 'EUR', EUROS: 'EUR' };
+function codigoMoneda(codigo) {
+    const clave = String(codigo || 'MXN').normalize('NFD').replace(/[\u0300-\u036f.]/g, '').trim().toUpperCase();
+    return MONEDAS[clave] || (/^UDIS?$/.test(clave) ? 'UDI' : clave);
+}
+
 // Pestañas del detalle (las mismas que la página de la póliza en Salesforce) y su método Apex.
 const PESTANAS = {
     info: informacion,
@@ -704,10 +712,14 @@ export default class PortalPolizas extends LightningElement {
     }
 
     moneda(n, codigo) {
+        const iso = codigoMoneda(codigo);
+        if (iso === 'UDI') {
+            return `${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UDIS`;
+        }
         try {
-            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: codigo || 'MXN' }).format(n);
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: iso }).format(n);
         } catch (e) {
-            return `${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${codigo || ''}`.trim();
+            return `$${Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
     }
 
