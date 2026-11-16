@@ -167,9 +167,8 @@ export default class PortalDashboard extends LightningElement {
         return this.porAseguradora.length > 0;
     }
 
-    // Columnas de los próximos 6 meses.
-    get meses() {
-        const lista = (this.datos && this.datos.pagosPorMes) || [];
+    // Columnas por mes (próximos 6 meses o historial de 12).
+    columnas(lista) {
         const mon = this.monedaPrincipal;
         const max = Math.max(1, ...lista.map((m) => m.monto || 0));
         const fmtMes = new Intl.DateTimeFormat('es-MX', { month: 'short' });
@@ -190,6 +189,73 @@ export default class PortalDashboard extends LightningElement {
                 ayuda: `${mesLargo}: ${texto}${m.cuotas ? ` (${m.cuotas} cuota${m.cuotas === 1 ? '' : 's'})` : ''}`
             };
         });
+    }
+
+    get meses() {
+        return this.columnas((this.datos && this.datos.pagosPorMes) || []);
+    }
+
+    // Historial: lo pagado en cada uno de los últimos 12 meses.
+    get historial() {
+        return this.columnas((this.datos && this.datos.pagadoPorMes) || []);
+    }
+    get hayHistorial() {
+        return this.historial.some((m) => !m.vacio);
+    }
+    get totalHistorial() {
+        const lista = (this.datos && this.datos.pagadoPorMes) || [];
+        return this.moneda(lista.reduce((s, m) => s + (m.monto || 0), 0), this.monedaPrincipal);
+    }
+
+    // ---------- Bienes asegurados ----------
+
+    get bienes() {
+        const b = (this.datos && this.datos.bienes) || {};
+        const uno = (n, singular, plural) => `${n === 1 ? singular : plural}`;
+        return [
+            { clave: 'personas', icono: 'utility:groups', valor: b.personas || 0,
+                etiqueta: uno(b.personas, 'Persona asegurada', 'Personas aseguradas') },
+            { clave: 'vehiculos', icono: 'utility:travel_and_places', valor: b.vehiculos || 0,
+                etiqueta: uno(b.vehiculos, 'Vehículo asegurado', 'Vehículos asegurados') },
+            { clave: 'ubicaciones', icono: 'utility:location', valor: b.ubicaciones || 0,
+                etiqueta: uno(b.ubicaciones, 'Ubicación asegurada', 'Ubicaciones aseguradas') }
+        ].map((x) => ({ ...x, clase: `bien${x.valor ? '' : ' bien_cero'}` }));
+    }
+
+    // ---------- Endosos y movimientos ----------
+
+    get endosos() {
+        return ((this.datos && this.datos.endosos) || []).map((e) => ({
+            ...e,
+            titulo: `Endoso ${e.numero || 's/n'}`,
+            meta: [`Póliza ${e.poliza || ''}`.trim(), e.descripcion, this.fecha(e.fecha)].filter(Boolean).join(' · '),
+            totalTexto: e.total == null ? '' : this.moneda(e.total, e.moneda),
+            totalClase: `lista_monto${e.total < 0 ? ' monto_negativo' : ''}`
+        }));
+    }
+    get hayEndosos() {
+        return this.endosos.length > 0;
+    }
+
+    get movimientos() {
+        const clases = { Alta: 'estado estado_vigente', Baja: 'estado estado_vencido', Cambio: 'estado estado_pendiente' };
+        return ((this.datos && this.datos.movimientos) || []).map((m) => ({
+            ...m,
+            meta: [`Póliza ${m.poliza || ''}`.trim(), m.endoso ? `endoso ${m.endoso}` : null, this.fecha(m.fecha)]
+                .filter(Boolean).join(' · '),
+            tipoClase: clases[m.tipo] || 'estado estado_inactiva'
+        }));
+    }
+    get hayMovimientos() {
+        return this.movimientos.length > 0;
+    }
+    get resumenMovimientos() {
+        const a = (this.datos && this.datos.movimientosAnio) || {};
+        return [
+            { clave: 'Alta', texto: `${a.Alta || 0} alta${a.Alta === 1 ? '' : 's'}`, clase: 'estado estado_vigente' },
+            { clave: 'Baja', texto: `${a.Baja || 0} baja${a.Baja === 1 ? '' : 's'}`, clase: 'estado estado_vencido' },
+            { clave: 'Cambio', texto: `${a.Cambio || 0} cambio${a.Cambio === 1 ? '' : 's'}`, clase: 'estado estado_pendiente' }
+        ];
     }
     get hayPagosProximos() {
         return this.meses.some((m) => !m.vacio);

@@ -78,8 +78,33 @@ public without sharing class PortalPolizasController {
 		@AuraEnabled public Integer cuotas = 0;
 	}
 
+	public class EndosoDashboard {
+		@AuraEnabled public Id id;
+		@AuraEnabled public String numero;
+		@AuraEnabled public String poliza;
+		@AuraEnabled public String ramo;
+		@AuraEnabled public String moneda;
+		@AuraEnabled public Date fecha;
+		@AuraEnabled public Decimal total;
+		@AuraEnabled public String descripcion;
+	}
+
+	public class MovimientoDashboard {
+		@AuraEnabled public Id id;
+		@AuraEnabled public String tipo;
+		@AuraEnabled public String nombre;
+		@AuraEnabled public String poliza;
+		@AuraEnabled public String endoso;
+		@AuraEnabled public Date fecha;
+	}
+
 	public class Dashboard {
 		@AuraEnabled public List<Poliza> polizas = new List<Poliza>();
+		@AuraEnabled public Map<String, Integer> bienes = new Map<String, Integer>();
+		@AuraEnabled public List<MesDashboard> pagadoPorMes = new List<MesDashboard>();
+		@AuraEnabled public List<EndosoDashboard> endosos = new List<EndosoDashboard>();
+		@AuraEnabled public List<MovimientoDashboard> movimientos = new List<MovimientoDashboard>();
+		@AuraEnabled public Map<String, Integer> movimientosAnio = new Map<String, Integer>{ 'Alta' => 0, 'Baja' => 0, 'Cambio' => 0 };
 		@AuraEnabled public List<CuotaDashboard> proximasCuotas = new List<CuotaDashboard>();
 		@AuraEnabled public List<MesDashboard> pagosPorMes = new List<MesDashboard>();
 		@AuraEnabled public Decimal totalPendiente = 0;
@@ -99,6 +124,77 @@ public without sharing class PortalPolizasController {
 	 */
 	@AuraEnabled(cacheable=true)
 	public static Dashboard dashboard(Id cuentaVistaPrevia) {
+		return dashboardInterno(cuentaVistaPrevia);
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Endosos y movimientos recientes del Dashboard. Endosos: los últimos de todas las pólizas del
+	 * usuario. Movimientos (altas, bajas y cambios de asegurados, vehículos y ubicaciones): solo de las pólizas donde
+	 * es el contratante, para no mostrar datos de otras personas; los últimos y el conteo de los últimos 12 meses.
+	 * @param d: Dashboard a completar
+	 * @param roles: Póliza → rol del usuario
+	 * @param porId: Pólizas del usuario por Id
+	 * @return void
+	 */
+	static void movimientosYEndosos(Dashboard d, Map<Id, String> roles, Map<Id, Poliza> porId) {
+		Set<Id> ids = roles.keySet();
+		for (InsurancePolicyTransaction t : [
+			SELECT Id, Name, TransactionNumber, InsurancePolicyId, EffectiveFromDate, TransactionEffectiveDate, TotalTransactionAmount
+			FROM InsurancePolicyTransaction
+			WHERE InsurancePolicyId IN :ids AND Category = 'Endorsement'
+			ORDER BY EffectiveFromDate DESC NULLS LAST, CreatedDate DESC
+			LIMIT 6
+		]) {
+			Poliza p = porId.get(t.InsurancePolicyId);
+			EndosoDashboard e = new EndosoDashboard();
+			e.id = t.Id;
+			e.numero = t.TransactionNumber;
+			e.poliza = p?.numero;
+			e.ramo = p?.ramo;
+			e.moneda = p == null ? 'MXN' : p.moneda;
+			e.fecha = t.EffectiveFromDate != null ? t.EffectiveFromDate
+				: (t.TransactionEffectiveDate == null ? null : t.TransactionEffectiveDate.date());
+			e.total = t.TotalTransactionAmount;
+			// "Endoso A0002 - Alta de ubicación - 5-43599": lo de en medio es la descripción.
+			String n = t.Name == null ? '' : t.Name;
+			n = n.replaceFirst('(?i)^Endoso\\s+\\S+\\s*-?\\s*', '');
+			if (p != null && n.endsWith(p.numero)) { n = n.substring(0, n.length() - p.numero.length()); }
+			e.descripcion = n.replaceAll('[\\s-]+$', '').trim();
+			d.endosos.add(e);
+		}
+		Set<Id> propias = new Set<Id>();
+		for (Id pid : roles.keySet()) {
+			if (roles.get(pid) == 'Titular') { propias.add(pid); }
+		}
+		if (propias.isEmpty()) { return; }
+		Date haceUnAnio = Date.today().addYears(-1);
+		for (AggregateResult ar : [
+			SELECT Tipo__c tipo, COUNT(Id) n FROM Movimiento_Poliza__c
+			WHERE Poliza__c IN :propias AND Fecha_Movimiento__c >= :haceUnAnio GROUP BY Tipo__c
+		]) {
+			String tipo = (String) ar.get('tipo');
+			if (d.movimientosAnio.containsKey(tipo)) { d.movimientosAnio.put(tipo, (Integer) ar.get('n')); }
+		}
+		for (Movimiento_Poliza__c m : [
+			SELECT Id, Tipo__c, Asegurado__c, Numero_Endoso__c, Fecha_Movimiento__c, Poliza__c
+			FROM Movimiento_Poliza__c WHERE Poliza__c IN :propias
+			ORDER BY Fecha_Movimiento__c DESC NULLS LAST, CreatedDate DESC
+			LIMIT 8
+		]) {
+			MovimientoDashboard x = new MovimientoDashboard();
+			x.id = m.Id;
+			x.tipo = m.Tipo__c;
+			x.nombre = m.Asegurado__c;
+			x.poliza = porId.get(m.Poliza__c)?.numero;
+			x.endoso = m.Numero_Endoso__c;
+			x.fecha = m.Fecha_Movimiento__c;
+			d.movimientos.add(x);
+		}
+	}
+
+	static Dashboard dashboardInterno(Id cuentaVistaPrevia) {
 		try {
 			Dashboard d = new Dashboard();
 			Map<Id, String> roles = polizasDelUsuario(cuentaVistaPrevia);
@@ -117,6 +213,20 @@ public without sharing class PortalPolizasController {
 				m.inicio = primerMes.addMonths(i);
 				d.pagosPorMes.add(m);
 			}
+			// Historial: lo pagado en cada uno de los últimos 12 meses (el actual incluido).
+			Date primerHistorial = primerMes.addMonths(-11);
+			for (Integer i = 0; i < 12; i++) {
+				MesDashboard m = new MesDashboard();
+				m.inicio = primerHistorial.addMonths(i);
+				d.pagadoPorMes.add(m);
+			}
+			// Bienes asegurados de las pólizas vigentes.
+			Map<Id, String> ramosVigentes = new Map<Id, String>();
+			for (Poliza o : d.polizas) {
+				if (o.vigente == true) { ramosVigentes.put(o.id, o.ramo); }
+			}
+			d.bienes = PortalPolizasPestanas.contarBienes(ramosVigentes, roles, cuentaVistaPrevia);
+			movimientosYEndosos(d, roles, porId);
 			List<PaymentPlanInstallment__c> cuotas = [
 				SELECT Id, dueDate__c, expectedAmount__c, matchedAmount__c, outstandingAmount__c, installmentStatus__c,
 					daysOverdue__c, replacesInstallment__c, paymentPlan__r.insurancePolicy__c, matchedReceipt__r.receiptDate__c
@@ -136,6 +246,13 @@ public without sharing class PortalPolizasController {
 				if (estado == 'Conciliado') {
 					Date pago = c.matchedReceipt__r?.receiptDate__c;
 					if (pago != null && pago >= haceUnAnio && c.matchedAmount__c != null) { d.pagadoUltimoAnio += c.matchedAmount__c; }
+					if (pago != null && c.matchedAmount__c != null) {
+						Integer mes = primerHistorial.monthsBetween(pago.toStartOfMonth());
+						if (mes >= 0 && mes < 12) {
+							d.pagadoPorMes[mes].monto += c.matchedAmount__c;
+							d.pagadoPorMes[mes].cuotas++;
+						}
+					}
 					continue;
 				}
 				if (estado != 'Pendiente' && estado != 'Vencido') { continue; }

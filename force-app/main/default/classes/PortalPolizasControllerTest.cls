@@ -202,5 +202,36 @@ private class PortalPolizasControllerTest {
 		System.assertEquals(6, d.pagosPorMes.size(), 'Seis meses');
 		System.assertEquals(500, d.pagosPorMes[1].monto, 'El pago del mes siguiente');
 		System.assertEquals(2, d.proximasCuotas.size(), 'Cuotas por pagar');
+		System.assertEquals(12, d.pagadoPorMes.size(), 'Doce meses de historial');
+		System.assertNotEquals(null, d.bienes.get('personas'), 'Cuenta los bienes');
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El Dashboard trae los endosos de la póliza con su descripción y los movimientos del contratante.
+	 * @return void
+	 */
+	@isTest
+	static void testDashboardEndososYMovimientos() {
+		Account mia = new Account(Name = 'Cliente Endosos');
+		insert mia;
+		InsurancePolicy p = poliza(mia.Id, 'DASH-002');
+		insert p;
+		insert new InsurancePolicyTransaction(InsurancePolicyId = p.Id, Name = 'Endoso A0002 - Alta de ubicación - DASH-002',
+			TransactionNumber = 'A0002', Category = 'Endorsement', EffectiveFromDate = Date.today().addDays(-3));
+		insert new Movimiento_Poliza__c(Poliza__c = p.Id, Tipo__c = 'Alta', Asegurado__c = 'Calle Uno 100',
+			Fecha_Movimiento__c = Date.today().addDays(-3), Numero_Endoso__c = 'A0002');
+		PortalPolizasController.cuentaPrueba = mia.Id;
+
+		Test.startTest();
+		PortalPolizasController.Dashboard d = PortalPolizasController.dashboard(null);
+		Test.stopTest();
+
+		System.assertEquals(1, d.endosos.size(), 'Un endoso');
+		System.assertEquals('A0002', d.endosos[0].numero, 'Número del endoso');
+		System.assertEquals('Alta de ubicación', d.endosos[0].descripcion, 'Descripción sin número ni póliza');
+		System.assertEquals(1, d.movimientos.size(), 'Un movimiento');
+		System.assertEquals(1, d.movimientosAnio.get('Alta'), 'Una alta en el año');
 	}
 }

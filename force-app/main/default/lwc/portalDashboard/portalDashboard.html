@@ -74,6 +74,21 @@
                 </template>
             </ul>
 
+            <!-- ===== Bienes asegurados de las pólizas vigentes ===== -->
+            <section class="panel panel_suelto">
+                <h2 class="panel_titulo">Bienes asegurados</h2>
+                <p class="panel_sub">Lo que cubren tus pólizas vigentes</p>
+                <ul class="bienes">
+                    <template for:each={bienes} for:item="b">
+                        <li key={b.clave} class={b.clase}>
+                            <span class="bien_icono"><lightning-icon icon-name={b.icono} size="small"></lightning-icon></span>
+                            <span class="bien_valor">{b.valor}</span>
+                            <span class="bien_etiqueta">{b.etiqueta}</span>
+                        </li>
+                    </template>
+                </ul>
+            </section>
+
             <!-- ===== Pólizas vigentes por ramo y por aseguradora ===== -->
             <div class="rejilla">
                 <section class="panel">
@@ -105,8 +120,9 @@
                 </section>
             </div>
 
-            <!-- ===== Pagos de los próximos meses ===== -->
-            <section class="panel panel_suelto">
+            <!-- ===== Pagos: los próximos meses y el historial ===== -->
+            <div class="rejilla">
+            <section class="panel">
                 <h2 class="panel_titulo">Pagos de los próximos 6 meses</h2>
                 <p class="panel_sub">Lo que vence cada mes, sin contar lo ya vencido</p>
                 <template lwc:if={hayPagosProximos}>
@@ -132,6 +148,32 @@
                 </template>
                 <p lwc:else class="panel_vacio">No tienes pagos programados en los próximos 6 meses.</p>
             </section>
+
+            <section class="panel">
+                <h2 class="panel_titulo">Historial de pagos</h2>
+                <p class="panel_sub">Pagado en los últimos 12 meses: {totalHistorial}</p>
+                <template lwc:if={hayHistorial}>
+                    <ul class="columnas columnas_12" aria-hidden="true">
+                        <template for:each={historial} for:item="m">
+                            <li key={m.clave} class="columna" title={m.ayuda}>
+                                <div class="columna_pista"><div class="columna_relleno columna_relleno_aqua" style={m.estilo}></div></div>
+                                <span class="columna_mes">{m.mes}</span>
+                            </li>
+                        </template>
+                    </ul>
+                    <table class="solo_lector">
+                        <caption>Pagado en los últimos 12 meses</caption>
+                        <thead><tr><th scope="col">Mes</th><th scope="col">Pagado</th><th scope="col">Cuotas</th></tr></thead>
+                        <tbody>
+                            <template for:each={historial} for:item="m">
+                                <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.texto}</td><td>{m.cuotas}</td></tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
+                <p lwc:else class="panel_vacio">No hay pagos aplicados en los últimos 12 meses.</p>
+            </section>
+            </div>
 
             <!-- ===== Próximos pagos y renovaciones ===== -->
             <div class="rejilla">
@@ -172,6 +214,53 @@
                         </template>
                     </ul>
                     <p lwc:else class="panel_vacio">Ninguna póliza termina en los próximos 90 días.</p>
+                </section>
+            </div>
+
+            <!-- ===== Endosos y movimientos ===== -->
+            <div class="rejilla">
+                <section class="panel">
+                    <h2 class="panel_titulo">Endosos recientes</h2>
+                    <p class="panel_sub">Los últimos endosos de tus pólizas y su prima</p>
+                    <ul lwc:if={hayEndosos} class="lista">
+                        <template for:each={endosos} for:item="e">
+                            <li key={e.id} class="lista_fila">
+                                <div class="lista_principal">
+                                    <span class="lista_nombre">{e.titulo}</span>
+                                    <span class="lista_meta">{e.meta}</span>
+                                </div>
+                                <div class="lista_lado">
+                                    <span class={e.totalClase}>{e.totalTexto}</span>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                    <p lwc:else class="panel_vacio">Tus pólizas no tienen endosos registrados.</p>
+                </section>
+
+                <section class="panel">
+                    <h2 class="panel_titulo">Movimientos recientes</h2>
+                    <p class="panel_sub">Altas, bajas y cambios de asegurados, vehículos y ubicaciones</p>
+                    <div class="resumen_movimientos">
+                        <span class="resumen_texto">Últimos 12 meses:</span>
+                        <template for:each={resumenMovimientos} for:item="r">
+                            <span key={r.clave} class={r.clase}>{r.texto}</span>
+                        </template>
+                    </div>
+                    <ul lwc:if={hayMovimientos} class="lista">
+                        <template for:each={movimientos} for:item="m">
+                            <li key={m.id} class="lista_fila">
+                                <div class="lista_principal">
+                                    <span class="lista_nombre" title={m.nombre}>{m.nombre}</span>
+                                    <span class="lista_meta">{m.meta}</span>
+                                </div>
+                                <div class="lista_lado">
+                                    <span class={m.tipoClase}>{m.tipo}</span>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                    <p lwc:else class="panel_vacio">No hay movimientos registrados en tus pólizas.</p>
                 </section>
             </div>
         </template>

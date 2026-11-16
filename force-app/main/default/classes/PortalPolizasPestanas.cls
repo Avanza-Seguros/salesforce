@@ -527,6 +527,74 @@ public without sharing class PortalPolizasPestanas {
 		return visibles;
 	}
 
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Bienes asegurados vigentes de varias pólizas para el Dashboard, con las mismas reglas que la
+	 * pestaña Asegurados / Vehículos / Ubicaciones: personas aseguradas activas (quien no es el contratante solo
+	 * cuenta a su grupo), vehículos de la flotilla sin baja (o el bien de la póliza de un solo auto) y ubicaciones
+	 * sin baja.
+	 * @param ramos: Póliza → ramo (etiqueta)
+	 * @param roles: Póliza → rol del usuario
+	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
+	 * @return { personas, vehiculos, ubicaciones }
+	 */
+	public static Map<String, Integer> contarBienes(Map<Id, String> ramos, Map<Id, String> roles, Id cuentaVistaPrevia) {
+		Map<String, Integer> r = new Map<String, Integer>{ 'personas' => 0, 'vehiculos' => 0, 'ubicaciones' => 0 };
+		Set<Id> autos = new Set<Id>();
+		Set<Id> danos = new Set<Id>();
+		Set<Id> titular = new Set<Id>();
+		List<Id> grupo = new List<Id>();
+		for (Id pid : ramos.keySet()) {
+			String t = tipoRamo(ramos.get(pid));
+			if (t == 'vehiculos') { autos.add(pid); }
+			else if (t == 'ubicaciones') { danos.add(pid); }
+			else if (roles.get(pid) == 'Titular') { titular.add(pid); }
+			else { grupo.add(pid); }
+		}
+		if (!autos.isEmpty()) {
+			Set<Id> conFlotilla = new Set<Id>();
+			for (AggregateResult ar : [
+				SELECT Poliza__c pol, COUNT(Id) n FROM Inciso_Flotilla__c
+				WHERE Poliza__c IN :autos AND Fecha_Baja__c = null GROUP BY Poliza__c
+			]) {
+				conFlotilla.add((Id) ar.get('pol'));
+				r.put('vehiculos', r.get('vehiculos') + (Integer) ar.get('n'));
+			}
+			for (Id pid : conFlotilla) { autos.remove(pid); }
+			// Pólizas de un solo auto o sin flotilla: el bien de la póliza.
+			if (!autos.isEmpty()) {
+				r.put('vehiculos', r.get('vehiculos') + [
+					SELECT COUNT() FROM InsurancePolicyAsset
+					WHERE InsurancePolicyId IN :autos AND Fecha_Baja__c = null AND IsActive != false
+				]);
+			}
+		}
+		if (!danos.isEmpty()) {
+			r.put('ubicaciones', [
+				SELECT COUNT() FROM InsurancePolicyAsset
+				WHERE InsurancePolicyId IN :danos AND Fecha_Baja__c = null AND IsActive != false
+			]);
+		}
+		Integer personas = 0;
+		if (!titular.isEmpty()) {
+			for (InsurancePolicyParticipant pp : [
+				SELECT Role, IsActiveParticipant, EffectiveToDate, Motivo_Baja__c FROM InsurancePolicyParticipant
+				WHERE InsurancePolicyId IN :titular LIMIT 20000
+			]) {
+				if (esAsegurado(pp) && esActivo(pp)) { personas++; }
+			}
+		}
+		// Pólizas donde el usuario es asegurado (no contratante): solo su grupo. Pocas por usuario.
+		for (Integer i = 0; i < grupo.size() && i < 20; i++) {
+			for (InsurancePolicyParticipant pp : participantesVisibles(grupo[i], true, cuentaVistaPrevia, new Bienes())) {
+				if (esAsegurado(pp) && esActivo(pp)) { personas++; }
+			}
+		}
+		r.put('personas', personas);
+		return r;
+	}
+
 	static List<Fila> personas(List<InsurancePolicyParticipant> lista) {
 		Map<String, String> relaciones = MovimientosColectivoController.etiquetas(
 			InsurancePolicyParticipant.RelationshipToInsured.getDescribe());
