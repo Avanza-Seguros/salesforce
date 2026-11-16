@@ -236,7 +236,43 @@ export default class PortalPolizas extends LightningElement {
     }
 
     handleFiltro(event) {
-        this.filtro = event.detail.value;
+        this.filtro = event.currentTarget.dataset.value;
+    }
+
+    // Botones de filtro con color: cada opción tiene su tono y el seleccionado va relleno.
+    opciones(lista, valor, cuentas) {
+        return lista.map((o, i) => ({
+            ...o,
+            clase: `filtro filtro_tono${(i % 4) + 1}${o.value === valor ? ' filtro_activo' : ''}`,
+            presionado: o.value === valor ? 'true' : 'false',
+            cuenta: cuentas ? cuentas[o.value] : null,
+            hayCuenta: !!cuentas && cuentas[o.value] !== undefined
+        }));
+    }
+
+    get opcionesFiltro() {
+        const total = this.polizas.length;
+        const vigentes = this.polizas.filter((p) => p.vigente).length;
+        return this.opciones(FILTROS, this.filtro, { vigentes, todas: total, novigentes: total - vigentes });
+    }
+
+    get opcionesEstado() {
+        const datos = this.pestanas.asegurados.datos;
+        const filas = (datos && datos.filas) || [];
+        const vigentes = filas.filter((f) => f.activo).length;
+        return this.opciones(FILTROS_ESTADO, this.filtroAsegurados, { vigentes, bajas: filas.length - vigentes, todos: filas.length });
+    }
+
+    get opcionesGrupo() {
+        const datos = this.pestanas.participantes.datos;
+        const filas = (datos && datos.filas) || [];
+        const cuenta = (g) => filas.filter((f) => f.grupo === g).length;
+        return this.opciones(FILTROS_GRUPO, this.filtroParticipantes, {
+            todos: filas.length,
+            asegurados: cuenta('asegurado') + cuenta('dependiente'),
+            beneficiario: cuenta('beneficiario'),
+            otro: cuenta('otro')
+        });
     }
 
     handleAbrir(event) {
@@ -483,7 +519,7 @@ export default class PortalPolizas extends LightningElement {
     }
 
     handleFiltroAsegurados(event) {
-        this.filtroAsegurados = event.detail.value;
+        this.filtroAsegurados = event.currentTarget.dataset.value;
         this.limiteAsegurados = PAGINA;
     }
 
@@ -521,6 +557,10 @@ export default class PortalPolizas extends LightningElement {
             hayFilas: todas.length > 0,
             resumen: partes.join(' · ') + (filtradas.length !== todas.length ? ` · mostrando ${filtradas.length}` : ''),
             notaBienes,
+            // Columnas que ningún participante trae (p. ej. parentesco y porcentaje en daños) no se muestran.
+            conParentesco: todas.some((f) => f.parentesco),
+            conPorcentaje: todas.some((f) => f.porcentaje != null),
+            conVigencia: todas.some((f) => f.desde || f.hasta),
             filas: filtradas.slice(0, this.limiteParticipantes).map((f) => ({
                 ...f,
                 clase: [f.dependiente ? 'fila_dependiente' : '', f.activo ? '' : 'fila_baja'].join(' ').trim(),
@@ -542,7 +582,7 @@ export default class PortalPolizas extends LightningElement {
     }
 
     handleFiltroParticipantes(event) {
-        this.filtroParticipantes = event.detail.value;
+        this.filtroParticipantes = event.currentTarget.dataset.value;
         this.limiteParticipantes = PAGINA;
     }
 

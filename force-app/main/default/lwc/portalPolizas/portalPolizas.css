@@ -399,9 +399,57 @@ button.documento:disabled { cursor: progress; opacity: 0.7; }
 .vista_previa_cuenta { width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--pp-borde); border-radius: 10px; background: var(--pp-fondo); font: inherit; text-align: left; cursor: pointer; }
 .vista_previa_cuenta:hover { border-color: #cdd4f4; }
 
+/* ===== Filtros (botones propios con color) ===== */
+.filtros { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.filtro {
+    --tono: var(--pp-acento);
+    --tono-suave: var(--pp-acento-suave);
+    --tono-fin: #7b8cf0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    padding: 0.4375rem 0.875rem;
+    border: 1px solid var(--pp-borde);
+    border-radius: 999px;
+    background: var(--pp-fondo);
+    color: var(--pp-tinta);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.filtro_tono1 { --tono: #5468d4; --tono-suave: #eef0fc; --tono-fin: #7b8cf0; }
+.filtro_tono2 { --tono: #2f9aa8; --tono-suave: #e6f5f6; --tono-fin: #52c1c9; }
+.filtro_tono3 { --tono: #8a63c9; --tono-suave: #f2edfb; --tono-fin: #b08ae6; }
+.filtro_tono4 { --tono: #c27a3a; --tono-suave: #fbf1e7; --tono-fin: #e0a066; }
+.filtro_punto { width: 8px; height: 8px; border-radius: 50%; background: var(--tono); box-shadow: 0 0 0 3px var(--tono-suave); }
+.filtro_cuenta {
+    min-width: 1.375rem;
+    padding: 0 0.4375rem;
+    border-radius: 999px;
+    background: var(--tono-suave);
+    color: var(--tono);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    text-align: center;
+}
+.filtro:hover { border-color: var(--tono); background: var(--tono-suave); transform: translateY(-1px); }
+.filtro:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--tono-suave), 0 0 0 4px var(--tono); }
+.filtro_activo {
+    border-color: transparent;
+    background: linear-gradient(120deg, var(--tono) 0%, var(--tono-fin) 100%);
+    color: #ffffff;
+    box-shadow: 0 6px 16px -6px var(--tono);
+}
+.filtro_activo:hover { background: linear-gradient(120deg, var(--tono) 0%, var(--tono-fin) 100%); }
+.filtro_activo .filtro_punto { background: #ffffff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3); }
+.filtro_activo .filtro_cuenta { background: rgba(255, 255, 255, 0.24); color: #ffffff; }
+
 @media (prefers-reduced-motion: reduce) {
-    .tarjeta, .documento, .tarjeta_ver { transition: none; }
-    .tarjeta:hover, .tarjeta:focus-visible, .documento:hover { transform: none; }
+    .tarjeta, .documento, .tarjeta_ver, .filtro { transition: none; }
+    .tarjeta:hover, .tarjeta:focus-visible, .documento:hover, .filtro:hover { transform: none; }
 }
 
 @media (max-width: 480px) {

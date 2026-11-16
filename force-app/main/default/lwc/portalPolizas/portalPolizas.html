@@ -70,15 +70,13 @@
                         value={busqueda}
                         onchange={handleBusqueda}
                     ></lightning-input>
-                    <lightning-radio-group
-                        name="filtro"
-                        label="Mostrar"
-                        variant="label-hidden"
-                        type="button"
-                        options={filtros}
-                        value={filtro}
-                        onchange={handleFiltro}
-                    ></lightning-radio-group>
+                    <div class="filtros" role="group" aria-label="Mostrar">
+                        <template for:each={opcionesFiltro} for:item="o">
+                            <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleFiltro}>
+                                <span class="filtro_punto"></span>{o.label}<span lwc:if={o.hayCuenta} class="filtro_cuenta">{o.cuenta}</span>
+                            </button>
+                        </template>
+                    </div>
                 </div>
 
                 <template lwc:if={sinResultados}>
@@ -283,8 +281,13 @@
                                         <lightning-input class="buscador" type="search" label="Buscar" variant="label-hidden"
                                             placeholder={tablaAsegurados.placeholder} value={busquedaAsegurados}
                                             onchange={handleBusquedaAsegurados}></lightning-input>
-                                        <lightning-radio-group name="estadoAsegurados" label="Mostrar" variant="label-hidden" type="button"
-                                            options={filtrosEstado} value={filtroAsegurados} onchange={handleFiltroAsegurados}></lightning-radio-group>
+                                        <div class="filtros" role="group" aria-label="Mostrar">
+                                            <template for:each={opcionesEstado} for:item="o">
+                                                <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleFiltroAsegurados}>
+                                                    <span class="filtro_punto"></span>{o.label}<span lwc:if={o.hayCuenta} class="filtro_cuenta">{o.cuenta}</span>
+                                                </button>
+                                            </template>
+                                        </div>
                                     </div>
                                     <p class="subtitulo">{tablaAsegurados.resumen}</p>
                                     <div class="tabla_contenedor">
@@ -324,21 +327,26 @@
                                             <lightning-input class="buscador" type="search" label="Buscar" variant="label-hidden"
                                                 placeholder="Buscar por nombre o rol" value={busquedaParticipantes}
                                                 onchange={handleBusquedaParticipantes}></lightning-input>
-                                            <lightning-radio-group name="grupoParticipantes" label="Mostrar" variant="label-hidden" type="button"
-                                                options={filtrosGrupo} value={filtroParticipantes} onchange={handleFiltroParticipantes}></lightning-radio-group>
+                                            <div class="filtros" role="group" aria-label="Mostrar">
+                                                <template for:each={opcionesGrupo} for:item="o">
+                                                    <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleFiltroParticipantes}>
+                                                        <span class="filtro_punto"></span>{o.label}<span lwc:if={o.hayCuenta} class="filtro_cuenta">{o.cuenta}</span>
+                                                    </button>
+                                                </template>
+                                            </div>
                                         </div>
                                         <p class="subtitulo">{tablaParticipantes.resumen}</p>
                                         <div class="tabla_contenedor">
                                             <table class="tabla">
-                                                <thead><tr><th>Nombre</th><th>Rol</th><th>Parentesco</th><th class="num">Porcentaje</th><th>Vigencia</th><th>Estado</th></tr></thead>
+                                                <thead><tr><th>Nombre</th><th>Rol</th><th lwc:if={tablaParticipantes.conParentesco}>Parentesco</th><th lwc:if={tablaParticipantes.conPorcentaje} class="num">Porcentaje</th><th lwc:if={tablaParticipantes.conVigencia}>Vigencia</th><th>Estado</th></tr></thead>
                                                 <tbody>
                                                     <template for:each={tablaParticipantes.filas} for:item="f">
                                                         <tr key={f.id} class={f.clase}>
                                                             <td><span class="celda_principal">{f.nombre}</span><span lwc:if={f.deTexto} class="celda_sub">{f.deTexto}</span></td>
                                                             <td>{f.roles}</td>
-                                                            <td>{f.parentesco}</td>
-                                                            <td class="num">{f.porcentajeTexto}</td>
-                                                            <td>{f.vigenciaTexto}</td>
+                                                            <td lwc:if={tablaParticipantes.conParentesco}>{f.parentesco}</td>
+                                                            <td lwc:if={tablaParticipantes.conPorcentaje} class="num">{f.porcentajeTexto}</td>
+                                                            <td lwc:if={tablaParticipantes.conVigencia}>{f.vigenciaTexto}</td>
                                                             <td><span class={f.estadoClase}>{f.estadoTexto}</span><span lwc:if={f.motivoBaja} class="celda_sub">{f.motivoBaja}</span></td>
                                                         </tr>
                                                     </template>

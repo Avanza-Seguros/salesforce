@@ -451,8 +451,8 @@ public without sharing class PortalPolizasPestanas {
 					: CensoColectivoController.parentescoPolizaVisible(pp.RelationshipToInsured, relaciones);
 				f.titular = pp.RelatedInsPolicyParticipant?.ParticipantName;
 				f.porcentaje = pp.BeneficiarySharePercentage;
-				f.desde = pp.EffectiveFromDate;
-				f.hasta = pp.EffectiveToDate;
+				f.desde = desde(pp);
+				f.hasta = hasta(pp);
 				f.prima = pp.TermPremiumAmount;
 				f.activo = esActivo(pp);
 				f.motivoBaja = pp.Motivo_Baja__c == null ? null : motivos.get(pp.Motivo_Baja__c);
@@ -466,6 +466,17 @@ public without sharing class PortalPolizasPestanas {
 		} catch (Exception e) {
 			throw PortalPolizasController.errorSitio(e);
 		}
+	}
+
+	// Vigencia del participante como la muestra Salesforce: la del participante o, si no la tiene, la de su registro.
+	@TestVisible
+	static Date desde(InsurancePolicyParticipant pp) {
+		return pp.EffectiveFromDate != null ? pp.EffectiveFromDate : (pp.EffectiveDate == null ? null : pp.EffectiveDate.date());
+	}
+
+	@TestVisible
+	static Date hasta(InsurancePolicyParticipant pp) {
+		return pp.EffectiveToDate != null ? pp.EffectiveToDate : (pp.ExpirationDate == null ? null : pp.ExpirationDate.date());
 	}
 
 	/** personas | vehiculos | ubicaciones, con la misma regla que movimientosColectivo. */
@@ -488,7 +499,7 @@ public without sharing class PortalPolizasPestanas {
 		List<InsurancePolicyParticipant> todos = [
 			SELECT Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId,
 				RelatedInsPolicyParticipant.ParticipantName, RelationshipToInsured, Role, Categoria__c,
-				TermPremiumAmount, EffectiveFromDate, EffectiveToDate, IsActiveParticipant, Motivo_Baja__c,
+				TermPremiumAmount, EffectiveFromDate, EffectiveToDate, EffectiveDate, ExpirationDate, IsActiveParticipant, Motivo_Baja__c,
 				BeneficiarySharePercentage, PrimaryParticipantAccountId, PrimaryParticipantContactId
 			FROM InsurancePolicyParticipant
 			WHERE InsurancePolicyId = :policyId
@@ -540,8 +551,8 @@ public without sharing class PortalPolizasPestanas {
 					: CensoColectivoController.parentescoPolizaVisible(pp.RelationshipToInsured, relaciones));
 			f.titular = pp.RelatedInsPolicyParticipant?.ParticipantName;
 			f.detalle = pp.Categoria__c;
-			f.desde = pp.EffectiveFromDate;
-			f.hasta = pp.EffectiveToDate;
+			f.desde = desde(pp);
+			f.hasta = hasta(pp);
 			f.prima = pp.TermPremiumAmount;
 			f.activo = pp.IsActiveParticipant != false;
 			f.motivoBaja = pp.Motivo_Baja__c == null ? null : motivos.get(pp.Motivo_Baja__c);
