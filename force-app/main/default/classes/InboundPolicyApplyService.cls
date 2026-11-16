@@ -249,6 +249,7 @@ public with sharing class InboundPolicyApplyService {
 				sourceCurrency__c,
 				sourceCarrierCode__c,
 				sourcePolicyStatusRaw__c,
+				sourcePolicyStatus__c,
 				sourceCancellationDate__c,
 				sourceCancellationReason__c,
 				sourceSynchronizedAt__c,

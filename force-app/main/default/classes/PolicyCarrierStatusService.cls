@@ -1,10 +1,12 @@
 /**
  *   @name: PolicyCarrierStatusService
- *   @version: 1.1
+ *   @version: 1.2
  *   @creation date: 16/09/2026
  *   @author: Javier Torres - Volestra
  *   @description: Guarda en la poliza el estado que comunica la aseguradora, tal cual y
- *                 normalizado, sin inferir nada. Procesa las comunicaciones de estado de poliza
+ *                 normalizado, sin inferir nada. El normalizado llega de la integracion con uno
+ *                 de los tres valores acordados, iguales para todas las aseguradoras; el
+ *                 original es opcional y se guarda aparte cuando viene. Procesa las comunicaciones de estado de poliza
  *                 (registros sin folio que llegan por el canal de pagos) y los recibos que
  *                 ademas informan el estado de su poliza. Solo guarda lo que dijo la
  *                 aseguradora: no cambia el estado operativo de la poliza (Status).
@@ -59,6 +61,7 @@ public with sharing class PolicyCarrierStatusService {
 				sourcePolicyNumber__c,
 				sourceCarrierCode__c,
 				sourcePolicyStatusRaw__c,
+				sourcePolicyStatus__c,
 				sourceCancellationDate__c,
 				sourceCancellationReason__c,
 				sourceSynchronizedAt__c,
@@ -66,7 +69,10 @@ public with sharing class PolicyCarrierStatusService {
 				sourceDueDate__c,
 				sourcePaymentDate__c
 			FROM InboundInsurancePayment__c
-			WHERE Id IN :inboundIds AND sourcePolicyStatusRaw__c != NULL
+			WHERE
+				Id IN :inboundIds
+				AND (sourcePolicyStatusRaw__c != NULL
+				OR sourcePolicyStatus__c != NULL)
 		]) {
 			if (rec.policyStatusNotice__c) {
 				if (STATUS_POLICY_NOTICE.equals(rec.inboundStatus__c)) {
@@ -106,7 +112,9 @@ public with sharing class PolicyCarrierStatusService {
 						CobranzaLog.STAGE_ESTADO_POLIZA,
 						CobranzaLog.EVENT_POLICY_STATUS_NOTICE_TO_REVIEW,
 						'La aseguradora comunicó el estado "' +
-							notice.sourcePolicyStatusRaw__c +
+							(String.isNotBlank(notice.sourcePolicyStatus__c)
+								? notice.sourcePolicyStatus__c
+								: notice.sourcePolicyStatusRaw__c) +
 							'" de la póliza ' +
 							notice.sourcePolicyNumber__c +
 							', pero ' +
@@ -240,27 +248,15 @@ public with sharing class PolicyCarrierStatusService {
 				policy.carrierLastSeenAt__c = c.communicatedAt;
 				changeOf(toUpdate, policy.Id).carrierLastSeenAt__c = c.communicatedAt;
 			}
-			if (String.isBlank(c.rawStatus)) {
+			if (String.isBlank(c.rawStatus) && String.isBlank(c.normalizedStatus)) {
 				continue;
 			}
-			String raw = c.rawStatus.trim().left(RAW_STATUS_LENGTH);
-			String normalized = mappings.get(mappingKey(c.carrierCode, raw));
+			String raw = String.isBlank(c.rawStatus)
+				? null
+				: c.rawStatus.trim().left(RAW_STATUS_LENGTH);
+			String normalized = resolveNormalized(c, raw, mappings);
 			if (normalized == null) {
-				AppLogger.Entry entry = CobranzaLog.warn(
-					CobranzaLog.STAGE_ESTADO_POLIZA,
-					CobranzaLog.EVENT_CARRIER_POLICY_STATUS_UNMAPPED,
-					'La aseguradora ' +
-						c.carrierCode +
-						' comunicó el estado de póliza "' +
-						raw +
-						'", que no tiene equivalencia configurada. Se guarda el estado original ' +
-						'y el normalizado queda vacío hasta configurar la equivalencia.'
-				);
-				if (c.fromPolicyChannel()) {
-					entry.onRecord(c.sourceRecordId);
-				} else {
-					entry.onInbound(c.sourceRecordId);
-				}
+				logUnresolved(c, raw);
 			}
 			// Por segundo: la fecha guardada en la poliza no conserva los milisegundos.
 			Datetime communicatedAt = toSecond(c.communicatedAt);
@@ -282,10 +278,11 @@ public with sharing class PolicyCarrierStatusService {
 				// Empate: manda el canal de polizas, que es el dedicado.
 				continue;
 			}
-			Boolean sameRaw =
-				policy.carrierPolicyStatusRaw__c != null &&
-				// Exacto, con mayusculas: se guarda el estado tal como lo escribe la aseguradora.
-				raw.equals(policy.carrierPolicyStatusRaw__c);
+			// Exacto, con mayusculas: se guarda el estado tal como lo escribe la aseguradora. Sin
+			// estado original, el guardado se vacia: no se conserva uno que ya no aplica.
+			Boolean sameRaw = raw == null
+				? policy.carrierPolicyStatusRaw__c == null
+				: raw.equals(policy.carrierPolicyStatusRaw__c);
 			if (sameRaw && normalized == policy.carrierPolicyStatus__c) {
 				continue;
 			}
@@ -314,6 +311,84 @@ public with sharing class PolicyCarrierStatusService {
 		saved.retainAll(statusChanged);
 		// El estado operativo lo calcula un unico servicio a partir de lo que quedo guardado.
 		PolicyStatusService.applyCommunicatedStatus(saved);
+	}
+
+	/**
+	 * @creation date: 16/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Estado normalizado de una comunicacion. Manda el que envia la integracion
+	 *               si es uno de los tres acordados. Si no lo envia, vale el original cuando ya
+	 *               es uno de ellos y, por ultimo, la equivalencia configurada para esa
+	 *               aseguradora (la que existia antes de acordar los tres valores).
+	 * @param c: Comunicacion.
+	 * @param raw: Estado original recortado, o null.
+	 * @param mappings: Equivalencias configuradas.
+	 * @return String Vigente, Cancelado, Vencido o null si no se pudo resolver.
+	 */
+	private static String resolveNormalized(
+		CarrierStatusCommunication c,
+		String raw,
+		Map<String, String> mappings
+	) {
+		String fromIntegration = standardValue(c.normalizedStatus);
+		if (fromIntegration != null) {
+			return fromIntegration;
+		}
+		if (String.isNotBlank(c.normalizedStatus) || raw == null) {
+			return null;
+		}
+		String fromRaw = standardValue(raw);
+		return fromRaw != null
+			? fromRaw
+			: mappings.get(mappingKey(c.carrierCode, raw));
+	}
+
+	/**
+	 * @creation date: 16/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Uno de los tres valores acordados, escrito como se guarda, sin importar
+	 *               mayusculas ni espacios extremos.
+	 * @param value: Valor recibido.
+	 * @return String Valor acordado, o null si no es ninguno.
+	 */
+	private static String standardValue(String value) {
+		if (String.isBlank(value)) {
+			return null;
+		}
+		String candidate = value.trim();
+		for (String standard : NORMALIZED_VALUES) {
+			if (standard.equalsIgnoreCase(candidate)) {
+				return standard;
+			}
+		}
+		return null;
+	}
+
+	private static void logUnresolved(CarrierStatusCommunication c, String raw) {
+		String message = String.isNotBlank(c.normalizedStatus)
+			? 'La integración envió el estado de póliza "' +
+			  c.normalizedStatus.trim() +
+			  '" para la aseguradora ' +
+			  c.carrierCode +
+			  ', que no es uno de los acordados (Vigente, Cancelado o Vencido). Se guarda ' +
+			  'el estado original si vino y el normalizado queda vacío; hay que corregirlo ' +
+			  'en la integración.'
+			: 'La aseguradora ' +
+			  c.carrierCode +
+			  ' comunicó el estado de póliza "' +
+			  raw +
+			  '", que no es uno de los acordados ni tiene equivalencia configurada. Se ' +
+			  'guarda el estado original y el normalizado queda vacío.';
+		AppLogger.Entry entry = CobranzaLog.warn(
+			CobranzaLog.STAGE_ESTADO_POLIZA,
+			CobranzaLog.EVENT_CARRIER_POLICY_STATUS_UNMAPPED,
+			message
+		);
+		if (c.fromPolicyChannel()) {
+			entry.onRecord(c.sourceRecordId);
+		} else {
+			entry.onInbound(c.sourceRecordId);
+		}
 	}
 
 	private static Datetime toSecond(Datetime value) {

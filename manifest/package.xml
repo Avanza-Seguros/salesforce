@@ -192,6 +192,7 @@
         <members>InboundInsurancePayment__c.sourceSystem__c</members>
         <members>InboundInsurancePayment__c.sourceVatCommission__c</members>
         <members>InboundInsurancePayment__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundInsurancePayment__c.sourcePolicyStatus__c</members>
         <members>InboundInsurancePayment__c.sourceCustomerName__c</members>
         <members>InboundInsurancePayment__c.sourceIsCollective__c</members>
         <members>InboundInsurancePayment__c.sourceRetryCount__c</members>
@@ -339,6 +340,7 @@
         <members>InboundPolicyUpdate__c.sourcePolicyRenewalDate__c</members>
         <members>InboundPolicyUpdate__c.sourcePolicyStartDate__c</members>
         <members>InboundPolicyUpdate__c.sourcePolicyStatusRaw__c</members>
+        <members>InboundPolicyUpdate__c.sourcePolicyStatus__c</members>
         <members>InboundPolicyUpdate__c.sourcePremiumFrequency__c</members>
         <members>InboundPolicyUpdate__c.sourceProductName__c</members>
         <members>InboundPolicyUpdate__c.sourceRenewalFlag__c</members>

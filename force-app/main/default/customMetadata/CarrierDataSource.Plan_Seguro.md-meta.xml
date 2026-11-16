@@ -12,6 +12,6 @@
     </values>
     <values>
         <field>DataSource__c</field>
-        <value xsi:type="xsd:string">Handle</value>
+        <value xsi:type="xsd:string">Portal</value>
     </values>
 </CustomMetadata>

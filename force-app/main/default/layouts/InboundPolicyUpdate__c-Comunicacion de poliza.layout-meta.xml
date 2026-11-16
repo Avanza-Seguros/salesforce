@@ -50,6 +50,10 @@
         <layoutColumns>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>sourcePolicyStatus__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>sourcePolicyStatusRaw__c</field>
             </layoutItems>
             <layoutItems>

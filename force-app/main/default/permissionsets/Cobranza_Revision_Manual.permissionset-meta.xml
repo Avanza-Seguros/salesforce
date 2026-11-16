@@ -375,6 +375,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InboundInsurancePayment__c.sourcePolicyStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InboundInsurancePayment__c.sourceRejectionReason__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -681,6 +686,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>InboundPolicyUpdate__c.sourcePolicyStatusRaw__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>InboundPolicyUpdate__c.sourcePolicyStatus__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

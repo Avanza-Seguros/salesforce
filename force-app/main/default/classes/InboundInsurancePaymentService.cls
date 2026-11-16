@@ -414,7 +414,8 @@ public with sharing class InboundInsurancePaymentService {
 		Set<Id> candidates = new Set<Id>();
 		for (InboundInsurancePayment__c rec : written) {
 			if (
-				String.isNotBlank(rec.sourcePolicyStatusRaw__c) &&
+				(String.isNotBlank(rec.sourcePolicyStatusRaw__c) ||
+				String.isNotBlank(rec.sourcePolicyStatus__c)) &&
 				!STATUS_REJECTED.equals(rec.inboundStatus__c)
 			) {
 				candidates.add(rec.Id);
@@ -1614,6 +1615,7 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.sourceGrossCommission__c = data.sourceGrossCommission;
 		inboundPayment.sourceVatCommission__c = data.sourceVatCommission;
 		inboundPayment.sourcePolicyStatusRaw__c = data.sourcePolicyStatusRaw;
+		inboundPayment.sourcePolicyStatus__c = data.sourcePolicyStatus;
 		inboundPayment.sourceCustomerName__c = data.sourceCustomerName;
 		inboundPayment.sourceIsCollective__c = data.sourceIsCollective == null
 			? false
@@ -1944,6 +1946,7 @@ public with sharing class InboundInsurancePaymentService {
 		);
 		data.sourceVatCommission = getDecimal(payload, 'sourceVatCommission__c');
 		data.sourcePolicyStatusRaw = getString(payload, 'sourcePolicyStatusRaw__c');
+		data.sourcePolicyStatus = getString(payload, 'sourcePolicyStatus__c');
 		data.sourceCustomerName = getString(payload, 'sourceCustomerName__c');
 		data.sourceIsCollective = getBoolean(payload, 'sourceIsCollective__c');
 		data.sourceRetryCount = getDecimal(payload, 'sourceRetryCount__c');
@@ -1965,7 +1968,8 @@ public with sharing class InboundInsurancePaymentService {
 			String.isBlank(data.sourceReceiptNumber) &&
 			String.isBlank(data.externalPaymentId) &&
 			String.isNotBlank(data.sourcePolicyNumber) &&
-			String.isNotBlank(data.sourcePolicyStatusRaw);
+			(String.isNotBlank(data.sourcePolicyStatusRaw) ||
+			String.isNotBlank(data.sourcePolicyStatus));
 		data.carrierReceiptStatus = resolveCarrierReceiptStatus(data);
 		return data;
 	}
@@ -2241,6 +2245,7 @@ public with sharing class InboundInsurancePaymentService {
 		Decimal sourceGrossCommission;
 		Decimal sourceVatCommission;
 		String sourcePolicyStatusRaw;
+		String sourcePolicyStatus;
 		String sourceCustomerName;
 		Boolean sourceIsCollective;
 		Decimal sourceRetryCount;

@@ -52,6 +52,7 @@ public with sharing class InboundPolicyService {
 	private static final List<String> TEXT_KEYS = new List<String>{
 		'sourcePolicyId__c',
 		'sourcePolicyStatusRaw__c',
+		'sourcePolicyStatus__c',
 		'sourceCancellationReason__c',
 		'sourcePolicyBranch__c',
 		'sourcePremiumFrequency__c',

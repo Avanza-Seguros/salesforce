@@ -377,6 +377,128 @@ private class PolicyCarrierStatusServiceTest {
 		);
 	}
 
+	/**
+	 * @description: El estado acordado vale igual para cualquier aseguradora, sin equivalencias
+	 *               configuradas: llega solo el normalizado y la poliza lo guarda; el original
+	 *               queda vacio porque no vino.
+	 */
+	@IsTest
+	static void agreedStatusWorksForAnyCarrierWithoutEquivalences() {
+		PolicyCarrierStatusService.mappingsForTest = new Map<String, String>();
+		Id policyId = createPolicy(POLICY_NUMBER, Date.newInstance(2026, 1, 1));
+		update new InsurancePolicy(
+			Id = policyId,
+			carrierPolicyStatusRaw__c = 'Vigor'
+		);
+
+		Test.startTest();
+		InboundInsurancePaymentService.EndpointResult result = InboundInsurancePaymentService.receive(
+			body(standardNotice(POLICY_NUMBER, 'HDI', ' cancelado ', null))
+		);
+		Test.stopTest();
+
+		Assert.isTrue(
+			result.body.results[0].success,
+			result.body.results[0].message
+		);
+		Assert.isTrue(onlyNotice().policyStatusNotice__c);
+		InsurancePolicy policy = policyById(policyId);
+		Assert.areEqual('Cancelado', policy.carrierPolicyStatus__c);
+		Assert.isNull(
+			policy.carrierPolicyStatusRaw__c,
+			'Sin estado original en la comunicacion, no se conserva el anterior'
+		);
+	}
+
+	/**
+	 * @description: Si ademas del normalizado llega el estado original de la aseguradora, se
+	 *               guardan los dos, cada uno en su campo; manda el normalizado aunque el
+	 *               original tenga otra equivalencia configurada.
+	 */
+	@IsTest
+	static void agreedStatusAndCarrierStatusAreBothStored() {
+		PolicyCarrierStatusService.mappingsForTest = new Map<String, String>{
+			PolicyCarrierStatusService.mappingKey('CHUBB', 'Suspendida') => 'Vencido'
+		};
+		Id policyId = createPolicy(POLICY_NUMBER, Date.newInstance(2026, 1, 1));
+
+		Test.startTest();
+		InboundInsurancePaymentService.receive(
+			body(standardNotice(POLICY_NUMBER, 'CHUBB', 'Vigente', 'Suspendida'))
+		);
+		Test.stopTest();
+
+		InsurancePolicy policy = policyById(policyId);
+		Assert.areEqual('Vigente', policy.carrierPolicyStatus__c);
+		Assert.areEqual('Suspendida', policy.carrierPolicyStatusRaw__c);
+	}
+
+	/**
+	 * @description: Un normalizado fuera de los acordados no se adivina: queda vacio, se guarda
+	 *               el original y se registra para corregirlo en la integracion. Un original que
+	 *               ya es uno de los acordados vale sin equivalencia.
+	 */
+	@IsTest
+	static void unknownAgreedStatusIsLoggedAndOriginalStandardValueIsUsed() {
+		PolicyCarrierStatusService.mappingsForTest = new Map<String, String>{
+			PolicyCarrierStatusService.mappingKey('AXA', 'Vigor') => 'Vigente'
+		};
+		Id policyId = createPolicy(POLICY_NUMBER, Date.newInstance(2026, 1, 1));
+		Id otherPolicyId = createPolicy('POL-438-02', Date.newInstance(2026, 1, 1));
+
+		Test.startTest();
+		InboundInsurancePaymentService.receive(
+			body(
+				standardNotice(POLICY_NUMBER, 'AXA', 'Activa', 'Vigor') +
+					',' +
+					standardNotice('POL-438-02', 'METLIFE', null, 'VIGENTE')
+			)
+		);
+		Test.stopTest();
+
+		InsurancePolicy policy = policyById(policyId);
+		Assert.isNull(policy.carrierPolicyStatus__c);
+		Assert.areEqual('Vigor', policy.carrierPolicyStatusRaw__c);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE eventCode__c = :CobranzaLog.EVENT_CARRIER_POLICY_STATUS_UNMAPPED
+			]
+		);
+		InsurancePolicy other = policyById(otherPolicyId);
+		Assert.areEqual('Vigente', other.carrierPolicyStatus__c);
+		Assert.areEqual('VIGENTE', other.carrierPolicyStatusRaw__c);
+	}
+
+	private static String standardNotice(
+		String policyNumber,
+		String carrier,
+		String status,
+		String rawStatus
+	) {
+		return '{' +
+			'"sourcePolicyNumber__c":"' +
+			policyNumber +
+			'",' +
+			(status == null ? '' : '"sourcePolicyStatus__c":"' + status + '",') +
+			(rawStatus == null
+				? ''
+				: '"sourcePolicyStatusRaw__c":"' + rawStatus + '",') +
+			'"sourceCancellationDate__c":"06/06/2026",' +
+			'"sourceSynchronizedAt__c":"' +
+			SYNC_16 +
+			'",' +
+			'"sourceCarrierCode__c":"' +
+			carrier +
+			'",' +
+			'"sourceInsuranceCarrier__c":"' +
+			carrier +
+			'"' +
+			'}';
+	}
+
 	private static void useDefaultMappings() {
 		PolicyCarrierStatusService.mappingsForTest = new Map<String, String>{
 			PolicyCarrierStatusService.mappingKey(

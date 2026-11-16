@@ -813,6 +813,45 @@ private class InboundPolicyApplyServiceTest {
 	}
 
 	/**
+	 * @creation date: 16/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: El canal de polizas acepta el estado acordado de cualquier aseguradora y lo
+	 *               guarda en la poliza junto con el original, si viene.
+	 * @param:
+	 * @return:
+	 * @exception:
+	 * @throws:
+	 */
+	@IsTest
+	static void endpointStoresTheAgreedPolicyStatus() {
+		InsurancePolicy policy = createPolicy(
+			'0971001101',
+			Date.newInstance(2026, 1, 15),
+			Date.newInstance(2027, 1, 15)
+		);
+		RestRequest request = new RestRequest();
+		request.requestBody = Blob.valueOf(
+			'[{"sourcePolicyNumber__c":"0971001101","sourceCarrierCode__c":"MAPFRE",' +
+				'"sourcePolicyStartDate__c":"2026-01-15","sourcePolicyStatus__c":"Vigente",' +
+				'"sourcePolicyStatusRaw__c":"En vigor"}]'
+		);
+		RestContext.request = request;
+		RestContext.response = new RestResponse();
+
+		Test.startTest();
+		InboundPolicyRestResource.receive();
+		Test.stopTest();
+
+		InsurancePolicy stored = [
+			SELECT carrierPolicyStatus__c, carrierPolicyStatusRaw__c
+			FROM InsurancePolicy
+			WHERE Id = :policy.Id
+		];
+		Assert.areEqual('Vigente', stored.carrierPolicyStatus__c);
+		Assert.areEqual('En vigor', stored.carrierPolicyStatusRaw__c);
+	}
+
+	/**
 	 * @creation date: 25/09/2026
 	 * @author: Javier Torres - Volestra
 	 * @description: Las equivalencias no distinguen mayusculas, acentos ni separadores.

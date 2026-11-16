@@ -16,8 +16,10 @@ public with sharing class CarrierStatusCommunication implements Comparable {
 	public Id policyId;
 	public String source;
 	public String carrierCode;
-	// Vacio: la comunicacion no informa estado; solo cuenta como que la poliza se reporto.
+	// Los dos vacios: la comunicacion no informa estado; solo cuenta como que la poliza se reporto.
 	public String rawStatus;
+	// Uno de los valores acordados con la integracion (Vigente, Cancelado, Vencido).
+	public String normalizedStatus;
 	public Date cancellationDate;
 	public String cancellationReason;
 	public Datetime communicatedAt;
@@ -43,6 +45,7 @@ public with sharing class CarrierStatusCommunication implements Comparable {
 		c.source = SOURCE_PAYMENTS;
 		c.carrierCode = rec.sourceCarrierCode__c;
 		c.rawStatus = rec.sourcePolicyStatusRaw__c;
+		c.normalizedStatus = rec.sourcePolicyStatus__c;
 		c.cancellationDate = rec.sourceCancellationDate__c;
 		c.cancellationReason = rec.sourceCancellationReason__c;
 		c.communicatedAt = rec.sourceSynchronizedAt__c != null
@@ -71,6 +74,7 @@ public with sharing class CarrierStatusCommunication implements Comparable {
 		c.source = SOURCE_POLICIES;
 		c.carrierCode = rec.sourceCarrierCode__c;
 		c.rawStatus = rec.sourcePolicyStatusRaw__c;
+		c.normalizedStatus = rec.sourcePolicyStatus__c;
 		c.cancellationDate = rec.sourceCancellationDate__c;
 		c.cancellationReason = rec.sourceCancellationReason__c;
 		c.communicatedAt = rec.sourceSynchronizedAt__c != null

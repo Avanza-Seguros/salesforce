@@ -265,6 +265,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InboundPolicyUpdate__c.sourcePolicyStatus__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>InboundPolicyUpdate__c.sourcePremiumFrequency__c</field>
         <readable>true</readable>
     </fieldPermissions>
