@@ -119,6 +119,177 @@ public with sharing class PolicyController {
 	}
 
 	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Datos base de una póliza que se emite desde Crear Póliza SIN oportunidad ni cotización (p. ej.
+	 * una emisión automática): con lo leído del PDF busca al cliente por RFC o por nombre (si no existe lo crea:
+	 * persona o empresa según el RFC / tipo de persona / razón social), la aseguradora del catálogo por su nombre
+	 * (o, si la IA no la trae, por el texto de la carátula) y el ramo. Solo se devuelven valores válidos.
+	 * @param datosJson: JSON leído del PDF (contratante, rfc, aseguradoNombre, tipoPersona, aseguradora, ramo)
+	 * @param textoInicio: Primeros renglones del texto del PDF, para reconocer la aseguradora si la IA no la trae
+	 * @return Mapa { apiName: valor } (NameInsuredId, Aseguradora__c, Ramo__c, PolicyType) más _clienteNuevo y
+	 * _clienteNombre para el aviso de la pantalla
+	 */
+	@AuraEnabled
+	public static Map<String, Object> datosSinOportunidad(String datosJson, String textoInicio) {
+		Map<String, Object> r = new Map<String, Object>();
+		Map<String, Object> d = String.isBlank(datosJson)
+			? new Map<String, Object>() : (Map<String, Object>) JSON.deserializeUntyped(datosJson);
+		Map<String, Object> c = d.get('contratante') instanceof Map<String, Object>
+			? (Map<String, Object>) d.get('contratante') : new Map<String, Object>();
+		Map<String, Object> a = d.get('asegurado') instanceof Map<String, Object>
+			? (Map<String, Object>) d.get('asegurado') : new Map<String, Object>();
+		String nombre = primeroNoVacio(new List<Object>{ c.get('nombre'), d.get('aseguradoNombre'), a.get('nombre') });
+		String rfc = primeroNoVacio(new List<Object>{ c.get('rfc'), d.get('rfc'), a.get('rfc') });
+		rfc = rfc == null ? null : rfc.replaceAll('[^A-Za-z0-9&Ññ]', '').toUpperCase();
+		try {
+			Account cuenta = cuentaPorRfcONombre(rfc, nombre);
+			if (cuenta == null && String.isNotBlank(nombre)) {
+				cuenta = cuentaNueva(nombre.normalizeSpace(), rfc, strOf(d.get('tipoPersona')));
+				r.put('_clienteNuevo', true);
+			}
+			if (cuenta != null) {
+				r.put('NameInsuredId', cuenta.Id);
+				r.put('_clienteNombre', String.isNotBlank(cuenta.Name) ? cuenta.Name : nombre);
+			}
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo ubicar o crear al cliente de la póliza: ' + msgLimpio(e));
+		}
+		Id aseg = aseguradoraPorNombre(strOf(d.get('aseguradora')), textoInicio);
+		if (aseg != null) { r.put('Aseguradora__c', aseg); }
+		String ramo = ramoDeTexto(primeroNoVacio(new List<Object>{ d.get('ramo'), d.get('tipoPoliza') }));
+		putPicklist(r, 'Ramo__c', InsurancePolicy.Ramo__c.getDescribe(), ramo);
+		putPicklist(r, 'PolicyType', InsurancePolicy.PolicyType.getDescribe(), ramo);
+		return r;
+	}
+
+	private static String primeroNoVacio(List<Object> valores) {
+		for (Object v : valores) {
+			String t = strOf(v);
+			if (String.isNotBlank(t) && t.toLowerCase() != 'null') { return t.trim(); }
+		}
+		return null;
+	}
+
+	// Cliente existente: por RFC (de persona o de empresa) y, si no, por nombre exacto.
+	@TestVisible
+	private static Account cuentaPorRfcONombre(String rfc, String nombre) {
+		Map<String, Schema.SObjectField> campos = Schema.SObjectType.Account.fields.getMap();
+		if (String.isNotBlank(rfc) && rfc.length() >= 10) {
+			List<String> filtros = new List<String>();
+			if (campos.containsKey('rfc__pc')) { filtros.add('RFC__pc = :rfc'); }
+			if (campos.containsKey('rfc__c')) { filtros.add('RFC__c = :rfc'); }
+			if (!filtros.isEmpty()) {
+				List<Account> xs = Database.query('SELECT Id, Name FROM Account WHERE ' + String.join(filtros, ' OR ')
+					+ ' ORDER BY CreatedDate LIMIT 1');
+				if (!xs.isEmpty()) { return xs[0]; }
+			}
+		}
+		if (String.isBlank(nombre)) { return null; }
+		String n = nombre.normalizeSpace().left(255);
+		for (Account x : [SELECT Id, Name FROM Account WHERE Name = :n ORDER BY CreatedDate LIMIT 1]) { return x; }
+		return null;
+	}
+
+	// Cliente nuevo: empresa si es persona moral (RFC de 12, tipo "Moral" o razón social); si no, cuenta personal.
+	@TestVisible
+	private static Account cuentaNueva(String nombre, String rfc, String tipoPersona) {
+		String n = ' ' + nombre.toUpperCase().replace('.', '').replace(',', ' ').normalizeSpace() + ' ';
+		Boolean moral = (tipoPersona != null && tipoPersona.toLowerCase().startsWith('moral'))
+			|| (rfc != null && rfc.length() == 12)
+			|| Pattern.matches('.*\\s(SA|SAB|SAPI|S DE RL|SC|AC|SOFOM|SPR|SRL)(\\s.*)?', n)
+			|| n.contains('SOCIEDAD') || n.contains('ASOCIACION');
+		Map<String, Schema.SObjectField> campos = Schema.SObjectType.Account.fields.getMap();
+		Map<String, Schema.RecordTypeInfo> rts = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+		Account acc = new Account();
+		Id personal = null;
+		for (RecordType rt : [SELECT Id FROM RecordType WHERE SObjectType = 'Account' AND IsPersonType = true AND IsActive = true LIMIT 1]) {
+			personal = rt.Id;
+		}
+		if (!moral && personal != null) {
+			// "MARIA ISABEL LAZO CORVERA": los dos últimos son los apellidos.
+			List<String> partes = nombre.split(' ');
+			Integer corte = partes.size() >= 3 ? partes.size() - 2 : (partes.size() == 2 ? 1 : 0);
+			List<String> nombres = new List<String>();
+			List<String> apellidos = new List<String>();
+			for (Integer i = 0; i < partes.size(); i++) {
+				if (i < corte) { nombres.add(partes[i]); } else { apellidos.add(partes[i]); }
+			}
+			acc.RecordTypeId = personal;
+			if (!nombres.isEmpty()) { acc.put('FirstName', String.join(nombres, ' ').left(40)); }
+			acc.put('LastName', String.join(apellidos, ' ').left(80));
+			if (String.isNotBlank(rfc) && campos.containsKey('rfc__pc')) { acc.put('RFC__pc', rfc); }
+		} else {
+			acc.Name = nombre.left(255);
+			Schema.RecordTypeInfo rt = rts.get('Business_Account');
+			if (rt != null && rt.isAvailable()) { acc.RecordTypeId = rt.getRecordTypeId(); }
+			// Annual Revenue es obligatorio para cuentas empresariales (regla de validación).
+			acc.AnnualRevenue = 0;
+			if (String.isNotBlank(rfc) && campos.containsKey('rfc__c')) { acc.put('RFC__c', rfc); }
+		}
+		insert acc;
+		return [SELECT Id, Name FROM Account WHERE Id = :acc.Id];
+	}
+
+	// Aseguradora del catálogo cuyo nombre (sin "Seguros", "México", "S.A. de C.V."...) coincide con el de la IA; si la
+	// IA no trae una, la que aparezca primero en el texto de la carátula.
+	@TestVisible
+	private static Id aseguradoraPorNombre(String nombre, String texto) {
+		String buscado = claveAseguradora(nombre);
+		String t = ' ' + claveAseguradora(texto) + ' ';
+		String tCompleto = ' ' + (texto == null ? '' : normKey(texto).replaceAll('[^a-z0-9+ ]', ' ').normalizeSpace()) + ' ';
+		Id porTexto = null;
+		Integer mejor = null;
+		// Nombres cortos que también son palabras comunes: en el texto solo cuentan con el nombre completo.
+		Set<String> comunes = new Set<String>{ 'plan', 'latino', 'atlas', 'continental', 'insignia', 'continental assist' };
+		for (Aseguradora__c x : [SELECT Id, Name FROM Aseguradora__c ORDER BY Name LIMIT 500]) {
+			String k = claveAseguradora(x.Name);
+			if (k.length() < 3) { continue; }
+			if (String.isNotBlank(buscado) && (buscado == k || (' ' + buscado + ' ').contains(' ' + k + ' ')
+				|| (buscado.length() >= 3 && (' ' + k + ' ').contains(' ' + buscado + ' '))
+				|| (k.split(' ')[0].length() >= 4 && k.split(' ')[0] == buscado.split(' ')[0]))) {
+				return x.Id;
+			}
+			String completo = normKey(x.Name).replaceAll('[^a-z0-9+ ]', ' ').normalizeSpace();
+			Integer i = tCompleto.indexOf(' ' + completo + ' ');
+			if (i < 0 && !comunes.contains(k)) { i = t.indexOf(' ' + k + ' '); }
+			if (i >= 0 && (mejor == null || i < mejor)) { mejor = i; porTexto = x.Id; }
+		}
+		return String.isBlank(buscado) ? porTexto : null;
+	}
+
+	@TestVisible
+	private static String claveAseguradora(String s) {
+		if (String.isBlank(s)) { return ''; }
+		String r = ' ' + normKey(s).replaceAll('[^a-z0-9+ ]', ' ').normalizeSpace() + ' ';
+		for (String w : new List<String>{ 'seguros', 'seguro', 'mexico', 'sa', 'de', 'cv', 's', 'a', 'c', 'v', 'compania', 'cia' }) {
+			r = r.replace(' ' + w + ' ', ' ');
+			r = r.replace(' ' + w + ' ', ' ');
+		}
+		return r.normalizeSpace();
+	}
+
+	// Ramo del catálogo a partir del texto de la IA ("Gastos Médicos Mayores" -> GMM, "Daños" -> Danos...).
+	@TestVisible
+	private static String ramoDeTexto(String ramo) {
+		if (String.isBlank(ramo)) { return null; }
+		String r = ' ' + normKey(ramo).replaceAll('[^a-z ]', ' ').normalizeSpace() + ' ';
+		if (r.contains('auto') || r.contains('vehic') || r.contains('flotilla')) { return 'Automoviles'; }
+		if (r.contains('gastos medicos') || r.contains(' gmm ') || r.contains('salud') || r.contains('accidentes personales')) { return 'GMM'; }
+		if (r.contains('dental')) { return 'Dental'; }
+		if (r.contains('vision')) { return 'Vision'; }
+		if (r.contains('viaje')) { return 'Viajes'; }
+		if (r.contains('mascota')) { return 'Mascotas'; }
+		if (r.contains('fianza')) { return 'Fianzas'; }
+		if (r.contains('vida')) { return 'Vida'; }
+		if (r.contains('empresarial')) { return 'Empresarial'; }
+		if (r.contains('responsabilidad') || r.contains(' rc ')) { return 'RC'; }
+		if (r.contains('dano') || r.contains('hogar') || r.contains('incendio') || r.contains('transporte')
+			|| r.contains('equipo') || r.contains('casa') || r.contains('todo riesgo')) { return 'Danos'; }
+		return ramo;
+	}
+
+	/**
 	 * @creation date: 02/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Agrega al mapa el valor de un picklist solo si es un valor activo del campo (sin importar

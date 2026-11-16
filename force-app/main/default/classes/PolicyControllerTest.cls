@@ -1486,4 +1486,63 @@ private class PolicyControllerTest {
         System.assertEquals('643', cp.TarifaAseguradora__c);
         System.assertEquals('NORMAL', cp.Uso__c, 'Lo que ya tenía se conserva');
     }
+
+
+    /**
+     * @creation date: 15/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza sin oportunidad: crea al cliente (persona) del PDF, reconoce la aseguradora y el ramo, y
+     * en una segunda lectura reutiliza al mismo cliente.
+     * @return void
+     */
+    @isTest
+    static void datosSinOportunidadCreaYReutilizaCliente() {
+        Aseguradora__c hdi = new Aseguradora__c(Name = 'HDI Seguros');
+        insert hdi;
+        String datos = JSON.serialize(new Map<String, Object>{
+            'aseguradora' => 'HDI Seguros S.A. de C.V.',
+            'ramo' => 'Daños',
+            'tipoPersona' => 'Física',
+            'contratante' => new Map<String, Object>{ 'nombre' => 'MARIA ISABEL LAZO CORVERA', 'rfc' => 'LACI6501276K1' }
+        });
+        Test.startTest();
+        Map<String, Object> r = PolicyController.datosSinOportunidad(datos, null);
+        Map<String, Object> r2 = PolicyController.datosSinOportunidad(datos, null);
+        Test.stopTest();
+        System.assertNotEquals(null, r.get('NameInsuredId'), 'Debe ubicar o crear al cliente');
+        System.assertEquals(true, r.get('_clienteNuevo'), 'El cliente no existía');
+        System.assertEquals(r.get('NameInsuredId'), r2.get('NameInsuredId'), 'La segunda lectura reutiliza al cliente');
+        System.assertEquals(null, r2.get('_clienteNuevo'), 'No se crea otro cliente');
+        System.assertEquals(hdi.Id, r.get('Aseguradora__c'), 'Reconoce la aseguradora por su nombre');
+    }
+
+    /**
+     * @creation date: 15/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: Póliza sin oportunidad de una empresa: la crea como empresa, reconoce la aseguradora por el texto
+     * de la carátula y traduce el ramo al catálogo.
+     * @return void
+     */
+    @isTest
+    static void datosSinOportunidadEmpresaYAseguradoraPorTexto() {
+        Aseguradora__c afirme = new Aseguradora__c(Name = 'Afirme Seguros');
+        insert afirme;
+        insert new Aseguradora__c(Name = 'Plan Seguro');
+        String datos = JSON.serialize(new Map<String, Object>{
+            'ramo' => 'Gastos Médicos Mayores',
+            'contratante' => new Map<String, Object>{ 'nombre' => 'HELADOS DEL NORTE SA DE CV', 'rfc' => 'HNO010101AB1' }
+        });
+        Test.startTest();
+        Map<String, Object> r = PolicyController.datosSinOportunidad(datos,
+            'Plan contratado: AMPLIO\nSeguros Afirme, S.A. de C.V., Afirme Grupo Financiero');
+        Test.stopTest();
+        System.assertNotEquals(null, r.get('NameInsuredId'), 'Debe crear a la empresa');
+        System.assertEquals(afirme.Id, r.get('Aseguradora__c'), 'Reconoce la aseguradora en el texto');
+        System.assertEquals('GMM', PolicyController.ramoDeTexto('Gastos Médicos Mayores'), 'GMM');
+        System.assertEquals('Automoviles', PolicyController.ramoDeTexto('Automóviles'), 'Autos');
+        System.assertEquals('Danos', PolicyController.ramoDeTexto('Daños'), 'Daños');
+        System.assertEquals('RC', PolicyController.ramoDeTexto('Responsabilidad Civil'), 'RC');
+        System.assertEquals(null, PolicyController.ramoDeTexto(null), 'Sin ramo');
+        System.assertEquals(null, PolicyController.datosSinOportunidad(null, null).get('NameInsuredId'), 'Sin datos no hay cliente');
+    }
 }

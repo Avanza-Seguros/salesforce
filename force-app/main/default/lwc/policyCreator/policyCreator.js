@@ -29,6 +29,7 @@ import analizarPoliza from '@salesforce/apex/PolicyController.analizarPoliza';
 import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArchivoEnPoliza';
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
 import datosBasePoliza from '@salesforce/apex/PolicyController.datosBasePoliza';
+import datosSinOportunidad from '@salesforce/apex/PolicyController.datosSinOportunidad';
 import complementarCamposPoliza from '@salesforce/apex/PolicyController.complementarCamposPoliza';
 import ligarOportunidadPoliza from '@salesforce/apex/PolicyController.ligarOportunidadPoliza';
 import polizaExistente from '@salesforce/apex/PolizaNumeroUnico.polizaExistente';
@@ -304,6 +305,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
     get isReadOnly() {
         return this.readOnly;
+    }
+    get textoPolizaNueva() {
+        return this.opportunityId || this.quoteId
+            ? 'La póliza se creará al cargar su PDF, con el número real. Los datos de la oportunidad y la cotización ya están precargados.'
+            : 'Póliza sin oportunidad: se creará al cargar su PDF, con el número real. El cliente (se da de alta si no existe), la aseguradora y el ramo se toman del PDF.';
     }
     get isEditable() {
         return !this.readOnly;
@@ -982,7 +988,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 await cambiarEtapaAPoliza({ opportunityId: this.opportunityId });
             }
             this._pdfCargado = false;
-            this.showToast('Póliza emitida', 'La oportunidad pasó a la etapa Póliza.', 'success');
+            this.showToast('Póliza emitida', this.opportunityId ? 'La oportunidad pasó a la etapa Póliza.'
+                : 'La póliza se emitió sin oportunidad.', 'success');
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error desconocido';
             this.showToast('La póliza se guardó, pero la etapa no cambió', msg, 'warning');
@@ -1161,6 +1168,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 await this.complementarPolizaExistente(datos, false, []);
                 return;
             }
+            // Sin oportunidad ni cotización (emisión directa o automática): el cliente, la aseguradora y el ramo
+            // salen del PDF.
+            if (!this.policyId && !this.idOrNull(this.opportunityId) && !this.idOrNull(this.quoteId)) {
+                await this.completarSinOportunidad(datos, texto);
+            }
             this.fillForm(datos);
             // Una vez subido el PDF, se guarda automáticamente y se pasa a la vista de SOLO
             // LECTURA: el usuario ya no puede modificar los valores de la póliza.
@@ -1172,6 +1184,34 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         } finally {
             this.analizando = false;
         }
+    }
+
+    // Póliza sin oportunidad: busca (o crea) al cliente por RFC o nombre, y toma la aseguradora y el ramo del PDF.
+    // Lo encontrado se agrega a los datos base (completan lo vacío al guardar) y se muestra en el formulario.
+    async completarSinOportunidad(datos, texto) {
+        const r = (await datosSinOportunidad({
+            datosJson: JSON.stringify(datos),
+            textoInicio: String(texto || '').substring(0, 4000)
+        })) || {};
+        const base = { ...(this._datosBase || {}) };
+        Object.keys(r).filter((k) => !k.startsWith('_')).forEach((k) => { base[k] = r[k]; });
+        this._datosBase = base;
+        this.template.querySelectorAll('lightning-input-field').forEach((f) => {
+            const v = r[f.fieldName];
+            if (v !== undefined && v !== null && !f.fieldName.startsWith('_')
+                && (f.value === undefined || f.value === null || f.value === '')) {
+                try { f.value = v; } catch (e) { /* campo de solo lectura */ }
+            }
+        });
+        const avisos = [];
+        if (r.NameInsuredId) {
+            avisos.push(r._clienteNuevo ? `se dio de alta al cliente ${r._clienteNombre}` : `cliente: ${r._clienteNombre}`);
+        } else {
+            avisos.push('no se encontró el cliente en el PDF: elige el asegurado y guarda');
+        }
+        if (!r.Aseguradora__c) { avisos.push('no se reconoció la aseguradora'); }
+        if (!r.Ramo__c) { avisos.push('no se reconoció el ramo'); }
+        this.showToast('Póliza sin oportunidad', avisos.join(' · '), r.NameInsuredId ? 'info' : 'warning');
     }
 
     // Analiza con la IA el texto de la carátula y lo completa con lo que se lee directo del texto: coberturas,
