@@ -990,7 +990,7 @@ function endosoHdi(t) {
     const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
     const num = (v) => (v == null ? null : Number(String(v).replace(/[$,\s]/g, '')));
     const lineas = t.split('\n').map(limpio);
-    const iEnc = lineas.findIndex((l) => /^ENDOSO\s+EMPRESA$/i.test(l));
+    const iEnc = lineas.findIndex((l) => /^ENDOSO\s+(MAESTRO\s+)?EMPRESA$/i.test(l));
     const tipo = iEnc >= 0 && lineas[iEnc + 1] && !/^Operaci[oó]n/i.test(lineas[iEnc + 1]) ? lineas[iEnc + 1] : 'Endoso';
     // Detalle: lo que sigue a "Detalle del Endoso:" hasta la tabla de primas.
     const partes = [];
@@ -1006,19 +1006,48 @@ function endosoHdi(t) {
     const fm = /Vigencia\s*:\s*Desde[^\n]*?(\d{1,2})\/([A-Z]{3,4})\/(\d{4})/i.exec(t);
     const fecha = fm && MESES_CORTOS[fm[2].toUpperCase()] ? `${fm[3]}-${MESES_CORTOS[fm[2].toUpperCase()]}-${fm[1].padStart(2, '0')}` : null;
     const monto = (re) => { const x = re.exec(t); return x ? num(x[1]) : null; };
-    const primaNeta = monto(/^\s*Prima\s+Neta\s+(-?[\d,]+\.\d+)\s*$/im);
-    const derechos = monto(/^\s*Derecho\s+de\s+P[oó]liza\s+(-?[\d,]+\.\d+)/im);
-    const iva = monto(/^\s*I\.V\.A\.[^\n]*?(-?[\d,]+\.\d+)\s*$/im);
-    const total = monto(/^\s*Total\s+a\s+pagar\s+(-?[\d,]+\.\d+)/im);
+    let primaNeta = monto(/^\s*Prima\s+Neta\s+(-?[\d,]+\.\d+)\s*$/im);
+    let derechos = monto(/^\s*Derecho\s+de\s+P[oó]liza\s+(-?[\d,]+\.\d+)/im);
+    let iva = monto(/^\s*I\.V\.A\.[^\n]*?(-?[\d,]+\.\d+)\s*$/im);
+    let total = monto(/^\s*Total\s+a\s+pagar\s+(-?[\d,]+\.\d+)/im);
+    if (primaNeta === null) {
+        // Endoso maestro: los importes van en un solo renglón con "Tasa: … Importe: …"; la prima neta queda al
+        // principio o al final del renglón, el total es el mayor y el I.V.A. va justo antes del total.
+        const r = lineas.find((l) => /Tasa\s*:.*Importe\s*:/i.test(l) && /\$/.test(l));
+        const ms = r ? (r.match(/-?\$\s*-?[\d,]+\.\d+/g) || []).map(num) : [];
+        if (ms.length >= 3) {
+            const alInicio = /^-?\$/.test(r);
+            primaNeta = alInicio ? ms[0] : ms[ms.length - 1];
+            const resto = alInicio ? ms.slice(1) : ms.slice(0, -1);
+            const iTot = resto.reduce((k, v, j) => (Math.abs(v) > Math.abs(resto[k]) ? j : k), 0);
+            total = resto[iTot];
+            iva = iTot > 0 ? resto[iTot - 1] : null;
+            derechos = Math.round((total - primaNeta - (iva || 0)) * 100) / 100;
+        }
+    }
     const inciso = String(Number(cab[2]));
+    const inc = { inciso, seccion: '', descripcion: tipo, movimiento };
+    if (movimiento === 'alta') {
+        // Alta de ubicación: domicilio de la empresa, giro y suma asegurada (Todo Riesgo Incendio edificio + contenidos).
+        const dom = /Domicilio\s+de\s+la\s+Empresa\s*:\s*([\s\S]*?)\n\s*Informaci[oó]n\s+de\s+la\s+Empresa/i.exec(t);
+        const giro = /^\s*Giro\s*:\s*([^\n]+)/im.exec(t);
+        const b = t.substring(dom ? dom.index : 0);
+        const ed = /Todo\s+Riesgo\s+Incendio\s+Edificio\s+\$\s*([\d,]+\.\d+)/i.exec(b);
+        const co = /Todo\s+Riesgo\s+Incendio\s+Contenidos\s+\$\s*([\d,]+\.\d+)/i.exec(b);
+        const suma = (ed ? num(ed[1]) : 0) + (co ? num(co[1]) : 0);
+        if (dom) { inc.direccion = limpio(dom[1]).replace(/\s+,/g, ','); }
+        if (giro) { inc.giro = limpio(giro[1]); }
+        if (suma) { inc.sumaAsegurada = suma; }
+        if (primaNeta !== null) { inc.prima = primaNeta; }
+    }
     return {
         numero: cab[3].toUpperCase(),
         tipo: tipo.charAt(0) + tipo.slice(1).toLowerCase(),
         movimiento,
         general: false,
         fecha,
-        incisos: [{ inciso, seccion: '', descripcion: tipo, movimiento }],
-        detalle: limpio(`Inciso ${inciso}: ${detalle || tipo}`).substring(0, 1000),
+        incisos: [inc],
+        detalle: limpio(`Inciso ${inciso}: ${detalle || inc.direccion || tipo}`).substring(0, 1000),
         primaNeta, derechos, iva, total,
         aseguradora: 'HDI'
     };
