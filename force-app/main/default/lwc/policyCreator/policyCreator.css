@@ -574,3 +574,54 @@
 .ro-archivos__lista li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
 .ro-archivos__lista a { cursor: pointer; font-weight: 600; }
 .ro-archivos__tamano { color: #667085; font-size: 0.78rem; }
+
+/* ----- PÓLIZA SIN OPORTUNIDAD: datos por completar y agente a mano ----- */
+.faltantes {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+.faltantes--pendiente { background: #FFF7E6; border: 1px solid #F5C26B; color: #7A4B00; }
+.faltantes--listo { background: #ECFDF3; border: 1px solid #8BD3A9; color: #05603A; }
+.agente_opciones {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 10000;
+    max-height: 16rem;
+    overflow-y: auto;
+    margin: 0.25rem 0 0;
+    padding: 0.25rem 0;
+    list-style: none;
+    background: white;
+    border: 1px solid #D0D0D0;
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+}
+.agente_opcion {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.agente_opcion:hover { background: #EEF4FF; }
+.agente_tipo { color: #666666; font-size: 0.75rem; }
+.agente_quitar {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #0052CC;
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.agente_quitar:hover { text-decoration: underline; }

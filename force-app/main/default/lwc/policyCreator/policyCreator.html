@@ -445,6 +445,20 @@
 
                         <lightning-messages></lightning-messages>
 
+                        <!-- Póliza sin oportunidad: datos que faltan por capturar antes de guardar -->
+                        <template if:true={hayFaltantes}>
+                            <div class="faltantes faltantes--pendiente" role="status">
+                                <lightning-icon icon-name="utility:edit_form" size="x-small"></lightning-icon>
+                                <span><strong>Completa antes de guardar:</strong> {textoFaltantes}.</span>
+                            </div>
+                        </template>
+                        <template if:true={mostrarListoParaGuardar}>
+                            <div class="faltantes faltantes--listo" role="status">
+                                <lightning-icon icon-name="utility:success" size="x-small"></lightning-icon>
+                                <span>Datos completos: revisa y guarda la póliza.</span>
+                            </div>
+                        </template>
+
                         <!-- Datos generales -->
                         <div class="unified-section">
                             <div class="section-header-compact">
@@ -458,13 +472,35 @@
                                 <div class="section-badge required-badge">Requerido</div>
                             </div>
                             <div class="policy-grid">
-                                <div class="field-card"><lightning-input-field field-name="Name" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="NameInsuredId" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="Name" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="NameInsuredId" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PolicyType" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="Aseguradora__c" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="ProductId" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="EffectiveDate" disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="ExpirationDate" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="Ramo__c" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="Aseguradora__c" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="ProductId" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
+                                <!-- Agente: sin oportunidad se elige a mano (el buscador estándar no admite Producer). -->
+                                <template if:true={agenteEditable}>
+                                    <div class="field-card agente">
+                                        <lightning-input type="search" label="Agente" value={agenteTexto} autocomplete="off"
+                                            placeholder="Busca al agente por nombre" onchange={handleAgenteBuscar}
+                                            onfocus={handleAgenteFoco}></lightning-input>
+                                        <template if:true={agenteId}>
+                                            <button type="button" class="agente_quitar" onclick={handleAgenteQuitar}>Quitar agente</button>
+                                        </template>
+                                        <template if:true={hayAgenteOpciones}>
+                                            <ul class="agente_opciones" role="listbox" aria-label="Agentes">
+                                                <template for:each={agenteOpciones} for:item="a">
+                                                    <li key={a.id} role="option" class="agente_opcion" data-id={a.id} data-nombre={a.nombre}
+                                                        onclick={handleAgenteElegir}>
+                                                        <span>{a.nombre}</span><span class="agente_tipo">{a.tipo}</span>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </template>
+                                    </div>
+                                </template>
+                                <div class="field-card"><lightning-input-field field-name="EffectiveDate" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="ExpirationDate" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="Status" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="UniversalPolicyNumber" disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PolicyDescription" disabled={isReadOnly}></lightning-input-field></div>
@@ -503,7 +539,7 @@
                             </div>
                             <div class="policy-grid">
                                 <div class="field-card"><lightning-input-field field-name="GrossWrittenPremium" onchange={handlePremiumChange} disabled={isReadOnly}></lightning-input-field></div>
-                                <div class="field-card"><lightning-input-field field-name="PremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
+                                <div class="field-card"><lightning-input-field field-name="PremiumAmount" onchange={handleCampoCambio} disabled={isReadOnly}></lightning-input-field></div>
                                 <div class="field-card"><lightning-input-field field-name="PremiumFrequency" onchange={handlePremiumChange} disabled={isReadOnly}></lightning-input-field></div>
                                 <!-- Calculado: prima total anualizada / exhibiciones de la frecuencia -->
                                 <div class="field-card"><lightning-input-field field-name="TermPremiumAmount" disabled={isReadOnly}></lightning-input-field></div>
@@ -531,10 +567,12 @@
                                      texto: el buscador estándar (lightning-lookup) no soporta el objeto Producer
                                      y arrojaba "objectInfos attribute is missing data for Producer". El valor lo
                                      liga vincularProducer en Apex antes de abrir el formulario. -->
-                                <div class="field-card field-card--static">
-                                    <span class="static-label">Agente</span>
-                                    <span class="static-value">{agenteNombre}</span>
-                                </div>
+                                <template if:false={agenteEditable}>
+                                    <div class="field-card field-card--static">
+                                        <span class="static-label">Agente</span>
+                                        <span class="static-value">{agenteNombre}</span>
+                                    </div>
+                                </template>
                             </div>
                         </div>
 

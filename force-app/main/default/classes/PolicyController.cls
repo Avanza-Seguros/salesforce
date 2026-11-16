@@ -163,6 +163,43 @@ public with sharing class PolicyController {
 		return r;
 	}
 
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca agentes (Producer) por nombre para elegirlos a mano en Crear Póliza (el buscador estándar
+	 * no admite el objeto Producer). Sin texto devuelve los primeros por nombre.
+	 * @param texto: Parte del nombre del agente
+	 * @return Hasta 20 agentes { id, nombre, tipo }
+	 */
+	@AuraEnabled(cacheable=true)
+	public static List<Map<String, Object>> buscarAgentes(String texto) {
+		String t = String.isBlank(texto) ? '%' : '%' + texto.normalizeSpace() + '%';
+		List<Map<String, Object>> r = new List<Map<String, Object>>();
+		for (Producer x : [SELECT Id, Name, Type FROM Producer WHERE Name LIKE :t ORDER BY Name LIMIT 20]) {
+			r.add(new Map<String, Object>{ 'id' => x.Id, 'nombre' => x.Name, 'tipo' => x.Type });
+		}
+		return r;
+	}
+
+	/**
+	 * @creation date: 15/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Asigna a la póliza el agente elegido a mano en Crear Póliza (póliza sin oportunidad).
+	 * @param policyId: Id de la InsurancePolicy
+	 * @param producerId: Id del agente (Producer)
+	 * @return true si se asignó
+	 */
+	@AuraEnabled
+	public static Boolean asignarAgente(Id policyId, Id producerId) {
+		if (policyId == null || producerId == null) { return false; }
+		try {
+			update new InsurancePolicy(Id = policyId, ProducerId = producerId);
+			return true;
+		} catch (Exception e) {
+			throw new AuraHandledException('No se pudo asignar el agente a la póliza: ' + msgLimpio(e));
+		}
+	}
+
 	private static String primeroNoVacio(List<Object> valores) {
 		for (Object v : valores) {
 			String t = strOf(v);

@@ -30,6 +30,8 @@ import guardarArchivoEnPoliza from '@salesforce/apex/PolicyController.guardarArc
 import getRegistrosPoliza from '@salesforce/apex/PolicyController.getRegistrosPoliza';
 import datosBasePoliza from '@salesforce/apex/PolicyController.datosBasePoliza';
 import datosSinOportunidad from '@salesforce/apex/PolicyController.datosSinOportunidad';
+import buscarAgentes from '@salesforce/apex/PolicyController.buscarAgentes';
+import asignarAgente from '@salesforce/apex/PolicyController.asignarAgente';
 import complementarCamposPoliza from '@salesforce/apex/PolicyController.complementarCamposPoliza';
 import ligarOportunidadPoliza from '@salesforce/apex/PolicyController.ligarOportunidadPoliza';
 import polizaExistente from '@salesforce/apex/PolizaNumeroUnico.polizaExistente';
@@ -46,6 +48,13 @@ import {
 } from 'c/clasificadorArchivos';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
+
+// Datos que una póliza sin oportunidad necesita y que el PDF no siempre trae: se capturan a mano antes de guardar.
+const CAMPOS_IMPORTANTES = [
+    ['Name', 'Número de póliza'], ['NameInsuredId', 'Asegurado'], ['Aseguradora__c', 'Aseguradora'],
+    ['Ramo__c', 'Ramo'], ['ProductId', 'Producto'], ['EffectiveDate', 'Inicio de vigencia'],
+    ['ExpirationDate', 'Fin de vigencia'], ['PremiumAmount', 'Prima'], ['PremiumFrequency', 'Frecuencia de pago']
+];
 
 export default class PolicyCreator extends NavigationMixin(LightningElement) {
     @track policyId;
@@ -80,6 +89,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // La póliza aún no existe: se crea al subir el PDF (ya con su número real) con estos datos
     // base de la oportunidad y la cotización aceptada.
     @track esNueva = false;
+    // Agente elegido a mano (pólizas sin oportunidad) y buscador.
+    agenteId = null;
+    agenteTexto = '';
+    @track agenteOpciones = [];
+    _agenteTimer = null;
+    // Sin oportunidad: tras leer el PDF no se guarda sola; se revisan y completan los datos que faltan.
+    revisionManual = false;
+    @track faltantes = [];
     // Emisión de COLECTIVOS con varios archivos: archivos seleccionados con el tipo detectado (editable por el
     // usuario antes de procesar), archivos por adjuntar cuando exista la póliza y avance del proceso.
     // Solo datos ligeros (se pintan en la revisión). El contenido de cada archivo (File, filas del Excel, texto del
@@ -306,6 +323,76 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     get isReadOnly() {
         return this.readOnly;
     }
+    // Póliza sin oportunidad ni cotización (emisión directa o automática).
+    get sinOportunidad() {
+        return !this.idOrNull(this.opportunityId) && !this.idOrNull(this.quoteId);
+    }
+    // El agente se elige a mano cuando no viene de una oportunidad (solo al crear la póliza).
+    get agenteEditable() {
+        return this.isEditable && this.sinOportunidad && !this.policyId;
+    }
+    get hayAgenteOpciones() {
+        return this.agenteOpciones.length > 0;
+    }
+    get hayFaltantes() {
+        return this.revisionManual && this.faltantes.length > 0;
+    }
+    get textoFaltantes() {
+        return this.faltantes.join(', ');
+    }
+    get mostrarListoParaGuardar() {
+        return this.revisionManual && this.faltantes.length === 0;
+    }
+
+    handleAgenteBuscar(event) {
+        this.agenteTexto = event.target.value || '';
+        if (!this.agenteTexto) { this.agenteId = null; this.revisarFaltantes(); }
+        clearTimeout(this._agenteTimer);
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._agenteTimer = setTimeout(() => this.cargarAgentes(), 250);
+    }
+    handleAgenteFoco() {
+        if (!this.agenteOpciones.length) { this.cargarAgentes(); }
+    }
+    async cargarAgentes() {
+        try {
+            const r = await buscarAgentes({ texto: this.agenteTexto });
+            this.agenteOpciones = (r || []).map((a) => ({ ...a, tipo: a.tipo || '' }));
+        } catch (e) {
+            this.agenteOpciones = [];
+        }
+    }
+    handleAgenteElegir(event) {
+        const { id, nombre } = event.currentTarget.dataset;
+        this.agenteId = id;
+        this.agenteTexto = nombre;
+        this.agenteOpciones = [];
+        this.revisarFaltantes();
+    }
+    handleAgenteQuitar() {
+        this.agenteId = null;
+        this.agenteTexto = '';
+        this.agenteOpciones = [];
+        this.revisarFaltantes();
+    }
+    handleCampoCambio() {
+        if (this.revisionManual) { this.revisarFaltantes(); }
+    }
+
+    // Datos importantes que siguen vacíos (ni el PDF ni los datos base los traen): se piden antes de guardar.
+    revisarFaltantes() {
+        if (!this.revisionManual) { this.faltantes = []; return; }
+        const valores = {};
+        this.template.querySelectorAll('lightning-input-field').forEach((f) => { valores[f.fieldName] = f.value; });
+        const vacio = (k) => {
+            const v = valores[k] !== undefined ? valores[k] : (this.hiddenFields[k] ?? (this._datosBase || {})[k]);
+            return v === undefined || v === null || v === '';
+        };
+        const faltan = CAMPOS_IMPORTANTES.filter(([k]) => vacio(k)).map(([, etiqueta]) => etiqueta);
+        if (!this.agenteId) { faltan.push('Agente'); }
+        this.faltantes = faltan;
+    }
+
     get textoPolizaNueva() {
         return this.opportunityId || this.quoteId
             ? 'La póliza se creará al cargar su PDF, con el número real. Los datos de la oportunidad y la cotización ya están precargados.'
@@ -941,6 +1028,14 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.hiddenFields = {};
         // Refresca el registro para que la pantalla muestre lo guardado.
         if (savedId) {
+            // Agente elegido a mano (póliza sin oportunidad): se asigna con Apex (el formulario no admite Producer).
+            if (this.agenteId) {
+                try {
+                    await asignarAgente({ policyId: savedId, producerId: this.agenteId });
+                } catch (e) {
+                    this.showToast('Agente', this.mensajeError(e, 'No se pudo asignar el agente.'), 'warning');
+                }
+            }
             notifyRecordUpdateAvailable([{ recordId: savedId }]);
             // Adjunta el PDF que se haya seleccionado antes de que existiera la póliza.
             await this.guardarPdfEnPoliza();
@@ -1170,10 +1265,19 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             // Sin oportunidad ni cotización (emisión directa o automática): el cliente, la aseguradora y el ramo
             // salen del PDF.
-            if (!this.policyId && !this.idOrNull(this.opportunityId) && !this.idOrNull(this.quoteId)) {
+            if (!this.policyId && this.sinOportunidad) {
                 await this.completarSinOportunidad(datos, texto);
             }
             this.fillForm(datos);
+            // Sin oportunidad: no se guarda sola; se completan a mano el agente y los datos que no trae el PDF.
+            if (this.sinOportunidad) {
+                this.revisionManual = true;
+                // eslint-disable-next-line @lwc/lwc/no-async-operation
+                setTimeout(() => this.revisarFaltantes(), 500);
+                this.showToast('Revisa la póliza',
+                    'Completa el agente y los datos que no venían en el PDF, y guarda la póliza.', 'info');
+                return;
+            }
             // Una vez subido el PDF, se guarda automáticamente y se pasa a la vista de SOLO
             // LECTURA: el usuario ya no puede modificar los valores de la póliza.
             this.showToast('Listo', 'Datos de la póliza cargados. Guardando…', 'success');
@@ -1992,6 +2096,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Recalcula el Term Premium al cambiar la prima total o la frecuencia.
     handlePremiumChange(event) {
+        this.handleCampoCambio();
         const campo = event.target.fieldName;
         const valor = event.detail ? event.detail.value : event.target.value;
         const gwp = campo === 'GrossWrittenPremium' ? valor : this._getFieldValue('GrossWrittenPremium');

@@ -1545,4 +1545,23 @@ private class PolicyControllerTest {
         System.assertEquals(null, PolicyController.ramoDeTexto(null), 'Sin ramo');
         System.assertEquals(null, PolicyController.datosSinOportunidad(null, null).get('NameInsuredId'), 'Sin datos no hay cliente');
     }
+
+    /**
+     * @creation date: 15/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: El buscador de agentes encuentra al agente por parte de su nombre.
+     * @return void
+     */
+    @isTest
+    static void buscarAgentesPorNombre() {
+        insert new Producer(Name = 'Agente Prueba Zeta');
+        Test.startTest();
+        List<Map<String, Object>> r = PolicyController.buscarAgentes('prueba zet');
+        List<Map<String, Object>> todos = PolicyController.buscarAgentes(null);
+        Test.stopTest();
+        System.assertEquals(1, r.size(), 'Encuentra al agente');
+        System.assertEquals('Agente Prueba Zeta', r[0].get('nombre'), 'Nombre del agente');
+        System.assert(!todos.isEmpty(), 'Sin texto devuelve agentes');
+        System.assertEquals(false, PolicyController.asignarAgente(null, null), 'Sin póliza no asigna');
+    }
 }
