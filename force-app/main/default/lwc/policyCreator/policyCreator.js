@@ -1,4 +1,4 @@
-import { LightningElement, wire, track } from 'lwc';
+import { LightningElement, api, wire, track } from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
 import { getRecord, getFieldValue, notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
 import EFFECTIVE_DATE from '@salesforce/schema/InsurancePolicy.EffectiveDate';
@@ -97,6 +97,9 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // Sin oportunidad: tras leer el PDF no se guarda sola; se revisan y completan los datos que faltan.
     revisionManual = false;
     @track faltantes = [];
+    // Carga masiva: el PDF se procesa sin preguntas ni revisión a mano y el resultado se devuelve a quien lo pidió.
+    _masivo = null;
+    _formListo = false;
     // Emisión de COLECTIVOS con varios archivos: archivos seleccionados con el tipo detectado (editable por el
     // usuario antes de procesar), archivos por adjuntar cuando exista la póliza y avance del proceso.
     // Solo datos ligeros (se pintan en la revisión). El contenido de cada archivo (File, filas del Excel, texto del
@@ -781,7 +784,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 `El número ${datos.numeroPoliza} ya pertenece a otra póliza (${r.nombre}). Esta oportunidad ya tiene su propia póliza.`, 'error');
             return false;
         }
-        const ok = await LightningConfirm.open({
+        // Carga masiva: la póliza existente se actualiza sin preguntar.
+        const ok = this._masivo ? true : await LightningConfirm.open({
             message: `La póliza ${r.nombre} ya existe con el número ${datos.numeroPoliza} y la misma vigencia. `
                 + 'En lugar de crear otra, se actualizará esa póliza: se llenan los datos que le faltan y se crean los participantes, '
             + 'bienes y coberturas que no tenga. ¿Continuar?',
@@ -917,6 +921,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
     // Al cargar el registro, toma los valores de fecha y detecta si son Fecha/Hora.
     handleLoad(event) {
+        this._formListo = true;
         // Póliza nueva: muestra los datos base (asegurado, aseguradora, producto, prima…) en el formulario.
         if (!this.policyId && this._datosBase && !this._basePintada) {
             this._basePintada = true;
@@ -1098,6 +1103,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // Redirige a la página de registro estándar de Salesforce de la póliza guardada.
     // Si por alguna razón no hay Id, vuelve a Crear Póliza en modo solo lectura.
     navegarAPoliza() {
+        // Carga masiva: aquí termina el proceso del PDF; no se navega.
+        if (this._masivo) {
+            this.terminarMasivo(this.policyId ? (this._masivo.existente ? 'actualizada' : 'creada') : 'error');
+            return;
+        }
         if (this.policyId) {
             this[NavigationMixin.Navigate]({
                 type: 'standard__recordPage',
@@ -1165,6 +1175,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         // Loguea el detalle completo para diagnóstico.
         console.error('PolicyCreator::: error al guardar la póliza ->', JSON.stringify(d));
         this.showToast('No se pudo guardar la póliza', msg, 'error');
+        this.terminarMasivo('error');
     }
 
     // ----- Arrastrar y soltar el archivo de la póliza -----
@@ -1231,15 +1242,18 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             const texto = await this.extractPdfText(file);
             if (!texto) {
                 this.showToast('Aviso', 'No se pudo leer texto del PDF (¿está escaneado?).', 'warning');
+                this.terminarMasivo('error');
                 return;
             }
             const datos = await this.analizarTextoPoliza(texto);
-            if (!datos) { return; }
+            if (!datos) { this.terminarMasivo('error', 'La IA no devolvió los datos de la póliza.'); return; }
+            if (this._masivo) { this._masivo.numero = datos.numeroPoliza || null; }
             // No puede haber dos pólizas con el mismo número y la misma vigencia: si ya existe (y el usuario
             // puede editarla) se actualiza esa póliza en lugar de crear otra; si no, se avisa y no se guarda nada.
             const polizaAntes = this.policyId;
-            if (!(await this.resolverPolizaExistente(datos))) { return; }
+            if (!(await this.resolverPolizaExistente(datos))) { this.terminarMasivo('error'); return; }
             const actualizarExistente = !polizaAntes && !!this.policyId;
+            if (this._masivo) { this._masivo.existente = actualizarExistente; }
             // Guarda el PDF como archivo de la póliza. Si la póliza aún no existe,
             // queda pendiente y se adjunta al crearla (handleSuccess).
             // Un PDF grande no cabe en la llamada a Apex: se pide adjuntarlo en la vista de la póliza.
@@ -1272,7 +1286,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             }
             this.fillForm(datos);
             // Sin oportunidad: no se guarda sola; se completan a mano el agente y los datos que no trae el PDF.
-            if (this.sinOportunidad) {
+            // En la carga masiva se guarda con lo que trae el PDF (sin agente).
+            if (this.sinOportunidad && !this._masivo) {
                 this.revisionManual = true;
                 // eslint-disable-next-line @lwc/lwc/no-async-operation
                 setTimeout(() => this.revisarFaltantes(), 500);
@@ -1287,6 +1302,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         } catch (e) {
             const msg = (e && e.body && e.body.message) || (e && e.message) || 'Error al analizar el PDF.';
             this.showToast('Error', msg, 'error');
+            this.terminarMasivo('error');
         } finally {
             this.analizando = false;
         }
@@ -1358,7 +1374,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
             const form = this.template.querySelector('lightning-record-edit-form');
-            if (!form) { return; }
+            if (!form) { this.terminarMasivo('error', 'No se encontró el formulario de la póliza.'); return; }
             // submit() desde código no dispara onsubmit: se arman aquí los mismos campos que
             // en handleSubmit (pantalla + datos ocultos de la IA + datos base al crear).
             const fields = {};
@@ -2125,6 +2141,48 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     }
 
     showToast(title, message, variant) {
+        // Carga masiva: los avisos se guardan en el resultado del PDF en lugar de mostrarse.
+        if (this._masivo) {
+            if (variant !== 'success') { this._masivo.mensajes.push(`${title}: ${message}`); }
+            return;
+        }
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    }
+
+    // ----- Carga masiva (pestaña Carga masiva de pólizas) -----
+
+    /**
+     * Procesa un PDF de carátula con el mismo flujo que la carga manual (sin oportunidad), sin preguntas ni revisión
+     * a mano: crea la póliza o, si ya existe con el mismo número y vigencia, la actualiza.
+     * @param file PDF (File)
+     * @return {estado: 'creada'|'actualizada'|'error', policyId, numero, mensajes}
+     */
+    @api
+    async procesarPdf(file) {
+        await this.esperarListo();
+        if (!this.isPdfJsLoaded || !this._formListo) {
+            return { estado: 'error', policyId: null, numero: null, mensajes: ['El formulario o el lector de PDF no cargaron.'] };
+        }
+        return new Promise((resolve) => {
+            this._masivo = { resolve, mensajes: [], numero: null, existente: false };
+            this.handleFileSelected({ target: { files: [file] } });
+        });
+    }
+
+    // Espera (hasta ~20 s) a que estén listos el lector de PDF y el formulario de la póliza nueva.
+    async esperarListo() {
+        for (let i = 0; i < 100 && !(this.isPdfJsLoaded && !this.loading && this._formListo); i++) {
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            await new Promise((r) => { setTimeout(r, 200); });
+        }
+    }
+
+    // Entrega el resultado del PDF en proceso (una sola vez).
+    terminarMasivo(estado, mensaje) {
+        const m = this._masivo;
+        if (!m) { return; }
+        this._masivo = null;
+        if (mensaje) { m.mensajes.push(mensaje); }
+        m.resolve({ estado, policyId: this.policyId || null, numero: m.numero, mensajes: m.mensajes });
     }
 }

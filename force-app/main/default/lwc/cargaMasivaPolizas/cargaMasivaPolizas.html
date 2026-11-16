@@ -1,0 +1,65 @@
+<template>
+    <div class="pagina">
+        <div class="tarjeta">
+            <h1 class="titulo">Carga masiva de pólizas</h1>
+            <p class="ayuda">Elige los PDFs de carátula. Cada uno se procesa igual que en Crear Póliza: la IA lee sus datos y se crea la póliza o, si ya existe con el mismo número y vigencia, se complementa.</p>
+
+            <div class="controles">
+                <input class="archivo" type="file" accept=".pdf" multiple onchange={handleArchivos} disabled={procesando} />
+                <lightning-input class="numero" type="number" label="Simultáneos" min="1" max="5" value={simultaneos}
+                    onchange={handleSimultaneos} disabled={procesando}></lightning-input>
+                <lightning-input type="checkbox" label="Saltar los ya procesados en este navegador" checked={saltarProcesados}
+                    onchange={handleSaltar} disabled={procesando}></lightning-input>
+            </div>
+
+            <template lwc:if={hayArchivos}>
+                <p class="resumen">{totalArchivos} PDFs elegidos · {yaProcesados} ya procesados antes</p>
+            </template>
+
+            <div class="botones">
+                <lightning-button variant="brand" label="Procesar" onclick={handleIniciar} disabled={sinIniciar}></lightning-button>
+                <lightning-button label={textoPausa} onclick={handlePausa} disabled={noProcesando}></lightning-button>
+                <template lwc:if={hayResultados}>
+                    <lightning-button label="Descargar resultados" onclick={handleDescargar}></lightning-button>
+                </template>
+                <lightning-button variant="base" label="Olvidar los procesados" onclick={handleOlvidar} disabled={procesando}></lightning-button>
+            </div>
+        </div>
+
+        <template lwc:if={hayResultados}>
+            <div class="tarjeta">
+                <div class="barra"><div class="barra-avance" style={estiloAvance}></div></div>
+                <p class="resumen">
+                    {avance}% · Creadas {cuenta.creada} · Actualizadas {cuenta.actualizada} · Con error {cuenta.error}
+                    · Saltadas {cuenta.saltada} · Pendientes {pendientes}
+                </p>
+                <table class="tabla">
+                    <thead>
+                        <tr><th>Archivo</th><th>Póliza origen</th><th>Número leído</th><th>Estado</th><th>Avisos</th></tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={resultadosVista} for:item="r">
+                            <tr key={r.key}>
+                                <td class="archivo-nombre">{r.archivo}</td>
+                                <td>{r.polizaOrigen}</td>
+                                <td>
+                                    <template lwc:if={r.url}><a href={r.url} target="_blank">{r.numero}</a></template>
+                                    <template lwc:else>{r.numero}</template>
+                                </td>
+                                <td><span class={r.clase}>{r.estado}</span></td>
+                                <td class="mensajes">{r.textoMensajes}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+
+        <!-- Creadores de póliza en proceso (fuera de la vista; deben pintarse para que funcione el formulario). -->
+        <div class="trabajo" aria-hidden="true">
+            <template for:each={ranuras} for:item="r">
+                <c-policy-creator key={r.key} data-key={r.key}></c-policy-creator>
+            </template>
+        </div>
+    </div>
+</template>
