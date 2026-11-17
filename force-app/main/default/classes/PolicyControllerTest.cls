@@ -718,8 +718,11 @@ private class PolicyControllerTest {
         Account acc = [SELECT Id FROM Account LIMIT 1];
         Id policyId = tryCreatePolicy(q.Id, acc.Id);
 
-        Test.startTest();
+        // Cada guardado es su propia transacción en Crear Póliza: el primero va antes de startTest y el reproceso
+        // dentro, para que cada uno tenga sus propios límites (juntos rebasan las 100 consultas en UAT, donde la
+        // póliza dispara más automatizaciones).
         Map<String, Object> resumen = PolicyController.guardarDatosPolizaDesdePdf(policyId, q.OpportunityId, jsonPolizaPdf());
+        Test.startTest();
         Map<String, Object> otraVez = PolicyController.guardarDatosPolizaDesdePdf(policyId, null, jsonPolizaPdf());
         Test.stopTest();
 

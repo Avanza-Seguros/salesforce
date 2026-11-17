@@ -135,6 +135,37 @@ private class PolizaNumeroUnicoTest {
 	}
 
 	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Carga masiva: las pólizas migradas sin llave con espacios en el número ("GE 44021349") y las que
+	 * guardaron la llave con ceros a la izquierda también cuentan, y se rechaza la carátula con el mismo número y
+	 * vigencia escrito de otra forma.
+	 * @return void
+	 */
+	@isTest
+	static void testEspaciosYCerosNoDuplican() {
+		Account acc = new Account(Name = 'Cuenta Póliza Migrada');
+		insert acc;
+		InsurancePolicy conEspacio = poliza(acc.Id, 'GE 44021349');
+		InsurancePolicy conCeros = poliza(acc.Id, '00000536096571');
+		conCeros.numeroPolizaUnico__c = '00000536096571|2026-01-01';   // llave armada antes de quitar los ceros
+		PolizaNumeroUnico.aplicarEnPruebas = false;   // como si se hubieran migrado antes de la regla
+		insert new List<InsurancePolicy>{ conEspacio, conCeros };
+
+		Test.startTest();
+		Map<String, Object> chubb = PolizaNumeroUnico.polizaExistente('GE 44021349', '2026-01-01', null);
+		Map<String, Object> gnp = PolizaNumeroUnico.polizaExistente('536096571', '2026-01-01', null);
+		Database.SaveResult r1 = Database.insert(poliza(acc.Id, 'GE44021349'), false);
+		Database.SaveResult r2 = Database.insert(poliza(acc.Id, '536096571'), false);
+		Test.stopTest();
+		System.assertEquals(conEspacio.Id, chubb.get('policyId'), 'Encuentra la migrada con espacios');
+		System.assertEquals(conCeros.Id, gnp.get('policyId'), 'Encuentra la de llave con ceros');
+		System.assert(!r1.isSuccess(), 'Rechaza el mismo número sin espacio');
+		System.assert(!r2.isSuccess(), 'Rechaza el mismo número sin ceros');
+		System.assertEquals(null, PolizaNumeroUnico.validarNumeroPoliza('536096571', '2027-01-01', null), 'Otra vigencia está libre');
+	}
+
+	/**
 	 * @creation date: 10/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Emisión de colectivos: localiza la póliza existente (mismo número y vigencia) para complementarla.
@@ -187,6 +218,8 @@ private class PolizaNumeroUnicoTest {
 	static void testNormalizar() {
 		System.assertEquals('ABC123', PolizaNumeroUnico.normalizar(' abc 123 '));
 		System.assertEquals(null, PolizaNumeroUnico.normalizar('  '));
+		System.assertEquals('536096571', PolizaNumeroUnico.normalizar('00000536096571'));
+		System.assertEquals('0', PolizaNumeroUnico.normalizar('000'));
 		System.assertEquals('ABC123|2026-03-05', PolizaNumeroUnico.llave('abc 123', Date.newInstance(2026, 3, 5)));
 		System.assertEquals('ABC123|', PolizaNumeroUnico.llave('abc 123', null));
 		System.assertEquals(null, PolizaNumeroUnico.llave(null, Date.today()));

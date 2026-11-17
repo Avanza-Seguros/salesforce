@@ -3,7 +3,8 @@
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Regla de pólizas (InsurancePolicy): no puede haber dos pólizas con el mismo número y la misma
  * vigencia (fecha de inicio). Una renovación que conserva el número pero tiene otra vigencia sí se permite. La
- * llave numeroPolizaUnico__c (campo único) guarda "NÚMERO|AAAA-MM-DD" con el número normalizado.
+ * llave numeroPolizaUnico__c (campo único) guarda "NÚMERO|AAAA-MM-DD" con el número normalizado (sin espacios ni
+ * ceros a la izquierda).
  */
 public with sharing class PolizaNumeroUnico {
 
@@ -149,7 +150,9 @@ public with sharing class PolizaNumeroUnico {
 	@TestVisible
 	private static String normalizar(String numero) {
 		if (String.isBlank(numero)) { return null; }
-		return numero.replaceAll('\\s+', '').toUpperCase().left(240);
+		// Sin ceros a la izquierda: GNP escribe el mismo número como "00000536096571" o "536096571".
+		String n = numero.replaceAll('\\s+', '').toUpperCase().replaceFirst('^0+(?=.)', '');
+		return n.left(240);
 	}
 
 	/**
@@ -183,24 +186,38 @@ public with sharing class PolizaNumeroUnico {
 		 * @return Pólizas encontradas
 		 */
 		List<InsurancePolicy> existentes(Set<String> llaves) {
-			List<InsurancePolicy> res = [
+			Map<Id, InsurancePolicy> res = new Map<Id, InsurancePolicy>([
 				SELECT Id, Name, numeroPolizaUnico__c, NameInsured.Name, SourceOpportunityId
 				FROM InsurancePolicy WHERE numeroPolizaUnico__c IN :llaves
-			];
-			// Pólizas registradas antes de la regla no tienen llave: se comparan por número e inicio de vigencia.
-			Set<String> numeros = new Set<String>();
-			for (String l : llaves) { numeros.add(l.substringBefore('|')); }
-			for (InsurancePolicy p : [
-				SELECT Id, Name, numeroPolizaUnico__c, NameInsured.Name, SourceOpportunityId, EffectiveDate
-				FROM InsurancePolicy WHERE numeroPolizaUnico__c = null AND Name IN :numeros
-			]) {
+			]);
+			// Pólizas sin llave (registradas antes de la regla) o con una llave armada con otra normalización (con
+			// ceros a la izquierda): se buscan por su inicio de vigencia y se compara su llave recalculada. Por número
+			// no se pueden buscar porque el nombre guardado puede llevar espacios o ceros que la llave no tiene.
+			List<String> rangos = new List<String>();
+			Map<String, Object> binds = new Map<String, Object>();
+			Boolean sinVigencia = false;
+			for (String l : llaves) {
+				String f = l.substringAfter('|');
+				if (String.isBlank(f)) { sinVigencia = true; continue; }
+				Date d = Date.valueOf(f);
+				Integer i = rangos.size();
+				binds.put('ini' + i, Datetime.newInstanceGmt(d, Time.newInstance(0, 0, 0, 0)));
+				binds.put('fin' + i, Datetime.newInstanceGmt(d.addDays(1), Time.newInstance(0, 0, 0, 0)));
+				rangos.add('(EffectiveDate >= :ini' + i + ' AND EffectiveDate < :fin' + i + ')');
+			}
+			if (sinVigencia) { rangos.add('EffectiveDate = null'); }
+			if (rangos.isEmpty()) { return res.values(); }
+			String soql = 'SELECT Id, Name, numeroPolizaUnico__c, NameInsured.Name, SourceOpportunityId, EffectiveDate '
+				+ 'FROM InsurancePolicy WHERE ' + String.join(rangos, ' OR ') + ' LIMIT 20000';
+			for (InsurancePolicy p : (List<InsurancePolicy>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE)) {
 				String k = llave(p.Name, fecha(p.EffectiveDate));
 				if (k != null && llaves.contains(k)) {
+					// La llave con la que se encontró, para que quien llama la empate con la póliza que se guarda.
 					p.numeroPolizaUnico__c = k;
-					res.add(p);
+					res.put(p.Id, p);
 				}
 			}
-			return res;
+			return res.values();
 		}
 	}
 }
