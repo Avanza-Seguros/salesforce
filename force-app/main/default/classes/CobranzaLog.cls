@@ -63,6 +63,12 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_PLAN_PREMIUM_MISMATCH_CLEARED = 'PLAN_PREMIUM_MISMATCH_CLEARED';
 	// No se pudo guardar la marca de una poliza; las demas del lote si se guardaron.
 	public static final String EVENT_PLAN_PREMIUM_MISMATCH_FAILED = 'PLAN_PREMIUM_MISMATCH_FAILED';
+	// Las cuotas de una flotilla se ligaron a sus incisos: plan repartido, altas o bajas.
+	public static final String EVENT_INSTALLMENTS_BY_INCISO = 'INSTALLMENTS_BY_INCISO';
+	// Una flotilla no se pudo repartir por inciso sola (plan con cobros o inciso sin prima).
+	public static final String EVENT_INSTALLMENTS_BY_INCISO_REVIEW = 'INSTALLMENTS_BY_INCISO_REVIEW';
+	// Fallo al ligar las cuotas de una flotilla a sus incisos; el guardado del bien sigue.
+	public static final String EVENT_INSTALLMENTS_BY_INCISO_FAILED = 'INSTALLMENTS_BY_INCISO_FAILED';
 	// No se pudo alinear la casilla Activa de un activo con el estado de su poliza.
 	public static final String EVENT_POLICY_ASSET_SYNC_FAILED = 'POLICY_ASSET_SYNC_FAILED';
 	// Datos de la poliza que se calculan a partir de sus bienes y asegurados.
@@ -133,6 +139,8 @@ public with sharing class CobranzaLog {
 	public static final String EVENT_INBOUND_RESENT_CHANGED = 'INBOUND_RESENT_WITH_CHANGES';
 	// Un pago Sin Match se reenvio cuando su poliza ya existia: vuelve al circuito solo.
 	public static final String EVENT_NO_MATCH_RETRIED = 'NO_MATCH_RETRIED';
+	// Un pago detenido por llegar pagado sin fecha recibio la fecha en un reenvio y vuelve al circuito.
+	public static final String EVENT_PAYMENT_DATE_COMPLETED = 'PAYMENT_DATE_COMPLETED';
 	// La aseguradora envio un numero de cuota no numerico: el matcher pierde su senal de
 	// mayor peso (+6 puntos por secuencia exacta) y el pago tiene mas chance de caer a
 	// revision manual. Es calidad de dato de origen, no un fallo del motor.

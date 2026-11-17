@@ -591,10 +591,27 @@ public with sharing class InboundInsurancePaymentService {
 		Boolean noMatchNowHasPolicy =
 			STATUS_NO_MATCH.equals(existing.inboundStatus__c) &&
 			candidatePolicyId != null;
+		// Un cobro que la recepcion detuvo por llegar pagado sin fecha nunca entro al circuito:
+		// si el reenvio trae la fecha que faltaba, se evalua de nuevo, igual que un rechazado.
+		// Completar la fecha no es un cambio material, asi que sin esto se quedaria en la
+		// bandeja aunque el dato ya este bien.
+		Boolean paymentDateCompleted =
+			isHeldForMissingPaymentDate(existing) && data.sourcePaymentDate != null;
 		Boolean reevaluate =
 			owner.materialChange ||
 			STATUS_REJECTED.equals(existing.inboundStatus__c) ||
-			noMatchNowHasPolicy;
+			noMatchNowHasPolicy ||
+			paymentDateCompleted;
+
+		if (paymentDateCompleted && !owner.materialChange) {
+			CobranzaLog.info(
+					CobranzaLog.STAGE_RECEPCION,
+					CobranzaLog.EVENT_PAYMENT_DATE_COMPLETED,
+					'El pago estaba en revision por llegar pagado sin fecha de pago. El reenvio trae ' +
+					'la fecha: vuelve al circuito.'
+				)
+				.onInbound(existing.Id);
+		}
 
 		if (noMatchNowHasPolicy && !owner.materialChange) {
 			CobranzaLog.info(
@@ -1115,6 +1132,27 @@ public with sharing class InboundInsurancePaymentService {
 	 * @param existing: Pago guardado.
 	 * @return Estatus efectivo del pago guardado.
 	 */
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Indica si el pago esta detenido en la recepcion porque la aseguradora lo dio
+	 *               por pagado sin decir cuando. Solo un cobro (importe positivo) que no paso de
+	 *               la recepcion: una devolucion o un pago que ya recorrio el circuito tienen su
+	 *               propio motivo de revision y no se tocan.
+	 * @param existing: Registro tal como estaba antes del reenvio.
+	 * @return true si el pago espera solo la fecha de pago.
+	 */
+	private static Boolean isHeldForMissingPaymentDate(
+		InboundInsurancePayment__c existing
+	) {
+		return STATUS_MANUAL_REVIEW.equals(existing.inboundStatus__c) &&
+			CobranzaLog.STAGE_RECEPCION.equals(existing.pipelineStage__c) &&
+			existing.sourcePaymentDate__c == null &&
+			existing.sourceAmount__c != null &&
+			existing.sourceAmount__c > 0 &&
+			CARRIER_PAID.equals(effectiveCarrierStatus(existing));
+	}
+
 	private static String effectiveCarrierStatus(
 		InboundInsurancePayment__c existing
 	) {
@@ -1609,6 +1647,7 @@ public with sharing class InboundInsurancePaymentService {
 		inboundPayment.sourceInsuranceCarrier__c = data.sourceInsuranceCarrier;
 		inboundPayment.sourcePolicyBranch__c = data.sourcePolicyBranch;
 		inboundPayment.sourceInstallmentNumber__c = data.sourceInstallmentNumber;
+		inboundPayment.sourceIncisoNumber__c = data.sourceIncisoNumber;
 		inboundPayment.sourceCustomerExternalId__c = data.sourceCustomerExternalId;
 		inboundPayment.sourceSynchronizedAt__c = data.sourceSynchronizedAt;
 		inboundPayment.sourceCancellationDate__c = data.sourceCancellationDate;
@@ -1784,6 +1823,7 @@ public with sharing class InboundInsurancePaymentService {
 				externalPaymentId__c,
 				inboundStatus__c,
 				carrierReceiptStatus__c,
+				pipelineStage__c,
 				resendCount__c,
 				resendChangeLog__c,
 				sourceAmount__c,
@@ -1935,6 +1975,7 @@ public with sharing class InboundInsurancePaymentService {
 			payload,
 			'sourceInstallmentNumber__c'
 		);
+		data.sourceIncisoNumber = getString(payload, 'sourceIncisoNumber__c');
 		data.sourceCustomerExternalId = getString(
 			payload,
 			'sourceCustomerExternalId__c'
@@ -2240,6 +2281,7 @@ public with sharing class InboundInsurancePaymentService {
 		String sourceInsuranceCarrier;
 		String sourcePolicyBranch;
 		String sourceInstallmentNumber;
+		String sourceIncisoNumber;
 		String sourceCustomerExternalId;
 		DateTime sourceSynchronizedAt;
 		Decimal sourceGrossCommission;

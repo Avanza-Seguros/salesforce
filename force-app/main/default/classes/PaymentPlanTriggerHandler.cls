@@ -214,6 +214,12 @@ public with sharing class PaymentPlanTriggerHandler {
 			installmentsToInsert.addAll(buildInstallments(plan));
 		}
 
+		// En una flotilla cada cuota del calendario se reparte entre sus incisos.
+		installmentsToInsert = FleetInstallmentService.splitByInciso(
+			readyPlansById,
+			installmentsToInsert
+		);
+
 		if (installmentsToInsert.isEmpty()) {
 			return;
 		}
@@ -223,6 +229,24 @@ public with sharing class PaymentPlanTriggerHandler {
 			false
 		);
 		logInsertErrors(installmentsToInsert, results);
+	}
+
+	/**
+	 * @creation date: 16/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Calendario que tendria el plan, sin guardarlo: una cuota por periodo, sin
+	 *               inciso. Sirve para saber que periodos le tocan a un inciso dado de alta.
+	 * @param plan: Plan con frecuencia, importe, primera fecha y numero de cuotas.
+	 * @return: List<PaymentPlanInstallment__c> Cuotas del calendario; vacia si el plan no esta listo.
+	 * @exception:
+	 * @throws:
+	 */
+	public static List<PaymentPlanInstallment__c> buildCalendar(
+		PaymentPlan__c plan
+	) {
+		return isReadyForInstallments(plan)
+			? buildInstallments(plan)
+			: new List<PaymentPlanInstallment__c>();
 	}
 
 	/**

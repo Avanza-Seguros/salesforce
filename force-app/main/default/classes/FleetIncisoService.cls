@@ -173,7 +173,28 @@ public with sharing class FleetIncisoService {
 		String policyNumber,
 		List<PaymentPlanInstallment__c> installments
 	) {
-		String inciso = certificateOf(policyNumber);
+		return onlyItsInciso(policyNumber, null, installments);
+	}
+
+	/**
+	 * @creation date: 16/11/2026
+	 * @author: Javier Torres - Volestra
+	 * @description: Igual que la anterior, pero el inciso puede venir en su propio campo del pago.
+	 *               Ese campo manda; si llega vacío se usa el certificado del número de póliza.
+	 * @param policyNumber: Número de póliza del pago.
+	 * @param incisoNumber: Inciso que informa la aseguradora; puede ser nulo.
+	 * @param installments: Cuotas que el pago puede tomar.
+	 * @return Las cuotas de su inciso, o todas.
+	 */
+	public static List<PaymentPlanInstallment__c> onlyItsInciso(
+		String policyNumber,
+		String incisoNumber,
+		List<PaymentPlanInstallment__c> installments
+	) {
+		String inciso = normalize(incisoNumber);
+		if (inciso == null) {
+			inciso = certificateOf(policyNumber);
+		}
 		if (inciso == null || installments == null) {
 			return installments;
 		}

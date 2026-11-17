@@ -41,6 +41,8 @@
         <members>InsuredSubjectService</members>
         <members>FleetIncisoService</members>
         <members>FleetIncisoServiceTest</members>
+        <members>FleetInstallmentService</members>
+        <members>FleetInstallmentServiceTest</members>
         <members>InsuredSubjectServiceTest</members>
         <members>InsuredSubjectBackfillBatch</members>
         <members>PolicyPaymentReceiptQueueable</members>
@@ -94,6 +96,7 @@
     <types>
         <members>InsurancePolicyTrigger</members>
         <members>InsuredSubjectAssetTrigger</members>
+        <members>FleetInstallmentAssetTrigger</members>
         <members>InsuredSubjectFleetIncisoTrigger</members>
         <members>InsuredSubjectParticipantTrigger</members>
         <members>PaymentPlanTrigger</members>
@@ -178,6 +181,7 @@
 		>InboundInsurancePayment__c.sourceCustomerExternalId__c</members>
         <members>InboundInsurancePayment__c.sourceDueDate__c</members>
         <members>InboundInsurancePayment__c.sourceGrossCommission__c</members>
+        <members>InboundInsurancePayment__c.sourceIncisoNumber__c</members>
         <members>InboundInsurancePayment__c.sourceInstallmentNumber__c</members>
         <members>InboundInsurancePayment__c.sourceInsuranceCarrier__c</members>
         <members>InboundInsurancePayment__c.sourcePayloadHash__c</members>

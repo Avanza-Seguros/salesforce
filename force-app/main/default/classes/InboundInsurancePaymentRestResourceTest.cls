@@ -44,6 +44,7 @@ private class InboundInsurancePaymentRestResourceTest {
 				'"sourceInsuranceCarrier__c":"GNP",' +
 				'"sourcePolicyBranch__c":"Autos",' +
 				'"sourceInstallmentNumber__c":"1",' +
+				'"sourceIncisoNumber__c":"7",' +
 				'"sourceCustomerExternalId__c":"CLI-001",' +
 				'"sourceSynchronizedAt__c":"24/04/2026 11:30:00",' +
 				'"sourceGrossCommission__c":100.25,' +
@@ -86,6 +87,7 @@ private class InboundInsurancePaymentRestResourceTest {
 				sourceInsuranceCarrier__c,
 				sourcePolicyBranch__c,
 				sourceInstallmentNumber__c,
+				sourceIncisoNumber__c,
 				sourceCustomerExternalId__c,
 				sourceSynchronizedAt__c,
 				sourceGrossCommission__c,
@@ -114,6 +116,7 @@ private class InboundInsurancePaymentRestResourceTest {
 		Assert.areEqual('GNP', inboundPayment.sourceInsuranceCarrier__c);
 		Assert.areEqual('Autos', inboundPayment.sourcePolicyBranch__c);
 		Assert.areEqual('1', inboundPayment.sourceInstallmentNumber__c);
+		Assert.areEqual('7', inboundPayment.sourceIncisoNumber__c);
 		Assert.areEqual('CLI-001', inboundPayment.sourceCustomerExternalId__c);
 		Assert.areEqual(100.25, inboundPayment.sourceGrossCommission__c);
 		Assert.areEqual(16.04, inboundPayment.sourceVatCommission__c);
@@ -311,6 +314,84 @@ private class InboundInsurancePaymentRestResourceTest {
 			inboundPayment.manualReviewRequired__c,
 			'La bandeja del analista filtra por esta marca, no por el estado.'
 		);
+	}
+
+	@IsTest
+	static void resendWithTheMissingPaymentDateTakesThePaymentOutOfReview() {
+		// La recepcion lo detuvo por llegar pagado sin fecha. La aseguradora lo reenvia con la
+		// fecha: ya no hay dato contradictorio y el pago vuelve al circuito solo.
+		String sinFecha =
+			'[{"externalPaymentId__c":"EXT-3010","sourcePolicyNumber__c":"POL-FECHA-010",' +
+			'"sourceAmount__c":450.00,"sourcePaymentStatus__c":"Pagado"}]';
+		invokeEndpoint(sinFecha);
+		InboundInsurancePayment__c antes = [
+			SELECT inboundStatus__c, pipelineStage__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3010'
+		];
+		Assert.areEqual('Revision Manual', antes.inboundStatus__c);
+		Assert.areEqual('Recepcion', antes.pipelineStage__c);
+
+		Test.startTest();
+		invokeEndpoint(
+			'[{"externalPaymentId__c":"EXT-3010","sourcePolicyNumber__c":"POL-FECHA-010",' +
+				'"sourceAmount__c":450.00,"sourcePaymentStatus__c":"Pagado",' +
+				'"sourcePaymentDate__c":"24/04/2026"}]'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c despues = [
+			SELECT inboundStatus__c, sourcePaymentDate__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3010'
+		];
+		Assert.areNotEqual(
+			'Revision Manual',
+			despues.inboundStatus__c,
+			'Con la fecha que faltaba el pago sale de la revision y sigue el circuito.'
+		);
+		Assert.areEqual(
+			Date.newInstance(2026, 4, 24),
+			despues.sourcePaymentDate__c
+		);
+		Assert.areEqual(
+			1,
+			[
+				SELECT COUNT()
+				FROM AppLog__c
+				WHERE
+					inboundPayment__r.externalPaymentId__c = 'EXT-3010'
+					AND eventCode__c = 'PAYMENT_DATE_COMPLETED'
+			],
+			'Queda registrado por que el pago volvio al circuito.'
+		);
+	}
+
+	@IsTest
+	static void resendStillWithoutPaymentDateKeepsThePaymentInReview() {
+		String sinFecha =
+			'[{"externalPaymentId__c":"EXT-3011","sourcePolicyNumber__c":"POL-FECHA-011",' +
+			'"sourceAmount__c":450.00,"sourcePaymentStatus__c":"Pagado"}]';
+		invokeEndpoint(sinFecha);
+
+		Test.startTest();
+		invokeEndpoint(
+			'[{"externalPaymentId__c":"EXT-3011","sourcePolicyNumber__c":"POL-FECHA-011",' +
+			'"sourceAmount__c":450.00,"sourcePaymentStatus__c":"Pagado","sourceCustomerName__c":"Otro nombre"}]'
+		);
+		Test.stopTest();
+
+		InboundInsurancePayment__c despues = [
+			SELECT inboundStatus__c, manualReviewRequired__c
+			FROM InboundInsurancePayment__c
+			WHERE externalPaymentId__c = 'EXT-3011'
+		];
+		Assert.areEqual(
+			'Revision Manual',
+			despues.inboundStatus__c,
+			'Sigue sin fecha: sigue en revision.'
+		);
+		Assert.isTrue(despues.manualReviewRequired__c);
 	}
 
 	@IsTest

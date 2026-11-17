@@ -117,6 +117,7 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 				candidatePolicy__c,
 				sourcePolicyNumber__c,
 				sourceInstallmentNumber__c,
+				sourceIncisoNumber__c,
 				sourceDueDate__c,
 				sourceAmount__c,
 				sourceReceiptNumber__c
@@ -365,9 +366,10 @@ public with sharing class InboundInstallmentCandidateQueueable implements Queuea
 			}
 		}
 		// En una flotilla cada inciso tiene sus propios recibos, con la misma fecha y a menudo el
-		// mismo importe: el pago de un certificado solo compite por los de su inciso.
+		// mismo importe: el pago de un inciso solo compite por los de ese inciso.
 		return FleetIncisoService.onlyItsInciso(
 			payment.sourcePolicyNumber__c,
+			payment.sourceIncisoNumber__c,
 			eligible
 		);
 	}

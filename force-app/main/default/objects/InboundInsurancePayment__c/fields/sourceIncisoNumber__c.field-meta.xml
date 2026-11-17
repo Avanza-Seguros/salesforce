@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>sourceIncisoNumber__c</fullName>
+    <description
+	>Numero de inciso o certificado que paga el recibo, cuando la poliza es una flotilla o una colectiva. El pago solo compite por las cuotas de ese inciso.</description>
+    <label>Inciso origen</label>
+    <length>20</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
