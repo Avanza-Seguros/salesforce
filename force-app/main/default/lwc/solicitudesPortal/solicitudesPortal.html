@@ -19,10 +19,11 @@
                             <template lwc:if={puedeEditar}>
                                 <lightning-button label={s.textoAtender} data-folio={s.folio} onclick={handleAtender}
                                     variant={s.varianteAtender} class="slds-m-left_x-small"></lightning-button>
-                                <template lwc:if={s.pendiente}>
-                                    <lightning-button label="Rechazar" variant="destructive-text" data-id={s.casoId} onclick={handleRechazar}
-                                        class="slds-m-left_x-small"></lightning-button>
-                                </template>
+                            </template>
+                            <!-- Rechazar solo concluye el caso: también en pólizas donde no se capturan movimientos. -->
+                            <template lwc:if={s.pendiente}>
+                                <lightning-button label="Rechazar" variant="destructive-text" data-id={s.casoId} onclick={handleRechazar}
+                                    class="slds-m-left_x-small"></lightning-button>
                             </template>
                         </div>
                     </div>

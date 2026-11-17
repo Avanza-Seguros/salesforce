@@ -862,7 +862,8 @@ public without sharing class PortalPolizasPestanas {
 			}
 			return new Map<String, Object>{
 				'tipo' => bienes.tipo, 'esContratante' => contratante, 'vistaPrevia' => cuentaVistaPrevia != null,
-				'puedeSolicitar' => contratante && EndosoPoliza.tipoCaso() != null,
+				'esEmpresarial' => esEmpresarial(policyId, bienes),
+				'puedeSolicitar' => contratante && EndosoPoliza.tipoCaso() != null && esEmpresarial(policyId, bienes),
 				'registros' => registros, 'solicitudes' => lista
 			};
 		} catch (AuraHandledException e) {
@@ -906,6 +907,9 @@ public without sharing class PortalPolizasPestanas {
 			if (movs.size() > 500) { throw new AuraHandledException('Una solicitud admite hasta 500 movimientos; para más, adjunta el archivo.'); }
 
 			Bienes bienes = asegurados(policyId, cuentaVistaPrevia);
+			if (!esEmpresarial(policyId, bienes)) {
+				throw new AuraHandledException('Las solicitudes de movimientos son para pólizas empresariales (colectivas o flotillas). Para esta póliza, contacta a tu asesor.');
+			}
 			Map<Id, Fila> vigentes = new Map<Id, Fila>();
 			for (Fila f : bienes.filas) { if (f.activo != false) { vigentes.put(f.id, f); } }
 			Map<String, String> nombres = new Map<String, String>{ 'alta' => 'Alta', 'baja' => 'Baja', 'cambio' => 'Cambio' };
@@ -1144,6 +1148,25 @@ public without sharing class PortalPolizasPestanas {
 			if (res.get(k) instanceof Integer) { total += (Integer) res.get(k); }
 		}
 		return total;
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El sitio es de empresas: las solicitudes de movimientos solo aplican a pólizas empresariales. Lo es
+	 * si la oportunidad de origen tiene Tipo de contratación «Empresarial» (valor Colectiva) o, si no, cuando es una
+	 * flotilla (autos con incisos) o tiene más de un asegurado o ubicación. «Individual» no descarta la póliza porque es el
+	 * valor por defecto del campo.
+	 * @param policyId: Id de la póliza
+	 * @param bienes: registros de la póliza como los ve el contratante
+	 * @return true si es colectiva o flotilla
+	 */
+	@TestVisible
+	static Boolean esEmpresarial(Id policyId, Bienes bienes) {
+		String tipo = MovimientosColectivoController.tipoContratacion(policyId);
+		if (tipo == 'Colectiva') { return true; }
+		if (bienes.tipo == 'vehiculos') { return [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId] > 0; }
+		return bienes.filas.size() > 1;
 	}
 
 	static AuraHandledException falla(String msg) {

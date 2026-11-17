@@ -32,7 +32,10 @@ export default class SolicitudesPortal extends LightningElement {
                 rechazando: this.rechazando === s.casoId,
                 conMovimientos: s.total > 0,
                 resumenTxt: s.total > 0 ? `${s.total} ${s.total === 1 ? 'movimiento registrado' : 'movimientos registrados'}`
-                    + (s.abiertos ? ` · ${s.abiertos} sin cerrar` : '') : 'Sin movimientos registrados: atiéndela o recházala',
+                    + (s.abiertos ? ` · ${s.abiertos} sin cerrar` : '')
+                    : (this.puedeEditar ? 'Sin movimientos registrados: captúralos con «Atender» o recházala'
+                        // Póliza de un solo vehículo (o sin permiso de edición): no se capturan aquí.
+                        : 'Sin movimientos registrados: esta póliza no admite capturarlos aquí; envía el archivo del cliente a la aseguradora o recházala'),
                 textoAtender: activa ? 'Dejar de atender' : (s.total > 0 ? 'Agregar movimientos' : 'Atender'),
                 varianteAtender: activa ? 'neutral' : (s.total > 0 ? 'neutral' : 'brand')
             };

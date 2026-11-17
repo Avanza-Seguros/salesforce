@@ -229,6 +229,10 @@ private class PortalPolizasPestanasTest {
 		InsurancePolicyParticipant titular = new InsurancePolicyParticipant(InsurancePolicyId = col.Id,
 			PrimaryParticipantContactId = empleado.Id, Role = rol('asegurado'), ParticipantCode = '1', IsActiveParticipant = true);
 		insert titular;
+		Contact otro = new Contact(LastName = 'Otro empleado', AccountId = empresa.Id);
+		insert otro;
+		insert new InsurancePolicyParticipant(InsurancePolicyId = col.Id, PrimaryParticipantContactId = otro.Id, Role = rol('asegurado'),
+			ParticipantCode = '2', IsActiveParticipant = true);
 		PortalPolizasController.cuentaPrueba = empresa.Id;
 		PortalPolizasController.contactoPrueba = null;
 
@@ -270,7 +274,7 @@ private class PortalPolizasPestanasTest {
 			'El alta y la baja quedan registradas con el folio');
 		System.assertEquals(false, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :titular.Id].IsActiveParticipant);
 		System.assertEquals(true, vista.get('puedeSolicitar'));
-		System.assertEquals(1, ((List<Object>) vista.get('registros')).size(), 'Vigente: el alta (el titular se dio de baja)');
+		System.assertEquals(2, ((List<Object>) vista.get('registros')).size(), 'Vigentes: el otro asegurado y el alta (el titular se dio de baja)');
 		List<Object> sols = (List<Object>) vista.get('solicitudes');
 		System.assertEquals(1, sols.size());
 		System.assertEquals('En proceso', ((Map<String, Object>) sols[0]).get('estado'));
@@ -288,50 +292,6 @@ private class PortalPolizasPestanasTest {
 		Boolean puede = false;
 		try { puede = (Boolean) PortalPolizasPestanas.solicitudes(col.Id, null).get('puedeSolicitar'); } catch (AuraHandledException e) { puede = false; }
 		System.assertEquals(false, puede);
-
-		// Vista previa de administrador: puede enviar una solicitud de prueba como la cuenta elegida.
-		PortalPolizasController.permisoVistaPreviaPrueba = true;
-		System.assertEquals(true, PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('puedeSolicitar'));
-		alta.put('campos', new Map<String, Object>{ 'nombre' => 'Luis', 'paterno' => 'Paz', 'sexo' => 'Hombre', 'parentesco' => 'Titular' });
-		Map<String, Object> rp = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
-			'movimientos' => new List<Object>{ alta } }), empresa.Id);
-		System.assertEquals('SOL-0002', rp.get('folio'));
-		Case cp = [SELECT AccountId, Description FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = 'SOL-0002'];
-		System.assertEquals(empresa.Id, cp.AccountId);
-		System.assert(cp.Description.contains('vista previa de administrador'), cp.Description);
-
-		// Solicitud por archivo: sin capturar movimientos, con el Excel y lo que trae.
-		Map<String, Object> ra = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
-			'movimientos' => new List<Object>(),
-			'listado' => new Map<String, Object>{ 'tipo' => 'alta', 'nombre' => 'FLOTILLA.xlsx', 'total' => 2,
-				'encabezados' => new List<Object>{ 'MODELO', 'MARCA', 'SERIE' },
-				'filas' => new List<Object>{ new List<Object>{ '2014', 'TOYOTA', 'JTDKT9D38ED585824' }, new List<Object>{ '2017', 'SEAT', 'VSSBE75F7LR043409' } } },
-			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'FLOTILLA.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
-		}), empresa.Id);
-		Case ca = [SELECT Subject, Description, Reason FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
-		System.assert(ca.Description.contains('1. ARCHIVO · Altas · FLOTILLA.xlsx · 2 renglones'), ca.Description);
-		System.assert(ca.Description.contains('2014 | TOYOTA | JTDKT9D38ED585824'), ca.Description);
-		System.assert(ca.Subject.contains('archivo FLOTILLA.xlsx'), ca.Subject);
-		System.assertEquals('Alta', ca.Reason);
-		Boolean sinTipo = false;
-		try {
-			PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
-				'listado' => new Map<String, Object>{ 'tipo' => 'otro', 'nombre' => 'x.xlsx' } }), empresa.Id);
-		} catch (AuraHandledException e) { sinTipo = true; }
-		System.assert(sinTipo, 'El archivo indica qué contiene');
-
-		// Sin movimientos que registrar (solo el archivo) queda Recibida. Rechazo del ejecutivo: el cliente ve el motivo.
-		Case recibida = [SELECT Id FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
-		EndosoPoliza.rechazarSolicitud(recibida.Id, 'Falta el acta de nacimiento');
-		Boolean visto = false;
-		for (Object o : (List<Object>) PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('solicitudes')) {
-			Map<String, Object> s = (Map<String, Object>) o;
-			if (s.get('folio') != ra.get('folio')) { continue; }
-			visto = true;
-			System.assertEquals('Rechazada', s.get('estado'));
-			System.assert(String.valueOf(s.get('respuesta')).contains('Falta el acta'), s.get('respuesta'));
-		}
-		System.assert(visto, 'El cliente ve la solicitud rechazada');
 	}
 
 	/**
@@ -428,17 +388,103 @@ private class PortalPolizasPestanasTest {
 		insert cliente;
 		InsurancePolicy danos = poliza(cliente.Id, 'DANOS-SITIO-1', 'Danos');
 		insert danos;
-		insert new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Inciso 1 - Oficina');
+		insert new List<InsurancePolicyAsset>{ new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Inciso 1 - Oficina'),
+			new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Inciso 2 - Planta') };
 		PortalPolizasController.cuentaPrueba = cliente.Id;
 		PortalPolizasController.contactoPrueba = null;
+		InsurancePolicy individual = poliza(cliente.Id, 'DANOS-IND-1', 'Danos');
+		insert individual;
+		insert new InsurancePolicyAsset(InsurancePolicyId = individual.Id, AssetName = 'Casa');
 		Test.startTest();
+		System.assertEquals(false, PortalPolizasPestanas.solicitudes(individual.Id, null).get('puedeSolicitar'), 'Individual: no es empresarial');
+		Boolean bloqueada = false;
+		try { PortalPolizasPestanas.crearSolicitud(individual.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>() }), null); }
+		catch (AuraHandledException e) { bloqueada = true; }
+		System.assert(bloqueada, 'Individual: no envía solicitudes');
 		Map<String, Object> ru = PortalPolizasPestanas.crearSolicitud(danos.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{
 			new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()),
 				'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre', 'valor' => 'Bodega' } },
 				'campos' => new Map<String, Object>{ 'ubicacion' => 'Bodega', 'direccion' => 'Av. Uno 100', 'suma' => '1,500,000' } } } }), null);
 		Test.stopTest();
 		System.assertEquals(1, ru.get('registrados'));
-		System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :danos.Id]);
+		System.assertEquals(3, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :danos.Id]);
 		System.assertEquals(1, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :danos.Id AND Solicitud__c = 'SOL-0001']);
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Vista previa de administrador (envía como la cuenta elegida) y solicitud solo con archivo, sin
+	 * movimientos que registrar: queda Recibida y, al rechazarla, el cliente ve el motivo.
+	 * @return void
+	 */
+	@isTest
+	static void testSolicitudesVistaPreviaYArchivo() {
+		Account empresa = new Account(Name = 'Empresa Solicitudes');
+		insert empresa;
+		Contact empleado = new Contact(LastName = 'Empleado', AccountId = empresa.Id);
+		insert empleado;
+		InsurancePolicy col = poliza(empresa.Id, 'COL-SOL-1', 'GMM');
+		insert col;
+		InsurancePolicyParticipant titular = new InsurancePolicyParticipant(InsurancePolicyId = col.Id,
+			PrimaryParticipantContactId = empleado.Id, Role = rol('asegurado'), ParticipantCode = '1', IsActiveParticipant = true);
+		insert titular;
+		Contact otro = new Contact(LastName = 'Otro empleado', AccountId = empresa.Id);
+		insert otro;
+		insert new InsurancePolicyParticipant(InsurancePolicyId = col.Id, PrimaryParticipantContactId = otro.Id, Role = rol('asegurado'),
+			ParticipantCode = '2', IsActiveParticipant = true);
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+
+		Map<String, Object> alta = new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()), 'datos' => new List<Object>{
+			new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' },
+			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } },
+			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
+				'parentesco' => 'Titular' } };
+		Test.startTest();
+		// Vista previa de administrador: puede enviar una solicitud de prueba como la cuenta elegida.
+		PortalPolizasController.permisoVistaPreviaPrueba = true;
+		System.assertEquals(true, PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('puedeSolicitar'));
+		alta.put('campos', new Map<String, Object>{ 'nombre' => 'Luis', 'paterno' => 'Paz', 'sexo' => 'Hombre', 'parentesco' => 'Titular' });
+		Map<String, Object> rp = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ alta } }), empresa.Id);
+		System.assertEquals('SOL-0001', rp.get('folio'));
+		Case cp = [SELECT AccountId, Description FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = 'SOL-0001'];
+		System.assertEquals(empresa.Id, cp.AccountId);
+		System.assert(cp.Description.contains('vista previa de administrador'), cp.Description);
+
+		// Solicitud por archivo: sin capturar movimientos, con el Excel y lo que trae.
+		Map<String, Object> ra = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>(),
+			'listado' => new Map<String, Object>{ 'tipo' => 'alta', 'nombre' => 'FLOTILLA.xlsx', 'total' => 2,
+				'encabezados' => new List<Object>{ 'MODELO', 'MARCA', 'SERIE' },
+				'filas' => new List<Object>{ new List<Object>{ '2014', 'TOYOTA', 'JTDKT9D38ED585824' }, new List<Object>{ '2017', 'SEAT', 'VSSBE75F7LR043409' } } },
+			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'FLOTILLA.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
+		}), empresa.Id);
+		Case ca = [SELECT Subject, Description, Reason FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
+		System.assert(ca.Description.contains('1. ARCHIVO · Altas · FLOTILLA.xlsx · 2 renglones'), ca.Description);
+		System.assert(ca.Description.contains('2014 | TOYOTA | JTDKT9D38ED585824'), ca.Description);
+		System.assert(ca.Subject.contains('archivo FLOTILLA.xlsx'), ca.Subject);
+		System.assertEquals('Alta', ca.Reason);
+		Boolean sinTipo = false;
+		try {
+			PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+				'listado' => new Map<String, Object>{ 'tipo' => 'otro', 'nombre' => 'x.xlsx' } }), empresa.Id);
+		} catch (AuraHandledException e) { sinTipo = true; }
+		System.assert(sinTipo, 'El archivo indica qué contiene');
+
+		// Sin movimientos que registrar (solo el archivo) queda Recibida. Rechazo del ejecutivo: el cliente ve el motivo.
+		Case recibida = [SELECT Id FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
+		EndosoPoliza.rechazarSolicitud(recibida.Id, 'Falta el acta de nacimiento');
+		Boolean visto = false;
+		for (Object o : (List<Object>) PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('solicitudes')) {
+			Map<String, Object> s = (Map<String, Object>) o;
+			if (s.get('folio') != ra.get('folio')) { continue; }
+			visto = true;
+			System.assertEquals('Rechazada', s.get('estado'));
+			System.assert(String.valueOf(s.get('respuesta')).contains('Falta el acta'), s.get('respuesta'));
+		}
+		System.assert(visto, 'El cliente ve la solicitud rechazada');
+		Test.stopTest();
 	}
 }

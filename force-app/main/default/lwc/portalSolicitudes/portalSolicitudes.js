@@ -159,6 +159,9 @@ export default class PortalSolicitudes extends LightningElement {
     get avisoSinPermiso() {
         if (!this.datos || this.datos.puedeSolicitar) { return null; }
         if (!this.datos.esContratante) { return 'Las solicitudes de altas, bajas y cambios las envía el contratante de la póliza.'; }
+        if (this.datos.esEmpresarial === false) {
+            return 'Las solicitudes de altas, bajas y cambios son para pólizas empresariales (colectivas o flotillas). Para esta póliza, contacta a tu asesor.';
+        }
         return null;
     }
     get haySolicitudes() { return !!this.datos && this.datos.solicitudes.length > 0; }
