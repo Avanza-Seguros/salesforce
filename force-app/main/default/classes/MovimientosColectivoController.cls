@@ -84,6 +84,7 @@ public with sharing class MovimientosColectivoController {
 				List<Map<String, Object>> miembros = aseguradosPoliza(recordId, false);
 				contarArchivos(miembros);
 				res.put('miembros', miembros);
+				res.put('solicitudes', EndosoPoliza.solicitudes(recordId, 'asegurados'));
 			} else {
 				Opportunity opp = oportunidad(recordId);
 				accountId = opp.AccountId;
@@ -129,9 +130,12 @@ public with sharing class MovimientosColectivoController {
 		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }; con { endosos: { número: prima } }
 		// cada número de endoso lleva su prima (soporte de recibo con varios endosos).
 		EndosoPoliza.Prima primaEndoso;
+		// Solicitud del cliente a la que se agregan (null = nueva).
+		String solicitudPedida;
 		Map<String, EndosoPoliza.Prima> primasEndosos;
 		try {
 			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			solicitudPedida = EndosoPoliza.solicitud(movimientosJson);
 			primasEndosos = EndosoPoliza.primas(movimientosJson);
 			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
@@ -145,6 +149,7 @@ public with sharing class MovimientosColectivoController {
 			Map<String, Object> r = esPoliza(recordId) ? aplicarPoliza(recordId, movs) : aplicarOportunidad(recordId, movs);
 			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
 			if (esPoliza(recordId)) {
+				r.put('solicitud', EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
 				List<Id> endosos = EndosoPoliza.registrarTodos(recordId, primaEndoso, primasEndosos);
 				r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
 				r.put('endosos', endosos.size());
@@ -1189,7 +1194,7 @@ public with sharing class MovimientosColectivoController {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
-			SELECT Participante__c, Name, Numero_Endoso__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :policyId AND Participante__c != null
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
@@ -1252,6 +1257,8 @@ public with sharing class MovimientosColectivoController {
 			Map<String, Object> campos = ultimo.getPopulatedFieldsAsMap();
 			if (campos.containsKey('Name')) { fila.put('movimientoNumero', ultimo.Name); }
 			if (campos.containsKey('Numero_Endoso__c')) { fila.put('numeroEndoso', ultimo.Numero_Endoso__c); }
+			// Solicitud del cliente con la que se registró (agrupa la tabla).
+			if (campos.containsKey('Solicitud__c')) { fila.put('solicitud', ultimo.Solicitud__c); }
 		} else if (!activo) {
 			tipo = 'Baja';
 			fecha = hasta;

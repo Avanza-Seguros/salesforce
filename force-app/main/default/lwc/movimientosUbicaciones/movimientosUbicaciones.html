@@ -51,6 +51,10 @@
                                 <lightning-combobox label="Mostrar" variant="label-hidden" value={filtro} options={opcionesFiltro}
                                     onchange={handleFiltro} class="mov-filtro"></lightning-combobox>
                             </template>
+                            <template lwc:if={hayAgrupacion}>
+                                <lightning-input type="toggle" label="Agrupar por solicitud" checked={agruparSolicitud} onchange={toggleAgrupar}
+                                    message-toggle-active="" message-toggle-inactive="" class="mov-agrupar"></lightning-input>
+                            </template>
                         </div>
                         <div class="mov-acciones">
                             <template if:true={puedeEditar}>
@@ -94,7 +98,25 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <template for:each={filas} for:item="u">
+                                    <template for:each={bloques} for:item="b">
+                                    <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
+                                    <template lwc:if={b.encabezado}>
+                                        <tr key={b.key} class="fila-solicitud">
+                                            <td colspan={columnasTabla}>
+                                                <div class="sol-enc">
+                                                    <lightning-button-icon icon-name={b.icono} variant="bare" size="small" alternative-text={b.textoColapsar}
+                                                        title={b.textoColapsar} data-folio={b.folio} onclick={toggleSolicitud}></lightning-button-icon>
+                                                    <span class="sol-folio">{b.titulo}</span>
+                                                    <template lwc:if={b.continua}><span class="sol-sub">(continúa)</span></template>
+                                                    <span class="sol-sub">{b.sub}</span>
+                                                    <span class="sol-resumen">{b.resumen}</span>
+                                                    <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
+                                                    <template lwc:if={b.estadoTxt}><span class={b.claseEstado}>{b.estadoTxt}</span></template>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template for:each={b.filas} for:item="u">
                                         <tr key={u.id} class={u.claseFila}>
                                             <td class="col-check">
                                                 <template if:false={u.noSeleccionable}>
@@ -132,6 +154,7 @@
                                                 </template>
                                             </td>
                                         </tr>
+                                    </template>
                                     </template>
                                 </tbody>
                             </table>
@@ -190,6 +213,12 @@
                             <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                 <lightning-input label="Número de endoso" value={comun.endoso} data-campo="endoso" onchange={handleComun}></lightning-input>
                             </div>
+                            <template lwc:if={enPoliza}>
+                                <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                                    <lightning-combobox label="Solicitud" value={comun.solicitud} options={opcionesSolicitud} data-campo="solicitud"
+                                        onchange={handleComun} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
+                                </div>
+                            </template>
                             <template if:true={hayBajas}>
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
                                     <lightning-combobox label="Motivo de baja (general, opcional)" value={comun.motivo} options={motivos}
@@ -395,6 +424,12 @@
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={enPoliza}>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
+                                                onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
+                                        </div>
+                                    </template>
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
                                     </div>
@@ -442,6 +477,12 @@
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={enPoliza}>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
+                                                onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
+                                        </div>
+                                    </template>
                                 </div>
                                 <template if:true={enPoliza}>
                                     <c-datos-endoso></c-datos-endoso>
@@ -465,6 +506,12 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm} required></lightning-input>
                                     </div>
+                                    <template lwc:if={enPoliza}>
+                                        <div class="slds-col slds-size_1-of-3">
+                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
+                                                onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
+                                        </div>
+                                    </template>
                                     <template if:true={hayBajasEndoso}>
                                         <div class="slds-col slds-size_1-of-3">
                                             <lightning-combobox label="Motivo de baja (opcional)" value={form.motivo} options={motivos}
@@ -532,6 +579,12 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={enPoliza}>
+                                        <div class="slds-col slds-size_1-of-3">
+                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
+                                                onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
+                                        </div>
+                                    </template>
                                     <div class="slds-col slds-size_1-of-1">
                                         <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
                                     </div>

@@ -114,7 +114,12 @@ private class MovimientosUbicacionesControllerTest {
 		Test.stopTest();
 		System.assertEquals(2, r.get('cambios'));
 		System.assertNotEquals(null, r.get('transaccionId'), 'Se registra el endoso');
-		for (Movimiento_Poliza__c m : [SELECT Numero_Endoso__c, Detalle__c, Transaccion__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id]) {
+		System.assertEquals('SOL-0001', r.get('solicitud'));
+		List<Object> sols = (List<Object>) MovimientosUbicacionesController.getDatos(pol.Id).get('solicitudes');
+		System.assertEquals(1, sols.size());
+		System.assertEquals(2, ((Map<String, Object>) sols[0]).get('total'), 'Los dos cambios en la misma solicitud');
+		for (Movimiento_Poliza__c m : [SELECT Numero_Endoso__c, Detalle__c, Transaccion__c, Solicitud__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id]) {
+			System.assertEquals('SOL-0001', m.Solicitud__c);
 			System.assertEquals('16', m.Numero_Endoso__c);
 			System.assertEquals(r.get('transaccionId'), m.Transaccion__c);
 			System.assert(m.Detalle__c.contains('sin cambio'), m.Detalle__c);

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Solicitud__c</fullName>
+    <description>Folio de la solicitud del cliente con la que se registró el movimiento (p. ej. SOL-0001). Agrupa los movimientos que se pidieron juntos.</description>
+    <externalId>false</externalId>
+    <label>Solicitud</label>
+    <length>20</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

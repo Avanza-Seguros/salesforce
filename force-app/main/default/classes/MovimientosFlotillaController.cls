@@ -82,6 +82,7 @@ public with sharing class MovimientosFlotillaController {
 				if (deBienes) { vs = vehiculosDeBienes(recordId); }
 				res.put('vehiculos', vs);
 				res.put('soloLectura', deBienes && !vs.isEmpty());
+				res.put('solicitudes', EndosoPoliza.solicitudes(recordId, 'vehiculos'));
 			} else {
 				Opportunity opp = MovimientosColectivoController.oportunidad(recordId);
 				InsurancePolicy anterior = MovimientosColectivoController.polizaAnteriorDe(opp);
@@ -121,10 +122,13 @@ public with sharing class MovimientosFlotillaController {
 		List<Movimiento> movs;
 		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }.
 		EndosoPoliza.Prima primaEndoso;
+		// Solicitud del cliente a la que se agregan (null = nueva).
+		String solicitudPedida;
 		// Con { endosos: { número: prima } } cada endoso leído de su PDF lleva su prima.
 		Map<String, EndosoPoliza.Prima> primasEndosos;
 		try {
 			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			solicitudPedida = EndosoPoliza.solicitud(movimientosJson);
 			primasEndosos = EndosoPoliza.primas(movimientosJson);
 			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
@@ -138,6 +142,7 @@ public with sharing class MovimientosFlotillaController {
 			if (!MovimientosColectivoController.esPoliza(recordId)) { return aplicarOportunidad(recordId, movs); }
 			Map<String, Object> r = aplicarPoliza(recordId, movs);
 			// Un endoso de la póliza (transacción de FSC) por cada número de endoso de los movimientos aplicados.
+			r.put('solicitud', EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
 			List<Id> endosos = EndosoPoliza.registrarTodos(recordId, primaEndoso, primasEndosos);
 			r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
 			r.put('transacciones', EndosoPoliza.ultimosPorNumero);
@@ -600,7 +605,7 @@ public with sharing class MovimientosFlotillaController {
 		Set<Id> ids = new Map<Id, Inciso_Flotilla__c>(incisos).keySet();
 		if (!ids.isEmpty()) {
 			for (Movimiento_Poliza__c m : [
-				SELECT Id, Name, Numero_Endoso__c, Inciso__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Inciso__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 				WHERE Inciso__c IN :ids ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 			]) {
 				if (!ultimos.containsKey(m.Inciso__c)) { ultimos.put(m.Inciso__c, m); }

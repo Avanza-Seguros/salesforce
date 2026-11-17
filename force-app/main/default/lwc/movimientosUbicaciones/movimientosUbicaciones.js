@@ -154,9 +154,105 @@ export default class MovimientosUbicaciones extends LightningElement {
             return this.fold(`${u.inciso || ''} ${u.nombre || ''} ${u.direccion || ''} ${u.giro || ''}`).includes(q);
         });
     }
+    // ============================================================
+    // Solicitudes del cliente: cada registro de movimientos (un archivo, una baja, un alta o un cambio) queda en una
+    // solicitud con folio (SOL-0001...). La tabla se agrupa por la solicitud del último movimiento de cada registro.
+    // ============================================================
+    agruparSolicitud = true;
+    colapsadas = new Set();
+    get solicitudes() { return (this.datos && this.datos.solicitudes) || []; }
+    get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
+    get agrupado() { return this.hayAgrupacion && this.agruparSolicitud; }
+    toggleAgrupar(e) { this.agruparSolicitud = e.target.checked; this.pagina = 1; }
+    toggleSolicitud(e) {
+        const k = e.currentTarget.dataset.folio || '';
+        const c = new Set(this.colapsadas);
+        if (c.has(k)) { c.delete(k); } else { c.add(k); }
+        this.colapsadas = c;
+        if (this.pagina > this.paginas) { this.pagina = this.paginas; }
+    }
+    // Opciones al registrar: una solicitud nueva o una reciente de la póliza (para agregarle movimientos).
+    get opcionesSolicitud() {
+        return [{ label: 'Nueva solicitud', value: 'nueva' }].concat(this.solicitudes.slice(0, 20).map((x) => ({
+            label: `${x.folio} · ${this.fechaHoraTxt(x.fecha)} · ${x.total} mov.${x.abiertos ? '' : ' · cerrada'}`,
+            value: x.folio
+        })));
+    }
+    // Asegurados por solicitud (la más reciente primero; sin solicitud al final) y, dentro, por la columna elegida.
+    get filtradosAgrupados() {
+        const porFolio = new Map(this.solicitudes.map((x) => [x.folio, []]));
+        porFolio.set('', []);
+        this.filtrados.forEach((u) => {
+            const k = u.solicitud && porFolio.has(u.solicitud) ? u.solicitud : '';
+            porFolio.get(k).push(u);
+        });
+        return [...porFolio.entries()].filter(([, l]) => l.length).map(([k, l]) => ({ folio: k, lista: l }));
+    }
+    // Página actual en bloques: encabezado de la solicitud y sus asegurados (una solicitud colapsada solo muestra el
+    // encabezado). Sin agrupar, un solo bloque sin encabezado.
+    get bloques() {
+        const ini = (this.pagina - 1) * POR_PAGINA;
+        const fin = ini + POR_PAGINA;
+        if (!this.agrupado) {
+            return [{ key: 'todos', encabezado: false, filas: this.filtrados.slice(ini, fin).map((u) => this.decorar(u)) }];
+        }
+        const info = new Map(this.solicitudes.map((x) => [x.folio, x]));
+        const paginas = this.paginas;
+        const res = [];
+        let n = 0;
+        this.filtradosAgrupados.forEach((g) => {
+            const colapsada = this.colapsadas.has(g.folio);
+            const filas = colapsada ? [] : g.lista;
+            const visibles = filas.filter((x, i) => n + i >= ini && n + i < fin);
+            // Colapsada: el encabezado va en la página donde le toca.
+            const pagEnc = Math.min(Math.floor(n / POR_PAGINA) + 1, paginas);
+            if (visibles.length || (colapsada && pagEnc === this.pagina)) {
+                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((u) => this.decorar(u)), n < ini && !colapsada));
+            }
+            n += filas.length;
+        });
+        return res;
+    }
+    encabezadoSolicitud(g, s, colapsada, filas, continua) {
+        const cuenta = { Alta: 0, Baja: 0, Cambio: 0 };
+        g.lista.forEach((u) => {
+            const t = u.tipoMovimiento || (u.activo ? 'Alta' : 'Baja');
+            cuenta[t] = (cuenta[t] || 0) + 1;
+        });
+        const partes = [];
+        if (cuenta.Alta) { partes.push(`${cuenta.Alta} ${cuenta.Alta === 1 ? 'alta' : 'altas'}`); }
+        if (cuenta.Baja) { partes.push(`${cuenta.Baja} ${cuenta.Baja === 1 ? 'baja' : 'bajas'}`); }
+        if (cuenta.Cambio) { partes.push(`${cuenta.Cambio} ${cuenta.Cambio === 1 ? 'cambio' : 'cambios'}`); }
+        const endosos = [...new Set(g.lista.map((u) => u.numeroEndoso).filter((x) => x))];
+        const abiertos = g.lista.filter((u) => u.fechaCreacion && !u.fechaCierre).length;
+        const sin = !g.folio;
+        return {
+            key: 'sol-' + (g.folio || 'sin'),
+            encabezado: true,
+            folio: g.folio,
+            titulo: sin ? 'Sin solicitud' : g.folio,
+            sub: sin ? 'Registrados antes de las solicitudes'
+                : [s && s.fecha ? this.fechaHoraTxt(s.fecha) : '', s && s.usuario ? `Registró ${s.usuario}` : ''].filter((x) => x).join(' · '),
+            resumen: `${g.lista.length} ${g.lista.length === 1 ? 'registro' : 'registros'}${partes.length ? ' · ' + partes.join(', ') : ''}`,
+            endososTxt: endosos.length ? `Endoso ${endosos.join(', ')}` : '',
+            estadoTxt: sin ? '' : (abiertos ? `Abierta · ${abiertos} sin cerrar` : 'Cerrada'),
+            claseEstado: `sol-estado ${abiertos ? 'sol-abierta' : 'sol-cerrada'}`,
+            continua,
+            icono: colapsada ? 'utility:chevronright' : 'utility:chevrondown',
+            textoColapsar: colapsada ? 'Mostrar la solicitud' : 'Ocultar la solicitud',
+            filas
+        };
+    }
+    get columnasTabla() {
+        return 9 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 3 : 0) + (this.conFechaCierre ? 1 : 0);
+    }
+
     get filas() {
         const ini = (this.pagina - 1) * POR_PAGINA;
-        return this.filtrados.slice(ini, ini + POR_PAGINA).map((u) => ({
+        return this.filtrados.slice(ini, ini + POR_PAGINA).map((u) => this.decorar(u));
+    }
+    decorar(u) {
+        return ({
             ...u,
             seleccionado: this.seleccion.has(u.id),
             noSeleccionable: !u.activo || !this.puedeEditar,
@@ -173,9 +269,13 @@ export default class MovimientosUbicaciones extends LightningElement {
             claseEstado: `estado estado-${String(u.tipoMovimiento || (u.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
             puedeCerrar: this.enPoliza && this.puedeEditar && !!u.movimientoId && !u.fechaCierre,
             puedeMover: u.activo && this.puedeEditar
-        }));
+        });
     }
-    get paginas() { return Math.max(1, Math.ceil(this.filtrados.length / POR_PAGINA)); }
+    get totalPaginable() {
+        if (!this.agrupado) { return this.filtrados.length; }
+        return this.filtradosAgrupados.reduce((t, g) => t + (this.colapsadas.has(g.folio) ? 0 : g.lista.length), 0);
+    }
+    get paginas() { return Math.max(1, Math.ceil(this.totalPaginable / POR_PAGINA)); }
     get textoPagina() { return `Página ${this.pagina} de ${this.paginas} · ${this.filtrados.length} ubicaciones`; }
     get sinAnterior() { return this.pagina <= 1; }
     get sinSiguiente() { return this.pagina >= this.paginas; }
@@ -359,7 +459,7 @@ export default class MovimientosUbicaciones extends LightningElement {
             }
             this.archivoNombre = file.name;
             this.revision = this.compararUbicaciones(ubicaciones);
-            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
+            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: 'nueva' };
             this.endosoLeido = null;
             this.documentoEndoso = null;
             this.vista = 'revision';
@@ -541,7 +641,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
         if (!ids.length) { return; }
-        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '' };
+        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', solicitud: 'nueva' };
         this.modal = 'baja';
     }
     get bajaNombres() {
@@ -551,7 +651,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     get textoBaja() { return `Se darán de baja ${this.bajaNombres.length} ubicaciones.`; }
 
     abrirAlta() {
-        this.form = { nombre: '', direccion: '', giro: '', sumaAsegurada: null, prima: null, inciso: null, fecha: this.fechaDefault, endoso: '' };
+        this.form = { nombre: '', direccion: '', giro: '', sumaAsegurada: null, prima: null, inciso: null, fecha: this.fechaDefault, endoso: '', solicitud: 'nueva' };
         this.modal = 'alta';
     }
 
@@ -561,7 +661,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         this.form = {
             id: u.id, nombreActual: this.nombre(u), original: { ...u }, inciso: u.inciso, nombre: u.nombre || '',
             direccion: u.direccion || '', giro: u.giro || '', sumaAsegurada: u.sumaAsegurada, prima: u.prima,
-            fecha: this.fechaDefault, endoso: '', comentario: ''
+            fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
         };
         this.modal = 'cambio';
     }
@@ -617,7 +717,8 @@ export default class MovimientosUbicaciones extends LightningElement {
         try {
             const r = await aplicar({
                 recordId: this._recordId,
-                movimientosJson: this.enPoliza ? JSON.stringify({ movimientos: movs, endoso: prima }) : JSON.stringify(movs)
+                movimientosJson: this.enPoliza ? JSON.stringify({ movimientos: movs, endoso: prima,
+                        solicitud: (this.vista === 'revision' ? (this.comun || {}).solicitud : (this.form || {}).solicitud) || 'nueva' }) : JSON.stringify(movs)
             });
             if (endoso && endoso.tieneArchivo && r.transaccionId) {
                 try {
@@ -632,7 +733,8 @@ export default class MovimientosUbicaciones extends LightningElement {
             if (r.bajas) { partes.push(`${r.bajas} bajas`); }
             if (r.cambios) { partes.push(`${r.cambios} cambios`); }
             this.toast('Movimientos', (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
-                + (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : ''), 'success');
+                + (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : '')
+                + (r.solicitud ? ` Solicitud ${r.solicitud}.` : ''), 'success');
             this.cerrarModal();
             this.vista = 'lista';
             this.revision = null;

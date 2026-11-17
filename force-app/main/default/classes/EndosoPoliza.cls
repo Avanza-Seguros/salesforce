@@ -73,6 +73,101 @@ public with sharing class EndosoPoliza {
 	}
 
 	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitud del cliente a la que se agregan los movimientos cuando el JSON trae { solicitud: 'SOL-0003' }
+	 *               ('nueva' o vacío = solicitud nueva).
+	 * @return el folio pedido, o null.
+	 */
+	public static String solicitud(String json) {
+		if (String.isBlank(json) || !json.trim().startsWith('{')) { return null; }
+		Map<String, Object> m = (Map<String, Object>) System.JSON.deserializeUntyped(json);
+		Object s = m.get('solicitud');
+		return s == null || String.isBlank(String.valueOf(s)) ? null : String.valueOf(s).trim();
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pone el folio de la solicitud del cliente a los movimientos insertados en esta transacción de Apex
+	 *               (llamar antes de registrar/registrarTodos). Si el folio pedido existe en la póliza, se agregan a esa
+	 *               solicitud; si no, se abre una nueva con el siguiente folio de la póliza (SOL-0001, SOL-0002...).
+	 * @param policyId: póliza.
+	 * @param pedida: folio de una solicitud de la póliza, o null / 'nueva'.
+	 * @return el folio de la solicitud, o null si no hubo movimientos.
+	 */
+	public static String asignarSolicitud(Id policyId, String pedida) {
+		List<Movimiento_Poliza__c> l = new List<Movimiento_Poliza__c>();
+		for (Movimiento_Poliza__c m : insertados) {
+			if (m.Id != null) { l.add(new Movimiento_Poliza__c(Id = m.Id)); }
+		}
+		if (l.isEmpty() || policyId == null) { return null; }
+		String folio = null;
+		if (String.isNotBlank(pedida) && !pedida.equalsIgnoreCase('nueva')
+				&& [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :pedida] > 0) {
+			folio = pedida;
+		}
+		if (folio == null) { folio = siguienteFolio(policyId); }
+		for (Movimiento_Poliza__c m : l) { m.Solicitud__c = folio; }
+		update l;
+		return folio;
+	}
+
+	// Siguiente folio de solicitud de la póliza.
+	@TestVisible
+	private static String siguienteFolio(Id policyId) {
+		Integer max = 0;
+		for (AggregateResult ar : [
+			SELECT Solicitud__c s FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c LIKE 'SOL-%' GROUP BY Solicitud__c
+		]) {
+			String n = ((String) ar.get('s')).substringAfter('SOL-');
+			if (n.isNumeric() && Integer.valueOf(n) > max) { max = Integer.valueOf(n); }
+		}
+		return 'SOL-' + String.valueOf(max + 1).leftPad(4, '0');
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitudes del cliente de la póliza (más reciente primero): folio, fecha en que se registró,
+	 *               quién la registró, cuántos movimientos tiene (altas, bajas y cambios), cuántos siguen abiertos y sus
+	 *               números de endoso.
+	 * @param policyId: póliza.
+	 * @param ramo: 'asegurados', 'vehiculos' o 'ubicaciones' (solo las solicitudes con movimientos de ese ramo).
+	 * @return lista de solicitudes como mapas.
+	 */
+	public static List<Map<String, Object>> solicitudes(Id policyId, String ramo) {
+		Map<String, Map<String, Object>> porFolio = new Map<String, Map<String, Object>>();
+		List<String> orden = new List<String>();
+		if (policyId == null) { return new List<Map<String, Object>>(); }
+		for (Movimiento_Poliza__c m : [
+			SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Participante__c, Inciso__c
+			FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c != null ORDER BY CreatedDate, Id LIMIT 10000
+		]) {
+			String r = m.Participante__c != null ? 'asegurados' : (m.Inciso__c != null ? 'vehiculos' : 'ubicaciones');
+			if (String.isNotBlank(ramo) && r != ramo) { continue; }
+			Map<String, Object> s = porFolio.get(m.Solicitud__c);
+			if (s == null) {
+				s = new Map<String, Object>{
+					'folio' => m.Solicitud__c, 'fecha' => m.CreatedDate, 'usuario' => m.CreatedBy == null ? null : m.CreatedBy.Name,
+					'total' => 0, 'altas' => 0, 'bajas' => 0, 'cambios' => 0, 'abiertos' => 0, 'endosos' => new List<String>()
+				};
+				porFolio.put(m.Solicitud__c, s);
+				orden.add(m.Solicitud__c);
+			}
+			s.put('total', (Integer) s.get('total') + 1);
+			String t = m.Tipo__c == 'Alta' ? 'altas' : (m.Tipo__c == 'Baja' ? 'bajas' : 'cambios');
+			s.put(t, (Integer) s.get(t) + 1);
+			if (m.Fecha_Cierre__c == null) { s.put('abiertos', (Integer) s.get('abiertos') + 1); }
+			List<String> e = (List<String>) s.get('endosos');
+			if (String.isNotBlank(m.Numero_Endoso__c) && !e.contains(m.Numero_Endoso__c.trim())) { e.add(m.Numero_Endoso__c.trim()); }
+		}
+		List<Map<String, Object>> res = new List<Map<String, Object>>();
+		for (Integer i = orden.size() - 1; i >= 0; i--) { res.add(porFolio.get(orden[i])); }
+		return res;
+	}
+
+	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Registra (o completa) el endoso con los movimientos insertados en esta transacción de Apex.

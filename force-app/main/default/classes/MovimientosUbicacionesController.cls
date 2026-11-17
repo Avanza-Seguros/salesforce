@@ -92,6 +92,7 @@ public with sharing class MovimientosUbicacionesController {
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
 				res.put('ubicaciones', conMovimiento(ubicacionesPoliza(bienes(recordId, false, null)), recordId));
+				res.put('solicitudes', EndosoPoliza.solicitudes(recordId, 'ubicaciones'));
 			} else {
 				Opportunity opp = MovimientosColectivoController.oportunidad(recordId);
 				InsurancePolicy anterior = MovimientosColectivoController.polizaAnteriorDe(opp);
@@ -130,8 +131,11 @@ public with sharing class MovimientosUbicacionesController {
 		List<Movimiento> movs;
 		// Prima del endoso (de la aseguradora) cuando viene { movimientos, endoso }.
 		EndosoPoliza.Prima primaEndoso;
+		// Solicitud del cliente a la que se agregan (null = nueva).
+		String solicitudPedida;
 		try {
 			primaEndoso = EndosoPoliza.prima(movimientosJson);
+			solicitudPedida = EndosoPoliza.solicitud(movimientosJson);
 			movimientosJson = EndosoPoliza.movimientos(movimientosJson);
 			movs = (List<Movimiento>) JSON.deserialize(String.isBlank(movimientosJson) ? '[]' : movimientosJson, List<Movimiento>.class);
 		} catch (Exception e) {
@@ -144,6 +148,7 @@ public with sharing class MovimientosUbicacionesController {
 			if (!MovimientosColectivoController.esPoliza(recordId)) { return aplicarOportunidad(recordId, movs); }
 			Map<String, Object> r = aplicarPoliza(recordId, movs);
 			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
+			r.put('solicitud', EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
 			r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso));
 			return r;
 		} catch (AuraHandledException e) {
@@ -588,9 +593,9 @@ public with sharing class MovimientosUbicacionesController {
 		Map<String, Movimiento_Poliza__c> ultimos = new Map<String, Movimiento_Poliza__c>();
 		Boolean esPoliza = MovimientosColectivoController.esPoliza(recordId);
 		for (Movimiento_Poliza__c m : esPoliza
-				? [SELECT Id, Name, Numero_Endoso__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				? [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 					WHERE Poliza__c = :recordId AND Oportunidad__c = null AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]
-				: [SELECT Id, Name, Numero_Endoso__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				: [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 					WHERE Oportunidad__c = :recordId AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]) {
 			String k = PolicyController.llaveDireccion(m.Asegurado__c);
 			if (String.isNotBlank(k) && !ultimos.containsKey(k)) { ultimos.put(k, m); }

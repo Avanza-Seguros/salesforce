@@ -352,3 +352,72 @@
 .enlace-otras:focus-visible {
     text-decoration: underline;
 }
+
+/* Solicitudes del cliente: encabezado de cada bloque de movimientos. */
+.mov-agrupar {
+    margin-left: 0.25rem;
+}
+
+.fila-solicitud > td {
+    background: #f3f3f3;
+    border-top: 1px solid #c9c9c9;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+}
+
+.sol-enc {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    color: #444444;
+}
+
+.sol-folio {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #181818;
+    letter-spacing: 0.02em;
+}
+
+.sol-sub {
+    color: #706e6b;
+}
+
+.sol-resumen {
+    color: #444444;
+}
+
+.sol-chip {
+    padding: 0 0.5rem;
+    border: 1px solid #c9c9c9;
+    border-radius: 0.75rem;
+    background: #ffffff;
+    color: #444444;
+    line-height: 1.25rem;
+}
+
+.sol-estado {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 600;
+}
+
+.sol-estado::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.sol-abierta {
+    color: #a96404;
+}
+
+.sol-cerrada {
+    color: #2e844a;
+}

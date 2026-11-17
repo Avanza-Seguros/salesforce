@@ -676,4 +676,46 @@ private class MovimientosColectivoControllerTest {
 		try { MovimientosColectivoController.traerDePoliza(renov.Id, true); System.assert(false); }
 		catch (AuraHandledException e) { System.assert(e.getMessage().contains('póliza anterior'), e.getMessage()); }
 	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitudes del cliente: cada registro abre una solicitud con folio (SOL-0001...), salvo que se
+	 *               pida agregar los movimientos a una existente; un folio que no es de la póliza abre una nueva. La
+	 *               tabla recibe la solicitud del último movimiento de cada asegurado y el resumen de las solicitudes.
+	 * @return void
+	 */
+	@isTest
+	static void testSolicitudes() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id juan = participante(pol.Id, 'Juan%');
+		Id pedro = participante(pol.Id, 'Pedro%');
+		Test.startTest();
+		Map<String, Object> r1 = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+			mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2500 }) }));
+		Map<String, Object> r2 = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ mov('cambio', juan, new Map<String, Object>{ 'prima' => 1800 }) }, 'solicitud' => 'SOL-0001' }));
+		Map<String, Object> r3 = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2600 }) }, 'solicitud' => 'nueva' }));
+		Map<String, Object> r4 = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2700 }) }, 'solicitud' => 'SOL-0099' }));
+		Test.stopTest();
+		System.assertEquals('SOL-0001', r1.get('solicitud'), 'El primer registro abre la primera solicitud');
+		System.assertEquals('SOL-0001', r2.get('solicitud'), 'Se agrega a la solicitud elegida');
+		System.assertEquals('SOL-0002', r3.get('solicitud'), 'Nueva solicitud');
+		System.assertEquals('SOL-0003', r4.get('solicitud'), 'Un folio que no es de la póliza abre una nueva');
+		Map<String, Object> datos = MovimientosColectivoController.getDatos(pol.Id);
+		List<Map<String, Object>> sols = (List<Map<String, Object>>) datos.get('solicitudes');
+		System.assertEquals(3, sols.size());
+		System.assertEquals('SOL-0003', sols[0].get('folio'), 'La más reciente primero');
+		System.assertEquals(2, sols[2].get('total'), 'SOL-0001 con dos movimientos');
+		System.assertEquals(2, sols[2].get('cambios'));
+		System.assertEquals(2, sols[2].get('abiertos'), 'Sin cerrar');
+		System.assertEquals(new List<String>{ 'END-1' }, sols[2].get('endosos'));
+		for (Object o : (List<Object>) datos.get('miembros')) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			if (m.get('id') == juan) { System.assertEquals('SOL-0001', m.get('solicitud')); }
+			if (m.get('id') == pedro) { System.assertEquals('SOL-0003', m.get('solicitud'), 'La de su último movimiento'); }
+		}
+	}
 }

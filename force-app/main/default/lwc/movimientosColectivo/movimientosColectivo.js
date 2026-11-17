@@ -268,9 +268,105 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             return this.fold(`${m.nombre} ${m.certificado || ''} ${m.titularNombre || ''} ${m.categoria || ''} ${m.correo || ''}`).includes(q);
         });
     }
+    // ============================================================
+    // Solicitudes del cliente: cada registro de movimientos (un archivo, una baja, un alta o un cambio) queda en una
+    // solicitud con folio (SOL-0001...). La tabla se agrupa por la solicitud del último movimiento de cada asegurado.
+    // ============================================================
+    agruparSolicitud = true;
+    colapsadas = new Set();
+    get solicitudes() { return (this.datos && this.datos.solicitudes) || []; }
+    get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
+    get agrupado() { return this.hayAgrupacion && this.agruparSolicitud; }
+    toggleAgrupar(e) { this.agruparSolicitud = e.target.checked; this.pagina = 1; }
+    toggleSolicitud(e) {
+        const k = e.currentTarget.dataset.folio || '';
+        const c = new Set(this.colapsadas);
+        if (c.has(k)) { c.delete(k); } else { c.add(k); }
+        this.colapsadas = c;
+        if (this.pagina > this.paginas) { this.pagina = this.paginas; }
+    }
+    // Opciones al registrar: una solicitud nueva o una reciente de la póliza (para agregarle movimientos).
+    get opcionesSolicitud() {
+        return [{ label: 'Nueva solicitud', value: 'nueva' }].concat(this.solicitudes.slice(0, 20).map((x) => ({
+            label: `${x.folio} · ${this.fechaHora(x.fecha)} · ${x.total} mov.${x.abiertos ? '' : ' · cerrada'}`,
+            value: x.folio
+        })));
+    }
+    // Asegurados por solicitud (la más reciente primero; sin solicitud al final) y, dentro, por la columna elegida.
+    get filtradosAgrupados() {
+        const porFolio = new Map(this.solicitudes.map((x) => [x.folio, []]));
+        porFolio.set('', []);
+        this.filtradosSinOrden.forEach((m) => {
+            const k = m.solicitud && porFolio.has(m.solicitud) ? m.solicitud : '';
+            porFolio.get(k).push(m);
+        });
+        return [...porFolio.entries()].filter(([, l]) => l.length).map(([k, l]) => ({ folio: k, lista: this.ordenarLista(l) }));
+    }
+    // Página actual en bloques: encabezado de la solicitud y sus asegurados (una solicitud colapsada solo muestra el
+    // encabezado). Sin agrupar, un solo bloque sin encabezado.
+    get bloques() {
+        const ini = (this.pagina - 1) * POR_PAGINA;
+        const fin = ini + POR_PAGINA;
+        if (!this.agrupado) {
+            return [{ key: 'todos', encabezado: false, filas: this.filtrados.slice(ini, fin).map((m) => this.decorar(m)) }];
+        }
+        const info = new Map(this.solicitudes.map((x) => [x.folio, x]));
+        const paginas = this.paginas;
+        const res = [];
+        let n = 0;
+        this.filtradosAgrupados.forEach((g) => {
+            const colapsada = this.colapsadas.has(g.folio);
+            const filas = colapsada ? [] : g.lista;
+            const visibles = filas.filter((x, i) => n + i >= ini && n + i < fin);
+            // Colapsada: el encabezado va en la página donde le toca.
+            const pagEnc = Math.min(Math.floor(n / POR_PAGINA) + 1, paginas);
+            if (visibles.length || (colapsada && pagEnc === this.pagina)) {
+                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((m) => this.decorar(m)), n < ini && !colapsada));
+            }
+            n += filas.length;
+        });
+        return res;
+    }
+    encabezadoSolicitud(g, s, colapsada, filas, continua) {
+        const cuenta = { Alta: 0, Baja: 0, Cambio: 0 };
+        g.lista.forEach((m) => {
+            const t = m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja');
+            cuenta[t] = (cuenta[t] || 0) + 1;
+        });
+        const partes = [];
+        if (cuenta.Alta) { partes.push(`${cuenta.Alta} ${cuenta.Alta === 1 ? 'alta' : 'altas'}`); }
+        if (cuenta.Baja) { partes.push(`${cuenta.Baja} ${cuenta.Baja === 1 ? 'baja' : 'bajas'}`); }
+        if (cuenta.Cambio) { partes.push(`${cuenta.Cambio} ${cuenta.Cambio === 1 ? 'cambio' : 'cambios'}`); }
+        const endosos = [...new Set(g.lista.map((m) => m.numeroEndoso).filter((x) => x))];
+        const abiertos = g.lista.filter((m) => m.fechaCreacion && !m.fechaCierre).length;
+        const sin = !g.folio;
+        return {
+            key: 'sol-' + (g.folio || 'sin'),
+            encabezado: true,
+            folio: g.folio,
+            titulo: sin ? 'Sin solicitud' : g.folio,
+            sub: sin ? 'Registrados antes de las solicitudes'
+                : [s && s.fecha ? this.fechaHora(s.fecha) : '', s && s.usuario ? `Registró ${s.usuario}` : ''].filter((x) => x).join(' · '),
+            resumen: `${g.lista.length} ${g.lista.length === 1 ? 'registro' : 'registros'}${partes.length ? ' · ' + partes.join(', ') : ''}`,
+            endososTxt: endosos.length ? `Endoso ${endosos.join(', ')}` : '',
+            estadoTxt: sin ? '' : (abiertos ? `Abierta · ${abiertos} sin cerrar` : 'Cerrada'),
+            claseEstado: `sol-estado ${abiertos ? 'sol-abierta' : 'sol-cerrada'}`,
+            continua,
+            icono: colapsada ? 'utility:chevronright' : 'utility:chevrondown',
+            textoColapsar: colapsada ? 'Mostrar la solicitud' : 'Ocultar la solicitud',
+            filas
+        };
+    }
+    get columnasTabla() {
+        return 10 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 3 : 0) + (this.conFechaCierre ? 1 : 0);
+    }
+
     get filas() {
         const ini = (this.pagina - 1) * POR_PAGINA;
-        return this.filtrados.slice(ini, ini + POR_PAGINA).map((m) => ({
+        return this.filtrados.slice(ini, ini + POR_PAGINA).map((m) => this.decorar(m));
+    }
+    decorar(m) {
+        return ({
             ...m,
             seleccionado: this.seleccion.has(m.id),
             noSeleccionable: !m.activo || !this.puedeEditar,
@@ -301,7 +397,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 : (this.correoDe(m) ? `Aún no se envía el correo a ${this.correoDe(m)}` : 'El asegurado no tiene correo'),
             puedeCorreo: this.enPoliza && !!this.correoDe(m),
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
-        }));
+        });
     }
 
     // ============================================================
@@ -382,7 +478,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const d = new Date(v);
         return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
-    get paginas() { return Math.max(1, Math.ceil(this.filtrados.length / POR_PAGINA)); }
+    get totalPaginable() {
+        if (!this.agrupado) { return this.filtrados.length; }
+        return this.filtradosAgrupados.reduce((t, g) => t + (this.colapsadas.has(g.folio) ? 0 : g.lista.length), 0);
+    }
+    get paginas() { return Math.max(1, Math.ceil(this.totalPaginable / POR_PAGINA)); }
     get textoPagina() { return `Página ${this.pagina} de ${this.paginas} · ${this.filtrados.length} asegurados`; }
     get sinAnterior() { return this.pagina <= 1; }
     get sinSiguiente() { return this.pagina >= this.paginas; }
@@ -691,7 +791,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             const m = this.miembros.find((x) => x.id === id);
             correos[id] = (m && m.correoPersonal) || '';
         });
-        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', correos, documentos: {} };
+        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', correos, documentos: {}, solicitud: 'nueva' };
         // Los archivos (File) quedan fuera del estado reactivo; en el formulario solo va su nombre.
         this._documentosBaja = new Map();
         this.modal = 'baja';
@@ -740,7 +840,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     abrirAlta() {
         this.form = {
             tipo: 'titular', titularId: '', parentesco: 'Cónyuge', nombre: '', apellidos: '', fechaNacimiento: '', sexo: '',
-            certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: ''
+            certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: '', solicitud: 'nueva'
         };
         this.modal = 'alta';
     }
@@ -761,7 +861,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.form = {
             id: m.id, nombreActual: m.nombre, original: { ...m }, nombreCompleto: m.nombre, certificado: m.certificado || '',
             fechaNacimiento: m.fechaNacimiento || '', categoria: m.categoria || '', sumaAsegurada: m.sumaAsegurada, prima: m.prima,
-            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: ''
+            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
         };
         this.modal = 'cambio';
     }
@@ -863,7 +963,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             const r = await aplicar({
                 recordId: this._recordId,
                 movimientosJson: this.enPoliza
-                    ? JSON.stringify({ movimientos: movs, endoso: prima, endosos: primasEndosos || null })
+                    ? JSON.stringify({ movimientos: movs, endoso: prima, endosos: primasEndosos || null,
+                        solicitud: (this.vista === 'revision' ? this.comun.solicitud : this.form.solicitud) || 'nueva' })
                     : JSON.stringify(movs)
             });
             if (endoso && endoso.tieneArchivo && r.transaccionId) {
@@ -879,7 +980,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             if (r.bajas) { partes.push(`${r.bajas} bajas`); }
             if (r.cambios) { partes.push(`${r.cambios} cambios`); }
             this.toast('Movimientos', (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
-                + (r.endosos > 1 ? ` Quedaron en ${r.endosos} endosos de la póliza.` : (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : '')), 'success');
+                + (r.endosos > 1 ? ` Quedaron en ${r.endosos} endosos de la póliza.` : (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : ''))
+                + (r.solicitud ? ` Solicitud ${r.solicitud}.` : ''), 'success');
             this.cerrarModal();
             this.vista = 'lista';
             this.revision = null;
@@ -925,7 +1027,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 sinCambios: r.sinCambios,
                 duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
             };
-            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '' };
+            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: 'nueva' };
             this.vista = 'revision';
             // Bajas del archivo de personas que no son asegurados: no se puede hacer nada con ellas, solo se avisa.
             const faltan = r.noEncontrados || [];

@@ -337,6 +337,8 @@ private class MovimientosFlotillaControllerTest {
 			if (v.get('id') == inc2) { v2 = v; }
 		}
 		System.assertEquals('Cambio', v2.get('tipoMovimiento'));
+		System.assertEquals('SOL-0001', v2.get('solicitud'), 'El movimiento queda en la solicitud');
+		System.assertEquals(1, ((List<Object>) MovimientosFlotillaController.getDatos(pol.Id).get('solicitudes')).size());
 		System.assertEquals(Date.today(), v2.get('fechaMovimiento'));
 		System.assertNotEquals(null, v2.get('fechaCreacion'));
 		System.assertEquals(null, v2.get('fechaCierre'));
