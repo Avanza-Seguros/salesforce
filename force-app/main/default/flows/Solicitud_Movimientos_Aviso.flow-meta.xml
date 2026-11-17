@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
-        <description>Avisa a Avanza (de momento, para pruebas: abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com; después correos@avanzaseguro.com) que el cliente envió una solicitud de movimientos desde el sitio.</description>
+        <description>Avisa a Avanza que el cliente envió una solicitud de movimientos desde el sitio (destinatarios según la org: fórmula Destinatarios).</description>
         <name>Correo_a_Avanza</name>
         <label>Correo a Avanza</label>
         <locationX>176</locationX>
@@ -12,7 +12,7 @@
         <inputParameters>
             <name>emailAddresses</name>
             <value>
-                <stringValue>abraham.gonzalez@avanzaseguro.com, sergio.uribe@volestra.com</stringValue>
+                <elementReference>Destinatarios</elementReference>
             </value>
         </inputParameters>
         <inputParameters>
@@ -43,12 +43,18 @@
     </actionCalls>
     <apiVersion>63.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
-    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse (en segundo plano, para que una falla del correo no impida guardar la solicitud), envía un correo desde info@avanzaseguro.com a abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com (pruebas; después correos@avanzaseguro.com) con el folio, el cliente, la póliza, lo que se pidió y la liga al caso.</description>
+    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse (en segundo plano, para que una falla del correo no impida guardar la solicitud), envía un correo desde info@avanzaseguro.com a correos@avanzaseguro.com en producción, o a abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com en DEV y UAT (pruebas), con el folio, el cliente, la póliza, lo que se pidió y la liga al caso.</description>
     <environments>Default</environments>
     <formulas>
         <name>LigaCaso</name>
         <dataType>String</dataType>
         <expression>LEFT({!$Api.Partner_Server_URL_590}, FIND(&apos;/services&apos;, {!$Api.Partner_Server_URL_590})) &amp; {!$Record.Id}</expression>
+    </formulas>
+    <formulas>
+        <description>Producción (org 00D8a000001KZ9w): correos@avanzaseguro.com. Sandboxes (DEV y UAT): abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com, para pruebas.</description>
+        <name>Destinatarios</name>
+        <dataType>String</dataType>
+        <expression>IF(LEFT({!$Organization.Id}, 15) = &apos;00D8a000001KZ9w&apos;, &apos;correos@avanzaseguro.com&apos;, &apos;abraham.gonzalez@avanzaseguro.com, sergio.uribe@volestra.com&apos;)</expression>
     </formulas>
     <formulas>
         <name>Asunto</name>
