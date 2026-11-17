@@ -855,6 +855,41 @@ private class PolicyControllerTest {
     }
 
     /**
+     * @creation date: 17/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: El cliente del PDF se encuentra aunque la carátula escriba el nombre distinto que la cuenta
+     * (mayúsculas, acentos, puntuación, "S.A. de C.V." y orden apellido-nombre), en vez de crear un duplicado.
+     * @return void
+     */
+    @isTest
+    static void testClienteExistentePorNombreNormalizado() {
+        Account empresa = new Account(Name = 'Avyna Cosmeticos, S.A. de C.V.');
+        Account persona = new Account(Name = 'Mario Alessandro Di Vece Casir');
+        Account conAcento = new Account(Name = 'Ana Valeria Iñiguez Gómez');
+        Account movers = new Account(Name = 'Marcela Balderas Movers And Relocation Sa De');
+        insert new List<Account>{ empresa, persona, conAcento, movers };
+
+        Test.startTest();
+        Account a1 = PolicyController.cuentaPorRfcONombre(null, 'AVYNA COSMETICOS SA DE CV');
+        Account a2 = PolicyController.cuentaPorRfcONombre(null, 'DI VECE CASIR, MARIO ALESSANDRO');
+        Account a3 = PolicyController.cuentaPorRfcONombre(null, 'IÑIGUEZ GOMEZ, ANA VALERIA');
+        Account a4 = PolicyController.cuentaPorRfcONombre(null, 'MARCELA BALDERAS MOVERS & RELOCATION, S.A. DE C.V.');
+        Account otro = PolicyController.cuentaPorRfcONombre(null, 'MARIO ALESSANDRO DI VECE');
+        Test.stopTest();
+
+        System.assertEquals(empresa.Id, a1 == null ? null : a1.Id, 'Sin puntuación ni mayúsculas');
+        System.assertEquals(persona.Id, a2 == null ? null : a2.Id, 'Apellidos primero');
+        System.assertEquals(conAcento.Id, a3 == null ? null : a3.Id, 'Sin acentos');
+        System.assertEquals(movers.Id, a4 == null ? null : a4.Id, '& y forma jurídica');
+        System.assertEquals(null, otro, 'Si falta una palabra es otra persona');
+        System.assertEquals(PolicyController.claveNombreCliente('Hortifrut-Aba, S.A. de C.V.'),
+            PolicyController.claveNombreCliente('HORTIFRUT - ABA SA DE CV'));
+        System.assertNotEquals(PolicyController.claveNombreCliente('Hortifrut, S.A. de C.V.'),
+            PolicyController.claveNombreCliente('HORTIFRUT - ABA SA DE CV'));
+        System.assertEquals(null, PolicyController.claveNombreCliente('  '));
+    }
+
+    /**
      * @creation date: 11/10/2026
      * @author: Sergio Uribe Toledo - Volestra
      * @description: Valida que guardarDatosPolizaDesdePdf exija la póliza y tolere un JSON vacío.

@@ -208,7 +208,9 @@ public with sharing class PolicyController {
 		return null;
 	}
 
-	// Cliente existente: por RFC (de persona o de empresa) y, si no, por nombre exacto.
+	// Cliente existente: por RFC (de persona o de empresa) y, si no, por nombre: primero exacto y luego normalizado
+	// (sin acentos, puntuación ni "S.A. de C.V.", y sin importar el orden de las palabras), porque la carátula
+	// escribe el nombre distinto que la cuenta ("DI VECE CASIR, MARIO ALESSANDRO" / "Mario Alessandro Di Vece Casir").
 	@TestVisible
 	private static Account cuentaPorRfcONombre(String rfc, String nombre) {
 		Map<String, Schema.SObjectField> campos = Schema.SObjectType.Account.fields.getMap();
@@ -225,6 +227,67 @@ public with sharing class PolicyController {
 		if (String.isBlank(nombre)) { return null; }
 		String n = nombre.normalizeSpace().left(255);
 		for (Account x : [SELECT Id, Name FROM Account WHERE Name = :n ORDER BY CreatedDate LIMIT 1]) { return x; }
+		return cuentaPorNombreNormalizado(n);
+	}
+
+	// Formas jurídicas y conectores que no distinguen a un cliente ("S.A. de C.V.", "S. de R.L.", "A.C.", "y").
+	private static final String SUFIJOS_NOMBRE = '\\b(S ?A ?P ?I|S ?A ?B|S ?A|S ?C|A ?C|S ?DE ?R ?L|S ?R ?L|DE ?C ?V|C ?V|'
+		+ 'DE|R ?L|SOCIEDAD ANONIMA|CAPITAL VARIABLE|SOCIEDAD CIVIL|ASOCIACION CIVIL|SOCIEDAD|Y|AND)\\b';
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Llave de comparación del nombre de un cliente: mayúsculas, sin acentos ni puntuación, sin la
+	 * forma jurídica y con las palabras en orden alfabético ("DI VECE CASIR, MARIO" y "Mario Di Vece Casir" dan
+	 * la misma llave).
+	 * @param nombre: Nombre del cliente
+	 * @return Llave; null si no queda ninguna palabra
+	 */
+	@TestVisible
+	private static String claveNombreCliente(String nombre) {
+		if (String.isBlank(nombre)) { return null; }
+		String s = nombre.toUpperCase();
+		s = s.replaceAll('[ÁÀÄÂ]', 'A').replaceAll('[ÉÈËÊ]', 'E').replaceAll('[ÍÌÏÎ]', 'I')
+			.replaceAll('[ÓÒÖÔ]', 'O').replaceAll('[ÚÙÜÛ]', 'U').replace('Ñ', 'N');
+		s = s.replace('&', ' Y ').replaceAll('[^A-Z0-9 ]', ' ').normalizeSpace();
+		String sinSufijos = s.replaceAll(SUFIJOS_NOMBRE, ' ').normalizeSpace();
+		if (String.isNotBlank(sinSufijos)) { s = sinSufijos; }
+		if (String.isBlank(s)) { return null; }
+		List<String> palabras = s.split(' ');
+		palabras.sort();
+		return String.join(palabras, ' ');
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Busca el cliente cuyo nombre normalizado es igual al del PDF. Trae como candidatos las cuentas
+	 * que contienen sus dos palabras más largas (con comodín en vocales y N, que pueden llevar acento o Ñ en la
+	 * cuenta) y se queda con la más antigua cuya llave coincide.
+	 * @param nombre: Nombre del cliente leído del PDF
+	 * @return Cuenta existente; null si no hay
+	 */
+	@TestVisible
+	private static Account cuentaPorNombreNormalizado(String nombre) {
+		String clave = claveNombreCliente(nombre);
+		if (clave == null) { return null; }
+		List<String> palabras = clave.split(' ');
+		List<String> largas = new List<String>();
+		for (String p : palabras) { if (p.length() >= 3) { largas.add(p); } }
+		if (largas.isEmpty()) { return null; }
+		// Las dos palabras más largas filtran los candidatos.
+		for (Integer i = 0; i < largas.size(); i++) {
+			for (Integer j = i + 1; j < largas.size(); j++) {
+				if (largas[j].length() > largas[i].length()) { String t = largas[i]; largas[i] = largas[j]; largas[j] = t; }
+			}
+		}
+		String p1 = '%' + largas[0].replaceAll('[AEIOUN]', '_') + '%';
+		String p2 = '%' + (largas.size() > 1 ? largas[1] : largas[0]).replaceAll('[AEIOUN]', '_') + '%';
+		for (Account x : [
+			SELECT Id, Name FROM Account WHERE Name LIKE :p1 AND Name LIKE :p2 ORDER BY CreatedDate LIMIT 500
+		]) {
+			if (claveNombreCliente(x.Name) == clave) { return x; }
+		}
 		return null;
 	}
 
