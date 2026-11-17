@@ -16,6 +16,18 @@
             </value>
         </inputParameters>
         <inputParameters>
+            <name>senderType</name>
+            <value>
+                <stringValue>OrgWideEmailAddress</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>senderAddress</name>
+            <value>
+                <stringValue>info@avanzaseguro.com</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
             <name>emailSubject</name>
             <value>
                 <elementReference>Asunto</elementReference>
@@ -31,7 +43,7 @@
     </actionCalls>
     <apiVersion>63.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
-    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse, envía un correo a abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com (pruebas; después correos@avanzaseguro.com) con el folio, el cliente, la póliza, lo que se pidió y la liga al caso.</description>
+    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse (en segundo plano, para que una falla del correo no impida guardar la solicitud), envía un correo desde info@avanzaseguro.com a abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com (pruebas; después correos@avanzaseguro.com) con el folio, el cliente, la póliza, lo que se pidió y la liga al caso.</description>
     <environments>Default</environments>
     <formulas>
         <name>LigaCaso</name>
@@ -61,12 +73,15 @@
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
-        <connector>
-            <targetReference>Correo_a_Avanza</targetReference>
-        </connector>
         <filterFormula>{!$Record.RecordType.DeveloperName} = &apos;Solicitud_Movimientos&apos;</filterFormula>
         <object>Case</object>
         <recordTriggerType>Create</recordTriggerType>
+        <scheduledPaths>
+            <connector>
+                <targetReference>Correo_a_Avanza</targetReference>
+            </connector>
+            <pathType>AsyncAfterCommit</pathType>
+        </scheduledPaths>
         <triggerType>RecordAfterSave</triggerType>
     </start>
     <status>Active</status>
