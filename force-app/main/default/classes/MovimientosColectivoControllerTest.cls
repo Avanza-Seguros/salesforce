@@ -718,4 +718,35 @@ private class MovimientosColectivoControllerTest {
 			if (m.get('id') == pedro) { System.assertEquals('SOL-0003', m.get('solicitud'), 'La de su último movimiento'); }
 		}
 	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitud del sitio (caso): al aplicar movimientos con su folio, el caso pasa a En proceso y la
+	 *               solicitud aparece como del sitio; al cerrar sus movimientos, el caso se concluye. El siguiente folio
+	 *               cuenta los de los casos.
+	 * @return void
+	 */
+	@isTest
+	static void testSolicitudDelSitio() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id pedro = participante(pol.Id, 'Pedro%');
+		Case c = new Case(RecordTypeId = EndosoPoliza.tipoCaso(), InsurancePolicy__c = pol.Id, Solicitud__c = 'SOL-0001',
+			Subject = 'SOL-0001 · prueba', Origin = 'Sitio Web');
+		insert c;
+		System.assertEquals('SOL-0002', EndosoPoliza.siguienteFolio(pol.Id), 'Cuenta el folio del caso');
+		List<Object> pendientes = (List<Object>) MovimientosColectivoController.getDatos(pol.Id).get('solicitudes');
+		System.assertEquals(true, ((Map<String, Object>) pendientes[0]).get('pendiente'), 'Recibida, por atender');
+		Test.startTest();
+		Map<String, Object> r = MovimientosColectivoController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2500 }) }, 'solicitud' => 'SOL-0001' }));
+		Test.stopTest();
+		System.assertEquals('SOL-0001', r.get('solicitud'), 'Se atiende con el folio del caso');
+		System.assertEquals(EndosoPoliza.estadoCaso('En proceso'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
+		Map<String, Object> s = (Map<String, Object>) ((List<Object>) MovimientosColectivoController.getDatos(pol.Id).get('solicitudes'))[0];
+		System.assertEquals(true, s.get('portal'));
+		System.assertEquals('En proceso', s.get('estadoPortal'));
+		MovimientosColectivoController.cerrarMovimiento([SELECT Id FROM Movimiento_Poliza__c WHERE Solicitud__c = 'SOL-0001' LIMIT 1].Id);
+		System.assertEquals(true, [SELECT IsClosed FROM Case WHERE Id = :c.Id].IsClosed, 'Movimientos cerrados: caso concluido');
+	}
 }

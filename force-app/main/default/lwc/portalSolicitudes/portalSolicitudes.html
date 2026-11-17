@@ -1,0 +1,111 @@
+<template>
+    <div class="solicitudes">
+        <template lwc:if={cargando}>
+            <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
+        </template>
+        <div lwc:if={error} class="aviso aviso_error" role="alert">{error}</div>
+        <div lwc:if={exito} class="aviso aviso_ok" role="status">{exito}</div>
+
+        <!-- Formulario de una solicitud nueva -->
+        <template lwc:if={formulario}>
+            <div class="tarjeta_form">
+                <div class="cabecera">
+                    <div>
+                        <p class="titulo">Nueva solicitud</p>
+                        <p class="subtitulo">Agrega las altas, bajas y cambios que necesitas. Tu asesor las tramita con la aseguradora.</p>
+                    </div>
+                </div>
+                <template for:each={filasMovimiento} for:item="m">
+                    <div key={m.key} class="movimiento">
+                        <div class="movimiento_cabecera">
+                            <span class="numero">{m.numero}</span>
+                            <lightning-combobox class="tipo" label="Movimiento" variant="label-hidden" value={m.tipo} options={opcionesTipo}
+                                data-key={m.key} onchange={handleTipo}></lightning-combobox>
+                            <button lwc:if={m.puedeQuitar} class="enlace quitar" data-key={m.key} onclick={handleQuitar}>Quitar</button>
+                        </div>
+                        <div class="campos">
+                            <template lwc:if={m.conRegistro}>
+                                <lightning-combobox class="ancho" label={nombreRegistro} value={m.registroId} options={opcionesRegistro}
+                                    placeholder="Elige de la póliza" data-key={m.key} data-campo="registroId" onchange={handleCampo} required></lightning-combobox>
+                            </template>
+                            <template for:each={m.campos} for:item="c">
+                                <template lwc:if={c.esLista}>
+                                    <lightning-combobox key={c.key} label={c.etiqueta} value={c.valor} options={c.opciones} data-key={m.key}
+                                        data-campo={c.clave} onchange={handleDato} required={c.requerido}></lightning-combobox>
+                                </template>
+                                <template lwc:else>
+                                    <lightning-input key={c.key} type={c.tipoInput} label={c.etiqueta} value={c.valor} data-key={m.key}
+                                        data-campo={c.clave} onchange={handleDato} required={c.requerido}></lightning-input>
+                                </template>
+                            </template>
+                            <template lwc:if={m.conTitular}>
+                                <lightning-combobox class="ancho" label="Titular" value={m.titularId} options={opcionesTitular}
+                                    placeholder="Titular del que depende" data-key={m.key} data-campo="titularId" onchange={handleCampo} required></lightning-combobox>
+                            </template>
+                            <lightning-input type="date" label={m.etiquetaFecha} value={m.fecha} data-key={m.key} data-campo="fecha" onchange={handleCampo}></lightning-input>
+                            <lightning-input class="ancho" label={m.etiquetaDetalle} value={m.detalle} data-key={m.key} data-campo="detalle"
+                                onchange={handleCampo} required={m.detalleRequerido} max-length="1000"></lightning-input>
+                        </div>
+                    </div>
+                </template>
+                <button class="enlace agregar" onclick={handleAgregar}>+ Agregar otro movimiento</button>
+
+                <lightning-textarea label="Comentario (opcional)" value={comentario} onchange={handleComentario} max-length="4000"
+                    class="comentario"></lightning-textarea>
+                <div class="adjuntos">
+                    <label class="boton_secundario">
+                        Adjuntar archivos
+                        <input type="file" multiple onchange={handleArchivos} class="oculto" />
+                    </label>
+                    <span class="nota">Excel con el listado, identificaciones, actas o lo que pida la aseguradora (hasta 4 MB en total).</span>
+                </div>
+                <ul lwc:if={hayArchivos} class="archivos">
+                    <template for:each={listaArchivos} for:item="a">
+                        <li key={a.key}>{a.nombre} <span class="celda_sub">{a.tamano}</span>
+                            <button class="enlace" data-i={a.i} onclick={handleQuitarArchivo}>Quitar</button></li>
+                    </template>
+                </ul>
+                <div class="acciones">
+                    <button class="boton_secundario" onclick={handleCancelar} disabled={enviando}>Cancelar</button>
+                    <button class="boton" onclick={handleEnviar} disabled={enviando}>Enviar solicitud</button>
+                </div>
+            </div>
+        </template>
+
+        <!-- Solicitudes enviadas -->
+        <template lwc:else>
+            <div class="cabecera">
+                <p class="subtitulo">Pide altas, bajas o cambios de la póliza y sigue su avance.</p>
+                <button lwc:if={puedeSolicitar} class="boton" onclick={handleNueva}>Nueva solicitud</button>
+            </div>
+            <p lwc:if={avisoSinPermiso} class="nota">{avisoSinPermiso}</p>
+            <template lwc:if={haySolicitudes}>
+                <ul class="lista">
+                    <template for:each={lista} for:item="s">
+                        <li key={s.folio} class="solicitud">
+                            <div class="solicitud_cabecera">
+                                <span class="folio">{s.folio}</span>
+                                <span class="celda_sub">{s.fechaTexto}</span>
+                                <span class="resumen">{s.resumen}</span>
+                                <span class={s.claseEstado}>{s.estado}</span>
+                            </div>
+                            <div class="solicitud_meta">
+                                <span lwc:if={s.avance}>{s.avance}</span>
+                                <span lwc:if={s.endososTexto}>{s.endososTexto}</span>
+                                <span lwc:if={s.documentosTexto}>{s.documentosTexto}</span>
+                                <button class="enlace" data-folio={s.folio} onclick={handleVer}>{s.textoVer}</button>
+                            </div>
+                            <p lwc:if={s.respuesta} class="respuesta">{s.respuesta}</p>
+                            <ul lwc:if={s.abierta} class="detalle">
+                                <template for:each={s.detalle} for:item="l">
+                                    <li key={l}>{l}</li>
+                                </template>
+                            </ul>
+                        </li>
+                    </template>
+                </ul>
+            </template>
+            <p lwc:elseif={datos} class="nota">Aún no hay solicitudes de esta póliza.</p>
+        </template>
+    </div>
+</template>

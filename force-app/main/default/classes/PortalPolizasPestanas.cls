@@ -817,4 +817,175 @@ public without sharing class PortalPolizasPestanas {
 		s.campos.add(c);
 		return c;
 	}
+
+	// ============================================================
+	// Solicitudes de movimientos (altas, bajas y cambios) desde el sitio
+	// ============================================================
+
+	// Tamaño máximo de los archivos de una solicitud (en total).
+	@TestVisible static final Integer MAX_BYTES_SOLICITUD = 4 * 1024 * 1024;
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pestaña Solicitudes: las solicitudes de movimientos que el cliente envió desde el sitio (casos de
+	 * tipo «Solicitud de movimientos») con su folio, estado (Recibida, En proceso, Cerrada o Rechazada) y lo que pidió.
+	 * Al contratante también le da los registros vigentes de la póliza (asegurados, vehículos o ubicaciones) para
+	 * pedir bajas y cambios.
+	 * @param policyId: Id de la póliza
+	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
+	 * @return tipo, puedeSolicitar, registros y solicitudes
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> solicitudes(Id policyId, Id cuentaVistaPrevia) {
+		try {
+			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
+			Boolean contratante = roles.get(policyId) == 'Titular';
+			Bienes bienes = asegurados(policyId, cuentaVistaPrevia);
+			List<Map<String, Object>> registros = new List<Map<String, Object>>();
+			if (contratante) {
+				for (Fila f : bienes.filas) {
+					if (f.activo == false) { continue; }
+					registros.add(new Map<String, Object>{ 'id' => f.id, 'clave' => f.clave, 'nombre' => f.nombre,
+						'detalle' => f.detalle, 'dependiente' => f.dependiente });
+				}
+			}
+			List<Map<String, Object>> lista = new List<Map<String, Object>>();
+			for (Map<String, Object> s : EndosoPoliza.solicitudes(policyId, null)) {
+				if (s.get('portal') != true) { continue; }
+				lista.add(new Map<String, Object>{
+					'folio' => s.get('folio'), 'caso' => s.get('caso'), 'fecha' => s.get('fecha'), 'estado' => s.get('estadoPortal'),
+					'asunto' => s.get('asunto'), 'descripcion' => s.get('descripcion'), 'respuesta' => s.get('respuesta'),
+					'enviadaPor' => s.get('enviadaPor'), 'aplicados' => s.get('total'), 'abiertos' => s.get('abiertos'),
+					'endosos' => s.get('endosos'), 'documentos' => ((List<Object>) s.get('documentos')).size()
+				});
+			}
+			return new Map<String, Object>{
+				'tipo' => bienes.tipo, 'esContratante' => contratante, 'vistaPrevia' => cuentaVistaPrevia != null,
+				'puedeSolicitar' => contratante && cuentaVistaPrevia == null && EndosoPoliza.tipoCaso() != null,
+				'registros' => registros, 'solicitudes' => lista
+			};
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			throw PortalPolizasController.errorSitio(e);
+		}
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El contratante envía una solicitud de movimientos: se crea un caso «Solicitud de movimientos» ligado
+	 * a la póliza, con el folio de solicitud de la póliza (SOL-0001...), lo que pidió y sus archivos. Queda pendiente
+	 * hasta que el ejecutivo lo aplica; al crearse se avisa por correo a Avanza (flujo del caso).
+	 * @param policyId: Id de la póliza
+	 * @param solicitudJson: { movimientos: [{ tipo: alta|baja|cambio, registroId, fecha, detalle, datos: [{ etiqueta, valor }] }],
+	 *                        comentario, archivos: [{ nombre, base64 }] }
+	 * @return folio y número de caso
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> crearSolicitud(Id policyId, String solicitudJson) {
+		try {
+			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, null);
+			if (roles.get(policyId) != 'Titular') {
+				throw new AuraHandledException('Solo el contratante de la póliza puede enviar solicitudes de movimientos.');
+			}
+			Id tipoCaso = EndosoPoliza.tipoCaso();
+			if (tipoCaso == null) { throw new AuraHandledException('Las solicitudes no están disponibles por ahora. Contacta a tu asesor.'); }
+			Map<String, Object> d = String.isBlank(solicitudJson) ? new Map<String, Object>()
+				: (Map<String, Object>) JSON.deserializeUntyped(solicitudJson);
+			List<Object> movs = d.get('movimientos') instanceof List<Object> ? (List<Object>) d.get('movimientos') : new List<Object>();
+			if (movs.isEmpty()) { throw new AuraHandledException('Agrega al menos un movimiento a la solicitud.'); }
+			if (movs.size() > 500) { throw new AuraHandledException('Una solicitud admite hasta 500 movimientos; para más, adjunta el archivo.'); }
+
+			Bienes bienes = asegurados(policyId, null);
+			Map<Id, Fila> vigentes = new Map<Id, Fila>();
+			for (Fila f : bienes.filas) { if (f.activo != false) { vigentes.put(f.id, f); } }
+			Map<String, String> nombres = new Map<String, String>{ 'alta' => 'Alta', 'baja' => 'Baja', 'cambio' => 'Cambio' };
+			Map<String, Integer> cuenta = new Map<String, Integer>{ 'alta' => 0, 'baja' => 0, 'cambio' => 0 };
+			List<String> lineas = new List<String>();
+			Integer i = 0;
+			for (Object o : movs) {
+				i++;
+				Map<String, Object> m = (Map<String, Object>) o;
+				String tipo = String.valueOf(m.get('tipo')).toLowerCase();
+				if (!nombres.containsKey(tipo)) { throw new AuraHandledException('Movimiento ' + i + ': tipo no válido.'); }
+				cuenta.put(tipo, cuenta.get(tipo) + 1);
+				List<String> partes = new List<String>{ i + '. ' + nombres.get(tipo).toUpperCase() };
+				if (tipo != 'alta') {
+					Fila f = m.get('registroId') == null ? null : vigentes.get((Id) String.valueOf(m.get('registroId')));
+					if (f == null) { throw new AuraHandledException('Movimiento ' + i + ': elige un registro vigente de la póliza.'); }
+					partes.add((String.isBlank(f.clave) ? '' : f.clave + ' · ') + f.nombre);
+				}
+				if (m.get('datos') instanceof List<Object>) {
+					for (Object x : (List<Object>) m.get('datos')) {
+						Map<String, Object> dx = (Map<String, Object>) x;
+						if (dx.get('valor') != null && String.isNotBlank(String.valueOf(dx.get('valor')))) {
+							partes.add(dx.get('etiqueta') + ': ' + dx.get('valor'));
+						}
+					}
+				}
+				if (tipo == 'alta' && partes.size() == 1) { throw new AuraHandledException('Movimiento ' + i + ': captura los datos del alta.'); }
+				if (m.get('fecha') != null && String.isNotBlank(String.valueOf(m.get('fecha')))) { partes.add('Fecha solicitada: ' + m.get('fecha')); }
+				if (m.get('detalle') != null && String.isNotBlank(String.valueOf(m.get('detalle')))) {
+					partes.add((tipo == 'baja' ? 'Motivo: ' : (tipo == 'cambio' ? 'Cambio: ' : 'Nota: ')) + m.get('detalle'));
+				}
+				if (tipo == 'cambio' && (m.get('detalle') == null || String.isBlank(String.valueOf(m.get('detalle'))))) {
+					throw new AuraHandledException('Movimiento ' + i + ': describe qué se cambia.');
+				}
+				lineas.add(String.join(partes, ' · '));
+			}
+
+			// Archivos (opcionales): Excel o PDF con el detalle, identificaciones, actas...
+			List<ContentVersion> archivos = new List<ContentVersion>();
+			Integer bytes = 0;
+			if (d.get('archivos') instanceof List<Object>) {
+				for (Object o : (List<Object>) d.get('archivos')) {
+					Map<String, Object> a = (Map<String, Object>) o;
+					Blob b = EncodingUtil.base64Decode(String.valueOf(a.get('base64')));
+					bytes += b.size();
+					String nombre = String.valueOf(a.get('nombre'));
+					archivos.add(new ContentVersion(Title = nombre.substringBeforeLast('.').left(255), PathOnClient = nombre, VersionData = b));
+				}
+			}
+			if (bytes > MAX_BYTES_SOLICITUD) { throw new AuraHandledException('Los archivos suman más de 4 MB. Envía archivos más ligeros.'); }
+
+			List<String> resumen = new List<String>();
+			for (String t : new List<String>{ 'alta', 'baja', 'cambio' }) {
+				Integer n = cuenta.get(t);
+				if (n > 0) { resumen.add(n + ' ' + nombres.get(t).toLowerCase() + (n == 1 ? '' : 's')); }
+			}
+			String tipoUnico = null;
+			for (String t : cuenta.keySet()) {
+				if (cuenta.get(t) > 0) { tipoUnico = tipoUnico == null ? nombres.get(t) : 'varios'; }
+			}
+			InsurancePolicy p = [SELECT Name, OwnerId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+			List<Id> yo = PortalPolizasController.identidad(null);
+			String comentario = d.get('comentario') == null ? '' : String.valueOf(d.get('comentario')).trim();
+			String folio = EndosoPoliza.siguienteFolio(policyId);
+			Case c = new Case(RecordTypeId = tipoCaso, InsurancePolicy__c = policyId, AccountId = yo[0], Origin = 'Sitio Web',
+				Solicitud__c = folio, Subject = (folio + ' · Póliza ' + p.Name + ' · ' + String.join(resumen, ', ')).left(255),
+				Description = ('Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName() + ' para la póliza ' + p.Name + '.\n\n'
+					+ String.join(lineas, '\n') + (String.isBlank(comentario) ? '' : '\n\nComentario del cliente: ' + comentario)).left(32000),
+				Comentarios__c = String.isBlank(comentario) ? null : comentario.left(131072));
+			if (tipoUnico != null && tipoUnico != 'varios') { c.Reason = tipoUnico; }
+			// El caso lo atiende el ejecutivo dueño de la póliza.
+			if (p.OwnerId != null && p.OwnerId.getSobjectType() == User.SObjectType
+					&& [SELECT COUNT() FROM User WHERE Id = :p.OwnerId AND IsActive = true AND ContactId = null] > 0) {
+				c.OwnerId = p.OwnerId;
+			}
+			insert c;
+			for (ContentVersion v : archivos) { v.FirstPublishLocationId = c.Id; }
+			if (!archivos.isEmpty()) { insert archivos; }
+			return new Map<String, Object>{ 'folio' => folio, 'caso' => [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber };
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			System.debug(LoggingLevel.ERROR, 'crearSolicitud: ' + e.getMessage() + ' | ' + e.getStackTraceString());
+			String msg = 'No se pudo enviar la solicitud. Intenta de nuevo o contacta a tu asesor.';
+			AuraHandledException a = new AuraHandledException(msg);
+			a.setMessage(msg);
+			throw a;
+		}
+	}
 }

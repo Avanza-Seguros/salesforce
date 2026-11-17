@@ -366,6 +366,10 @@
                                 </template>
                             </template>
                         </div>
+                        <!-- Solicitudes de altas, bajas y cambios -->
+                        <div lwc:if={verSolicitudes} class="pestana_panel" role="tabpanel">
+                            <c-portal-solicitudes policy-id={seleccionadaId} cuenta-vista-previa={cuentaVistaPrevia}></c-portal-solicitudes>
+                        </div>
                 </section>
             </template>
         </template>

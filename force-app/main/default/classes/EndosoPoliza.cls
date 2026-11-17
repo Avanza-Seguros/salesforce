@@ -103,9 +103,19 @@ public with sharing class EndosoPoliza {
 		}
 		if (l.isEmpty() || policyId == null) { return null; }
 		String folio = null;
-		if (String.isNotBlank(pedida) && !pedida.equalsIgnoreCase('nueva')
-				&& [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :pedida] > 0) {
-			folio = pedida;
+		if (String.isNotBlank(pedida) && !pedida.equalsIgnoreCase('nueva')) {
+			// Folio de la póliza: de movimientos ya registrados o de un caso que el cliente envió desde el sitio.
+			List<Case> casos = new SinCompartir().casosDeFolio(policyId, pedida);
+			if (!casos.isEmpty() || [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :pedida] > 0) {
+				folio = pedida;
+			}
+			// El caso del sitio pasa a En proceso al aplicar sus primeros movimientos.
+			String enProceso = estadoCaso('En proceso');
+			List<Case> cambiar = new List<Case>();
+			for (Case c : casos) {
+				if (!c.IsClosed && enProceso != null && c.Status != enProceso) { cambiar.add(new Case(Id = c.Id, Status = enProceso)); }
+			}
+			new SinCompartir().actualizar(cambiar);
 		}
 		if (folio == null) { folio = siguienteFolio(policyId); }
 		for (Movimiento_Poliza__c m : l) { m.Solicitud__c = folio; }
@@ -113,14 +123,23 @@ public with sharing class EndosoPoliza {
 		return folio;
 	}
 
-	// Siguiente folio de solicitud de la póliza.
-	@TestVisible
-	private static String siguienteFolio(Id policyId) {
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Siguiente folio de solicitud de la póliza (SOL-0001, SOL-0002...), contando los de los movimientos y
+	 *               los de los casos que el cliente envió desde el sitio.
+	 * @param policyId: póliza.
+	 * @return folio.
+	 */
+	public static String siguienteFolio(Id policyId) {
 		Integer max = 0;
+		List<String> folios = new List<String>();
 		for (AggregateResult ar : [
 			SELECT Solicitud__c s FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c LIKE 'SOL-%' GROUP BY Solicitud__c
-		]) {
-			String n = ((String) ar.get('s')).substringAfter('SOL-');
+		]) { folios.add((String) ar.get('s')); }
+		for (Case c : new SinCompartir().casos(policyId)) { folios.add(c.Solicitud__c); }
+		for (String f : folios) {
+			String n = f == null ? '' : f.substringAfter('SOL-');
 			if (n.isNumeric() && Integer.valueOf(n) > max) { max = Integer.valueOf(n); }
 		}
 		return 'SOL-' + String.valueOf(max + 1).leftPad(4, '0');
@@ -129,31 +148,46 @@ public with sharing class EndosoPoliza {
 	/**
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Valor de estado de caso que corresponde (los orgs no tienen los mismos): 'Creado' (el inicial),
+	 *               'En proceso' (abierto que no es el inicial) o 'Concluido' (cerrado, sin contar Merged).
+	 * @param buscado: 'Creado', 'En proceso' o 'Concluido'.
+	 * @return el valor del org, o null.
+	 */
+	public static String estadoCaso(String buscado) {
+		String inicial;
+		String abierto;
+		String cerrado;
+		for (CaseStatus s : [SELECT ApiName, IsClosed, IsDefault FROM CaseStatus ORDER BY SortOrder]) {
+			if (s.ApiName == buscado) { return s.ApiName; }
+			if (s.IsDefault && inicial == null) { inicial = s.ApiName; }
+			else if (!s.IsClosed && abierto == null) { abierto = s.ApiName; }
+			else if (s.IsClosed && s.ApiName != 'Merged' && cerrado == null) { cerrado = s.ApiName; }
+		}
+		return buscado == 'Creado' ? inicial : (buscado == 'Concluido' ? cerrado : abierto);
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Solicitudes del cliente de la póliza (más reciente primero): folio, fecha en que se registró,
 	 *               quién la registró, cuántos movimientos tiene (altas, bajas y cambios), cuántos siguen abiertos y sus
-	 *               números de endoso.
+	 *               números de endoso. Las que el cliente envió desde el sitio (casos) traen además el caso, quién la
+	 *               envió, lo que pidió, su comentario, sus archivos y su estado (Recibida, En proceso, Cerrada o Rechazada).
 	 * @param policyId: póliza.
-	 * @param ramo: 'asegurados', 'vehiculos' o 'ubicaciones' (solo las solicitudes con movimientos de ese ramo).
+	 * @param ramo: 'asegurados', 'vehiculos' o 'ubicaciones' (solo las solicitudes de ese ramo).
 	 * @return lista de solicitudes como mapas.
 	 */
 	public static List<Map<String, Object>> solicitudes(Id policyId, String ramo) {
 		Map<String, Map<String, Object>> porFolio = new Map<String, Map<String, Object>>();
-		List<String> orden = new List<String>();
 		if (policyId == null) { return new List<Map<String, Object>>(); }
-		for (Movimiento_Poliza__c m : [
-			SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Participante__c, Inciso__c
-			FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c != null ORDER BY CreatedDate, Id LIMIT 10000
-		]) {
+		// Sin compartir: el cliente del sitio también ve el avance de sus solicitudes.
+		for (Movimiento_Poliza__c m : new SinCompartir().movimientos(policyId)) {
 			String r = m.Participante__c != null ? 'asegurados' : (m.Inciso__c != null ? 'vehiculos' : 'ubicaciones');
 			if (String.isNotBlank(ramo) && r != ramo) { continue; }
 			Map<String, Object> s = porFolio.get(m.Solicitud__c);
 			if (s == null) {
-				s = new Map<String, Object>{
-					'folio' => m.Solicitud__c, 'fecha' => m.CreatedDate, 'usuario' => m.CreatedBy == null ? null : m.CreatedBy.Name,
-					'total' => 0, 'altas' => 0, 'bajas' => 0, 'cambios' => 0, 'abiertos' => 0, 'endosos' => new List<String>()
-				};
+				s = nuevaSolicitud(m.Solicitud__c, m.CreatedDate, m.CreatedBy == null ? null : m.CreatedBy.Name);
 				porFolio.put(m.Solicitud__c, s);
-				orden.add(m.Solicitud__c);
 			}
 			s.put('total', (Integer) s.get('total') + 1);
 			String t = m.Tipo__c == 'Alta' ? 'altas' : (m.Tipo__c == 'Baja' ? 'bajas' : 'cambios');
@@ -162,9 +196,156 @@ public with sharing class EndosoPoliza {
 			List<String> e = (List<String>) s.get('endosos');
 			if (String.isNotBlank(m.Numero_Endoso__c) && !e.contains(m.Numero_Endoso__c.trim())) { e.add(m.Numero_Endoso__c.trim()); }
 		}
+		// Casos del sitio: la fecha y quién la registró son las del caso.
+		List<Case> casos = new SinCompartir().casos(policyId);
+		Set<Id> casoIds = new Map<Id, Case>(casos).keySet();
+		Map<Id, List<Map<String, Object>>> docs = new Map<Id, List<Map<String, Object>>>();
+		Map<Id, String> comentarios = new Map<Id, String>();
+		if (!casoIds.isEmpty()) {
+			for (ContentDocumentLink l : new SinCompartir().archivos(casoIds)) {
+				if (!docs.containsKey(l.LinkedEntityId)) { docs.put(l.LinkedEntityId, new List<Map<String, Object>>()); }
+				docs.get(l.LinkedEntityId).add(new Map<String, Object>{ 'id' => l.ContentDocumentId,
+					'titulo' => l.ContentDocument.Title + (String.isBlank(l.ContentDocument.FileExtension) ? '' : '.' + l.ContentDocument.FileExtension) });
+			}
+			for (CaseComment cc : new SinCompartir().comentarios(casoIds)) {
+				if (!comentarios.containsKey(cc.ParentId)) { comentarios.put(cc.ParentId, cc.CommentBody); }
+			}
+		}
+		for (Case c : casos) {
+			if (String.isBlank(c.Solicitud__c)) { continue; }
+			Map<String, Object> s = porFolio.get(c.Solicitud__c);
+			if (s == null) {
+				s = nuevaSolicitud(c.Solicitud__c, c.CreatedDate, null);
+				porFolio.put(c.Solicitud__c, s);
+			}
+			Integer total = (Integer) s.get('total');
+			Integer abiertos = (Integer) s.get('abiertos');
+			String estado = c.IsClosed ? (total == 0 ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
+			s.putAll(new Map<String, Object>{
+				'fecha' => c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber, 'estadoPortal' => estado,
+				'pendiente' => estado == 'Recibida', 'enviadaPor' => c.CreatedBy == null ? null : c.CreatedBy.Name,
+				'usuario' => c.CreatedBy == null ? null : c.CreatedBy.Name,
+				'asunto' => c.Subject, 'descripcion' => c.Description, 'comentario' => c.Comentarios__c,
+				'respuesta' => comentarios.get(c.Id),
+				'documentos' => docs.containsKey(c.Id) ? docs.get(c.Id) : new List<Map<String, Object>>()
+			});
+		}
+		// Más reciente primero.
+		List<SolicitudOrden> orden = new List<SolicitudOrden>();
+		for (Map<String, Object> s : porFolio.values()) { orden.add(new SolicitudOrden(s)); }
+		orden.sort();
 		List<Map<String, Object>> res = new List<Map<String, Object>>();
-		for (Integer i = orden.size() - 1; i >= 0; i--) { res.add(porFolio.get(orden[i])); }
+		for (SolicitudOrden o : orden) { res.add(o.s); }
 		return res;
+	}
+
+	private static Map<String, Object> nuevaSolicitud(String folio, Datetime fecha, String usuario) {
+		return new Map<String, Object>{
+			'folio' => folio, 'fecha' => fecha, 'usuario' => usuario, 'portal' => false,
+			'total' => 0, 'altas' => 0, 'bajas' => 0, 'cambios' => 0, 'abiertos' => 0, 'endosos' => new List<String>()
+		};
+	}
+
+	// Orden de las solicitudes: la más reciente primero.
+	private class SolicitudOrden implements Comparable {
+		Map<String, Object> s;
+		SolicitudOrden(Map<String, Object> s) { this.s = s; }
+		public Integer compareTo(Object o) {
+			Datetime a = (Datetime) s.get('fecha');
+			Datetime b = (Datetime) ((SolicitudOrden) o).s.get('fecha');
+			if (a == b) { return String.valueOf(((SolicitudOrden) o).s.get('folio')).compareTo(String.valueOf(s.get('folio'))); }
+			if (a == null) { return 1; }
+			if (b == null) { return -1; }
+			return a > b ? -1 : 1;
+		}
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo rechaza una solicitud que el cliente envió desde el sitio: el motivo queda como
+	 *               comentario público del caso (el cliente lo ve en el sitio) y el caso se concluye.
+	 * @param casoId: caso de la solicitud.
+	 * @param motivo: por qué no procede.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void rechazarSolicitud(Id casoId, String motivo) {
+		if (casoId == null || String.isBlank(motivo)) { throw new AuraHandledException('Escribe el motivo del rechazo.'); }
+		try {
+			new SinCompartir().rechazar(casoId, motivo.trim(), estadoCaso('Concluido'));
+		} catch (Exception e) {
+			AuraHandledException ex = new AuraHandledException('No se pudo rechazar la solicitud: ' + e.getMessage());
+			ex.setMessage('No se pudo rechazar la solicitud: ' + e.getMessage());
+			throw ex;
+		}
+	}
+
+	// Casos del sitio: el ejecutivo los ve y los atiende aunque no sea su dueño.
+	private without sharing class SinCompartir {
+		List<Case> casosDe(Id policyId, String folio) {
+			Id rt = tipoCaso();
+			if (rt == null) { return new List<Case>(); }
+			String q = 'SELECT Id, CaseNumber, Solicitud__c, Status, IsClosed, Subject, Description, Comentarios__c, CreatedDate,'
+				+ ' CreatedBy.Name FROM Case WHERE RecordTypeId = :rt AND InsurancePolicy__c = :policyId AND Solicitud__c != null'
+				+ (folio == null ? '' : ' AND Solicitud__c = :folio') + ' ORDER BY CreatedDate DESC LIMIT 500';
+			return Database.queryWithBinds(q, new Map<String, Object>{ 'rt' => rt, 'policyId' => policyId, 'folio' => folio }, AccessLevel.SYSTEM_MODE);
+		}
+		List<Movimiento_Poliza__c> movimientos(Id policyId) {
+			return [
+				SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Participante__c, Inciso__c
+				FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c != null ORDER BY CreatedDate, Id LIMIT 10000
+			];
+		}
+		List<Case> casos(Id policyId) { return casosDe(policyId, null); }
+		List<Case> casosDeFolio(Id policyId, String folio) { return casosDe(policyId, folio); }
+		void actualizar(List<Case> l) { if (!l.isEmpty()) { update l; } }
+		List<ContentDocumentLink> archivos(Set<Id> ids) {
+			return [SELECT LinkedEntityId, ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension
+				FROM ContentDocumentLink WHERE LinkedEntityId IN :ids];
+		}
+		List<CaseComment> comentarios(Set<Id> ids) {
+			return [SELECT ParentId, CommentBody FROM CaseComment WHERE ParentId IN :ids AND IsPublished = true ORDER BY CreatedDate DESC];
+		}
+		void rechazar(Id casoId, String motivo, String cerrado) {
+			insert new CaseComment(ParentId = casoId, IsPublished = true, CommentBody = ('Solicitud rechazada: ' + motivo).left(4000));
+			update new Case(Id = casoId, Status = cerrado);
+		}
+		// Al cerrar los movimientos de una solicitud del sitio, su caso se concluye.
+		void concluir(Set<Id> movimientoIds) {
+			Map<Id, Set<String>> folios = new Map<Id, Set<String>>();
+			for (Movimiento_Poliza__c m : [SELECT Poliza__c, Solicitud__c FROM Movimiento_Poliza__c WHERE Id IN :movimientoIds AND Solicitud__c != null AND Poliza__c != null]) {
+				if (!folios.containsKey(m.Poliza__c)) { folios.put(m.Poliza__c, new Set<String>()); }
+				folios.get(m.Poliza__c).add(m.Solicitud__c);
+			}
+			Id rt = tipoCaso();
+			if (folios.isEmpty() || rt == null) { return; }
+			Set<String> todos = new Set<String>();
+			for (Set<String> s : folios.values()) { todos.addAll(s); }
+			Set<String> abiertos = new Set<String>();
+			for (Movimiento_Poliza__c m : [
+				SELECT Poliza__c, Solicitud__c FROM Movimiento_Poliza__c
+				WHERE Poliza__c IN :folios.keySet() AND Solicitud__c IN :todos AND Fecha_Cierre__c = null
+			]) { abiertos.add(m.Poliza__c + '|' + m.Solicitud__c); }
+			String cerrado = estadoCaso('Concluido');
+			List<Case> l = new List<Case>();
+			for (Case c : [
+				SELECT Id, InsurancePolicy__c, Solicitud__c FROM Case
+				WHERE RecordTypeId = :rt AND InsurancePolicy__c IN :folios.keySet() AND Solicitud__c IN :todos AND IsClosed = false
+			]) {
+				if (folios.get(c.InsurancePolicy__c).contains(c.Solicitud__c) && !abiertos.contains(c.InsurancePolicy__c + '|' + c.Solicitud__c)) {
+					l.add(new Case(Id = c.Id, Status = cerrado));
+				}
+			}
+			if (!l.isEmpty() && cerrado != null) { update l; }
+		}
+	}
+
+	/**
+	 * @return Id del tipo de registro de caso «Solicitud de movimientos», o null si el org no lo tiene.
+	 */
+	public static Id tipoCaso() {
+		Schema.RecordTypeInfo i = Schema.SObjectType.Case.getRecordTypeInfosByDeveloperName().get('Solicitud_Movimientos');
+		return i == null ? null : i.getRecordTypeId();
 	}
 
 	/**
@@ -338,6 +519,8 @@ public with sharing class EndosoPoliza {
 	 */
 	public static void aprobarCerrados(Set<Id> movimientoIds) {
 		if (movimientoIds == null || movimientoIds.isEmpty()) { return; }
+		// Solicitudes del sitio cuyos movimientos ya están todos cerrados: su caso se concluye.
+		new SinCompartir().concluir(movimientoIds);
 		Set<Id> trans = new Set<Id>();
 		for (Movimiento_Poliza__c m : [SELECT Transaccion__c FROM Movimiento_Poliza__c WHERE Id IN :movimientoIds AND Transaccion__c != null]) {
 			trans.add(m.Transaccion__c);

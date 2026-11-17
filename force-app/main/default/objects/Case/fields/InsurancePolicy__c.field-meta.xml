@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>InsurancePolicy__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Póliza de FSC (InsurancePolicy) del caso. Las solicitudes de movimientos del sitio se ligan aquí; Poliza__c y Polizas__c son del objeto anterior Polizas__c.</description>
+    <label>Póliza de seguro</label>
+    <referenceTo>InsurancePolicy</referenceTo>
+    <relationshipLabel>Casos</relationshipLabel>
+    <relationshipName>Casos</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

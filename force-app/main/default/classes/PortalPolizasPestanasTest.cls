@@ -208,4 +208,80 @@ private class PortalPolizasPestanasTest {
 		System.assertEquals('personas', PortalPolizasPestanas.tipoRamo(null));
 		System.assertEquals('ubicaciones', PortalPolizasPestanas.tipoRamo('Empresarial'));
 	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitudes de movimientos del sitio: el contratante envía un alta y una baja con un archivo; se crea
+	 * el caso «Solicitud de movimientos» con el folio SOL-0001, ligado a la póliza, y aparece como Recibida. Se validan
+	 * los datos; quien no es el contratante no puede enviar. Al rechazarla, el cliente ve el motivo.
+	 * @return void
+	 */
+	@isTest
+	static void testSolicitudesDelSitio() {
+		Account empresa = new Account(Name = 'Empresa Solicitudes');
+		insert empresa;
+		Contact empleado = new Contact(LastName = 'Empleado', AccountId = empresa.Id);
+		insert empleado;
+		InsurancePolicy col = poliza(empresa.Id, 'COL-SOL-1', 'GMM');
+		insert col;
+		InsurancePolicyParticipant titular = new InsurancePolicyParticipant(InsurancePolicyId = col.Id,
+			PrimaryParticipantContactId = empleado.Id, Role = rol('asegurado'), ParticipantCode = '1', IsActiveParticipant = true);
+		insert titular;
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+
+		Map<String, Object> alta = new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => '2026-12-01', 'datos' => new List<Object>{
+			new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' },
+			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } } };
+		Map<String, Object> baja = new Map<String, Object>{ 'tipo' => 'baja', 'registroId' => titular.Id, 'detalle' => 'Renuncia' };
+		Test.startTest();
+		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ alta, baja }, 'comentario' => 'Urgente',
+			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'altas.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
+		}));
+		Integer errores = 0;
+		for (Object m : new List<Object>{
+			new List<Object>(),
+			new List<Object>{ new Map<String, Object>{ 'tipo' => 'cambio', 'registroId' => titular.Id } },
+			new List<Object>{ new Map<String, Object>{ 'tipo' => 'baja' } },
+			new List<Object>{ new Map<String, Object>{ 'tipo' => 'alta' } }
+		}) {
+			try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => m })); }
+			catch (AuraHandledException e) { errores++; }
+		}
+		Map<String, Object> vista = PortalPolizasPestanas.solicitudes(col.Id, null);
+		Test.stopTest();
+
+		System.assertEquals('SOL-0001', r.get('folio'));
+		Case c = [SELECT RecordType.DeveloperName, InsurancePolicy__c, Solicitud__c, Origin, AccountId, Description, IsClosed FROM Case WHERE InsurancePolicy__c = :col.Id];
+		System.assertEquals('Solicitud_Movimientos', c.RecordType.DeveloperName);
+		System.assertEquals('SOL-0001', c.Solicitud__c);
+		System.assertEquals('Sitio Web', c.Origin);
+		System.assertEquals(empresa.Id, c.AccountId);
+		System.assert(c.Description.contains('1. ALTA') && c.Description.contains('2. BAJA · 1 · ') && c.Description.contains('Motivo: Renuncia'), c.Description);
+		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :c.Id], 'El archivo queda en el caso');
+		System.assertEquals(4, errores, 'Sin movimientos, cambio sin detalle, baja sin registro y alta sin datos no son válidos');
+		System.assertEquals(true, vista.get('puedeSolicitar'));
+		System.assertEquals(1, ((List<Object>) vista.get('registros')).size());
+		List<Object> sols = (List<Object>) vista.get('solicitudes');
+		System.assertEquals(1, sols.size());
+		System.assertEquals('Recibida', ((Map<String, Object>) sols[0]).get('estado'));
+		System.assertEquals(1, ((Map<String, Object>) sols[0]).get('documentos'));
+
+		// Rechazo del ejecutivo: el cliente ve el motivo.
+		EndosoPoliza.rechazarSolicitud(c.Id, 'Falta el acta de nacimiento');
+		Map<String, Object> s = (Map<String, Object>) ((List<Object>) PortalPolizasPestanas.solicitudes(col.Id, null).get('solicitudes'))[0];
+		System.assertEquals('Rechazada', s.get('estado'));
+		System.assert(String.valueOf(s.get('respuesta')).contains('Falta el acta'), s.get('respuesta'));
+
+		// Quien no es el contratante no envía solicitudes.
+		PortalPolizasController.cuentaPrueba = null;
+		PortalPolizasController.contactoPrueba = empleado.Id;
+		Boolean bloqueado = false;
+		try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ alta } })); }
+		catch (AuraHandledException e) { bloqueado = true; }
+		System.assert(bloqueado, 'Solo el contratante');
+		System.assertEquals(false, PortalPolizasPestanas.solicitudes(col.Id, null).get('puedeSolicitar'));
+	}
 }

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Solicitud_Movimientos</fullName>
+    <active>true</active>
+    <businessProcess>Mov</businessProcess>
+    <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
+    <description>Solicitud de altas, bajas o cambios que el cliente envía desde el sitio para una póliza de FSC (Fuente = la póliza). Queda en Creado hasta que el ejecutivo la aplica (En proceso) y se concluye al cerrar sus movimientos.</description>
+    <label>Solicitud de movimientos</label>
+    <picklistValues>
+        <picklist>Origin</picklist>
+        <values>
+            <fullName>Sitio Web</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Reason</picklist>
+        <values>
+            <fullName>Alta</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Baja</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cambio</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

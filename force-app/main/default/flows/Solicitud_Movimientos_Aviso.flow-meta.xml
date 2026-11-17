@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <description>Avisa a Avanza (correos@avanzaseguro.com) que el cliente envió una solicitud de movimientos desde el sitio.</description>
+        <name>Correo_a_Avanza</name>
+        <label>Correo a Avanza</label>
+        <locationX>176</locationX>
+        <locationY>323</locationY>
+        <actionName>emailSimple</actionName>
+        <actionType>emailSimple</actionType>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>emailAddresses</name>
+            <value>
+                <stringValue>correos@avanzaseguro.com</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>emailSubject</name>
+            <value>
+                <elementReference>Asunto</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>emailBody</name>
+            <value>
+                <elementReference>Cuerpo</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>emailSimple</nameSegment>
+    </actionCalls>
+    <apiVersion>63.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse, envía un correo a correos@avanzaseguro.com con el folio, el cliente, la póliza, lo que se pidió y la liga al caso.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>LigaCaso</name>
+        <dataType>String</dataType>
+        <expression>LEFT({!$Api.Partner_Server_URL_590}, FIND(&apos;/services&apos;, {!$Api.Partner_Server_URL_590})) &amp; {!$Record.Id}</expression>
+    </formulas>
+    <formulas>
+        <name>Asunto</name>
+        <dataType>String</dataType>
+        <expression>&apos;Nueva solicitud de movimientos &apos; &amp; {!$Record.Solicitud__c} &amp; &apos; · &apos; &amp; {!$Record.Account.Name} &amp; &apos; · Póliza &apos; &amp; {!$Record.InsurancePolicy__r.Name}</expression>
+    </formulas>
+    <interviewLabel>Solicitud de movimientos: aviso {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Solicitud de movimientos: aviso a Avanza</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Correo_a_Avanza</targetReference>
+        </connector>
+        <filterFormula>{!$Record.RecordType.DeveloperName} = &apos;Solicitud_Movimientos&apos;</filterFormula>
+        <object>Case</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+    <textTemplates>
+        <name>Cuerpo</name>
+        <isViewedAsPlainText>true</isViewedAsPlainText>
+        <text>El cliente envió una solicitud de movimientos desde el sitio.
+
+Folio: {!$Record.Solicitud__c}
+Caso: {!$Record.CaseNumber}
+Cliente: {!$Record.Account.Name}
+Póliza: {!$Record.InsurancePolicy__r.Name}
+Enviada por: {!$Record.CreatedBy.Name}
+
+{!$Record.Description}
+
+Ver el caso: {!LigaCaso}
+
+La solicitud queda pendiente en la pestaña de movimientos de la póliza (Asegurados, Vehículos o Ubicaciones) hasta que se aplique o se rechace.</text>
+    </textTemplates>
+</Flow>

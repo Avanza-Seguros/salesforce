@@ -314,7 +314,7 @@ export default class PortalPolizas extends LightningElement {
         this.errorDetalle = undefined;
         this.cargandoDetalle = true;
         this.reiniciarPestanas();
-        if (pestana && ['info', 'pagos', 'vigencias', 'asegurados', 'participantes'].includes(pestana)) {
+        if (pestana && ['info', 'pagos', 'vigencias', 'asegurados', 'participantes', 'solicitudes'].includes(pestana)) {
             this.pestana = pestana;
         }
         this.seleccionadaId = id;
@@ -374,7 +374,9 @@ export default class PortalPolizas extends LightningElement {
             { label: 'Pagos', value: 'pagos' },
             { label: 'Vigencias', value: 'vigencias' },
             { label: this.tituloBienes, value: 'asegurados' },
-            { label: 'Participantes', value: 'participantes' }
+            { label: 'Participantes', value: 'participantes' },
+            // Altas, bajas y cambios que pide el cliente (c-portal-solicitudes carga sus propios datos).
+            { label: 'Solicitudes', value: 'solicitudes' }
         ], this.pestana);
     }
 
@@ -383,6 +385,7 @@ export default class PortalPolizas extends LightningElement {
     get verVigencias() { return this.pestana === 'vigencias'; }
     get verAsegurados() { return this.pestana === 'asegurados'; }
     get verParticipantes() { return this.pestana === 'participantes'; }
+    get verSolicitudes() { return this.pestana === 'solicitudes'; }
 
     async cargarPestana(clave) {
         const actual = this.pestanas[clave];

@@ -1,0 +1,48 @@
+<template>
+    <template lwc:if={hayPendientes}>
+        <div class="panel">
+            <p class="panel-titulo">{titulo}</p>
+            <template for:each={pendientes} for:item="s">
+                <div key={s.folio} class={s.clase}>
+                    <div class="cabecera">
+                        <span class="folio">{s.folio}</span>
+                        <a href={s.ligaCaso} target="_blank" class="sub">Caso {s.caso}</a>
+                        <span class="sub">{s.fechaTxt}</span>
+                        <span lwc:if={s.enviadaPor} class="sub">Envió {s.enviadaPor}</span>
+                        <template lwc:if={s.activa}><span class="atendiendo">Atendiendo: los movimientos que registres llevan este folio</span></template>
+                        <div class="botones">
+                            <template lwc:if={puedeEditar}>
+                                <lightning-button label={s.textoAtender} data-folio={s.folio} onclick={handleAtender}
+                                    variant={s.varianteAtender}></lightning-button>
+                                <lightning-button label="Rechazar" variant="destructive-text" data-id={s.casoId} onclick={handleRechazar}
+                                    class="slds-m-left_x-small"></lightning-button>
+                            </template>
+                        </div>
+                    </div>
+                    <ul class="lineas">
+                        <template for:each={s.lineas} for:item="l"><li key={l.key}>{l.texto}</li></template>
+                    </ul>
+                    <p lwc:if={s.comentario} class="sub">Comentario: {s.comentario}</p>
+                    <div lwc:if={s.docs.length} class="docs">
+                        <template for:each={s.docs} for:item="d">
+                            <a key={d.id} href={d.liga} target="_blank" class="doc">
+                                <lightning-icon icon-name="utility:attach" size="xx-small"></lightning-icon> {d.titulo}
+                            </a>
+                        </template>
+                    </div>
+                    <template lwc:if={s.rechazando}>
+                        <div class="rechazo">
+                            <lightning-textarea label="Motivo del rechazo (lo ve el cliente)" value={motivo} onchange={handleMotivo}
+                                required max-length="1000"></lightning-textarea>
+                            <div class="botones">
+                                <lightning-button label="Cancelar" onclick={handleCancelar} disabled={enviando}></lightning-button>
+                                <lightning-button label="Rechazar solicitud" variant="destructive" onclick={handleConfirmar} disabled={enviando}
+                                    class="slds-m-left_x-small"></lightning-button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </template>
+</template>

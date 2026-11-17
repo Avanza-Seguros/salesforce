@@ -273,6 +273,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // solicitud con folio (SOL-0001...). La tabla se agrupa por la solicitud del último movimiento de cada asegurado.
     // ============================================================
     agruparSolicitud = true;
+    // Solicitud del sitio que el ejecutivo está atendiendo: los movimientos que registre llevan su folio.
+    solicitudAtender = null;
+    handleAtenderSolicitud(e) { this.solicitudAtender = e.detail.folio; }
+    handleCambioSolicitudes() { this.solicitudAtender = null; this.cargar(); }
     colapsadas = new Set();
     get solicitudes() { return (this.datos && this.datos.solicitudes) || []; }
     get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
@@ -287,8 +291,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     // Opciones al registrar: una solicitud nueva o una reciente de la póliza (para agregarle movimientos).
     get opcionesSolicitud() {
-        return [{ label: 'Nueva solicitud', value: 'nueva' }].concat(this.solicitudes.slice(0, 20).map((x) => ({
-            label: `${x.folio} · ${this.fechaHora(x.fecha)} · ${x.total} mov.${x.abiertos ? '' : ' · cerrada'}`,
+        // Sin las rechazadas; las del sitio que siguen por atender van primero.
+        const lista = this.solicitudes.filter((x) => x.estadoPortal !== 'Rechazada');
+        const orden = [...lista.filter((x) => x.pendiente), ...lista.filter((x) => !x.pendiente).slice(0, 20)];
+        return [{ label: 'Nueva solicitud', value: 'nueva' }].concat(orden.map((x) => ({
+            label: x.pendiente ? `${x.folio} · del sitio · caso ${x.caso}` : `${x.folio} · ${this.fechaHora(x.fecha)} · ${x.total} mov.${x.abiertos ? '' : ' · cerrada'}`,
             value: x.folio
         })));
     }
@@ -346,7 +353,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             folio: g.folio,
             titulo: sin ? 'Sin solicitud' : g.folio,
             sub: sin ? 'Registrados antes de las solicitudes'
-                : [s && s.fecha ? this.fechaHora(s.fecha) : '', s && s.usuario ? `Registró ${s.usuario}` : ''].filter((x) => x).join(' · '),
+                : [s && s.fecha ? this.fechaHora(s.fecha) : '', s && s.portal ? `Del sitio · caso ${s.caso}${s.usuario ? ' · envió ' + s.usuario : ''}` : (s && s.usuario ? `Registró ${s.usuario}` : '')].filter((x) => x).join(' · '),
             resumen: `${g.lista.length} ${g.lista.length === 1 ? 'registro' : 'registros'}${partes.length ? ' · ' + partes.join(', ') : ''}`,
             endososTxt: endosos.length ? `Endoso ${endosos.join(', ')}` : '',
             estadoTxt: sin ? '' : (abiertos ? `Abierta · ${abiertos} sin cerrar` : 'Cerrada'),
@@ -791,7 +798,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             const m = this.miembros.find((x) => x.id === id);
             correos[id] = (m && m.correoPersonal) || '';
         });
-        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', correos, documentos: {}, solicitud: 'nueva' };
+        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', correos, documentos: {}, solicitud: this.solicitudAtender || 'nueva' };
         // Los archivos (File) quedan fuera del estado reactivo; en el formulario solo va su nombre.
         this._documentosBaja = new Map();
         this.modal = 'baja';
@@ -840,7 +847,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     abrirAlta() {
         this.form = {
             tipo: 'titular', titularId: '', parentesco: 'Cónyuge', nombre: '', apellidos: '', fechaNacimiento: '', sexo: '',
-            certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: '', solicitud: 'nueva'
+            certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: '', solicitud: this.solicitudAtender || 'nueva'
         };
         this.modal = 'alta';
     }
@@ -861,7 +868,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.form = {
             id: m.id, nombreActual: m.nombre, original: { ...m }, nombreCompleto: m.nombre, certificado: m.certificado || '',
             fechaNacimiento: m.fechaNacimiento || '', categoria: m.categoria || '', sumaAsegurada: m.sumaAsegurada, prima: m.prima,
-            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
+            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: this.solicitudAtender || 'nueva'
         };
         this.modal = 'cambio';
     }
@@ -1027,7 +1034,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 sinCambios: r.sinCambios,
                 duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
             };
-            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: 'nueva' };
+            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: this.solicitudAtender || 'nueva' };
             this.vista = 'revision';
             // Bajas del archivo de personas que no son asegurados: no se puede hacer nada con ellas, solo se avisa.
             const faltan = r.noEncontrados || [];

@@ -157,6 +157,10 @@ export default class MovimientosFlotilla extends LightningElement {
     // solicitud con folio (SOL-0001...). La tabla se agrupa por la solicitud del último movimiento de cada registro.
     // ============================================================
     agruparSolicitud = true;
+    // Solicitud del sitio que el ejecutivo está atendiendo: los movimientos que registre llevan su folio.
+    solicitudAtender = null;
+    handleAtenderSolicitud(e) { this.solicitudAtender = e.detail.folio; }
+    handleCambioSolicitudes() { this.solicitudAtender = null; this.cargar(); }
     colapsadas = new Set();
     get solicitudes() { return (this.datos && this.datos.solicitudes) || []; }
     get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
@@ -171,8 +175,11 @@ export default class MovimientosFlotilla extends LightningElement {
     }
     // Opciones al registrar: una solicitud nueva o una reciente de la póliza (para agregarle movimientos).
     get opcionesSolicitud() {
-        return [{ label: 'Nueva solicitud', value: 'nueva' }].concat(this.solicitudes.slice(0, 20).map((x) => ({
-            label: `${x.folio} · ${this.fechaHoraTxt(x.fecha)} · ${x.total} mov.${x.abiertos ? '' : ' · cerrada'}`,
+        // Sin las rechazadas; las del sitio que siguen por atender van primero.
+        const lista = this.solicitudes.filter((x) => x.estadoPortal !== 'Rechazada');
+        const orden = [...lista.filter((x) => x.pendiente), ...lista.filter((x) => !x.pendiente).slice(0, 20)];
+        return [{ label: 'Nueva solicitud', value: 'nueva' }].concat(orden.map((x) => ({
+            label: x.pendiente ? `${x.folio} · del sitio · caso ${x.caso}` : `${x.folio} · ${this.fechaHoraTxt(x.fecha)} · ${x.total} mov.${x.abiertos ? '' : ' · cerrada'}`,
             value: x.folio
         })));
     }
@@ -230,7 +237,7 @@ export default class MovimientosFlotilla extends LightningElement {
             folio: g.folio,
             titulo: sin ? 'Sin solicitud' : g.folio,
             sub: sin ? 'Registrados antes de las solicitudes'
-                : [s && s.fecha ? this.fechaHoraTxt(s.fecha) : '', s && s.usuario ? `Registró ${s.usuario}` : ''].filter((x) => x).join(' · '),
+                : [s && s.fecha ? this.fechaHoraTxt(s.fecha) : '', s && s.portal ? `Del sitio · caso ${s.caso}${s.usuario ? ' · envió ' + s.usuario : ''}` : (s && s.usuario ? `Registró ${s.usuario}` : '')].filter((x) => x).join(' · '),
             resumen: `${g.lista.length} ${g.lista.length === 1 ? 'registro' : 'registros'}${partes.length ? ' · ' + partes.join(', ') : ''}`,
             endososTxt: endosos.length ? `Endoso ${endosos.join(', ')}` : '',
             estadoTxt: sin ? '' : (abiertos ? `Abierta · ${abiertos} sin cerrar` : 'Cerrada'),
@@ -331,7 +338,7 @@ export default class MovimientosFlotilla extends LightningElement {
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
         if (!ids.length) { return; }
-        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', solicitud: 'nueva' };
+        this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', solicitud: this.solicitudAtender || 'nueva' };
         this.modal = 'baja';
     }
     get bajaNombres() {
@@ -343,7 +350,7 @@ export default class MovimientosFlotilla extends LightningElement {
     abrirAlta() {
         this.form = {
             serie: '', descripcion: '', modelo: null, placas: '', uso: '', tipoVehiculo: '', paquete: '', valor: null, prima: null,
-            inciso: null, fecha: this.fechaDefault, endoso: '', solicitud: 'nueva'
+            inciso: null, fecha: this.fechaDefault, endoso: '', solicitud: this.solicitudAtender || 'nueva'
         };
         this.modal = 'alta';
     }
@@ -355,7 +362,7 @@ export default class MovimientosFlotilla extends LightningElement {
             id: v.id, nombreActual: this.nombre(v), original: { ...v }, inciso: v.inciso, serie: v.serie || '',
             descripcion: v.descripcion || '', modelo: v.modelo, placas: v.placas || '', uso: v.uso || '',
             tipoVehiculo: v.tipoVehiculo || '', paquete: v.paquete || '', valor: v.valor, prima: v.prima,
-            fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
+            fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: this.solicitudAtender || 'nueva'
         };
         this.modal = 'cambio';
     }
@@ -484,7 +491,7 @@ export default class MovimientosFlotilla extends LightningElement {
                 duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
             };
             // Los datos generales (número, fecha, prima y documento) solo aplican a los movimientos sin endoso propio.
-            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: 'nueva' };
+            this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: this.solicitudAtender || 'nueva' };
             this.endosoLeido = null;
             this.documentoEndoso = null;
             this.vista = 'revision';
