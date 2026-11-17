@@ -169,11 +169,9 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
             const tipo = o.tipoContratacion === 'Colectiva' ? 'Colectiva' : 'Individual';
             const nombre = o.nombre || o.cuenta || 'Sin nombre';
             const sub = [
-                o.cuenta && o.cuenta !== nombre ? o.cuenta : null,
                 tipo,
-                ramo.etiqueta,
                 cot ? this.plural(cot, 'cotización', 'cotizaciones') : 'Sin cotizaciones'
-            ].filter(Boolean).join(' · ');
+            ].join(' · ');
             const tipoVenta = TIPOS_VENTA[o.tipoVenta] || o.tipoVenta || 'Sin tipo';
             return {
                 id: o.id,
@@ -193,6 +191,9 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 prima: Number(o.prima) || 0,
                 primaTexto: this.dinero(o.prima),
                 detalleVenta: `${tipoVenta} · ${o.canal || 'Sin canal'}`,
+                cuenta: o.cuenta || '—',
+                tipoVenta,
+                canal: o.canal || '—',
                 cierreTexto: this.formatoFecha(o.fechaCierre),
                 dias,
                 cerrada,

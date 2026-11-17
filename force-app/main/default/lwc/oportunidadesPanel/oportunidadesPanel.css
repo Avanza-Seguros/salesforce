@@ -325,7 +325,7 @@
    CUERPO: LISTA + LATERAL
    ============================================================ */
 .cuerpo { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.listado { flex: 999 1 600px; min-width: 0; overflow: hidden; }
+.listado { flex: 1 1 100%; min-width: 0; overflow: hidden; }
 .lateral { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 
 .filtros { padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
@@ -405,14 +405,28 @@
 }
 
 /* Lista: columnas fijas para que cada dato quede alineado; color solo donde informa (vencidas). */
+.filas-tabla { overflow-x: auto; }
 .filas-cabecera,
 .fila {
     display: grid;
-    grid-template-columns: 32px minmax(0, 1fr) 168px 156px 150px 32px 116px;
+    grid-template-columns: 32px minmax(130px, 2fr) minmax(110px, 1.5fr) 150px 96px 96px 96px 116px 124px minmax(110px, 1fr) 116px;
+    min-width: 1300px;
     align-items: center;
-    column-gap: 16px;
+    column-gap: 12px;
     padding: 0 20px;
+    box-sizing: border-box;
 }
+.celda {
+    min-width: 0;
+    font-size: 0.8125rem;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.fila-cierre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fila-fecha { font-size: 0.8125rem; color: #334155; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fila-propietario { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .filas-cabecera {
     min-height: 36px;
     border-top: 1px solid var(--av-borde);
@@ -741,7 +755,9 @@
     .kpi-valor { font-size: 1.5rem; }
     .filtros { padding: 14px; }
     .filas-cabecera { display: none; }
+    .fila > .celda, .fila-propietario { display: none; }
     .fila {
+        min-width: 0;
         grid-template-columns: 32px minmax(0, 1fr) auto;
         grid-template-areas: "ramo principal prima" ". etapa vence" ". acciones acciones";
         row-gap: 8px;
@@ -751,8 +767,7 @@
     .fila-principal { grid-area: principal; }
     .fila-prima { grid-area: prima; }
     .fila > .etapa-tag { grid-area: etapa; }
-    .fila > .vence { grid-area: vence; justify-self: end; }
-    .fila > .avatar { display: none; }
+    .fila-cierre { grid-area: vence; justify-self: end; align-items: flex-end; }
     .fila-acciones { grid-area: acciones; }
     .segmentos { flex: 1 1 auto; }
     .segmento { flex: 1 1 auto; }

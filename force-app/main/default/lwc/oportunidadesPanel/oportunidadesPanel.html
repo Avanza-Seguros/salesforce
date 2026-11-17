@@ -176,13 +176,18 @@
                     </template>
 
                     <template lwc:if={esLista}>
+                        <div class="filas-tabla">
                         <div class="filas-cabecera" aria-hidden="true">
                             <span></span>
                             <span>Oportunidad</span>
+                            <span>Cuenta</span>
                             <span>Etapa</span>
-                            <span class="col-derecha">Prima</span>
-                            <span>Cierre</span>
-                            <span></span>
+                            <span>Ramo</span>
+                            <span>Tipo</span>
+                            <span>Canal</span>
+                            <span class="col-derecha">Prima neta</span>
+                            <span>Vencimiento</span>
+                            <span>Propietario</span>
                             <span></span>
                         </div>
                         <ul class="filas" role="list">
@@ -193,14 +198,22 @@
                                         <button type="button" class="fila-nombre" data-id={r.id} onclick={handleAbrirRegistro}>{r.nombre}</button>
                                         <span class="fila-sub">{r.sub}</span>
                                     </div>
+                                    <span class="celda" title={r.cuenta}>{r.cuenta}</span>
                                     <span class={r.etapaClase}>{r.etapa}</span>
+                                    <span class="celda" title={r.ramoEtiqueta}>{r.ramoEtiqueta}</span>
+                                    <span class="celda" title={r.tipoVenta}>{r.tipoVenta}</span>
+                                    <span class="celda" title={r.canal}>{r.canal}</span>
                                     <div class="fila-prima">
                                         <strong>{r.primaTexto}</strong>
-                                        <span>{r.detalleVenta}</span>
                                     </div>
-                                    <span class={r.venceClase} title={r.cierreTexto}>{r.venceTexto}</span>
-                                    <span class="avatar" title={r.propietario}
-                                        role="img" aria-label={r.propietarioAria}>{r.propietarioIni}</span>
+                                    <div class="fila-cierre">
+                                        <span class="fila-fecha">{r.cierreTexto}</span>
+                                        <span class={r.venceClase}>{r.venceTexto}</span>
+                                    </div>
+                                    <div class="fila-propietario" title={r.propietario}>
+                                        <span class="avatar" aria-hidden="true">{r.propietarioIni}</span>
+                                        <span class="celda">{r.propietario}</span>
+                                    </div>
                                     <div class="fila-acciones">
                                     <template lwc:if={incrustado}>
                                         <button lwc:if={r.puedeCorreo} type="button" class="boton-icono" data-id={r.id}
@@ -220,6 +233,7 @@
                                 </li>
                             </template>
                         </ul>
+                        </div>
                         <template lwc:if={sinFilas}>
                             <div class="vacio">No hay oportunidades con este filtro.</div>
                         </template>
@@ -267,81 +281,6 @@
                     <div class="pie">{pieTexto}</div>
                 </section>
 
-                <!-- ============================================================ -->
-                <!-- LATERAL                                                       -->
-                <!-- ============================================================ -->
-                <aside class="lateral">
-                    <section class="tarjeta ranking" aria-labelledby="ranking-titulo">
-                        <div class="lateral-cabecera">
-                            <lightning-icon icon-name="utility:trophy" size="small" class="icono-oro"></lightning-icon>
-                            <h2 id="ranking-titulo" class="seccion-titulo">Ranking del mes</h2>
-                        </div>
-                        <template lwc:if={hayRanking}>
-                            <ol class="podio" aria-label="Podio del mes">
-                                <template for:each={podio} for:item="p">
-                                    <li key={p.usuarioId} class={p.clase}>
-                                        <span class="avatar avatar-grande" style={p.avatarEstilo} aria-hidden="true">{p.ini}</span>
-                                        <span class="podio-nombre">{p.nombreCorto}</span>
-                                        <div class="podio-bloque">
-                                            <strong>{p.lugar}º</strong>
-                                            <span>{p.puntos}</span>
-                                        </div>
-                                    </li>
-                                </template>
-                            </ol>
-                            <template lwc:if={hayRestoRanking}>
-                                <ol class="ranking-lista">
-                                    <template for:each={restoRanking} for:item="a">
-                                        <li key={a.usuarioId} class={a.filaClase}>
-                                            <span class="ranking-lugar">{a.lugar}º</span>
-                                            <span class="ranking-nombre">{a.nombre}</span>
-                                            <span class="ranking-puntos">{a.puntos}</span>
-                                        </li>
-                                    </template>
-                                </ol>
-                            </template>
-                        </template>
-                        <template lwc:else>
-                            <p class="lateral-vacio">Aún no hay pólizas emitidas este mes. ¡La primera te pone en el podio!</p>
-                        </template>
-                        <span class="lateral-nota">Pólizas emitidas este mes desde oportunidades (sin canceladas).</span>
-                    </section>
-
-                    <section class="tarjeta rescate" aria-labelledby="rescate-titulo">
-                        <div class="lateral-cabecera">
-                            <lightning-icon icon-name="utility:clock" size="small" class="icono-rojo"></lightning-icon>
-                            <h2 id="rescate-titulo" class="seccion-titulo">Rescata antes de perder</h2>
-                        </div>
-                        <template lwc:if={hayUrgentes}>
-                            <ul class="rescate-lista">
-                                <template for:each={urgentes} for:item="u">
-                                    <li key={u.id} class="rescate-item">
-                                        <div class="rescate-textos">
-                                            <strong>{u.nombre}</strong>
-                                            <span>{u.urgenteTexto}</span>
-                                        </div>
-                                        <button type="button" class="pill pill-navy pill-chica" data-id={u.id}
-                                            aria-label={u.retomarAria} onclick={handleAbrirEditor}>Retomar</button>
-                                    </li>
-                                </template>
-                            </ul>
-                        </template>
-                        <template lwc:else>
-                            <p class="lateral-vacio">Nada urgente: ninguna oportunidad vence en los próximos 7 días.</p>
-                        </template>
-                    </section>
-
-                    <section class="tip" aria-labelledby="tip-titulo">
-                        <span id="tip-titulo" class="tip-eyebrow">
-                            <lightning-icon icon-name="utility:sparkles" size="x-small" variant="inverse"></lightning-icon>
-                            Tip del día
-                        </span>
-                        <p class="tip-texto">{tip.texto}</p>
-                        <template lwc:if={tipTieneBoton}>
-                            <button type="button" class="pill pill-blanco-morado" onclick={handleTip}>{tip.boton}</button>
-                        </template>
-                    </section>
-                </aside>
             </div>
         </template>
     </div>
