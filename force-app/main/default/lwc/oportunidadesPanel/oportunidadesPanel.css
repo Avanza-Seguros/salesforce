@@ -85,7 +85,7 @@
     font-weight: 600;
     padding: 0 16px;
 }
-.pill-toggle.activo { background: #FDE8E4; border-color: #F3B7AA; color: #9A2B1A; }
+.pill-toggle.activo { background: var(--av-navy); border-color: var(--av-navy); color: #FFFFFF; }
 .pill-icono { --slds-c-icon-color-foreground-default: currentColor; }
 
 /* ============================================================
@@ -377,10 +377,10 @@
 }
 .segmento:hover { color: var(--av-navy); }
 .segmento.activo {
-    background: linear-gradient(90deg, #1E63E9, #3B82F6);
-    color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(30, 99, 233, 0.3);
-    --slds-c-icon-color-foreground-default: #FFFFFF;
+    background: #FFFFFF;
+    color: var(--av-navy);
+    box-shadow: 0 1px 2px rgba(15, 27, 51, 0.12);
+    --slds-c-icon-color-foreground-default: var(--av-navy);
 }
 .segmento-icono { width: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 
@@ -404,109 +404,159 @@
     cursor: pointer;
 }
 
-/* Lista */
+/* Lista: columnas fijas para que cada dato quede alineado; color solo donde informa (vencidas). */
+.filas-cabecera,
+.fila {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 168px 156px 150px 32px 116px;
+    align-items: center;
+    column-gap: 16px;
+    padding: 0 20px;
+}
+.filas-cabecera {
+    min-height: 36px;
+    border-top: 1px solid var(--av-borde);
+    background: #F8FAFD;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6B7A90;
+}
+.col-derecha { text-align: right; }
 .filas { list-style: none; margin: 0; padding: 0; }
 .fila {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px 16px;
-    padding: 14px 20px;
-    border-top: 1px solid var(--av-borde);
+    min-height: 64px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-top: 1px solid #EDF1F7;
+    transition: background-color 120ms ease;
 }
-.fila:hover { background: #FAFCFF; }
+.fila:hover { background: #F8FAFD; }
 .ramo {
-    flex: 0 0 46px;
-    height: 46px;
-    border-radius: 14px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: var(--av-titulos);
-    font-weight: 700;
-    font-size: 0.9375rem;
-    background: #EEF1F6;
-    color: #4A5568;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: #F1F4F9;
+    color: #475569;
+    border: 1px solid #E3E8F0;
+    box-sizing: border-box;
 }
-.ramo-chico { flex-basis: 30px; width: 30px; height: 30px; border-radius: 10px; font-size: 0.75rem; }
-.ramo-autos { background: #E0F2FE; color: #0369A1; }
-.ramo-gmm { background: #EFE8FF; color: #6D28D9; }
-.ramo-danos { background: #FFF1E8; color: #C2410C; }
-.ramo-vida { background: #FCE7F3; color: #BE185D; }
-.ramo-viajes { background: #E6FFFA; color: #0F766E; }
-.ramo-mascotas { background: #ECFCCB; color: #3F6212; }
-.fila-principal { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.ramo-chico { flex-basis: 28px; width: 28px; height: 28px; font-size: 0.6875rem; }
+.fila-principal { min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
 .fila-nombre {
+    max-width: 100%;
     border: none;
     background: none;
     padding: 0;
     font: inherit;
     font-size: 0.9375rem;
-    font-weight: 700;
-    color: var(--av-navy);
+    font-weight: 600;
+    color: var(--av-tinta);
     text-align: left;
     cursor: pointer;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.fila-nombre:hover { color: var(--av-azul); text-decoration: underline; }
-.fila-sub { font-size: 0.8125rem; color: var(--av-suave); }
-.fila-datos { flex: 0 1 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 14px; }
-.fila-prima { flex: 0 0 150px; display: flex; flex-direction: column; gap: 2px; text-align: right; }
-.fila-prima strong { font-family: var(--av-titulos); font-size: 1.0625rem; color: var(--av-navy); }
-.fila-prima span { font-size: 0.75rem; color: var(--av-suave); }
+.fila-nombre:hover { color: var(--av-azul); }
+.fila-sub {
+    max-width: 100%;
+    font-size: 0.8125rem;
+    color: #6B7A90;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.fila-prima { display: flex; flex-direction: column; gap: 2px; text-align: right; min-width: 0; }
+.fila-prima strong {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--av-tinta);
+    font-variant-numeric: tabular-nums;
+}
+.fila-prima span { font-size: 0.75rem; color: #6B7A90; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fila-acciones { display: flex; justify-content: flex-end; gap: 4px; }
 
-/* Chips */
+/* Etapa: texto neutro con un punto discreto. */
+.etapa-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #334155;
+    white-space: nowrap;
+}
+.etapa-tag::before {
+    content: '';
+    flex: 0 0 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--etapa-punto, #94A3B8);
+}
+.etapa-tag-gestion { --etapa-punto: #94A3B8; }
+.etapa-tag-emision { --etapa-punto: #1E63E9; }
+.etapa-tag-poliza { --etapa-punto: #0B2559; }
+.etapa-tag-ganada { --etapa-punto: #0B2559; }
+.etapa-tag-perdida { --etapa-punto: #CBD5E1; }
+
+/* Cierre: gris; solo lo vencido o por vencer resalta. */
+.vence { font-size: 0.8125rem; color: #6B7A90; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vence-vencida { color: #B42318; font-weight: 500; }
+.vence-pronto { color: #B54708; font-weight: 500; }
+
+/* Chips (tablero) */
 .chip {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 0 12px;
-    border-radius: 14px;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;
-    background: #EEF1F6;
-    color: #4A5568;
+    background: #F1F4F9;
+    color: #475569;
 }
-.chip-gestion { background: #E6EEFF; color: #1B54C8; }
-.chip-emision { background: #EFE8FF; color: #6D28D9; }
-.chip-poliza { background: #E3F5EC; color: #0F7A47; }
-.chip-ganada { background: #FFF4CC; color: #8A5A00; }
-.chip-perdida { background: #EEF1F6; color: #4A5568; }
-.chip-vence-vencida { background: #FDE8E4; color: #B4321F; }
-.chip-vence-pronto { background: #FDF0DD; color: #A3530A; }
-.chip-vence-aTiempo { background: #E3F5EC; color: #0F7A47; }
-.chip-vence-ganada { background: #FFF4CC; color: #8A5A00; }
-.chip-vence-neutro { background: #EEF1F6; color: #4A5568; }
 
 .avatar {
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #FFFFFF;
-    background: var(--av-navy);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--av-navy);
+    background: #E8EEF8;
 }
-.avatar-grande { width: 48px; height: 48px; flex-basis: 48px; font-size: 0.9375rem; border: 3px solid #FFFFFF; box-shadow: var(--av-sombra); }
+.avatar-grande { width: 48px; height: 48px; flex-basis: 48px; font-size: 0.9375rem; border: 3px solid #FFFFFF; box-shadow: var(--av-sombra); color: #FFFFFF; }
 .boton-icono {
-    flex: 0 0 44px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: 1px solid var(--av-borde);
-    background: #FFFFFF;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    --slds-c-icon-color-foreground-default: var(--av-azul);
+    --slds-c-icon-color-foreground-default: #64748B;
+    transition: background-color 120ms ease, border-color 120ms ease;
 }
-.boton-icono:hover { background: #EEF4FF; }
+.boton-icono:hover { background: #F1F4F9; border-color: #E3E8F0; --slds-c-icon-color-foreground-default: var(--av-navy); }
 
 .vacio { padding: 40px 20px; text-align: center; color: var(--av-suave); border-top: 1px solid var(--av-borde); }
 .mas { display: flex; justify-content: center; padding: 14px 20px; border-top: 1px solid var(--av-borde); }
@@ -690,9 +740,20 @@
     .hero-kpis { grid-template-columns: minmax(0, 1fr); }
     .kpi-valor { font-size: 1.5rem; }
     .filtros { padding: 14px; }
-    .fila { padding: 12px 14px; }
-    .fila-datos { flex: 1 1 100%; justify-content: flex-start; padding-left: 58px; }
-    .fila-prima { flex: 1 1 120px; text-align: left; }
+    .filas-cabecera { display: none; }
+    .fila {
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        grid-template-areas: "ramo principal prima" ". etapa vence" ". acciones acciones";
+        row-gap: 8px;
+        padding: 12px 14px;
+    }
+    .fila > .ramo { grid-area: ramo; }
+    .fila-principal { grid-area: principal; }
+    .fila-prima { grid-area: prima; }
+    .fila > .etapa-tag { grid-area: etapa; }
+    .fila > .vence { grid-area: vence; justify-self: end; }
+    .fila > .avatar { display: none; }
+    .fila-acciones { grid-area: acciones; }
     .segmentos { flex: 1 1 auto; }
     .segmento { flex: 1 1 auto; }
     .segmento-icono { flex: 0 0 36px; }

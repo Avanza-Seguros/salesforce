@@ -176,6 +176,15 @@
                     </template>
 
                     <template lwc:if={esLista}>
+                        <div class="filas-cabecera" aria-hidden="true">
+                            <span></span>
+                            <span>Oportunidad</span>
+                            <span>Etapa</span>
+                            <span class="col-derecha">Prima</span>
+                            <span>Cierre</span>
+                            <span></span>
+                            <span></span>
+                        </div>
                         <ul class="filas" role="list">
                             <template for:each={filas} for:item="r">
                                 <li key={r.id} class="fila">
@@ -184,15 +193,15 @@
                                         <button type="button" class="fila-nombre" data-id={r.id} onclick={handleAbrirRegistro}>{r.nombre}</button>
                                         <span class="fila-sub">{r.sub}</span>
                                     </div>
-                                    <div class="fila-datos">
                                     <span class={r.etapaClase}>{r.etapa}</span>
                                     <div class="fila-prima">
                                         <strong>{r.primaTexto}</strong>
                                         <span>{r.detalleVenta}</span>
                                     </div>
                                     <span class={r.venceClase} title={r.cierreTexto}>{r.venceTexto}</span>
-                                    <span class="avatar" style={r.propietarioEstilo} title={r.propietario}
+                                    <span class="avatar" title={r.propietario}
                                         role="img" aria-label={r.propietarioAria}>{r.propietarioIni}</span>
+                                    <div class="fila-acciones">
                                     <template lwc:if={incrustado}>
                                         <button lwc:if={r.puedeCorreo} type="button" class="boton-icono" data-id={r.id}
                                             aria-label={r.correoAria} title="Enviar correo de la oportunidad" onclick={handleCorreo}>
