@@ -293,5 +293,25 @@ private class PortalPolizasPestanasTest {
 		Case cp = [SELECT AccountId, Description FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = 'SOL-0002'];
 		System.assertEquals(empresa.Id, cp.AccountId);
 		System.assert(cp.Description.contains('vista previa de administrador'), cp.Description);
+
+		// Solicitud por archivo: sin capturar movimientos, con el Excel y lo que trae.
+		Map<String, Object> ra = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>(),
+			'listado' => new Map<String, Object>{ 'tipo' => 'alta', 'nombre' => 'FLOTILLA.xlsx', 'total' => 2,
+				'encabezados' => new List<Object>{ 'MODELO', 'MARCA', 'SERIE' },
+				'filas' => new List<Object>{ new List<Object>{ '2014', 'TOYOTA', 'JTDKT9D38ED585824' }, new List<Object>{ '2017', 'SEAT', 'VSSBE75F7LR043409' } } },
+			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'FLOTILLA.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
+		}), empresa.Id);
+		Case ca = [SELECT Subject, Description, Reason FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
+		System.assert(ca.Description.contains('1. ARCHIVO · Altas · FLOTILLA.xlsx · 2 renglones'), ca.Description);
+		System.assert(ca.Description.contains('2014 | TOYOTA | JTDKT9D38ED585824'), ca.Description);
+		System.assert(ca.Subject.contains('archivo FLOTILLA.xlsx'), ca.Subject);
+		System.assertEquals('Alta', ca.Reason);
+		Boolean sinTipo = false;
+		try {
+			PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+				'listado' => new Map<String, Object>{ 'tipo' => 'otro', 'nombre' => 'x.xlsx' } }), empresa.Id);
+		} catch (AuraHandledException e) { sinTipo = true; }
+		System.assert(sinTipo, 'El archivo indica qué contiene');
 	}
 }

@@ -896,7 +896,9 @@ public without sharing class PortalPolizasPestanas {
 			Map<String, Object> d = String.isBlank(solicitudJson) ? new Map<String, Object>()
 				: (Map<String, Object>) JSON.deserializeUntyped(solicitudJson);
 			List<Object> movs = d.get('movimientos') instanceof List<Object> ? (List<Object>) d.get('movimientos') : new List<Object>();
-			if (movs.isEmpty()) { throw new AuraHandledException('Agrega al menos un movimiento a la solicitud.'); }
+			// Solicitud por archivo: el cliente sube un Excel/CSV con todos los datos (va adjunto al caso).
+			Map<String, Object> listado = d.get('listado') instanceof Map<String, Object> ? (Map<String, Object>) d.get('listado') : null;
+			if (movs.isEmpty() && listado == null) { throw new AuraHandledException('Agrega al menos un movimiento a la solicitud.'); }
 			if (movs.size() > 500) { throw new AuraHandledException('Una solicitud admite hasta 500 movimientos; para más, adjunta el archivo.'); }
 
 			Bienes bienes = asegurados(policyId, cuentaVistaPrevia);
@@ -936,6 +938,34 @@ public without sharing class PortalPolizasPestanas {
 				}
 				lineas.add(String.join(partes, ' · '));
 			}
+			String tablaArchivo = '';
+			String tipoArchivo = null;
+			String resumenArchivo = null;
+			if (listado != null) {
+				String tipo = String.valueOf(listado.get('tipo')).toLowerCase();
+				Map<String, String> plurales = new Map<String, String>{ 'alta' => 'Altas', 'baja' => 'Bajas', 'cambio' => 'Cambios', 'varios' => 'Varios movimientos' };
+				if (!plurales.containsKey(tipo)) { throw new AuraHandledException('Indica qué contiene el archivo.'); }
+				String nombreArchivo = String.valueOf(listado.get('nombre'));
+				if (String.isBlank(nombreArchivo)) { throw new AuraHandledException('Elige el archivo con los datos.'); }
+				List<Object> filas = listado.get('filas') instanceof List<Object> ? (List<Object>) listado.get('filas') : new List<Object>();
+				Integer total = listado.get('total') == null ? filas.size() : Integer.valueOf(listado.get('total'));
+				if (tipo != 'varios') { cuenta.put(tipo, cuenta.get(tipo) + Math.max(total, 1)); }
+				List<String> partes = new List<String>{ (++i) + '. ARCHIVO · ' + plurales.get(tipo) + ' · ' + nombreArchivo
+					+ (total > 0 ? ' · ' + total + (total == 1 ? ' renglón' : ' renglones') : '') };
+				if (listado.get('fecha') != null && String.isNotBlank(String.valueOf(listado.get('fecha')))) { partes.add('Fecha solicitada: ' + listado.get('fecha')); }
+				lineas.add(String.join(partes, ' · '));
+				resumenArchivo = 'archivo ' + nombreArchivo + (total > 0 ? ' (' + total + (total == 1 ? ' renglón)' : ' renglones)') : '');
+				tipoArchivo = tipo;
+				// Lo que trae el archivo, para leerlo en el caso y en el correo (el archivo completo va adjunto).
+				List<String> tabla = new List<String>();
+				if (listado.get('encabezados') instanceof List<Object>) {
+					tabla.add(String.join(textos((List<Object>) listado.get('encabezados')), ' | '));
+				}
+				for (Object f : filas) {
+					if (f instanceof List<Object>) { tabla.add(String.join(textos((List<Object>) f), ' | ')); }
+				}
+				if (!filas.isEmpty()) { tablaArchivo = '\n\nContenido del archivo ' + nombreArchivo + ':\n' + String.join(tabla, '\n'); }
+			}
 
 			// Archivos (opcionales): Excel o PDF con el detalle, identificaciones, actas...
 			List<ContentVersion> archivos = new List<ContentVersion>();
@@ -952,11 +982,12 @@ public without sharing class PortalPolizasPestanas {
 			if (bytes > MAX_BYTES_SOLICITUD) { throw new AuraHandledException('Los archivos suman más de 4 MB. Envía archivos más ligeros.'); }
 
 			List<String> resumen = new List<String>();
+			if (resumenArchivo != null) { resumen.add(resumenArchivo); }
 			for (String t : new List<String>{ 'alta', 'baja', 'cambio' }) {
 				Integer n = cuenta.get(t);
-				if (n > 0) { resumen.add(n + ' ' + nombres.get(t).toLowerCase() + (n == 1 ? '' : 's')); }
+				if (n > 0 && resumenArchivo == null) { resumen.add(n + ' ' + nombres.get(t).toLowerCase() + (n == 1 ? '' : 's')); }
 			}
-			String tipoUnico = null;
+			String tipoUnico = tipoArchivo == 'varios' ? 'varios' : null;
 			for (String t : cuenta.keySet()) {
 				if (cuenta.get(t) > 0) { tipoUnico = tipoUnico == null ? nombres.get(t) : 'varios'; }
 			}
@@ -968,7 +999,8 @@ public without sharing class PortalPolizasPestanas {
 				Solicitud__c = folio, Subject = (folio + ' · Póliza ' + p.Name + ' · ' + String.join(resumen, ', ')).left(255),
 				Description = ('Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName()
 					+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.\n\n'
-					+ String.join(lineas, '\n') + (String.isBlank(comentario) ? '' : '\n\nComentario del cliente: ' + comentario)).left(32000),
+					+ String.join(lineas, '\n') + (String.isBlank(comentario) ? '' : '\n\nComentario del cliente: ' + comentario)
+					+ tablaArchivo).left(32000),
 				Comentarios__c = String.isBlank(comentario) ? null : comentario.left(131072));
 			if (tipoUnico != null && tipoUnico != 'varios') { c.Reason = tipoUnico; }
 			// El caso lo atiende el ejecutivo dueño de la póliza.
@@ -989,5 +1021,20 @@ public without sharing class PortalPolizasPestanas {
 			a.setMessage(msg);
 			throw a;
 		}
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Celdas de un renglón del archivo de la solicitud como texto (sin saltos de línea ni separadores).
+	 * @param celdas: Valores del renglón
+	 * @return Textos del renglón
+	 */
+	static List<String> textos(List<Object> celdas) {
+		List<String> salida = new List<String>();
+		for (Object c : celdas) {
+			salida.add(c == null ? '' : String.valueOf(c).replaceAll('[\\r\\n|]+', ' ').trim().left(200));
+		}
+		return salida;
 	}
 }

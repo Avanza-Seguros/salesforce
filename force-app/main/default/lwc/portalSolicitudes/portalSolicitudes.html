@@ -15,6 +15,68 @@
                         <p class="subtitulo">Agrega las altas, bajas y cambios que necesitas. Tu asesor las tramita con la aseguradora.</p>
                     </div>
                 </div>
+                <div class="modos" role="group" aria-label="Cómo enviar la solicitud">
+                    <button class={claseModoArchivo} data-modo="archivo" onclick={handleModo} aria-pressed={pressedArchivo}>
+                        <span class="modo_titulo">Subir archivo</span>
+                        <span class="modo_sub">Excel o CSV con todos los datos</span>
+                    </button>
+                    <button class={claseModoManual} data-modo="manual" onclick={handleModo} aria-pressed={pressedManual}>
+                        <span class="modo_titulo">Capturar uno por uno</span>
+                        <span class="modo_sub">Para pocos movimientos</span>
+                    </button>
+                </div>
+
+                <!-- Subir archivo con todos los datos -->
+                <template lwc:if={enArchivo}>
+                    <div class="movimiento">
+                        <div class="campos">
+                            <lightning-combobox label="¿Qué contiene el archivo?" value={tipoArchivo} options={opcionesTipoArchivo}
+                                onchange={handleTipoArchivo} required></lightning-combobox>
+                            <lightning-input type="date" label="Fecha en que aplica (opcional)" value={fechaArchivo}
+                                onchange={handleFechaArchivo}></lightning-input>
+                        </div>
+                        <template lwc:if={hayListado}>
+                            <div class="listado">
+                                <div class="listado_cabecera">
+                                    <span class="listado_nombre">{listado.nombre}</span>
+                                    <span class="celda_sub">{textoListado}</span>
+                                    <button class="enlace quitar" onclick={handleQuitarListado}>Cambiar archivo</button>
+                                </div>
+                                <p lwc:if={listado.aviso} class="nota">{listado.aviso}</p>
+                                <template lwc:if={listadoConDatos}>
+                                    <div class="tabla_contenedor">
+                                        <table class="tabla">
+                                            <thead>
+                                                <tr>
+                                                    <template for:each={vistaEncabezados} for:item="h"><th key={h.key}>{h.t}</th></template>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template for:each={vistaFilas} for:item="f">
+                                                    <tr key={f.key}>
+                                                        <template for:each={f.celdas} for:item="c"><td key={c.key}>{c.t}</td></template>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <p lwc:if={textoMasFilas} class="nota">{textoMasFilas}</p>
+                                </template>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <label class="zona" ondragover={handleSobreZona} ondrop={handleSoltar}>
+                                <span class="zona_titulo">{textoZona}</span>
+                                <span class="nota">Excel (.xlsx, .xls) o CSV, hasta 4 MB. Te mostramos lo que trae antes de enviarlo.</span>
+                                <input type="file" accept=".xlsx,.xls,.xlsm,.csv,.txt,.pdf" onchange={handleListado} class="oculto" disabled={leyendo} />
+                            </label>
+                            <p class="nota">¿No tienes un formato? <button class="enlace" onclick={handlePlantilla}>Descarga la plantilla</button></p>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Capturar uno por uno -->
+                <template lwc:else>
                 <template for:each={filasMovimiento} for:item="m">
                     <div key={m.key} class="movimiento">
                         <div class="movimiento_cabecera">
@@ -49,15 +111,16 @@
                     </div>
                 </template>
                 <button class="enlace agregar" onclick={handleAgregar}>+ Agregar otro movimiento</button>
+                </template>
 
                 <lightning-textarea label="Comentario (opcional)" value={comentario} onchange={handleComentario} max-length="4000"
                     class="comentario"></lightning-textarea>
                 <div class="adjuntos">
                     <label class="boton_secundario">
-                        Adjuntar archivos
+                        {textoAdjuntar}
                         <input type="file" multiple onchange={handleArchivos} class="oculto" />
                     </label>
-                    <span class="nota">Excel con el listado, identificaciones, actas o lo que pida la aseguradora (hasta 4 MB en total).</span>
+                    <span class="nota">{notaAdjuntar}</span>
                 </div>
                 <ul lwc:if={hayArchivos} class="archivos">
                     <template for:each={listaArchivos} for:item="a">
