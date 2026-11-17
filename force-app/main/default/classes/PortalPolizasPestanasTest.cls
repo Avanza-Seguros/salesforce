@@ -239,7 +239,7 @@ private class PortalPolizasPestanasTest {
 		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
 			'movimientos' => new List<Object>{ alta, baja }, 'comentario' => 'Urgente',
 			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'altas.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
-		}));
+		}), null);
 		Integer errores = 0;
 		for (Object m : new List<Object>{
 			new List<Object>(),
@@ -247,7 +247,7 @@ private class PortalPolizasPestanasTest {
 			new List<Object>{ new Map<String, Object>{ 'tipo' => 'baja' } },
 			new List<Object>{ new Map<String, Object>{ 'tipo' => 'alta' } }
 		}) {
-			try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => m })); }
+			try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => m }), null); }
 			catch (AuraHandledException e) { errores++; }
 		}
 		Map<String, Object> vista = PortalPolizasPestanas.solicitudes(col.Id, null);
@@ -279,9 +279,19 @@ private class PortalPolizasPestanasTest {
 		PortalPolizasController.cuentaPrueba = null;
 		PortalPolizasController.contactoPrueba = empleado.Id;
 		Boolean bloqueado = false;
-		try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ alta } })); }
+		try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ alta } }), null); }
 		catch (AuraHandledException e) { bloqueado = true; }
 		System.assert(bloqueado, 'Solo el contratante');
 		System.assertEquals(false, PortalPolizasPestanas.solicitudes(col.Id, null).get('puedeSolicitar'));
+
+		// Vista previa de administrador: puede enviar una solicitud de prueba como la cuenta elegida.
+		PortalPolizasController.permisoVistaPreviaPrueba = true;
+		System.assertEquals(true, PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('puedeSolicitar'));
+		Map<String, Object> rp = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ alta } }), empresa.Id);
+		System.assertEquals('SOL-0002', rp.get('folio'));
+		Case cp = [SELECT AccountId, Description FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = 'SOL-0002'];
+		System.assertEquals(empresa.Id, cp.AccountId);
+		System.assert(cp.Description.contains('vista previa de administrador'), cp.Description);
 	}
 }

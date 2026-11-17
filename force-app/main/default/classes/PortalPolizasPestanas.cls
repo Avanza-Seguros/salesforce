@@ -862,7 +862,7 @@ public without sharing class PortalPolizasPestanas {
 			}
 			return new Map<String, Object>{
 				'tipo' => bienes.tipo, 'esContratante' => contratante, 'vistaPrevia' => cuentaVistaPrevia != null,
-				'puedeSolicitar' => contratante && cuentaVistaPrevia == null && EndosoPoliza.tipoCaso() != null,
+				'puedeSolicitar' => contratante && EndosoPoliza.tipoCaso() != null,
 				'registros' => registros, 'solicitudes' => lista
 			};
 		} catch (AuraHandledException e) {
@@ -881,12 +881,13 @@ public without sharing class PortalPolizasPestanas {
 	 * @param policyId: Id de la póliza
 	 * @param solicitudJson: { movimientos: [{ tipo: alta|baja|cambio, registroId, fecha, detalle, datos: [{ etiqueta, valor }] }],
 	 *                        comentario, archivos: [{ nombre, base64 }] }
+	 * @param cuentaVistaPrevia: Cuenta a simular (vista previa de administrador, para pruebas); null para el usuario real
 	 * @return folio y número de caso
 	 */
 	@AuraEnabled(cacheable=false)
-	public static Map<String, Object> crearSolicitud(Id policyId, String solicitudJson) {
+	public static Map<String, Object> crearSolicitud(Id policyId, String solicitudJson, Id cuentaVistaPrevia) {
 		try {
-			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, null);
+			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
 			if (roles.get(policyId) != 'Titular') {
 				throw new AuraHandledException('Solo el contratante de la póliza puede enviar solicitudes de movimientos.');
 			}
@@ -898,7 +899,7 @@ public without sharing class PortalPolizasPestanas {
 			if (movs.isEmpty()) { throw new AuraHandledException('Agrega al menos un movimiento a la solicitud.'); }
 			if (movs.size() > 500) { throw new AuraHandledException('Una solicitud admite hasta 500 movimientos; para más, adjunta el archivo.'); }
 
-			Bienes bienes = asegurados(policyId, null);
+			Bienes bienes = asegurados(policyId, cuentaVistaPrevia);
 			Map<Id, Fila> vigentes = new Map<Id, Fila>();
 			for (Fila f : bienes.filas) { if (f.activo != false) { vigentes.put(f.id, f); } }
 			Map<String, String> nombres = new Map<String, String>{ 'alta' => 'Alta', 'baja' => 'Baja', 'cambio' => 'Cambio' };
@@ -960,12 +961,13 @@ public without sharing class PortalPolizasPestanas {
 				if (cuenta.get(t) > 0) { tipoUnico = tipoUnico == null ? nombres.get(t) : 'varios'; }
 			}
 			InsurancePolicy p = [SELECT Name, OwnerId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
-			List<Id> yo = PortalPolizasController.identidad(null);
+			List<Id> yo = PortalPolizasController.identidad(cuentaVistaPrevia);
 			String comentario = d.get('comentario') == null ? '' : String.valueOf(d.get('comentario')).trim();
 			String folio = EndosoPoliza.siguienteFolio(policyId);
 			Case c = new Case(RecordTypeId = tipoCaso, InsurancePolicy__c = policyId, AccountId = yo[0], Origin = 'Sitio Web',
 				Solicitud__c = folio, Subject = (folio + ' · Póliza ' + p.Name + ' · ' + String.join(resumen, ', ')).left(255),
-				Description = ('Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName() + ' para la póliza ' + p.Name + '.\n\n'
+				Description = ('Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName()
+					+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.\n\n'
 					+ String.join(lineas, '\n') + (String.isBlank(comentario) ? '' : '\n\nComentario del cliente: ' + comentario)).left(32000),
 				Comentarios__c = String.isBlank(comentario) ? null : comentario.left(131072));
 			if (tipoUnico != null && tipoUnico != 'varios') { c.Reason = tipoUnico; }

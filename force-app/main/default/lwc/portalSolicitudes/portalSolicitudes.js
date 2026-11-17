@@ -90,7 +90,6 @@ export default class PortalSolicitudes extends LightningElement {
     get puedeSolicitar() { return !!this.datos && this.datos.puedeSolicitar; }
     get avisoSinPermiso() {
         if (!this.datos || this.datos.puedeSolicitar) { return null; }
-        if (this.datos.vistaPrevia) { return 'En la vista previa no se envían solicitudes.'; }
         if (!this.datos.esContratante) { return 'Las solicitudes de altas, bajas y cambios las envía el contratante de la póliza.'; }
         return null;
     }
@@ -236,7 +235,8 @@ export default class PortalSolicitudes extends LightningElement {
                     movimientos,
                     comentario: this.comentario,
                     archivos: this.archivos.map((a) => ({ nombre: a.nombre, base64: a.base64 }))
-                })
+                }),
+                cuentaVistaPrevia: this.cuentaVistaPrevia || null
             });
             this.formulario = false;
             this.exito = `Recibimos tu solicitud ${r.folio}. Tu asesor la revisará y verás aquí su avance.`;
