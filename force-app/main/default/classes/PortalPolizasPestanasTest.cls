@@ -213,8 +213,9 @@ private class PortalPolizasPestanasTest {
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Solicitudes de movimientos del sitio: el contratante envía un alta y una baja con un archivo; se crea
-	 * el caso «Solicitud de movimientos» con el folio SOL-0001, ligado a la póliza, y aparece como Recibida. Se validan
-	 * los datos; quien no es el contratante no puede enviar. Al rechazarla, el cliente ve el motivo.
+	 * el caso «Solicitud de movimientos» con el folio SOL-0001, ligado a la póliza, y los movimientos quedan registrados
+	 * en la póliza con ese folio (En proceso). Se validan los datos; quien no es el contratante no puede enviar. Una
+	 * solicitud sin movimientos que registrar queda Recibida; al rechazarla, el cliente ve el motivo.
 	 * @return void
 	 */
 	@isTest
@@ -231,9 +232,11 @@ private class PortalPolizasPestanasTest {
 		PortalPolizasController.cuentaPrueba = empresa.Id;
 		PortalPolizasController.contactoPrueba = null;
 
-		Map<String, Object> alta = new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => '2026-12-01', 'datos' => new List<Object>{
+		Map<String, Object> alta = new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()), 'datos' => new List<Object>{
 			new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' },
-			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } } };
+			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } },
+			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
+				'parentesco' => 'Titular' } };
 		Map<String, Object> baja = new Map<String, Object>{ 'tipo' => 'baja', 'registroId' => titular.Id, 'detalle' => 'Renuncia' };
 		Test.startTest();
 		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
@@ -262,18 +265,17 @@ private class PortalPolizasPestanasTest {
 		System.assert(c.Description.contains('1. ALTA') && c.Description.contains('2. BAJA · 1 · ') && c.Description.contains('Motivo: Renuncia'), c.Description);
 		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :c.Id], 'El archivo queda en el caso');
 		System.assertEquals(4, errores, 'Sin movimientos, cambio sin detalle, baja sin registro y alta sin datos no son válidos');
+		System.assertEquals(2, r.get('registrados'));
+		System.assertEquals(2, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :col.Id AND Solicitud__c = 'SOL-0001'],
+			'El alta y la baja quedan registradas con el folio');
+		System.assertEquals(false, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :titular.Id].IsActiveParticipant);
 		System.assertEquals(true, vista.get('puedeSolicitar'));
-		System.assertEquals(1, ((List<Object>) vista.get('registros')).size());
+		System.assertEquals(1, ((List<Object>) vista.get('registros')).size(), 'Vigente: el alta (el titular se dio de baja)');
 		List<Object> sols = (List<Object>) vista.get('solicitudes');
 		System.assertEquals(1, sols.size());
-		System.assertEquals('Recibida', ((Map<String, Object>) sols[0]).get('estado'));
+		System.assertEquals('En proceso', ((Map<String, Object>) sols[0]).get('estado'));
+		System.assertEquals(2, ((Map<String, Object>) sols[0]).get('aplicados'));
 		System.assertEquals(1, ((Map<String, Object>) sols[0]).get('documentos'));
-
-		// Rechazo del ejecutivo: el cliente ve el motivo.
-		EndosoPoliza.rechazarSolicitud(c.Id, 'Falta el acta de nacimiento');
-		Map<String, Object> s = (Map<String, Object>) ((List<Object>) PortalPolizasPestanas.solicitudes(col.Id, null).get('solicitudes'))[0];
-		System.assertEquals('Rechazada', s.get('estado'));
-		System.assert(String.valueOf(s.get('respuesta')).contains('Falta el acta'), s.get('respuesta'));
 
 		// Quien no es el contratante no envía solicitudes.
 		PortalPolizasController.cuentaPrueba = null;
@@ -282,11 +284,15 @@ private class PortalPolizasPestanasTest {
 		try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ alta } }), null); }
 		catch (AuraHandledException e) { bloqueado = true; }
 		System.assert(bloqueado, 'Solo el contratante');
-		System.assertEquals(false, PortalPolizasPestanas.solicitudes(col.Id, null).get('puedeSolicitar'));
+		// El empleado ya se dio de baja en la solicitud: o no ve la póliza o no puede solicitar.
+		Boolean puede = false;
+		try { puede = (Boolean) PortalPolizasPestanas.solicitudes(col.Id, null).get('puedeSolicitar'); } catch (AuraHandledException e) { puede = false; }
+		System.assertEquals(false, puede);
 
 		// Vista previa de administrador: puede enviar una solicitud de prueba como la cuenta elegida.
 		PortalPolizasController.permisoVistaPreviaPrueba = true;
 		System.assertEquals(true, PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('puedeSolicitar'));
+		alta.put('campos', new Map<String, Object>{ 'nombre' => 'Luis', 'paterno' => 'Paz', 'sexo' => 'Hombre', 'parentesco' => 'Titular' });
 		Map<String, Object> rp = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
 			'movimientos' => new List<Object>{ alta } }), empresa.Id);
 		System.assertEquals('SOL-0002', rp.get('folio'));
@@ -313,5 +319,126 @@ private class PortalPolizasPestanasTest {
 				'listado' => new Map<String, Object>{ 'tipo' => 'otro', 'nombre' => 'x.xlsx' } }), empresa.Id);
 		} catch (AuraHandledException e) { sinTipo = true; }
 		System.assert(sinTipo, 'El archivo indica qué contiene');
+
+		// Sin movimientos que registrar (solo el archivo) queda Recibida. Rechazo del ejecutivo: el cliente ve el motivo.
+		Case recibida = [SELECT Id FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
+		EndosoPoliza.rechazarSolicitud(recibida.Id, 'Falta el acta de nacimiento');
+		Boolean visto = false;
+		for (Object o : (List<Object>) PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('solicitudes')) {
+			Map<String, Object> s = (Map<String, Object>) o;
+			if (s.get('folio') != ra.get('folio')) { continue; }
+			visto = true;
+			System.assertEquals('Rechazada', s.get('estado'));
+			System.assert(String.valueOf(s.get('respuesta')).contains('Falta el acta'), s.get('respuesta'));
+		}
+		System.assert(visto, 'El cliente ve la solicitud rechazada');
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitud del sitio con archivo de vehículos, enviada por un usuario del sitio (Partner Community, que
+	 * no ve los registros de la póliza): el alta, la baja (por serie) y el cambio de placas (por inciso) quedan
+	 * registrados en la flotilla con el folio. Un renglón que no corresponde a ningún vehículo vigente no deja nada
+	 * (ni el caso) y el mensaje dice qué renglón es.
+	 * @return void
+	 */
+	@isTest
+	static void testSolicitudRegistraMovimientos() {
+		User yo = [SELECT Id, UserRoleId FROM User WHERE Id = :UserInfo.getUserId()];
+		if (yo.UserRoleId == null) {
+			System.runAs(yo) {
+				UserRole rolPrueba = new UserRole(Name = 'Rol prueba solicitudes');
+				insert rolPrueba;
+				yo.UserRoleId = rolPrueba.Id;
+				update yo;
+			}
+		}
+		Account cliente = new Account(Name = 'Cliente Flotilla Sitio');
+		insert cliente;
+		cliente.IsPartner = true;
+		update cliente;
+		Contact contacto = new Contact(LastName = 'Contratante', AccountId = cliente.Id, Email = 'contratante@prueba.test');
+		insert contacto;
+		InsurancePolicy auto = poliza(cliente.Id, 'FLOT-SITIO-1', 'Automoviles');
+		insert auto;
+		insert new List<Inciso_Flotilla__c>{
+			new Inciso_Flotilla__c(Poliza__c = auto.Id, Numero_Inciso__c = 1, Descripcion__c = 'NISSAN VERSA', Serie__c = 'AAA111',
+				Placas__c = 'ABC123', Modelo__c = 2020, Fecha_Alta__c = Date.today().addDays(-10)),
+			new Inciso_Flotilla__c(Poliza__c = auto.Id, Numero_Inciso__c = 2, Descripcion__c = 'VW JETTA', Serie__c = 'BBB222',
+				Placas__c = 'XYZ999', Modelo__c = 2021, Fecha_Alta__c = Date.today().addDays(-10))
+		};
+		User sitio;
+		System.runAs(yo) {
+			Profile perfil = [SELECT Id FROM Profile WHERE UserLicense.Name = 'Partner Community' ORDER BY Name LIMIT 1];
+			sitio = new User(ProfileId = perfil.Id, ContactId = contacto.Id, LastName = 'Contratante', Alias = 'contsit',
+				Email = 'contratante@prueba.test', Username = 'contratante.sitio.' + Datetime.now().getTime() + '@prueba.test',
+				TimeZoneSidKey = 'America/Mexico_City', LocaleSidKey = 'es_MX', EmailEncodingKey = 'UTF-8', LanguageLocaleKey = 'es');
+			insert sitio;
+		}
+		PortalPolizasController.cuentaPrueba = cliente.Id;
+		PortalPolizasController.contactoPrueba = null;
+		String hoy = String.valueOf(Date.today());
+		Map<String, Object> archivo = new Map<String, Object>{ 'tipo' => 'varios', 'nombre' => 'FLOTILLA.xlsx', 'total' => 3,
+			'encabezados' => new List<Object>{ 'MOVIMIENTO', 'INCISO', 'MODELO', 'MARCA', 'VERSION', 'SERIE', 'PLACAS' },
+			'filas' => new List<Object>(),
+			'registros' => new List<Object>{
+				new Map<String, Object>{ 'tipo' => 'alta', 'fila' => 2, 'fecha' => hoy, 'campos' => new Map<String, Object>{
+					'modelo' => '2014', 'marca' => 'TOYOTA', 'version' => 'YARIS CORE', 'serie' => 'JTDKT9D38ED585824', 'placas' => 'KXM-751-A' } },
+				new Map<String, Object>{ 'tipo' => 'baja', 'fila' => 3, 'fecha' => hoy, 'comentario' => 'Venta', 'campos' => new Map<String, Object>{ 'serie' => 'aaa111' } },
+				new Map<String, Object>{ 'tipo' => 'cambio', 'fila' => 4, 'fecha' => hoy, 'campos' => new Map<String, Object>{ 'inciso' => '2', 'placas' => 'NEW123' } }
+			} };
+		Map<String, Object> r;
+		String error;
+		Test.startTest();
+		System.runAs(sitio) {
+			r = PortalPolizasPestanas.crearSolicitud(auto.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null);
+			// Un renglón que no está en la póliza: no queda nada.
+			archivo.put('registros', new List<Object>{
+				new Map<String, Object>{ 'tipo' => 'alta', 'fila' => 4, 'campos' => new Map<String, Object>{ 'serie' => 'CCC333', 'descripcion' => 'KIA RIO' } },
+				new Map<String, Object>{ 'tipo' => 'baja', 'fila' => 5, 'campos' => new Map<String, Object>{ 'serie' => 'NOEXISTE' } } });
+			try { PortalPolizasPestanas.crearSolicitud(auto.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null); }
+			catch (AuraHandledException e) { error = e.getMessage(); }
+		}
+		Test.stopTest();
+
+		System.assertEquals('SOL-0001', r.get('folio'));
+		System.assertEquals(3, r.get('registrados'));
+		System.assertEquals(3, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :auto.Id AND Solicitud__c = 'SOL-0001']);
+		Inciso_Flotilla__c nuevo = [SELECT Descripcion__c, Modelo__c, Placas__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'JTDKT9D38ED585824'];
+		System.assert(nuevo.Descripcion__c.startsWith('TOYOTA YARIS CORE'), nuevo.Descripcion__c);
+		System.assertEquals(2014, nuevo.Modelo__c);
+		System.assertNotEquals(null, [SELECT Fecha_Baja__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'AAA111'].Fecha_Baja__c);
+		System.assertEquals('NEW123', [SELECT Placas__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'BBB222'].Placas__c);
+		System.assert(error != null && error.contains('Renglón 5 del archivo'), error);
+		System.assertEquals(1, [SELECT COUNT() FROM Case WHERE InsurancePolicy__c = :auto.Id], 'La solicitud con error no queda');
+		System.assertEquals(0, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'CCC333'], 'Ni su alta');
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Solicitud del sitio de una póliza de ubicaciones: el alta capturada queda como bien de la póliza con
+	 * el folio de la solicitud.
+	 * @return void
+	 */
+	@isTest
+	static void testSolicitudRegistraUbicacion() {
+		Account cliente = new Account(Name = 'Cliente Ubicaciones Sitio');
+		insert cliente;
+		InsurancePolicy danos = poliza(cliente.Id, 'DANOS-SITIO-1', 'Danos');
+		insert danos;
+		insert new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Inciso 1 - Oficina');
+		PortalPolizasController.cuentaPrueba = cliente.Id;
+		PortalPolizasController.contactoPrueba = null;
+		Test.startTest();
+		Map<String, Object> ru = PortalPolizasPestanas.crearSolicitud(danos.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{
+			new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()),
+				'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre', 'valor' => 'Bodega' } },
+				'campos' => new Map<String, Object>{ 'ubicacion' => 'Bodega', 'direccion' => 'Av. Uno 100', 'suma' => '1,500,000' } } } }), null);
+		Test.stopTest();
+		System.assertEquals(1, ru.get('registrados'));
+		System.assertEquals(2, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :danos.Id]);
+		System.assertEquals(1, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :danos.Id AND Solicitud__c = 'SOL-0001']);
 	}
 }

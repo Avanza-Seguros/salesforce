@@ -5,7 +5,7 @@
  *               de renglón del PDF dentro de un texto (ej. el nombre de una cobertura que ocupa dos renglones) y un
  *               JSON no admite caracteres de control sin escapar dentro de una cadena: falla al leerlo.
  */
-public with sharing class JsonIa {
+public inherited sharing class JsonIa {
 
 	/**
 	 * @creation date: 14/11/2026

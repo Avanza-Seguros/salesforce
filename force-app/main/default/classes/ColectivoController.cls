@@ -7,7 +7,7 @@
  *               (dirección, valor asegurado, prima y coberturas). Cada cotización (PDF o Excel, leída con IA en el LWC
  *               colectivoPersonas) es un Quote de la oportunidad. Alimenta el comparativo en pantalla y en PDF.
  */
-public with sharing class ColectivoController {
+public inherited sharing class ColectivoController {
 
 	// Prompt Template (Prompt Builder) que lee cotizaciones colectivas de personas y su variable de entrada.
 	private static final String PROMPT_TEMPLATE_API_NAME = 'Extractor_Colectivo_Personas';

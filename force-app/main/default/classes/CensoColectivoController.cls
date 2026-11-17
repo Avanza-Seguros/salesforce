@@ -7,7 +7,7 @@
  *               titular o dependiente). El archivo (Excel, CSV o PDF) se lee en el LWC censoColectivo;
  *               aquí se guarda, se consulta el resumen y se pide a la IA la lectura de censos en PDF.
  */
-public with sharing class CensoColectivoController {
+public inherited sharing class CensoColectivoController {
 
 	// Prompt Template (Prompt Builder) que lee censos en PDF y su variable de entrada.
 	private static final String PROMPT_TEMPLATE_API_NAME = 'Extractor_Censo_Colectivo';

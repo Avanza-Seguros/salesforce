@@ -6,7 +6,7 @@
  *               por vehículo (prima, valor, deducibles, RC...). Cada vehículo con serie se liga a un
  *               CustomerProperty de la empresa (el mismo objeto que usa Auto individual), sin duplicar por VIN.
  */
-public with sharing class FlotillaController {
+public inherited sharing class FlotillaController {
 
 	// Prompt Template (Prompt Builder) que lee cotizaciones de flotilla en PDF y su variable de entrada.
 	private static final String PROMPT_TEMPLATE_API_NAME = 'Extractor_Flotilla_Auto';

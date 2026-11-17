@@ -434,3 +434,6 @@
 .sol-cerrada {
     color: #2e844a;
 }
+
+/* Excel de la solicitud para la aseguradora (encabezado de la solicitud). */
+.sol-excel { margin-left: auto; }

@@ -6,7 +6,7 @@
  *               la oportunidad: resumen por aseguradora, prima por tipo de vehículo, coberturas y deducibles,
  *               detalle de prima por vehículo y recomendación. Mismo estilo que el comparativo individual.
  */
-public with sharing class FlotillaComparativoPdfController {
+public inherited sharing class FlotillaComparativoPdfController {
 
 	public String htmlBody { get; private set; }
 

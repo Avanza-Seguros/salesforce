@@ -10,7 +10,7 @@
  *               Cada movimiento queda registrado en Movimiento_Poliza__c. También compara un archivo de la aseguradora
  *               (censo completo o endoso) contra los asegurados actuales y propone las altas, bajas y cambios.
  */
-public with sharing class MovimientosColectivoController {
+public inherited sharing class MovimientosColectivoController {
 
 	private static final String ALTA = 'alta';
 	private static final String BAJA = 'baja';

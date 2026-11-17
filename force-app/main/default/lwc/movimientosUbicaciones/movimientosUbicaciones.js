@@ -809,6 +809,23 @@ export default class MovimientosUbicaciones extends LightningElement {
     generarExcel() {
         const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
         const registros = this.ubicaciones.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
+        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
+        this.excelDe(registros, sufijo);
+        this.cerrarModal();
+    }
+    // Excel solo con los registros de una solicitud (el que se envía a la aseguradora): desde el encabezado de la
+    // solicitud en la tabla o desde las solicitudes del sitio.
+    handleExcelSolicitud(e) {
+        const folio = (e.detail && e.detail.folio) || (e.currentTarget && e.currentTarget.dataset.folio);
+        const registros = this.ubicaciones.filter((r) => r.solicitud === folio);
+        if (!registros.length) {
+            this.toast('Excel', `La solicitud ${folio} no tiene registros.`, 'info');
+            return;
+        }
+        this.excelDe(registros, folio);
+    }
+    excelDe(registros, sufijo) {
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [
@@ -822,11 +839,8 @@ export default class MovimientosUbicaciones extends LightningElement {
                 ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
                 ['Descripción', (r) => r.motivoBaja || '']
             ];
-        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
-        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
         descargarExcel(`Ubicaciones_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Ubicaciones',
             columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
-        this.cerrarModal();
     }
     fechaHoraTxt(v) {
         if (!v) { return ''; }

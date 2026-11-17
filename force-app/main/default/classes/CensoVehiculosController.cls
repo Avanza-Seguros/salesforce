@@ -7,7 +7,7 @@
  *               con la misma serie se ligan a la póliza y a su vehículo del cliente en vez de duplicarse; los que ya
  *               están en una póliza no se modifican ni se borran desde el censo.
  */
-public with sharing class CensoVehiculosController {
+public inherited sharing class CensoVehiculosController {
 
 	@TestVisible private static final Integer MAX_VEHICULOS = 3000;
 	// Vehículos que se regresan al LWC para la tabla (el resumen sí cuenta a todos).

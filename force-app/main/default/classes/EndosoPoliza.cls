@@ -8,7 +8,7 @@
  *               cada registro que tocó el endoso. Los movimientos (Movimiento_Poliza__c) quedan ligados a ella.
  *               Si el endoso ya existe (mismo número en la póliza), se le agregan los movimientos.
  */
-public with sharing class EndosoPoliza {
+public inherited sharing class EndosoPoliza {
 
 	/**
 	 * @creation date: 14/11/2026

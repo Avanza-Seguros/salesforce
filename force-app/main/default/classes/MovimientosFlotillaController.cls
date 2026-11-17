@@ -12,7 +12,7 @@
  *               Cada movimiento queda en Movimiento_Poliza__c. También compara el archivo de la aseguradora (leído por
  *               c-censo-vehiculos en modo lector) contra los vehículos actuales, por serie (o placas si no trae serie).
  */
-public with sharing class MovimientosFlotillaController {
+public inherited sharing class MovimientosFlotillaController {
 
 	private static final String ALTA = 'alta';
 	private static final String BAJA = 'baja';

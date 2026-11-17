@@ -6,7 +6,7 @@
  *               lado a lado, formas de pago, categorías (personas) o ubicaciones (Daños / Empresarial), coberturas
  *               adicionales, distribución por edad, cuota al millar y recomendación. Mismo estilo que los demás comparativos.
  */
-public with sharing class ColectivoComparativoPdfController {
+public inherited sharing class ColectivoComparativoPdfController {
 
 	public String htmlBody { get; private set; }
 

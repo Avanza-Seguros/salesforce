@@ -5,7 +5,7 @@
  *              Fecha_de_Nacimiento__c y Edad__c. Al emitir la poliza, se copian
  *              a Participante de Poliza (InsurancePolicyParticipant, FSC).
  */
-public with sharing class AseguradosController {
+public inherited sharing class AseguradosController {
 
     // ============================================================
     // Wrapper de salida hacia el LWC

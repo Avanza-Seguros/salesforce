@@ -12,7 +12,7 @@
  *                 ubicación del listado. Al emitir, si la cotización aceptada no trae ubicaciones, se usa este listado.
  *               Cada movimiento queda en Movimiento_Poliza__c.
  */
-public with sharing class MovimientosUbicacionesController {
+public inherited sharing class MovimientosUbicacionesController {
 
 	private static final String ALTA = 'alta';
 	private static final String BAJA = 'baja';

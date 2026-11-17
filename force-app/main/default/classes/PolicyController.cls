@@ -8,7 +8,7 @@
  *                 por la cotización origen (SourceQuoteId) y, como respaldo, por las
  *                 cotizaciones de la oportunidad.
  */
-public with sharing class PolicyController {
+public inherited sharing class PolicyController {
 
 	/**
 	 * @creation date: 08/07/2026

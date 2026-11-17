@@ -1291,6 +1291,23 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     generarExcel() {
         const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
         const registros = this.miembros.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
+        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
+        this.excelDe(registros, sufijo);
+        this.cerrarModal();
+    }
+    // Excel solo con los registros de una solicitud (el que se envía a la aseguradora): desde el encabezado de la
+    // solicitud en la tabla o desde las solicitudes del sitio.
+    handleExcelSolicitud(e) {
+        const folio = (e.detail && e.detail.folio) || (e.currentTarget && e.currentTarget.dataset.folio);
+        const registros = this.miembros.filter((r) => r.solicitud === folio);
+        if (!registros.length) {
+            this.toast('Excel', `La solicitud ${folio} no tiene registros.`, 'info');
+            return;
+        }
+        this.excelDe(registros, folio);
+    }
+    excelDe(registros, sufijo) {
         // Formato de la solicitud de movimientos a la aseguradora: un renglón por titular con sus dependientes en columnas.
         const porId = new Map(this.miembros.map((m) => [m.id, m]));
         const familias = new Map();
@@ -1332,10 +1349,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             fila.push(motivos.join(' | '), this.correoDe(t) || '');
             return fila;
         });
-        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
-        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
         descargarExcel(`Asegurados_${String(poliza).replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Asegurados', columnas, filas);
-        this.cerrarModal();
     }
     // Nombre(s) y apellidos por separado: los del contacto; si no hay, del nombre completo (los dos últimos son los apellidos).
     partesNombre(r) {

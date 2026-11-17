@@ -745,6 +745,23 @@ export default class MovimientosFlotilla extends LightningElement {
     generarExcel() {
         const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
         const registros = this.vehiculos.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
+        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
+        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
+        this.excelDe(registros, sufijo);
+        this.cerrarModal();
+    }
+    // Excel solo con los registros de una solicitud (el que se envía a la aseguradora): desde el encabezado de la
+    // solicitud en la tabla o desde las solicitudes del sitio.
+    handleExcelSolicitud(e) {
+        const folio = (e.detail && e.detail.folio) || (e.currentTarget && e.currentTarget.dataset.folio);
+        const registros = this.vehiculos.filter((r) => r.solicitud === folio);
+        if (!registros.length) {
+            this.toast('Excel', `La solicitud ${folio} no tiene registros.`, 'info');
+            return;
+        }
+        this.excelDe(registros, folio);
+    }
+    excelDe(registros, sufijo) {
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [
@@ -757,11 +774,8 @@ export default class MovimientosFlotilla extends LightningElement {
                 ['Valor', (r) => (r.valor == null ? null : Number(r.valor))], ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
                 ['Descripción', (r) => r.motivoBaja || '']
             ];
-        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
-        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
         descargarExcel(`Vehiculos_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Vehículos',
             columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
-        this.cerrarModal();
     }
     // Vigencia del vehículo: desde su alta (o el inicio de la póliza) hasta su baja (o el fin de la póliza).
     vigenciaDesde(v) { return v.fechaAlta || (this.datos && this.datos.inicio) || null; }

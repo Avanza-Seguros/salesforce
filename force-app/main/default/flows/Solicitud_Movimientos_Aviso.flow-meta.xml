@@ -106,6 +106,6 @@ Enviada por: {!$Record.CreatedBy.Name}
 
 Ver el caso: {!LigaCaso}
 
-La solicitud queda pendiente en la pestaña de movimientos de la póliza (Asegurados, Vehículos o Ubicaciones) hasta que se aplique o se rechace.</text>
+Los movimientos ya quedaron registrados en la póliza con el folio {!$Record.Solicitud__c}. En la pestaña Asegurados, Vehículos o Ubicaciones de la póliza descarga el Excel de la solicitud («Excel para la aseguradora») para enviarlo a la aseguradora; cuando llegue el endoso, ciérralos con su número. Si la solicitud aparece «por atender» es que no se pudieron registrar solos: captúralos con «Atender».</text>
     </textTemplates>
 </Flow>

@@ -12,7 +12,7 @@
                 <div class="cabecera">
                     <div>
                         <p class="titulo">Nueva solicitud</p>
-                        <p class="subtitulo">Agrega las altas, bajas y cambios que necesitas. Tu asesor las tramita con la aseguradora.</p>
+                        <p class="subtitulo">Agrega las altas, bajas y cambios que necesitas. Se registran en tu póliza y tu asesor los tramita con la aseguradora.</p>
                     </div>
                 </div>
                 <div class="modos" role="group" aria-label="Cómo enviar la solicitud">
@@ -43,6 +43,7 @@
                                     <button class="enlace quitar" onclick={handleQuitarListado}>Cambiar archivo</button>
                                 </div>
                                 <p lwc:if={listado.aviso} class="nota">{listado.aviso}</p>
+                                <p lwc:if={columnasReconocidas} class="nota">{columnasReconocidas}</p>
                                 <template lwc:if={listadoConDatos}>
                                     <div class="tabla_contenedor">
                                         <table class="tabla">
@@ -67,8 +68,8 @@
                         <template lwc:else>
                             <label class="zona" ondragover={handleSobreZona} ondrop={handleSoltar}>
                                 <span class="zona_titulo">{textoZona}</span>
-                                <span class="nota">Excel (.xlsx, .xls) o CSV, hasta 4 MB. Te mostramos lo que trae antes de enviarlo.</span>
-                                <input type="file" accept=".xlsx,.xls,.xlsm,.csv,.txt,.pdf" onchange={handleListado} class="oculto" disabled={leyendo} />
+                                <span class="nota">Excel (.xlsx, .xls) o CSV con un renglón por movimiento, hasta 4 MB. Te mostramos lo que trae antes de enviarlo.</span>
+                                <input type="file" accept=".xlsx,.xls,.xlsm,.csv,.txt" onchange={handleListado} class="oculto" disabled={leyendo} />
                             </label>
                             <p class="nota">¿No tienes un formato? <button class="enlace" onclick={handlePlantilla}>Descarga la plantilla</button></p>
                         </template>
@@ -90,6 +91,7 @@
                                 <lightning-combobox class="ancho" label={nombreRegistro} value={m.registroId} options={opcionesRegistro}
                                     placeholder="Elige de la póliza" data-key={m.key} data-campo="registroId" onchange={handleCampo} required></lightning-combobox>
                             </template>
+                            <p lwc:if={m.esCambio} class="nota ancho">Captura solo los datos que cambian.</p>
                             <template for:each={m.campos} for:item="c">
                                 <template lwc:if={c.esLista}>
                                     <lightning-combobox key={c.key} label={c.etiqueta} value={c.valor} options={c.opciones} data-key={m.key}

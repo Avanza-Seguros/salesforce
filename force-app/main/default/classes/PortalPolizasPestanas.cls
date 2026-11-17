@@ -876,10 +876,14 @@ public without sharing class PortalPolizasPestanas {
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: El contratante envía una solicitud de movimientos: se crea un caso «Solicitud de movimientos» ligado
-	 * a la póliza, con el folio de solicitud de la póliza (SOL-0001...), lo que pidió y sus archivos. Queda pendiente
-	 * hasta que el ejecutivo lo aplica; al crearse se avisa por correo a Avanza (flujo del caso).
+	 * a la póliza, con el folio de solicitud de la póliza (SOL-0001...), lo que pidió y sus archivos, y los movimientos se
+	 * registran en la póliza con ese folio (abiertos hasta el endoso de la aseguradora; ver registrar). Al crearse se
+	 * avisa por correo a Avanza (flujo del caso) y el ejecutivo descarga el Excel de la solicitud para la aseguradora.
 	 * @param policyId: Id de la póliza
-	 * @param solicitudJson: { movimientos: [{ tipo: alta|baja|cambio, registroId, fecha, detalle, datos: [{ etiqueta, valor }] }],
+	 * @param solicitudJson: { movimientos: [{ tipo: alta|baja|cambio, registroId, fecha, detalle, titularId,
+	 *                          datos: [{ etiqueta, valor }], campos: { clave: valor } }],
+	 *                        listado: { tipo, nombre, fecha, encabezados, filas, total,
+	 *                          registros: [{ tipo, fila, fecha, comentario, titular, campos: { clave: valor } }] },
 	 *                        comentario, archivos: [{ nombre, base64 }] }
 	 * @param cuentaVistaPrevia: Cuenta a simular (vista previa de administrador, para pruebas); null para el usuario real
 	 * @return folio y número de caso
@@ -907,6 +911,8 @@ public without sharing class PortalPolizasPestanas {
 			Map<String, String> nombres = new Map<String, String>{ 'alta' => 'Alta', 'baja' => 'Baja', 'cambio' => 'Cambio' };
 			Map<String, Integer> cuenta = new Map<String, Integer>{ 'alta' => 0, 'baja' => 0, 'cambio' => 0 };
 			List<String> lineas = new List<String>();
+			// Movimientos que se registran en la póliza al enviar la solicitud (como si los capturara el ejecutivo).
+			List<Map<String, Object>> aRegistrar = new List<Map<String, Object>>();
 			Integer i = 0;
 			for (Object o : movs) {
 				i++;
@@ -933,10 +939,14 @@ public without sharing class PortalPolizasPestanas {
 				if (m.get('detalle') != null && String.isNotBlank(String.valueOf(m.get('detalle')))) {
 					partes.add((tipo == 'baja' ? 'Motivo: ' : (tipo == 'cambio' ? 'Cambio: ' : 'Nota: ')) + m.get('detalle'));
 				}
-				if (tipo == 'cambio' && (m.get('detalle') == null || String.isBlank(String.valueOf(m.get('detalle'))))) {
+				Map<String, Object> campos = m.get('campos') instanceof Map<String, Object> ? (Map<String, Object>) m.get('campos') : null;
+				if (tipo == 'cambio' && (campos == null || campos.isEmpty())
+						&& (m.get('detalle') == null || String.isBlank(String.valueOf(m.get('detalle'))))) {
 					throw new AuraHandledException('Movimiento ' + i + ': describe qué se cambia.');
 				}
 				lineas.add(String.join(partes, ' · '));
+				aRegistrar.add(new Map<String, Object>{ 'tipo' => tipo, 'registroId' => m.get('registroId'), 'fecha' => m.get('fecha'),
+					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + i });
 			}
 			String tablaArchivo = '';
 			String tipoArchivo = null;
@@ -965,6 +975,18 @@ public without sharing class PortalPolizasPestanas {
 					if (f instanceof List<Object>) { tabla.add(String.join(textos((List<Object>) f), ' | ')); }
 				}
 				if (!filas.isEmpty()) { tablaArchivo = '\n\nContenido del archivo ' + nombreArchivo + ':\n' + String.join(tabla, '\n'); }
+				// Renglones del archivo ya interpretados en el sitio (columnas reconocidas): se registran en la póliza.
+				if (listado.get('registros') instanceof List<Object>) {
+					for (Object o : (List<Object>) listado.get('registros')) {
+						Map<String, Object> r = (Map<String, Object>) o;
+						String t = r.get('tipo') == null ? tipo : String.valueOf(r.get('tipo')).toLowerCase();
+						String donde = r.get('fila') == null ? 'Un renglón del archivo' : 'Renglón ' + r.get('fila') + ' del archivo';
+						if (!nombres.containsKey(t)) { throw new AuraHandledException(donde + ': indica si es alta, baja o cambio.'); }
+						Object f = r.get('fecha') != null && String.isNotBlank(String.valueOf(r.get('fecha'))) ? r.get('fecha') : listado.get('fecha');
+						aRegistrar.add(new Map<String, Object>{ 'tipo' => t, 'fecha' => f, 'comentario' => r.get('comentario'),
+							'campos' => r.get('campos'), 'titular' => r.get('titular'), 'etiqueta' => donde });
+					}
+				}
 			}
 
 			// Archivos (opcionales): Excel o PDF con el detalle, identificaciones, actas...
@@ -1008,10 +1030,24 @@ public without sharing class PortalPolizasPestanas {
 					&& [SELECT COUNT() FROM User WHERE Id = :p.OwnerId AND IsActive = true AND ContactId = null] > 0) {
 				c.OwnerId = p.OwnerId;
 			}
+			// Todo o nada: si los movimientos no se pueden registrar, no queda la solicitud y el cliente ve por qué.
+			Savepoint sp = Database.setSavepoint();
 			insert c;
 			for (ContentVersion v : archivos) { v.FirstPublishLocationId = c.Id; }
 			if (!archivos.isEmpty()) { insert archivos; }
-			return new Map<String, Object>{ 'folio' => folio, 'caso' => [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber };
+			Integer registrados;
+			try {
+				registrados = registrar(policyId, bienes, aRegistrar, folio);
+			} catch (Exception e) {
+				Database.rollback(sp);
+				String msg = e instanceof AuraHandledException ? e.getMessage() : MovimientosColectivoController.mensaje(e);
+				System.debug(LoggingLevel.ERROR, 'crearSolicitud (registro): ' + msg + ' | ' + e.getStackTraceString());
+				AuraHandledException a = new AuraHandledException('No se pudo registrar la solicitud: ' + msg);
+				a.setMessage('No se pudo registrar la solicitud: ' + msg);
+				throw a;
+			}
+			return new Map<String, Object>{ 'folio' => folio, 'caso' => [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber,
+				'registrados' => registrados };
 		} catch (AuraHandledException e) {
 			throw e;
 		} catch (Exception e) {
@@ -1021,6 +1057,215 @@ public without sharing class PortalPolizasPestanas {
 			a.setMessage(msg);
 			throw a;
 		}
+	}
+
+	/**
+	 * @creation date: 17/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Registra en la póliza los movimientos de la solicitud del sitio, igual que si los capturara el ejecutivo
+	 * (Asegurados, Vehículos o Ubicaciones): quedan con el folio de la solicitud y abiertos hasta que se cierren con el
+	 * endoso de la aseguradora. Las bajas y cambios que vienen del archivo se reconocen por serie, placas o inciso
+	 * (vehículos), certificado o nombre (asegurados) e inciso o nombre (ubicaciones). Los controladores son de
+	 * «inherited sharing»: desde aquí corren sin compartir, porque el usuario del sitio no ve los registros de la póliza.
+	 * Pólizas de un solo vehículo (sin incisos de flotilla): no se registra nada y el ejecutivo atiende el caso.
+	 * @param policyId: Id de la póliza
+	 * @param bienes: registros de la póliza como los ve el contratante
+	 * @param regs: { tipo, registroId, fecha, comentario, campos, titularId, titular, etiqueta }
+	 * @param folio: folio de la solicitud
+	 * @return número de movimientos registrados
+	 */
+	@TestVisible
+	static Integer registrar(Id policyId, Bienes bienes, List<Map<String, Object>> regs, String folio) {
+		if (regs.isEmpty()) { return 0; }
+		String tipo = bienes.tipo;
+		if (tipo == 'vehiculos' && [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId] == 0) { return 0; }
+		Map<String, Id> claves = clavesVigentes(policyId, bienes);
+		String hoy = String.valueOf(Date.today());
+		List<Map<String, Object>> movs = new List<Map<String, Object>>();
+		// Altas de titulares en la misma solicitud (para ligar a sus dependientes): nombre -> posición.
+		Map<String, Integer> altasTitular = new Map<String, Integer>();
+		for (Map<String, Object> r : regs) {
+			String t = String.valueOf(r.get('tipo'));
+			String donde = String.valueOf(r.get('etiqueta'));
+			Map<String, Object> c = r.get('campos') instanceof Map<String, Object> ? (Map<String, Object>) r.get('campos') : new Map<String, Object>();
+			Map<String, Object> datos = tipo == 'vehiculos' ? datosVehiculo(c) : (tipo == 'ubicaciones' ? datosUbicacion(c) : datosPersona(c));
+			String fecha = r.get('fecha') == null || CensoColectivoController.fecha(String.valueOf(r.get('fecha'))) == null
+				? hoy : String.valueOf(r.get('fecha')).left(10);
+			String comentario = r.get('comentario') == null ? null : ('Del cliente: ' + String.valueOf(r.get('comentario')).normalizeSpace()).left(255);
+			Map<String, Object> m = new Map<String, Object>{ 'tipo' => t, 'fecha' => fecha, 'comentario' => comentario };
+			if (t != 'alta') {
+				Id id = r.get('registroId') == null || String.isBlank(String.valueOf(r.get('registroId'))) ? buscar(tipo, c, claves)
+					: (Id) String.valueOf(r.get('registroId'));
+				if (id == null) {
+					throw falla(donde + ': no encontramos ' + (tipo == 'vehiculos' ? 'el vehículo (por serie, placas o inciso)'
+						: (tipo == 'ubicaciones' ? 'la ubicación (por inciso o nombre)' : 'al asegurado (por certificado o nombre)'))
+						+ ' entre los vigentes de la póliza.');
+				}
+				m.put('id', id);
+			}
+			if (t == 'cambio' && datos.isEmpty()) {
+				throw falla(donde + ': indica los datos nuevos (solo los que cambian).');
+			}
+			if (t != 'baja') { m.put('datos', datos); }
+			if (tipo == 'personas' && t == 'alta') {
+				String parentesco = String.valueOf(datos.get('parentesco'));
+				if (String.isBlank(parentesco) || CensoColectivoController.llave(parentesco) == 'titular') {
+					altasTitular.put(llaveNombre(texto(datos.get('nombre')) + ' ' + texto(datos.get('apellidos'))), movs.size());
+				} else if (r.get('titularId') != null && String.isNotBlank(String.valueOf(r.get('titularId')))) {
+					m.put('titularId', String.valueOf(r.get('titularId')));
+				} else {
+					String titular = r.get('titular') == null ? '' : String.valueOf(r.get('titular'));
+					Id tid = String.isBlank(titular) ? null : buscar('personas', new Map<String, Object>{ 'certificado' => titular, 'nombreCompleto' => titular }, claves);
+					Integer ref = altasTitular.get(llaveNombre(titular));
+					if (tid != null) { m.put('titularId', tid); } else if (ref != null) { m.put('titularRef', ref); } else {
+						throw falla(donde + ': indica el titular del dependiente (su certificado o nombre).');
+					}
+				}
+			}
+			movs.add(m);
+		}
+		String json = System.JSON.serialize(new Map<String, Object>{ 'movimientos' => movs, 'solicitud' => folio });
+		Map<String, Object> res;
+		try {
+			res = tipo == 'vehiculos' ? MovimientosFlotillaController.aplicar(policyId, json)
+				: (tipo == 'ubicaciones' ? MovimientosUbicacionesController.aplicar(policyId, json) : MovimientosColectivoController.aplicar(policyId, json));
+		} catch (AuraHandledException e) {
+			// «Movimiento N» del controlador es la posición en esta lista: se cambia por lo que ve el cliente.
+			String msg = e.getMessage();
+			Matcher mt = Pattern.compile('^Movimiento (\\d+)').matcher(msg == null ? '' : msg);
+			if (mt.find()) {
+				Integer n = Integer.valueOf(mt.group(1));
+				if (n >= 1 && n <= regs.size()) { msg = regs[n - 1].get('etiqueta') + msg.substring(mt.end()); }
+			}
+			throw falla(msg);
+		}
+		Integer total = 0;
+		for (String k : new List<String>{ 'altas', 'bajas', 'cambios' }) {
+			if (res.get(k) instanceof Integer) { total += (Integer) res.get(k); }
+		}
+		return total;
+	}
+
+	static AuraHandledException falla(String msg) {
+		AuraHandledException e = new AuraHandledException(msg);
+		e.setMessage(msg);
+		return e;
+	}
+
+	/** Vigentes de la póliza por llave: S:serie, P:placas, I:inciso (vehículos y ubicaciones), C:certificado y N:nombre. */
+	static Map<String, Id> clavesVigentes(Id policyId, Bienes bienes) {
+		Map<String, Id> res = new Map<String, Id>();
+		if (bienes.tipo == 'vehiculos') {
+			for (Inciso_Flotilla__c i : [
+				SELECT Id, Serie__c, Placas__c, Numero_Inciso__c FROM Inciso_Flotilla__c
+				WHERE Poliza__c = :policyId AND Fecha_Baja__c = null LIMIT :MAX_FILAS
+			]) {
+				if (String.isNotBlank(i.Serie__c)) { res.put('S:' + codigo(i.Serie__c), i.Id); }
+				if (String.isNotBlank(i.Placas__c)) { res.put('P:' + codigo(i.Placas__c), i.Id); }
+				if (i.Numero_Inciso__c != null) { res.put('I:' + i.Numero_Inciso__c.intValue(), i.Id); }
+			}
+			return res;
+		}
+		for (Fila f : bienes.filas) {
+			if (f.activo == false) { continue; }
+			if (String.isNotBlank(f.clave)) { res.put((bienes.tipo == 'ubicaciones' ? 'I:' : 'C:') + codigo(f.clave), f.id); }
+			if (String.isNotBlank(f.nombre)) { res.put('N:' + llaveNombre(f.nombre), f.id); }
+		}
+		return res;
+	}
+
+	static Id buscar(String tipo, Map<String, Object> c, Map<String, Id> claves) {
+		List<String> llaves = new List<String>();
+		if (tipo == 'vehiculos') {
+			llaves.add('S:' + codigo(texto(c.get('serie'))));
+			llaves.add('P:' + codigo(texto(c.get('placas'))));
+			llaves.add('I:' + codigo(texto(c.get('inciso'))).replaceFirst('^0+', ''));
+		} else if (tipo == 'ubicaciones') {
+			llaves.add('I:' + codigo(texto(c.get('inciso'))));
+			llaves.add('N:' + llaveNombre(texto(c.get('ubicacion'))));
+		} else {
+			llaves.add('C:' + codigo(texto(c.get('certificado'))));
+			String completo = c.get('nombreCompleto') != null ? texto(c.get('nombreCompleto'))
+				: texto(c.get('nombre')) + ' ' + texto(c.get('paterno')) + ' ' + texto(c.get('materno'));
+			llaves.add('N:' + llaveNombre(completo));
+		}
+		for (String k : llaves) {
+			if (k.length() > 2 && claves.containsKey(k)) { return claves.get(k); }
+		}
+		return null;
+	}
+
+	static Map<String, Object> datosVehiculo(Map<String, Object> c) {
+		Map<String, Object> d = new Map<String, Object>();
+		String descripcion = texto(c.get('descripcion'));
+		if (String.isBlank(descripcion)) {
+			descripcion = (texto(c.get('marca')) + ' ' + texto(c.get('submarca')) + ' ' + texto(c.get('version'))).normalizeSpace();
+		}
+		poner(d, 'descripcion', descripcion.toUpperCase());
+		poner(d, 'serie', codigo(texto(c.get('serie'))));
+		poner(d, 'placas', codigo(texto(c.get('placas'))));
+		poner(d, 'uso', texto(c.get('uso')));
+		String modelo = texto(c.get('modelo')).replaceAll('[^0-9]', '');
+		if (modelo.length() == 4) { d.put('modelo', Integer.valueOf(modelo)); }
+		return d;
+	}
+
+	static Map<String, Object> datosUbicacion(Map<String, Object> c) {
+		Map<String, Object> d = new Map<String, Object>();
+		poner(d, 'nombre', texto(c.get('ubicacion')));
+		String direccion = texto(c.get('direccion'));
+		List<String> partes = new List<String>();
+		if (String.isNotBlank(direccion)) { partes.add(direccion); }
+		if (String.isNotBlank(texto(c.get('colonia')))) { partes.add('Col. ' + texto(c.get('colonia'))); }
+		if (String.isNotBlank(texto(c.get('cp')))) { partes.add('CP ' + texto(c.get('cp'))); }
+		for (String k : new List<String>{ 'municipio', 'estado' }) {
+			if (String.isNotBlank(texto(c.get(k)))) { partes.add(texto(c.get(k))); }
+		}
+		poner(d, 'direccion', String.join(partes, ', '));
+		poner(d, 'giro', texto(c.get('giro')));
+		Decimal suma = numero(c.get('suma'));
+		if (suma != null) { d.put('sumaAsegurada', suma); }
+		return d;
+	}
+
+	static Map<String, Object> datosPersona(Map<String, Object> c) {
+		Map<String, Object> d = new Map<String, Object>();
+		poner(d, 'nombre', texto(c.get('nombre')));
+		poner(d, 'apellidos', (texto(c.get('paterno')) + ' ' + texto(c.get('materno'))).normalizeSpace());
+		if (!d.containsKey('nombre')) { poner(d, 'nombreCompleto', texto(c.get('nombreCompleto'))); }
+		String nacimiento = texto(c.get('nacimiento'));
+		if (CensoColectivoController.fecha(nacimiento) != null) { d.put('fechaNacimiento', nacimiento.left(10)); }
+		poner(d, 'sexo', texto(c.get('sexo')));
+		poner(d, 'parentesco', texto(c.get('parentesco')));
+		poner(d, 'email', texto(c.get('correo')));
+		poner(d, 'certificado', texto(c.get('certificado')));
+		return d;
+	}
+
+	static void poner(Map<String, Object> d, String k, String v) {
+		if (String.isNotBlank(v)) { d.put(k, v.trim()); }
+	}
+
+	static String texto(Object v) {
+		return v == null ? '' : String.valueOf(v).normalizeSpace();
+	}
+
+	static Decimal numero(Object v) {
+		String s = texto(v).replaceAll('[^0-9.\\-]', '');
+		if (String.isBlank(s)) { return null; }
+		try { return Decimal.valueOf(s); } catch (Exception e) { return null; }
+	}
+
+	/** Serie, placas, inciso o certificado para comparar: mayúsculas, sin espacios ni guiones. */
+	static String codigo(String s) {
+		return s == null ? '' : s.toUpperCase().replaceAll('[^A-Z0-9]', '');
+	}
+
+	/** Nombre para comparar sin importar el orden de nombres y apellidos, acentos ni mayúsculas. */
+	static String llaveNombre(String s) {
+		List<String> palabras = CensoColectivoController.llave(s == null ? '' : s).split(' ');
+		palabras.sort();
+		return String.join(palabras, ' ').trim();
 	}
 
 	/**

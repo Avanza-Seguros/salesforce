@@ -7,7 +7,7 @@
  *               trae su contacto o cuenta (RFC, correo, teléfono, domicilio), sus coberturas individuales, su vigencia y
  *               baja, y su antigüedad (participante de la vigencia anterior y original). Solo lectura.
  */
-public with sharing class ParticipantesPolizaController {
+public inherited sharing class ParticipantesPolizaController {
 
 	private static final Integer MAX_PARTICIPANTES = 5000;
 	private static final String ROL_ASEGURADO = 'asegurado';
