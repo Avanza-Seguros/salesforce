@@ -36,7 +36,7 @@ const TIPOS_VENTA = {
 const FILTROS_TIPO = [
     { valor: 'todas', etiqueta: 'Todas' },
     { valor: 'Individual', etiqueta: 'Individual' },
-    { valor: 'Colectiva', etiqueta: 'Colectiva' }
+    { valor: 'Colectiva', etiqueta: 'Empresarial' }
 ];
 // Colores de avatar (texto blanco con contraste AA).
 const COLORES_AVATAR = ['#1E63E9', '#BE185D', '#0B2559', '#6D28D9', '#0F7A47', '#C2410C', '#0369A1'];
@@ -169,7 +169,7 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
             else if (dias <= 30) { venceTexto = `${this.plural(dias, 'día restante', 'días restantes')}`; venceClave = 'pronto'; }
             else { venceTexto = `${dias} días restantes`; venceClave = 'aTiempo'; }
             const cot = o.cotizaciones || 0;
-            const tipo = o.tipoContratacion === 'Colectiva' ? 'Colectiva' : 'Individual';
+            const tipo = o.tipoContratacion === 'Colectiva' ? 'Empresarial' : 'Individual';
             const nombre = o.nombre || o.cuenta || 'Sin nombre';
             const sub = [
                 tipo,
@@ -265,7 +265,7 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     get desgloseAbiertas() {
         const ind = this.abiertas.filter((o) => o.tipo === 'Individual').length;
         const col = this.abiertas.length - ind;
-        return `${this.plural(ind, 'individual', 'individuales')} · ${this.plural(col, 'colectiva', 'colectivas')}`;
+        return `${this.plural(ind, 'individual', 'individuales')} · ${this.plural(col, 'empresarial', 'empresariales')}`;
     }
     get valorTotal() {
         return this.dineroCorto(this.abiertas.reduce((s, o) => s + o.prima, 0));
