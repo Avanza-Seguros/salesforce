@@ -25,12 +25,13 @@ import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirA
 import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.subirDocumentoBaja';
 import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
 import enviarCorreo from '@salesforce/apex/ParticipantesPolizaController.enviarCorreo';
-import { llamar, fijarPortal } from 'c/portalContexto';
+import { llamar, fijarPortal, descargarDocumento } from 'c/portalContexto';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosColectivo.aplicar', p, aplicar);
 const compararArchivoSitio = (p) => llamar('MovimientosColectivo.compararArchivo', p, compararArchivo);
 const subirArchivoSitio = (p) => llamar('MovimientosColectivo.subirArchivo', p, subirArchivo);
 const subirDocumentoBajaSitio = (p) => llamar('MovimientosColectivo.subirDocumentoBaja', p, subirDocumentoBaja);
+const archivosAseguradoSitio = (p) => llamar('MovimientosColectivo.archivosAsegurado', p, archivosAsegurado);
 // Asegurados por llamada al enviar correo: menos si van con adjuntos (límite de memoria de Apex).
 const LOTE_CORREO = 25;
 const LOTE_CORREO_ADJUNTOS = 5;
@@ -423,7 +424,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 : (this.correoDe(m) ? `Aún no se envía el correo a ${this.correoDe(m)}` : 'El asegurado no tiene correo'),
             puedeCorreo: this.enPoliza && !!this.correoDe(m),
             // En el sitio no se adjuntan archivos ni se envían correos.
-            muestraArchivos: m.esTitular && !this.portal,
+            // En el sitio, solo el contratante (quien puede editar) ve y adjunta archivos.
+            muestraArchivos: m.esTitular && (!this.portal || this.puedeEditar),
             muestraCorreo: this.enPoliza && !!this.correoDe(m) && !this.portal,
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         });
@@ -572,7 +574,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     async cargarArchivos() {
         const id = this.archivos.id;
         try {
-            const r = await archivosAsegurado({ registroId: id });
+            const r = await archivosAseguradoSitio({ registroId: id });
             if (this.archivos.id !== id) { return; }
             this.archivos = { ...this.archivos, destinoId: r.destinoId, lista: r.archivos || [], cargando: false };
             // Actualiza el contador del botón en la lista.
@@ -588,6 +590,30 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.archivos = { ...this.archivos, cargando: true };
         await this.cargarArchivos();
     }
+    // Sitio: adjunta los archivos elegidos al asegurado por PortalPolizasMovimientos (hasta 3 MB cada uno).
+    async subirArchivosSitio(e) {
+        const archivos = Array.from((e.detail && e.detail.files) || (e.target && e.target.files) || []);
+        if (!archivos.length) { return; }
+        const id = this.archivos.id;
+        this.archivos = { ...this.archivos, cargando: true };
+        const errores = [];
+        let subidos = 0;
+        for (const f of archivos) {
+            if (f.size > 3 * 1024 * 1024) { errores.push(`${f.name}: pesa más de 3 MB.`); continue; }
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                const base64 = await this.leerBase64(f);
+                // eslint-disable-next-line no-await-in-loop
+                await llamar('Archivos.subir', { participanteId: id, nombre: f.name, base64 }, null);
+                subidos++;
+            } catch (err) {
+                errores.push(`${f.name}: ${this.textoError(err)}`);
+            }
+        }
+        if (subidos) { this.toast('Archivos', `${subidos} archivo(s) adjuntado(s).`, 'success'); }
+        if (errores.length) { this.toast('Archivos', errores.join(' '), 'error'); }
+        await this.cargarArchivos();
+    }
     get archivosLista() {
         return this.archivos.lista.map((a) => ({
             ...a,
@@ -599,10 +625,19 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get hayArchivos() { return this.archivos.lista.length > 0; }
     get textoArchivos() { return `Archivos adjuntos (${this.archivos.lista.length})`; }
     // Vista previa de un archivo adjunto (no confundir con verArchivo, que abre la carga del censo).
-    previsualizarArchivo(e) {
+    async previsualizarArchivo(e) {
         e.preventDefault();
         const id = e.currentTarget.dataset.id;
         if (!id) { return; }
+        if (this.portal) {
+            // En el sitio el archivo se descarga (el usuario del sitio no tiene acceso directo a él).
+            try {
+                await descargarDocumento(id, this.template.querySelector('.mov-archivos'), this.archivos.id);
+            } catch (err) {
+                this.mostrarError(err);
+            }
+            return;
+        }
         this[NavigationMixin.Navigate]({ type: 'standard__namedPage', attributes: { pageName: 'filePreview' },
             state: { selectedRecordId: id } });
     }

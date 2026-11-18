@@ -755,8 +755,15 @@
                                     <lightning-spinner alternative-text="Cargando archivos" size="small"></lightning-spinner>
                                 </template>
                                 <template if:true={archivos.destinoId}>
-                                    <lightning-file-upload label="Adjuntar archivos" name="archivos" record-id={archivos.destinoId}
-                                        onuploadfinished={archivosSubidos} multiple></lightning-file-upload>
+                                    <template lwc:if={interno}>
+                                        <lightning-file-upload label="Adjuntar archivos" name="archivos" record-id={archivos.destinoId}
+                                            onuploadfinished={archivosSubidos} multiple></lightning-file-upload>
+                                    </template>
+                                    <!-- En el sitio el archivo se sube por PortalPolizasMovimientos (mismo destino). -->
+                                    <template lwc:else>
+                                        <lightning-input type="file" label="Adjuntar archivos" multiple disabled={archivos.cargando}
+                                            onchange={subirArchivosSitio}></lightning-input>
+                                    </template>
                                 </template>
                                 <h4 class="mov-seccion seccion-alta">{textoArchivos}</h4>
                                 <template if:true={hayArchivos}>

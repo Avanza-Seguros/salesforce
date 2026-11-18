@@ -99,6 +99,15 @@ private class PortalPolizasMovimientosTest {
 			new Map<String, Object>{ 'recordId' => pol.Id, 'nombre' => 'lista.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) });
 		Map<String, Object> otras = (Map<String, Object>) ejecutar(pol.Id, 'OtrasPolizas.buscar',
 			new Map<String, Object>{ 'registroId' => titular.Id, 'contextoId' => pol.Id });
+		// Archivos del asegurado: se adjunta a su contacto, se lista y se descarga.
+		Id archivoAsegurado = (Id) ejecutar(pol.Id, 'Archivos.subir', new Map<String, Object>{ 'participanteId' => titular.Id,
+			'nombre' => 'ine.pdf', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('ine')) });
+		Map<String, Object> deAsegurado = (Map<String, Object>) ejecutar(pol.Id, 'MovimientosColectivo.archivosAsegurado',
+			new Map<String, Object>{ 'registroId' => titular.Id });
+		Map<String, Object> descargaAsegurado = (Map<String, Object>) ejecutar(pol.Id, 'Documento.descargar',
+			new Map<String, Object>{ 'documentId' => archivoAsegurado, 'participanteId' => titular.Id });
+		String archivoAjeno = error(pol.Id, 'Documento.descargar',
+			new Map<String, Object>{ 'documentId' => documentId, 'participanteId' => titular.Id });
 		String deOtraPoliza = error(pol.Id, 'MovimientosColectivo.subirDocumentoBaja',
 			new Map<String, Object>{ 'participanteId' => enAjena.Id, 'nombre' => 'baja.pdf', 'base64' => 'eA==' });
 		String noExiste = error(pol.Id, 'Otra.accion', new Map<String, Object>());
@@ -125,6 +134,11 @@ private class PortalPolizasMovimientosTest {
 			System.assertNotEquals(ajena.Id, (Id) ((Map<String, Object>) o).get('polizaId'), 'No muestra pólizas de otros clientes');
 		}
 		System.assertEquals(true, otras.get('portal'));
+		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :empleado.Id AND ContentDocumentId = :archivoAsegurado],
+			'El archivo va al contacto del asegurado');
+		System.assertEquals(1, ((List<Object>) deAsegurado.get('archivos')).size());
+		System.assertEquals('ine.pdf', descargaAsegurado.get('nombre'));
+		System.assertEquals('El documento no existe o no tienes acceso a él.', archivoAjeno, 'Solo archivos de ese asegurado');
 		System.assertEquals('El registro no es de esta póliza.', deOtraPoliza);
 		System.assertEquals('Acción no disponible en el sitio.', noExiste);
 		System.assertNotEquals(null, polizaAjena, 'Rechaza una póliza ajena');

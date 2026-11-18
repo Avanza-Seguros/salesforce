@@ -75,8 +75,26 @@ public without sharing class PortalPolizasMovimientos {
 				when 'Flotilla.analizarFlotillaPdf' {
 					return FlotillaController.analizarFlotillaPdf(texto(p, 'textoCotizacion'));
 				}
+				when 'MovimientosColectivo.archivosAsegurado' {
+					Id registroId = registro(p, 'registroId', policyId);
+					return MovimientosColectivoController.archivosAsegurado(registroId);
+				}
+				when 'Archivos.subir' {
+					// Archivo del asegurado: va a su contacto (o cuenta), igual que el botón Adjuntar archivos de Salesforce.
+					Id participanteId = registro(p, 'participanteId', policyId);
+					Id destino = (Id) MovimientosColectivoController.archivosAsegurado(participanteId).get('destinoId');
+					return MovimientosColectivoController.subirArchivo(destino, texto(p, 'nombre'), texto(p, 'base64'));
+				}
 				when 'Documento.descargar' {
-					return documento(policyId, texto(p, 'documentId'));
+					if (p.get('participanteId') == null) {
+						return documento(policyId, texto(p, 'documentId'));
+					}
+					// Archivo de un asegurado: solo el contratante y solo si es de ese asegurado.
+					if (roles.get(policyId) != 'Titular') {
+						throw aviso('El documento no existe o no tienes acceso a él.');
+					}
+					Id participanteId = registro(p, 'participanteId', policyId);
+					return archivoDeAsegurado(participanteId, texto(p, 'documentId'));
 				}
 				when 'OtrasPolizas.buscar' {
 					Id registroId = registro(p, 'registroId', policyId);
@@ -145,6 +163,24 @@ public without sharing class PortalPolizasMovimientos {
 			WHERE ContentDocumentId = :documentId AND LinkedEntityId IN :ligados] == 0) {
 			throw aviso('El documento no existe o no tienes acceso a él.');
 		}
+		return contenido(documentId);
+	}
+
+	/** Archivo de un asegurado (de su contacto, cuenta o registro): solo si está en su lista de archivos. */
+	static Map<String, Object> archivoDeAsegurado(Id participanteId, String documentId) {
+		Boolean suyo = false;
+		Object lista = MovimientosColectivoController.archivosAsegurado(participanteId).get('archivos');
+		for (Object o : lista == null ? new List<Object>() : (List<Object>) lista) {
+			if (String.valueOf(((Map<String, Object>) o).get('id')) == documentId) { suyo = true; }
+		}
+		if (String.isBlank(documentId) || !suyo) {
+			throw aviso('El documento no existe o no tienes acceso a él.');
+		}
+		return contenido(documentId);
+	}
+
+	/** Nombre, tipo MIME y contenido en base64 de la última versión de un documento. */
+	static Map<String, Object> contenido(String documentId) {
 		ContentVersion v = [
 			SELECT Title, FileExtension, ContentSize, VersionData
 			FROM ContentVersion WHERE ContentDocumentId = :documentId AND IsLatest = true LIMIT 1

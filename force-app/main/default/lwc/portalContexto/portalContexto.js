@@ -32,9 +32,10 @@ export function enPortal() {
  * directo a los archivos).
  * @param documentId: Id del ContentDocument
  * @param contenedor: Elemento del componente donde se agrega el enlace temporal de descarga
+ * @param participanteId: Asegurado dueño del archivo (para los archivos de cada asegurado); opcional
  */
-export async function descargarDocumento(documentId, contenedor) {
-    const archivo = await llamar('Documento.descargar', { documentId }, null);
+export async function descargarDocumento(documentId, contenedor, participanteId) {
+    const archivo = await llamar('Documento.descargar', participanteId ? { documentId, participanteId } : { documentId }, null);
     const bytes = Uint8Array.from(atob(archivo.base64), (c) => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: archivo.mime || 'application/octet-stream' }));
     const a = document.createElement('a');
