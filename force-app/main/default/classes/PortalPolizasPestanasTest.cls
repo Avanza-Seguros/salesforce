@@ -382,6 +382,30 @@ private class PortalPolizasPestanasTest {
 	 * el folio de la solicitud.
 	 * @return void
 	 */
+	/**
+	 * @creation date: 18/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza nueva cargada sin oportunidad, de una cuenta de empresa y aún con un solo registro: es empresarial
+	 * y el contratante puede enviar solicitudes.
+	 * @return void
+	 */
+	@isTest
+	static void testSinOportunidadEmpresaPuedeSolicitar() {
+		Account empresa = new Account(Name = 'Empresa Sin Oportunidad');
+		insert empresa;
+		InsurancePolicy p = poliza(empresa.Id, 'DANOS-SINOPP-1', 'Danos');
+		p.SourceOpportunityId = null;
+		insert p;
+		insert new InsurancePolicyAsset(InsurancePolicyId = p.Id, AssetName = 'Oficina');
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+		Test.startTest();
+		Map<String, Object> vista = PortalPolizasPestanas.solicitudes(p.Id, null);
+		Test.stopTest();
+		System.assertEquals(true, vista.get('esEmpresarial'), 'Sin oportunidad y cuenta de empresa: empresarial');
+		System.assertEquals(EndosoPoliza.tipoCaso() != null, vista.get('puedeSolicitar'));
+	}
+
 	@isTest
 	static void testSolicitudRegistraUbicacion() {
 		Account cliente = new Account(Name = 'Cliente Ubicaciones Sitio');

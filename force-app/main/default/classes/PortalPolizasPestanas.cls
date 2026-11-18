@@ -1156,15 +1156,21 @@ public without sharing class PortalPolizasPestanas {
 	 * @description: El sitio es de empresas: las solicitudes de movimientos solo aplican a pólizas empresariales. Lo es
 	 * si la oportunidad de origen tiene Tipo de contratación «Empresarial» (valor Colectiva) o, si no, cuando es una
 	 * flotilla (autos con incisos) o tiene más de un asegurado o ubicación. «Individual» no descarta la póliza porque es el
-	 * valor por defecto del campo.
+	 * valor por defecto del campo. Las pólizas que no vienen de una oportunidad (cargadas directo) son empresariales si el
+	 * contratante es una cuenta de empresa (no persona física), aunque todavía no tengan registros.
 	 * @param policyId: Id de la póliza
 	 * @param bienes: registros de la póliza como los ve el contratante
 	 * @return true si es colectiva o flotilla
 	 */
 	@TestVisible
 	static Boolean esEmpresarial(Id policyId, Bienes bienes) {
-		String tipo = MovimientosColectivoController.tipoContratacion(policyId);
-		if (tipo == 'Colectiva') { return true; }
+		List<InsurancePolicy> pol = [
+			SELECT SourceOpportunityId, SourceOpportunity.Tipo_Contratacion__c, NameInsuredId, NameInsured.IsPersonAccount
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		if (pol.isEmpty()) { return false; }
+		if (pol[0].SourceOpportunityId != null && pol[0].SourceOpportunity.Tipo_Contratacion__c == 'Colectiva') { return true; }
+		if (pol[0].SourceOpportunityId == null && pol[0].NameInsuredId != null && pol[0].NameInsured.IsPersonAccount != true) { return true; }
 		if (bienes.tipo == 'vehiculos') { return [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId] > 0; }
 		return bienes.filas.size() > 1;
 	}
