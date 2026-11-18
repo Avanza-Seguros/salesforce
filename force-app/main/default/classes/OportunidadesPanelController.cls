@@ -37,6 +37,7 @@ public with sharing class OportunidadesPanelController {
 		@AuraEnabled public Date fechaCierre;
 		@AuraEnabled public Id propietarioId;
 		@AuraEnabled public String propietario;
+		@AuraEnabled public String agente;
 		@AuraEnabled public Integer cotizaciones;
 		@AuraEnabled public Datetime creada;
 	}
@@ -93,7 +94,7 @@ public with sharing class OportunidadesPanelController {
 		Datetime desde = Datetime.now().addDays(-DIAS_RECIENTES);
 		List<Opportunity> opps = [
 			SELECT Id, Name, StageName, CloseDate, Amount, Prima_Total__c, Prima_neta__c, Type, Canal__c,
-				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Account.Name, CreatedDate
+				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Producer__r.Name, Account.Name, CreatedDate
 			FROM Opportunity
 			WHERE IsClosed = false OR LastModifiedDate >= :desde
 			ORDER BY CloseDate ASC NULLS LAST
@@ -115,6 +116,7 @@ public with sharing class OportunidadesPanelController {
 			r.fechaCierre = o.CloseDate;
 			r.propietarioId = o.OwnerId;
 			r.propietario = o.Owner != null ? o.Owner.Name : null;
+			r.agente = o.Producer__r != null ? o.Producer__r.Name : null;
 			r.cotizaciones = cotizaciones.containsKey(o.Id) ? cotizaciones.get(o.Id) : 0;
 			r.creada = o.CreatedDate;
 			res.add(r);

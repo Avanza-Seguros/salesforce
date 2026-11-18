@@ -205,9 +205,11 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 propietarioIni: this.iniciales(o.propietario),
                 propietarioEstilo: `background-color: ${this.colorAvatar(o.propietarioId)};`,
                 propietarioAria: `Propietario: ${o.propietario || 'sin propietario'}`,
+                agente: o.agente || 'Sin agente',
+                agenteIni: o.agente ? this.iniciales(o.agente) : '—',
                 abrirAria: `Abrir ${nombre} en Crear Oportunidad`,
                 cotizaciones: cot,
-                busqueda: [nombre, o.cuenta, o.propietario, ramo.etiqueta, etapa.etiqueta].join(' ').toLowerCase()
+                busqueda: [nombre, o.cuenta, o.propietario, o.agente, ramo.etiqueta, etapa.etiqueta].join(' ').toLowerCase()
             };
         });
     }

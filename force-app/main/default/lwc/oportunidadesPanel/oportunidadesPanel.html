@@ -144,7 +144,7 @@
                             <lightning-icon icon-name="utility:search" size="x-small" class="buscador-icono"></lightning-icon>
                             <label for="buscar" class="slds-assistive-text">Buscar oportunidades</label>
                             <input id="buscar" type="search" class="buscador-input" value={busqueda}
-                                placeholder="Buscar por nombre, cuenta o propietario" oninput={handleBusqueda} />
+                                placeholder="Buscar por nombre, cuenta, agente o propietario" oninput={handleBusqueda} />
                         </div>
                         <div class="segmentos" role="group" aria-label="Tipo de contratación">
                             <template for:each={filtrosTipo} for:item="t">
@@ -187,7 +187,7 @@
                             <span>Canal</span>
                             <span class="col-derecha">Prima neta</span>
                             <span>Vencimiento</span>
-                            <span>Propietario</span>
+                            <span>Agente</span>
                             <span></span>
                         </div>
                         <ul class="filas" role="list">
@@ -210,9 +210,9 @@
                                         <span class="fila-fecha">{r.cierreTexto}</span>
                                         <span class={r.venceClase}>{r.venceTexto}</span>
                                     </div>
-                                    <div class="fila-propietario" title={r.propietario}>
-                                        <span class="avatar" aria-hidden="true">{r.propietarioIni}</span>
-                                        <span class="celda">{r.propietario}</span>
+                                    <div class="fila-propietario" title={r.agente}>
+                                        <span class="avatar" aria-hidden="true">{r.agenteIni}</span>
+                                        <span class="celda">{r.agente}</span>
                                     </div>
                                     <div class="fila-acciones">
                                     <template lwc:if={incrustado}>
