@@ -261,12 +261,13 @@ private class PortalPolizasPestanasTest {
 		Test.stopTest();
 
 		System.assertEquals('SOL-0001', r.get('folio'));
-		Case c = [SELECT RecordType.DeveloperName, InsurancePolicy__c, Solicitud__c, Origin, AccountId, Description, IsClosed FROM Case WHERE InsurancePolicy__c = :col.Id];
+		Case c = [SELECT RecordType.DeveloperName, InsurancePolicy__c, Solicitud__c, Origin, AccountId, Description, Poliza_Number__c, IsClosed FROM Case WHERE InsurancePolicy__c = :col.Id];
 		System.assertEquals('Solicitud_Movimientos', c.RecordType.DeveloperName);
 		System.assertEquals('SOL-0001', c.Solicitud__c);
 		System.assertEquals('Sitio Web', c.Origin);
 		System.assertEquals(empresa.Id, c.AccountId);
-		System.assert(c.Description.contains('1. ALTA') && c.Description.contains('2. BAJA · 1 · ') && c.Description.contains('Motivo: Renuncia'), c.Description);
+		System.assertEquals('Solicitud SOL-0001 enviada desde el sitio por ' + UserInfo.getName() + ' para la póliza ' + col.Name + '.', c.Description);
+		System.assertEquals(col.Name, c.Poliza_Number__c);
 		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :c.Id], 'El archivo queda en el caso');
 		System.assertEquals(4, errores, 'Sin movimientos, cambio sin detalle, baja sin registro y alta sin datos no son válidos');
 		System.assertEquals(2, r.get('registrados'));
@@ -486,8 +487,6 @@ private class PortalPolizasPestanasTest {
 			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'FLOTILLA.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
 		}), empresa.Id);
 		Case ca = [SELECT Subject, Description, Reason FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
-		System.assert(ca.Description.contains('1. ARCHIVO · Altas · FLOTILLA.xlsx · 2 renglones'), ca.Description);
-		System.assert(ca.Description.contains('2014 | TOYOTA | JTDKT9D38ED585824'), ca.Description);
 		System.assert(ca.Subject.contains('archivo FLOTILLA.xlsx'), ca.Subject);
 		System.assertEquals('Alta', ca.Reason);
 		Boolean sinTipo = false;

@@ -914,7 +914,6 @@ public without sharing class PortalPolizasPestanas {
 			for (Fila f : bienes.filas) { if (f.activo != false) { vigentes.put(f.id, f); } }
 			Map<String, String> nombres = new Map<String, String>{ 'alta' => 'Alta', 'baja' => 'Baja', 'cambio' => 'Cambio' };
 			Map<String, Integer> cuenta = new Map<String, Integer>{ 'alta' => 0, 'baja' => 0, 'cambio' => 0 };
-			List<String> lineas = new List<String>();
 			// Movimientos que se registran en la póliza al enviar la solicitud (como si los capturara el ejecutivo).
 			List<Map<String, Object>> aRegistrar = new List<Map<String, Object>>();
 			Integer i = 0;
@@ -924,7 +923,8 @@ public without sharing class PortalPolizasPestanas {
 				String tipo = String.valueOf(m.get('tipo')).toLowerCase();
 				if (!nombres.containsKey(tipo)) { throw new AuraHandledException('Movimiento ' + i + ': tipo no válido.'); }
 				cuenta.put(tipo, cuenta.get(tipo) + 1);
-				List<String> partes = new List<String>{ i + '. ' + nombres.get(tipo).toUpperCase() };
+				// Datos capturados del movimiento (para validar que el alta los traiga).
+				List<String> partes = new List<String>{ nombres.get(tipo) };
 				if (tipo != 'alta') {
 					Fila f = m.get('registroId') == null ? null : vigentes.get((Id) String.valueOf(m.get('registroId')));
 					if (f == null) { throw new AuraHandledException('Movimiento ' + i + ': elige un registro vigente de la póliza.'); }
@@ -948,11 +948,9 @@ public without sharing class PortalPolizasPestanas {
 						&& (m.get('detalle') == null || String.isBlank(String.valueOf(m.get('detalle'))))) {
 					throw new AuraHandledException('Movimiento ' + i + ': describe qué se cambia.');
 				}
-				lineas.add(String.join(partes, ' · '));
 				aRegistrar.add(new Map<String, Object>{ 'tipo' => tipo, 'registroId' => m.get('registroId'), 'fecha' => m.get('fecha'),
 					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + i });
 			}
-			String tablaArchivo = '';
 			String tipoArchivo = null;
 			String resumenArchivo = null;
 			if (listado != null) {
@@ -964,21 +962,8 @@ public without sharing class PortalPolizasPestanas {
 				List<Object> filas = listado.get('filas') instanceof List<Object> ? (List<Object>) listado.get('filas') : new List<Object>();
 				Integer total = listado.get('total') == null ? filas.size() : Integer.valueOf(listado.get('total'));
 				if (tipo != 'varios') { cuenta.put(tipo, cuenta.get(tipo) + Math.max(total, 1)); }
-				List<String> partes = new List<String>{ (++i) + '. ARCHIVO · ' + plurales.get(tipo) + ' · ' + nombreArchivo
-					+ (total > 0 ? ' · ' + total + (total == 1 ? ' renglón' : ' renglones') : '') };
-				if (listado.get('fecha') != null && String.isNotBlank(String.valueOf(listado.get('fecha')))) { partes.add('Fecha solicitada: ' + listado.get('fecha')); }
-				lineas.add(String.join(partes, ' · '));
 				resumenArchivo = 'archivo ' + nombreArchivo + (total > 0 ? ' (' + total + (total == 1 ? ' renglón)' : ' renglones)') : '');
 				tipoArchivo = tipo;
-				// Lo que trae el archivo, para leerlo en el caso y en el correo (el archivo completo va adjunto).
-				List<String> tabla = new List<String>();
-				if (listado.get('encabezados') instanceof List<Object>) {
-					tabla.add(String.join(textos((List<Object>) listado.get('encabezados')), ' | '));
-				}
-				for (Object f : filas) {
-					if (f instanceof List<Object>) { tabla.add(String.join(textos((List<Object>) f), ' | ')); }
-				}
-				if (!filas.isEmpty()) { tablaArchivo = '\n\nContenido del archivo ' + nombreArchivo + ':\n' + String.join(tabla, '\n'); }
 				// Renglones del archivo ya interpretados en el sitio (columnas reconocidas): se registran en la póliza.
 				if (listado.get('registros') instanceof List<Object>) {
 					for (Object o : (List<Object>) listado.get('registros')) {
@@ -1023,10 +1008,9 @@ public without sharing class PortalPolizasPestanas {
 			String folio = EndosoPoliza.siguienteFolio(policyId);
 			Case c = new Case(RecordTypeId = tipoCaso, InsurancePolicy__c = policyId, AccountId = yo[0], Origin = 'Sitio Web',
 				Solicitud__c = folio, Subject = (folio + ' · Póliza ' + p.Name + ' · ' + String.join(resumen, ', ')).left(255),
-				Description = ('Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName()
-					+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.\n\n'
-					+ String.join(lineas, '\n') + (String.isBlank(comentario) ? '' : '\n\nComentario del cliente: ' + comentario)
-					+ tablaArchivo).left(32000),
+				Poliza_Number__c = p.Name,
+				Description = 'Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName()
+					+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.',
 				Comentarios__c = String.isBlank(comentario) ? null : comentario.left(131072));
 			if (tipoUnico != null && tipoUnico != 'varios') { c.Reason = tipoUnico; }
 			// El caso lo atiende el ejecutivo dueño de la póliza.
@@ -1295,20 +1279,5 @@ public without sharing class PortalPolizasPestanas {
 		List<String> palabras = CensoColectivoController.llave(s == null ? '' : s).split(' ');
 		palabras.sort();
 		return String.join(palabras, ' ').trim();
-	}
-
-	/**
-	 * @creation date: 17/11/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Celdas de un renglón del archivo de la solicitud como texto (sin saltos de línea ni separadores).
-	 * @param celdas: Valores del renglón
-	 * @return Textos del renglón
-	 */
-	static List<String> textos(List<Object> celdas) {
-		List<String> salida = new List<String>();
-		for (Object c : celdas) {
-			salida.add(c == null ? '' : String.valueOf(c).replaceAll('[\\r\\n|]+', ' ').trim().left(200));
-		}
-		return salida;
 	}
 }
