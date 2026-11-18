@@ -499,29 +499,36 @@
 .fila-prima span { font-size: 0.75rem; color: #6B7A90; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fila-acciones { display: flex; justify-content: flex-end; gap: 4px; }
 
-/* Etapa: texto neutro con un punto discreto. */
+/* Etapa: etiqueta con los mismos colores del embudo, para identificarla de un vistazo. */
 .etapa-tag {
+    justify-self: start;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    max-width: 100%;
     min-width: 0;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: #334155;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--etapa-fg, #4A5568);
+    background: var(--etapa-bg, #EEF1F6);
+    border: 1px solid var(--etapa-borde, #D5DBE5);
     white-space: nowrap;
+    box-sizing: border-box;
 }
 .etapa-tag::before {
     content: '';
     flex: 0 0 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--etapa-punto, #94A3B8);
+    background: var(--etapa-fg, #4A5568);
 }
-.etapa-tag-gestion { --etapa-punto: #94A3B8; }
-.etapa-tag-emision { --etapa-punto: #1E63E9; }
-.etapa-tag-poliza { --etapa-punto: #0B2559; }
-.etapa-tag-ganada { --etapa-punto: #0B2559; }
-.etapa-tag-perdida { --etapa-punto: #CBD5E1; }
+.etapa-tag-gestion { --etapa-bg: #E6EEFF; --etapa-fg: #1B54C8; --etapa-borde: #BFD1F7; }
+.etapa-tag-emision { --etapa-bg: #EFE8FF; --etapa-fg: #6D28D9; --etapa-borde: #D6C6FA; }
+.etapa-tag-poliza { --etapa-bg: #E3F5EC; --etapa-fg: #0F7A47; --etapa-borde: #B5E2CB; }
+.etapa-tag-ganada { --etapa-bg: #FFF4CC; --etapa-fg: #8A5A00; --etapa-borde: #F0D78A; }
+.etapa-tag-perdida { --etapa-bg: #EEF1F6; --etapa-fg: #4A5568; --etapa-borde: #D5DBE5; }
 
 /* Cierre: gris; solo lo vencido o por vencer resalta. */
 .vence { font-size: 0.8125rem; color: #6B7A90; white-space: nowrap; font-variant-numeric: tabular-nums; }
