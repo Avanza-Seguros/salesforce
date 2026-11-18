@@ -2787,6 +2787,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>InsurancePolicy.nextPolicy__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>IntegrationConfig__mdt.AcceptHeader__c</field>
         <readable>false</readable>
     </fieldPermissions>

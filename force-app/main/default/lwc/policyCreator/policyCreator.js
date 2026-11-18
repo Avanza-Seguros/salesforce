@@ -1601,8 +1601,13 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
     // columnas PÓLIZA / ENDOSO / INCISO (ej. "0971273390 000000 0001") y la IA las junta.
     // Si el número trae varios bloques y el PDF tiene ese encabezado, o el segundo bloque es
     // solo ceros (endoso 000000), se conserva únicamente el primer bloque.
+    // GNP imprime junto al número una marca entre paréntesis ("GM0000170455(A)", "GM0000170455 (N)"): no es
+    // parte del número y se quita, para que todas las vigencias queden con el mismo número.
     limpiarNumeroPoliza(numero, texto) {
         if (!numero) { return numero; }
+        const sinMarca = String(numero).trim().replace(/\s*\(\s*[A-Za-z0-9]{1,3}\s*\)$/, '').trim();
+        if (!sinMarca) { return String(numero).trim(); }
+        numero = sinMarca;
         const partes = String(numero).trim().split(/\s+/);
         if (partes.length < 2) { return String(numero).trim(); }
         const t = this.normCobertura(texto || '');
