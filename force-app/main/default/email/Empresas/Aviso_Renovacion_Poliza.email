@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviso de renovación de póliza</title>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+<tr><td align="center" style="padding:20px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border:1px solid #D5DEEE;">
+
+  {{HTML_AVISO_PRUEBA}}
+
+  <!-- Encabezado -->
+  <tr><td style="background:#1F4E9C;color:#ffffff;padding:30px 30px 25px 30px;text-align:center;">
+    <div style="font-size:26px;font-weight:bold;">Aviso de renovación</div>
+    <div style="font-size:16px;margin-top:6px;">Tu póliza de {{RAMO}} {{AVISO_DIAS}}</div>
+  </td></tr>
+
+  <!-- Saludo -->
+  <tr><td style="padding:25px 30px 10px 30px;font-size:15px;line-height:22px;">
+    Hola <strong>{{NOMBRE_CONTRATANTE}}</strong>,<br><br>
+    Te recordamos que tu póliza <strong>{{POLIZA}}</strong> con <strong>{{ASEGURADORA}}</strong> {{AVISO_DIAS}}
+    (<strong>{{FECHA_VENCIMIENTO}}</strong>). Queremos ayudarte a renovarla a tiempo para que no te quedes sin protección.
+  </td></tr>
+
+  <!-- Datos de la póliza -->
+  <tr><td style="padding:10px 30px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF3FB;border-left:4px solid #1F4E9C;">
+      <tr><td style="padding:15px 18px;font-size:14px;line-height:23px;">
+        <strong style="color:#1F4E9C;">Datos de tu póliza</strong><br>
+        <span style="color:#1F4E9C;">Póliza:</span> {{POLIZA}} &nbsp;|&nbsp; <span style="color:#1F4E9C;">Tipo:</span> {{TIPO_POLIZA}}<br>
+        <span style="color:#1F4E9C;">Ramo:</span> {{RAMO}} &nbsp;|&nbsp; <span style="color:#1F4E9C;">Aseguradora:</span> {{ASEGURADORA}}<br>
+        <span style="color:#1F4E9C;">Vigencia:</span> {{VIGENCIA}}<br>
+        <span style="color:#1F4E9C;">Prima actual:</span> {{PRIMA_ACTUAL}}<br>
+        <span style="color:#1F4E9C;">Tu agente:</span> {{AGENTE}}
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <!-- Qué sigue -->
+  <tr><td style="padding:20px 30px 5px 30px;font-size:15px;line-height:22px;">
+    <div style="font-size:17px;font-weight:bold;color:#1F4E9C;margin-bottom:6px;">¿Qué sigue?</div>
+    {{MENSAJE_RENOVACION}}
+  </td></tr>
+  <tr><td style="padding:15px 30px 20px 30px;">
+    <a href="mailto:{{CORREO_SERVICIO}}?subject=Renovaci%C3%B3n%20p%C3%B3liza%20{{POLIZA}}" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;padding:10px 22px;font-size:14px;font-weight:bold;">Quiero renovar mi póliza</a>
+  </td></tr>
+
+  <!-- Dudas -->
+  <tr><td style="padding:15px 30px 20px 30px;border-top:1px solid #D5DEEE;font-size:15px;line-height:22px;">
+    <div style="font-size:17px;font-weight:bold;color:#1F4E9C;margin-bottom:6px;">¿Tienes dudas?</div>
+    Escríbenos a <a href="mailto:{{CORREO_SERVICIO}}" style="color:#1F4E9C;font-weight:bold;">{{CORREO_SERVICIO}}</a>
+    y con gusto te ayudamos con tu renovación.
+  </td></tr>
+
+  <!-- Pie -->
+  <tr><td style="background:#EEF3FB;padding:20px 30px;font-size:13px;line-height:20px;text-align:center;color:#4A5568;">
+    <strong>Avanza Seguro Consultores</strong><br>
+    Recibes este correo porque eres contratante de la póliza {{POLIZA}}.
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

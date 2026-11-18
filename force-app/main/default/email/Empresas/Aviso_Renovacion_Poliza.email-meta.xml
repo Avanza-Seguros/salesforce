@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Aviso de renovación de póliza (envío automático a 30 y 15 días del vencimiento y botón de la póliza; clase AvisoRenovacionPoliza). Marcadores que se llenan al enviar: {{NOMBRE_CONTRATANTE}}, {{POLIZA}}, {{ASEGURADORA}}, {{RAMO}}, {{TIPO_POLIZA}}, {{VIGENCIA}}, {{FECHA_VENCIMIENTO}}, {{AVISO_DIAS}}, {{PRIMA_ACTUAL}}, {{AGENTE}}, {{MENSAJE_RENOVACION}}, {{CORREO_SERVICIO}} y {{HTML_AVISO_PRUEBA}}.</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Aviso Renovación Póliza</name>
+    <style>none</style>
+    <subject>Tu póliza {{POLIZA}} {{AVISO_DIAS}}</subject>
+    <type>custom</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

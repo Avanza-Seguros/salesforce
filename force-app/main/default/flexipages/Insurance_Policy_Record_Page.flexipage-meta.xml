@@ -1,7 +1,8 @@
-<?xml version='1.0' encoding='UTF-8' ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPageRegions>
-        <itemInstances><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>required</value>
@@ -9,7 +10,9 @@
                 <fieldItem>Record.Name</fieldItem>
                 <identifier>RecordNameField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -17,7 +20,9 @@
                 <fieldItem>Record.Aseguradora__c</fieldItem>
                 <identifier>RecordAseguradora_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -25,7 +30,9 @@
                 <fieldItem>Record.Ramo__c</fieldItem>
                 <identifier>RecordRamo_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -33,7 +40,9 @@
                 <fieldItem>Record.ProductId</fieldItem>
                 <identifier>RecordProductIdField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>required</value>
@@ -41,12 +50,19 @@
                 <fieldItem>Record.NameInsuredId</fieldItem>
                 <identifier>RecordNameInsuredIdField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance><fieldInstanceProperties
-				><name>uiBehavior</name><value
-					>none</value></fieldInstanceProperties><fieldItem
-				>Record.insuredAssetDescription__c</fieldItem><identifier
-				>RecordinsuredAssetDescription_cField</identifier></fieldInstance></itemInstances><itemInstances
-		><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.insuredAssetDescription__c</fieldItem>
+                <identifier>RecordinsuredAssetDescription_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -54,11 +70,13 @@
                 <fieldItem>Record.Status</fieldItem>
                 <identifier>RecordStatusField</identifier>
             </fieldInstance>
-        </itemInstances><name>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</name>
+        </itemInstances>
+        <name>Facet-39292045-b64d-45de-a3b9-1c2dfecd45da</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -66,7 +84,9 @@
                 <fieldItem>Record.EffectiveDate</fieldItem>
                 <identifier>RecordEffectiveDateField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -74,7 +94,9 @@
                 <fieldItem>Record.ExpirationDate</fieldItem>
                 <identifier>RecordExpirationDateField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -82,27 +104,42 @@
                 <fieldItem>Record.SourceOpportunityId</fieldItem>
                 <identifier>RecordSourceOpportunityIdField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.CancellationDate</fieldItem>
                 <identifier>RecordCancellationDateField</identifier>
-            <visibilityRule><criteria><leftValue
-						>{!Record.Status}</leftValue><operator>EQUAL</operator><rightValue
-						>Cancelado</rightValue></criteria></visibilityRule></fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+                <visibilityRule>
+                    <criteria>
+                        <leftValue>{!Record.Status}</leftValue>
+                        <operator>EQUAL</operator>
+                        <rightValue>Cancelado</rightValue>
+                    </criteria>
+                </visibilityRule>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.CancellationReason</fieldItem>
                 <identifier>RecordCancellationReasonField</identifier>
-            <visibilityRule><criteria><leftValue
-						>{!Record.Status}</leftValue><operator>EQUAL</operator><rightValue
-						>Cancelado</rightValue></criteria></visibilityRule></fieldInstance>
-        </itemInstances><name>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</name>
+                <visibilityRule>
+                    <criteria>
+                        <leftValue>{!Record.Status}</leftValue>
+                        <operator>EQUAL</operator>
+                        <rightValue>Cancelado</rightValue>
+                    </criteria>
+                </visibilityRule>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-2607cf9d-4aa4-4eba-81d4-75d73e45c534</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -312,7 +349,8 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -320,7 +358,9 @@
                 <fieldItem>Record.SaleDate</fieldItem>
                 <identifier>RecordSaleDateField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -338,7 +378,9 @@
                 <fieldItem>Record.nextPolicy__c</fieldItem>
                 <identifier>RecordnextPolicy_cField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -346,11 +388,13 @@
                 <fieldItem>Record.OriginalPolicyId</fieldItem>
                 <identifier>RecordOriginalPolicyIdField</identifier>
             </fieldInstance>
-        </itemInstances><name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
+        </itemInstances>
+        <name>Facet-f3bba2f8-ab6c-47b5-bc63-c5d2c3ab1a3c</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances><fieldInstance>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -358,7 +402,9 @@
                 <fieldItem>Record.RenewedFromPolicyId</fieldItem>
                 <identifier>RecordRenewedFromPolicyIdField</identifier>
             </fieldInstance>
-        </itemInstances><itemInstances><fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
                     <value>none</value>
@@ -366,7 +412,8 @@
                 <fieldItem>Record.ReferencePolicyNumber</fieldItem>
                 <identifier>RecordReferencePolicyNumberField</identifier>
             </fieldInstance>
-        </itemInstances><name>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</name>
+        </itemInstances>
+        <name>Facet-6d2714f4-0665-4b1d-8112-ffb132ebf313</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -751,23 +798,11 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
-                <componentInstanceProperties>
-                    <name>relatedListComponentOverride</name>
-                    <value>ADVGRID</value>
-                </componentInstanceProperties>
-                <componentInstanceProperties>
-                    <name>rowsToDisplay</name>
-                    <value>5</value>
-                </componentInstanceProperties>
-                <componentInstanceProperties>
-                    <name>showActionBar</name>
-                    <value>false</value>
-                </componentInstanceProperties>
-                <componentName>force:relatedListContainer</componentName>
-                <identifier>force_relatedListContainer</identifier>
+                <componentName>policyTerms</componentName>
+                <identifier>c_policyTerms</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-ee91a41c-1ee2-4447-9aaa-6c6b438c4d12</name>
+        <name>Facet-vigencias-poliza</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -814,6 +849,28 @@
         <itemInstances>
             <componentInstance>
                 <componentInstanceProperties>
+                    <name>relatedListComponentOverride</name>
+                    <value>ADVGRID</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>rowsToDisplay</name>
+                    <value>5</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>showActionBar</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentName>force:relatedListContainer</componentName>
+                <identifier>force_relatedListContainer</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-ee91a41c-1ee2-4447-9aaa-6c6b438c4d12</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
                     <name>active</name>
                     <value>true</value>
                 </componentInstanceProperties>
@@ -841,6 +898,20 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:tab</componentName>
                 <identifier>flexipage_tab2</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-vigencias-poliza</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Vigencias</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tabVigencias</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>
@@ -992,6 +1063,15 @@
                         </valueListItems>
                         <valueListItems>
                             <value>InsurancePolicy.Enviar_Correo</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>InsurancePolicy.Aviso_Renovacion</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Share</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>ChangeOwnerOne</value>
                         </valueListItems>
                     </valueList>
                 </componentInstanceProperties>
