@@ -275,96 +275,30 @@
                             </template>
                         </div>
 
-                        <!-- Asegurados, Vehículos o Ubicaciones, según el ramo -->
-                        <div lwc:if={verAsegurados} class="pestana_panel" role="tabpanel">
-                            <template lwc:if={pestanaAsegurados.cargando}>
-                                <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
+                        <!-- Asegurados, Vehículos o Ubicaciones, según el ramo: el mismo componente de la página de la póliza en Salesforce
+                             (datos por PortalPolizasPestanas.datosComponente; altas, bajas, carga y endosos por PortalPolizasMovimientos, solo
+                             el contratante). -->
+                        <div lwc:if={verAsegurados} class="pestana_panel pestana_sf" role="tabpanel">
+                            <p lwc:if={notaMiGrupoAsegurados} class="nota">Se muestran solo tú y tus dependientes.</p>
+                            <template lwc:if={bienesVehiculos}>
+                                <c-movimientos-flotilla portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
+                                    record-id={seleccionadaId}></c-movimientos-flotilla>
                             </template>
-                            <div lwc:elseif={pestanaAsegurados.error} class="aviso aviso_error" role="alert">{pestanaAsegurados.error}</div>
-                            <template lwc:elseif={tablaAsegurados}>
-                                <p lwc:if={tablaAsegurados.soloMiGrupo} class="nota">Se muestran solo tú y tus dependientes.</p>
-                                <template lwc:if={tablaAsegurados.hayFilas}>
-                                    <div class="controles">
-                                        <lightning-input class="buscador" type="search" label="Buscar" variant="label-hidden"
-                                            placeholder={tablaAsegurados.placeholder} value={busquedaAsegurados}
-                                            onchange={handleBusquedaAsegurados}></lightning-input>
-                                        <div class="filtros" role="group" aria-label="Mostrar">
-                                            <template for:each={opcionesEstado} for:item="o">
-                                                <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleFiltroAsegurados}>
-                                                    <span class="filtro_punto"></span>{o.label}<span lwc:if={o.hayCuenta} class="filtro_cuenta">{o.cuenta}</span>
-                                                </button>
-                                            </template>
-                                        </div>
-                                    </div>
-                                    <p class="subtitulo">{tablaAsegurados.resumen}</p>
-                                    <div class="tabla_contenedor">
-                                        <table class="tabla">
-                                            <thead><tr>
-                                                <template for:each={tablaAsegurados.columnas} for:item="col"><th key={col.clave} class={col.clase}>{col.etiqueta}</th></template>
-                                            </tr></thead>
-                                            <tbody>
-                                                <template for:each={tablaAsegurados.filas} for:item="f">
-                                                    <tr key={f.id} class={f.clase}>
-                                                        <template for:each={f.celdas} for:item="c">
-                                                            <td key={c.clave} class={c.clase}><span class={c.claseTexto}>{c.texto}</span><span lwc:if={c.sub} class="celda_sub">{c.sub}</span></td>
-                                                        </template>
-                                                    </tr>
-                                                </template>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <button lwc:if={tablaAsegurados.hayMas} class="enlace mostrar_mas" onclick={handleMasAsegurados}>Mostrar más</button>
-                                </template>
-                                <p lwc:else class="subtitulo">{tablaAsegurados.vacio}</p>
+                            <template lwc:elseif={bienesUbicaciones}>
+                                <c-movimientos-ubicaciones portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
+                                    record-id={seleccionadaId}></c-movimientos-ubicaciones>
+                            </template>
+                            <template lwc:else>
+                                <c-movimientos-colectivo portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
+                                    record-id={seleccionadaId}></c-movimientos-colectivo>
                             </template>
                         </div>
 
-                        <!-- Participantes -->
-                        <div lwc:if={verParticipantes} class="pestana_panel" role="tabpanel">
-                            <template lwc:if={pestanaParticipantes.cargando}>
-                                <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
-                            </template>
-                            <div lwc:elseif={pestanaParticipantes.error} class="aviso aviso_error" role="alert">{pestanaParticipantes.error}</div>
-                            <template lwc:elseif={tablaParticipantes}>
-                                <div lwc:if={tablaParticipantes.notaBienes} class="aviso" role="note">{tablaParticipantes.notaBienes}</div>
-                                <template lwc:if={tablaParticipantes}>
-                                    <p lwc:if={tablaParticipantes.soloMiGrupo} class="nota">Se muestran solo tú, tus dependientes y tus beneficiarios.</p>
-                                    <template lwc:if={tablaParticipantes.hayFilas}>
-                                        <div class="controles">
-                                            <lightning-input class="buscador" type="search" label="Buscar" variant="label-hidden"
-                                                placeholder="Buscar por nombre o rol" value={busquedaParticipantes}
-                                                onchange={handleBusquedaParticipantes}></lightning-input>
-                                            <div class="filtros" role="group" aria-label="Mostrar">
-                                                <template for:each={opcionesGrupo} for:item="o">
-                                                    <button key={o.value} class={o.clase} data-value={o.value} aria-pressed={o.presionado} onclick={handleFiltroParticipantes}>
-                                                        <span class="filtro_punto"></span>{o.label}<span lwc:if={o.hayCuenta} class="filtro_cuenta">{o.cuenta}</span>
-                                                    </button>
-                                                </template>
-                                            </div>
-                                        </div>
-                                        <p class="subtitulo">{tablaParticipantes.resumen}</p>
-                                        <div class="tabla_contenedor">
-                                            <table class="tabla">
-                                                <thead><tr><th>Nombre</th><th>Rol</th><th lwc:if={tablaParticipantes.conParentesco}>Parentesco</th><th lwc:if={tablaParticipantes.conPorcentaje} class="num">Porcentaje</th><th lwc:if={tablaParticipantes.conVigencia}>Vigencia</th><th>Estado</th></tr></thead>
-                                                <tbody>
-                                                    <template for:each={tablaParticipantes.filas} for:item="f">
-                                                        <tr key={f.id} class={f.clase}>
-                                                            <td><span class="celda_principal">{f.nombre}</span><span lwc:if={f.deTexto} class="celda_sub">{f.deTexto}</span></td>
-                                                            <td>{f.roles}</td>
-                                                            <td lwc:if={tablaParticipantes.conParentesco}>{f.parentesco}</td>
-                                                            <td lwc:if={tablaParticipantes.conPorcentaje} class="num">{f.porcentajeTexto}</td>
-                                                            <td lwc:if={tablaParticipantes.conVigencia}>{f.vigenciaTexto}</td>
-                                                            <td><span class={f.estadoClase}>{f.estadoTexto}</span><span lwc:if={f.motivoBaja} class="celda_sub">{f.motivoBaja}</span></td>
-                                                        </tr>
-                                                    </template>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <button lwc:if={tablaParticipantes.hayMas} class="enlace mostrar_mas" onclick={handleMasParticipantes}>Mostrar más</button>
-                                    </template>
-                                    <p lwc:else class="subtitulo">No hay participantes registrados en esta póliza.</p>
-                                </template>
-                            </template>
+                        <!-- Participantes: el mismo componente de Salesforce, en solo lectura. -->
+                        <div lwc:if={verParticipantes} class="pestana_panel pestana_sf" role="tabpanel">
+                            <p lwc:if={notaMiGrupoParticipantes} class="nota">Se muestran solo tú, tus dependientes y tus beneficiarios.</p>
+                            <c-participantes-poliza portal={siempre} cuenta-vista-previa={cuentaVistaPrevia}
+                                record-id={seleccionadaId}></c-participantes-poliza>
                         </div>
                         <!-- Solicitudes de altas, bajas y cambios -->
                         <div lwc:if={verSolicitudes} class="pestana_panel" role="tabpanel">

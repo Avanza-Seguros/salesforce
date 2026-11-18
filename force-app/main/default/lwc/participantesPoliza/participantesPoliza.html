@@ -27,7 +27,9 @@
                     <div class="contratante-cuerpo">
                         <div class="contratante-titulo">
                             <span class="etiqueta">Contratante</span>
-                            <a data-id={contratante.id} onclick={abrirRegistro}>{contratante.nombre}</a>
+                            <a lwc:if={interno} data-id={contratante.id} onclick={abrirRegistro}>{contratante.nombre}</a>
+                            <!-- En el sitio no hay registro de Salesforce que abrir: mismo aspecto, sin liga. -->
+                            <span lwc:else class="contratante-nombre">{contratante.nombre}</span>
                         </div>
                         <dl class="datos datos-linea">
                             <template for:each={datosContratante} for:item="d">
@@ -129,7 +131,7 @@
                                                                     <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
                                                                 </template>
                                                             </dl>
-                                                            <lightning-button label="Abrir registro" variant="base" icon-name="utility:new_window"
+                                                            <lightning-button lwc:if={interno} label="Abrir registro" variant="base" icon-name="utility:new_window"
                                                                 data-id={p.personaId} onclick={abrirRegistro}></lightning-button>
                                                         </template>
                                                         <template if:false={p.hayPersona}>
@@ -143,10 +145,11 @@
                                                                 <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
                                                             </template>
                                                         </dl>
-                                                        <lightning-button label="Ver participante" variant="base" icon-name="utility:new_window"
+                                                        <lightning-button lwc:if={interno} label="Ver participante" variant="base" icon-name="utility:new_window"
                                                             data-id={p.id} onclick={abrirRegistro}></lightning-button>
                                                     </div>
                                                     <div class="detalle-bloque">
+                                                        <template lwc:if={interno}>
                                                         <h4>Archivos</h4>
                                                         <template if:true={p.hayArchivos}>
                                                             <ul class="lista">
@@ -163,6 +166,7 @@
                                                         </template>
                                                         <template if:false={p.hayArchivos}>
                                                             <p class="sub">No hay archivos adjuntos para este contacto.</p>
+                                                        </template>
                                                         </template>
                                                         <template if:true={p.hayBeneficiarios}>
                                                             <h4 class="slds-m-top_small">Beneficiarios</h4>
@@ -236,7 +240,7 @@
                                                                     <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
                                                                 </template>
                                                             </dl>
-                                                            <lightning-button label="Abrir registro" variant="base" icon-name="utility:new_window"
+                                                            <lightning-button lwc:if={interno} label="Abrir registro" variant="base" icon-name="utility:new_window"
                                                                 data-id={p.personaId} onclick={abrirRegistro}></lightning-button>
                                                         </template>
                                                         <template if:false={p.hayPersona}>
@@ -250,7 +254,7 @@
                                                                 <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
                                                             </template>
                                                         </dl>
-                                                        <lightning-button label="Ver participante" variant="base" icon-name="utility:new_window"
+                                                        <lightning-button lwc:if={interno} label="Ver participante" variant="base" icon-name="utility:new_window"
                                                             data-id={p.id} onclick={abrirRegistro}></lightning-button>
                                                     </div>
                                                 </div>

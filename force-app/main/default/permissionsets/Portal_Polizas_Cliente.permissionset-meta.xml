@@ -11,4 +11,8 @@
         <apexClass>PortalPolizasPestanas</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>PortalPolizasMovimientos</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
 </PermissionSet>

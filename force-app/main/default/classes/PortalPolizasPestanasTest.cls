@@ -210,6 +210,80 @@ private class PortalPolizasPestanasTest {
 	}
 
 	/**
+	 * @creation date: 18/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pestañas del sitio con los componentes de Salesforce: el contratante recibe los datos completos de
+	 * asegurados y participantes (sin archivos ni solicitudes); un empleado solo ve a su grupo; vehículos y ubicaciones
+	 * responden; una pestaña inválida o una póliza ajena se rechazan.
+	 * @return void
+	 */
+	@isTest
+	static void testDatosComponente() {
+		Account empresa = new Account(Name = 'Empresa Componentes');
+		Account ajenaCta = new Account(Name = 'Ajena Componentes');
+		insert new List<Account>{ empresa, ajenaCta };
+		Contact empleado = new Contact(LastName = 'Empleado', AccountId = empresa.Id);
+		Contact otroEmpleado = new Contact(LastName = 'Otro', AccountId = empresa.Id);
+		insert new List<Contact>{ empleado, otroEmpleado };
+		InsurancePolicy col = poliza(empresa.Id, 'COMP-001', 'GMM');
+		InsurancePolicy auto = poliza(empresa.Id, 'COMP-002', 'Automoviles');
+		InsurancePolicy danos = poliza(empresa.Id, 'COMP-003', 'Danos');
+		InsurancePolicy ajena = poliza(ajenaCta.Id, 'COMP-004', 'GMM');
+		insert new List<InsurancePolicy>{ col, auto, danos, ajena };
+		String rolAsegurado = rol('asegurado');
+		insert new List<InsurancePolicyParticipant>{
+			new InsurancePolicyParticipant(InsurancePolicyId = col.Id, PrimaryParticipantContactId = empleado.Id,
+				Role = rolAsegurado, ParticipantCode = '1', IsActiveParticipant = true),
+			new InsurancePolicyParticipant(InsurancePolicyId = col.Id, PrimaryParticipantContactId = otroEmpleado.Id,
+				Role = rolAsegurado, ParticipantCode = '2', IsActiveParticipant = true)
+		};
+
+		Test.startTest();
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		Map<String, Object> aseg = PortalPolizasPestanas.datosComponente(col.Id, null, 'asegurados');
+		Map<String, Object> part = PortalPolizasPestanas.datosComponente(col.Id, null, 'participantes');
+		Map<String, Object> veh = PortalPolizasPestanas.datosComponente(auto.Id, null, 'vehiculos');
+		Map<String, Object> ubi = PortalPolizasPestanas.datosComponente(danos.Id, null, 'ubicaciones');
+		Boolean invalida = false;
+		try {
+			PortalPolizasPestanas.datosComponente(col.Id, null, 'otra');
+		} catch (AuraHandledException e) {
+			invalida = true;
+		}
+		Boolean rechazada = false;
+		try {
+			PortalPolizasPestanas.datosComponente(ajena.Id, null, 'asegurados');
+		} catch (AuraHandledException e) {
+			rechazada = true;
+		}
+
+		PortalPolizasController.cuentaPrueba = null;
+		PortalPolizasController.contactoPrueba = otroEmpleado.Id;
+		Map<String, Object> asegSuyos = PortalPolizasPestanas.datosComponente(col.Id, null, 'asegurados');
+		Map<String, Object> partSuyos = PortalPolizasPestanas.datosComponente(col.Id, null, 'participantes');
+		Test.stopTest();
+
+		System.assertEquals(false, aseg.get('soloMiGrupo'));
+		System.assertEquals(true, aseg.get('portal'));
+		System.assertEquals(0, ((List<Object>) aseg.get('solicitudes')).size(), 'Las solicitudes van en su pestaña');
+		System.assertEquals(2, ((List<Object>) aseg.get('miembros')).size());
+		List<Object> participantes = (List<Object>) part.get('participantes');
+		System.assert(!participantes.isEmpty());
+		for (Object o : participantes) {
+			System.assertEquals(0, ((List<Object>) ((Map<String, Object>) o).get('archivos')).size(), 'Sin archivos en el sitio');
+		}
+		System.assertNotEquals(null, veh);
+		System.assertEquals(false, veh.get('soloMiGrupo'));
+		System.assertNotEquals(null, ubi);
+		System.assert(invalida, 'Pestaña no válida');
+		System.assert(rechazada, 'No debe entregar datos de una póliza ajena');
+		System.assertEquals(true, asegSuyos.get('soloMiGrupo'));
+		System.assertEquals(1, ((List<Object>) asegSuyos.get('miembros')).size(), 'El empleado solo se ve a sí mismo');
+		System.assertEquals(true, partSuyos.get('soloMiGrupo'));
+		System.assert(((List<Object>) partSuyos.get('participantes')).size() < participantes.size());
+	}
+
+	/**
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Solicitudes de movimientos del sitio: el contratante envía un alta y una baja con un archivo; se crea

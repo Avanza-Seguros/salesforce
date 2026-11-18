@@ -10,7 +10,7 @@
     --pc-sombra: 0 6px 24px rgba(11, 37, 89, 0.06);
 }
 .pagina {
-    max-width: 1320px; margin: 0 auto; box-sizing: border-box; padding: 1.75rem 0 3rem;
+    max-width: none; margin: 0 auto; box-sizing: border-box; padding: 1.75rem 2rem 3rem;
     display: flex; flex-direction: column; gap: 1.5rem; color: var(--pc-tinta);
 }
 .cabecera { display: flex; flex-direction: column; gap: 0.375rem; }

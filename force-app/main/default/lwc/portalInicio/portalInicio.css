@@ -25,9 +25,9 @@
 }
 
 .inicio {
-    max-width: 1240px;
+    max-width: none;
     margin: 0 auto;
-    padding: 1rem 0 3rem;
+    padding: 1rem 2rem 3rem;
     color: var(--pp-tinta);
     display: flex;
     flex-direction: column;

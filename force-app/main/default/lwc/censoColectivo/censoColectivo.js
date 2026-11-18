@@ -25,6 +25,7 @@ import getCenso from '@salesforce/apex/CensoColectivoController.getCenso';
 import guardarCenso from '@salesforce/apex/CensoColectivoController.guardarCenso';
 import eliminarCenso from '@salesforce/apex/CensoColectivoController.eliminarCenso';
 import analizarCensoPdf from '@salesforce/apex/CensoColectivoController.analizarCensoPdf';
+import { llamar } from 'c/portalContexto';
 
 // Campos del censo: clave (la misma que devuelve la IA), etiqueta y encabezados con que suele venir.
 // Se comparten con Crear Póliza (emisión de colectivos con varios archivos) en c/clasificadorArchivos.
@@ -421,7 +422,7 @@ export default class CensoColectivo extends LightningElement {
         const datos = [];
         for (let i = 0; i < bloques.length; i++) {
             this.progreso = `Analizando con IA: bloque ${i + 1} de ${bloques.length}…`;
-            const json = await analizarCensoPdf({ textoCenso: bloques[i] });
+            const json = await llamar('CensoColectivo.analizarCensoPdf', { textoCenso: bloques[i] }, analizarCensoPdf);
             let r = {};
             try { r = JSON.parse(json || '{}'); } catch (e) { r = {}; }
             (r.asegurados || []).forEach((a) => datos.push({ ...a, fila: datos.length + 1 }));

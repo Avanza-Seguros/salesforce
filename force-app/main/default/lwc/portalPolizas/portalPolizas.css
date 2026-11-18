@@ -53,9 +53,9 @@
 }
 
 .portal {
-    max-width: 1160px;
+    max-width: none;
     margin: 0 auto;
-    padding: 1.25rem 0 2rem;
+    padding: 1.25rem 2rem 2rem;
     font-variant-numeric: tabular-nums;
 }
 
@@ -433,6 +433,36 @@ button.documento:disabled { cursor: progress; opacity: 0.7; }
 }
 .pestanas .filtro { padding: 0.5625rem 1.125rem; font-size: 0.875rem; }
 .pestana_panel { padding-top: 0.25rem; }
+
+/*
+ * Pestañas Asegurados / Vehículos / Ubicaciones y Participantes: son los componentes de Salesforce y se ven igual que
+ * en Salesforce. Se quitan los estilos del portal que heredan (botones y buscadores redondos, colores, letra).
+ */
+.pestana_sf {
+    --slds-c-tabs-item-color-border-active: initial;
+    --slds-c-tabs-item-color-border-hover: initial;
+    --slds-c-tabs-item-text-color-active: initial;
+    --slds-c-tabs-list-color-border: initial;
+    --sds-c-tabs-item-color-border-active: initial;
+    --sds-c-tabs-item-text-color-active: initial;
+    --sds-c-tabs-list-color-border: initial;
+    --slds-c-input-radius-border: initial;
+    --sds-c-input-radius-border: initial;
+    --slds-c-input-color-border: initial;
+    --slds-c-input-color-border-focus: initial;
+    --slds-c-input-shadow-focus: initial;
+    --slds-c-button-radius-border: initial;
+    --slds-c-button-brand-color-background: initial;
+    --slds-c-button-brand-color-border: initial;
+    --slds-c-radio-button-color-border: initial;
+    --slds-c-radio-button-color-background-checked: initial;
+    --slds-c-radio-button-color-border-checked: initial;
+    font-family: "Salesforce Sans", Arial, sans-serif;
+    font-variant-numeric: normal;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #181818;
+}
 .filtro_punto { width: 8px; height: 8px; border-radius: 50%; background: var(--tono); box-shadow: 0 0 0 3px var(--tono-suave); }
 .filtro_cuenta {
     min-width: 1.375rem;
@@ -463,7 +493,7 @@ button.documento:disabled { cursor: progress; opacity: 0.7; }
 }
 
 @media (max-width: 480px) {
-    .portal { padding: 0.5rem 0 1.5rem; }
+    .portal { padding: 0.5rem 1rem 1.5rem; }
     .encabezado { padding: 1.25rem; }
     .detalle { padding: 0 1rem 1rem; }
     .detalle_cabecera { margin: 0 -1rem 1rem; padding: 1.25rem 1rem; flex-direction: column; }

@@ -1,5 +1,6 @@
 <template>
     <div class="end">
+        <span class="descargas"></span>
         <template if:true={cargando}>
             <div class="end-cargando"><lightning-spinner alternative-text="Cargando endosos" size="small"></lightning-spinner></div>
         </template>
@@ -50,7 +51,8 @@
                                         data-id={x.id} onclick={toggle}></lightning-button-icon>
                                 </td>
                                 <td>
-                                    <a href="#" class="nombre" data-id={x.id} onclick={verEndoso}>{x.numeroTxt}</a>
+                                    <template lwc:if={interno}><a href="#" class="nombre" data-id={x.id} onclick={verEndoso}>{x.numeroTxt}</a></template>
+                                    <template lwc:else><span class="nombre">{x.numeroTxt}</span></template>
                                     <div class="sub nombre-endoso">{x.nombre}</div>
                                     <div class="sub">{x.creadoTxt}<template if:true={x.usuario}> · {x.usuario}</template></div>
                                 </td>

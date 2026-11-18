@@ -14,9 +14,14 @@ import LightningConfirm from 'lightning/confirm';
 import { fold, fechaVisible, moneda, descargarExcel, paginasPdf, abrirTabla } from 'c/lectorArchivos';
 import { endosoDeTexto, especificacionUbicacion, mapeoComo, ubicacionesDesdeTabla, TIPOS } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosUbicacionesController.getDatos';
+import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosUbicacionesController.aplicar';
 import traerDePoliza from '@salesforce/apex/MovimientosUbicacionesController.traerDePoliza';
+import { llamar, fijarPortal } from 'c/portalContexto';
+// En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
+const aplicarSitio = (p) => llamar('MovimientosUbicaciones.aplicar', p, aplicar);
+const cerrarMovimientoSitio = (p) => llamar('MovimientosColectivo.cerrarMovimiento', p, cerrarMovimiento);
 
 const POR_PAGINA = 50;
 
@@ -56,6 +61,11 @@ export default class MovimientosUbicaciones extends LightningElement {
     seleccion = new Set();
     abierto = false;
     _recordId;
+    // Sitio de empresas (portalPolizas): igual que en Salesforce; los datos vienen de PortalPolizasPestanas y las acciones
+    // pasan por PortalPolizasMovimientos. No se muestran archivos, correos, Generar Excel ni enlaces a registros de Salesforce.
+    @api portal = false;
+    @api cuentaVistaPrevia;
+    get interno() { return !this.portal; }
 
     @api
     get recordId() { return this._recordId; }
@@ -72,9 +82,14 @@ export default class MovimientosUbicaciones extends LightningElement {
 
     async cargar() {
         if (!this._recordId) { return; }
+        // Espera a que lleguen todas las propiedades (portal, cuentaVistaPrevia) antes de la primera carga.
+        await Promise.resolve();
+        if (this.portal) { fijarPortal(this._recordId, this.cuentaVistaPrevia); }
         this.cargando = true;
         try {
-            this.datos = await getDatos({ recordId: this._recordId });
+            this.datos = await (this.portal
+                ? datosComponente({ policyId: this._recordId, cuentaVistaPrevia: this.cuentaVistaPrevia || null, tipo: 'ubicaciones' })
+                : getDatos({ recordId: this._recordId }));
             this.seleccion = new Set();
             this.errorMensaje = '';
         } catch (e) {
@@ -247,6 +262,8 @@ export default class MovimientosUbicaciones extends LightningElement {
             continua,
             icono: colapsada ? 'utility:chevronright' : 'utility:chevrondown',
             textoColapsar: colapsada ? 'Mostrar la solicitud' : 'Ocultar la solicitud',
+            // Excel de la solicitud para la aseguradora: solo en Salesforce.
+            folioExcel: this.portal ? null : g.folio,
             filas
         };
     }
@@ -722,7 +739,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         const prima = endoso ? endoso.prima : null;
         this.cargando = true;
         try {
-            const r = await aplicar({
+            const r = await aplicarSitio({
                 recordId: this._recordId,
                 movimientosJson: this.enPoliza ? JSON.stringify({ movimientos: movs, endoso: prima,
                         solicitud: (this.vista === 'revision' ? (this.comun || {}).solicitud : (this.form || {}).solicitud) || 'nueva' }) : JSON.stringify(movs)
@@ -861,7 +878,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         const id = e.currentTarget.dataset.mov;
         this.cargando = true;
         try {
-            await cerrarMovimiento({ movimientoId: id });
+            await cerrarMovimientoSitio({ movimientoId: id });
             this.toast('Movimiento', 'Movimiento cerrado.', 'success');
             await this.cargar();
         } catch (err) {

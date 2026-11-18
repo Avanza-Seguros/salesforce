@@ -1280,4 +1280,101 @@ public without sharing class PortalPolizasPestanas {
 		palabras.sort();
 		return String.join(palabras, ' ').trim();
 	}
+
+	// ---------------------------------------------------------------- Pestañas con los componentes de Salesforce
+
+	/**
+	 * @creation date: 18/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Datos de las pestañas Asegurados / Vehículos / Ubicaciones y Participantes tal cual las muestra
+	 * Salesforce: el sitio usa los mismos componentes (movimientosColectivo, movimientosFlotilla,
+	 * movimientosUbicaciones y participantesPoliza) en solo lectura. Valida que la póliza sea del usuario y llama a
+	 * los mismos controladores de Salesforce (inherited sharing, así que aquí corren sin compartir). Quien no es el
+	 * contratante solo ve a su grupo familiar (y sus beneficiarios). No se entregan las solicitudes pendientes (el
+	 * sitio tiene su pestaña Solicitudes) ni los archivos de cada persona.
+	 * @param policyId: Id de la póliza
+	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
+	 * @param tipo: asegurados | vehiculos | ubicaciones | participantes
+	 * @return Mismo mapa que el getDatos del controlador de Salesforce
+	 */
+	@AuraEnabled
+	public static Map<String, Object> datosComponente(Id policyId, Id cuentaVistaPrevia, String tipo) {
+		try {
+			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
+			Boolean soloMiGrupo = roles.get(policyId) != 'Titular';
+			Map<String, Object> res;
+			if (tipo == 'vehiculos') {
+				res = MovimientosFlotillaController.getDatos(policyId);
+			} else if (tipo == 'ubicaciones') {
+				res = MovimientosUbicacionesController.getDatos(policyId);
+			} else if (tipo == 'participantes') {
+				res = ParticipantesPolizaController.getDatos(policyId);
+				filtrarParticipantes(res, soloMiGrupo ? idsVisibles(policyId, cuentaVistaPrevia) : null);
+			} else if (tipo == 'asegurados') {
+				res = MovimientosColectivoController.getDatos(policyId);
+				if (soloMiGrupo) { filtrarAsegurados(res, idsVisibles(policyId, cuentaVistaPrevia)); }
+			} else {
+				throw new AuraHandledException('Pestaña no válida.');
+			}
+			res.put('solicitudes', new List<Object>());
+			res.put('portal', true);
+			res.put('soloMiGrupo', soloMiGrupo && (tipo == 'asegurados' || tipo == 'participantes'));
+			return res;
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			throw PortalPolizasController.errorSitio(e);
+		}
+	}
+
+	/** Participantes de la póliza que ve un usuario que no es el contratante (su grupo familiar). */
+	static Set<String> idsVisibles(Id policyId, Id cuentaVistaPrevia) {
+		Set<String> ids = new Set<String>();
+		for (InsurancePolicyParticipant pp : participantesVisibles(policyId, true, cuentaVistaPrevia, new Bienes())) {
+			ids.add((String) pp.Id);
+		}
+		return ids;
+	}
+
+	/** Asegurados: deja solo los del grupo y los movimientos de esas personas. */
+	static void filtrarAsegurados(Map<String, Object> res, Set<String> visibles) {
+		List<Object> miembros = new List<Object>();
+		Set<String> nombres = new Set<String>();
+		for (Object o : (List<Object>) res.get('miembros')) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			if (visibles.contains(String.valueOf(m.get('id')))) {
+				miembros.add(m);
+				if (m.get('nombre') != null) { nombres.add(String.valueOf(m.get('nombre')).toUpperCase()); }
+			}
+		}
+		res.put('miembros', miembros);
+		List<Object> movimientos = new List<Object>();
+		for (Object o : res.get('movimientos') == null ? new List<Object>() : (List<Object>) res.get('movimientos')) {
+			Object asegurado = ((Map<String, Object>) o).get('asegurado');
+			if (asegurado != null && nombres.contains(String.valueOf(asegurado).toUpperCase())) { movimientos.add(o); }
+		}
+		res.put('movimientos', movimientos);
+	}
+
+	/** Participantes: quita los archivos de cada persona y, si aplica, deja solo los del grupo (recalcula el resumen). */
+	static void filtrarParticipantes(Map<String, Object> res, Set<String> visibles) {
+		List<Object> lista = new List<Object>();
+		Map<String, Integer> resumen = (Map<String, Integer>) res.get('resumen');
+		if (visibles != null) {
+			for (String k : resumen.keySet()) { resumen.put(k, 0); }
+		}
+		for (Object o : (List<Object>) res.get('participantes')) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			m.put('archivos', new List<Object>());
+			if (visibles != null) {
+				if (!visibles.contains(String.valueOf(m.get('id')))) { continue; }
+				String grupo = (String) m.get('grupo');
+				String estado = m.get('activo') == true ? 'vigentes' : 'bajas';
+				if (grupo != null) { resumen.put(grupo, (resumen.containsKey(grupo) ? resumen.get(grupo) : 0) + 1); }
+				resumen.put(estado, (resumen.containsKey(estado) ? resumen.get(estado) : 0) + 1);
+			}
+			lista.add(m);
+		}
+		res.put('participantes', lista);
+	}
 }

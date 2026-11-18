@@ -31,7 +31,8 @@
                                     <template for:each={filas} for:item="p">
                                         <tr key={p.polizaId} class={p.claseFila}>
                                             <td>
-                                                <a href={p.url} target="_blank" rel="noopener" class="poliza">{p.poliza}</a>
+                                                <template lwc:if={p.url}><a href={p.url} target="_blank" rel="noopener" class="poliza">{p.poliza}</a></template>
+                                                <template lwc:else><span class="poliza">{p.poliza}</span></template>
                                                 <div class="sub">{p.estadoPoliza}</div>
                                             </td>
                                             <td>

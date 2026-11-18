@@ -20,6 +20,7 @@ import getCensoVehiculos from '@salesforce/apex/CensoVehiculosController.getCens
 import guardarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.guardarCensoVehiculos';
 import eliminarCensoVehiculos from '@salesforce/apex/CensoVehiculosController.eliminarCensoVehiculos';
 import analizarFlotillaPdf from '@salesforce/apex/FlotillaController.analizarFlotillaPdf';
+import { llamar } from 'c/portalContexto';
 
 // Campos del vehículo (la clave es la misma que devuelve la IA) y encabezados con que suelen venir.
 const CAMPOS = [
@@ -421,7 +422,7 @@ export default class CensoVehiculos extends LightningElement {
         const leidos = [];
         for (let i = 0; i < bloques.length; i++) {
             this.progreso = `Analizando con IA: bloque ${i + 1} de ${bloques.length}…`;
-            const json = await analizarFlotillaPdf({ textoCotizacion: bloques[i] });
+            const json = await llamar('Flotilla.analizarFlotillaPdf', { textoCotizacion: bloques[i] }, analizarFlotillaPdf);
             let r = {};
             try { r = JSON.parse(json || '{}'); } catch (e) { r = {}; }
             leidos.push(...(r.incisos || []));

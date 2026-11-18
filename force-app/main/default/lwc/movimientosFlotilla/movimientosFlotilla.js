@@ -13,11 +13,18 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
+import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosFlotillaController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosFlotillaController.compararArchivo';
 import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import traerDePoliza from '@salesforce/apex/MovimientosFlotillaController.traerDePoliza';
+import { llamar, fijarPortal } from 'c/portalContexto';
+// En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
+const aplicarSitio = (p) => llamar('MovimientosFlotilla.aplicar', p, aplicar);
+const compararArchivoSitio = (p) => llamar('MovimientosFlotilla.compararArchivo', p, compararArchivo);
+const subirArchivoSitio = (p) => llamar('MovimientosColectivo.subirArchivo', p, subirArchivo);
+const cerrarMovimientoSitio = (p) => llamar('MovimientosColectivo.cerrarMovimiento', p, cerrarMovimiento);
 
 const POR_PAGINA = 50;
 const TIPOS = ['Automóviles', 'Pick-up de carga', 'Camiones', 'Tractocamiones', 'Remolques', 'Autobuses', 'Motocicletas'];
@@ -46,6 +53,11 @@ export default class MovimientosFlotilla extends LightningElement {
     @track comun = {};
     abierto = false;
     _recordId;
+    // Sitio de empresas (portalPolizas): igual que en Salesforce; los datos vienen de PortalPolizasPestanas y las acciones
+    // pasan por PortalPolizasMovimientos. No se muestran archivos, correos, Generar Excel ni enlaces a registros de Salesforce.
+    @api portal = false;
+    @api cuentaVistaPrevia;
+    get interno() { return !this.portal; }
 
     @api
     get recordId() { return this._recordId; }
@@ -62,9 +74,14 @@ export default class MovimientosFlotilla extends LightningElement {
 
     async cargar() {
         if (!this._recordId) { return; }
+        // Espera a que lleguen todas las propiedades (portal, cuentaVistaPrevia) antes de la primera carga.
+        await Promise.resolve();
+        if (this.portal) { fijarPortal(this._recordId, this.cuentaVistaPrevia); }
         this.cargando = true;
         try {
-            this.datos = await getDatos({ recordId: this._recordId });
+            this.datos = await (this.portal
+                ? datosComponente({ policyId: this._recordId, cuentaVistaPrevia: this.cuentaVistaPrevia || null, tipo: 'vehiculos' })
+                : getDatos({ recordId: this._recordId }));
             this.seleccion = new Set();
             this.errorMensaje = '';
         } catch (e) {
@@ -245,6 +262,8 @@ export default class MovimientosFlotilla extends LightningElement {
             continua,
             icono: colapsada ? 'utility:chevronright' : 'utility:chevrondown',
             textoColapsar: colapsada ? 'Mostrar la solicitud' : 'Ocultar la solicitud',
+            // Excel de la solicitud para la aseguradora: solo en Salesforce.
+            folioExcel: this.portal ? null : g.folio,
             filas
         };
     }
@@ -420,7 +439,7 @@ export default class MovimientosFlotilla extends LightningElement {
         if (this.vista !== 'revision') { this._endososLeidos = []; }
         this.cargando = true;
         try {
-            const r = await aplicar({
+            const r = await aplicarSitio({
                 recordId: this._recordId,
                 movimientosJson: this.enPoliza
                     ? JSON.stringify({ movimientos: movs, endoso: prima, endosos: this.primasEndososLeidos(),
@@ -474,7 +493,7 @@ export default class MovimientosFlotilla extends LightningElement {
         this.cargando = true;
         try {
             const r = incisos.length
-                ? await compararArchivo({
+                ? await compararArchivoSitio({
                     recordId: this._recordId,
                     incisosJson: JSON.stringify(incisos),
                     // Los vehículos que no vienen en el archivo no se tocan (abajo se quitan las bajas que propone el servidor).
@@ -679,7 +698,7 @@ export default class MovimientosFlotilla extends LightningElement {
                     lector.readAsDataURL(x.documento);
                 });
                 // eslint-disable-next-line no-await-in-loop
-                await subirArchivo({ recordId: tId, nombre: x.documento.name, base64 });
+                await subirArchivoSitio({ recordId: tId, nombre: x.documento.name, base64 });
             } catch (err) {
                 fallas.push(x.numero);
             }
@@ -804,7 +823,7 @@ export default class MovimientosFlotilla extends LightningElement {
         const id = e.currentTarget.dataset.mov;
         this.cargando = true;
         try {
-            await cerrarMovimiento({ movimientoId: id });
+            await cerrarMovimientoSitio({ movimientoId: id });
             this.toast('Movimiento', 'Movimiento cerrado.', 'success');
             await this.cargar();
         } catch (err) {

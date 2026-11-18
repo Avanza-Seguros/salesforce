@@ -11,6 +11,7 @@ import { LightningElement, api, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { fechaVisible, moneda } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/ParticipantesPolizaController.getDatos';
+import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 
 const POR_PAGINA = 50;
 const RAMOS_BIENES = ['auto', 'dano', 'empresarial'];
@@ -25,6 +26,11 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     busqueda = '';
     pagina = 1;
     _recordId;
+    // Sitio de empresas (portalPolizas): igual que en Salesforce en solo lectura, con los datos de PortalPolizasPestanas;
+    // sin archivos ni enlaces a registros de Salesforce (no existen en el sitio).
+    @api portal = false;
+    @api cuentaVistaPrevia;
+    get interno() { return !this.portal; }
 
     @api
     get recordId() { return this._recordId; }
@@ -39,9 +45,13 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
 
     async cargar() {
         if (!this._recordId) { return; }
+        // Espera a que lleguen todas las propiedades (portal, cuentaVistaPrevia) antes de la primera carga.
+        await Promise.resolve();
         this.cargando = true;
         try {
-            this.datos = await getDatos({ policyId: this._recordId });
+            this.datos = await (this.portal
+                ? datosComponente({ policyId: this._recordId, cuentaVistaPrevia: this.cuentaVistaPrevia || null, tipo: 'participantes' })
+                : getDatos({ policyId: this._recordId }));
             this.errorMensaje = '';
             // Abre la vista que tenga participantes (ej. una póliza con solo beneficiarios u otros roles).
             if (!this.cuenta('asegurados')) {

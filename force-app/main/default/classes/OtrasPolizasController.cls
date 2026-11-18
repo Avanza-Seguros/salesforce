@@ -8,7 +8,7 @@
  *               - Vehículo (inciso de flotilla): misma serie (o mismas placas si no tiene serie) o mismo bien del cliente.
  *               - Ubicación (bien de la póliza o renglón de la oportunidad): mismo bien del cliente o mismo domicilio.
  */
-public with sharing class OtrasPolizasController {
+public inherited sharing class OtrasPolizasController {
 
 	private static final Integer MAXIMO = 50;
 

@@ -17,6 +17,7 @@ import { fechaVisible, moneda, paginasPdf } from 'c/lectorArchivos';
 import { clausulaDeTexto, endosoDeTexto } from 'c/clasificadorArchivos';
 import getEndosos from '@salesforce/apex/EndosoPoliza.getEndosos';
 import registrarEndoso from '@salesforce/apex/EndosoPoliza.registrarEndoso';
+import { llamar, enPortal, descargarDocumento } from 'c/portalContexto';
 
 const hoy = () => {
     const d = new Date();
@@ -53,7 +54,7 @@ export default class EndososPoliza extends NavigationMixin(LightningElement) {
         this.cargando = true;
         this.errorMensaje = '';
         try {
-            this.endosos = (await getEndosos({ policyId: this._recordId })) || [];
+            this.endosos = (await llamar('EndosoPoliza.getEndosos', { policyId: this._recordId }, getEndosos)) || [];
         } catch (e) {
             this.errorMensaje = (e && e.body && e.body.message) || (e && e.message) || 'No se pudieron leer los endosos.';
         } finally {
@@ -202,10 +203,10 @@ export default class EndososPoliza extends NavigationMixin(LightningElement) {
         const prima = datos ? datos.prima : null;
         this.cargando = true;
         try {
-            const id = await registrarEndoso({
+            const id = await llamar('EndosoPoliza.registrarEndoso', {
                 policyId: this._recordId, numero: this.reg.numero, descripcion: this.reg.descripcion,
                 fecha: this.reg.fecha, primaJson: prima ? JSON.stringify(prima) : null
-            });
+            }, registrarEndoso);
             let sinDocumento = false;
             if (datos && datos.tieneArchivo) {
                 try { await datos.subir(id); } catch (err) { sinDocumento = true; }
@@ -233,8 +234,20 @@ export default class EndososPoliza extends NavigationMixin(LightningElement) {
         this.abiertos = s;
     }
 
-    verDocumento(e) {
+    get interno() { return !enPortal(); }
+
+    async verDocumento(e) {
         e.preventDefault();
+        if (enPortal()) {
+            // En el sitio el archivo se descarga (el usuario del sitio no tiene acceso directo a él).
+            try {
+                await descargarDocumento(e.currentTarget.dataset.id, this.template.querySelector('.descargas'));
+            } catch (err) {
+                this.dispatchEvent(new ShowToastEvent({ title: 'Documento', variant: 'error',
+                    message: (err && err.body && err.body.message) || (err && err.message) || 'No se pudo descargar el documento.' }));
+            }
+            return;
+        }
         this[NavigationMixin.Navigate]({
             type: 'standard__namedPage',
             attributes: { pageName: 'filePreview' },

@@ -15,6 +15,7 @@ import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import { primasPorEndoso } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
+import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosColectivoController.compararArchivo';
 import traerDePoliza from '@salesforce/apex/MovimientosColectivoController.traerDePoliza';
@@ -24,6 +25,12 @@ import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirA
 import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.subirDocumentoBaja';
 import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
 import enviarCorreo from '@salesforce/apex/ParticipantesPolizaController.enviarCorreo';
+import { llamar, fijarPortal } from 'c/portalContexto';
+// En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
+const aplicarSitio = (p) => llamar('MovimientosColectivo.aplicar', p, aplicar);
+const compararArchivoSitio = (p) => llamar('MovimientosColectivo.compararArchivo', p, compararArchivo);
+const subirArchivoSitio = (p) => llamar('MovimientosColectivo.subirArchivo', p, subirArchivo);
+const subirDocumentoBajaSitio = (p) => llamar('MovimientosColectivo.subirDocumentoBaja', p, subirDocumentoBaja);
 // Asegurados por llamada al enviar correo: menos si van con adjuntos (límite de memoria de Apex).
 const LOTE_CORREO = 25;
 const LOTE_CORREO_ADJUNTOS = 5;
@@ -72,6 +79,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     @track comun = {};
     abierto = false;
     _recordId;
+    // Sitio de empresas (portalPolizas): igual que en Salesforce; los datos vienen de PortalPolizasPestanas y las acciones
+    // pasan por PortalPolizasMovimientos. No se muestran archivos, correos, Generar Excel ni enlaces a registros de Salesforce.
+    @api portal = false;
+    @api cuentaVistaPrevia;
+    get interno() { return !this.portal; }
 
     @api
     get recordId() { return this._recordId; }
@@ -88,9 +100,14 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
 
     async cargar() {
         if (!this._recordId) { return; }
+        // Espera a que lleguen todas las propiedades (portal, cuentaVistaPrevia) antes de la primera carga.
+        await Promise.resolve();
+        if (this.portal) { fijarPortal(this._recordId, this.cuentaVistaPrevia); }
         this.cargando = true;
         try {
-            this.datos = await getDatos({ recordId: this._recordId });
+            this.datos = await (this.portal
+                ? datosComponente({ policyId: this._recordId, cuentaVistaPrevia: this.cuentaVistaPrevia || null, tipo: 'asegurados' })
+                : getDatos({ recordId: this._recordId }));
             this.seleccion = new Set();
             this.errorMensaje = '';
         } catch (e) {
@@ -361,6 +378,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             continua,
             icono: colapsada ? 'utility:chevronright' : 'utility:chevrondown',
             textoColapsar: colapsada ? 'Mostrar la solicitud' : 'Ocultar la solicitud',
+            // Excel de la solicitud para la aseguradora: solo en Salesforce.
+            folioExcel: this.portal ? null : g.folio,
             filas
         };
     }
@@ -403,6 +422,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 ? `Enviado el ${this.fechaHora(m.fechaCorreo)}${m.plantillaCorreo ? ' · ' + m.plantillaCorreo : ''}`
                 : (this.correoDe(m) ? `Aún no se envía el correo a ${this.correoDe(m)}` : 'El asegurado no tiene correo'),
             puedeCorreo: this.enPoliza && !!this.correoDe(m),
+            // En el sitio no se adjuntan archivos ni se envían correos.
+            muestraArchivos: m.esTitular && !this.portal,
+            muestraCorreo: this.enPoliza && !!this.correoDe(m) && !this.portal,
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         });
     }
@@ -666,7 +688,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 this.actualizarFila(n.key, { estado: 'subiendo' });
                 try {
                     const base64 = await this.leerBase64(porKey.get(n.key));
-                    const documentId = await subirArchivo({ recordId: this._recordId, nombre: n.nombre, base64 });
+                    const documentId = await subirArchivoSitio({ recordId: this._recordId, nombre: n.nombre, base64 });
                     this.actualizarFila(n.key, { estado: 'listo', documentId });
                 } catch (err) {
                     this.actualizarFila(n.key, { estado: 'error',
@@ -911,7 +933,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 if (!f) { continue; }
                 try {
                     const base64 = await this.leerBase64(f);
-                    await subirDocumentoBaja({ policyId: this._recordId, participanteId: id, nombre: f.name, base64 });
+                    await subirDocumentoBajaSitio({ policyId: this._recordId, participanteId: id, nombre: f.name, base64 });
                 } catch (err) {
                     errores.push(`${f.name}: ${this.textoError(err)}`);
                 }
@@ -967,7 +989,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const prima = endoso ? endoso.prima : null;
         this.cargando = true;
         try {
-            const r = await aplicar({
+            const r = await aplicarSitio({
                 recordId: this._recordId,
                 movimientosJson: this.enPoliza
                     ? JSON.stringify({ movimientos: movs, endoso: prima, endosos: primasEndosos || null,
@@ -1021,7 +1043,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.endososArchivo = [...new Set((e.detail.miembros || []).map((x) => (x.numeroEndoso ? String(x.numeroEndoso).trim() : '')).filter((x) => x))];
         this.cargando = true;
         try {
-            const r = await compararArchivo({
+            const r = await compararArchivoSitio({
                 recordId: this._recordId,
                 miembrosJson: JSON.stringify(e.detail.miembros),
                 // Solo se muestra lo que el archivo trae: los asegurados que no vienen no se tocan (no se proponen como baja).

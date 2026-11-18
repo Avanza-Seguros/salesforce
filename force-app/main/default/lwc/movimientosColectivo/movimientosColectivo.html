@@ -1,10 +1,10 @@
 <template>
     <template if:true={noAplica}>
         <template if:true={esFlotilla}>
-            <c-movimientos-flotilla record-id={recordId} read-only={readOnly}></c-movimientos-flotilla>
+            <c-movimientos-flotilla portal={portal} cuenta-vista-previa={cuentaVistaPrevia} record-id={recordId} read-only={readOnly}></c-movimientos-flotilla>
         </template>
         <template if:true={esUbicaciones}>
-            <c-movimientos-ubicaciones record-id={recordId} read-only={readOnly}></c-movimientos-ubicaciones>
+            <c-movimientos-ubicaciones portal={portal} cuenta-vista-previa={cuentaVistaPrevia} record-id={recordId} read-only={readOnly}></c-movimientos-ubicaciones>
         </template>
         <template if:true={sinMovimientosBienes}>
             <div class="mov-vacio">
@@ -82,6 +82,8 @@
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
                                 <lightning-button label="Cargar asegurados" icon-name="utility:upload" onclick={verArchivo}></lightning-button>
                             </template>
+                            <!-- En el sitio (portal) no se adjuntan documentos, no se envían correos ni se genera el Excel. -->
+                            <template lwc:if={interno}>
                             <lightning-button label="Adjuntar documentos" icon-name="utility:attach" onclick={abrirArchivosVarios}
                                 disabled={sinTitulares}></lightning-button>
                             <template if:true={enPoliza}>
@@ -90,6 +92,7 @@
                             </template>
                             <!-- Excel de movimientos: solo pólizas empresariales. -->
                             <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
+                            </template>
                             <template if:true={enPoliza}><lightning-button label="Endosos" icon-name="utility:file" onclick={verEndosos}></lightning-button></template>
                             <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
                         </div>
@@ -147,7 +150,7 @@
                                                     <span class="sol-resumen">{b.resumen}</span>
                                                     <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
                                                     <template lwc:if={b.estadoTxt}><span class={b.claseEstado}>{b.estadoTxt}</span></template>
-                                                    <template lwc:if={b.folio}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
+                                                    <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
                                                         class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
                                                 </div>
                                             </td>
@@ -196,13 +199,13 @@
                                                     <lightning-button-icon icon-name="utility:ban" alternative-text="Dar de baja" title="Dar de baja"
                                                         data-id={m.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
                                                 </template>
-                                                <!-- Archivos: solo titulares. -->
-                                                <template if:true={m.esTitular}>
+                                                <!-- Archivos: solo titulares (en el sitio no). -->
+                                                <template if:true={m.muestraArchivos}>
                                                     <lightning-button-icon icon-name="utility:attach" alternative-text={m.textoArchivos} title={m.textoArchivos}
                                                         variant={m.varianteArchivos} data-id={m.id} onclick={abrirArchivos} size="small"
                                                         class="slds-m-left_xx-small"></lightning-button-icon>
                                                 </template>
-                                                <template if:true={m.puedeCorreo}>
+                                                <template if:true={m.muestraCorreo}>
                                                     <lightning-button-icon icon-name="utility:email" alternative-text={m.textoEnviar} title={m.textoEnviar}
                                                         data-id={m.id} onclick={abrirCorreoAsegurado} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
                                                 </template>

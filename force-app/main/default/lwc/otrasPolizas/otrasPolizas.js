@@ -8,6 +8,7 @@
 import { LightningElement, api, track } from 'lwc';
 import { fechaVisible } from 'c/lectorArchivos';
 import buscar from '@salesforce/apex/OtrasPolizasController.buscar';
+import { llamar, enPortal } from 'c/portalContexto';
 
 export default class OtrasPolizas extends LightningElement {
     abierto = false;
@@ -30,7 +31,7 @@ export default class OtrasPolizas extends LightningElement {
         this.resultado = null;
         this.titulo = titulo || '';
         try {
-            this.resultado = await buscar({ registroId, contextoId });
+            this.resultado = await llamar('OtrasPolizas.buscar', { registroId, contextoId }, buscar);
         } catch (e) {
             this.error = (e && e.body && e.body.message) || (e && e.message) || 'No se pudo buscar en otras pólizas.';
         } finally {
@@ -45,7 +46,8 @@ export default class OtrasPolizas extends LightningElement {
     get filas() {
         return ((this.resultado && this.resultado.polizas) || []).map((p) => ({
             ...p,
-            url: `/lightning/r/InsurancePolicy/${p.polizaId}/view`,
+            // En el sitio no hay liga a Salesforce.
+            url: enPortal() ? null : `/lightning/r/InsurancePolicy/${p.polizaId}/view`,
             vigenciaTxt: [fechaVisible(p.vigenciaInicio), fechaVisible(p.vigenciaFin)].filter((x) => x).join(' – ') || '—',
             aseguradoraTxt: p.aseguradora || 'Sin aseguradora',
             claseFila: p.otraAseguradora ? 'fila-otra' : '',

@@ -11,8 +11,6 @@ import buscarCuentas from '@salesforce/apex/PortalPolizasController.buscarCuenta
 import informacion from '@salesforce/apex/PortalPolizasPestanas.informacion';
 import pagos from '@salesforce/apex/PortalPolizasPestanas.pagos';
 import vigencias from '@salesforce/apex/PortalPolizasPestanas.vigencias';
-import asegurados from '@salesforce/apex/PortalPolizasPestanas.asegurados';
-import participantes from '@salesforce/apex/PortalPolizasPestanas.participantes';
 
 // El campo Moneda de la póliza es texto libre (MXN, PESOS, USD, UDI...): se lleva a un código ISO para darle formato con $.
 const MONEDAS = { MXN: 'MXN', MXP: 'MXN', MN: 'MXN', PESOS: 'MXN', PESO: 'MXN', 'MONEDA NACIONAL': 'MXN',
@@ -26,22 +24,9 @@ function codigoMoneda(codigo) {
 const PESTANAS = {
     info: informacion,
     pagos: pagos,
-    vigencias: vigencias,
-    asegurados: asegurados,
-    participantes: participantes
+    vigencias: vigencias
+    // Asegurados / Vehículos / Ubicaciones y Participantes usan los componentes de Salesforce (cargan sus datos).
 };
-const PAGINA = 100;
-const FILTROS_ESTADO = [
-    { label: 'Vigentes', value: 'vigentes' },
-    { label: 'Dados de baja', value: 'bajas' },
-    { label: 'Todos', value: 'todos' }
-];
-const FILTROS_GRUPO = [
-    { label: 'Todos', value: 'todos' },
-    { label: 'Asegurados', value: 'asegurados' },
-    { label: 'Beneficiarios', value: 'beneficiario' },
-    { label: 'Otros roles', value: 'otro' }
-];
 const ESTADOS_CERRADOS = ['Cancelado', 'Condonado'];
 
 // Igual que PortalPolizasController.MAX_BYTES_DESCARGA: arriba de esto se usa el enlace directo del archivo.
@@ -74,14 +59,6 @@ export default class PortalPolizas extends LightningElement {
     // Pestañas del detalle: cada una se carga la primera vez que se abre.
     pestana = 'info';
     pestanas = this.pestanasVacias();
-    filtrosEstado = FILTROS_ESTADO;
-    filtrosGrupo = FILTROS_GRUPO;
-    busquedaAsegurados = '';
-    filtroAsegurados = 'vigentes';
-    limiteAsegurados = PAGINA;
-    busquedaParticipantes = '';
-    filtroParticipantes = 'todos';
-    limiteParticipantes = PAGINA;
 
     // Vista previa de administrador. null (no undefined) para que los wires sí se ejecuten sin cuenta elegida.
     puedeVista = false;
@@ -284,24 +261,6 @@ export default class PortalPolizas extends LightningElement {
         return this.opciones(FILTROS, this.filtro, { vigentes, todas: total, novigentes: total - vigentes });
     }
 
-    get opcionesEstado() {
-        const datos = this.pestanas.asegurados.datos;
-        const filas = (datos && datos.filas) || [];
-        const vigentes = filas.filter((f) => f.activo).length;
-        return this.opciones(FILTROS_ESTADO, this.filtroAsegurados, { vigentes, bajas: filas.length - vigentes, todos: filas.length });
-    }
-
-    get opcionesGrupo() {
-        const datos = this.pestanas.participantes.datos;
-        const filas = (datos && datos.filas) || [];
-        const cuenta = (g) => filas.filter((f) => f.grupo === g).length;
-        return this.opciones(FILTROS_GRUPO, this.filtroParticipantes, {
-            todos: filas.length,
-            asegurados: cuenta('asegurado') + cuenta('dependiente'),
-            beneficiario: cuenta('beneficiario'),
-            otro: cuenta('otro')
-        });
-    }
 
     handleAbrir(event) {
         this.abrirPoliza(event.currentTarget.dataset.id);
@@ -347,19 +306,11 @@ export default class PortalPolizas extends LightningElement {
     reiniciarPestanas() {
         this.pestana = 'info';
         this.pestanas = this.pestanasVacias();
-        this.busquedaAsegurados = '';
-        this.filtroAsegurados = 'vigentes';
-        this.limiteAsegurados = PAGINA;
-        this.busquedaParticipantes = '';
-        this.filtroParticipantes = 'todos';
-        this.limiteParticipantes = PAGINA;
     }
 
     get pestanaInfo() { return this.pestanas.info; }
     get pestanaPagos() { return this.pestanas.pagos; }
     get pestanaVigencias() { return this.pestanas.vigencias; }
-    get pestanaAsegurados() { return this.pestanas.asegurados; }
-    get pestanaParticipantes() { return this.pestanas.participantes; }
 
     handlePestana(event) {
         const clave = event.currentTarget.dataset.value;
@@ -458,7 +409,6 @@ export default class PortalPolizas extends LightningElement {
                 }))
             };
         }
-        // asegurados y participantes: se filtran y paginan en los getters.
         return datos;
     }
 
@@ -488,165 +438,21 @@ export default class PortalPolizas extends LightningElement {
         return 'Asegurados';
     }
 
-    get tablaAsegurados() {
-        const datos = this.pestanas.asegurados.datos;
-        if (!datos) return undefined;
-        const m = (n) => (n == null ? '—' : this.moneda(n, datos.moneda));
-        const texto = this.busquedaAsegurados.trim().toLowerCase();
-        const todas = datos.filas;
-        const filtradas = todas.filter((f) => {
-            if (this.filtroAsegurados === 'vigentes' && !f.activo) return false;
-            if (this.filtroAsegurados === 'bajas' && f.activo) return false;
-            return !texto || [f.clave, f.nombre, f.detalle, f.titular].filter(Boolean).join(' ').toLowerCase().includes(texto);
-        });
-        const estado = (f) => ({
-            clave: 'estado',
-            texto: f.activo ? 'Vigente' : 'Baja',
-            claseTexto: f.activo ? 'estado estado_vigente' : 'estado estado_inactiva',
-            sub: !f.activo ? [this.fechaCorta(f.hasta), f.motivoBaja].filter(Boolean).join(' · ') : null
-        });
-        const tipos = {
-            personas: {
-                nombre: 'asegurado', plural: 'asegurados', placeholder: 'Buscar por nombre o certificado',
-                vacio: 'No hay asegurados registrados en esta póliza.',
-                columnas: ['Certificado', 'Nombre', 'Parentesco', 'Categoría', 'Alta', 'Prima', 'Estado'],
-                celdas: (f) => [
-                    { clave: 'cert', texto: f.clave || '—' },
-                    { clave: 'nombre', texto: f.nombre, claseTexto: 'celda_principal', sub: f.dependiente && f.titular ? `de ${f.titular}` : null },
-                    { clave: 'par', texto: f.parentesco || '—' },
-                    { clave: 'cat', texto: f.detalle || '—' },
-                    { clave: 'alta', texto: this.fecha(f.desde) },
-                    { clave: 'prima', texto: m(f.prima), clase: 'num' },
-                    estado(f)
-                ]
-            },
-            vehiculos: {
-                nombre: 'vehículo', plural: 'vehículos', placeholder: 'Buscar por vehículo, placas o serie',
-                vacio: 'No hay vehículos registrados en esta póliza.',
-                columnas: ['Inciso', 'Vehículo', 'Alta', 'Valor', 'Prima', 'Estado'],
-                celdas: (f) => [
-                    { clave: 'inc', texto: f.clave || '—' },
-                    { clave: 'nombre', texto: f.nombre, claseTexto: 'celda_principal', sub: f.detalle },
-                    { clave: 'alta', texto: this.fecha(f.desde) },
-                    { clave: 'valor', texto: m(f.suma), clase: 'num' },
-                    { clave: 'prima', texto: m(f.prima), clase: 'num' },
-                    estado(f)
-                ]
-            },
-            ubicaciones: {
-                nombre: 'ubicación', plural: 'ubicaciones', placeholder: 'Buscar por ubicación o dirección',
-                vacio: 'No hay ubicaciones registradas en esta póliza.',
-                columnas: ['Inciso', 'Ubicación', 'Alta', 'Suma asegurada', 'Prima', 'Estado'],
-                celdas: (f) => [
-                    { clave: 'inc', texto: f.clave || '—' },
-                    { clave: 'nombre', texto: f.nombre, claseTexto: 'celda_principal', sub: f.detalle },
-                    { clave: 'alta', texto: this.fecha(f.desde) },
-                    { clave: 'suma', texto: m(f.suma), clase: 'num' },
-                    { clave: 'prima', texto: m(f.prima), clase: 'num' },
-                    estado(f)
-                ]
-            }
-        };
-        const t = tipos[datos.tipo] || tipos.personas;
-        const numericas = ['Prima', 'Valor', 'Suma asegurada'];
-        const activos = todas.filter((f) => f.activo).length;
-        return {
-            soloMiGrupo: datos.soloMiGrupo,
-            hayFilas: todas.length > 0,
-            placeholder: t.placeholder,
-            vacio: t.vacio,
-            resumen: `${activos} ${activos === 1 ? t.nombre : t.plural} vigente${activos === 1 ? '' : 's'}`
-                + (todas.length > activos ? ` · ${todas.length - activos} de baja` : '')
-                + (filtradas.length !== todas.length ? ` · mostrando ${filtradas.length}` : ''),
-            columnas: t.columnas.map((c) => ({ clave: c, etiqueta: c, clase: numericas.includes(c) ? 'num' : '' })),
-            filas: filtradas.slice(0, this.limiteAsegurados).map((f) => ({
-                id: f.id,
-                clase: [f.dependiente ? 'fila_dependiente' : '', f.activo ? '' : 'fila_baja'].join(' ').trim(),
-                celdas: t.celdas(f)
-            })),
-            hayMas: filtradas.length > this.limiteAsegurados
-        };
+    get bienesVehiculos() { return this.tituloBienes === 'Vehículos'; }
+    get bienesUbicaciones() { return this.tituloBienes === 'Ubicaciones'; }
+    // Para pasar true a las propiedades booleanas de los componentes de Salesforce (portal, read-only).
+    get siempre() { return true; }
+    // Quien no es el contratante (titular) solo ve a su grupo familiar.
+    get soloMiGrupo() {
+        const p = this.detalle && this.detalle.poliza;
+        return !!p && !!p.miRol && p.miRol !== 'Titular';
     }
-
-    handleBusquedaAsegurados(event) {
-        this.busquedaAsegurados = event.target.value || '';
-        this.limiteAsegurados = PAGINA;
-    }
-
-    handleFiltroAsegurados(event) {
-        this.filtroAsegurados = event.currentTarget.dataset.value;
-        this.limiteAsegurados = PAGINA;
-    }
-
-    handleMasAsegurados() {
-        this.limiteAsegurados += PAGINA;
-    }
-
-    // Participantes
-
-    get tablaParticipantes() {
-        const datos = this.pestanas.participantes.datos;
-        if (!datos) return undefined;
-        // En autos, daños y empresarial se muestran los participantes con una nota de dónde están los bienes.
-        const notaBienes = datos.tipo === 'vehiculos'
-            ? 'Esta póliza asegura vehículos: están en la pestaña Vehículos.'
-            : (datos.tipo === 'ubicaciones' ? 'Esta póliza asegura bienes: las ubicaciones están en la pestaña Ubicaciones.' : null);
-        const texto = this.busquedaParticipantes.trim().toLowerCase();
-        const todas = datos.filas;
-        const filtradas = todas.filter((f) => {
-            const g = this.filtroParticipantes;
-            if (g === 'asegurados' && f.grupo !== 'asegurado' && f.grupo !== 'dependiente') return false;
-            if ((g === 'beneficiario' || g === 'otro') && f.grupo !== g) return false;
-            return !texto || [f.nombre, f.roles, f.titular].filter(Boolean).join(' ').toLowerCase().includes(texto);
-        });
-        const cuenta = (g) => todas.filter((f) => f.grupo === g).length;
-        const partes = [
-            [cuenta('asegurado'), 'titular', 'titulares'],
-            [cuenta('dependiente'), 'dependiente', 'dependientes'],
-            [cuenta('beneficiario'), 'beneficiario', 'beneficiarios'],
-            [cuenta('otro'), 'otro rol', 'otros roles'],
-            [todas.filter((f) => !f.activo).length, 'dado de baja', 'dados de baja']
-        ].filter(([n]) => n > 0).map(([n, s, p]) => `${n} ${n === 1 ? s : p}`);
-        return {
-            soloMiGrupo: datos.soloMiGrupo,
-            hayFilas: todas.length > 0,
-            resumen: partes.join(' · ') + (filtradas.length !== todas.length ? ` · mostrando ${filtradas.length}` : ''),
-            notaBienes,
-            // Columnas que ningún participante trae (p. ej. parentesco y porcentaje en daños) no se muestran.
-            conParentesco: todas.some((f) => f.parentesco),
-            conPorcentaje: todas.some((f) => f.porcentaje != null),
-            conVigencia: todas.some((f) => f.desde || f.hasta),
-            filas: filtradas.slice(0, this.limiteParticipantes).map((f) => ({
-                ...f,
-                clase: [f.dependiente ? 'fila_dependiente' : '', f.activo ? '' : 'fila_baja'].join(' ').trim(),
-                roles: f.roles || '—',
-                parentesco: f.parentesco || '—',
-                deTexto: f.titular ? `de ${f.titular}` : null,
-                porcentajeTexto: f.porcentaje != null ? `${Number(f.porcentaje).toLocaleString('es-MX')} %` : '—',
-                vigenciaTexto: this.rango(f.desde, f.hasta),
-                estadoTexto: f.activo ? 'Vigente' : 'Baja',
-                estadoClase: f.activo ? 'estado estado_vigente' : 'estado estado_inactiva'
-            })),
-            hayMas: filtradas.length > this.limiteParticipantes
-        };
-    }
-
-    handleBusquedaParticipantes(event) {
-        this.busquedaParticipantes = event.target.value || '';
-        this.limiteParticipantes = PAGINA;
-    }
-
-    handleFiltroParticipantes(event) {
-        this.filtroParticipantes = event.currentTarget.dataset.value;
-        this.limiteParticipantes = PAGINA;
-    }
-
-    handleMasParticipantes() {
-        this.limiteParticipantes += PAGINA;
-    }
-
-    fechaCorta(valor) {
-        return valor ? this.fecha(valor) : null;
+    get notaMiGrupoAsegurados() { return this.soloMiGrupo && this.tituloBienes === 'Asegurados'; }
+    get notaMiGrupoParticipantes() { return this.soloMiGrupo; }
+    // Solo el contratante registra movimientos en las pestañas de Salesforce; los demás solo consultan.
+    get soloConsulta() {
+        const p = this.detalle && this.detalle.poliza;
+        return !p || p.miRol !== 'Titular';
     }
 
     // ---------- Detalle ----------
