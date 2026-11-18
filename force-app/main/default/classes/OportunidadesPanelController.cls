@@ -37,6 +37,7 @@ public with sharing class OportunidadesPanelController {
 		@AuraEnabled public Date fechaCierre;
 		@AuraEnabled public Id propietarioId;
 		@AuraEnabled public String propietario;
+		@AuraEnabled public Id agenteId;
 		@AuraEnabled public String agente;
 		@AuraEnabled public Integer cotizaciones;
 		@AuraEnabled public Datetime creada;
@@ -50,12 +51,19 @@ public with sharing class OportunidadesPanelController {
 		@AuraEnabled public Boolean esUsuarioActual = false;
 	}
 
+	/** Agente (Producer) para el filtro del panel. */
+	public class Opcion {
+		@AuraEnabled public Id id;
+		@AuraEnabled public String nombre;
+	}
+
 	public class Panel {
 		@AuraEnabled public Id usuarioId;
 		@AuraEnabled public String nombreUsuario;
 		@AuraEnabled public Date hoy;
 		@AuraEnabled public List<Oportunidad> oportunidades = new List<Oportunidad>();
 		@AuraEnabled public List<Agente> ranking = new List<Agente>();
+		@AuraEnabled public List<Opcion> agentes = new List<Opcion>();
 		@AuraEnabled public Agente reyAutos;
 		@AuraEnabled public Integer polizasMesUsuario = 0;
 		@AuraEnabled public Integer polizasHoyUsuario = 0;
@@ -76,11 +84,29 @@ public with sharing class OportunidadesPanelController {
 			p.nombreUsuario = String.isNotBlank(UserInfo.getFirstName()) ? UserInfo.getFirstName() : UserInfo.getName();
 			p.hoy = Date.today();
 			p.oportunidades = cargarOportunidades();
+			p.agentes = cargarAgentes();
 			calcularGamificacion(p);
 			return p;
 		} catch (Exception e) {
 			throw new AuraHandledException('No se pudo cargar el panel de oportunidades: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 18/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Todos los agentes (Producer) ordenados por nombre, para el filtro por agente del panel.
+	 * @return Lista de agentes
+	 */
+	static List<Opcion> cargarAgentes() {
+		List<Opcion> res = new List<Opcion>();
+		for (Producer pr : [SELECT Id, Name FROM Producer ORDER BY Name LIMIT 2000]) {
+			Opcion o = new Opcion();
+			o.id = pr.Id;
+			o.nombre = pr.Name;
+			res.add(o);
+		}
+		return res;
 	}
 
 	/**
@@ -94,7 +120,7 @@ public with sharing class OportunidadesPanelController {
 		Datetime desde = Datetime.now().addDays(-DIAS_RECIENTES);
 		List<Opportunity> opps = [
 			SELECT Id, Name, StageName, CloseDate, Amount, Prima_Total__c, Prima_neta__c, Type, Canal__c,
-				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Producer__r.Name, Account.Name, CreatedDate
+				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Producer__c, Producer__r.Name, Account.Name, CreatedDate
 			FROM Opportunity
 			WHERE IsClosed = false OR LastModifiedDate >= :desde
 			ORDER BY CloseDate ASC NULLS LAST
@@ -116,6 +142,7 @@ public with sharing class OportunidadesPanelController {
 			r.fechaCierre = o.CloseDate;
 			r.propietarioId = o.OwnerId;
 			r.propietario = o.Owner != null ? o.Owner.Name : null;
+			r.agenteId = o.Producer__c;
 			r.agente = o.Producer__r != null ? o.Producer__r.Name : null;
 			r.cotizaciones = cotizaciones.containsKey(o.Id) ? cotizaciones.get(o.Id) : 0;
 			r.creada = o.CreatedDate;

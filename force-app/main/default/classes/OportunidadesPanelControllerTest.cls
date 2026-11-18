@@ -18,6 +18,8 @@ private class OportunidadesPanelControllerTest {
 	static void setup() {
 		Account cuenta = CollectionsTestDataFactory.createInsuredAccount();
 		Id agenteId = CollectionsTestDataFactory.getOrCreateAgenteId();
+		Producer productor = new Producer(Name = 'Agente Panel Prueba');
+		insert productor;
 		Opportunity autos = new Opportunity(
 			Name = 'Panel Autos',
 			AccountId = cuenta.Id,
@@ -26,6 +28,7 @@ private class OportunidadesPanelControllerTest {
 			Agente_Relacionado__c = agenteId,
 			Ramo__c = 'Automoviles',
 			Tipo_Contratacion__c = 'Individual',
+			Producer__c = productor.Id,
 			Prima_neta__c = 1500
 		);
 		Opportunity gmm = new Opportunity(
@@ -78,6 +81,15 @@ private class OportunidadesPanelControllerTest {
 		Assert.areEqual(9000, gmm.prima, 'Sin prima neta usa la prima total');
 		Assert.areEqual(1500, autos.prima, 'Usa la prima neta');
 		Assert.areEqual(0, autos.cotizaciones, 'Sin cotizaciones');
+		Producer productor = [SELECT Id FROM Producer WHERE Name = 'Agente Panel Prueba' LIMIT 1];
+		Assert.areEqual(productor.Id, autos.agenteId, 'Trae el agente (Producer) de la oportunidad');
+		Assert.areEqual('Agente Panel Prueba', autos.agente, 'Trae el nombre del agente');
+		Assert.isNull(gmm.agenteId, 'Sin Producer no hay agente');
+		Boolean listado = false;
+		for (OportunidadesPanelController.Opcion a : p.agentes) {
+			if (a.id == productor.Id) { listado = true; }
+		}
+		Assert.isTrue(listado, 'El agente aparece en la lista del filtro');
 
 		Assert.areEqual(2, p.polizasMesUsuario, 'Las dos pólizas no canceladas cuentan en el mes');
 		Assert.areEqual(2, p.polizasHoyUsuario, 'Las dos pólizas se emitieron hoy');

@@ -87,6 +87,38 @@
 }
 .pill-toggle.activo { background: var(--av-navy); border-color: var(--av-navy); color: #FFFFFF; }
 .pill-icono { --slds-c-icon-color-foreground-default: currentColor; }
+/* Filtro por agente: lista desplegable con forma de píldora. */
+.selector-agente {
+    position: relative;
+    flex: 0 1 240px;
+    min-width: 180px;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--av-borde);
+    background: #FFFFFF;
+    --slds-c-icon-color-foreground-default: #64748B;
+}
+.selector-agente.activo { border-color: var(--av-navy); box-shadow: 0 0 0 1px var(--av-navy); }
+.selector-icono { position: absolute; left: 16px; pointer-events: none; }
+.selector-input {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 36px 0 40px;
+    border: none;
+    border-radius: 999px;
+    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2364748B' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 16px center;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--av-tinta);
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    text-overflow: ellipsis;
+}
+.selector-input:focus-visible { outline: 2px solid var(--av-azul); outline-offset: 2px; }
 
 /* ============================================================
    HERO

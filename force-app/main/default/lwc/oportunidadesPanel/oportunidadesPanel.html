@@ -152,6 +152,15 @@
                                     aria-pressed={t.presionado} onclick={handleTipo}>{t.etiqueta}</button>
                             </template>
                         </div>
+                        <div class={agenteClase}>
+                            <lightning-icon icon-name="utility:user" size="x-small" class="selector-icono"></lightning-icon>
+                            <label for="agente" class="slds-assistive-text">Filtrar por agente</label>
+                            <select id="agente" class="selector-input" onchange={handleAgente}>
+                                <template for:each={opcionesAgente} for:item="a">
+                                    <option key={a.valor} value={a.valor} selected={a.seleccionado}>{a.etiqueta}</option>
+                                </template>
+                            </select>
+                        </div>
                         <button type="button" class={vencidasClase} aria-pressed={vencidasPresionado} onclick={handleVencidas}>
                             <lightning-icon icon-name="utility:clock" size="x-small" class="pill-icono"></lightning-icon>
                             Sólo vencidas

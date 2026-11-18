@@ -26,6 +26,8 @@ const RAMOS = {
     Empresarial: { ini: 'E', etiqueta: 'Empresarial', clave: 'otro' },
     RC: { ini: 'RC', etiqueta: 'Responsabilidad Civil', clave: 'otro' }
 };
+// Valor del filtro de agente para las oportunidades sin Producer.
+const SIN_AGENTE = 'ninguno';
 const TIPOS_VENTA = {
     New_Business: 'Nueva',
     Internal_Renewal: 'Renovación interna',
@@ -56,6 +58,7 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     error;
     busqueda = '';
     filtroTipo = 'todas';
+    filtroAgente = '';
     soloVencidas = false;
     etapaFiltro = null;
     vista = 'lista';
@@ -205,6 +208,7 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 propietarioIni: this.iniciales(o.propietario),
                 propietarioEstilo: `background-color: ${this.colorAvatar(o.propietarioId)};`,
                 propietarioAria: `Propietario: ${o.propietario || 'sin propietario'}`,
+                agenteId: o.agenteId || null,
                 agente: o.agente || 'Sin agente',
                 agenteIni: o.agente ? this.iniciales(o.agente) : '—',
                 abrirAria: `Abrir ${nombre} en Crear Oportunidad`,
@@ -222,6 +226,8 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
         return this.todas.filter((o) => {
             if (this.filtroTipo !== 'todas' && o.tipo !== this.filtroTipo) { return false; }
             if (this.soloVencidas && !o.vencida) { return false; }
+            if (this.filtroAgente === SIN_AGENTE && o.agenteId) { return false; }
+            if (this.filtroAgente && this.filtroAgente !== SIN_AGENTE && o.agenteId !== this.filtroAgente) { return false; }
             if (q && !o.busqueda.includes(q)) { return false; }
             return true;
         });
@@ -378,6 +384,22 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     }
     handleBusqueda(event) {
         this.busqueda = event.target.value;
+        this.limite = TAMANO_PAGINA;
+    }
+    // Filtro por agente (Producer): todos los agentes de la org, más "Sin agente".
+    get opcionesAgente() {
+        const lista = (this.datos && this.datos.agentes) || [];
+        return [
+            { valor: '', etiqueta: 'Todos los agentes', seleccionado: !this.filtroAgente },
+            { valor: SIN_AGENTE, etiqueta: 'Sin agente', seleccionado: this.filtroAgente === SIN_AGENTE },
+            ...lista.map((a) => ({ valor: a.id, etiqueta: a.nombre, seleccionado: this.filtroAgente === a.id }))
+        ];
+    }
+    get agenteClase() {
+        return this.filtroAgente ? 'selector-agente activo' : 'selector-agente';
+    }
+    handleAgente(event) {
+        this.filtroAgente = event.target.value;
         this.limite = TAMANO_PAGINA;
     }
     handleVencidas() {
