@@ -4572,8 +4572,15 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             && this.comparativoHtmlCoincide;
     }
     get comparativoHtmlCoincide() {
-        const actuales = (this.relatedQuotes || []).filter((q) => q && q.totalAmount > 0);
-        if (!actuales.length) { return true; }   // vista previa de PDFs: el comparativo es de esas mismas cotizaciones
+        // Se revisa contra las cotizaciones guardadas o, en la vista previa, contra las leídas de los PDFs: así antes y
+        // después de crear se elige el mismo comparativo (el de la IA solo si incluye todas las cotizaciones).
+        let actuales = (this.relatedQuotes || []).filter((q) => q && q.totalAmount > 0);
+        if (!actuales.length) {
+            actuales = (this.uploadedQuotes || [])
+                .map((q) => ({ totalAmount: parseFloat(q && q.primaTotal) || 0 }))
+                .filter((q) => q.totalAmount > 0);
+        }
+        if (!actuales.length) { return true; }
         const texto = String(this.comparativoHtml || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
         // Mismo número de aseguradoras/cotizaciones comparadas...
         const n = texto.match(/(\d+)\s+(?:aseguradoras?|cotizaciones?)\s+comparad[ao]s/i);
