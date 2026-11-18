@@ -457,22 +457,18 @@
                 <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
                     <div class="slds-modal__container">
                         <template if:true={enModalExcel}>
-                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Excel de asegurados por fecha de movimiento</h2></div>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Excel de asegurados por solicitud</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">
-                                <template if:true={sinFechasMovimiento}>
-                                    <p class="sub">No hay registros con fecha de movimiento.</p>
+                                <template if:true={sinSolicitudesExcel}>
+                                    <p class="sub">No hay registros para generar el Excel.</p>
                                 </template>
-                                <template if:false={sinFechasMovimiento}>
-                                    <p class="sub slds-m-bottom_x-small">Elige las fechas de movimiento que quieres en el Excel.</p>
-                                    <label class="mov-excel-fecha mov-excel-todas">
-                                        <input type="checkbox" checked={todasFechasExcel} onchange={marcarTodasFechasExcel} />
-                                        <span>Todas</span>
-                                    </label>
-                                    <div class="mov-excel-lista">
-                                        <template for:each={fechasExcel} for:item="f">
-                                            <label key={f.key} class="mov-excel-fecha">
-                                                <input type="checkbox" data-key={f.key} checked={f.sel} onchange={marcarFechaExcel} />
-                                                <span>{f.texto}</span>
+                                <template if:false={sinSolicitudesExcel}>
+                                    <p class="sub slds-m-bottom_x-small">Elige la solicitud: el Excel sale con sus registros, listo para enviar a la aseguradora.</p>
+                                    <div class="mov-excel-lista" role="radiogroup" aria-label="Solicitudes">
+                                        <template for:each={solicitudesExcel} for:item="s">
+                                            <label key={s.key} class="mov-excel-fecha">
+                                                <input type="radio" name="solicitud-excel" data-key={s.key} checked={s.sel} onchange={elegirSolicitudExcel} />
+                                                <span><strong>{s.titulo}</strong> · {s.detalle}</span>
                                             </label>
                                         </template>
                                     </div>
@@ -481,7 +477,7 @@
                             <div class="slds-modal__footer">
                                 <lightning-button label="Cancelar" onclick={cerrarModal}></lightning-button>
                                 <lightning-button label="Generar Excel" variant="brand" class="slds-m-left_x-small" icon-name="utility:download"
-                                    onclick={generarExcel} disabled={sinFechasExcel}></lightning-button>
+                                    onclick={generarExcel} disabled={sinSolicitudElegida}></lightning-button>
                             </div>
                         </template>
                         <template if:true={enModalBaja}>

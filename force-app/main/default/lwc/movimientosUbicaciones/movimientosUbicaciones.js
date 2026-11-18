@@ -52,7 +52,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     busquedaHistorial = '';
     pagina = 1;
     modal = null;
-    fechasExcel = [];
+    solicitudesExcel = [];
     seleccion = new Set();
     abierto = false;
     _recordId;
@@ -783,35 +783,43 @@ export default class MovimientosUbicaciones extends LightningElement {
     // Excel por fecha de movimiento
     // ============================================================
     get enModalExcel() { return this.modal === 'excel'; }
-    // Fechas de movimiento que hay (más reciente primero) con cuántos registros tiene cada una.
+    // Solicitudes (folio) que tienen registros, la más reciente primero, con cuántos registros tiene cada una.
     abrirExcel() {
-        const cuenta = new Map();
+        const porFolio = new Map();
         this.ubicaciones.forEach((r) => {
-            const k = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
-            cuenta.set(k, (cuenta.get(k) || 0) + 1);
+            const folio = r.solicitud || '';
+            const fecha = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
+            const s = porFolio.get(folio) || { n: 0, fecha: '' };
+            s.n += 1;
+            if (fecha > s.fecha) { s.fecha = fecha; }
+            porFolio.set(folio, s);
         });
-        this.fechasExcel = [...cuenta.entries()]
-            .sort((a, b) => (a[0] === b[0] ? 0 : (a[0] < b[0] ? 1 : -1)))
-            .map(([fecha, n]) => ({ key: fecha || 'sin-fecha', fecha, n, sel: false,
-                texto: `${fecha ? fechaVisible(fecha) : 'Sin fecha de movimiento'} (${n})` }));
+        this.solicitudesExcel = [...porFolio.entries()]
+            .sort((a, b) => {
+                if (!a[0] !== !b[0]) { return a[0] ? -1 : 1; }          // "Sin solicitud" al final
+                return b[0].localeCompare(a[0], 'es', { numeric: true });  // folio más reciente primero
+            })
+            .map(([folio, s]) => ({
+                key: folio || 'sin-solicitud',
+                folio,
+                sel: false,
+                titulo: folio || 'Sin solicitud',
+                detalle: `${s.n} ${s.n === 1 ? 'registro' : 'registros'}${s.fecha ? ' · último movimiento ' + fechaVisible(s.fecha) : ''}`
+            }));
+        if (this.solicitudesExcel.length === 1) { this.solicitudesExcel[0].sel = true; }
         this.modal = 'excel';
     }
-    marcarFechaExcel(e) {
+    elegirSolicitudExcel(e) {
         const key = e.target.dataset.key;
-        this.fechasExcel = this.fechasExcel.map((f) => (f.key === key ? { ...f, sel: e.target.checked } : f));
+        this.solicitudesExcel = this.solicitudesExcel.map((s) => ({ ...s, sel: s.key === key }));
     }
-    marcarTodasFechasExcel(e) {
-        this.fechasExcel = this.fechasExcel.map((f) => ({ ...f, sel: e.target.checked }));
-    }
-    get todasFechasExcel() { return this.fechasExcel.length > 0 && this.fechasExcel.every((f) => f.sel); }
-    get sinFechasExcel() { return !this.fechasExcel.some((f) => f.sel); }
-    get sinFechasMovimiento() { return this.fechasExcel.length === 0; }
+    get sinSolicitudElegida() { return !this.solicitudesExcel.some((s) => s.sel); }
+    get sinSolicitudesExcel() { return this.solicitudesExcel.length === 0; }
     generarExcel() {
-        const fechas = new Set(this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha));
-        const registros = this.ubicaciones.filter((r) => fechas.has(r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : ''));
-        const elegidas = this.fechasExcel.filter((f) => f.sel).map((f) => f.fecha).filter((f) => f).sort();
-        const sufijo = elegidas.length === 1 ? elegidas[0] : (elegidas.length ? `${elegidas[0]}_a_${elegidas[elegidas.length - 1]}` : 'sin_fecha');
-        this.excelDe(registros, sufijo);
+        const elegida = this.solicitudesExcel.find((s) => s.sel);
+        if (!elegida) { return; }
+        const registros = this.ubicaciones.filter((r) => (r.solicitud || '') === elegida.folio);
+        this.excelDe(registros, elegida.folio || 'sin_solicitud');
         this.cerrarModal();
     }
     // Excel solo con los registros de una solicitud (el que se envía a la aseguradora): desde el encabezado de la
