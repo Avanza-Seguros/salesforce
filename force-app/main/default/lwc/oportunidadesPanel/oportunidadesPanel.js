@@ -198,6 +198,10 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 tipoVenta,
                 canal: o.canal || '—',
                 cierreTexto: this.formatoFecha(o.fechaCierre),
+                creadaMs: o.creada ? new Date(o.creada).getTime() : 0,
+                creadaTexto: o.creada
+                    ? new Date(o.creada).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '—',
                 dias,
                 cerrada,
                 vencida,
@@ -215,7 +219,7 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 cotizaciones: cot,
                 busqueda: [nombre, o.cuenta, o.propietario, o.agente, ramo.etiqueta, etapa.etiqueta].join(' ').toLowerCase()
             };
-        });
+        }).sort((x, y) => y.creadaMs - x.creadaMs);   // más reciente primero
     }
     get abiertas() {
         return this.todas.filter((o) => !o.cerrada);

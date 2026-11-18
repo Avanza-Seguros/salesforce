@@ -123,7 +123,7 @@ public with sharing class OportunidadesPanelController {
 				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Producer__c, Producer__r.Name, Account.Name, CreatedDate
 			FROM Opportunity
 			WHERE IsClosed = false OR LastModifiedDate >= :desde
-			ORDER BY CloseDate ASC NULLS LAST
+			ORDER BY CreatedDate DESC
 			LIMIT :LIMITE_OPORTUNIDADES
 		];
 		Map<Id, Integer> cotizaciones = contarCotizaciones(opps);
