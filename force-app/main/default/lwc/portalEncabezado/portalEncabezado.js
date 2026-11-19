@@ -96,8 +96,8 @@ export default class PortalEncabezado extends NavigationMixin(LightningElement) 
     // ---------- Menú ----------
 
     get menu() {
-        const inicio = { etiqueta: this.textoInicio, valor: '/', tipo: 'InternalLink', hijos: [] };
-        const lista = [inicio, ...((this.datos && this.datos.menu) || [])];
+        // Sin «Inicio» en el menú (el logo sigue llevando al inicio): solo el menú publicado del sitio.
+        const lista = (this.datos && this.datos.menu) || [];
         return lista.map((e, i) => {
             const clave = `m${i}`;
             const hijos = (e.hijos || []).map((h, j) => ({
