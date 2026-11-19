@@ -265,7 +265,16 @@ private class PortalPolizasPestanasTest {
 
 		System.assertEquals(false, aseg.get('soloMiGrupo'));
 		System.assertEquals(true, aseg.get('portal'));
-		System.assertEquals(0, ((List<Object>) aseg.get('solicitudes')).size(), 'Las solicitudes van en su pestaña');
+		// Al contratante le llegan las solicitudes para agrupar (sin datos internos del caso); a un empleado, ninguna.
+		System.assertEquals(0, ((List<Object>) asegSuyos.get('solicitudes')).size(), 'Un empleado no ve las solicitudes');
+		List<Object> agrupar = PortalPolizasPestanas.solicitudesParaAgrupar(new List<Object>{ new Map<String, Object>{
+			'folio' => 'SOL-0001', 'total' => 2, 'altas' => 2, 'casoId' => col.Id, 'descripcion' => 'interno', 'pendiente' => true } });
+		Map<String, Object> sol = (Map<String, Object>) agrupar[0];
+		System.assertEquals('SOL-0001', sol.get('folio'));
+		System.assertEquals(2, sol.get('altas'));
+		System.assertEquals(false, sol.get('pendiente'));
+		System.assert(!sol.containsKey('casoId') && !sol.containsKey('descripcion'), 'Sin datos internos del caso');
+		System.assertEquals(0, PortalPolizasPestanas.solicitudesParaAgrupar(null).size());
 		System.assertEquals(2, ((List<Object>) aseg.get('miembros')).size());
 		List<Object> participantes = (List<Object>) part.get('participantes');
 		System.assert(!participantes.isEmpty());

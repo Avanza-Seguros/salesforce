@@ -43,8 +43,8 @@
                         </div>
                     </template>
 
-                    <!-- Solicitudes que el cliente envió desde el sitio y siguen por atender. -->
-                    <template lwc:if={enPoliza}>
+                    <!-- Solicitudes que el cliente envió desde el sitio y siguen por atender (solo en Salesforce). -->
+                    <template lwc:if={conSolicitudesPorAtender}>
                         <c-solicitudes-portal solicitudes={solicitudes} atendiendo={solicitudAtender} puede-editar={puedeEditar}
                             onatender={handleAtenderSolicitud} onexcel={handleExcelSolicitud} oncambio={handleCambioSolicitudes}></c-solicitudes-portal>
                     </template>

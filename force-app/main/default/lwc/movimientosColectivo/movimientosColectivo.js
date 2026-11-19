@@ -87,6 +87,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
+    // Panel para atender las solicitudes del sitio: solo en Salesforce (en el sitio solo se agrupa por solicitud).
+    get conSolicitudesPorAtender() { return this.enPoliza && !this.portal; }
     // En el sitio de empresas se agrega «mov-portal» para tomar el estilo de Oportunidades.
     get claseRaiz() { return this.portal ? 'mov mov-portal' : 'mov'; }
 

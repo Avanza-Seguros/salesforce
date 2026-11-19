@@ -1293,8 +1293,9 @@ public without sharing class PortalPolizasPestanas {
 	 * Salesforce: el sitio usa los mismos componentes (movimientosColectivo, movimientosFlotilla,
 	 * movimientosUbicaciones y participantesPoliza) en solo lectura. Valida que la póliza sea del usuario y llama a
 	 * los mismos controladores de Salesforce (inherited sharing, así que aquí corren sin compartir). Quien no es el
-	 * contratante solo ve a su grupo familiar (y sus beneficiarios). No se entregan las solicitudes pendientes (el
-	 * sitio tiene su pestaña Solicitudes) ni los archivos de cada persona.
+	 * contratante solo ve a su grupo familiar (y sus beneficiarios). Al contratante se le entregan las solicitudes solo
+	 * para agrupar la tabla como en Salesforce (folio, fecha y conteos, sin los datos internos del caso); a los demás,
+	 * ninguna. No se entregan los archivos de cada persona.
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @param tipo: asegurados | vehiculos | ubicaciones | participantes
@@ -1319,7 +1320,7 @@ public without sharing class PortalPolizasPestanas {
 			} else {
 				throw new AuraHandledException('Pestaña no válida.');
 			}
-			res.put('solicitudes', new List<Object>());
+			res.put('solicitudes', soloMiGrupo ? new List<Object>() : solicitudesParaAgrupar(res.get('solicitudes')));
 			res.put('portal', true);
 			res.put('soloMiGrupo', soloMiGrupo && (tipo == 'asegurados' || tipo == 'participantes'));
 			return res;
@@ -1328,6 +1329,22 @@ public without sharing class PortalPolizasPestanas {
 		} catch (Exception e) {
 			throw PortalPolizasController.errorSitio(e);
 		}
+	}
+
+	/** Solicitudes para agrupar la tabla en el sitio: solo folio, fecha, origen y conteos (nada interno del caso). */
+	@TestVisible
+	static List<Object> solicitudesParaAgrupar(Object origen) {
+		Set<String> campos = new Set<String>{ 'folio', 'fecha', 'portal', 'caso', 'usuario', 'enviadaPor', 'total', 'abiertos',
+			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos' };
+		List<Object> res = new List<Object>();
+		if (!(origen instanceof List<Object>)) { return res; }
+		for (Object o : (List<Object>) origen) {
+			Map<String, Object> s = (Map<String, Object>) o;
+			Map<String, Object> copia = new Map<String, Object>{ 'pendiente' => false };
+			for (String k : s.keySet()) { if (campos.contains(k)) { copia.put(k, s.get(k)); } }
+			res.add(copia);
+		}
+		return res;
 	}
 
 	/** Participantes de la póliza que ve un usuario que no es el contratante (su grupo familiar). */
