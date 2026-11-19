@@ -854,9 +854,9 @@ export default class MovimientosUbicaciones extends LightningElement {
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [
-                ['Número de movimiento', (r) => r.movimientoNumero || ''], ['Nombre', (r) => r.nombre],
+                ['Nombre', (r) => r.nombre],
                 ['Dirección', (r) => r.direccion], ['Giro', (r) => r.giro],
-                ['Movimiento interno', (r) => r.numeroEndoso || ''], ['Tipo de petición', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')],
+                ['Tipo de petición', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')],
                 ['Fecha de petición', (r) => fechaVisible(r.fechaMovimiento)], ['Poliza', () => poliza],
                 ['Inciso', (r) => (r.inciso == null || isNaN(Number(r.inciso)) ? r.inciso : Number(r.inciso))],
                 ['Fecha de alta', (r) => fechaVisible(r.fechaAlta)],

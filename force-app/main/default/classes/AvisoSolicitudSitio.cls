@@ -170,26 +170,26 @@ public without sharing class AvisoSolicitudSitio {
 			Map<String, Object> d = MovimientosFlotillaController.getDatos(policyId);
 			for (Object o : lista(d.get('vehiculos'))) { if (deFolio(o, folio)) { registros.add((Map<String, Object>) o); } }
 			hoja = 'Vehículos'; prefijo = 'Vehiculos'; a.bienes = 'vehículos';
-			columnas = new List<String>{ 'Número de movimiento', 'Vehículo', 'Serie', 'Modelo', 'Placas', 'Uso', 'Movimiento interno',
+			columnas = new List<String>{ 'Vehículo', 'Serie', 'Modelo', 'Placas', 'Uso',
 				'Tipo de petición', 'Fecha de petición', 'Poliza', 'Paquete', 'Inciso', 'Vigencia desde', 'Vigencia hasta', 'Valor', 'Prima',
 				'Descripción' };
 			for (Map<String, Object> r : registros) {
 				Object desde = r.get('fechaAlta') != null ? r.get('fechaAlta') : d.get('inicio');
 				Object hasta = r.get('fechaBaja') != null ? r.get('fechaBaja') : d.get('fin');
-				filas.add(new List<Object>{ txt(r.get('movimientoNumero')), r.get('descripcion'), r.get('serie'), num(r.get('modelo')),
-					r.get('placas'), r.get('uso'), txt(r.get('numeroEndoso')), tipo(r), fecha(r.get('fechaMovimiento')), poliza, r.get('paquete'),
+				filas.add(new List<Object>{ r.get('descripcion'), r.get('serie'), num(r.get('modelo')),
+					r.get('placas'), r.get('uso'), tipo(r), fecha(r.get('fechaMovimiento')), poliza, r.get('paquete'),
 					num(r.get('inciso')), fecha(desde), fecha(hasta), num(r.get('valor')), num(r.get('prima')), txt(r.get('motivoBaja')) });
 			}
 		} else if (base.get('ubicaciones') == true) {
 			Map<String, Object> d = MovimientosUbicacionesController.getDatos(policyId);
 			for (Object o : lista(d.get('ubicaciones'))) { if (deFolio(o, folio)) { registros.add((Map<String, Object>) o); } }
 			hoja = 'Ubicaciones'; prefijo = 'Ubicaciones'; a.bienes = 'ubicaciones';
-			columnas = new List<String>{ 'Número de movimiento', 'Nombre', 'Dirección', 'Giro', 'Movimiento interno', 'Tipo de petición',
+			columnas = new List<String>{ 'Nombre', 'Dirección', 'Giro', 'Tipo de petición',
 				'Fecha de petición', 'Poliza', 'Inciso', 'Fecha de alta', 'Suma asegurada', 'Prima', 'Descripción' };
 			for (Map<String, Object> r : registros) {
 				Object inciso = num(r.get('inciso'));
-				filas.add(new List<Object>{ txt(r.get('movimientoNumero')), r.get('nombre'), r.get('direccion'), r.get('giro'),
-					txt(r.get('numeroEndoso')), tipo(r), fecha(r.get('fechaMovimiento')), poliza, inciso == null ? r.get('inciso') : inciso,
+				filas.add(new List<Object>{ r.get('nombre'), r.get('direccion'), r.get('giro'),
+					tipo(r), fecha(r.get('fechaMovimiento')), poliza, inciso == null ? r.get('inciso') : inciso,
 					fecha(r.get('fechaAlta')), num(r.get('sumaAsegurada')), num(r.get('prima')), txt(r.get('motivoBaja')) });
 			}
 		} else {
@@ -235,8 +235,8 @@ public without sharing class AvisoSolicitudSitio {
 		}
 		Integer numDep = 3;
 		for (String k : dependientes.keySet()) { numDep = Math.max(numDep, dependientes.get(k).size()); }
-		List<String> columnas = new List<String>{ 'Número de movimiento', 'Nombre', 'Apellido Paterno del Asegurado',
-			'Apellido Materno del Asegurado', 'Fecha de nacimiento', 'Sexo', 'Movimiento interno', 'Tipo de petición', 'Fecha de petición',
+		List<String> columnas = new List<String>{ 'Nombre', 'Apellido Paterno del Asegurado',
+			'Apellido Materno del Asegurado', 'Fecha de nacimiento', 'Sexo', 'Tipo de petición', 'Fecha de petición',
 			'Poliza', 'Categorias', 'Certificado', 'Parentesco' };
 		for (Integer i = 1; i <= numDep; i++) {
 			columnas.addAll(new List<String>{ 'Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de Nacimiento', 'Parentesco',
@@ -248,8 +248,8 @@ public without sharing class AvisoSolicitudSitio {
 			Map<String, Object> mov = enMovimiento.get(clave)[0];
 			for (Map<String, Object> r : enMovimiento.get(clave)) { if (String.valueOf(r.get('id')) == String.valueOf(t.get('id'))) { mov = r; } }
 			String[] n = partesNombre(t);
-			List<Object> f = new List<Object>{ txt(mov.get('movimientoNumero')), n[0], n[1], n[2], fecha(t.get('fechaNacimiento')), sexo(t),
-				txt(mov.get('numeroEndoso')), tipo(mov), fecha(mov.get('fechaMovimiento')), poliza, txt(t.get('categoria')),
+			List<Object> f = new List<Object>{ n[0], n[1], n[2], fecha(t.get('fechaNacimiento')), sexo(t),
+				tipo(mov), fecha(mov.get('fechaMovimiento')), poliza, txt(t.get('categoria')),
 				txt(t.get('certificado')), '01 Titular' };
 			List<Map<String, Object>> deps = dependientes.get(clave);
 			for (Integer i = 0; i < numDep; i++) {

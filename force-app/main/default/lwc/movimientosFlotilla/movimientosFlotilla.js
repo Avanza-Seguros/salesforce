@@ -792,9 +792,9 @@ export default class MovimientosFlotilla extends LightningElement {
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [
-                ['Número de movimiento', (r) => r.movimientoNumero || ''], ['Vehículo', (r) => r.descripcion], ['Serie', (r) => r.serie],
+                ['Vehículo', (r) => r.descripcion], ['Serie', (r) => r.serie],
                 ['Modelo', (r) => (r.modelo == null ? null : Number(r.modelo))], ['Placas', (r) => r.placas], ['Uso', (r) => r.uso],
-                ['Movimiento interno', (r) => r.numeroEndoso || ''], ['Tipo de petición', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')],
+                ['Tipo de petición', (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja')],
                 ['Fecha de petición', (r) => fechaVisible(r.fechaMovimiento)], ['Poliza', () => poliza], ['Paquete', (r) => r.paquete],
                 ['Inciso', (r) => (r.inciso == null ? null : Number(r.inciso))], ['Vigencia desde', (r) => fechaVisible(this.vigenciaDesde(r))],
                 ['Vigencia hasta', (r) => fechaVisible(this.vigenciaHasta(r))],

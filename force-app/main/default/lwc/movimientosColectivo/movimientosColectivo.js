@@ -1387,8 +1387,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         });
         const grupos = [...familias.values()];
         const numDep = Math.max(3, ...grupos.map((g) => g.dependientes.length));
-        const columnas = ['Número de movimiento', 'Nombre', 'Apellido Paterno del Asegurado', 'Apellido Materno del Asegurado',
-            'Fecha de nacimiento', 'Sexo', 'Movimiento interno', 'Tipo de petición', 'Fecha de petición', 'Poliza', 'Categorias',
+        const columnas = ['Nombre', 'Apellido Paterno del Asegurado', 'Apellido Materno del Asegurado',
+            'Fecha de nacimiento', 'Sexo', 'Tipo de petición', 'Fecha de petición', 'Poliza', 'Categorias',
             'Certificado', 'Parentesco'];
         for (let i = 1; i <= numDep; i++) {
             columnas.push('Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de Nacimiento', 'Parentesco', `Sexo Dependiente ${i}`, 'Porcentaje');
@@ -1400,8 +1400,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // El movimiento del renglón: el del titular si va en él; si no, el del primer dependiente.
             const mov = g.enMovimiento.find((r) => r.id === t.id) || g.enMovimiento[0];
             const n = this.partesNombre(t);
-            const fila = [mov.movimientoNumero || '', n.nombres, n.paterno, n.materno, fechaVisible(t.fechaNacimiento), this.sexoExcel(t),
-                mov.numeroEndoso || '', mov.tipoMovimiento || (mov.activo ? 'Alta' : 'Baja'), fechaVisible(mov.fechaMovimiento), poliza,
+            const fila = [n.nombres, n.paterno, n.materno, fechaVisible(t.fechaNacimiento), this.sexoExcel(t),
+                mov.tipoMovimiento || (mov.activo ? 'Alta' : 'Baja'), fechaVisible(mov.fechaMovimiento), poliza,
                 t.categoria || '', t.certificado || '', '01 Titular'];
             for (let i = 0; i < numDep; i++) {
                 const d = g.dependientes[i];
