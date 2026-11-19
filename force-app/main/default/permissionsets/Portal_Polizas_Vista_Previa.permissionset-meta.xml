@@ -15,6 +15,10 @@
         <apexClass>PortalPolizasPestanas</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>PortalSitioController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <customPermissions>
         <enabled>true</enabled>
         <name>Portal_Polizas_Vista_Previa</name>

@@ -15,4 +15,8 @@
         <apexClass>PortalPolizasMovimientos</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>PortalSitioController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
 </PermissionSet>
