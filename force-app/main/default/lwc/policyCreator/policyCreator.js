@@ -1134,6 +1134,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         if (r.asegurados) { partes.push(`${r.asegurados} asegurado(s)`); }
         if (r.beneficiarios) { partes.push(`${r.beneficiarios} beneficiario(s)`); }
         if (r.cuenta) { partes.push('datos del cliente'); }
+        if (r.producto) { partes.push('producto'); }
         if (r.vehiculos) { partes.push(`${r.vehiculos} vehículo(s) de flotilla`); } else if (r.vehiculo) { partes.push('vehículo'); }
         if (r.ubicaciones) { partes.push(`${r.ubicaciones} ubicación(es)`); } else if (r.bien) { partes.push('bien asegurado'); }
         if (r.transaccion) { partes.push('transacción de prima'); }
@@ -1343,6 +1344,7 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         }
         if (!r.Aseguradora__c) { avisos.push('no se reconoció la aseguradora'); }
         if (!r.Ramo__c) { avisos.push('no se reconoció el ramo'); }
+        avisos.push(r.ProductId ? `producto: ${r._productoNombre}` : 'no se encontró un producto de la aseguradora');
         this.showToast('Póliza sin oportunidad', avisos.join(' · '), r.NameInsuredId ? 'info' : 'warning');
     }
 

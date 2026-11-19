@@ -160,6 +160,16 @@ public inherited sharing class PolicyController {
 		String ramo = ramoDeTexto(primeroNoVacio(new List<Object>{ d.get('ramo'), d.get('tipoPoliza') }));
 		putPicklist(r, 'Ramo__c', InsurancePolicy.Ramo__c.getDescribe(), ramo);
 		putPicklist(r, 'PolicyType', InsurancePolicy.PolicyType.getDescribe(), ramo);
+		// Producto: el igual al plan de la carátula o, si no hay, el de mayor semejanza (aseguradora, ramo y texto).
+		try {
+			Id producto = ProductoPorSemejanza.buscar(aseg, r.containsKey('Ramo__c') ? (String) r.get('Ramo__c') : ramo, d, textoInicio);
+			if (producto != null) {
+				r.put('ProductId', producto);
+				r.put('_productoNombre', [SELECT Name FROM Product2 WHERE Id = :producto LIMIT 1].Name);
+			}
+		} catch (Exception e) {
+			System.debug(LoggingLevel.WARN, 'datosSinOportunidad: no se pudo elegir el producto: ' + e.getMessage());
+		}
 		return r;
 	}
 
@@ -1487,10 +1497,23 @@ public inherited sharing class PolicyController {
 			: (Map<String, Object>) JSON.deserializeUntyped(datosJson);
 
 		InsurancePolicy pol = [
-			SELECT Id, NameInsuredId, SourceOpportunityId, Ramo__c
+			SELECT Id, NameInsuredId, SourceOpportunityId, Ramo__c, ProductId, Aseguradora__c
 			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
 		];
 		Id oppId = opportunityId != null ? opportunityId : pol.SourceOpportunityId;
+		// Póliza sin producto (carga masiva, póliza que ya existía o cotización sin producto): el igual al plan del
+		// PDF o el de mayor semejanza. Va antes de las coberturas, que salen del catálogo del producto.
+		if (pol.ProductId == null && String.valueOf(d.get(SIN_CARATULA)) != 'true') {
+			try {
+				Id producto = ProductoPorSemejanza.buscar(pol.Aseguradora__c,
+					String.isNotBlank(pol.Ramo__c) ? pol.Ramo__c : strOf(d.get('ramo')), d, null);
+				if (producto != null) {
+					update new InsurancePolicy(Id = policyId, ProductId = producto);
+					pol.ProductId = producto;
+					resumen.put('producto', 1);
+				}
+			} catch (Exception e) { resumen.put('productoError', msgLimpio(e)); }
+		}
 		Id accountId = resolverCuentaDePoliza(pol);
 		// Daños / Empresarial: cada ubicación (inciso) es un bien del cliente; los "asegurados adicionales" del endoso
 		// no se crean como participantes.

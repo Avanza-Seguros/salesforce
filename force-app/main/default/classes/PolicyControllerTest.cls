@@ -1566,6 +1566,8 @@ private class PolicyControllerTest {
         Aseguradora__c afirme = new Aseguradora__c(Name = 'Afirme Seguros');
         insert afirme;
         insert new Aseguradora__c(Name = 'Plan Seguro');
+        Product2 gmm = new Product2(Name = 'Seguro Hospitalización Afirme', Family = 'GMM', IsActive = true, Aseguradora__c = afirme.Id);
+        insert new List<Product2>{ gmm, new Product2(Name = 'Auto Amplio', Family = 'Automoviles', IsActive = true, Aseguradora__c = afirme.Id) };
         String datos = JSON.serialize(new Map<String, Object>{
             'ramo' => 'Gastos Médicos Mayores',
             'contratante' => new Map<String, Object>{ 'nombre' => 'HELADOS DEL NORTE SA DE CV', 'rfc' => 'HNO010101AB1' }
@@ -1576,6 +1578,7 @@ private class PolicyControllerTest {
         Test.stopTest();
         System.assertNotEquals(null, r.get('NameInsuredId'), 'Debe crear a la empresa');
         System.assertEquals(afirme.Id, r.get('Aseguradora__c'), 'Reconoce la aseguradora en el texto');
+        System.assertEquals(gmm.Id, r.get('ProductId'), 'Producto de la aseguradora del mismo ramo aunque el plan no sea igual');
         System.assertEquals('GMM', PolicyController.ramoDeTexto('Gastos Médicos Mayores'), 'GMM');
         System.assertEquals('Automoviles', PolicyController.ramoDeTexto('Automóviles'), 'Autos');
         System.assertEquals('Danos', PolicyController.ramoDeTexto('Daños'), 'Daños');
