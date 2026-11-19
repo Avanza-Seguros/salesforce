@@ -27,6 +27,8 @@ public with sharing class EnvioCorreoPlantilla {
 		public Boolean adjuntarArchivos;
 		@InvocableVariable(label='Remitente (dirección de toda la organización)')
 		public String remitente;
+		@InvocableVariable(label='Prompt de IA que redacta el correo (opcional)' description='Nombre API del prompt de Prompt Builder (por ejemplo Correo_Cotizacion_Cliente). Si la IA falla se usa la plantilla.')
+		public String promptIA;
 	}
 
 	public class Resultado {
@@ -97,7 +99,34 @@ public with sharing class EnvioCorreoPlantilla {
 	private static String enviarUno(Solicitud s, String correo) {
 		List<EmailTemplate> tpls = [SELECT Id FROM EmailTemplate WHERE DeveloperName = :s.plantilla LIMIT 1];
 		if (tpls.isEmpty()) { throw new CorreoException('No existe la plantilla ' + s.plantilla + '.'); }
-		Messaging.SingleEmailMessage m = renderizar(tpls[0].Id, s.destinatarioId, s.registroId);
+		String aviso = '';
+		List<Messaging.EmailFileAttachment> adjuntos = new List<Messaging.EmailFileAttachment>();
+		if (s.adjuntarArchivos == true && s.registroId != null) {
+			List<Id> versiones = new List<Id>();
+			Integer omitidos = archivosDe(s.registroId, versiones);
+			adjuntos = adjuntosDe(versiones);
+			if (omitidos > 0) { aviso = ', ' + omitidos + ' PDF(s) no se adjuntaron por tamaño'; }
+		}
+		Messaging.SingleEmailMessage m = null;
+		String redaccion = '';
+		if (String.isNotBlank(s.promptIA) && s.registroId != null) {
+			try {
+				List<String> nombres = new List<String>();
+				for (Messaging.EmailFileAttachment a : adjuntos) { nombres.add(a.getFileName()); }
+				CorreoOportunidadIA.Correo ia = CorreoOportunidadIA.generar(s.promptIA, s.registroId, s.destinatarioId, nombres);
+				m = new Messaging.SingleEmailMessage();
+				m.setSubject(ia.asunto);
+				m.setHtmlBody(ia.html);
+				redaccion = ' (redactado con IA)';
+			} catch (Exception e) {
+				// Sin la IA se manda la plantilla de siempre.
+				redaccion = ' (con la plantilla porque la IA no respondió: ' + String.valueOf(e.getMessage()).left(150) + ')';
+				m = null;
+			}
+		}
+		if (m == null) {
+			m = renderizar(tpls[0].Id, s.destinatarioId, s.registroId);
+		}
 		// Solo a la dirección: sin setTargetObjectId, que lo mandaría otra vez al contacto/usuario.
 		m.setToAddresses(new List<String>{ correo });
 		m.setSaveAsActivity(false);
@@ -105,19 +134,11 @@ public with sharing class EnvioCorreoPlantilla {
 			List<OrgWideEmailAddress> owe = [SELECT Id FROM OrgWideEmailAddress WHERE Address = :s.remitente LIMIT 1];
 			if (!owe.isEmpty()) { m.setOrgWideEmailAddressId(owe[0].Id); }
 		}
-		String aviso = '';
-		Integer adjuntados = 0;
-		if (s.adjuntarArchivos == true && s.registroId != null) {
-			List<Id> versiones = new List<Id>();
-			Integer omitidos = archivosDe(s.registroId, versiones);
-			List<Messaging.EmailFileAttachment> adjuntos = adjuntosDe(versiones);
-			if (!adjuntos.isEmpty()) { m.setFileAttachments(adjuntos); }
-			adjuntados = adjuntos.size();
-			if (omitidos > 0) { aviso = ', ' + omitidos + ' PDF(s) no se adjuntaron por tamaño'; }
-		}
+		if (!adjuntos.isEmpty()) { m.setFileAttachments(adjuntos); }
+		Integer adjuntados = adjuntos.size();
 		Messaging.SendEmailResult res = Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ m }, false)[0];
 		if (!res.isSuccess()) { throw new CorreoException(res.getErrors()[0].getMessage()); }
-		return 'Correo enviado a ' + correo + ' con ' + adjuntados + ' PDF(s) adjunto(s)' + aviso + '.';
+		return 'Correo enviado a ' + correo + redaccion + ' con ' + adjuntados + ' PDF(s) adjunto(s)' + aviso + '.';
 	}
 
 	// Arma asunto y cuerpo de la plantilla con los campos del contacto/usuario y del registro. Si la plantilla no admite
