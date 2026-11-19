@@ -82,14 +82,15 @@
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
                                 <lightning-button label="Cargar asegurados" icon-name="utility:upload" onclick={verArchivo}></lightning-button>
                             </template>
-                            <!-- En el sitio (portal) no se adjuntan documentos, no se envían correos ni se genera el Excel. -->
-                            <template lwc:if={interno}>
-                            <lightning-button label="Adjuntar documentos" icon-name="utility:attach" onclick={abrirArchivosVarios}
-                                disabled={sinTitulares}></lightning-button>
+                            <!-- Envío de correo a los asegurados: también en el sitio (solo el contratante). -->
                             <template if:true={enPoliza}>
                                 <lightning-button label={textoEnviarPendientes} icon-name="utility:email" onclick={abrirCorreoPendientes}
                                     disabled={sinPendientesCorreo}></lightning-button>
                             </template>
+                            <!-- En el sitio (portal) no se adjuntan documentos varios ni se genera el Excel. -->
+                            <template lwc:if={interno}>
+                            <lightning-button label="Adjuntar documentos" icon-name="utility:attach" onclick={abrirArchivosVarios}
+                                disabled={sinTitulares}></lightning-button>
                             <!-- Excel de movimientos: solo pólizas empresariales. -->
                             <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
                             </template>

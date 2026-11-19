@@ -96,6 +96,18 @@ public without sharing class PortalPolizasMovimientos {
 					Id participanteId = registro(p, 'participanteId', policyId);
 					return archivoDeAsegurado(participanteId, texto(p, 'documentId'));
 				}
+				when 'Participantes.getPlantillas' {
+					return ParticipantesPolizaController.getPlantillas();
+				}
+				when 'Participantes.enviarCorreo' {
+					// Correo a los asegurados de esta póliza: el controlador solo toma participantes de la póliza.
+					List<Id> ids = new List<Id>();
+					for (Object o : (List<Object>) (p.get('participanteIds') == null ? new List<Object>() : p.get('participanteIds'))) {
+						try { ids.add(Id.valueOf(String.valueOf(o))); } catch (Exception e) { throw aviso('El registro no es de esta póliza.'); }
+					}
+					return ParticipantesPolizaController.enviarCorreo(policyId, ids, (Id) texto(p, 'plantillaId'),
+						p.get('adjuntarArchivos') == true);
+				}
 				when 'OtrasPolizas.buscar' {
 					Id registroId = registro(p, 'registroId', policyId);
 					return soloSuyas(OtrasPolizasController.buscar(registroId, policyId), roles.keySet());

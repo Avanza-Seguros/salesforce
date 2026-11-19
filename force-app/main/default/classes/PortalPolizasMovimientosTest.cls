@@ -110,6 +110,10 @@ private class PortalPolizasMovimientosTest {
 			new Map<String, Object>{ 'documentId' => documentId, 'participanteId' => titular.Id });
 		String deOtraPoliza = error(pol.Id, 'MovimientosColectivo.subirDocumentoBaja',
 			new Map<String, Object>{ 'participanteId' => enAjena.Id, 'nombre' => 'baja.pdf', 'base64' => 'eA==' });
+		// Correo a los asegurados desde el sitio: plantillas, sin destinatarios y con un Id inválido.
+		List<Map<String, Object>> plantillas = (List<Map<String, Object>>) ejecutar(pol.Id, 'Participantes.getPlantillas', new Map<String, Object>());
+		String sinDestinatarios = error(pol.Id, 'Participantes.enviarCorreo', new Map<String, Object>{ 'participanteIds' => new List<Object>() });
+		String idInvalido = error(pol.Id, 'Participantes.enviarCorreo', new Map<String, Object>{ 'participanteIds' => new List<Object>{ 'x' } });
 		String noExiste = error(pol.Id, 'Otra.accion', new Map<String, Object>());
 		String polizaAjena = error(ajena.Id, 'EndosoPoliza.getEndosos', new Map<String, Object>());
 		// Recorre las demás acciones con datos vacíos: el controlador de Salesforce responde (o rechaza) igual que allá.
@@ -126,6 +130,9 @@ private class PortalPolizasMovimientosTest {
 		Test.stopTest();
 
 		System.assertNotEquals(null, endosos);
+		System.assertNotEquals(null, plantillas);
+		System.assertEquals('Selecciona al menos un participante.', sinDestinatarios);
+		System.assertEquals('El registro no es de esta póliza.', idInvalido);
 		System.assertEquals('Endoso A0001.pdf', doc.get('nombre'));
 		System.assertEquals('application/pdf', doc.get('mime'));
 		System.assertEquals(EncodingUtil.base64Encode(Blob.valueOf('pdf')), doc.get('base64'));

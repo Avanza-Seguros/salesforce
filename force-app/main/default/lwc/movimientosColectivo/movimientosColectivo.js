@@ -32,6 +32,8 @@ const compararArchivoSitio = (p) => llamar('MovimientosColectivo.compararArchivo
 const subirArchivoSitio = (p) => llamar('MovimientosColectivo.subirArchivo', p, subirArchivo);
 const subirDocumentoBajaSitio = (p) => llamar('MovimientosColectivo.subirDocumentoBaja', p, subirDocumentoBaja);
 const archivosAseguradoSitio = (p) => llamar('MovimientosColectivo.archivosAsegurado', p, archivosAsegurado);
+const getPlantillasSitio = () => llamar('Participantes.getPlantillas', {}, getPlantillas);
+const enviarCorreoSitio = (p) => llamar('Participantes.enviarCorreo', p, enviarCorreo);
 // Asegurados por llamada al enviar correo: menos si van con adjuntos (límite de memoria de Apex).
 const LOTE_CORREO = 25;
 const LOTE_CORREO_ADJUNTOS = 5;
@@ -428,7 +430,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // En el sitio no se adjuntan archivos ni se envían correos.
             // En el sitio, solo el contratante (quien puede editar) ve y adjunta archivos.
             muestraArchivos: m.esTitular && (!this.portal || this.puedeEditar),
-            muestraCorreo: this.enPoliza && !!this.correoDe(m) && !this.portal,
+            muestraCorreo: this.enPoliza && !!this.correoDe(m),
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         });
     }
@@ -449,7 +451,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     correoDe(m) { return (!m.activo && m.correoPersonal) ? m.correoPersonal : m.correo; }
     async cargarPlantillas() {
         if (this.plantillas.length) { return; }
-        this.plantillas = (await getPlantillas()).map((t) => ({ value: t.id, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
+        this.plantillas = (await getPlantillasSitio()).map((t) => ({ value: t.id, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
     }
     get textoEnviarPendientes() { return `Enviar correo a pendientes (${this.pendientesCorreo.length})`; }
     get sinPendientesCorreo() { return this.pendientesCorreo.length === 0; }
@@ -489,7 +491,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         for (let i = 0; i < ids.length; i += lote) {
             this.correo = { ...this.correo, avance: `Enviando ${Math.min(i + lote, ids.length)} de ${ids.length}…` };
             try {
-                const r = await enviarCorreo({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar });
+                const r = await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar });
                 enviados += r.enviados || 0;
                 errores.push(...(r.errores || []));
             } catch (err) {
