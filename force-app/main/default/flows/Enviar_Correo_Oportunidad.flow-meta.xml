@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
+        <name>Obtener_Correos</name>
+        <label>Obtener Correos</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <actionName>CorreosOportunidad</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Asigna_Correos</targetReference>
+        </connector>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>oportunidadIds</name>
+            <value>
+                <elementReference>recordId</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>CorreosOportunidad</nameSegment>
+        <offset>0</offset>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <actionCalls>
         <name>Enviar_Correo_Oportunidad_Agente</name>
         <label>Enviar Correo Oportunidad Agente</label>
         <locationX>0</locationX>
@@ -15,6 +36,12 @@
             <name>adjuntarArchivos</name>
             <value>
                 <booleanValue>true</booleanValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>correo</name>
+            <value>
+                <elementReference>fCorreoAgente</elementReference>
             </value>
         </inputParameters>
         <inputParameters>
@@ -69,6 +96,12 @@
             </value>
         </inputParameters>
         <inputParameters>
+            <name>correo</name>
+            <value>
+                <elementReference>fCorreoCliente</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
             <name>destinatarioId</name>
             <value>
                 <elementReference>IdCliente</elementReference>
@@ -113,7 +146,7 @@
             <assignToReference>IdAgente</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>Obtener_Oportunidad.Producer__r.ContactId</elementReference>
+                <elementReference>fIdAgente</elementReference>
             </value>
         </assignmentItems>
         <assignmentItems>
@@ -134,6 +167,21 @@
         </value>
     </customProperties>
     <environments>Default</environments>
+    <formulas>
+        <name>fCorreoAgente</name>
+        <dataType>String</dataType>
+        <expression>IF(ISBLANK({!correoAgente}), {!Obtener_Correos.agente}, {!correoAgente})</expression>
+    </formulas>
+    <formulas>
+        <name>fCorreoCliente</name>
+        <dataType>String</dataType>
+        <expression>IF(ISBLANK({!correoCliente}), {!Obtener_Correos.cliente}, {!correoCliente})</expression>
+    </formulas>
+    <formulas>
+        <name>fIdAgente</name>
+        <dataType>String</dataType>
+        <expression>IF(ISBLANK({!Obtener_Oportunidad.Producer__r.ContactId}), {!Obtener_Correos.agenteUsuarioId}, {!Obtener_Oportunidad.Producer__r.ContactId})</expression>
+    </formulas>
     <interviewLabel>Enviar Correo Oportunidad {!$Flow.CurrentDateTime}</interviewLabel>
     <isAdditionalPermissionRequiredToRun>true</isAdditionalPermissionRequiredToRun>
     <label>Enviar Correo Oportunidad</label>
@@ -163,7 +211,7 @@
         <locationY>0</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
-            <targetReference>Asigna_Correos</targetReference>
+            <targetReference>Obtener_Correos</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -211,7 +259,7 @@
         </connector>
         <fields>
             <name>Texto_Confirmar</name>
-            <fieldText>&lt;p&gt;Se enviará el correo con los PDFs adjuntos a:&lt;/p&gt;&lt;p&gt;&lt;b&gt;Agente:&lt;/b&gt; {!Obtener_Oportunidad.Producer__r.Name}&lt;/p&gt;&lt;p&gt;&lt;b&gt;Cliente:&lt;/b&gt; {!Obtener_Contacto.Name}&lt;/p&gt;&lt;p&gt;Da clic en Siguiente para enviarlo.&lt;/p&gt;</fieldText>
+            <fieldText>&lt;p&gt;Se enviará el correo con los PDFs adjuntos a:&lt;/p&gt;&lt;p&gt;&lt;b&gt;Agente:&lt;/b&gt; {!Obtener_Oportunidad.Producer__r.Name} ({!fCorreoAgente})&lt;/p&gt;&lt;p&gt;&lt;b&gt;Cliente:&lt;/b&gt; {!Obtener_Contacto.Name} ({!fCorreoCliente})&lt;/p&gt;&lt;p&gt;Da clic en Siguiente para enviarlo.&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
         </fields>
         <showFooter>true</showFooter>
@@ -275,6 +323,20 @@
         <dataType>String</dataType>
         <isCollection>false</isCollection>
         <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>correoAgente</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>correoCliente</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
         <isOutput>false</isOutput>
     </variables>
     <variables>

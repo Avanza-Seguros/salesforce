@@ -1699,8 +1699,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             return;
         }
         this.correoFlowOppId = id;
-        this.correoFlowInputs = [{ name: 'recordId', type: 'String', value: id }];
+        const inputs = [{ name: 'recordId', type: 'String', value: id }];
+        // Si es la oportunidad abierta en el formulario, el correo va a las direcciones que se ven en
+        // "Email cliente" y "Email Agente". Desde la lista, el Flow las toma de la cuenta y del agente.
+        if (this.showCreateView && id === this.opportunity?.Id) {
+            const cliente = (this.opportunity.clienteEmail || '').trim();
+            const agente = (this.agenteEmail || '').trim();
+            if (cliente) { inputs.push({ name: 'correoCliente', type: 'String', value: cliente }); }
+            if (agente) { inputs.push({ name: 'correoAgente', type: 'String', value: agente }); }
+        }
+        this.correoFlowInputs = inputs;
         this.correoFlowOpen = true;
+    }
+    // "Guardar y Enviar Correo": guarda la oportunidad y, si se guardó bien, abre el envío del correo.
+    async handleGuardarYEnviar() {
+        if (this.isSaving) { return; }
+        this._guardarYEnviar = true;
+        this._guardadoOk = false;
+        try {
+            await this.saveOpportunity();
+        } finally {
+            this._guardarYEnviar = false;
+        }
+        if (this._guardadoOk && this.opportunity?.Id) {
+            this.handleEnviarCorreo();
+        }
     }
     closeCorreoFlow() {
         this.correoFlowOpen = false;
@@ -3950,9 +3973,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 this.viewMode = VIEW_MODES.EDIT;
                 // Mismo paso: se crean las cotizaciones revisadas (si todas tienen producto).
                 await this.crearCotizacionesAlGuardar();
+            } else if (this._guardarYEnviar) {
+                // "Guardar y Enviar Correo": se queda en la oportunidad para mandar el correo.
+                this.viewMode = VIEW_MODES.EDIT;
             } else {
                 setTimeout(() => this.handleBackToList(), 1000);
             }
+            this._guardadoOk = !!savedId;
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error(':::OpportunityCreator::: Error al guardar', JSON.stringify(error));
