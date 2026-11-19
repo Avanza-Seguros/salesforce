@@ -132,3 +132,76 @@
     .estado { margin-left: 0; }
     .modos { grid-template-columns: 1fr; }
 }
+
+/* ===================== Diseño del sitio de empresas (Poliza-Solicitudes) ===================== */
+/* Tarjeta blanca de radio 20px con título, botón degradado «Nueva solicitud» y vacío punteado. */
+:host { font-family: inherit; }
+.solicitudes {
+    position: relative;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px rgba(30, 64, 175, 0.06);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+    color: #0b1f44;
+}
+.solicitudes > .aviso { margin: 0; }
+.cabecera { align-items: flex-start; margin: 0; gap: 12px; }
+.t2 { font-size: 20px; font-weight: 800; margin: 0; color: #0b1f44; }
+.subtitulo { color: #64748b; font-size: 14px; margin: 4px 0 0; }
+.nota { color: #64748b; font-size: 13px; }
+.celda_sub { color: #64748b; font-size: 12px; }
+
+.boton, .boton_secundario { min-height: 44px; padding: 12px 22px; font-size: 15px; font-weight: 700; border-radius: 999px; }
+.boton { background: #1d4ed8; border-color: #1d4ed8; color: #ffffff; }
+.boton.grad { background: linear-gradient(90deg, #7c3aed, #db2777); border: 0; box-shadow: 0 8px 20px rgba(219, 39, 119, 0.3); gap: 8px; }
+.boton_secundario { background: #ffffff; color: #0b1f44; border: 1px solid #e3e8f2; }
+.boton_secundario:hover { background: #f7f9fc; }
+.boton:focus-visible, .boton_secundario:focus-visible, .modo:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+.enlace { color: #1d4ed8; font-weight: 700; font-size: 13px; min-height: 32px; }
+
+.empty { border: 1px dashed #d5dcea; border-radius: 16px; padding: 28px; text-align: center; color: #64748b; font-size: 14px; background: #fbfcfe; }
+
+/* Lista de solicitudes */
+.lista { gap: 12px; }
+.solicitud { padding: 16px 18px; border: 1px solid #e3e8f2; border-radius: 16px; background: #ffffff; }
+.folio { font-weight: 800; color: #0b1f44; }
+.resumen { font-size: 14px; }
+.solicitud_meta { font-size: 13px; color: #64748b; margin-top: 8px; }
+.respuesta { border-radius: 12px; background: #f7f9fc; border: 1px solid #eef1f6; padding: 10px 14px; font-size: 14px; }
+.detalle { border-top-color: #eef1f6; font-size: 14px; }
+.estado { padding: 4px 11px; font-size: 12px; }
+.estado_pendiente { background: #fff4e5; border-color: #fbd9a8; color: #a1450a; }
+.estado_proceso { background: #e8efff; border-color: #c7d7fe; color: #1d4ed8; }
+.estado_vigente { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
+.estado_rechazada { background: #f1f4f9; border-color: #e3e8f2; color: #475569; }
+
+/* Formulario: ya va dentro de la tarjeta, sin marco propio. */
+.tarjeta_form { padding: 0; border: 0; border-radius: 0; background: transparent; display: flex; flex-direction: column; gap: 14px; }
+.tarjeta_form .cabecera { margin: 0; }
+.modos { margin: 0; gap: 12px; }
+.modo { border-radius: 16px; padding: 14px 18px; border-color: #e3e8f2; }
+.modo:hover { border-color: #c7d7fe; }
+.modo_activo { border-color: #1d4ed8; background: #e8efff; box-shadow: inset 0 0 0 1px #1d4ed8; }
+.modo_titulo { font-size: 15px; color: #0b1f44; }
+.modo_sub { font-size: 13px; color: #64748b; }
+.movimiento { border-top-color: #eef1f6; padding: 16px 0; }
+.numero { width: 32px; height: 32px; border-radius: 9px; background: #f1f4f9; border: 1px solid #e3e8f2; color: #475569; font-size: 12px; flex: none; }
+.zona { border: 1px dashed #d5dcea; border-radius: 16px; background: #fbfcfe; padding: 28px 16px; }
+.zona:hover { border-color: #1d4ed8; }
+.zona_titulo { color: #1d4ed8; font-weight: 700; }
+.listado { border-color: #e3e8f2; border-radius: 16px; padding: 14px 16px; }
+.tabla_contenedor { border: 1px solid #eef1f6; border-radius: 16px; }
+.tabla { font-size: 13px; }
+.tabla th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; font-weight: 700; background: #f7f9fc; padding: 10px 12px; border-bottom: 0; }
+.tabla td { padding: 10px 12px; border-bottom: 0; border-top: 1px solid #eef1f6; color: #0b1f44; }
+.acciones { margin-top: 4px; flex-wrap: wrap; }
+
+@media (max-width: 600px) {
+    .solicitudes { padding: 18px 16px; }
+    .cabecera .boton { width: 100%; justify-content: center; }
+    .acciones .boton, .acciones .boton_secundario { flex: 1 1 auto; justify-content: center; }
+}

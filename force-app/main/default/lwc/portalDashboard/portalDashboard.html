@@ -1,19 +1,16 @@
 <template>
-    <div class="portal">
+    <div class="wrap">
         <!-- ===== Vista previa de administrador (solo usuarios internos con permiso) ===== -->
         <template lwc:if={puedeVista}>
-            <div class="vista_previa">
-                <div class="vista_previa_titulo">
-                    <lightning-icon icon-name="utility:preview" size="x-small"></lightning-icon>
-                    <span>Vista previa de administrador</span>
+            <template lwc:if={cuentaVistaPrevia}>
+                <div class="admin">
+                    <span><b class="k">Vista previa de administrador</b>Viendo el dashboard como un usuario de <b>{nombreVistaPrevia}</b></span>
+                    <button class="admin_enlace" onclick={handleCambiarCuenta}>Cambiar cuenta</button>
                 </div>
-                <template lwc:if={cuentaVistaPrevia}>
-                    <div class="vista_previa_actual">
-                        <span>Viendo el dashboard como un usuario de <strong>{nombreVistaPrevia}</strong></span>
-                        <button class="vista_previa_cambiar" onclick={handleCambiarCuenta}>Cambiar cuenta</button>
-                    </div>
-                </template>
-                <template lwc:else>
+            </template>
+            <template lwc:else>
+                <div class="admin admin_buscar">
+                    <span><b class="k">Vista previa de administrador</b>Elige la cuenta del cliente para ver su dashboard</span>
                     <lightning-input
                         type="search"
                         label="Cuenta del cliente"
@@ -22,228 +19,271 @@
                         onchange={handleTextoCuenta}
                         is-loading={buscandoCuentas}
                     ></lightning-input>
-                    <div lwc:if={errorCuentas} class="aviso aviso_error" role="alert">{errorCuentas}</div>
-                    <p lwc:if={sinCuentasEncontradas} class="subtitulo">No hay cuentas titulares de pólizas con ese nombre.</p>
-                    <ul lwc:if={hayCuentasEncontradas} class="vista_previa_cuentas">
+                    <div lwc:if={errorCuentas} class="aviso_error" role="alert">{errorCuentas}</div>
+                    <p lwc:if={sinCuentasEncontradas} class="admin_nota">No hay cuentas titulares de pólizas con ese nombre.</p>
+                    <ul lwc:if={hayCuentasEncontradas} class="admin_cuentas">
                         <template for:each={cuentasEncontradas} for:item="c">
                             <li key={c.id}>
-                                <button class="vista_previa_cuenta" data-id={c.id} data-nombre={c.nombre} onclick={handleElegirCuenta}>
-                                    <span class="cuenta_nombre">{c.nombre}</span>
-                                    <span class="cuenta_meta">{c.detalle}</span>
+                                <button class="admin_cuenta" data-id={c.id} data-nombre={c.nombre} onclick={handleElegirCuenta}>
+                                    <span class="nm">{c.nombre}</span>
+                                    <span class="sb">{c.detalle}</span>
                                 </button>
                             </li>
                         </template>
                     </ul>
-                </template>
-            </div>
+                </div>
+            </template>
         </template>
 
-        <div class="encabezado">
-            <div>
-                <span class="encabezado_etiqueta">Resumen al {fechaHoy}</span>
-                <h1 class="titulo">{titulo}</h1>
-                <p class="subtitulo">Tus pólizas, pagos y renovaciones de un vistazo.</p>
+        <!-- ===== Banda azul ===== -->
+        <section class="hero">
+            <div class="hero-main">
+                <div class="hero-row">
+                    <div class="hero-ic">
+                        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+                    </div>
+                    <div>
+                        <div class="eyebrow">Resumen al {fechaHoy}</div>
+                        <h1 class="h1">{titulo}</h1>
+                    </div>
+                </div>
+                <p>Tus pólizas, pagos y renovaciones de un vistazo.</p>
+                <div lwc:if={hayPolizas} class="btns">
+                    <a class="btn white" href={urlMisPolizas}>
+                        Ver mis pólizas
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                    </a>
+                </div>
             </div>
-            <a lwc:if={hayPolizas} class="encabezado_enlace" href={urlMisPolizas}>Ver mis pólizas ›</a>
-        </div>
+            <div lwc:if={hayPolizas} class="hero-side">
+                <template for:each={indicadoresHero} for:item="k">
+                    <div key={k.clave} class="glass">
+                        <div class="l">{k.etiqueta}</div>
+                        <div class="n">{k.valor}</div>
+                        <div class="s">{k.detalle}</div>
+                    </div>
+                </template>
+            </div>
+        </section>
 
         <template lwc:if={esperandoCuenta}>
-            <div class="vacio">
-                <lightning-icon icon-name="standard:dashboard" size="large"></lightning-icon>
-                <p>Elige una cuenta arriba para ver el dashboard como lo vería ese cliente.</p>
-            </div>
+            <div class="empty">Elige una cuenta arriba para ver el dashboard como lo vería ese cliente.</div>
         </template>
         <template lwc:elseif={cargando}>
             <div class="cargando"><lightning-spinner alternative-text="Cargando dashboard" size="medium"></lightning-spinner></div>
         </template>
         <template lwc:elseif={error}>
-            <div class="aviso aviso_error" role="alert">{error}</div>
+            <div class="aviso_error" role="alert">{error}</div>
         </template>
         <template lwc:elseif={hayPolizas}>
-            <!-- ===== Indicadores ===== -->
-            <ul class="kpis">
-                <template for:each={indicadores} for:item="k">
-                    <li key={k.clave} class={k.clase}>
-                        <div class="kpi_cabecera">
-                            <span class="kpi_icono"><lightning-icon icon-name={k.icono} size="x-small"></lightning-icon></span>
-                            <span class="kpi_etiqueta">{k.etiqueta}</span>
-                        </div>
-                        <span class="kpi_valor">{k.valor}</span>
-                        <span class="kpi_detalle">{k.detalle}</span>
+            <!-- ===== Etapas: por pagar, vencido, por renovar y pagado ===== -->
+            <ul class="grid g4 lista_limpia">
+                <template for:each={etapas} for:item="k">
+                    <li key={k.clave} class="stage">
+                        <div class="hd">{k.etiqueta}<span class="dot" style={k.estiloPunto}></span></div>
+                        <div class="n">{k.valor}</div>
+                        <div class="s">{k.detalle}</div>
+                        <div class="bar" aria-hidden="true"><i style={k.estiloBarra}></i></div>
                     </li>
                 </template>
             </ul>
 
-            <!-- ===== Bienes asegurados de las pólizas vigentes ===== -->
-            <section class="panel panel_suelto">
-                <h2 class="panel_titulo">Bienes asegurados</h2>
-                <p class="panel_sub">Lo que cubren tus pólizas, sin contar las canceladas</p>
-                <ul class="bienes">
+            <!-- ===== Bienes asegurados ===== -->
+            <section class="card">
+                <div>
+                    <h2 class="t2">Bienes asegurados</h2>
+                    <p class="muted">Lo que cubren tus pólizas, sin contar las canceladas</p>
+                </div>
+                <ul class="grid g3 lista_limpia">
                     <template for:each={bienes} for:item="b">
-                        <li key={b.clave} class={b.clase}>
-                            <span class="bien_icono"><lightning-icon icon-name={b.icono} size="small"></lightning-icon></span>
-                            <span class="bien_valor">{b.valor}</span>
-                            <span class="bien_etiqueta">{b.etiqueta}</span>
+                        <li key={b.clave} class="mini">
+                            <span class={b.claseIcono} aria-hidden="true">
+                                <template lwc:if={b.esPersonas}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2 20c.8-3.5 3.5-5 7-5s6.2 1.5 7 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4.2 1.3 5 4"></path></svg></template>
+                                <template lwc:elseif={b.esVehiculos}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h14M6 16l1.5-5h9L18 16"></path><circle cx="8" cy="18" r="1.5"></circle><circle cx="16" cy="18" r="1.5"></circle></svg></template>
+                                <template lwc:else><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12z"></path><circle cx="12" cy="9" r="2.5"></circle></svg></template>
+                            </span>
+                            <div>
+                                <div class="n">{b.valor}</div>
+                                <div class="sb sb_grande">{b.etiqueta}</div>
+                            </div>
                         </li>
                     </template>
                 </ul>
             </section>
 
-            <!-- ===== Pólizas vigentes por ramo y por aseguradora ===== -->
-            <div class="rejilla">
-                <section class="panel">
-                    <h2 class="panel_titulo">Pólizas vigentes por ramo</h2>
-                    <p class="panel_sub">Número de pólizas y su prima</p>
-                    <ul lwc:if={hayPorRamo} class="barras">
+            <div class="grid g2">
+                <!-- ===== Pólizas vigentes por ramo y por aseguradora ===== -->
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Pólizas vigentes por ramo</h2>
+                        <p class="muted">Número de pólizas y su prima</p>
+                    </div>
+                    <ul lwc:if={hayPorRamo} class="barras lista_limpia">
                         <template for:each={porRamo} for:item="b">
-                            <li key={b.nombre} class="barra" title={b.ayuda}>
-                                <div class="barra_texto"><span class="barra_nombre">{b.nombre}</span><span class="barra_valor">{b.texto}</span></div>
-                                <div class="barra_pista"><div class="barra_relleno" style={b.estilo}></div></div>
+                            <li key={b.nombre} title={b.ayuda}>
+                                <div class="barra_texto"><span class="barra_nombre">{b.nombre}</span><span class="sb sb_grande">{b.texto}</span></div>
+                                <div class="hbar"><i class="relleno_azul" style={b.estilo}></i></div>
                             </li>
                         </template>
                     </ul>
-                    <p lwc:else class="panel_vacio">No tienes pólizas vigentes.</p>
+                    <div lwc:else class="empty">No tienes pólizas vigentes.</div>
                 </section>
 
-                <section class="panel">
-                    <h2 class="panel_titulo">Pólizas vigentes por aseguradora</h2>
-                    <p class="panel_sub">Con quién están tus pólizas</p>
-                    <ul lwc:if={hayPorAseguradora} class="barras">
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Pólizas vigentes por aseguradora</h2>
+                        <p class="muted">Con quién están tus pólizas</p>
+                    </div>
+                    <ul lwc:if={hayPorAseguradora} class="barras lista_limpia">
                         <template for:each={porAseguradora} for:item="b">
-                            <li key={b.nombre} class="barra" title={b.ayuda}>
-                                <div class="barra_texto"><span class="barra_nombre">{b.nombre}</span><span class="barra_valor">{b.texto}</span></div>
-                                <div class="barra_pista"><div class="barra_relleno barra_relleno_aqua" style={b.estilo}></div></div>
+                            <li key={b.nombre} title={b.ayuda}>
+                                <div class="barra_texto"><span class="barra_nombre">{b.nombre}</span><span class="sb sb_grande">{b.texto}</span></div>
+                                <div class="hbar"><i class="relleno_teal" style={b.estilo}></i></div>
                             </li>
                         </template>
                     </ul>
-                    <p lwc:else class="panel_vacio">No tienes pólizas vigentes.</p>
+                    <div lwc:else class="empty">No tienes pólizas vigentes.</div>
                 </section>
-            </div>
 
-            <!-- ===== Pagos: los próximos meses y el historial ===== -->
-            <div class="rejilla">
-            <section class="panel">
-                <h2 class="panel_titulo">Pagos de los próximos 6 meses</h2>
-                <p class="panel_sub">Lo que vence cada mes, sin contar lo ya vencido</p>
-                <template lwc:if={hayPagosProximos}>
-                    <ul class="columnas" aria-hidden="true">
-                        <template for:each={meses} for:item="m">
-                            <li key={m.clave} class="columna" title={m.ayuda}>
-                                <span class="columna_valor">{m.texto}</span>
-                                <div class="columna_pista"><div class="columna_relleno" style={m.estilo}></div></div>
-                                <span class="columna_mes">{m.mes}</span>
-                            </li>
-                        </template>
-                    </ul>
-                    <!-- Misma información como tabla para lectores de pantalla -->
-                    <table class="solo_lector">
-                        <caption>Pagos de los próximos 6 meses</caption>
-                        <thead><tr><th scope="col">Mes</th><th scope="col">Monto</th><th scope="col">Cuotas</th></tr></thead>
-                        <tbody>
+                <!-- ===== Pagos: los próximos meses y el historial ===== -->
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Pagos de los próximos 6 meses</h2>
+                        <p class="muted">Lo que vence cada mes, sin contar lo ya vencido</p>
+                    </div>
+                    <template lwc:if={hayPagosProximos}>
+                        <ul class="columnas lista_limpia" aria-hidden="true">
                             <template for:each={meses} for:item="m">
-                                <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.texto}</td><td>{m.cuotas}</td></tr>
+                                <li key={m.clave} class="columna" title={m.ayuda}>
+                                    <span class="columna_valor">{m.texto}</span>
+                                    <div class="columna_pista"><div class="columna_relleno relleno_azul" style={m.estilo}></div></div>
+                                    <span class="columna_mes">{m.mes}</span>
+                                </li>
                             </template>
-                        </tbody>
-                    </table>
-                </template>
-                <p lwc:else class="panel_vacio">No tienes pagos programados en los próximos 6 meses.</p>
-            </section>
+                        </ul>
+                        <!-- Misma información como tabla para lectores de pantalla -->
+                        <table class="solo_lector">
+                            <caption>Pagos de los próximos 6 meses</caption>
+                            <thead><tr><th scope="col">Mes</th><th scope="col">Monto</th><th scope="col">Cuotas</th></tr></thead>
+                            <tbody>
+                                <template for:each={meses} for:item="m">
+                                    <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.texto}</td><td>{m.cuotas}</td></tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <div lwc:else class="empty">No tienes pagos programados en los próximos 6 meses.</div>
+                </section>
 
-            <section class="panel">
-                <h2 class="panel_titulo">Historial de pagos</h2>
-                <p class="panel_sub">Pagado en los últimos 12 meses: {totalHistorial}</p>
-                <template lwc:if={hayHistorial}>
-                    <ul class="columnas columnas_12" aria-hidden="true">
-                        <template for:each={historial} for:item="m">
-                            <li key={m.clave} class="columna" title={m.ayuda}>
-                                <div class="columna_pista"><div class="columna_relleno columna_relleno_aqua" style={m.estilo}></div></div>
-                                <span class="columna_mes">{m.mes}</span>
-                            </li>
-                        </template>
-                    </ul>
-                    <table class="solo_lector">
-                        <caption>Pagado en los últimos 12 meses</caption>
-                        <thead><tr><th scope="col">Mes</th><th scope="col">Pagado</th><th scope="col">Cuotas</th></tr></thead>
-                        <tbody>
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Historial de pagos</h2>
+                        <p class="muted">Pagado en los últimos 12 meses: {totalHistorial}</p>
+                    </div>
+                    <template lwc:if={hayHistorial}>
+                        <ul class="columnas columnas_12 lista_limpia" aria-hidden="true">
                             <template for:each={historial} for:item="m">
-                                <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.texto}</td><td>{m.cuotas}</td></tr>
+                                <li key={m.clave} class="columna" title={m.ayuda}>
+                                    <div class="columna_pista"><div class="columna_relleno relleno_teal" style={m.estilo}></div></div>
+                                    <span class="columna_mes">{m.mes}</span>
+                                </li>
                             </template>
-                        </tbody>
-                    </table>
-                </template>
-                <p lwc:else class="panel_vacio">No hay pagos aplicados en los últimos 12 meses.</p>
-            </section>
-            </div>
+                        </ul>
+                        <table class="solo_lector">
+                            <caption>Pagado en los últimos 12 meses</caption>
+                            <thead><tr><th scope="col">Mes</th><th scope="col">Pagado</th><th scope="col">Cuotas</th></tr></thead>
+                            <tbody>
+                                <template for:each={historial} for:item="m">
+                                    <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.texto}</td><td>{m.cuotas}</td></tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <div lwc:else class="empty">No hay pagos aplicados en los últimos 12 meses.</div>
+                </section>
 
-            <!-- ===== Próximos pagos y renovaciones ===== -->
-            <div class="rejilla">
-                <section class="panel">
-                    <h2 class="panel_titulo">Próximos pagos</h2>
-                    <p class="panel_sub">Cuotas pendientes, de la más antigua a la más reciente</p>
-                    <ul lwc:if={hayProximasCuotas} class="lista">
+                <!-- ===== Próximos pagos y renovaciones ===== -->
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Próximos pagos</h2>
+                        <p class="muted">Cuotas pendientes, de la más antigua a la más reciente</p>
+                    </div>
+                    <ul lwc:if={hayProximasCuotas} class="lista_limpia">
                         <template for:each={proximasCuotas} for:item="q">
-                            <li key={q.id} class="lista_fila">
-                                <div class="lista_principal">
-                                    <span class="lista_nombre">Póliza {q.numero}</span>
-                                    <span class="lista_meta">{q.ramo} · vence {q.venceTexto}</span>
+                            <li key={q.id} class="list-row">
+                                <div class="who">
+                                    <span class="chip" aria-hidden="true">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+                                    </span>
+                                    <div class="who_tx">
+                                        <div class="nm">Póliza {q.numero}</div>
+                                        <div class="sb">{q.ramo} · vence {q.venceTexto}</div>
+                                    </div>
                                 </div>
-                                <div class="lista_lado">
-                                    <span class="lista_monto">{q.montoTexto}</span>
+                                <div class="lado">
+                                    <span class="money">{q.montoTexto}</span>
                                     <span class={q.estadoClase}>{q.estadoTexto}</span>
                                 </div>
                             </li>
                         </template>
                     </ul>
-                    <p lwc:else class="panel_vacio">No tienes cuotas pendientes.</p>
+                    <div lwc:else class="empty">No tienes cuotas pendientes.</div>
                 </section>
 
-                <section class="panel">
-                    <h2 class="panel_titulo">Renovaciones próximas</h2>
-                    <p class="panel_sub">Pólizas vigentes que terminan en los próximos 90 días</p>
-                    <ul lwc:if={hayRenovaciones} class="lista">
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Renovaciones próximas</h2>
+                        <p class="muted">Pólizas vigentes que terminan en los próximos 90 días</p>
+                    </div>
+                    <ul lwc:if={hayRenovaciones} class="lista_limpia">
                         <template for:each={renovaciones} for:item="r">
-                            <li key={r.id} class="lista_fila">
-                                <div class="lista_principal">
-                                    <span class="lista_nombre">Póliza {r.numero}</span>
-                                    <span class="lista_meta">{r.titulo} · termina {r.venceTexto}</span>
+                            <li key={r.id} class="list-row">
+                                <div class="who">
+                                    <span class="chip" aria-hidden="true">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                                    </span>
+                                    <div class="who_tx">
+                                        <div class="nm">Póliza {r.numero}</div>
+                                        <div class="sb">{r.titulo} · termina {r.venceTexto}</div>
+                                    </div>
                                 </div>
-                                <div class="lista_lado">
-                                    <span class={r.diasClase}>{r.diasTexto}</span>
-                                </div>
+                                <span class={r.diasClase}>{r.diasTexto}</span>
                             </li>
                         </template>
                     </ul>
-                    <p lwc:else class="panel_vacio">Ninguna póliza termina en los próximos 90 días.</p>
+                    <div lwc:else class="empty">Ninguna póliza termina en los próximos 90 días.</div>
                 </section>
-            </div>
 
-            <!-- ===== Movimientos y prima de endosos por mes ===== -->
-            <div class="rejilla">
-                <section class="panel">
-                    <h2 class="panel_titulo">Altas, bajas y cambios por mes</h2>
-                    <p class="panel_sub">Movimientos de asegurados, vehículos y ubicaciones en los últimos 12 meses</p>
-                    <div class="resumen_movimientos">
+                <!-- ===== Movimientos y prima de endosos por mes ===== -->
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Altas, bajas y cambios por mes</h2>
+                        <p class="muted">Movimientos de asegurados, vehículos y ubicaciones en los últimos 12 meses</p>
+                    </div>
+                    <div class="resumen">
                         <template for:each={resumenMovimientos} for:item="r">
                             <span key={r.clave} class={r.clase}>{r.texto}</span>
                         </template>
                     </div>
                     <template lwc:if={hayMovimientosMes}>
-                        <ul class="columnas columnas_12" aria-hidden="true">
-                            <template for:each={movimientosMes} for:item="m">
-                                <li key={m.clave} class="columna" title={m.ayuda}>
-                                    <div class="columna_pista columna_grupo">
-                                        <div class="grupo_barra"><div class="grupo_relleno relleno_alta" style={m.estiloAltas}></div></div>
-                                        <div class="grupo_barra"><div class="grupo_relleno relleno_baja" style={m.estiloBajas}></div></div>
-                                        <div class="grupo_barra"><div class="grupo_relleno relleno_cambio" style={m.estiloCambios}></div></div>
-                                    </div>
-                                    <span class="columna_mes">{m.mes}</span>
-                                </li>
-                            </template>
-                        </ul>
-                        <div class="leyenda" aria-hidden="true">
-                            <span><i class="leyenda_punto relleno_alta"></i>Altas</span>
-                            <span><i class="leyenda_punto relleno_baja"></i>Bajas</span>
-                            <span><i class="leyenda_punto relleno_cambio"></i>Cambios</span>
+                        <div>
+                            <ul class="columnas columnas_12 lista_limpia" aria-hidden="true">
+                                <template for:each={movimientosMes} for:item="m">
+                                    <li key={m.clave} class="columna" title={m.ayuda}>
+                                        <div class="columna_pista columna_grupo">
+                                            <div class="grupo_barra"><div class="grupo_relleno relleno_alta" style={m.estiloAltas}></div></div>
+                                            <div class="grupo_barra"><div class="grupo_relleno relleno_baja" style={m.estiloBajas}></div></div>
+                                            <div class="grupo_barra"><div class="grupo_relleno relleno_cambio" style={m.estiloCambios}></div></div>
+                                        </div>
+                                        <span class="columna_mes">{m.mes}</span>
+                                    </li>
+                                </template>
+                            </ul>
+                            <div class="leyenda" aria-hidden="true">
+                                <span><i class="leyenda_punto relleno_alta"></i>Altas</span>
+                                <span><i class="leyenda_punto relleno_baja"></i>Bajas</span>
+                                <span><i class="leyenda_punto relleno_cambio"></i>Cambios</span>
+                            </div>
                         </div>
                         <table class="solo_lector">
                             <caption>Altas, bajas y cambios por mes</caption>
@@ -255,32 +295,36 @@
                             </tbody>
                         </table>
                     </template>
-                    <p lwc:else class="panel_vacio">No hay movimientos en los últimos 12 meses.</p>
+                    <div lwc:else class="empty">No hay movimientos en los últimos 12 meses.</div>
                 </section>
 
-                <section class="panel">
-                    <h2 class="panel_titulo">Prima de endosos por mes</h2>
-                    <p class="panel_sub">Lo cobrado (altas y aumentos) y lo devuelto (bajas) en los últimos 12 meses</p>
-                    <div class="resumen_movimientos">
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Prima de endosos por mes</h2>
+                        <p class="muted">Lo cobrado (altas y aumentos) y lo devuelto (bajas) en los últimos 12 meses</p>
+                    </div>
+                    <div class="resumen">
                         <template for:each={resumenPrimas} for:item="r">
                             <span key={r.clave} class={r.clase}>{r.texto}</span>
                         </template>
                     </div>
                     <template lwc:if={hayPrimasMes}>
-                        <ul class="columnas columnas_12" aria-hidden="true">
-                            <template for:each={primasMes} for:item="m">
-                                <li key={m.clave} class="columna" title={m.ayuda}>
-                                    <div class="columna_pista columna_grupo">
-                                        <div class="grupo_barra"><div class="grupo_relleno relleno_cobrado" style={m.estiloCargos}></div></div>
-                                        <div class="grupo_barra"><div class="grupo_relleno relleno_devuelto" style={m.estiloDevoluciones}></div></div>
-                                    </div>
-                                    <span class="columna_mes">{m.mes}</span>
-                                </li>
-                            </template>
-                        </ul>
-                        <div class="leyenda" aria-hidden="true">
-                            <span><i class="leyenda_punto relleno_cobrado"></i>Cobrado</span>
-                            <span><i class="leyenda_punto relleno_devuelto"></i>Devuelto</span>
+                        <div>
+                            <ul class="columnas columnas_12 lista_limpia" aria-hidden="true">
+                                <template for:each={primasMes} for:item="m">
+                                    <li key={m.clave} class="columna" title={m.ayuda}>
+                                        <div class="columna_pista columna_grupo">
+                                            <div class="grupo_barra"><div class="grupo_relleno relleno_azul" style={m.estiloCargos}></div></div>
+                                            <div class="grupo_barra"><div class="grupo_relleno relleno_baja" style={m.estiloDevoluciones}></div></div>
+                                        </div>
+                                        <span class="columna_mes">{m.mes}</span>
+                                    </li>
+                                </template>
+                            </ul>
+                            <div class="leyenda" aria-hidden="true">
+                                <span><i class="leyenda_punto relleno_azul"></i>Cobrado</span>
+                                <span><i class="leyenda_punto relleno_baja"></i>Devuelto</span>
+                            </div>
                         </div>
                         <table class="solo_lector">
                             <caption>Prima de endosos por mes</caption>
@@ -292,62 +336,65 @@
                             </tbody>
                         </table>
                     </template>
-                    <p lwc:else class="panel_vacio">No hay endosos con prima en los últimos 12 meses.</p>
+                    <div lwc:else class="empty">No hay endosos con prima en los últimos 12 meses.</div>
                 </section>
-            </div>
 
-            <!-- ===== Endosos y movimientos ===== -->
-            <div class="rejilla">
-                <section class="panel">
-                    <h2 class="panel_titulo">Endosos recientes</h2>
-                    <p class="panel_sub">Los últimos endosos de tus pólizas y su prima</p>
-                    <ul lwc:if={hayEndosos} class="lista">
+                <!-- ===== Endosos y movimientos recientes ===== -->
+                <section class="card card_arriba">
+                    <div>
+                        <h2 class="t2">Endosos recientes</h2>
+                        <p class="muted">Los últimos endosos de tus pólizas y su prima</p>
+                    </div>
+                    <ul lwc:if={hayEndosos} class="lista_limpia">
                         <template for:each={endosos} for:item="e">
-                            <li key={e.id} class="lista_fila">
-                                <div class="lista_principal">
-                                    <span class="lista_nombre">{e.titulo}</span>
-                                    <span class="lista_meta">{e.meta}</span>
+                            <li key={e.id} class="list-row">
+                                <div class="who">
+                                    <span class="chip" aria-hidden="true">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7z"></path><path d="M14 3v4h4"></path></svg>
+                                    </span>
+                                    <div class="who_tx">
+                                        <div class="nm">{e.titulo}</div>
+                                        <div class="sb">{e.meta}</div>
+                                    </div>
                                 </div>
-                                <div class="lista_lado">
-                                    <span class={e.totalClase}>{e.totalTexto}</span>
-                                </div>
+                                <span class={e.totalClase}>{e.totalTexto}</span>
                             </li>
                         </template>
                     </ul>
-                    <p lwc:else class="panel_vacio">Tus pólizas no tienen endosos registrados.</p>
+                    <div lwc:else class="empty">Tus pólizas no tienen endosos registrados.</div>
                 </section>
 
-                <section class="panel">
-                    <h2 class="panel_titulo">Movimientos recientes</h2>
-                    <p class="panel_sub">Altas, bajas y cambios de asegurados, vehículos y ubicaciones</p>
-                    <div class="resumen_movimientos">
+                <section class="card">
+                    <div>
+                        <h2 class="t2">Movimientos recientes</h2>
+                        <p class="muted">Altas, bajas y cambios de asegurados, vehículos y ubicaciones</p>
+                    </div>
+                    <div class="resumen">
                         <span class="resumen_texto">Últimos 12 meses:</span>
                         <template for:each={resumenMovimientos} for:item="r">
                             <span key={r.clave} class={r.clase}>{r.texto}</span>
                         </template>
                     </div>
-                    <ul lwc:if={hayMovimientos} class="lista">
+                    <ul lwc:if={hayMovimientos} class="lista_limpia">
                         <template for:each={movimientos} for:item="m">
-                            <li key={m.id} class="lista_fila">
-                                <div class="lista_principal">
-                                    <span class="lista_nombre" title={m.nombre}>{m.nombre}</span>
-                                    <span class="lista_meta">{m.meta}</span>
+                            <li key={m.id} class="list-row">
+                                <div class="who">
+                                    <span class="chip" aria-hidden="true">{m.iniciales}</span>
+                                    <div class="who_tx">
+                                        <div class="nm ell" title={m.nombre}>{m.nombre}</div>
+                                        <div class="sb">{m.meta}</div>
+                                    </div>
                                 </div>
-                                <div class="lista_lado">
-                                    <span class={m.tipoClase}>{m.tipo}</span>
-                                </div>
+                                <span class={m.tipoClase}>{m.tipo}</span>
                             </li>
                         </template>
                     </ul>
-                    <p lwc:else class="panel_vacio">No hay movimientos registrados en tus pólizas.</p>
+                    <div lwc:else class="empty">No hay movimientos registrados en tus pólizas.</div>
                 </section>
             </div>
         </template>
         <template lwc:else>
-            <div class="vacio">
-                <lightning-icon icon-name="standard:dashboard" size="large"></lightning-icon>
-                <p>{mensajeVacio}</p>
-            </div>
+            <div class="empty">{mensajeVacio}</div>
         </template>
     </div>
 </template>

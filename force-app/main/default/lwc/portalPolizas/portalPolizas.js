@@ -244,11 +244,11 @@ export default class PortalPolizas extends LightningElement {
         this.filtro = event.currentTarget.dataset.value;
     }
 
-    // Botones de filtro con color: cada opción tiene su tono y el seleccionado va relleno.
+    // Control segmentado (filtros y pestañas): la opción activa va en blanco («on»).
     opciones(lista, valor, cuentas) {
-        return lista.map((o, i) => ({
+        return lista.map((o) => ({
             ...o,
-            clase: `filtro filtro_tono${(i % 4) + 1}${o.value === valor ? ' filtro_activo' : ''}`,
+            clase: o.value === valor ? 'on' : '',
             presionado: o.value === valor ? 'true' : 'false',
             cuenta: cuentas ? cuentas[o.value] : null,
             hayCuenta: !!cuentas && cuentas[o.value] !== undefined
@@ -259,6 +259,43 @@ export default class PortalPolizas extends LightningElement {
         const total = this.polizas.length;
         const vigentes = this.polizas.filter((p) => p.vigente).length;
         return this.opciones(FILTROS, this.filtro, { vigentes, todas: total, novigentes: total - vigentes });
+    }
+
+    // ---------- Banda azul del listado ----------
+
+    get totalVigentes() {
+        return this.polizas.filter((p) => p.vigente).length;
+    }
+
+    get textoVigentesHero() {
+        const v = this.totalVigentes;
+        return `${v} póliza${v === 1 ? '' : 's'} vigente${v === 1 ? '' : 's'} de ${this.polizas.length}`;
+    }
+
+    get textoDePolizas() {
+        const t = this.polizas.length;
+        return `de ${t} póliza${t === 1 ? '' : 's'}`;
+    }
+
+    // Empresa en el renglón superior: la de la vista previa o, si todas las pólizas son del mismo titular, ese titular.
+    get eyebrowListado() {
+        const titulares = [...new Set(this.polizas.map((p) => p.titular).filter(Boolean))];
+        const empresa = this.nombreVistaPrevia || (titulares.length === 1 ? titulares[0] : null);
+        return [this.titulo, empresa].filter(Boolean).join(' · ');
+    }
+
+    // Suma de las primas vigentes, solo si todas están en la misma moneda (si no, no se muestra).
+    get primaEnVigorTexto() {
+        const vigentes = this.polizas.filter((p) => p.vigente && p.prima != null);
+        if (!vigentes.length) return null;
+        const monedas = new Set(vigentes.map((p) => codigoMoneda(p.moneda)));
+        if (monedas.size !== 1) return null;
+        const total = vigentes.reduce((s, p) => s + Number(p.prima || 0), 0);
+        return this.moneda(total, vigentes[0].moneda);
+    }
+
+    get claseGlassVigentes() {
+        return this.primaEnVigorTexto ? 'glass' : 'glass wide';
     }
 
 
@@ -320,6 +357,7 @@ export default class PortalPolizas extends LightningElement {
 
     // Pestañas del detalle con el mismo estilo que los filtros (botones de color, la activa rellena).
     get opcionesPestanas() {
+        const colores = { info: '#1d4ed8', pagos: '#0e9488', vigencias: '#7c3aed', asegurados: '#d97706', participantes: '#4f46e5', solicitudes: '#0891b2' };
         return this.opciones([
             { label: 'Información Póliza', value: 'info' },
             { label: 'Pagos', value: 'pagos' },
@@ -328,7 +366,24 @@ export default class PortalPolizas extends LightningElement {
             { label: 'Participantes', value: 'participantes' },
             // Altas, bajas y cambios que pide el cliente (c-portal-solicitudes carga sus propios datos).
             { label: 'Solicitudes', value: 'solicitudes' }
-        ], this.pestana);
+        ], this.pestana).map((o) => ({ ...o, estiloPunto: `background:${colores[o.value]}` }));
+    }
+
+    // Banda azul del detalle: la prima ocupa todo el ancho si no hay segundo indicador (vencido o por pagar).
+    get claseGlassPrima() {
+        const p = this.detalle && this.detalle.poliza;
+        return p && (p.tieneVencido || p.montoPorPagarTexto) ? 'glass' : 'glass wide';
+    }
+
+    get chipDetalle() {
+        return (this.detalle && this.detalle.poliza && this.detalle.poliza.chip) || 'P';
+    }
+
+    get textoCuotas() {
+        const datos = this.pestanaPagos.datos;
+        const n = datos ? datos.cuotas.length : 0;
+        const forma = this.detalle && this.detalle.poliza && this.detalle.poliza.formaPago;
+        return [`${n} cuota${n === 1 ? '' : 's'}`, forma ? `forma de pago ${String(forma).toLowerCase()}` : null].filter(Boolean).join(' · ');
     }
 
     get verInfo() { return this.pestana === 'info'; }
@@ -365,7 +420,7 @@ export default class PortalPolizas extends LightningElement {
                     titulo: s.titulo,
                     campos: s.campos.map((c) => ({
                         etiqueta: c.etiqueta,
-                        clase: c.ancho ? 'campo_ancho' : '',
+                        clase: c.ancho ? 'field field_ancho' : 'field',
                         valor: c.tipo === 'moneda' ? m(c.numero)
                             : c.tipo === 'fecha' ? this.fecha(c.fecha)
                                 : c.tipo === 'numero' ? Number(c.numero).toLocaleString('es-MX')
@@ -375,14 +430,20 @@ export default class PortalPolizas extends LightningElement {
             };
         }
         if (clave === 'pagos') {
+            const total = Number(datos.totalImporte || 0);
+            const pct = (n) => `width:${total > 0 ? Math.max(0, Math.min(100, Math.round((Number(n || 0) / total) * 100))) : 0}%`;
             return {
+                barraTotal: `width:${total > 0 ? 100 : 0}%`,
+                barraPagado: pct(datos.totalPagado),
+                barraPendiente: pct(datos.totalPendiente),
                 hayCuotas: datos.cuotas.length > 0,
                 hayEstimadas: datos.cuotas.some((q) => q.estimada),
                 totalImporteTexto: m(datos.totalImporte),
                 totalPagadoTexto: m(datos.totalPagado),
                 totalPendienteTexto: m(datos.totalPendiente),
-                cuotas: datos.cuotas.map((q) => ({
+                cuotas: datos.cuotas.map((q, i) => ({
                     ...q,
+                    numero: i + 1,
                     reciboTexto: q.recibo || '—',
                     venceTexto: this.fecha(q.vence),
                     fechaPagoTexto: this.fecha(q.fechaPago),
@@ -402,7 +463,7 @@ export default class PortalPolizas extends LightningElement {
                 vigencias: datos.vigencias.map((v) => ({
                     ...v,
                     clase: v.actual ? 'fila_actual' : '',
-                    numeroTexto: v.actual ? `${v.numero} · la que estás viendo` : v.numero,
+                    estadoClase: v.actual && this.detalle && this.detalle.poliza.vigente ? 'badge b-green' : 'badge b-gray',
                     primaTexto: m(v.prima),
                     pagadoTexto: m(v.pagado),
                     pendienteTexto: m(v.pendiente)
@@ -413,10 +474,10 @@ export default class PortalPolizas extends LightningElement {
     }
 
     claseEstadoCuota(estado) {
-        if (estado === 'Conciliado') return 'estado estado_vigente';
-        if (estado === 'Vencido') return 'estado estado_vencido';
-        if (ESTADOS_CERRADOS.includes(estado)) return 'estado estado_inactiva';
-        return 'estado estado_pendiente';
+        if (estado === 'Conciliado') return 'badge b-green';
+        if (estado === 'Vencido') return 'badge b-red';
+        if (ESTADOS_CERRADOS.includes(estado)) return 'badge b-gray';
+        return 'badge b-amber';
     }
 
     handleAbrirVigencia(event) {
@@ -519,7 +580,14 @@ export default class PortalPolizas extends LightningElement {
             ...p,
             titulo: [p.ramo, p.aseguradora].filter(Boolean).join(' · ') || 'Póliza',
             estadoTexto: p.estado || (p.vigente ? 'Vigente' : 'No vigente'),
-            estadoClase: `estado ${p.vigente ? 'estado_vigente' : 'estado_inactiva'}`,
+            estadoClase: p.vigente ? 'badge b-green' : 'badge b-gray',
+            heroPunto: p.vigente ? 'dot dot_vigente' : 'dot dot_inactiva',
+            chip: this.iniciales(p.ramo || p.tipo || 'Póliza'),
+            ramoTexto: p.ramo || p.tipo || 'Póliza',
+            subPoliza: p.tipo && p.tipo !== p.ramo ? p.tipo : p.bienAsegurado,
+            lineaHero: [p.tipo, p.titular ? `Titular: ${p.titular}` : null].filter(Boolean).join(' · '),
+            formaPagoMoneda: [p.formaPago, p.moneda].filter(Boolean).join(' · '),
+            textoAbrir: `Ver detalle de la póliza ${p.numero}`,
             vigencia: this.rango(p.inicioVigencia, p.finVigencia),
             primaTexto: p.prima != null ? fmt(p.prima) : '—',
             proximoPagoTexto: this.fecha(p.proximoPago),
@@ -531,6 +599,14 @@ export default class PortalPolizas extends LightningElement {
                 .join(' ')
                 .toLowerCase()
         };
+    }
+
+    // Dos letras del ramo para el cuadrito de la tabla (p. ej. «Gastos Médicos» → GM).
+    iniciales(texto) {
+        const palabras = String(texto).normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^A-Za-z0-9]+/)
+            .filter((w) => w.length > 2 || /^[A-Z0-9]+$/.test(w));
+        const letras = palabras.length > 1 ? palabras[0][0] + palabras[1][0] : (palabras[0] || 'P').substring(0, 2);
+        return letras.toUpperCase();
     }
 
     fecha(valor) {

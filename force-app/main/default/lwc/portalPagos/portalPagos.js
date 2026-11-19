@@ -119,11 +119,11 @@ export default class PortalPagos extends LightningElement {
         const mon = this.monedaPrincipal;
         const vencidas = d.cuotasVencidas || 0;
         return [
-            { clave: 'pendiente', etiqueta: 'Por pagar', valor: this.moneda(d.totalPendiente, mon), detalle: 'cuotas pendientes', clase: 'dato' },
+            { clave: 'pendiente', etiqueta: 'Por pagar', valor: this.moneda(d.totalPendiente, mon), detalle: 'cuotas pendientes', clase: 'glass' },
             { clave: 'vencido', etiqueta: 'Vencido', valor: this.moneda(d.totalVencido, mon),
                 detalle: vencidas ? `${vencidas} cuota${vencidas === 1 ? '' : 's'} vencida${vencidas === 1 ? '' : 's'}` : 'Estás al corriente',
-                clase: `dato${vencidas ? ' dato_alerta' : ' dato_ok'}` },
-            { clave: 'pagado', etiqueta: 'Pagado en 12 meses', valor: this.moneda(d.pagadoUltimoAnio, mon), detalle: 'pagos aplicados', clase: 'dato' }
+                clase: `glass${vencidas ? ' glass_alerta' : ''}` },
+            { clave: 'pagado', etiqueta: 'Pagado en 12 meses', valor: this.moneda(d.pagadoUltimoAnio, mon), detalle: 'pagos aplicados', clase: 'glass wide' }
         ];
     }
 
@@ -137,7 +137,7 @@ export default class PortalPagos extends LightningElement {
             venceTexto: this.fecha(q.vence),
             verbo: q.vencida ? 'venció el' : 'vence el',
             estadoTexto: q.vencida ? (q.diasMora ? `Vencido · ${q.diasMora} días` : 'Vencido') : 'Pendiente',
-            estadoClase: q.vencida ? 'texto_alerta' : 'texto_pendiente',
+            estadoClase: `badge ${q.vencida ? 'b-red' : 'b-amber'}`,
             esSeleccionada: q.polizaId === this.polizaId
         };
     }
@@ -149,7 +149,8 @@ export default class PortalPagos extends LightningElement {
             id: p.id,
             texto: `${p.numero}${p.ramo ? ` · ${p.ramo}` : ''}`,
             detalle: p.vigente ? 'Vigente' : (p.estado || 'No vigente'),
-            clase: `poliza${p.id === this.polizaId ? ' poliza_activa' : ''}${p.vigente ? '' : ' poliza_no_vigente'}`,
+            clase: p.id === this.polizaId ? 'on' : '',
+            claseDetalle: `badge ${p.vigente ? 'b-green' : 'b-gray'}`,
             presionado: String(p.id === this.polizaId)
         }));
     }
@@ -164,15 +165,18 @@ export default class PortalPagos extends LightningElement {
         return (this.plan && this.plan.moneda) || 'MXN';
     }
     get cuotas() {
-        return ((this.plan && this.plan.cuotas) || []).map((c) => ({
+        const forma = (this.seleccionada && this.seleccionada.formaPago) || '';
+        return ((this.plan && this.plan.cuotas) || []).map((c, i) => ({
             ...c,
+            numeroChip: (String(c.etiqueta || '').match(/\d+/) || [String(i + 1)])[0],
+            formaPago: forma,
             venceTexto: this.fecha(c.vence),
             pagoTexto: c.fechaPago ? this.fecha(c.fechaPago) : '—',
             importeTexto: this.moneda(c.importe, this.monedaPlan, 2),
             pagadoTexto: this.moneda(c.pagado, this.monedaPlan, 2),
             pendienteTexto: this.moneda(c.pendiente, this.monedaPlan, 2),
             reciboTexto: c.recibo || '—',
-            estadoClase: `estado ${this.claseEstado(c.estado, c.diasMora)}`,
+            estadoClase: `badge ${this.claseEstado(c.estado, c.diasMora)}`,
             estadoTexto: c.estado || '—'
         }));
     }
@@ -219,10 +223,10 @@ export default class PortalPagos extends LightningElement {
 
     claseEstado(estado, mora) {
         const e = String(estado || '').toLowerCase();
-        if (e.includes('venc') || mora) return 'estado_vencido';
-        if (e.includes('pend')) return 'estado_pendiente';
-        if (e.includes('concil') || e.includes('pag')) return 'estado_pagado';
-        return 'estado_inactivo';
+        if (e.includes('venc') || mora) return 'b-red';
+        if (e.includes('pend')) return 'b-amber';
+        if (e.includes('concil') || e.includes('pag')) return 'b-green';
+        return 'b-gray';
     }
 
     fecha(valor) {

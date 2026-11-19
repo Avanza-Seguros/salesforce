@@ -66,6 +66,8 @@ export default class MovimientosUbicaciones extends LightningElement {
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
+    // En el sitio de empresas se agrega «mov-portal» para tomar el estilo del sitio (igual que movimientosColectivo).
+    get claseRaiz() { return this.portal ? 'mov mov-portal' : 'mov'; }
     // Panel para atender las solicitudes del sitio: solo en Salesforce (en el sitio solo se agrupa por solicitud).
     get conSolicitudesPorAtender() { return this.enPoliza && !this.portal; }
 

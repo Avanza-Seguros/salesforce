@@ -1,246 +1,200 @@
 <template>
-    <div class="inicio">
-        <!-- ===== Portada ===== -->
-        <section class="portada">
-            <div class="portada_fondo" aria-hidden="true">
-                <span class="rejilla_luz"></span>
-                <span class="orbe orbe_1"></span>
-                <span class="orbe orbe_2"></span>
-                <span class="orbe orbe_3"></span>
-                <span class="trazo trazo_1"></span>
-                <span class="trazo trazo_2"></span>
-                <span class="trazo trazo_3"></span>
-            </div>
-
-            <div class="portada_contenido">
-                <div class="portada_texto">
-                    <span class="etiqueta_tec">
-                        <span class="etiqueta_punto"></span>
-                        Portal digital Avanza Seguro
-                    </span>
-                    <p class="saludo">{saludo}</p>
-                    <h1 class="titulo">{titulo}</h1>
-                    <p class="subtitulo">{subtitulo}</p>
-                    <div class="botones">
-                        <a class="boton boton_principal" href={urlMisPolizas}>
-                            Ver mis pólizas
-                            <lightning-icon icon-name="utility:forward" size="xx-small" class="boton_icono"></lightning-icon>
-                        </a>
-                        <a class="boton boton_vidrio" href={urlDashboard}>Ir al dashboard</a>
+    <div class="wrap">
+        <!-- ===== Portada: saludo, botones y resumen en tarjetas de vidrio ===== -->
+        <section class="hero">
+            <div class="hero-main">
+                <div class="hero-row">
+                    <div class="hero-ic">
+                        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"></path></svg>
+                    </div>
+                    <div>
+                        <div class="eyebrow">Portal digital Avanza Seguro</div>
+                        <h1 class="h1">{saludo}</h1>
                     </div>
                 </div>
-
-                <!-- Tarjeta digital con el estado real del cliente -->
-                <div class="tarjeta" aria-label="Resumen de tu protección">
-                    <span class="tarjeta_escaner" aria-hidden="true"></span>
-                    <div class="tarjeta_cabecera">
-                        <span class="tarjeta_marca">
-                            <lightning-icon icon-name="utility:shield" size="x-small" class="tarjeta_icono"></lightning-icon>
-                            Avanza Seguro
-                        </span>
-                        <span class="estado">
-                            <span class={estadoClase}></span>
-                            {estadoTexto}
-                        </span>
-                    </div>
-                    <div class="tarjeta_cuerpo">
-                        <div class="anillo_caja">
-                            <svg class="anillo" viewBox="0 0 120 120" aria-hidden="true">
-                                <circle class="anillo_pista" cx="60" cy="60" r="52"></circle>
-                                <circle class="anillo_valor" cx="60" cy="60" r="52" style={anillo}></circle>
-                            </svg>
-                            <div class="anillo_texto">
-                                <span class="anillo_numero">{numVigentes}</span>
-                                <span class="anillo_etiqueta">vigentes</span>
-                            </div>
-                        </div>
-                        <div class="tarjeta_datos">
-                            <span class="tarjeta_dato_etiqueta">Pólizas</span>
-                            <span class="tarjeta_dato_valor">{textoAnillo}</span>
-                            <span class="tarjeta_linea" aria-hidden="true"><span class="tarjeta_linea_luz"></span></span>
-                            <span class="tarjeta_dato_etiqueta">Sincronizado</span>
-                            <span class="tarjeta_dato_valor">En tiempo real</span>
-                        </div>
-                    </div>
-                    <div class="tarjeta_pie" aria-hidden="true">
-                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-                    </div>
+                <p><b>{tituloTexto}</b> {subtitulo}</p>
+                <div class="btns">
+                    <a class="btn white" href={urlMisPolizas}>
+                        Ver mis pólizas
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                    </a>
+                    <a class="btn grad" href={urlDashboard}>
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+                        Ir al dashboard
+                    </a>
+                </div>
+            </div>
+            <div class="hero-side">
+                <div class="glass">
+                    <div class="l">Pólizas vigentes</div>
+                    <div class="n">{numVigentes}</div>
+                    <div class="s">{textoTotalPolizas}</div>
+                </div>
+                <div class="glass">
+                    <div class="l">Sincronizado</div>
+                    <div class="n">En tiempo real</div>
+                    <div class="s">Avanza Seguro</div>
+                </div>
+                <div class="glass wide">
+                    <div class="l">{asegurados.etiqueta}</div>
+                    <div class="n">{asegurados.valor}</div>
+                    <div class="s">{asegurados.detalle}</div>
                 </div>
             </div>
         </section>
 
-        <!-- ===== Resumen del cliente ===== -->
-        <ul class="resumen">
-            <template for:each={resumen} for:item="r">
-                <li key={r.clave} class={r.clase}>
-                    <span class="dato_icono"><lightning-icon icon-name={r.icono} size="x-small"></lightning-icon></span>
-                    <div class="dato_texto">
-                        <span class="dato_etiqueta">{r.etiqueta}</span>
-                        <span class="dato_valor">{r.valor}</span>
-                        <span class="dato_detalle">{r.detalle}</span>
-                    </div>
-                </li>
+        <!-- ===== Indicadores ===== -->
+        <div class="grid g4">
+            <template for:each={etapas} for:item="e">
+                <div key={e.clave} class="stage">
+                    <div class="hd">{e.etiqueta}<span class="dot" style={e.estiloPunto}></span></div>
+                    <div class="n">{e.valor}</div>
+                    <div class="s">{e.detalle}</div>
+                    <div class="bar" aria-hidden="true"><i style={e.estiloBarra}></i></div>
+                </div>
             </template>
-        </ul>
+        </div>
 
-        <!-- ===== Mis pólizas, próximo pago, movimientos y ejecutivo ===== -->
-        <div lwc:if={hayPolizas} class="tablero">
-            <div class="tablero_principal">
-                <section class="caja">
-                    <div class="caja_cabecera">
-                        <h2 class="caja_titulo">Mis pólizas</h2>
-                        <a class="caja_enlace" href={urlMisPolizas}>{masPolizas}</a>
-                    </div>
-                    <div lwc:if={hayTarjetas} class="polizas">
-                        <template for:each={tarjetasPolizas} for:item="p">
-                            <a key={p.id} class="poliza" href={p.url}>
-                                <span class="poliza_cabecera">
-                                    <span class="poliza_ramo">{p.ramo}</span>
-                                    <span class={p.chipClase}>{p.chip}</span>
-                                </span>
-                                <span class="poliza_numero">{p.numero}</span>
-                                <span lwc:if={p.bien} class="poliza_bien">{p.bien}</span>
-                                <span class="poliza_pie">
-                                    <span>{p.aseguradora}</span>
-                                    <span>{p.vigencia}</span>
-                                </span>
-                            </a>
-                        </template>
-                    </div>
-                    <p lwc:else class="caja_vacio">No tienes pólizas vigentes en este momento.</p>
-                </section>
-
-                <section class="caja">
-                    <div class="caja_cabecera">
-                        <h2 class="caja_titulo">Movimientos recientes</h2>
-                        <a class="caja_enlace" href={urlDashboard}>Ver historial</a>
-                    </div>
-                    <ul lwc:if={hayMovimientos} class="movs">
-                        <template for:each={movimientos} for:item="m">
-                            <li key={m.id} class="mov">
-                                <span class={m.iconoClase}><lightning-icon icon-name={m.icono} size="xx-small"></lightning-icon></span>
-                                <span class="mov_texto">
-                                    <strong>{m.titulo}</strong>
-                                    <span>{m.meta}</span>
-                                </span>
-                                <span class="mov_fecha">{m.fecha}</span>
-                            </li>
-                        </template>
-                    </ul>
-                    <p lwc:else class="caja_vacio">Aún no hay altas, bajas ni cambios registrados en tus pólizas.</p>
-                </section>
-            </div>
-
-            <div class="tablero_lateral">
-                <section lwc:if={pago} class={pago.clase}>
-                    <span class="pago_etiqueta">{pago.titulo}</span>
-                    <span class="pago_monto">{pago.monto}</span>
-                    <span class="pago_detalle">{pago.detalle}</span>
-                    <span class="pago_vence">{pago.vence}</span>
-                    <template lwc:if={pago.hayAvance}>
-                        <div class="pago_barra" role="progressbar" aria-label="Avance de pago de la póliza"
-                            aria-valuemin="0" aria-valuemax="100" aria-valuenow={pago.pct}>
-                            <span class="pago_relleno" style={pago.estilo}></span>
-                        </div>
-                        <span class="pago_avance">{pago.pctTexto}</span>
-                        <span class="pago_totales"><span>Pagado {pago.pagado}</span><span>Pendiente {pago.pendiente}</span></span>
+        <!-- ===== Mis pólizas, movimientos y ejecutivo ===== -->
+        <div lwc:if={hayPolizas} class="grid g3">
+            <section class="card">
+                <div class="card-h">
+                    <h2 class="t2">Mis pólizas</h2>
+                    <a class="enlace" href={urlMisPolizas}>{masPolizas}</a>
+                </div>
+                <div lwc:if={hayTarjetas}>
+                    <template for:each={tarjetasPolizas} for:item="p">
+                        <a key={p.id} class="list-row" href={p.url}>
+                            <span class="fila-tx">
+                                <span class="nm">{p.numero}</span>
+                                <span class="sb">{p.ramo}<template lwc:if={p.aseguradora}> · {p.aseguradora}</template></span>
+                                <span lwc:if={p.bien} class="sb ell">{p.bien}</span>
+                                <span class="sb">{p.vigencia}</span>
+                            </span>
+                            <span class={p.chipClase}>{p.chip}</span>
+                        </a>
                     </template>
-                    <a class="boton boton_principal pago_boton" href={urlPagos}>Ver pagos y recibos</a>
-                </section>
-                <section lwc:else class="pago pago_ok">
-                    <span class="pago_etiqueta">Pagos</span>
-                    <span class="pago_monto_ok">Estás al corriente</span>
-                    <span class="pago_detalle">No tienes cuotas pendientes por ahora.</span>
-                    <a class="boton boton_principal pago_boton" href={urlPagos}>Ver pagos y recibos</a>
-                </section>
+                </div>
+                <p lwc:else class="empty">No tienes pólizas vigentes en este momento.</p>
+            </section>
 
-                <section lwc:if={ejecutivoInfo} class="caja ejecutivo">
-                    <span class="ejecutivo_etiqueta">Tu ejecutivo Avanza</span>
-                    <div class="ejecutivo_persona">
-                        <img lwc:if={ejecutivoInfo.foto} class="ejecutivo_foto" src={ejecutivoInfo.foto} alt="" />
-                        <span lwc:else class="ejecutivo_iniciales" aria-hidden="true">{ejecutivoInfo.iniciales}</span>
-                        <span class="ejecutivo_texto">
-                            <strong>{ejecutivoInfo.nombre}</strong>
-                            <span>{ejecutivoInfo.puestoTexto}</span>
-                        </span>
-                    </div>
-                    <div class="ejecutivo_acciones">
-                        <a lwc:if={ejecutivoInfo.mailto} class="boton_contacto" href={ejecutivoInfo.mailto}>
-                            <lightning-icon icon-name="utility:email" size="xx-small"></lightning-icon> Escribir
-                        </a>
-                        <a lwc:if={ejecutivoInfo.tel} class="boton_contacto" href={ejecutivoInfo.tel}>
-                            <lightning-icon icon-name="utility:call" size="xx-small"></lightning-icon> Llamar
-                        </a>
-                    </div>
-                </section>
-            </div>
+            <section class="card">
+                <div class="card-h">
+                    <h2 class="t2">Movimientos recientes</h2>
+                    <a class="enlace" href={urlDashboard}>Ver historial</a>
+                </div>
+                <ul lwc:if={hayMovimientos} class="lista">
+                    <template for:each={movimientos} for:item="m">
+                        <li key={m.id} class="list-row">
+                            <span class={m.iconoClase}><lightning-icon icon-name={m.icono} size="xx-small"></lightning-icon></span>
+                            <span class="fila-tx">
+                                <span class="nm">{m.titulo}</span>
+                                <span class="sb">{m.meta}</span>
+                            </span>
+                            <span class="sb fecha">{m.fecha}</span>
+                        </li>
+                    </template>
+                </ul>
+                <p lwc:else class="empty">Aún no hay altas, bajas ni cambios registrados en tus pólizas.</p>
+            </section>
+
+            <section lwc:if={ejecutivoInfo} class="card">
+                <div>
+                    <div class="kicker">Tu ejecutivo Avanza</div>
+                    <h2 class="t2">¿Necesitas ayuda?</h2>
+                </div>
+                <div class="who">
+                    <img lwc:if={ejecutivoInfo.foto} class="foto" src={ejecutivoInfo.foto} alt="" />
+                    <span lwc:else class="avatar" aria-hidden="true">{ejecutivoInfo.iniciales}</span>
+                    <span class="fila-tx">
+                        <span class="nm">{ejecutivoInfo.nombre}</span>
+                        <span class="sb">{ejecutivoInfo.puestoTexto}</span>
+                    </span>
+                </div>
+                <div class="btns">
+                    <a lwc:if={ejecutivoInfo.mailto} class="btn ghost" href={ejecutivoInfo.mailto}>
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
+                        Escribir
+                    </a>
+                    <a lwc:if={ejecutivoInfo.tel} class="btn ghost" href={ejecutivoInfo.tel}>
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg>
+                        Llamar
+                    </a>
+                </div>
+            </section>
         </div>
 
         <!-- ===== Accesos rápidos ===== -->
-        <section class="seccion">
-            <div class="seccion_cabecera">
-                <span class="seccion_etiqueta">Accesos rápidos</span>
-                <h2 class="seccion_titulo">¿Qué quieres hacer hoy?</h2>
+        <section class="card">
+            <div>
+                <div class="kicker">Accesos rápidos</div>
+                <h2 class="h2">¿Qué quieres hacer hoy?</h2>
             </div>
-            <div class="accesos">
+            <div class="grid g2">
                 <template for:each={accesos} for:item="a">
-                    <a key={a.clave} class="acceso" href={a.url}>
-                        <span class="acceso_icono"><lightning-icon icon-name={a.icono} size="small"></lightning-icon></span>
-                        <span class="acceso_texto">
-                            <span class="acceso_titulo">{a.titulo}</span>
-                            <span class="acceso_detalle">{a.texto}</span>
+                    <a key={a.clave} class="quick" href={a.url}>
+                        <span class="fic"><lightning-icon icon-name={a.icono} size="x-small"></lightning-icon></span>
+                        <span class="tx">
+                            <b>{a.titulo}</b>
+                            <span class="quick-sb">{a.texto}</span>
                         </span>
-                        <span class="acceso_flecha"><lightning-icon icon-name="utility:chevronright" size="x-small"></lightning-icon></span>
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
                     </a>
                 </template>
             </div>
         </section>
 
         <!-- ===== Tecnología ===== -->
-        <section class="seccion seccion_tec">
-            <div class="seccion_cabecera">
-                <span class="seccion_etiqueta">Tecnología Avanza</span>
-                <h2 class="seccion_titulo">Un portal pensado para que no te preocupes por nada</h2>
-                <p class="seccion_sub">Combinamos la experiencia de tu asesor con herramientas digitales que trabajan por ti todo el tiempo.</p>
+        <section class="card">
+            <div>
+                <div class="kicker">Tecnología Avanza</div>
+                <h2 class="h2">Un portal pensado para que no te preocupes por nada</h2>
+                <p class="muted">Combinamos la experiencia de tu asesor con herramientas digitales que trabajan por ti todo el tiempo.</p>
             </div>
-            <ul class="funciones">
+            <ul class="grid g3 lista">
                 <template for:each={funciones} for:item="f">
-                    <li key={f.clave} class="funcion">
-                        <span class="funcion_icono"><lightning-icon icon-name={f.icono} size="small"></lightning-icon></span>
-                        <h3 class="funcion_titulo">{f.titulo}</h3>
-                        <p class="funcion_texto">{f.texto}</p>
+                    <li key={f.clave} class="feat">
+                        <span class="fic"><lightning-icon icon-name={f.icono} size="x-small"></lightning-icon></span>
+                        <h3>{f.titulo}</h3>
+                        <p>{f.texto}</p>
                     </li>
                 </template>
             </ul>
         </section>
 
         <!-- ===== Cómo funciona ===== -->
-        <section class="seccion">
-            <div class="seccion_cabecera">
-                <span class="seccion_etiqueta">Así de fácil</span>
-                <h2 class="seccion_titulo">Tu seguro, en tres pasos</h2>
+        <section class="card">
+            <div>
+                <div class="kicker">Así de fácil</div>
+                <h2 class="h2">Tu seguro, en tres pasos</h2>
             </div>
-            <ol class="pasos">
+            <ol class="grid g3 lista">
                 <template for:each={pasos} for:item="p">
-                    <li key={p.clave} class="paso">
-                        <span class="paso_numero">{p.numero}</span>
-                        <h3 class="paso_titulo">{p.titulo}</h3>
-                        <p class="paso_texto">{p.texto}</p>
+                    <li key={p.clave} class="stage paso">
+                        <div class="n paso-n">{p.numero}</div>
+                        <h3 class="hd paso-t">{p.titulo}</h3>
+                        <div class="s">{p.texto}</div>
                     </li>
                 </template>
             </ol>
         </section>
 
-        <!-- ===== Llamado final ===== -->
-        <section class="cierre">
-            <div class="cierre_fondo" aria-hidden="true"><span class="rejilla_luz"></span></div>
-            <div class="cierre_texto">
-                <h2 class="cierre_titulo">Toda tu protección, siempre contigo</h2>
-                <p class="cierre_sub">Revisa el detalle de cada póliza y descarga tus documentos cuando los necesites.</p>
+        <!-- ===== Banda final ===== -->
+        <section class="hero hero-fin">
+            <div class="hero-main">
+                <h2 class="h1 h1-fin">Toda tu protección, siempre contigo</h2>
+                <p>Revisa el detalle de cada póliza y descarga tus documentos cuando los necesites.</p>
             </div>
-            <a class="boton boton_principal" href={urlMisPolizas}>
+            <a class="btn white" href={urlMisPolizas}>
                 Ir a mis pólizas
-                <lightning-icon icon-name="utility:forward" size="xx-small" class="boton_icono"></lightning-icon>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
             </a>
         </section>
     </div>

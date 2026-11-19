@@ -95,33 +95,49 @@ export default class PortalDashboard extends LightningElement {
         const otras = Object.keys(primas).filter((k) => k !== mon).map((k) => this.moneda(primas[k], k));
         const renovar = this.renovaciones.length;
         const vencido = d.totalVencido || 0;
+        const pendiente = d.totalPendiente || 0;
+        const pagado = d.pagadoUltimoAnio || 0;
+        // Barra de cada etapa: proporción calculada con los mismos datos (nunca una cifra inventada).
+        const pct = (parte, total) => (total > 0 ? Math.min(100, Math.round((parte / total) * 100)) : 0);
         return [
             {
                 clave: 'vigentes', etiqueta: 'Pólizas vigentes', valor: String(this.vigentes.length),
-                detalle: `de ${this.polizas.length} en total`, clase: 'kpi kpi_acento', icono: 'utility:shield'
+                detalle: `de ${this.polizas.length} en total`
             },
             {
                 clave: 'prima', etiqueta: 'Prima de pólizas vigentes', valor: this.moneda(primas[mon] || 0, mon),
-                detalle: otras.length ? `más ${otras.join(' y ')}` : 'suma de sus primas', clase: 'kpi', icono: 'utility:moneybag'
+                detalle: otras.length ? `más ${otras.join(' y ')}` : 'suma de sus primas'
             },
             {
-                clave: 'pendiente', etiqueta: 'Por pagar', valor: this.moneda(d.totalPendiente || 0, mon),
-                detalle: 'cuotas pendientes', clase: 'kpi', icono: 'utility:date_time'
+                clave: 'pendiente', etiqueta: 'Por pagar', valor: this.moneda(pendiente, mon),
+                detalle: 'cuotas pendientes', color: '#7c3aed', avance: pct(pendiente, pendiente + pagado)
             },
             {
                 clave: 'vencido', etiqueta: 'Vencido', valor: this.moneda(vencido, mon),
                 detalle: vencido > 0 ? `${d.cuotasVencidas} cuota${d.cuotasVencidas === 1 ? '' : 's'} vencida${d.cuotasVencidas === 1 ? '' : 's'}` : 'Estás al corriente',
-                clase: vencido > 0 ? 'kpi kpi_alerta' : 'kpi kpi_ok', icono: vencido > 0 ? 'utility:warning' : 'utility:success'
+                color: vencido > 0 ? '#b42318' : '#15803d', avance: pct(vencido, pendiente)
             },
             {
                 clave: 'renovar', etiqueta: 'Por renovar', valor: String(renovar),
-                detalle: `en los próximos ${DIAS_RENOVACION} días`, clase: 'kpi', icono: 'utility:refresh'
+                detalle: `en los próximos ${DIAS_RENOVACION} días`, color: '#1d4ed8', avance: pct(renovar, this.vigentes.length)
             },
             {
-                clave: 'pagado', etiqueta: 'Pagado en 12 meses', valor: this.moneda(d.pagadoUltimoAnio || 0, mon),
-                detalle: 'pagos aplicados', clase: 'kpi', icono: 'utility:check'
+                clave: 'pagado', etiqueta: 'Pagado en 12 meses', valor: this.moneda(pagado, mon),
+                detalle: 'pagos aplicados', color: '#b45309', avance: pct(pagado, pendiente + pagado)
             }
         ];
+    }
+    // Banda azul: pólizas vigentes y prima.
+    get indicadoresHero() {
+        return this.indicadores.slice(0, 2);
+    }
+    // Fila de etapas: por pagar, vencido, por renovar y pagado en 12 meses.
+    get etapas() {
+        return this.indicadores.slice(2).map((k) => ({
+            ...k,
+            estiloPunto: `background: ${k.color}`,
+            estiloBarra: `width: ${k.avance}%; background: ${k.color}`
+        }));
     }
 
     // ---------- Gráficas de barras (una sola serie: un solo tono) ----------
@@ -227,7 +243,13 @@ export default class PortalDashboard extends LightningElement {
                 etiqueta: uno(b.vehiculos, 'Vehículo asegurado', 'Vehículos asegurados') },
             { clave: 'ubicaciones', icono: 'utility:location', valor: b.ubicaciones || 0,
                 etiqueta: uno(b.ubicaciones, 'Ubicación asegurada', 'Ubicaciones aseguradas') }
-        ].map((x) => ({ ...x, clase: `bien${x.valor ? '' : ' bien_cero'}` }));
+        ].map((x) => ({
+            ...x,
+            esPersonas: x.clave === 'personas',
+            esVehiculos: x.clave === 'vehiculos',
+            esUbicaciones: x.clave === 'ubicaciones',
+            claseIcono: `ico${x.valor ? '' : ' ico_cero'}`
+        }));
     }
 
     // ---------- Endosos y movimientos ----------
@@ -238,7 +260,7 @@ export default class PortalDashboard extends LightningElement {
             titulo: `Endoso ${e.numero || 's/n'}`,
             meta: [`Póliza ${e.poliza || ''}`.trim(), e.descripcion, this.fecha(e.fecha)].filter(Boolean).join(' · '),
             totalTexto: e.total == null ? '' : this.moneda(e.total, e.moneda),
-            totalClase: `lista_monto${e.total < 0 ? ' monto_negativo' : ''}`
+            totalClase: `money${e.total < 0 ? ' money_negativo' : ''}`
         }));
     }
     get hayEndosos() {
@@ -246,12 +268,14 @@ export default class PortalDashboard extends LightningElement {
     }
 
     get movimientos() {
-        const clases = { Alta: 'estado estado_vigente', Baja: 'estado estado_vencido', Cambio: 'estado estado_pendiente' };
+        const clases = { Alta: 'badge b-green', Baja: 'badge b-red', Cambio: 'badge b-amber' };
         return ((this.datos && this.datos.movimientos) || []).map((m) => ({
             ...m,
+            iniciales: String(m.nombre || '').trim().split(/\s+/).filter(Boolean).slice(0, 2)
+                .map((p) => p.charAt(0).toUpperCase()).join('') || '·',
             meta: [`Póliza ${m.poliza || ''}`.trim(), m.endoso ? `endoso ${m.endoso}` : null, this.fecha(m.fecha)]
                 .filter(Boolean).join(' · '),
-            tipoClase: clases[m.tipo] || 'estado estado_inactiva'
+            tipoClase: clases[m.tipo] || 'badge b-gray'
         }));
     }
     get hayMovimientos() {
@@ -260,9 +284,9 @@ export default class PortalDashboard extends LightningElement {
     get resumenMovimientos() {
         const a = (this.datos && this.datos.movimientosAnio) || {};
         return [
-            { clave: 'Alta', texto: `${a.Alta || 0} alta${a.Alta === 1 ? '' : 's'}`, clase: 'estado estado_vigente' },
-            { clave: 'Baja', texto: `${a.Baja || 0} baja${a.Baja === 1 ? '' : 's'}`, clase: 'estado estado_vencido' },
-            { clave: 'Cambio', texto: `${a.Cambio || 0} cambio${a.Cambio === 1 ? '' : 's'}`, clase: 'estado estado_pendiente' }
+            { clave: 'Alta', texto: `${a.Alta || 0} alta${a.Alta === 1 ? '' : 's'}`, clase: 'badge b-green' },
+            { clave: 'Baja', texto: `${a.Baja || 0} baja${a.Baja === 1 ? '' : 's'}`, clase: 'badge b-red' },
+            { clave: 'Cambio', texto: `${a.Cambio || 0} cambio${a.Cambio === 1 ? '' : 's'}`, clase: 'badge b-amber' }
         ];
     }
     // Altas, bajas y cambios de cada uno de los últimos 12 meses (tres barras por mes, misma escala).
@@ -324,9 +348,9 @@ export default class PortalDashboard extends LightningElement {
             if (codigoMoneda(p.moneda) === mon) { c += p.cargos || 0; d += p.devoluciones || 0; }
         });
         return [
-            { clave: 'cobrado', texto: `Cobrado ${this.moneda(c, mon)}`, clase: 'estado estado_vigente' },
-            { clave: 'devuelto', texto: `Devuelto ${this.moneda(d, mon)}`, clase: 'estado estado_vencido' },
-            { clave: 'neto', texto: `Neto ${this.moneda(c - d, mon)}`, clase: 'estado estado_inactiva' }
+            { clave: 'cobrado', texto: `Cobrado ${this.moneda(c, mon)}`, clase: 'badge b-blue' },
+            { clave: 'devuelto', texto: `Devuelto ${this.moneda(d, mon)}`, clase: 'badge b-red' },
+            { clave: 'neto', texto: `Neto ${this.moneda(c - d, mon)}`, clase: 'badge b-gray' }
         ];
     }
     mesDe(inicio) {
@@ -350,7 +374,7 @@ export default class PortalDashboard extends LightningElement {
             venceTexto: this.fecha(q.vence),
             montoTexto: this.moneda(q.pendiente, q.moneda),
             estadoTexto: q.vencida ? (q.diasMora ? `Vencida · ${q.diasMora} día${q.diasMora === 1 ? '' : 's'}` : 'Vencida') : 'Pendiente',
-            estadoClase: `estado ${q.vencida ? 'estado_vencido' : 'estado_pendiente'}`
+            estadoClase: `badge ${q.vencida ? 'b-red' : 'b-amber'}`
         }));
     }
     get hayProximasCuotas() {
@@ -374,7 +398,7 @@ export default class PortalDashboard extends LightningElement {
                 titulo: [p.ramo, p.aseguradora].filter(Boolean).join(' · ') || 'Póliza',
                 venceTexto: this.fecha(p.finVigencia),
                 diasTexto: p.dias === 0 ? 'Vence hoy' : `En ${p.dias} día${p.dias === 1 ? '' : 's'}`,
-                diasClase: `estado ${p.dias <= 30 ? 'estado_pendiente' : 'estado_inactiva'}`
+                diasClase: `badge ${p.dias <= 30 ? 'b-amber' : 'b-blue'}`
             }));
     }
     get hayRenovaciones() {

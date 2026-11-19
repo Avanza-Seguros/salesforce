@@ -1,23 +1,25 @@
 :host { display: block; }
 .vista_previa {
-    border: 1px dashed #e0c79c;
-    background: #fbf3e6;
+    border: 1px dashed #f0b45c;
+    background: #fff7ec;
     border-radius: 14px;
     padding: 0.75rem 1rem;
     margin-bottom: 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    color: #1b2440;
+    color: #7a4206;
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 0.8125rem;
 }
 .vista_previa_titulo {
     display: flex; align-items: center; gap: 0.375rem;
-    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8a5a1f;
+    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #7a4206;
     --slds-c-icon-color-foreground-default: #8a5a1f;
     --sds-c-icon-color-foreground-default: #8a5a1f;
 }
 .vista_previa_actual { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; }
-.vista_previa_cambiar { background: none; border: 0; padding: 0.25rem 0; color: #1e63e9; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
+.vista_previa_cambiar { background: none; border: 0; padding: 0.25rem 0; color: #1d4ed8; font-weight: 700; cursor: pointer; font-size: 0.875rem; }
 .vista_previa_cambiar:hover { text-decoration: underline; }
 .vista_previa_nota { margin: 0; color: #55637d; }
 .vista_previa_cuentas { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.375rem; max-height: 16rem; overflow-y: auto; }

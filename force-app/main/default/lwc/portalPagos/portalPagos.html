@@ -1,60 +1,71 @@
 <template>
-    <div class="pagina">
+    <div class="wrap">
         <c-portal-vista-previa pagina="Pagos" oncambio={handleVistaPrevia}></c-portal-vista-previa>
 
-        <div class="cabecera">
-            <span class="cabecera_etiqueta">Pagos</span>
-            <h1 class="cabecera_titulo">{titulo}</h1>
-            <p class="cabecera_sub">{subtitulo}</p>
-        </div>
+        <!-- ===== Banda azul ===== -->
+        <section class="hero">
+            <div class="hero-main">
+                <div class="hero-row">
+                    <div class="hero-ic">
+                        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>
+                    </div>
+                    <div>
+                        <div class="eyebrow">Pagos</div>
+                        <h1 class="h1">{titulo}</h1>
+                    </div>
+                </div>
+                <p>{subtitulo}</p>
+            </div>
+            <div lwc:if={hayPolizas} class="hero-side">
+                <template for:each={resumen} for:item="r">
+                    <div key={r.clave} class={r.clase}>
+                        <div class="l">{r.etiqueta}</div>
+                        <div class="n">{r.valor}</div>
+                        <div class="s">{r.detalle}</div>
+                    </div>
+                </template>
+            </div>
+        </section>
 
         <template lwc:if={cargando}>
             <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
         </template>
-        <div lwc:elseif={error} class="aviso aviso_error" role="alert">{error}</div>
-        <section lwc:elseif={sinPolizas} class="panel">
-            <p class="vacio">{mensajeVacio}</p>
-        </section>
+        <div lwc:elseif={error} class="aviso_error" role="alert">{error}</div>
+        <div lwc:elseif={sinPolizas} class="empty">{mensajeVacio}</div>
 
         <template lwc:if={hayPolizas}>
-            <ul class="resumen">
-                <template for:each={resumen} for:item="r">
-                    <li key={r.clave} class={r.clase}>
-                        <span class="dato_etiqueta">{r.etiqueta}</span>
-                        <span class="dato_valor">{r.valor}</span>
-                        <span class="dato_detalle">{r.detalle}</span>
-                    </li>
-                </template>
-            </ul>
-
-            <section lwc:if={proximo} class="destacado">
-                <div class="destacado_principal">
-                    <span class="destacado_etiqueta">{proximo.etiqueta}</span>
-                    <span class="destacado_monto">{proximo.monto}</span>
-                    <span class="destacado_texto">{proximo.verbo} <strong>{proximo.venceTexto}</strong> · Estado: <strong class={proximo.estadoClase}>{proximo.estadoTexto}</strong></span>
-                </div>
-                <div lwc:if={hayPlan} class="destacado_avance">
-                    <div class="avance_textos"><span>Pagado {totales.pagado}</span><span>Pendiente {totales.pendiente}</span></div>
-                    <div class="avance" role="progressbar" aria-label="Avance de pago de la póliza" aria-valuemin="0" aria-valuemax="100" aria-valuenow={avance.pct}>
-                        <div class="avance_relleno" style={avance.estilo}></div>
+            <!-- ===== Próximo pago ===== -->
+            <section lwc:if={proximo} class="card">
+                <div class="destacado">
+                    <div class="destacado_principal">
+                        <span class="kicker">{proximo.etiqueta}</span>
+                        <span class="destacado_monto">{proximo.monto}</span>
+                        <span class="destacado_texto">{proximo.verbo} <b>{proximo.venceTexto}</b> <span class={proximo.estadoClase}>{proximo.estadoTexto}</span></span>
                     </div>
-                    <span class="avance_pct">{avance.texto} de la póliza seleccionada</span>
+                    <div lwc:if={hayPlan} class="destacado_avance">
+                        <div class="avance_textos"><span>Pagado <b class="texto_ok">{totales.pagado}</b></span><span>Pendiente <b class="texto_pendiente">{totales.pendiente}</b></span></div>
+                        <div class="hbar" role="progressbar" aria-label="Avance de pago de la póliza" aria-valuemin="0" aria-valuemax="100" aria-valuenow={avance.pct}>
+                            <i style={avance.estilo}></i>
+                        </div>
+                        <span class="sb">{avance.texto} de la póliza seleccionada</span>
+                    </div>
                 </div>
             </section>
 
-            <section class="panel">
-                <div class="panel_cabecera">
+            <!-- ===== Cuotas de la póliza ===== -->
+            <section class="card">
+                <div class="card-h">
                     <div>
-                        <h2 class="panel_titulo">{tituloPlan}</h2>
-                        <p lwc:if={subPlan} class="panel_sub">{subPlan}</p>
+                        <h2 class="t2">{tituloPlan}</h2>
+                        <p lwc:if={subPlan} class="muted">{subPlan}</p>
                     </div>
-                    <a class="boton boton_secundario" href={urlMisPolizas}>Ver detalle de la póliza</a>
+                    <a class="btn ghost" href={urlMisPolizas}>Ver detalle de la póliza</a>
                 </div>
-                <div class="polizas" role="group" aria-label="Póliza">
+                <div class="seg" role="group" aria-label="Póliza">
                     <template for:each={botonesPolizas} for:item="p">
                         <button key={p.id} class={p.clase} data-id={p.id} aria-pressed={p.presionado} onclick={handlePoliza}>
-                            <span class="poliza_texto">{p.texto}</span>
-                            <span class="poliza_detalle">{p.detalle}</span>
+                            {p.texto}
+                            <span class={p.claseDetalle}>{p.detalle}</span>
                         </button>
                     </template>
                 </div>
@@ -62,12 +73,12 @@
                 <template lwc:if={cargandoPlan}>
                     <div class="cargando"><lightning-spinner alternative-text="Cargando cuotas" size="small"></lightning-spinner></div>
                 </template>
-                <div lwc:elseif={errorPlan} class="aviso aviso_error" role="alert">{errorPlan}</div>
-                <p lwc:elseif={sinCuotas} class="vacio">Esta póliza no tiene cuotas registradas.</p>
+                <div lwc:elseif={errorPlan} class="aviso_error" role="alert">{errorPlan}</div>
+                <div lwc:elseif={sinCuotas} class="empty">Esta póliza no tiene cuotas registradas.</div>
 
                 <template lwc:if={hayPlan}>
-                    <div class="tabla_caja">
-                        <table class="tabla">
+                    <div class="tbox">
+                        <table>
                             <caption class="solo_lector">{tituloPlan}</caption>
                             <thead>
                                 <tr>
@@ -75,22 +86,24 @@
                                     <th scope="col">Recibo</th>
                                     <th scope="col">Vence</th>
                                     <th scope="col">Fecha de pago</th>
-                                    <th scope="col" class="num">Importe</th>
-                                    <th scope="col" class="num">Pagado</th>
-                                    <th scope="col" class="num">Pendiente</th>
+                                    <th scope="col" class="r">Importe</th>
+                                    <th scope="col" class="r">Pagado</th>
+                                    <th scope="col" class="r">Pendiente</th>
                                     <th scope="col">Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <template for:each={cuotas} for:item="c">
                                     <tr key={c.id}>
-                                        <th scope="row">{c.etiqueta}</th>
+                                        <th scope="row">
+                                            <div class="who"><span class="chip" aria-hidden="true">{c.numeroChip}</span><span class="nm">{c.etiqueta}</span></div>
+                                        </th>
                                         <td>{c.reciboTexto}</td>
-                                        <td>{c.venceTexto}</td>
+                                        <td>{c.venceTexto}<div lwc:if={c.formaPago} class="sb">{c.formaPago}</div></td>
                                         <td>{c.pagoTexto}</td>
-                                        <td class="num">{c.importeTexto}</td>
-                                        <td class="num">{c.pagadoTexto}</td>
-                                        <td class="num">{c.pendienteTexto}</td>
+                                        <td class="r money">{c.importeTexto}</td>
+                                        <td class="r">{c.pagadoTexto}</td>
+                                        <td class="r money">{c.pendienteTexto}</td>
                                         <td><span class={c.estadoClase}>{c.estadoTexto}</span></td>
                                     </tr>
                                 </template>
@@ -98,36 +111,36 @@
                         </table>
                     </div>
                     <div class="totales">
-                        <span>Importe <strong>{totales.importe}</strong></span>
-                        <span>Pagado <strong class="texto_ok">{totales.pagado}</strong></span>
-                        <span>Pendiente <strong class="texto_pendiente">{totales.pendiente}</strong></span>
+                        <span>Importe <b>{totales.importe}</b></span>
+                        <span>Pagado <b class="texto_ok">{totales.pagado}</b></span>
+                        <span>Pendiente <b class="texto_pendiente">{totales.pendiente}</b></span>
                     </div>
                 </template>
             </section>
 
-            <section lwc:if={hayPlan} class="panel">
-                <div class="panel_cabecera">
-                    <div>
-                        <h2 class="panel_titulo">Recibos pagados</h2>
-                        <p class="panel_sub">Pagos ya aplicados de la póliza seleccionada</p>
-                    </div>
+            <!-- ===== Recibos pagados ===== -->
+            <section lwc:if={hayPlan} class="card">
+                <div>
+                    <h2 class="t2">Recibos pagados</h2>
+                    <p class="muted">Pagos ya aplicados de la póliza seleccionada</p>
                 </div>
-                <ul lwc:if={hayRecibos} class="recibos">
+                <ul lwc:if={hayRecibos} class="lista_limpia">
                     <template for:each={recibos} for:item="r">
-                        <li key={r.id} class="recibo">
-                            <span class="recibo_icono" aria-hidden="true">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                                    stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
-                            </span>
-                            <span class="recibo_texto">
-                                <strong>{r.titulo}</strong>
-                                <span>{r.meta}</span>
-                            </span>
-                            <span class="recibo_monto">{r.pagadoTexto}</span>
+                        <li key={r.id} class="list-row">
+                            <div class="who">
+                                <span class="chip" aria-hidden="true">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
+                                </span>
+                                <div class="who_tx">
+                                    <div class="nm">{r.titulo}</div>
+                                    <div class="sb">{r.meta}</div>
+                                </div>
+                            </div>
+                            <span class="money texto_ok">{r.pagadoTexto}</span>
                         </li>
                     </template>
                 </ul>
-                <p lwc:else class="vacio">Aún no hay recibos pagados en esta póliza. Cuando la aseguradora confirme un pago, aparecerá aquí.</p>
+                <div lwc:else class="empty">Aún no hay recibos pagados en esta póliza. Cuando la aseguradora confirme un pago, aparecerá aquí.</div>
             </section>
         </template>
     </div>

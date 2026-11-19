@@ -11,7 +11,7 @@
             <div class="tarjeta_form">
                 <div class="cabecera">
                     <div>
-                        <p class="titulo">Nueva solicitud</p>
+                        <h2 class="t2">Nueva solicitud</h2>
                         <p class="subtitulo">Agrega las altas, bajas y cambios que necesitas. Se registran en tu póliza y tu asesor los tramita con la aseguradora.</p>
                     </div>
                 </div>
@@ -140,8 +140,14 @@
         <!-- Solicitudes enviadas -->
         <template lwc:else>
             <div class="cabecera">
-                <p class="subtitulo">Pide altas, bajas o cambios de la póliza y sigue su avance.</p>
-                <button lwc:if={puedeSolicitar} class="boton" onclick={handleNueva}>Nueva solicitud</button>
+                <div>
+                    <h2 class="t2">Solicitudes</h2>
+                    <p class="subtitulo">Pide altas, bajas o cambios de la póliza y sigue su avance.</p>
+                </div>
+                <button lwc:if={puedeSolicitar} class="boton grad" onclick={handleNueva}>
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                    Nueva solicitud
+                </button>
             </div>
             <p lwc:if={avisoSinPermiso} class="nota">{avisoSinPermiso}</p>
             <template lwc:if={haySolicitudes}>
@@ -170,7 +176,7 @@
                     </template>
                 </ul>
             </template>
-            <p lwc:elseif={datos} class="nota">Aún no hay solicitudes de esta póliza.</p>
+            <div lwc:elseif={datos} class="empty">Aún no hay solicitudes de esta póliza.</div>
         </template>
     </div>
 </template>

@@ -1,6 +1,7 @@
 // portalInicio/portalInicio.js
-// Página de Inicio del sitio Avanza Seguro: portada con el resumen del cliente (pólizas vigentes, próximo pago y
-// renovaciones), accesos rápidos y lo que el portal hace por él. Usa el mismo Apex que el Dashboard.
+// Página de Inicio del sitio Avanza Seguro (diseño Avanza Empresas): portada con saludo y tarjetas de vidrio, indicadores
+// (pólizas vigentes, próximo pago, renovaciones y pagado en 12 meses), mis pólizas, movimientos, ejecutivo, accesos rápidos
+// y lo que el portal hace por él. Usa el mismo Apex que el Dashboard.
 import { LightningElement, api, wire } from 'lwc';
 import basePath from '@salesforce/community/basePath';
 import USER_ID from '@salesforce/user/Id';
@@ -117,6 +118,11 @@ export default class PortalInicio extends LightningElement {
         const nombre = this.usuario && this.usuario.data ? getFieldValue(this.usuario.data, FIRST_NAME) : null;
         return nombre ? `${parte}, ${nombre}` : parte;
     }
+    // Título de la portada como primera frase del párrafo (con punto final si no lo trae).
+    get tituloTexto() {
+        const t = String(this.titulo || '').trim();
+        return t && !/[.!?…]$/.test(t) ? `${t}.` : t;
+    }
     get urlMisPolizas() {
         return `${basePath || ''}/mis-polizas`;
     }
@@ -138,18 +144,6 @@ export default class PortalInicio extends LightningElement {
     get numVigentes() {
         return Math.round(this.vigentes.length * this.progreso);
     }
-    get protegido() {
-        return this.vigentes.length > 0;
-    }
-    get estadoTexto() {
-        if (this.cargando) return 'Conectando…';
-        if (!this.hayPolizas) return 'Sin pólizas registradas';
-        return this.protegido ? 'Protección activa' : 'Sin pólizas vigentes';
-    }
-    get estadoClase() {
-        return `estado_punto${this.protegido ? '' : ' estado_punto_apagado'}`;
-    }
-
     get renovacionesProximas() {
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
@@ -165,45 +159,67 @@ export default class PortalInicio extends LightningElement {
         return lista.length ? lista[0] : null;
     }
 
-    // Anillo: qué parte de las pólizas está vigente.
-    get anillo() {
-        const total = this.polizas.length;
-        const parte = total ? this.vigentes.length / total : 0;
-        const c = 2 * Math.PI * 52;
-        return `stroke-dasharray: ${c.toFixed(1)}; stroke-dashoffset: ${(c * (1 - parte * this.progreso)).toFixed(1)};`;
-    }
-    get textoAnillo() {
-        return `${this.numVigentes} de ${this.polizas.length}`;
+    get textoTotalPolizas() {
+        return this.polizas.length ? `de ${this.polizas.length} en total` : this.cargando ? 'Cargando…' : 'Aún sin pólizas';
     }
 
-    get resumen() {
+    // Tarjeta ancha de la portada: personas aseguradas; si las pólizas no cubren personas, vehículos o ubicaciones
+    // (conteo real de bienes asegurados que ya calcula el Dashboard).
+    get asegurados() {
+        const b = (this.datos && this.datos.bienes) || {};
+        const opciones = [
+            { n: b.personas, etiqueta: 'Asegurados', uno: 'persona cubierta', varios: 'personas cubiertas' },
+            { n: b.vehiculos, etiqueta: 'Vehículos asegurados', uno: 'vehículo cubierto', varios: 'vehículos cubiertos' },
+            { n: b.ubicaciones, etiqueta: 'Ubicaciones aseguradas', uno: 'ubicación cubierta', varios: 'ubicaciones cubiertas' }
+        ];
+        const o = opciones.find((x) => x.n > 0) || opciones[0];
+        const n = o.n || 0;
+        return {
+            etiqueta: o.etiqueta,
+            valor: Math.round(n * this.progreso).toLocaleString('es-MX'),
+            detalle: `${n === 1 ? o.uno : o.varios} en tus pólizas`
+        };
+    }
+
+    // Indicadores bajo la portada (punto de color y barra), todos con datos reales del Dashboard.
+    get etapas() {
         const d = this.datos || {};
         const q = this.proximaCuota;
         const ren = this.renovacionesProximas;
-        const pagado = (d.pagadoUltimoAnio || 0) * this.progreso;
+        const total = this.polizas.length;
+        const nVig = this.vigentes.length;
+        const pagado = d.pagadoUltimoAnio || 0;
+        const pendiente = d.totalPendiente || 0;
+        const pctPagado = pagado + pendiente > 0 ? (pagado / (pagado + pendiente)) * 100 : 0;
+        const plan = this.pago;
+        const pctPlan = plan && plan.hayAvance ? plan.pct : q ? 100 : 0;
         return [
             {
-                clave: 'vigentes', icono: 'utility:shield', etiqueta: 'Pólizas vigentes',
-                valor: String(this.numVigentes),
-                detalle: this.polizas.length ? `de ${this.polizas.length} en total` : 'Aún sin pólizas'
+                clave: 'vigentes', etiqueta: 'Pólizas vigentes', color: '#1d4ed8',
+                valor: String(this.numVigentes), detalle: this.textoTotalPolizas,
+                pct: total ? (nVig / total) * 100 : 0
             },
             {
-                clave: 'pago', icono: 'utility:moneybag', etiqueta: q && q.vencida ? 'Pago vencido' : 'Próximo pago',
-                valor: q ? this.moneda((q.pendiente || 0) * this.progreso, q.moneda) : '—',
-                detalle: q ? `Póliza ${q.numero} · ${q.vencida ? 'venció' : 'vence'} ${this.fecha(q.vence)}` : 'No tienes pagos pendientes',
-                alerta: q && q.vencida
+                clave: 'pago', etiqueta: q && q.vencida ? 'Pago vencido' : 'Próximo pago', color: q && q.vencida ? '#b42318' : '#7c3aed',
+                valor: q ? this.fecha(q.vence, true) : 'Al corriente',
+                detalle: q ? `Póliza ${q.numero} · ${this.moneda(q.pendiente, q.moneda, 2)}` : 'No tienes pagos pendientes',
+                pct: pctPlan
             },
             {
-                clave: 'renovar', icono: 'utility:refresh', etiqueta: 'Por renovar',
-                valor: String(Math.round(ren * this.progreso)),
-                detalle: `en los próximos ${DIAS_RENOVACION} días`
+                clave: 'renovar', etiqueta: 'Por renovar', color: '#15803d',
+                valor: String(Math.round(ren * this.progreso)), detalle: `en los próximos ${DIAS_RENOVACION} días`,
+                pct: nVig ? (ren / nVig) * 100 : 0
             },
             {
-                clave: 'pagado', icono: 'utility:check', etiqueta: 'Pagado en 12 meses',
-                valor: this.moneda(pagado, this.monedaPrincipal),
-                detalle: 'pagos aplicados'
+                clave: 'pagado', etiqueta: 'Pagado en 12 meses', color: '#b45309',
+                valor: this.moneda(pagado * this.progreso, this.monedaPrincipal), detalle: 'pagos aplicados',
+                pct: pctPagado
             }
-        ].map((x) => ({ ...x, clase: `dato${x.alerta ? ' dato_alerta' : ''}` }));
+        ].map((x) => ({
+            ...x,
+            estiloPunto: `background: ${x.color}`,
+            estiloBarra: `width: ${Math.round(Math.min(100, x.pct) * this.progreso)}%; background: ${x.color}`
+        }));
     }
 
     get monedaPrincipal() {
@@ -231,7 +247,7 @@ export default class PortalInicio extends LightningElement {
                     bien: p.bienAsegurado || p.descripcion || '',
                     vigencia: `Vigente hasta ${this.fecha(p.finVigencia, true)}`,
                     chip: renovar ? `Renueva en ${dias} día${dias === 1 ? '' : 's'}` : 'Vigente',
-                    chipClase: `chip${renovar ? ' chip_alerta' : ''}`,
+                    chipClase: `badge ${renovar ? 'b-amber' : 'b-green'}`,
                     url: `${basePath || ''}/mis-polizas?poliza=${p.id}`
                 };
             });
@@ -277,7 +293,7 @@ export default class PortalInicio extends LightningElement {
         return ((this.datos && this.datos.movimientos) || []).slice(0, MAX_MOVIMIENTOS).map((m) => ({
             id: m.id,
             icono: iconos[m.tipo] || 'utility:change_record_type',
-            iconoClase: `mov_icono mov_${String(m.tipo || 'otro').toLowerCase()}`,
+            iconoClase: `chip mov_${String(m.tipo || 'otro').toLowerCase()}`,
             titulo: `${m.tipo || 'Movimiento'} · ${m.nombre || 'Sin nombre'}`,
             meta: [`Póliza ${m.poliza || ''}`.trim(), m.endoso ? `endoso ${m.endoso}` : null].filter(Boolean).join(' · '),
             fecha: this.fecha(m.fecha)

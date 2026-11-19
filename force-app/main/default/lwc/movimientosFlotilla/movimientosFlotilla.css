@@ -437,3 +437,101 @@
 
 /* Excel de la solicitud para la aseguradora (encabezado de la solicitud). */
 .sol-excel { margin-left: auto; }
+
+/* ===================== Estilo Oportunidades (portal de empresas, nov-2026) ===================== */
+/* Solo aplica cuando el componente vive en el sitio (portal = true, clase mov-portal); en Salesforce interno no cambia nada.
+   Igual que Poliza-Asegurados del diseño del sitio; Asegurados, Vehículos y Ubicaciones usan exactamente este mismo bloque. */
+.mov-portal {
+    --slds-c-input-radius-border: 999px;
+    --sds-c-input-radius-border: 999px;
+    --slds-c-input-color-border: #e3e8f2;
+    --slds-c-input-color-border-focus: #1d4ed8;
+    --slds-c-input-shadow-focus: 0 0 0 3px rgba(29, 78, 216, 0.18);
+    --slds-c-button-radius-border: 999px;
+    --sds-c-button-radius-border: 999px;
+    --slds-c-button-brand-color-background: #1d4ed8;
+    --slds-c-button-brand-color-border: #1d4ed8;
+    --slds-c-button-neutral-color-border: #e3e8f2;
+    --slds-c-button-neutral-color-background: #ffffff;
+    --slds-c-button-neutral-color-background-hover: #f7f9fc;
+    --slds-c-button-text-color: #0b1f44;
+    --slds-c-button-spacing-inline-start: 1rem;
+    --slds-c-button-spacing-inline-end: 1rem;
+    --slds-c-button-line-height: 2.625rem;
+    --slds-c-checkbox-color-background-checked: #1d4ed8;
+    --slds-c-checkbox-color-border-checked: #1d4ed8;
+    display: flex; flex-direction: column; gap: 18px;
+    margin-top: 0; padding: 24px; border: 0; border-radius: 20px; background: #ffffff;
+    color: #0b1f44; font-family: inherit; font-size: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px rgba(30, 64, 175, 0.06);
+}
+.mov-portal .mov-cargando { border-radius: 20px; }
+/* Encabezado de la tarjeta */
+.mov-portal .mov-encabezado { margin: 0; align-items: flex-start; flex-wrap: wrap; }
+.mov-portal .mov-titulo { font-size: 1.25rem; font-weight: 800; color: #0b1f44; margin: 0; }
+.mov-portal .mov-subtitulo { font-size: 0.875rem; color: #64748b; margin: 4px 0 0; }
+.mov-portal .sub { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+.mov-portal .mov-error, .mov-portal .mov-aviso { margin: 0; padding: 12px 16px; border-radius: 14px; font-size: 0.875rem; }
+.mov-portal .mov-error { background: #fde8e8; color: #b42318; border: 1px solid #f8c9c5; }
+.mov-portal .mov-aviso { background: #f7f9fc; color: #0b1f44; border: 1px solid #eef1f6; }
+/* Indicadores como el embudo de ventas: etiqueta arriba con punto, número grande y barra de color. */
+.mov-portal .mov-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 0; }
+.mov-portal .stat { --tono: #1d4ed8; display: flex; position: relative; flex-direction: column-reverse; justify-content: flex-end; gap: 6px;
+    padding: 16px 18px 28px; border: 1px solid #e3e8f2; border-left: 1px solid #e3e8f2; border-radius: 16px; background: #ffffff; overflow: hidden; min-width: 0; }
+.mov-portal .stat:nth-child(2) { --tono: #7c3aed; }
+.mov-portal .stat:nth-child(3) { --tono: #0e9488; }
+.mov-portal .stat:nth-child(4) { --tono: #d97706; }
+.mov-portal .stat-baja { --tono: #64748b; background: #ffffff; }
+.mov-portal .stat::before { content: ''; position: absolute; top: 21px; right: 18px; width: 9px; height: 9px; border-radius: 50%; background: var(--tono); }
+.mov-portal .stat::after { content: ''; position: absolute; left: 18px; right: 18px; bottom: 14px; height: 6px; border-radius: 999px; background: var(--tono); opacity: 0.85; }
+.mov-portal .stat-num { font-size: 1.875rem; font-weight: 800; color: #0b1f44; line-height: 1.1; overflow-wrap: anywhere; }
+.mov-portal .stat-lbl { font-size: 0.875rem; font-weight: 700; color: #0b1f44; text-transform: none; letter-spacing: 0; padding-right: 18px; }
+/* Barra: buscador redondo que crece y botones en píldora. */
+.mov-portal .mov-barra { margin: 0; gap: 12px; align-items: center; }
+.mov-portal .mov-filtros { flex: 1 1 360px; gap: 12px; min-width: 0; }
+.mov-portal .mov-acciones { gap: 8px; }
+.mov-portal .mov-buscar { flex: 1 1 280px; min-width: 0; }
+.mov-portal .mov-filtro { flex: 0 1 200px; min-width: 10rem; }
+/* Tabla: una sola línea por fila, encabezado gris en mayúsculas; se desplaza dentro de su caja. */
+.mov-portal .mov-scroll { border: 1px solid #eef1f6; border-radius: 16px; max-height: 34rem; }
+.mov-portal .mov-tabla { font-size: 0.875rem; color: #0b1f44; border: 0; }
+.mov-portal .mov-tabla th { background: #f7f9fc; color: #64748b; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 13px 14px; border: 0; white-space: nowrap; }
+.mov-portal .mov-tabla td { white-space: nowrap; padding: 13px 14px; border-top: 1px solid #eef1f6; border-bottom: 0; vertical-align: middle; color: #0b1f44; }
+.mov-portal .mov-tabla tbody tr:hover > td { background: #fbfcfe; }
+.mov-portal .mov-tabla .num { font-weight: 800; }
+.mov-portal .mov-tabla input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1d4ed8; cursor: pointer; }
+.mov-portal .col-correo { white-space: nowrap; max-width: 230px; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.mov-portal .nombre { font-weight: 700; }
+.mov-portal .nombre .enlace-otras { color: #1d4ed8; font-weight: 700; }
+.mov-portal .fila-dependiente td { background: #fbfcfe; }
+.mov-portal .fila-baja td { color: #64748b; }
+.mov-portal .col-orden:hover, .mov-portal .flecha { color: #1d4ed8; }
+.mov-portal .col-acciones { --slds-c-button-radius-border: 9px; --sds-c-button-radius-border: 9px; white-space: nowrap; }
+/* Estados con punto, como los de Oportunidades. */
+.mov-portal .estado { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border: 1px solid transparent; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.mov-portal .estado::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.mov-portal .estado-vigente, .mov-portal .estado-alta, .mov-portal .correo-enviado { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
+.mov-portal .estado-cambio { background: #e8efff; border-color: #c7d7fe; color: #1d4ed8; }
+.mov-portal .estado-baja { background: #fde8e8; border-color: #f8c9c5; color: #b42318; }
+.mov-portal .correo-pendiente { background: #fff4e5; border-color: #fbd9a8; color: #a1450a; }
+.mov-portal .correo-sin { background: #f1f4f9; border-color: #e3e8f2; color: #475569; }
+/* Encabezado de cada solicitud (agrupar por solicitud). */
+.mov-portal .fila-solicitud > td { background: #f7f9fc; border-top: 1px solid #e3e8f2; padding: 10px 14px; }
+.mov-portal .sol-enc { font-size: 0.8125rem; color: #475569; gap: 6px 12px; }
+.mov-portal .sol-folio { font-size: 0.875rem; font-weight: 800; color: #0b1f44; }
+.mov-portal .sol-sub, .mov-portal .sol-resumen { color: #64748b; }
+.mov-portal .sol-chip { padding: 1px 10px; border: 1px solid #c7d7fe; border-radius: 999px; background: #e8efff; color: #1d4ed8; font-weight: 600; }
+.mov-portal .sol-estado { padding: 4px 11px; border: 1px solid transparent; border-radius: 999px; font-size: 0.75rem; }
+.mov-portal .sol-abierta { background: #fff4e5; border-color: #fbd9a8; color: #a1450a; }
+.mov-portal .sol-cerrada { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
+/* Paginación centrada; vacío punteado. */
+.mov-portal .mov-paginacion { margin: 0; gap: 12px; font-size: 0.875rem; color: #475569; }
+.mov-portal .mov-vacio { justify-content: center; padding: 28px; border: 1px dashed #d5dcea; border-radius: 16px; background: #fbfcfe; color: #64748b; font-size: 0.875rem; }
+.mov-portal .mov-pie { margin-top: 0; }
+@media (max-width: 760px) {
+    .mov-portal { padding: 18px 16px; }
+    .mov-portal .mov-filtros, .mov-portal .mov-buscar, .mov-portal .mov-filtro { flex: 1 1 100%; min-width: 0; }
+    .mov-portal .mov-acciones { width: 100%; }
+}

@@ -77,6 +77,16 @@ export default class PortalContactos extends LightningElement {
         }
         return 'Tu empresa todavía no tiene personas en el censo. Si crees que es un error, contacta a tu ejecutivo.';
     }
+    // Banda azul: personas en el censo y la empresa (solo cuando ya hay una empresa ligada).
+    get hayEmpresa() {
+        return !this.cargando && !this.error && !!this.nombreCuenta;
+    }
+    get totalPersonas() {
+        return String(this.personas.length);
+    }
+    get etiquetaSuperior() {
+        return this.nombreCuenta ? `Mi empresa · ${this.nombreCuenta}` : 'Mi empresa';
+    }
     get variosRamos() {
         return new Set(this.personas.map((p) => p.ramo || '')).size > 1;
     }
@@ -90,8 +100,10 @@ export default class PortalContactos extends LightningElement {
     get filas() {
         return this.filtradas.slice(0, this.mostrar).map((p) => ({
             ...p,
-            claseFila: p.titular ? 'fila_titular' : 'fila_dependiente',
-            claseParentesco: `chip chip_${p.titular ? 'titular' : (p.parentesco === 'Cónyuge' ? 'conyuge' : 'dependiente')}`,
+            claseFila: p.titular ? 'fila_titular' : 'dep',
+            claseParentesco: `badge ${p.titular ? 'b-blue' : (p.parentesco === 'Cónyuge' ? 'b-purple' : 'b-green')}`,
+            iniciales: String(p.nombre || '').trim().split(/\s+/).filter(Boolean).slice(0, 2)
+                .map((x) => x.charAt(0).toUpperCase()).join('') || '·',
             deTitular: !p.titular && p.titularNombre ? `de ${p.titularNombre}` : '',
             certificadoTexto: p.certificado || '—',
             edadTexto: p.edad == null ? '—' : `${p.edad} año${p.edad === 1 ? '' : 's'}`,

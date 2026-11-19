@@ -1,32 +1,55 @@
 <template>
-    <div class="pagina">
+    <div class="wrap">
         <c-portal-vista-previa pagina="Mi empresa" oncambio={handleVistaPrevia}></c-portal-vista-previa>
 
-        <div class="cabecera">
-            <span class="cabecera_etiqueta">Mi empresa</span>
-            <h1 class="cabecera_titulo">{titulo}</h1>
-            <p class="cabecera_sub">{subtitulo}<template lwc:if={nombreCuenta}> · {nombreCuenta}</template></p>
-        </div>
+        <!-- ===== Banda azul ===== -->
+        <section class="hero">
+            <div class="hero-main">
+                <div class="hero-row">
+                    <div class="hero-ic">
+                        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"></path></svg>
+                    </div>
+                    <div>
+                        <div class="eyebrow">{etiquetaSuperior}</div>
+                        <h1 class="h1">{titulo}</h1>
+                    </div>
+                </div>
+                <p>{subtitulo}</p>
+            </div>
+            <div lwc:if={hayEmpresa} class="hero-side">
+                <div class="glass">
+                    <div class="l">Personas en el censo</div>
+                    <div class="n">{totalPersonas}</div>
+                    <div class="s">colaboradores y dependientes</div>
+                </div>
+                <div class="glass">
+                    <div class="l">Empresa</div>
+                    <div class="n n_texto">{nombreCuenta}</div>
+                    <div class="s">cuenta contratante</div>
+                </div>
+            </div>
+        </section>
 
         <template lwc:if={cargando}>
             <div class="cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
         </template>
-        <div lwc:elseif={error} class="aviso aviso_error" role="alert">{error}</div>
-        <section lwc:elseif={sinPersonas} class="panel">
-            <p class="vacio">{mensajeVacio}</p>
+        <div lwc:elseif={error} class="aviso_error" role="alert">{error}</div>
+        <section lwc:elseif={sinPersonas} class="card">
+            <div class="empty">{mensajeVacio}</div>
         </section>
 
-        <section lwc:if={hayPersonas} class="panel">
-            <div class="barra">
-                <div class="buscador">
-                    <lightning-input type="search" label="Buscar persona" variant="label-hidden"
-                        placeholder="Buscar por nombre, certificado o parentesco" value={busqueda} onchange={handleBusqueda}></lightning-input>
-                </div>
+        <section lwc:if={hayPersonas} class="card">
+            <div class="toolbar">
+                <label class="search">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+                    <input type="search" aria-label="Buscar persona" placeholder="Buscar por nombre, certificado o parentesco"
+                        value={busqueda} oninput={handleBusqueda} />
+                </label>
                 <span class="conteo" aria-live="polite">{conteo}</span>
             </div>
 
-            <div lwc:if={hayFilas} class="tabla_caja">
-                <table class="tabla">
+            <div lwc:if={hayFilas} class="tbox">
+                <table>
                     <caption class="solo_lector">Personas aseguradas de la empresa</caption>
                     <thead>
                         <tr>
@@ -38,33 +61,38 @@
                             <th scope="col">Grupo</th>
                             <th scope="col">Fecha de alta</th>
                             <th lwc:if={variosRamos} scope="col">Ramo</th>
-                            <th scope="col" class="num">Prima</th>
+                            <th scope="col" class="r">Prima</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template for:each={filas} for:item="p">
                             <tr key={p.id} class={p.claseFila}>
                                 <th scope="row">
-                                    <span class="nombre">{p.nombre}</span>
-                                    <span lwc:if={p.deTitular} class="nombre_sub">{p.deTitular}</span>
+                                    <div class="who">
+                                        <span class="chip" aria-hidden="true">{p.iniciales}</span>
+                                        <div>
+                                            <div class="nm">{p.nombre}</div>
+                                            <div lwc:if={p.deTitular} class="sb">{p.deTitular}</div>
+                                        </div>
+                                    </div>
                                 </th>
                                 <td><span class={p.claseParentesco}>{p.parentesco}</span></td>
-                                <td class="mono">{p.certificadoTexto}</td>
+                                <td>{p.certificadoTexto}</td>
                                 <td><span title={p.nacimientoTexto}>{p.edadTexto}</span></td>
                                 <td>{p.generoTexto}</td>
                                 <td>{p.grupoTexto}</td>
                                 <td>{p.altaTexto}</td>
                                 <td lwc:if={variosRamos}>{p.ramoTexto}</td>
-                                <td class="num">{p.primaTexto}</td>
+                                <td class="r money">{p.primaTexto}</td>
                             </tr>
                         </template>
                     </tbody>
                 </table>
             </div>
-            <p lwc:else class="vacio">Nadie coincide con «{busqueda}».</p>
+            <div lwc:else class="empty">Nadie coincide con «{busqueda}».</div>
 
-            <div lwc:if={hayMas} class="mas">
-                <button class="boton_mas" onclick={handleMas}>Ver más</button>
+            <div lwc:if={hayMas} class="pager">
+                <button class="pill" onclick={handleMas}>Ver más</button>
             </div>
         </section>
     </div>
