@@ -248,6 +248,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track comparativoHtml = '';
     @track pdfArchivos = []; // PDFs cargados (base64) para guardarlos en la oportunidad
     _comparativoDirty = false;
+    // true cuando comparativoHtml es el guardado en la oportunidad (el mismo del PDF adjunto).
+    _comparativoGuardado = false;
     @track extractedOpportunityData = null;
     @track hasExtractedData = false;
     @track selectedQuoteRamo = '';
@@ -1439,6 +1441,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Comparativo de la IA guardado en la oportunidad (Descripcion__c) para
         // mostrarlo en la sección "Comparativa de Cotizaciones" al editar.
         this.comparativoHtml = this.repararAcentos(detail.Descripcion__c || '');
+        this._comparativoGuardado = !!(detail.Descripcion__c || '').trim();
         this._comparativoDirty = true;
 
         // Correo del agente (Producer) para el campo "Email Agente".
@@ -3936,6 +3939,22 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             });
             if (savedId) {
                 this.opportunity = { ...this.opportunity, Id: savedId };
+                // Si el comparativo guardado cambió (p. ej. el de la IA ya no incluye todas las cotizaciones), el PDF
+                // adjunto se actualiza con él: en pantalla y en los adjuntos siempre va el mismo comparativo.
+                const nuevoComparativo = payload.Descripcion__c;
+                if (nuevoComparativo && !this.hasPdfQuotes && !this._colectivoPorCrear
+                        && !(this._comparativoGuardado && nuevoComparativo === this.comparativoHtml)) {
+                    try {
+                        await guardarComparativoPdf({ opportunityId: savedId,
+                            nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones' });
+                        this.comparativoHtml = this.repararAcentos(nuevoComparativo);
+                        this._comparativoGuardado = true;
+                        this._comparativoDirty = true;
+                    } catch (e) {
+                        // eslint-disable-next-line no-console
+                        console.error(':::OpportunityCreator::: No se pudo actualizar el PDF del comparativo', e);
+                    }
+                }
                 // Guarda/actualiza las personas (asegurados/pasajeros) cuando la
                 // contratación es colectiva o el ramo las maneja (GMM, Viajes, Dental, Visión).
                 if (this.mostrarPersonas && this.asegurados.length) {
@@ -4249,6 +4268,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                     opportunityId: oppId,
                     nombreArchivo: (this.opportunity && this.opportunity.Name) || 'cotizaciones'
                 });
+                // En pantalla queda el mismo comparativo del PDF.
+                this.comparativoHtml = this.repararAcentos(htmlComparativo);
+                this._comparativoGuardado = true;
+                this._comparativoDirty = true;
             } catch (e) {
                 // eslint-disable-next-line no-console
                 console.error(':::OpportunityCreator::: No se pudo generar el PDF del comparativo', e);
@@ -4434,6 +4457,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // de la IA es opcional y NO debe afectar este flujo.
         this.viewMode = VIEW_MODES.CREATE;
         this.comparativoHtml = this.repararAcentos(d.comparativoHtml || '');
+        this._comparativoGuardado = false;
         this._comparativoDirty = true;
 
         // Aplica el DETALLE del ramo (Vida, GMM, Daños, Viajes, RC) desde el comparador.
@@ -4592,9 +4616,18 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Comparativo de la IA (el que regresó al leer los PDFs, guardado en Descripcion__c). Solo se usa mientras
     // corresponda a las cotizaciones actuales; si después se agregan, quitan o cambian cotizaciones, el comparativo
     // se arma con las cotizaciones de la oportunidad (nada queda fijo).
+    // UN SOLO COMPARATIVO: en pantalla se muestra exactamente el que está guardado en la oportunidad (Descripcion__c),
+    // que es el mismo del PDF adjunto (guardarComparativoPdf lo genera desde ese campo). Antes de guardar (vista previa
+    // de "Crear desde PDFs") se muestra el que se va a guardar: el de la IA si incluye todas las cotizaciones; si no,
+    // el que arma el componente.
     get hasComparativoHtml() {
         const html = this.comparativoHtml || '';
-        // El comparativo calculado que se guarda en la oportunidad no es de la IA: en pantalla se vuelve a armar en vivo.
+        if (!html.trim() || html.includes(MARCA_COMPARATIVO_COLECTIVO)) { return false; }
+        return this._comparativoGuardado || this.comparativoIaVigente;
+    }
+    // El de la IA sirve para guardarse solo si sigue correspondiendo a las cotizaciones actuales.
+    get comparativoIaVigente() {
+        const html = this.comparativoHtml || '';
         return !!html.trim() && !html.includes(MARCA_COMPARATIVO_CALCULADO) && !html.includes(MARCA_COMPARATIVO_COLECTIVO)
             && this.comparativoHtmlCoincide;
     }
@@ -4626,7 +4659,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (this.isColectiva) { return null; }
         // Con una sola cotización no hay nada que comparar: no se guarda comparativo.
         if ((this.uploadedQuotes || []).length < 2) { return null; }
-        if (this.hasComparativoHtml) { return this.comparativoHtml; }
+        if (this.comparativoIaVigente) { return this.comparativoHtml; }
         const calculado = this.buildComparativoHtmlCompleto();
         return calculado ? MARCA_COMPARATIVO_CALCULADO + calculado : null;
     }
@@ -4862,6 +4895,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.contactoResults = [];
         this.isNewContacto = false;
         this.comparativoHtml = '';
+        this._comparativoGuardado = false;
         this._comparativoDirty = true;
         this.datosClienteDesdePdf = false;
     }

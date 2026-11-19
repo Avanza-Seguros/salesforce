@@ -1,65 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
-        <description>Avisa a Avanza que el cliente envió una solicitud de movimientos desde el sitio (destinatarios según la org: fórmula Destinatarios).</description>
+        <description>Avisa a Avanza que el cliente envió una solicitud de movimientos desde el sitio: resumen breve y el Excel para la aseguradora adjunto (destinatarios según la org: fórmula Destinatarios).</description>
         <name>Correo_a_Avanza</name>
         <label>Correo a Avanza</label>
         <locationX>176</locationX>
         <locationY>323</locationY>
-        <actionName>emailSimple</actionName>
-        <actionType>emailSimple</actionType>
+        <actionName>AvisoSolicitudSitio</actionName>
+        <actionType>apex</actionType>
         <flowTransactionModel>CurrentTransaction</flowTransactionModel>
         <inputParameters>
-            <name>emailAddresses</name>
+            <name>casoId</name>
+            <value>
+                <elementReference>$Record.Id</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>destinatarios</name>
             <value>
                 <elementReference>Destinatarios</elementReference>
             </value>
         </inputParameters>
         <inputParameters>
-            <name>senderType</name>
-            <value>
-                <stringValue>OrgWideEmailAddress</stringValue>
-            </value>
-        </inputParameters>
-        <inputParameters>
-            <name>senderAddress</name>
+            <name>remitente</name>
             <value>
                 <stringValue>info@avanzaseguro.com</stringValue>
             </value>
         </inputParameters>
-        <inputParameters>
-            <name>emailSubject</name>
-            <value>
-                <elementReference>Asunto</elementReference>
-            </value>
-        </inputParameters>
-        <inputParameters>
-            <name>emailBody</name>
-            <value>
-                <elementReference>Cuerpo</elementReference>
-            </value>
-        </inputParameters>
-        <nameSegment>emailSimple</nameSegment>
+        <nameSegment>AvisoSolicitudSitio</nameSegment>
+        <offset>0</offset>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
     </actionCalls>
     <apiVersion>63.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
-    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse (en segundo plano, para que una falla del correo no impida guardar la solicitud), envía un correo desde info@avanzaseguro.com a correos@avanzaseguro.com en producción, o a abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com en DEV y UAT (pruebas), con el folio, el cliente, la póliza, lo que se pidió y la liga al caso.</description>
+    <description>Solicitud de movimientos del sitio (caso de tipo Solicitud de movimientos): al crearse (en segundo plano, para que una falla del correo no impida guardar la solicitud), envía un correo desde info@avanzaseguro.com a correos@avanzaseguro.com en producción, o a abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com en DEV y UAT (pruebas), con un resumen breve (folio, cliente, póliza, cuántos movimientos, comentario y liga al caso) y el Excel para la aseguradora adjunto (también queda en el caso).</description>
     <environments>Default</environments>
-    <formulas>
-        <name>LigaCaso</name>
-        <dataType>String</dataType>
-        <expression>LEFT({!$Api.Partner_Server_URL_590}, FIND(&apos;/services&apos;, {!$Api.Partner_Server_URL_590})) &amp; {!$Record.Id}</expression>
-    </formulas>
     <formulas>
         <description>Producción (org 00D8a000001KZ9w): correos@avanzaseguro.com. Sandboxes (DEV y UAT): abraham.gonzalez@avanzaseguro.com y sergio.uribe@volestra.com, para pruebas.</description>
         <name>Destinatarios</name>
         <dataType>String</dataType>
         <expression>IF(LEFT({!$Organization.Id}, 15) = &apos;00D8a000001KZ9w&apos;, &apos;correos@avanzaseguro.com&apos;, &apos;abraham.gonzalez@avanzaseguro.com, sergio.uribe@volestra.com&apos;)</expression>
-    </formulas>
-    <formulas>
-        <name>Asunto</name>
-        <dataType>String</dataType>
-        <expression>&apos;Nueva solicitud de movimientos &apos; &amp; {!$Record.Solicitud__c} &amp; &apos; · &apos; &amp; {!$Record.Account.Name} &amp; &apos; · Póliza &apos; &amp; {!$Record.InsurancePolicy__r.Name}</expression>
     </formulas>
     <interviewLabel>Solicitud de movimientos: aviso {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Solicitud de movimientos: aviso a Avanza</label>
@@ -91,21 +71,4 @@
         <triggerType>RecordAfterSave</triggerType>
     </start>
     <status>Active</status>
-    <textTemplates>
-        <name>Cuerpo</name>
-        <isViewedAsPlainText>true</isViewedAsPlainText>
-        <text>El cliente envió una solicitud de movimientos desde el sitio.
-
-Folio: {!$Record.Solicitud__c}
-Caso: {!$Record.CaseNumber}
-Cliente: {!$Record.Account.Name}
-Póliza: {!$Record.InsurancePolicy__r.Name}
-Enviada por: {!$Record.CreatedBy.Name}
-
-{!$Record.Description}
-
-Ver el caso: {!LigaCaso}
-
-Los movimientos ya quedaron registrados en la póliza con el folio {!$Record.Solicitud__c}. En la pestaña Asegurados, Vehículos o Ubicaciones de la póliza descarga el Excel de la solicitud («Excel para la aseguradora») para enviarlo a la aseguradora; cuando llegue el endoso, ciérralos con su número. Si la solicitud aparece «por atender» es que no se pudieron registrar solos: captúralos con «Atender».</text>
-    </textTemplates>
 </Flow>
