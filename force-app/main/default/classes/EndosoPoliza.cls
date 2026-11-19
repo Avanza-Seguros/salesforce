@@ -220,7 +220,10 @@ public inherited sharing class EndosoPoliza {
 			}
 			Integer total = (Integer) s.get('total');
 			Integer abiertos = (Integer) s.get('abiertos');
-			String estado = c.IsClosed ? (total == 0 ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
+			// Rechazada: sin movimientos o con el comentario de rechazo (se puede rechazar aunque ya tenga movimientos).
+			String respuesta = comentarios.get(c.Id);
+			Boolean rechazo = respuesta != null && respuesta.startsWith('Solicitud rechazada:');
+			String estado = c.IsClosed ? (total == 0 || rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
 			s.putAll(new Map<String, Object>{
 				'fecha' => c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber, 'estadoPortal' => estado,
 				'pendiente' => estado == 'Recibida', 'enviadaPor' => c.CreatedBy == null ? null : c.CreatedBy.Name,

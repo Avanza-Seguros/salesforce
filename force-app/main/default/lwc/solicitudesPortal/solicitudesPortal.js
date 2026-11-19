@@ -4,7 +4,7 @@
 // por atender (Recibida). Se usa en c-movimientos-colectivo, c-movimientos-flotilla y c-movimientos-ubicaciones:
 // «Excel para la aseguradora» descarga el Excel de los movimientos de la solicitud (lo arma el componente que lo
 // contiene); «Agregar movimientos» hace que los que se registren lleven el folio; «Rechazar» (solo si aún no tiene
-// movimientos) concluye el caso con el motivo (el cliente lo ve en el sitio).
+// movimientos) concluye el caso con el motivo (el cliente lo ve en el sitio); los movimientos ya registrados no se borran.
 import { LightningElement, api } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import rechazarSolicitud from '@salesforce/apex/EndosoPoliza.rechazarSolicitud';
@@ -30,13 +30,17 @@ export default class SolicitudesPortal extends LightningElement {
                 lineas: lineas.map((l, i) => ({ key: i, texto: l })),
                 docs: (s.documentos || []).map((d) => ({ ...d, liga: `/lightning/r/ContentDocument/${d.id}/view` })),
                 rechazando: this.rechazando === s.casoId,
+                avisoRechazo: s.total > 0
+                    ? (s.total === 1 ? 'El movimiento ya registrado no se borra' : `Los ${s.total} movimientos ya registrados no se borran`)
+                        + ': si no proceden, dalos de baja o corrígelos aparte.'
+                    : '',
                 conMovimientos: s.total > 0,
                 resumenTxt: s.total > 0 ? `${s.total} ${s.total === 1 ? 'movimiento registrado' : 'movimientos registrados'}`
-                    + (s.abiertos ? ` · ${s.abiertos} sin cerrar` : '')
-                    : (this.puedeEditar ? 'Sin movimientos registrados: captúralos con «Atender» o recházala'
+                    + (s.abiertos ? ` · ${s.abiertos} ${s.abiertos === 1 ? 'pendiente' : 'pendientes'} de cerrar con la aseguradora` : '')
+                    : (this.puedeEditar ? 'Sin movimientos registrados: captúralos con «Capturar movimientos» o recházala'
                         // Póliza de un solo vehículo (o sin permiso de edición): no se capturan aquí.
                         : 'Sin movimientos registrados: esta póliza no admite capturarlos aquí; envía el archivo del cliente a la aseguradora o recházala'),
-                textoAtender: activa ? 'Dejar de atender' : (s.total > 0 ? 'Agregar movimientos' : 'Atender'),
+                textoAtender: activa ? 'Terminar captura' : 'Capturar movimientos',
                 varianteAtender: activa ? 'neutral' : (s.total > 0 ? 'neutral' : 'brand')
             };
         });

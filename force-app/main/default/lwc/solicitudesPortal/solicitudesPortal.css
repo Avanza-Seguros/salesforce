@@ -82,3 +82,9 @@
 .rechazo .botones {
     margin-top: 0.5rem;
 }
+
+.panel-ayuda {
+    font-size: 0.75rem;
+    color: #5c5c5c;
+    margin: -0.25rem 0 0.5rem;
+}

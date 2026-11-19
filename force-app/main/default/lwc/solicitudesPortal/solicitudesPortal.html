@@ -2,6 +2,9 @@
     <template lwc:if={hayPendientes}>
         <div class="panel">
             <p class="panel-titulo">{titulo}</p>
+            <p class="panel-ayuda">Solicitudes que el cliente envió desde el sitio y que aún no terminan. Descarga el Excel para la aseguradora;
+                con «Capturar movimientos» las altas, bajas y cambios que registres abajo quedan ligados a esa solicitud.
+                Cuando todos sus movimientos se cierran con la aseguradora, la solicitud sale de esta lista.</p>
             <template for:each={pendientes} for:item="s">
                 <div key={s.folio} class={s.clase}>
                     <div class="cabecera">
@@ -10,7 +13,7 @@
                         <span class="sub">{s.fechaTxt}</span>
                         <span lwc:if={s.enviadaPor} class="sub">Envió {s.enviadaPor}</span>
                         <span class="sub">{s.resumenTxt}</span>
-                        <template lwc:if={s.activa}><span class="atendiendo">Atendiendo: los movimientos que registres llevan este folio</span></template>
+                        <template lwc:if={s.activa}><span class="atendiendo">Capturando: los movimientos que registres abajo quedan ligados a {s.folio}</span></template>
                         <div class="botones">
                             <template lwc:if={s.conMovimientos}>
                                 <lightning-button label="Excel para la aseguradora" variant="brand" icon-name="utility:download"
@@ -20,8 +23,8 @@
                                 <lightning-button label={s.textoAtender} data-folio={s.folio} onclick={handleAtender}
                                     variant={s.varianteAtender} class="slds-m-left_x-small"></lightning-button>
                             </template>
-                            <!-- Rechazar solo concluye el caso: también en pólizas donde no se capturan movimientos. -->
-                            <template lwc:if={s.pendiente}>
+                            <!-- Rechazar concluye el caso en cualquier momento (los movimientos ya registrados no se borran). -->
+                            <template lwc:if={s.portal}>
                                 <lightning-button label="Rechazar" variant="destructive-text" data-id={s.casoId} onclick={handleRechazar}
                                     class="slds-m-left_x-small"></lightning-button>
                             </template>
@@ -42,6 +45,7 @@
                         <div class="rechazo">
                             <lightning-textarea label="Motivo del rechazo (lo ve el cliente)" value={motivo} onchange={handleMotivo}
                                 required max-length="1000"></lightning-textarea>
+                            <p lwc:if={s.avisoRechazo} class="sub slds-m-top_xx-small">{s.avisoRechazo}</p>
                             <div class="botones">
                                 <lightning-button label="Cancelar" onclick={handleCancelar} disabled={enviando}></lightning-button>
                                 <lightning-button label="Rechazar solicitud" variant="destructive" onclick={handleConfirmar} disabled={enviando}
