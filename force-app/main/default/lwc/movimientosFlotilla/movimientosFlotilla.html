@@ -104,11 +104,11 @@
                                         <th scope="col" class="col-acciones"></th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <template for:each={bloques} for:item="b">
+                                <template for:each={bloques} for:item="b">
+                                <tbody key={b.key}>
                                     <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
                                     <template lwc:if={b.encabezado}>
-                                        <tr key={b.key} class="fila-solicitud">
+                                        <tr class="fila-solicitud">
                                             <td colspan={columnasTabla}>
                                                 <div class="sol-enc">
                                                     <lightning-button-icon icon-name={b.icono} variant="bare" size="small" alternative-text={b.textoColapsar}
@@ -164,8 +164,8 @@
                                             </td>
                                         </tr>
                                     </template>
-                                    </template>
                                 </tbody>
+                                </template>
                             </table>
                         </div>
                         <div class="mov-paginacion">

@@ -151,4 +151,38 @@ private class PortalPolizasMovimientosTest {
 		System.assertNotEquals(null, polizaAjena, 'Rechaza una póliza ajena');
 		System.assertEquals('Solo el contratante de la póliza puede registrar movimientos.', noContratante);
 	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Lo que el contratante registra en las pestañas del sitio crea el caso de la solicitud (una sola vez
+	 * por folio), igual que una solicitud enviada desde Solicitudes.
+	 * @return void
+	 */
+	@isTest
+	static void testCasoDelSitio() {
+		Account empresa = new Account(Name = 'Empresa Caso Sitio');
+		insert empresa;
+		InsurancePolicy pol = poliza(empresa.Id, 'MOV-CASO');
+		insert pol;
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+
+		Test.startTest();
+		Map<String, Object> r1 = PortalPolizasMovimientos.casoDelSitio(pol.Id, null,
+			new Map<String, Object>{ 'solicitud' => 'SOL-0001', 'altas' => 2, 'bajas' => 0, 'cambios' => 0 });
+		Map<String, Object> r2 = PortalPolizasMovimientos.casoDelSitio(pol.Id, null,
+			new Map<String, Object>{ 'solicitud' => 'SOL-0001', 'altas' => 0, 'bajas' => 1, 'cambios' => 0 });
+		Map<String, Object> sinFolio = PortalPolizasMovimientos.casoDelSitio(pol.Id, null, new Map<String, Object>{ 'altas' => 1 });
+		Test.stopTest();
+
+		if (EndosoPoliza.tipoCaso() == null) { return; }
+		List<Case> casos = [SELECT Solicitud__c, Subject, Origin, Reason FROM Case WHERE InsurancePolicy__c = :pol.Id];
+		System.assertEquals(1, casos.size(), 'Un caso por folio');
+		System.assertEquals('SOL-0001', casos[0].Solicitud__c);
+		System.assertEquals('Sitio Web', casos[0].Origin);
+		System.assert(casos[0].Subject.contains('2 altas'));
+		System.assertNotEquals(null, r1.get('caso'));
+		System.assertEquals(r1.get('caso'), r2.get('caso'));
+		System.assertEquals(null, sinFolio.get('caso'));
+	}
 }

@@ -214,6 +214,9 @@ public inherited sharing class EndosoPoliza {
 		for (Case c : casos) {
 			if (String.isBlank(c.Solicitud__c)) { continue; }
 			Map<String, Object> s = porFolio.get(c.Solicitud__c);
+			// Caso creado después de los movimientos (registrados en las pestañas del sitio): fecha y autor son los de
+			// los movimientos.
+			Boolean previos = s != null && (Integer) s.get('total') > 0 && s.get('fecha') != null && (Datetime) s.get('fecha') < c.CreatedDate;
 			if (s == null) {
 				s = nuevaSolicitud(c.Solicitud__c, c.CreatedDate, null);
 				porFolio.put(c.Solicitud__c, s);
@@ -225,9 +228,10 @@ public inherited sharing class EndosoPoliza {
 			Boolean rechazo = respuesta != null && respuesta.startsWith('Solicitud rechazada:');
 			String estado = c.IsClosed ? (total == 0 || rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
 			s.putAll(new Map<String, Object>{
-				'fecha' => c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber, 'estadoPortal' => estado,
-				'pendiente' => estado == 'Recibida', 'enviadaPor' => c.CreatedBy == null ? null : c.CreatedBy.Name,
-				'usuario' => c.CreatedBy == null ? null : c.CreatedBy.Name,
+				'fecha' => previos ? s.get('fecha') : c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber,
+				'estadoPortal' => estado, 'pendiente' => estado == 'Recibida',
+				'enviadaPor' => previos ? s.get('usuario') : (c.CreatedBy == null ? null : c.CreatedBy.Name),
+				'usuario' => previos ? s.get('usuario') : (c.CreatedBy == null ? null : c.CreatedBy.Name),
 				'asunto' => c.Subject, 'descripcion' => c.Description, 'comentario' => c.Comentarios__c,
 				'respuesta' => comentarios.get(c.Id),
 				'documentos' => docs.containsKey(c.Id) ? docs.get(c.Id) : new List<Map<String, Object>>()

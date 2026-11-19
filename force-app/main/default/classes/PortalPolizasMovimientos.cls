@@ -36,19 +36,19 @@ public without sharing class PortalPolizasMovimientos {
 				: (Map<String, Object>) JSON.deserializeUntyped(parametros);
 			switch on accion {
 				when 'MovimientosColectivo.aplicar' {
-					return MovimientosColectivoController.aplicar(policyId, texto(p, 'movimientosJson'));
+					return casoDelSitio(policyId, cuentaVistaPrevia, MovimientosColectivoController.aplicar(policyId, texto(p, 'movimientosJson')));
 				}
 				when 'MovimientosColectivo.compararArchivo' {
 					return MovimientosColectivoController.compararArchivo(policyId, texto(p, 'miembrosJson'), p.get('censoCompleto') == true);
 				}
 				when 'MovimientosFlotilla.aplicar' {
-					return MovimientosFlotillaController.aplicar(policyId, texto(p, 'movimientosJson'));
+					return casoDelSitio(policyId, cuentaVistaPrevia, MovimientosFlotillaController.aplicar(policyId, texto(p, 'movimientosJson')));
 				}
 				when 'MovimientosFlotilla.compararArchivo' {
 					return MovimientosFlotillaController.compararArchivo(policyId, texto(p, 'incisosJson'), p.get('censoCompleto') == true);
 				}
 				when 'MovimientosUbicaciones.aplicar' {
-					return MovimientosUbicacionesController.aplicar(policyId, texto(p, 'movimientosJson'));
+					return casoDelSitio(policyId, cuentaVistaPrevia, MovimientosUbicacionesController.aplicar(policyId, texto(p, 'movimientosJson')));
 				}
 				when 'MovimientosColectivo.cerrarMovimiento' {
 					Id movimientoId = registro(p, 'movimientoId', policyId);
@@ -221,5 +221,60 @@ public without sharing class PortalPolizasMovimientos {
 		res.put('polizas', polizas);
 		res.put('portal', true);
 		return res;
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Lo que el contratante registra en Asegurados, Vehículos o Ubicaciones del sitio sigue el mismo proceso
+	 * que una solicitud enviada desde Solicitudes: si el folio aún no tiene caso, se crea el caso «Solicitud de
+	 * movimientos» (En proceso, del ejecutivo dueño de la póliza, con aviso a Avanza por el flujo del caso), así aparece
+	 * en Salesforce entre las solicitudes del sitio en trámite y en el sitio con su caso.
+	 * @param policyId: Id de la póliza
+	 * @param cuentaVistaPrevia: Cuenta a simular (vista previa de administrador); null para el usuario real
+	 * @param r: resultado de aplicar (solicitud, altas, bajas, cambios)
+	 * @return el mismo resultado, con el número de caso
+	 */
+	@TestVisible
+	static Map<String, Object> casoDelSitio(Id policyId, Id cuentaVistaPrevia, Map<String, Object> r) {
+		String folio = r == null ? null : (String) r.get('solicitud');
+		Id tipoCaso = EndosoPoliza.tipoCaso();
+		if (String.isBlank(folio) || tipoCaso == null) { return r; }
+		List<Case> existentes = [SELECT CaseNumber FROM Case WHERE RecordTypeId = :tipoCaso AND InsurancePolicy__c = :policyId
+			AND Solicitud__c = :folio LIMIT 1];
+		if (!existentes.isEmpty()) {
+			r.put('caso', existentes[0].CaseNumber);
+			return r;
+		}
+		List<String> resumen = new List<String>();
+		Map<String, String> nombres = new Map<String, String>{ 'altas' => 'alta', 'bajas' => 'baja', 'cambios' => 'cambio' };
+		String tipoUnico = null;
+		Integer tipos = 0;
+		for (String k : new List<String>{ 'altas', 'bajas', 'cambios' }) {
+			Integer n = r.get(k) == null ? 0 : Integer.valueOf(r.get(k));
+			if (n > 0) {
+				resumen.add(n + ' ' + nombres.get(k) + (n == 1 ? '' : 's'));
+				tipos++;
+				tipoUnico = nombres.get(k).capitalize();
+			}
+		}
+		InsurancePolicy p = [SELECT Name, OwnerId FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
+		List<Id> yo = PortalPolizasController.identidad(cuentaVistaPrevia);
+		Case c = new Case(RecordTypeId = tipoCaso, InsurancePolicy__c = policyId, AccountId = yo.isEmpty() ? null : yo[0],
+			Origin = 'Sitio Web', Solicitud__c = folio, Poliza_Number__c = p.Name,
+			Subject = (folio + ' · Póliza ' + p.Name + (resumen.isEmpty() ? '' : ' · ' + String.join(resumen, ', '))).left(255),
+			Description = 'Solicitud ' + folio + ' registrada desde el sitio por ' + UserInfo.getName()
+				+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.');
+		if (tipos == 1) { c.Reason = tipoUnico; }
+		String enProceso = EndosoPoliza.estadoCaso('En proceso');
+		if (enProceso != null) { c.Status = enProceso; }
+		// El caso lo atiende el ejecutivo dueño de la póliza.
+		if (p.OwnerId != null && p.OwnerId.getSobjectType() == User.SObjectType
+				&& [SELECT COUNT() FROM User WHERE Id = :p.OwnerId AND IsActive = true AND ContactId = null] > 0) {
+			c.OwnerId = p.OwnerId;
+		}
+		insert c;
+		r.put('caso', [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber);
+		return r;
 	}
 }
