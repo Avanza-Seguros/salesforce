@@ -265,6 +265,79 @@ export default class PortalDashboard extends LightningElement {
             { clave: 'Cambio', texto: `${a.Cambio || 0} cambio${a.Cambio === 1 ? '' : 's'}`, clase: 'estado estado_pendiente' }
         ];
     }
+    // Altas, bajas y cambios de cada uno de los últimos 12 meses (tres barras por mes, misma escala).
+    get movimientosMes() {
+        const lista = (this.datos && this.datos.movimientosPorMes) || [];
+        const max = Math.max(1, ...lista.map((m) => Math.max(m.altas || 0, m.bajas || 0, m.cambios || 0)));
+        const alto = (n) => `height: ${n > 0 ? Math.max(4, (n / max) * 100) : 0}%`;
+        return lista.map((m) => {
+            const f = this.mesDe(m.inicio);
+            const a = m.altas || 0;
+            const b = m.bajas || 0;
+            const c = m.cambios || 0;
+            return {
+                clave: m.inicio, mes: f.corto, mesLargo: f.largo, altas: a, bajas: b, cambios: c,
+                estiloAltas: alto(a), estiloBajas: alto(b), estiloCambios: alto(c),
+                ayuda: `${f.largo}: ${a} alta${a === 1 ? '' : 's'}, ${b} baja${b === 1 ? '' : 's'}, ${c} cambio${c === 1 ? '' : 's'}`
+            };
+        });
+    }
+    get hayMovimientosMes() {
+        return this.movimientosMes.some((m) => m.altas || m.bajas || m.cambios);
+    }
+
+    // Prima de los endosos por mes (en la moneda principal): lo cobrado y lo devuelto.
+    get primasMes() {
+        const mon = this.monedaPrincipal;
+        const porMes = new Map(((this.datos && this.datos.movimientosPorMes) || [])
+            .map((m) => [m.inicio, { cargos: 0, devoluciones: 0, endosos: 0 }]));
+        ((this.datos && this.datos.primasPorMes) || []).forEach((p) => {
+            if (codigoMoneda(p.moneda) !== mon || !porMes.has(p.inicio)) { return; }
+            const x = porMes.get(p.inicio);
+            x.cargos += p.cargos || 0;
+            x.devoluciones += p.devoluciones || 0;
+            x.endosos += p.endosos || 0;
+        });
+        const max = Math.max(1, ...[...porMes.values()].map((x) => Math.max(x.cargos, x.devoluciones)));
+        const alto = (n) => `height: ${n > 0 ? Math.max(4, (n / max) * 100) : 0}%`;
+        return [...porMes.entries()].map(([inicio, x]) => {
+            const f = this.mesDe(inicio);
+            const cobrado = this.moneda(x.cargos, mon);
+            const devuelto = this.moneda(x.devoluciones, mon);
+            const neto = this.moneda(x.cargos - x.devoluciones, mon);
+            return {
+                clave: inicio, mes: f.corto, mesLargo: f.largo, cobrado, devuelto, neto, endosos: x.endosos,
+                estiloCargos: alto(x.cargos), estiloDevoluciones: alto(x.devoluciones),
+                vacio: !x.cargos && !x.devoluciones,
+                ayuda: `${f.largo}: cobrado ${cobrado}, devuelto ${devuelto}, neto ${neto}`
+            };
+        });
+    }
+    get hayPrimasMes() {
+        return this.primasMes.some((m) => !m.vacio);
+    }
+    get resumenPrimas() {
+        const mon = this.monedaPrincipal;
+        let c = 0;
+        let d = 0;
+        ((this.datos && this.datos.primasPorMes) || []).forEach((p) => {
+            if (codigoMoneda(p.moneda) === mon) { c += p.cargos || 0; d += p.devoluciones || 0; }
+        });
+        return [
+            { clave: 'cobrado', texto: `Cobrado ${this.moneda(c, mon)}`, clase: 'estado estado_vigente' },
+            { clave: 'devuelto', texto: `Devuelto ${this.moneda(d, mon)}`, clase: 'estado estado_vencido' },
+            { clave: 'neto', texto: `Neto ${this.moneda(c - d, mon)}`, clase: 'estado estado_inactiva' }
+        ];
+    }
+    mesDe(inicio) {
+        const [a, mm] = String(inicio).split('-').map(Number);
+        const fecha = new Date(a, mm - 1, 1);
+        return {
+            corto: new Intl.DateTimeFormat('es-MX', { month: 'short' }).format(fecha).replace('.', ''),
+            largo: new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(fecha)
+        };
+    }
+
     get hayPagosProximos() {
         return this.meses.some((m) => !m.vacio);
     }

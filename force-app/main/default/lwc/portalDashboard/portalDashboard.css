@@ -289,6 +289,20 @@
 .columnas_12 { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.375rem; }
 .columnas_12 .columna_pista { height: 140px; }
 
+/* Barras agrupadas por mes (movimientos y prima de endosos) */
+.columna_grupo { display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.grupo_barra { position: relative; flex: 1 1 0; height: 100%; max-width: 10px; }
+.grupo_relleno { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px 3px 0 0; transition: height 0.4s ease; }
+.columna:hover .grupo_relleno { filter: brightness(1.08); }
+.relleno_alta { background: var(--pp-ok); }
+.relleno_baja { background: var(--pp-error); }
+.relleno_cambio { background: var(--pp-alerta); }
+.relleno_cobrado { background: var(--pp-acento); }
+.relleno_devuelto { background: var(--pp-error); }
+.leyenda { display: flex; flex-wrap: wrap; gap: 0.875rem; margin-top: 0.75rem; font-size: 0.75rem; color: var(--pp-texto-suave); }
+.leyenda span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.leyenda_punto { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+
 /* ===== Bienes asegurados ===== */
 .bienes { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.875rem; }
 .bien {

@@ -217,6 +217,85 @@
                 </section>
             </div>
 
+            <!-- ===== Movimientos y prima de endosos por mes ===== -->
+            <div class="rejilla">
+                <section class="panel">
+                    <h2 class="panel_titulo">Altas, bajas y cambios por mes</h2>
+                    <p class="panel_sub">Movimientos de asegurados, vehículos y ubicaciones en los últimos 12 meses</p>
+                    <div class="resumen_movimientos">
+                        <template for:each={resumenMovimientos} for:item="r">
+                            <span key={r.clave} class={r.clase}>{r.texto}</span>
+                        </template>
+                    </div>
+                    <template lwc:if={hayMovimientosMes}>
+                        <ul class="columnas columnas_12" aria-hidden="true">
+                            <template for:each={movimientosMes} for:item="m">
+                                <li key={m.clave} class="columna" title={m.ayuda}>
+                                    <div class="columna_pista columna_grupo">
+                                        <div class="grupo_barra"><div class="grupo_relleno relleno_alta" style={m.estiloAltas}></div></div>
+                                        <div class="grupo_barra"><div class="grupo_relleno relleno_baja" style={m.estiloBajas}></div></div>
+                                        <div class="grupo_barra"><div class="grupo_relleno relleno_cambio" style={m.estiloCambios}></div></div>
+                                    </div>
+                                    <span class="columna_mes">{m.mes}</span>
+                                </li>
+                            </template>
+                        </ul>
+                        <div class="leyenda" aria-hidden="true">
+                            <span><i class="leyenda_punto relleno_alta"></i>Altas</span>
+                            <span><i class="leyenda_punto relleno_baja"></i>Bajas</span>
+                            <span><i class="leyenda_punto relleno_cambio"></i>Cambios</span>
+                        </div>
+                        <table class="solo_lector">
+                            <caption>Altas, bajas y cambios por mes</caption>
+                            <thead><tr><th scope="col">Mes</th><th scope="col">Altas</th><th scope="col">Bajas</th><th scope="col">Cambios</th></tr></thead>
+                            <tbody>
+                                <template for:each={movimientosMes} for:item="m">
+                                    <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.altas}</td><td>{m.bajas}</td><td>{m.cambios}</td></tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <p lwc:else class="panel_vacio">No hay movimientos en los últimos 12 meses.</p>
+                </section>
+
+                <section class="panel">
+                    <h2 class="panel_titulo">Prima de endosos por mes</h2>
+                    <p class="panel_sub">Lo cobrado (altas y aumentos) y lo devuelto (bajas) en los últimos 12 meses</p>
+                    <div class="resumen_movimientos">
+                        <template for:each={resumenPrimas} for:item="r">
+                            <span key={r.clave} class={r.clase}>{r.texto}</span>
+                        </template>
+                    </div>
+                    <template lwc:if={hayPrimasMes}>
+                        <ul class="columnas columnas_12" aria-hidden="true">
+                            <template for:each={primasMes} for:item="m">
+                                <li key={m.clave} class="columna" title={m.ayuda}>
+                                    <div class="columna_pista columna_grupo">
+                                        <div class="grupo_barra"><div class="grupo_relleno relleno_cobrado" style={m.estiloCargos}></div></div>
+                                        <div class="grupo_barra"><div class="grupo_relleno relleno_devuelto" style={m.estiloDevoluciones}></div></div>
+                                    </div>
+                                    <span class="columna_mes">{m.mes}</span>
+                                </li>
+                            </template>
+                        </ul>
+                        <div class="leyenda" aria-hidden="true">
+                            <span><i class="leyenda_punto relleno_cobrado"></i>Cobrado</span>
+                            <span><i class="leyenda_punto relleno_devuelto"></i>Devuelto</span>
+                        </div>
+                        <table class="solo_lector">
+                            <caption>Prima de endosos por mes</caption>
+                            <thead><tr><th scope="col">Mes</th><th scope="col">Cobrado</th><th scope="col">Devuelto</th><th scope="col">Neto</th><th scope="col">Endosos</th></tr></thead>
+                            <tbody>
+                                <template for:each={primasMes} for:item="m">
+                                    <tr key={m.clave}><th scope="row">{m.mesLargo}</th><td>{m.cobrado}</td><td>{m.devuelto}</td><td>{m.neto}</td><td>{m.endosos}</td></tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <p lwc:else class="panel_vacio">No hay endosos con prima en los últimos 12 meses.</p>
+                </section>
+            </div>
+
             <!-- ===== Endosos y movimientos ===== -->
             <div class="rejilla">
                 <section class="panel">

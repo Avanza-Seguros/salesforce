@@ -98,6 +98,23 @@ public without sharing class PortalPolizasController {
 		@AuraEnabled public Date fecha;
 	}
 
+	/** Altas, bajas y cambios registrados en un mes (pólizas donde el usuario es el contratante). */
+	public class MovimientosMes {
+		@AuraEnabled public Date inicio;
+		@AuraEnabled public Integer altas = 0;
+		@AuraEnabled public Integer bajas = 0;
+		@AuraEnabled public Integer cambios = 0;
+	}
+
+	/** Prima de los endosos de un mes en una moneda: lo que se cobra (importes positivos) y lo que se devuelve (negativos). */
+	public class PrimaMes {
+		@AuraEnabled public Date inicio;
+		@AuraEnabled public String moneda;
+		@AuraEnabled public Decimal cargos = 0;
+		@AuraEnabled public Decimal devoluciones = 0;
+		@AuraEnabled public Integer endosos = 0;
+	}
+
 	public class Dashboard {
 		@AuraEnabled public List<Poliza> polizas = new List<Poliza>();
 		@AuraEnabled public Map<String, Integer> bienes = new Map<String, Integer>();
@@ -105,6 +122,8 @@ public without sharing class PortalPolizasController {
 		@AuraEnabled public List<EndosoDashboard> endosos = new List<EndosoDashboard>();
 		@AuraEnabled public List<MovimientoDashboard> movimientos = new List<MovimientoDashboard>();
 		@AuraEnabled public Map<String, Integer> movimientosAnio = new Map<String, Integer>{ 'Alta' => 0, 'Baja' => 0, 'Cambio' => 0 };
+		@AuraEnabled public List<MovimientosMes> movimientosPorMes = new List<MovimientosMes>();
+		@AuraEnabled public List<PrimaMes> primasPorMes = new List<PrimaMes>();
 		@AuraEnabled public List<CuotaDashboard> proximasCuotas = new List<CuotaDashboard>();
 		@AuraEnabled public List<MesDashboard> pagosPorMes = new List<MesDashboard>();
 		@AuraEnabled public Decimal totalPendiente = 0;
@@ -142,6 +161,14 @@ public without sharing class PortalPolizasController {
 	 */
 	static void movimientosYEndosos(Dashboard d, Map<Id, String> roles, Map<Id, Poliza> porId) {
 		Set<Id> ids = roles.keySet();
+		// Últimos 12 meses (el actual incluido): movimientos por mes y prima de los endosos por mes.
+		Date primerMes = Date.today().toStartOfMonth().addMonths(-11);
+		for (Integer i = 0; i < 12; i++) {
+			MovimientosMes mm = new MovimientosMes();
+			mm.inicio = primerMes.addMonths(i);
+			d.movimientosPorMes.add(mm);
+		}
+		primasPorMes(d, ids, porId, primerMes);
 		for (InsurancePolicyTransaction t : [
 			SELECT Id, Name, TransactionNumber, InsurancePolicyId, EffectiveFromDate, TransactionEffectiveDate, TotalTransactionAmount
 			FROM InsurancePolicyTransaction
@@ -179,6 +206,19 @@ public without sharing class PortalPolizasController {
 			String tipo = (String) ar.get('tipo');
 			if (d.movimientosAnio.containsKey(tipo)) { d.movimientosAnio.put(tipo, (Integer) ar.get('n')); }
 		}
+		for (AggregateResult ar : [
+			SELECT CALENDAR_YEAR(Fecha_Movimiento__c) anio, CALENDAR_MONTH(Fecha_Movimiento__c) mes, Tipo__c tipo, COUNT(Id) n
+			FROM Movimiento_Poliza__c
+			WHERE Poliza__c IN :propias AND Fecha_Movimiento__c >= :primerMes
+			GROUP BY CALENDAR_YEAR(Fecha_Movimiento__c), CALENDAR_MONTH(Fecha_Movimiento__c), Tipo__c
+		]) {
+			Integer i = primerMes.monthsBetween(Date.newInstance((Integer) ar.get('anio'), (Integer) ar.get('mes'), 1));
+			if (i < 0 || i >= 12) { continue; }
+			MovimientosMes mm = d.movimientosPorMes[i];
+			Integer n = (Integer) ar.get('n');
+			String tipo = (String) ar.get('tipo');
+			if (tipo == 'Alta') { mm.altas += n; } else if (tipo == 'Baja') { mm.bajas += n; } else if (tipo == 'Cambio') { mm.cambios += n; }
+		}
 		for (Movimiento_Poliza__c m : [
 			SELECT Id, Tipo__c, Asegurado__c, Numero_Endoso__c, Fecha_Movimiento__c, Poliza__c
 			FROM Movimiento_Poliza__c WHERE Poliza__c IN :propias
@@ -193,6 +233,49 @@ public without sharing class PortalPolizasController {
 			x.endoso = m.Numero_Endoso__c;
 			x.fecha = m.Fecha_Movimiento__c;
 			d.movimientos.add(x);
+		}
+	}
+
+	/**
+	 * @creation date: 19/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima de los endosos de las pólizas del usuario en cada uno de los últimos 12 meses, por moneda:
+	 * lo cobrado (endosos con importe positivo, p. ej. altas) y lo devuelto (importe negativo, p. ej. bajas).
+	 * @param d: Dashboard a completar
+	 * @param ids: Pólizas del usuario
+	 * @param porId: Pólizas del usuario por Id (para la moneda)
+	 * @param primerMes: Primer día del primer mes
+	 * @return void
+	 */
+	static void primasPorMes(Dashboard d, Set<Id> ids, Map<Id, Poliza> porId, Date primerMes) {
+		Map<String, PrimaMes> porClave = new Map<String, PrimaMes>();
+		Datetime desde = Datetime.newInstance(primerMes, Time.newInstance(0, 0, 0, 0));
+		for (InsurancePolicyTransaction t : [
+			SELECT InsurancePolicyId, EffectiveFromDate, TransactionEffectiveDate, TotalTransactionAmount, TransactionAmount
+			FROM InsurancePolicyTransaction
+			WHERE InsurancePolicyId IN :ids AND Category = 'Endorsement'
+				AND (EffectiveFromDate >= :primerMes OR (EffectiveFromDate = null AND TransactionEffectiveDate >= :desde))
+			LIMIT 5000
+		]) {
+			// Total del endoso (prima con derechos e IVA); si no lo hay, la prima neta.
+			Decimal monto = t.TotalTransactionAmount != null ? t.TotalTransactionAmount : t.TransactionAmount;
+			if (monto == null || monto == 0) { continue; }
+			Date f = t.EffectiveFromDate != null ? t.EffectiveFromDate : t.TransactionEffectiveDate.date();
+			Integer i = primerMes.monthsBetween(f.toStartOfMonth());
+			if (i < 0 || i >= 12) { continue; }
+			Poliza p = porId.get(t.InsurancePolicyId);
+			String moneda = p == null || String.isBlank(p.moneda) ? 'MXN' : p.moneda;
+			String clave = i + '|' + moneda;
+			PrimaMes pm = porClave.get(clave);
+			if (pm == null) {
+				pm = new PrimaMes();
+				pm.inicio = primerMes.addMonths(i);
+				pm.moneda = moneda;
+				porClave.put(clave, pm);
+				d.primasPorMes.add(pm);
+			}
+			if (monto > 0) { pm.cargos += monto; } else { pm.devoluciones -= monto; }
+			pm.endosos++;
 		}
 	}
 

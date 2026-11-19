@@ -221,8 +221,14 @@ private class PortalPolizasControllerTest {
 		insert mia;
 		InsurancePolicy p = poliza(mia.Id, 'DASH-002');
 		insert p;
-		insert new InsurancePolicyTransaction(InsurancePolicyId = p.Id, Name = 'Endoso A0002 - Alta de ubicación - DASH-002',
-			TransactionNumber = 'A0002', Category = 'Endorsement', EffectiveFromDate = Date.today().addDays(-3));
+		insert new List<InsurancePolicyTransaction>{
+			new InsurancePolicyTransaction(InsurancePolicyId = p.Id, Name = 'Endoso A0002 - Alta de ubicación - DASH-002',
+				TransactionNumber = 'A0002', Category = 'Endorsement', EffectiveFromDate = Date.today().addDays(-3),
+				TransactionAmount = 1500),
+			new InsurancePolicyTransaction(InsurancePolicyId = p.Id, Name = 'Endoso D0001 - Baja de ubicación - DASH-002',
+				TransactionNumber = 'D0001', Category = 'Endorsement', EffectiveFromDate = Date.today().addDays(-3),
+				TransactionAmount = -400)
+		};
 		insert new Movimiento_Poliza__c(Poliza__c = p.Id, Tipo__c = 'Alta', Asegurado__c = 'Calle Uno 100',
 			Fecha_Movimiento__c = Date.today().addDays(-3), Numero_Endoso__c = 'A0002');
 		PortalPolizasController.cuentaPrueba = mia.Id;
@@ -231,9 +237,22 @@ private class PortalPolizasControllerTest {
 		PortalPolizasController.Dashboard d = PortalPolizasController.dashboard(null);
 		Test.stopTest();
 
-		System.assertEquals(1, d.endosos.size(), 'Un endoso');
-		System.assertEquals('A0002', d.endosos[0].numero, 'Número del endoso');
-		System.assertEquals('Alta de ubicación', d.endosos[0].descripcion, 'Descripción sin número ni póliza');
+		System.assertEquals(2, d.endosos.size(), 'Dos endosos');
+		Boolean conDescripcion = false;
+		for (PortalPolizasController.EndosoDashboard e : d.endosos) {
+			if (e.numero == 'A0002') { conDescripcion = e.descripcion == 'Alta de ubicación'; }
+		}
+		System.assert(conDescripcion, 'Descripción sin número ni póliza');
+		// Por mes: la alta en su mes y la prima cobrada y devuelta de los endosos.
+		System.assertEquals(12, d.movimientosPorMes.size(), 'Doce meses de movimientos');
+		Integer altas = 0;
+		for (PortalPolizasController.MovimientosMes m : d.movimientosPorMes) { altas += m.altas; }
+		System.assertEquals(1, altas, 'La alta en su mes');
+		Decimal cargos = 0;
+		Decimal devoluciones = 0;
+		for (PortalPolizasController.PrimaMes m : d.primasPorMes) { cargos += m.cargos; devoluciones += m.devoluciones; }
+		System.assertEquals(1500, cargos, 'Prima cobrada');
+		System.assertEquals(400, devoluciones, 'Prima devuelta');
 		System.assertEquals(1, d.movimientos.size(), 'Un movimiento');
 		System.assertEquals(1, d.movimientosAnio.get('Alta'), 'Una alta en el año');
 	}
