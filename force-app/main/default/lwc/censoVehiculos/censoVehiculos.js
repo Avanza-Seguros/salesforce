@@ -13,7 +13,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import {
     fold, tieneDatos, numero, moneda, abrirTabla, detectarEncabezado,
-    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, paginasPdf, inicioDatos
+    mapeoAutomatico, opcionesColumnas, opcionesEncabezado, paginasPdf, inicioDatos, descargarArchivo
 } from 'c/lectorArchivos';
 import { incisosDeCaratulas, unirIncisosIa, bloquesPorInciso, corregirIncisos, endosoDeTexto } from 'c/clasificadorArchivos';
 import getCensoVehiculos from '@salesforce/apex/CensoVehiculosController.getCensoVehiculos';
@@ -184,10 +184,7 @@ export default class CensoVehiculos extends LightningElement {
             '1,3GCEC14X38M114075,CHEVROLET,SILVERADO 1500 CABINA REGULAR,2008,JAL1234,Carga,Pick-up de carga,Amplia,Comercial,180000',
             '2,3N1CN7AD5KL800001,NISSAN,VERSA SENSE,2019,JAL5678,Particular,Automóviles,Amplia,Comercial,190000'
         ];
-        const a = document.createElement('a');
-        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + filas.join('\r\n'));
-        a.download = 'Plantilla_censo_vehiculos.csv';
-        a.click();
+        descargarArchivo('Plantilla_censo_vehiculos.csv', '\ufeff' + filas.join('\r\n'), 'text/csv;charset=utf-8');
     }
 
     // ============================================================

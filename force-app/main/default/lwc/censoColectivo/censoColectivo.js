@@ -11,7 +11,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import {
     fold, tieneDatos, numero, fecha, fechaVisible, moneda, abrirTabla, detectarEncabezado,
-    opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos
+    opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos, descargarArchivo
 } from 'c/lectorArchivos';
 import {
     CAMPOS_CENSO, mapeoCenso, normalizarCenso, payloadMiembro, conteoMovimientos, MOVIMIENTOS, movimientosPorRevisar, AVISO_SIN_CONTACTO,
@@ -185,10 +185,7 @@ export default class CensoColectivo extends LightningElement {
             '001,E-100,Sofia,Perez,Sosa,10/05/2015,M,Hijo,Directivos,01/01/2020,,,',
             '002,E-101,Pedro,Gomez,Diaz,22/11/1990,H,Titular,Empleados,15/06/2022,,,'
         ];
-        const a = document.createElement('a');
-        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + filas.join('\r\n'));
-        a.download = 'Plantilla_censo_colectivo.csv';
-        a.click();
+        descargarArchivo('Plantilla_censo_colectivo.csv', '\ufeff' + filas.join('\r\n'), 'text/csv;charset=utf-8');
     }
 
     // ============================================================

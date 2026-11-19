@@ -901,12 +901,29 @@ export function generarXlsx(hoja, columnas, filas) {
  */
 export function descargarExcel(nombreArchivo, hoja, columnas, filas) {
     const bytes = generarXlsx(hoja, columnas, filas);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) { bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); }
+    descargarArchivo(/\.xlsx$/i.test(nombreArchivo) ? nombreArchivo : nombreArchivo + '.xlsx', bytes,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+// Descarga un archivo generado en el navegador. Usa un Blob (las ligas «data:» las bloquea el sitio de
+// empresas y algunos navegadores) y, si no se puede, la liga «data:» de siempre.
+export function descargarArchivo(nombre, contenido, tipo) {
     const a = document.createElement('a');
-    a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + btoa(bin);
-    a.download = /\.xlsx$/i.test(nombreArchivo) ? nombreArchivo : nombreArchivo + '.xlsx';
+    a.download = nombre;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    let url;
+    try {
+        url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+        a.href = url;
+    } catch (e) {
+        const bytes = typeof contenido === 'string' ? new TextEncoder().encode(contenido) : contenido;
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) { bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); }
+        a.href = 'data:' + tipo + ';base64,' + btoa(bin);
+    }
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    if (url) { setTimeout(() => URL.revokeObjectURL(url), 60000); }
 }
