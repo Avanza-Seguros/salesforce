@@ -53,6 +53,9 @@ export default class CensoVehiculos extends LightningElement {
     @api readOnly = false;
     // 'lector': solo lee el archivo y lo entrega en el evento `leido` (no guarda ni muestra el censo).
     @api modo;
+    /** En el sitio de empresas: número de registro en lugar de la fila del archivo. */
+    @api portal = false;
+    get etiquetaFila() { return this.portal ? 'Núm. de registro' : 'Fila'; }
 
     @track censo = null;
     @track mapeo = {};
@@ -569,10 +572,10 @@ export default class CensoVehiculos extends LightningElement {
     }
     get renglonesVista() {
         const ini = (this.pagina - 1) * POR_PAGINA;
-        return this.filtrados.slice(ini, ini + POR_PAGINA).map((r) => ({
+        return this.filtrados.slice(ini, ini + POR_PAGINA).map((r, i) => ({
             key: 'r' + r.idx,
-            fila: r.fila,
-            archivo: this.archivoDe(r.fila),
+            fila: this.portal ? ini + i + 1 : r.fila,
+            archivo: this.portal ? '' : this.archivoDe(r.fila),
             inciso: r.inciso === null ? '' : r.inciso,
             serie: r.serie,
             descripcion: r.descripcion || '(sin descripción)',

@@ -884,7 +884,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Fecha propuesta: hoy en un endoso; el inicio de la nueva vigencia (fin de la anterior) en la renovación.
     get fechaDefault() { return this.enOportunidad && this.datos.polizaAnteriorFin ? this.datos.polizaAnteriorFin : this.hoy; }
     get motivos() { return (this.datos && this.datos.motivos) || []; }
-    get etiquetaFecha() { return this.enPoliza ? 'Fecha en que surte efecto' : 'Fecha (inicio de la renovación)'; }
+    get etiquetaFecha() {
+        if (!this.enPoliza) { return 'Fecha (inicio de la renovación)'; }
+        return this.portal ? 'Fecha de movimiento' : 'Fecha en que surte efecto';
+    }
 
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
@@ -1194,8 +1197,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Columnas opcionales de las altas: solo las que el archivo trae en al menos un renglón.
     get columnasAltas() {
         const altas = this.altasSinCambio;
+        // En el sitio la prima no se muestra.
         return COLUMNAS_ALTA
-            .filter((c) => altas.some((a) => c.valor(a)))
+            .filter((c) => !(this.portal && c.key === 'prima') && altas.some((a) => c.valor(a)))
             .map((c) => ({ ...c, clase: c.num ? 'num' : '' }));
     }
     get bajasRev() {

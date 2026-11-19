@@ -68,8 +68,7 @@ public without sharing class PortalPolizasPestanas {
 			texto(datos, 'Aseguradora', p.Aseguradora__r?.Name);
 			texto(datos, 'Ramo', p.Ramo__c);
 			texto(datos, 'Producto', p.Product?.Name);
-			texto(datos, 'Titular', p.NameInsured?.Name);
-			texto(datos, 'Tu participación', roles.get(policyId));
+			texto(datos, 'Contratante', p.NameInsured?.Name);
 			texto(datos, 'Estado', p.Status);
 			fecha(datos, 'Inicio de vigencia', p.EffectiveDate);
 			fecha(datos, 'Fin de vigencia', p.ExpirationDate);

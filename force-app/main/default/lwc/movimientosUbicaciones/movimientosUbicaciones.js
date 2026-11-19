@@ -662,7 +662,10 @@ export default class MovimientosUbicaciones extends LightningElement {
     }
     get fechaDefault() { return this.enOportunidad && this.datos.polizaAnteriorFin ? this.datos.polizaAnteriorFin : this.hoy; }
     get motivos() { return (this.datos && this.datos.motivos) || []; }
-    get etiquetaFecha() { return this.enPoliza ? 'Fecha en que surte efecto' : 'Fecha (inicio de la renovación)'; }
+    get etiquetaFecha() {
+        if (!this.enPoliza) { return 'Fecha (inicio de la renovación)'; }
+        return this.portal ? 'Fecha de movimiento' : 'Fecha en que surte efecto';
+    }
     // En la póliza el domicilio no se cambia (es otra ubicación); en el listado de la renovación sí.
     get domicilioBloqueado() { return this.enPoliza; }
 

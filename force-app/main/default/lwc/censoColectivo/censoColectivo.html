@@ -274,7 +274,7 @@
                         <thead>
                             <tr class="slds-line-height_reset">
                                 <th scope="col"></th>
-                                <th scope="col">Fila</th>
+                                <th scope="col">{etiquetaFila}</th>
                                 <template if:true={hayMovimientos}><th scope="col">Movimiento</th></template>
                                 <th scope="col">Certificado</th>
                                 <th scope="col">Nombre</th>
@@ -283,7 +283,7 @@
                                 <th scope="col">Nacimiento</th>
                                 <th scope="col" class="num">Edad</th>
                                 <th scope="col">Género</th>
-                                <th scope="col" class="num">Prima</th>
+                                <template if:false={portal}><th scope="col" class="num">Prima</th></template>
                                 <th scope="col">Observaciones</th>
                             </tr>
                         </thead>
@@ -303,7 +303,7 @@
                                     <td>{r.fechaTxt}</td>
                                     <td class="num">{r.edad}</td>
                                     <td>{r.sexo}</td>
-                                    <td class="num">{r.primaTxt}</td>
+                                    <template if:false={portal}><td class="num">{r.primaTxt}</td></template>
                                     <td class="mensajes">{r.mensajes}</td>
                                 </tr>
                             </template>

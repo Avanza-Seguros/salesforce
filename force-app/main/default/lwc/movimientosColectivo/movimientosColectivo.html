@@ -227,7 +227,7 @@
 
                 <!-- ====================== ARCHIVO ====================== -->
                 <template if:true={enArchivo}>
-                    <c-censo-colectivo modo="lector" lee-endosos={enPoliza} onleido={handleLeido} onendoso={handleEndosoLeido}></c-censo-colectivo>
+                    <c-censo-colectivo modo="lector" portal={portal} lee-endosos={enPoliza} onleido={handleLeido} onendoso={handleEndosoLeido}></c-censo-colectivo>
                     <div class="mov-pie">
                         <lightning-button label="Regresar" icon-name="utility:back" onclick={verLista}></lightning-button>
                     </div>
@@ -279,9 +279,11 @@
                             <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                 <lightning-input type="date" label={etiquetaFecha} value={comun.fecha} data-campo="fecha" onchange={handleComun} required></lightning-input>
                             </div>
+                            <template lwc:if={interno}>
                             <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                 <lightning-input label="Número de endoso" value={comun.endoso} data-campo="endoso" onchange={handleComun}></lightning-input>
                             </div>
+                            </template>
                             <template lwc:if={enPoliza}>
                                 <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                     <lightning-combobox label="Solicitud" value={comun.solicitud} options={opcionesSolicitud} data-campo="solicitud"
@@ -299,7 +301,9 @@
                             </div>
                         </div>
                         <template if:true={enPoliza}>
+                            <template lwc:if={interno}>
                             <c-datos-endoso></c-datos-endoso>
+                            </template>
                         </template>
 
                         <template if:true={hayBajas}>
@@ -499,9 +503,11 @@
                                         <lightning-combobox label="Motivo de baja (opcional)" value={form.motivo} options={motivos} data-campo="motivo"
                                             onchange={handleForm} placeholder="Sin motivo"></lightning-combobox>
                                     </div>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
+                                    </template>
                                     <template lwc:if={enPoliza}>
                                         <div class="slds-col slds-size_1-of-2">
                                             <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
@@ -517,8 +523,8 @@
                                     <h4 class="mov-seccion seccion-baja">Datos para el correo de baja</h4>
                                     <p class="sub slds-m-bottom_x-small">
                                         El correo corporativo suele dejar de existir con la baja: captura el correo personal. Al dar de baja no se envía
-                                        ningún correo: queda pendiente y se envía después con «Enviar correo», a esa dirección y con el documento de baja
-                                        (si lo adjuntas) como único archivo. Al enviarlo se cierra el movimiento.
+                                        ningún correo: queda pendiente y se envía después con «Enviar correo», a esa dirección<template lwc:if={interno}> y con el documento de baja
+                                        (si lo adjuntas) como único archivo</template>. Al enviarlo se cierra el movimiento.
                                     </p>
                                     <div class="slds-grid slds-wrap slds-gutters_x-small">
                                         <template for:each={bajaCorreos} for:item="c">
@@ -528,6 +534,7 @@
                                                         <lightning-input type="email" label={c.etiqueta} value={c.valor} data-id={c.id}
                                                             onchange={handleCorreoPersonal} field-level-help={c.corporativo} required></lightning-input>
                                                     </div>
+                                                    <template lwc:if={interno}>
                                                     <div class="slds-col slds-size_1-of-2">
                                                         <div class="slds-form-element__label">{c.etiquetaDocumento}</div>
                                                         <div class="doc-baja-fila">
@@ -536,13 +543,16 @@
                                                         </div>
                                                         <input type="file" class="doc-baja-input" data-id={c.id} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onchange={handleDocumentoBaja} />
                                                     </div>
+                                                    </template>
                                                 </div>
                                             </div>
                                         </template>
                                     </div>
                                 </template>
                                 <template if:true={enPoliza}>
+                                    <template lwc:if={interno}>
                                     <c-datos-endoso></c-datos-endoso>
+                                    </template>
                                 </template>
                             </div>
                             <div class="slds-modal__footer">
@@ -592,10 +602,12 @@
                                         <lightning-input type="number" formatter="currency" step="0.01" label="Suma asegurada" value={form.sumaAsegurada}
                                             data-campo="sumaAsegurada" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={form.prima}
                                             data-campo="prima" onchange={handleForm}></lightning-input>
                                     </div>
+                                    </template>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="RFC" value={form.rfc} data-campo="rfc" onchange={handleForm} max-length="13"></lightning-input>
                                     </div>
@@ -605,9 +617,11 @@
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
                                     </div>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
+                                    </template>
                                     <template lwc:if={enPoliza}>
                                         <div class="slds-col slds-size_1-of-2">
                                             <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
@@ -616,7 +630,9 @@
                                     </template>
                                 </div>
                                 <template if:true={enPoliza}>
+                                    <template lwc:if={interno}>
                                     <c-datos-endoso></c-datos-endoso>
+                                    </template>
                                 </template>
                             </div>
                             <div class="slds-modal__footer">
@@ -638,9 +654,11 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} data-campo="fechaNacimiento" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="RFC" value={form.rfc} data-campo="rfc" onchange={handleForm} max-length="13"></lightning-input>
                                     </div>
+                                    </template>
                                     <template if:true={enPoliza}>
                                         <div class="slds-col slds-size_2-of-3">
                                             <lightning-input type="email" label="Correo" value={form.email} data-campo="email" onchange={handleForm}
@@ -651,14 +669,18 @@
                                         <lightning-input label="Categoría" value={form.categoria} data-campo="categoria" onchange={handleForm}
                                             field-level-help={ayudaCategoria}></lightning-input>
                                     </div>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="number" formatter="currency" step="0.01" label="Suma asegurada" value={form.sumaAsegurada}
                                             data-campo="sumaAsegurada" onchange={handleForm}></lightning-input>
                                     </div>
+                                    </template>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="number" formatter="currency" step="0.01" label="Prima" value={form.prima}
                                             data-campo="prima" onchange={handleForm}></lightning-input>
                                     </div>
+                                    </template>
                                     <template if:true={enOportunidad}>
                                         <div class="slds-col slds-size_1-of-3">
                                             <lightning-combobox label="Sexo" value={form.sexo} options={opcionesSexo} data-campo="sexo" onchange={handleForm} placeholder="Selecciona"></lightning-combobox>
@@ -667,9 +689,11 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
                                     </div>
+                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
+                                    </template>
                                     <template lwc:if={enPoliza}>
                                         <div class="slds-col slds-size_1-of-3">
                                             <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
@@ -681,7 +705,9 @@
                                     </div>
                                 </div>
                                 <template if:true={enPoliza}>
+                                    <template lwc:if={interno}>
                                     <c-datos-endoso></c-datos-endoso>
+                                    </template>
                                 </template>
                             </div>
                             <div class="slds-modal__footer">

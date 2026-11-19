@@ -86,6 +86,9 @@ export default class CensoColectivo extends LightningElement {
     // En la póliza: el PDF de un endoso de la aseguradora que no trae asegurados (Vida o GMM: cláusula, beneficio
     // adicional, cambio de forma de administración...) no va a la IA; se entrega para registrarlo como endoso.
     @api leeEndosos = false;
+    /** En el sitio de empresas: sin prima, sin número de endoso y con número de registro en lugar de la fila del archivo. */
+    @api portal = false;
+    get etiquetaFila() { return this.portal ? 'Núm. de registro' : 'Fila'; }
     _endosos = [];
 
     get esLector() { return this.modo === 'lector'; }
@@ -585,10 +588,10 @@ export default class CensoColectivo extends LightningElement {
     }
     get renglonesVista() {
         const ini = (this.pagina - 1) * POR_PAGINA;
-        return this.filtrados.slice(ini, ini + POR_PAGINA).map((r) => ({
+        return this.filtrados.slice(ini, ini + POR_PAGINA).map((r, i) => ({
             key: 'r' + r.idx,
-            fila: r.fila,
-            archivo: this.archivoDe(r.fila),
+            fila: this.portal ? ini + i + 1 : r.fila,
+            archivo: this.portal ? '' : this.archivoDe(r.fila),
             nombre: r.nombreCompleto || '(sin nombre)',
             parentesco: r.parentesco,
             titular: r.esTitular ? '' : (r.titularNombre || ''),
@@ -600,7 +603,7 @@ export default class CensoColectivo extends LightningElement {
             sueldoTxt: this.moneda(r.sueldoAnual),
             sumaTxt: this.moneda(r.sumaAsegurada),
             primaTxt: this.moneda(r.prima),
-            movimiento: (r.movimiento || r.movimientoOriginal || '') + (r.numeroEndoso ? ` · End. ${r.numeroEndoso}` : ''),
+            movimiento: (r.movimiento || r.movimientoOriginal || '') + (r.numeroEndoso && !this.portal ? ` · End. ${r.numeroEndoso}` : ''),
             claseMovimiento: 'chip-movimiento' + (r.movimiento ? ' mov-' + r.movimiento.toLowerCase() : ''),
             mensajes: [...r.errores, ...r.avisos].join(' · '),
             claseFila: (r.errores.length ? 'fila-error' : (r.avisos.length ? 'fila-aviso' : '')) + (r.esTitular ? '' : ' fila-dependiente'),
