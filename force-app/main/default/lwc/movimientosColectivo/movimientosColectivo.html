@@ -793,6 +793,19 @@
                         <template if:true={enModalCorreo}>
                             <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Enviar correo</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <!-- Pendientes: se envía por solicitud, no a todos. -->
+                                <template if:true={correoPorSolicitud}>
+                                    <p class="sub slds-m-bottom_x-small">Elige la solicitud: el correo sale solo a sus asegurados pendientes.</p>
+                                    <div class="mov-excel-lista slds-m-bottom_small" role="radiogroup" aria-label="Solicitudes">
+                                        <template for:each={solicitudesCorreo} for:item="s">
+                                            <label key={s.key} class="mov-excel-fecha">
+                                                <input type="radio" name="solicitud-correo" data-key={s.key} checked={s.sel} onchange={elegirSolicitudCorreo}
+                                                    disabled={correo.enviando} />
+                                                <span><strong>{s.titulo}</strong> · {s.detalle}</span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </template>
                                 <p class="slds-m-bottom_small">{textoDestinatarios}</p>
                                 <template if:true={avisoReenvio}><p class="sub slds-m-bottom_small">{avisoReenvio}</p></template>
                                 <lightning-combobox label="Plantilla" placeholder="Selecciona la plantilla" options={plantillas}

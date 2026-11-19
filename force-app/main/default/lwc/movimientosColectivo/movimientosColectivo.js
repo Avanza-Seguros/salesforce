@@ -457,10 +457,41 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     get textoEnviarPendientes() { return `Enviar correo a pendientes (${this.pendientesCorreo.length})`; }
     get sinPendientesCorreo() { return this.pendientesCorreo.length === 0; }
-    abrirCorreoPendientes() { this.abrirCorreo(this.pendientesCorreo.map((m) => m.id), false); }
+    // Pendientes por solicitud: se elige la solicitud (la más reciente por omisión) y solo se envía a sus pendientes.
+    solicitudesCorreo = [];
+    abrirCorreoPendientes() {
+        const porFolio = new Map();
+        this.pendientesCorreo.forEach((m) => {
+            const folio = m.solicitud || '';
+            if (!porFolio.has(folio)) { porFolio.set(folio, []); }
+            porFolio.get(folio).push(m.id);
+        });
+        this.solicitudesCorreo = [...porFolio.entries()]
+            .sort((a, b) => {
+                if (!a[0] !== !b[0]) { return a[0] ? -1 : 1; }          // "Sin solicitud" al final
+                return b[0].localeCompare(a[0], 'es', { numeric: true });  // folio más reciente primero
+            })
+            .map(([folio, ids], i) => ({
+                key: folio || 'sin-solicitud', folio, ids, sel: i === 0,
+                titulo: folio || 'Sin solicitud',
+                detalle: `${ids.length} ${ids.length === 1 ? 'asegurado pendiente' : 'asegurados pendientes'}`
+            }));
+        const primera = this.solicitudesCorreo[0];
+        this.abrirCorreo(primera ? primera.ids : [], false);
+    }
+    elegirSolicitudCorreo(e) {
+        const key = e.target.dataset.key;
+        this.solicitudesCorreo = this.solicitudesCorreo.map((s) => ({ ...s, sel: s.key === key }));
+        const elegida = this.solicitudesCorreo.find((s) => s.sel);
+        this.correo = { ...this.correo, ids: elegida ? elegida.ids : [], errores: [] };
+    }
+    get correoPorSolicitud() { return this.solicitudesCorreo.length > 0; }
     abrirCorreoAsegurado(e) {
         const m = this.miembros.find((x) => x.id === e.currentTarget.dataset.id);
-        if (m) { this.abrirCorreo([m.id], m.correoEnviado); }
+        if (m) {
+            this.solicitudesCorreo = [];
+            this.abrirCorreo([m.id], m.correoEnviado);
+        }
     }
     async abrirCorreo(ids, reenvio) {
         this.correo = { ...this.correo, ids, reenvio, enviando: false, avance: '', errores: [] };
@@ -476,8 +507,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get textoDestinatarios() {
         const ids = new Set(this.correo.ids);
         const d = this.miembros.filter((m) => ids.has(m.id));
-        if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoDe(d[0])}).`; }
-        return `Se enviará a ${d.length} asegurados con correo que aún no lo reciben.`;
+        const elegida = this.solicitudesCorreo.find((s) => s.sel);
+        const deSolicitud = elegida ? ` de ${elegida.folio ? 'la solicitud ' + elegida.folio : 'los registros sin solicitud'}` : '';
+        if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoDe(d[0])})${deSolicitud}.`; }
+        return `Se enviará a ${d.length} asegurados${deSolicitud} con correo que aún no lo reciben.`;
     }
     get avisoReenvio() { return this.correo.reenvio ? 'A este asegurado ya se le envió un correo; se enviará de nuevo.' : ''; }
     get hayErroresCorreo() { return this.correo.errores.length > 0; }
