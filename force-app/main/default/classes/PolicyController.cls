@@ -3471,7 +3471,9 @@ public inherited sharing class PolicyController {
 	 * @return Llave de comparación
 	 */
 	private static String llaveCobertura(String nombre) {
-		return normKey(nombre).replaceAll('[^a-z0-9]', '');
+		// "Cobertura Básica" y "Básica" son la misma cobertura (la IA a veces toma el título de la tabla).
+		String llave = normKey(nombre).replaceAll('[^a-z0-9]', '');
+		return llave.startsWith('cobertura') && llave.length() > 'cobertura'.length() ? llave.substring('cobertura'.length()) : llave;
 	}
 
 	/**

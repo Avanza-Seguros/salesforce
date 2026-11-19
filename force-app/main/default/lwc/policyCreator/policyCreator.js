@@ -1650,8 +1650,11 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             return idx >= 0 ? { idx, exacto: false, nombre: sinParen } : null;
         };
         const ubicaciones = datos.coberturas.map(ubicar);
+        // Renglones de notas o endosos que repiten límites ("Suma asegurada por Responsabilidad Civil por Daños a
+        // personas $100,000.00", el endoso de RC obligatoria) no son coberturas de la tabla.
+        const esNota = (c) => /^\s*suma asegurada (por|de)\b/i.test(String((c && c.nombre) || ''));
         // Rango de renglones de la tabla principal (coberturas halladas por su nombre exacto).
-        const exactos = ubicaciones.filter((u) => u && u.exacto).map((u) => u.idx);
+        const exactos = ubicaciones.filter((u, i) => u && u.exacto && !esNota(datos.coberturas[i])).map((u) => u.idx);
         const hayTabla = exactos.length >= 3;
         const desde = hayTabla ? Math.min(...exactos) - 2 : -1;
         const hasta = hayTabla ? Math.max(...exactos) + 3 : -1;
@@ -1659,9 +1662,10 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
 
         // Coberturas de anexos/certificados de otra compañía (ej. "(Chubb)") que NO están en la
         // tabla principal: se descartan para no duplicarlas (la tabla ya incluye esa cobertura).
+        // Las notas fuera de la tabla también se descartan.
         datos.coberturas = datos.coberturas.filter((c, i) => {
             const esAnexo = /\([^)]*\)/.test(String((c && c.nombre) || ''));
-            return !(hayTabla && esAnexo && !enTabla(ubicaciones[i]));
+            return !(hayTabla && (esAnexo || esNota(c)) && !enTabla(ubicaciones[i]));
         });
         const ubicacionesFinales = datos.coberturas.map(ubicar);
 
@@ -1673,9 +1677,16 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 : u.nombre.split(' ').filter((t) => t.length >= 3).reduce((acc, t) => acc.replace(t, ' '), linea);
             const montos = resto.match(new RegExp(MONTO, 'gi')) || [];
             const mTexto = resto.match(TEXTO_SUMA);
+            const cols = this.columnasTablaCoberturas(lineas, u.idx);
             let suma = mTexto ? mTexto[0] : null;
             let prima = null;
-            if (montos.length >= 2) {
+            let dedMonto = null;
+            if (cols && !cols.prima) {
+                // La tabla no tiene columna de prima (ej. GMM: "Suma asegurada / Límite  Deducible  Coaseguro"):
+                // el segundo monto es el deducible, nunca la prima.
+                if (montos.length >= 1) { suma = suma || montos[0]; }
+                if (montos.length >= 2 && cols.deducible) { dedMonto = montos[1]; }
+            } else if (montos.length >= 2) {
                 suma = suma || montos[0];
                 prima = montos[montos.length - 1];
             } else if (montos.length === 1) {
@@ -1686,11 +1697,35 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
             // fuera de ella solo se llenan los datos que la IA dejó vacíos.
             const manda = hayTabla && enTabla(u);
             if (prima && (manda || vacio(c.prima))) { c.prima = aNumero(prima); }
+            if (cols && !cols.prima && manda) { c.prima = null; }
             if (suma && (manda || vacio(c.sumaAsegurada))) { c.sumaAsegurada = suma.toUpperCase().replace(/\s+/g, ' ').trim(); }
-            const mDed = resto.replace(new RegExp(MONTO, 'gi'), ' ').match(PCT);
-            if (mDed && (manda || vacio(c.deducible))) { c.deducible = mDed[0].replace(/\s?%/, ' %'); }
+            const mPct = resto.replace(new RegExp(MONTO, 'gi'), ' ').match(PCT);
+            const pct = mPct ? mPct[0].replace(/\s?%/, ' %') : null;
+            if (cols && cols.coaseguro) {
+                // Tabla con Deducible y Coaseguro: el porcentaje es el coaseguro (se agrega al deducible).
+                const base = dedMonto || (manda ? null : c.deducible) || (/\bn ?a\b/.test(resto) ? 'N/A' : null);
+                const ded = [base, pct ? `Coaseguro ${pct}` : null].filter((v) => v).join('; ');
+                if (ded && (manda || vacio(c.deducible))) { c.deducible = ded; }
+            } else {
+                if (dedMonto && (manda || vacio(c.deducible))) { c.deducible = dedMonto; }
+                if (pct && !dedMonto && (manda || vacio(c.deducible))) { c.deducible = pct; }
+            }
         });
         return datos;
+    }
+
+    // Columnas de la tabla de coberturas a la que pertenece un renglón: busca hacia arriba el encabezado más cercano
+    // ("Coberturas  Suma asegurada / Límite  Deducible  Coaseguro" o "... Suma asegurada  Deducible  Prima").
+    // null si no se encuentra encabezado.
+    columnasTablaCoberturas(lineas, idx) {
+        for (let i = idx - 1; i >= Math.max(0, idx - 25); i--) {
+            const l = lineas[i] || '';
+            const esEncabezado = /(suma asegurada|limite)/.test(l) && /(deducible|prima|coaseguro)/.test(l);
+            if (esEncabezado) {
+                return { prima: /\bprimas?\b/.test(l), deducible: /deducible/.test(l), coaseguro: /coaseguro/.test(l) };
+            }
+        }
+        return null;
     }
 
     // Descripción breve de la póliza: quita las frases que hablan de pagos, primas, recibos,
