@@ -323,6 +323,16 @@ function parentescoPorCodigo(p) {
     return PARENTESCOS.find((x) => x.valor === valor);
 }
 
+// Parentesco abreviado con la primera palabra: "CONY." (cónyuge), "TIT. SIERRA CABALLERO" (titular), "HIJ", "ESPOSA DE...".
+// La palabra completa o su inicio (3 letras o más) debe coincidir con una clave.
+function parentescoAbreviado(p) {
+    const w = (p || '').split(' ')[0];
+    if (!w) { return null; }
+    return PARENTESCOS.find((x) => x.claves.includes(w))
+        || (w.length >= 3 && !/^\d+$/.test(w) ? PARENTESCOS.find((x) => x.claves.some((k) => k.length > w.length && k.startsWith(w))) : null)
+        || null;
+}
+
 // Sexo en código 1/2: cada aseguradora lo usa distinto, así que se deduce de los nombres del archivo
 // (los que terminan en "a" suelen ser mujeres y en "o" hombres). Regresa { '1': ..., '2': ... } o null.
 function sexoPorCodigo(datos) {
@@ -408,8 +418,22 @@ function normalizarRenglon(d, usaMF, sexo12) {
     r.parentescoOriginal = txt(d.parentesco);
     const p = fold(d.parentesco);
     const encontrado = parentescoPorCodigo(p)
-        || PARENTESCOS.find((x) => x.claves.includes(p) || x.claves.some((k) => k.length > 3 && p.startsWith(k)));
+        || PARENTESCOS.find((x) => x.claves.includes(p) || x.claves.some((k) => k.length > 3 && p.startsWith(k)))
+        || parentescoAbreviado(p);
     r.parentesco = !p ? 'Titular' : (encontrado ? encontrado.valor : 'Otro');
+    // "TIT. SIERRA CABALLERO": lo que sigue al parentesco son los apellidos cuando el nombre viene sin ellos
+    // (p. ej. solo "GEORGINA"). No aplica a "ESPOSA DE JUAN PÉREZ" (eso es a quién pertenece, no sus apellidos).
+    if (encontrado && !parentescoPorCodigo(p)) {
+        const resto = txt(d.parentesco).replace(/^\S+\s*/, '').replace(/[^\p{L}\s'-]/gu, ' ').replace(/\s+/g, ' ').trim();
+        const sinApellidos = !r.apellidos && r.nombreCompleto && !/\s/.test(r.nombreCompleto.trim());
+        // Solo palabras de 3 letras o más ("HIJO A" no trae apellidos).
+        const palabras = resto.split(' ').filter((x) => x);
+        if (palabras.length && palabras.every((x) => x.length >= 3) && sinApellidos && !/^(de|del|la|los|las)\b/i.test(resto)) {
+            r.nombre = r.nombre || r.nombreCompleto.trim();
+            r.apellidos = resto;
+            r.nombreCompleto = `${r.nombre} ${resto}`;
+        }
+    }
     if (p && !encontrado) { r.avisos.push(`Parentesco "${r.parentescoOriginal}" se guardará como Otro`); }
     r.esTitular = r.parentesco === 'Titular';
 
