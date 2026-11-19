@@ -85,6 +85,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
+    // En el sitio de empresas se agrega «mov-portal» para tomar el estilo de Oportunidades.
+    get claseRaiz() { return this.portal ? 'mov mov-portal' : 'mov'; }
 
     @api
     get recordId() { return this._recordId; }

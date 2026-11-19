@@ -14,7 +14,7 @@
         </template>
     </template>
     <template if:true={visible}>
-        <div class="mov">
+        <div class={claseRaiz}>
             <template if:true={cargando}>
                 <div class="mov-cargando"><lightning-spinner alternative-text="Procesando" size="small"></lightning-spinner></div>
             </template>
@@ -187,7 +187,7 @@
                                                     <span class={m.claseCorreo} title={m.tituloCorreo}>{m.correoTxt}</span>
                                                     <template if:true={m.fechaCorreoTxt}><div class="sub">{m.fechaCorreoTxt}</div></template>
                                                 </td>
-                                                <td class="col-correo">
+                                                <td class="col-correo" title={m.correoMostrar}>
                                                     {m.correoMostrar}
                                                     <template if:true={m.esCorreoPersonal}><div class="sub">Personal</div></template>
                                                 </td>

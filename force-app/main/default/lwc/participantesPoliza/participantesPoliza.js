@@ -31,6 +31,8 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
+    // En el sitio de empresas se agrega «part-portal» para tomar el estilo de Oportunidades.
+    get claseRaiz() { return this.portal ? 'part part-portal' : 'part'; }
 
     @api
     get recordId() { return this._recordId; }

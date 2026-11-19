@@ -5,21 +5,21 @@
 :host {
     display: block;
     /* Tinta y superficies */
-    --pp-tinta: #1b2440;
+    --pp-tinta: #0b1f44;
     --pp-texto-suave: #5b6683;
     --pp-borde: #e3e8f2;
     --pp-fondo: #ffffff;
     --pp-fondo-suave: #f5f7fc;
     --pp-fondo-tabla: #f2f5fb;
     /* Acentos (índigo y aqua apagados) */
-    --pp-acento: #5468d4;
-    --pp-acento-suave: #eef0fc;
-    --pp-aqua: #3fa7b4;
-    --pp-aqua-suave: #e8f5f7;
-    --pp-degradado: linear-gradient(120deg, #5468d4 0%, #4f8fc6 55%, #3fa7b4 100%);
-    --pp-banda: linear-gradient(125deg, #1f2a4d 0%, #2b3a6b 55%, #2a5d73 100%);
+    --pp-acento: #1d4ed8;
+    --pp-acento-suave: #e8efff;
+    --pp-aqua: #7c3aed;
+    --pp-aqua-suave: #f1eafe;
+    --pp-degradado: linear-gradient(120deg, #1d4ed8 0%, #3b82f6 55%, #7c3aed 100%);
+    --pp-banda: radial-gradient(circle at 80% 15%, rgba(96, 165, 250, 0.55), rgba(96, 165, 250, 0) 42%), radial-gradient(circle at 60% 120%, rgba(56, 189, 248, 0.3), rgba(56, 189, 248, 0) 45%), linear-gradient(115deg, #0a1f5c 0%, #13389a 55%, #2160e8 100%);
     /* Estados */
-    --pp-ok: #2f8f6b;
+    --pp-ok: #15803d;
     --pp-ok-suave: #e7f5ef;
     --pp-alerta: #b7782b;
     --pp-alerta-suave: #fbf3e6;
@@ -28,11 +28,11 @@
     /* Forma */
     --pp-radio: 14px;
     --pp-sombra: 0 1px 2px rgba(27, 36, 64, 0.04), 0 6px 20px rgba(27, 36, 64, 0.06);
-    --pp-sombra-alta: 0 2px 4px rgba(27, 36, 64, 0.05), 0 14px 34px rgba(84, 104, 212, 0.16);
+    --pp-sombra-alta: 0 2px 4px rgba(27, 36, 64, 0.05), 0 14px 34px rgba(29, 78, 216, 0.16);
 
     /* Componentes base de Lightning (pestañas, buscador y botones de filtro) */
     --slds-c-tabs-item-color-border-active: var(--pp-acento);
-    --slds-c-tabs-item-color-border-hover: #c9d0f3;
+    --slds-c-tabs-item-color-border-hover: #c7d7fe;
     --slds-c-tabs-item-text-color-active: var(--pp-acento);
     --slds-c-tabs-list-color-border: var(--pp-borde);
     --sds-c-tabs-item-color-border-active: var(--pp-acento);
@@ -41,7 +41,7 @@
     --slds-c-input-radius-border: 999px;
     --slds-c-input-color-border: var(--pp-borde);
     --slds-c-input-color-border-focus: var(--pp-acento);
-    --slds-c-input-shadow-focus: 0 0 0 3px rgba(84, 104, 212, 0.18);
+    --slds-c-input-shadow-focus: 0 0 0 3px rgba(29, 78, 216, 0.18);
     --sds-c-input-radius-border: 999px;
     --slds-c-button-radius-border: 999px;
     --slds-c-button-brand-color-background: var(--pp-acento);
@@ -69,7 +69,6 @@
     padding: 1.75rem 1.75rem 1.5rem;
     border-radius: calc(var(--pp-radio) + 4px);
     background:
-        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.09) 1px, transparent 0) 0 0 / 22px 22px,
         var(--pp-banda);
     color: #ffffff;
     overflow: hidden;
@@ -83,7 +82,7 @@
     width: 260px;
     height: 260px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(63, 167, 180, 0.35), transparent 70%);
+    background: radial-gradient(circle, rgba(147, 197, 253, 0.35), transparent 70%);
     pointer-events: none;
 }
 .encabezado .titulo { color: #ffffff; font-size: 1.75rem; }
@@ -149,7 +148,7 @@
 .vista_previa_cambiar:hover { text-decoration: underline; }
 .vista_previa_cuentas { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.375rem; max-height: 16rem; overflow-y: auto; }
 .vista_previa_cuenta { width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--pp-borde); border-radius: 10px; background: var(--pp-fondo); font: inherit; text-align: left; cursor: pointer; }
-.vista_previa_cuenta:hover { border-color: #cdd4f4; }
+.vista_previa_cuenta:hover { border-color: #c7d7fe; }
 
 /* ===== Encabezado: etiqueta y enlace ===== */
 .encabezado { align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -377,3 +376,16 @@
     .columnas_12 { gap: 0.125rem; }
     .columnas_12 .columna_mes { font-size: 0.5625rem; }
 }
+
+
+/* ===================== Estilo Oportunidades (portal de empresas, nov-2026) ===================== */
+.encabezado { border-radius: 24px; padding: 2rem 2.25rem 1.75rem; box-shadow: 0 18px 40px rgba(19, 56, 154, 0.22); }
+.encabezado .titulo { font-size: 2rem; font-weight: 800; }
+.encabezado .subtitulo { color: #dbe6ff; }
+/* Indicadores: tarjeta blanca con barra de color abajo (embudo de ventas de Oportunidades). */
+.kpi { border-radius: 16px; padding-bottom: 1.375rem; }
+.kpi::before { top: auto; bottom: 0.625rem; left: 1.125rem; right: 1.125rem; height: 6px; border-radius: 999px; }
+.kpi_acento { background: var(--pp-fondo); }
+.kpi_valor { font-size: 1.875rem; font-weight: 800; }
+.panel { border: 0; border-radius: 20px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px rgba(30, 64, 175, 0.06); }
+.bien { background: var(--pp-fondo); border-radius: 16px; }

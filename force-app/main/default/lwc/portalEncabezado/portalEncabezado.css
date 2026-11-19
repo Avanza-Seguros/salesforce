@@ -1,9 +1,9 @@
 /* Encabezado del sitio: barra blanca, menú tipo píldora (navy al estar activo), buscador y menú del usuario. */
 :host {
     display: block;
-    --en-tinta: #0f1b33;
+    --en-tinta: #0b1f44;
     --en-navy: #0b2559;
-    --en-azul: #1e63e9;
+    --en-azul: #1d4ed8;
     --en-celeste: #38bdf8;
     --en-borde: #e2e9f5;
     --en-suave: #f4f8ff;
@@ -244,3 +244,10 @@
 @media (prefers-reduced-motion: reduce) {
     .nav_enlace, .nav_flecha, .busqueda { transition: none; }
 }
+
+
+/* ===================== Estilo Oportunidades (portal de empresas, nov-2026) ===================== */
+.nav_lista { background: #f1f4f9; border: 0; }
+.nav_enlace { color: #475569; font-weight: 600; }
+.nav_enlace:hover, .nav_enlace:focus { background: rgba(255, 255, 255, 0.7); color: var(--en-tinta); }
+.nav_enlace_actual, .nav_enlace_actual:hover, .nav_enlace_actual:focus { background: #ffffff; color: var(--en-tinta); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14); }

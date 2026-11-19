@@ -1,5 +1,5 @@
 <template>
-    <div class="part">
+    <div class={claseRaiz}>
         <template if:true={cargando}>
             <div class="part-cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
         </template>
@@ -117,7 +117,7 @@
                                             <span class={p.claseCorreo} title={p.tituloCorreo}>{p.correoTxt}</span>
                                             <template if:true={p.fechaCorreoTxt}><div class="sub">{p.fechaCorreoTxt}</div></template>
                                         </td>
-                                        <td class="col-correo">{p.correoDir}</td>
+                                        <td class="col-correo" title={p.correoDir}>{p.correoDir}</td>
                                     </tr>
                                     <template if:true={p.abierto}>
                                         <tr key={p.keyDetalle} class="fila-detalle">
@@ -226,7 +226,7 @@
                                             <span class={p.claseCorreo} title={p.tituloCorreo}>{p.correoTxt}</span>
                                             <template if:true={p.fechaCorreoTxt}><div class="sub">{p.fechaCorreoTxt}</div></template>
                                         </td>
-                                        <td class="col-correo">{p.correoDir}</td>
+                                        <td class="col-correo" title={p.correoDir}>{p.correoDir}</td>
                                     </tr>
                                     <template if:true={p.abierto}>
                                         <tr key={p.keyDetalle} class="fila-detalle">
