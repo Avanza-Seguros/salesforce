@@ -481,6 +481,41 @@ private class PortalPolizasPestanasTest {
 		System.assertEquals(EndosoPoliza.tipoCaso() != null, vista.get('puedeSolicitar'));
 	}
 
+	/**
+	 * @creation date: 19/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza de automóvil de un solo vehículo (sin incisos de flotilla) de una empresa: no es empresarial y
+	 * no puede enviar solicitudes desde el sitio.
+	 * @return void
+	 */
+	@isTest
+	static void testAutoIndividualDeEmpresaNoSolicita() {
+		Account empresa = new Account(Name = 'Empresa Auto Individual');
+		insert empresa;
+		InsurancePolicy p = poliza(empresa.Id, 'AUTO-IND-EMP-1', 'Automoviles');
+		p.SourceOpportunityId = null;
+		insert p;
+		CustomerProperty cp = new CustomerProperty(PrimaryOwnerId = empresa.Id, Make = 'NISSAN', MakeYear = 2013, Description = 'ROGUE');
+		insert cp;
+		insert new InsurancePolicyAsset(InsurancePolicyId = p.Id, AssetName = 'ROGUE', CustomerPropertyId = cp.Id, IsActive = true);
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+		Test.startTest();
+		Map<String, Object> vista = PortalPolizasPestanas.solicitudes(p.Id, null);
+		Boolean bloqueada = false;
+		try {
+			PortalPolizasPestanas.crearSolicitud(p.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{
+				new Map<String, Object>{ 'tipo' => 'alta', 'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Serie', 'valor' => 'ABC' } },
+					'campos' => new Map<String, Object>{ 'serie' => 'ABC' } } } }), null);
+		} catch (AuraHandledException e) {
+			bloqueada = true;
+		}
+		Test.stopTest();
+		System.assertEquals(false, vista.get('esEmpresarial'), 'Auto de un solo vehículo: no es empresarial');
+		System.assertEquals(false, vista.get('puedeSolicitar'), 'No puede solicitar');
+		System.assert(bloqueada, 'El servidor también la rechaza');
+	}
+
 	@isTest
 	static void testSolicitudRegistraUbicacion() {
 		Account cliente = new Account(Name = 'Cliente Ubicaciones Sitio');
