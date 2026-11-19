@@ -26,6 +26,41 @@ const RAMOS = {
     Empresarial: { ini: 'E', etiqueta: 'Empresarial', clave: 'otro' },
     RC: { ini: 'RC', etiqueta: 'Responsabilidad Civil', clave: 'otro' }
 };
+// Saludo del encabezado: una frase distinta cada día (rota por día del año, igual para todos ese día). {n} es el
+// nombre del usuario; sin nombre se quita ", {n}".
+const SALUDOS = [
+    '¡Vamos por el cierre, {n}!',
+    '¡Hoy es un gran día para cerrar, {n}!',
+    '¡A convertir oportunidades en pólizas, {n}!',
+    '¡Cada llamada cuenta, {n}!',
+    '¡Tus clientes te esperan, {n}!',
+    '¡Un cierre más y vas que vuelas, {n}!',
+    '¡Hoy se protege a alguien más, {n}!',
+    '¡Paso a paso hacia la meta, {n}!',
+    '¡Dale seguimiento y cierra, {n}!',
+    '¡Que hoy sea día de pólizas, {n}!',
+    '¡La constancia gana ventas, {n}!',
+    '¡Vamos con todo, {n}!',
+    '¡Tu próxima póliza está aquí, {n}!',
+    '¡A cerrar con confianza, {n}!',
+    '¡Hoy suma una póliza más, {n}!',
+    '¡El seguimiento hace la diferencia, {n}!',
+    '¡Convierte cada cotización en póliza, {n}!',
+    '¡Arriba ese embudo, {n}!',
+    '¡Hoy es día de buenas noticias, {n}!',
+    '¡Cada cliente protegido cuenta, {n}!',
+    '¡A romperla hoy, {n}!',
+    '¡Tu meta está más cerca, {n}!',
+    '¡Una oportunidad a la vez, {n}!',
+    '¡Hoy cerramos fuerte, {n}!',
+    '¡El que persevera, cierra, {n}!',
+    '¡Vamos por esas firmas, {n}!',
+    '¡Haz que hoy cuente, {n}!',
+    '¡Tus clientes confían en ti, {n}!',
+    '¡A llenar el tablero de pólizas, {n}!',
+    '¡Hoy es tu día, {n}!',
+    '¡Sigue sumando cierres, {n}!'
+];
 // Valor del filtro de agente para las oportunidades sin Producer.
 const SIN_AGENTE = 'ninguno';
 const TIPOS_VENTA = {
@@ -247,7 +282,11 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     get hayDatos() { return !this.cargando && !this.error && !!this.datos; }
     get saludo() {
         const n = this.datos && this.datos.nombreUsuario ? this.datos.nombreUsuario : '';
-        return n ? `¡Vamos por el cierre, ${n}!` : '¡Vamos por el cierre!';
+        const hoy = new Date();
+        const diaDelAnio = Math.floor((Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+            - Date.UTC(hoy.getFullYear(), 0, 0)) / 86400000);
+        const frase = SALUDOS[diaDelAnio % SALUDOS.length];
+        return n ? frase.replace('{n}', n) : frase.replace(', {n}', '');
     }
     get porVencer() {
         const uid = this.datos ? this.datos.usuarioId : null;
