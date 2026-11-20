@@ -15,9 +15,10 @@ public with sharing class CorreoOportunidadIA {
 	@TestVisible
 	private static String respuestaPrueba;
 
-	/** Asunto y cuerpo HTML del correo. */
+	/** Asunto y cuerpo HTML del correo (cuerpo: solo lo que redactó la IA; html: ya en un marco sencillo de Avanza). */
 	public class Correo {
 		public String asunto;
+		public String cuerpo;
 		public String html;
 	}
 
@@ -374,6 +375,7 @@ public with sharing class CorreoOportunidadIA {
 		}
 		Correo c = new Correo();
 		c.asunto = asunto.left(200);
+		c.cuerpo = cuerpo;
 		c.html = '<html><body style="margin:0;padding:0;background:#f4f6f9;">'
 			+ '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;"><tr><td align="center" style="padding:24px 12px;">'
 			+ '<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:6px;">'

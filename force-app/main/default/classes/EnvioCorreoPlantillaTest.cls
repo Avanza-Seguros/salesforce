@@ -75,4 +75,37 @@ private class EnvioCorreoPlantillaTest {
 		rs = EnvioCorreoPlantilla.enviar(new List<EnvioCorreoPlantilla.Solicitud>{ otra });
 		System.assertEquals(false, rs[0].enviado);
 	}
+
+	@isTest
+	static void elBannerLlevaElRamoDelRegistro() {
+		Account cuenta = CollectionsTestDataFactory.createInsuredAccount();
+		Opportunity autos = new Opportunity(Name = 'Ramo correo', AccountId = cuenta.Id, StageName = 'Gestion Comercial',
+			CloseDate = Date.today().addDays(10), Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
+			Ramo__c = 'Automoviles');
+		insert autos;
+		String ramo = EnvioCorreoPlantilla.ramoDe(autos.Id);
+		System.assertEquals('automóviles', ramo, 'El ramo de la oportunidad como se lee en el correo');
+		String html = '<img alt="¡Bienvenido! A tu seguro de gastos médicos mayores">';
+		System.assertEquals('<img alt="¡Bienvenido! A tu seguro de automóviles">', EnvioCorreoPlantilla.conRamo(html, ramo));
+		System.assertEquals('<img alt="¡Bienvenido! A tu seguro">', EnvioCorreoPlantilla.conRamo(html, null), 'Sin ramo no se inventa uno');
+		Contact c = [SELECT Id FROM Contact LIMIT 1];
+		System.assertEquals(null, EnvioCorreoPlantilla.ramoDe(c.Id), 'Un registro sin ramo');
+		System.assertEquals(null, EnvioCorreoPlantilla.ramoDe(null));
+	}
+
+	@isTest
+	static void ponElTextoDeLaIAEnElDisenoDeLaPlantilla() {
+		String plantilla = '<html><img src="banner.png"><div style="text-align: center;"><span>Apreciable %%Nombre del cliente%%</span></div>'
+			+ '<div style="text-align: justify;"><span>Texto fijo de la plantilla.</span></div>'
+			+ '<div style="text-align: center;"><span>Agradecemos tu confianza.</span></div><img src="pie.png"></html>';
+		String html = EnvioCorreoPlantilla.enDisenoDePlantilla(plantilla, '<p>Hola, Ana:</p><table><tr><td>HDI</td></tr></table>');
+		System.assert(html.contains('<p>Hola, Ana:</p><table><tr><td>HDI</td></tr></table>'), 'Lleva el texto de la IA');
+		System.assert(!html.contains('Texto fijo de la plantilla'), 'Sin el texto fijo de la plantilla');
+		System.assert(!html.contains('Apreciable'), 'Sin el saludo de la plantilla: la IA ya saluda');
+		System.assert(html.contains('banner.png') && html.contains('pie.png') && html.contains('Agradecemos tu confianza.'),
+			'Conserva el banner, el cierre y el pie de la plantilla');
+		System.assertEquals(null, EnvioCorreoPlantilla.enDisenoDePlantilla('<p>Sin bloque</p>', '<p>Hola</p>'),
+			'Sin el bloque de texto de la plantilla se usa el marco sencillo');
+		System.assertEquals(null, EnvioCorreoPlantilla.enDisenoDePlantilla(null, '<p>Hola</p>'), 'Sin plantilla HTML');
+	}
 }

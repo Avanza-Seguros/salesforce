@@ -97,7 +97,7 @@ public with sharing class EnvioCorreoPlantilla {
 	}
 
 	private static String enviarUno(Solicitud s, String correo) {
-		List<EmailTemplate> tpls = [SELECT Id FROM EmailTemplate WHERE DeveloperName = :s.plantilla LIMIT 1];
+		List<EmailTemplate> tpls = [SELECT Id, HtmlValue FROM EmailTemplate WHERE DeveloperName = :s.plantilla LIMIT 1];
 		if (tpls.isEmpty()) { throw new CorreoException('No existe la plantilla ' + s.plantilla + '.'); }
 		String aviso = '';
 		List<Messaging.EmailFileAttachment> adjuntos = new List<Messaging.EmailFileAttachment>();
@@ -116,7 +116,9 @@ public with sharing class EnvioCorreoPlantilla {
 				CorreoOportunidadIA.Correo ia = CorreoOportunidadIA.generar(s.promptIA, s.registroId, s.destinatarioId, nombres);
 				m = new Messaging.SingleEmailMessage();
 				m.setSubject(ia.asunto);
-				m.setHtmlBody(ia.html);
+				// El texto de la IA va dentro del diseño de la plantilla (banner, imágenes y pie de Avanza).
+				String enPlantilla = enDisenoDePlantilla(tpls[0].HtmlValue, ia.cuerpo);
+				m.setHtmlBody(enPlantilla != null ? enPlantilla : ia.html);
 				redaccion = ' (redactado con IA)';
 			} catch (Exception e) {
 				// Sin la IA se manda la plantilla de siempre.
@@ -127,6 +129,7 @@ public with sharing class EnvioCorreoPlantilla {
 		if (m == null) {
 			m = renderizar(tpls[0].Id, s.destinatarioId, s.registroId);
 		}
+		if (m.getHtmlBody() != null) { m.setHtmlBody(conRamo(m.getHtmlBody(), ramoDe(s.registroId))); }
 		// Solo a la dirección: sin setTargetObjectId, que lo mandaría otra vez al contacto/usuario.
 		m.setToAddresses(new List<String>{ correo });
 		m.setSaveAsActivity(false);
@@ -139,6 +142,80 @@ public with sharing class EnvioCorreoPlantilla {
 		Messaging.SendEmailResult res = Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ m }, false)[0];
 		if (!res.isSuccess()) { throw new CorreoException(res.getErrors()[0].getMessage()); }
 		return 'Correo enviado a ' + correo + redaccion + ' con ' + adjuntados + ' PDF(s) adjunto(s)' + aviso + '.';
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pone el cuerpo que redactó la IA dentro del diseño de la plantilla: el texto fijo de la plantilla
+	 *   (el primer bloque justificado) se cambia por el de la IA y el saludo «Apreciable %%…%%» se quita, porque la
+	 *   IA ya saluda. El banner, las imágenes, el cierre y el pie de la plantilla se conservan.
+	 * @param plantilla: HTML de la plantilla (EmailTemplate.HtmlValue)
+	 * @param cuerpo: Cuerpo HTML de la IA
+	 * @return HTML del correo, o null si la plantilla no tiene ese bloque (entonces se usa el marco sencillo)
+	 */
+	@TestVisible
+	private static String enDisenoDePlantilla(String plantilla, String cuerpo) {
+		if (String.isBlank(plantilla) || String.isBlank(cuerpo)) { return null; }
+		String abre = '<div style="text-align: justify;">';
+		Integer ini = plantilla.indexOf(abre);
+		if (ini < 0) { return null; }
+		Integer fin = plantilla.indexOf('</div>', ini + abre.length());
+		if (fin < 0) { return null; }
+		String html = plantilla.left(ini)
+			+ '<div style="text-align: left; font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #444444;">'
+			+ cuerpo + '</div>' + plantilla.substring(fin + '</div>'.length());
+		// Saludo de la plantilla: su texto se quita (el bloque queda vacío).
+		Integer saludo = html.indexOf('Apreciable');
+		if (saludo >= 0 && saludo < html.indexOf(cuerpo)) {
+			Integer divIni = html.lastIndexOf('<div', saludo);
+			Integer divFin = html.indexOf('</div>', saludo);
+			if (divIni >= 0 && divFin > saludo) {
+				Integer cierreApertura = html.indexOf('>', divIni);
+				html = html.left(cierreApertura + 1) + html.substring(divFin);
+			}
+		}
+		return html;
+	}
+
+	// Texto fijo de las plantillas (texto alternativo del banner) que se cambia por el ramo del registro.
+	private static final String TEXTO_RAMO_PLANTILLA = 'A tu seguro de gastos médicos mayores';
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Ramo de la oportunidad o de la póliza, como se lee en el correo ("automóviles", "gastos médicos
+	 *   mayores", "daños"...). Empresarial se escribe "paquete empresarial".
+	 * @param registroId: Oportunidad o póliza (InsurancePolicy)
+	 * @return Ramo en minúsculas, o null si el registro no tiene
+	 */
+	@TestVisible
+	private static String ramoDe(Id registroId) {
+		if (registroId == null) { return null; }
+		String ramo = null;
+		Schema.SObjectType tipo = registroId.getSobjectType();
+		if (tipo == Opportunity.SObjectType) {
+			for (Opportunity o : [SELECT toLabel(Ramo__c) FROM Opportunity WHERE Id = :registroId LIMIT 1]) { ramo = o.Ramo__c; }
+		} else if (tipo == InsurancePolicy.SObjectType) {
+			for (InsurancePolicy p : [SELECT toLabel(Ramo__c) FROM InsurancePolicy WHERE Id = :registroId LIMIT 1]) { ramo = p.Ramo__c; }
+		}
+		if (String.isBlank(ramo)) { return null; }
+		return ramo.equalsIgnoreCase('Empresarial') ? 'paquete empresarial' : ramo.toLowerCase();
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Las plantillas traen fijo "A tu seguro de gastos médicos mayores" (texto del banner); se cambia
+	 *   por el ramo del registro, o queda "A tu seguro" si no lo tiene.
+	 * @param html: HTML del correo
+	 * @param ramo: Ramo como se lee en el correo (puede ser null)
+	 * @return HTML con el ramo
+	 */
+	@TestVisible
+	private static String conRamo(String html, String ramo) {
+		if (String.isBlank(html)) { return html; }
+		return html.replace(TEXTO_RAMO_PLANTILLA, String.isBlank(ramo) ? 'A tu seguro' : 'A tu seguro de ' + ramo);
 	}
 
 	// Arma asunto y cuerpo de la plantilla con los campos del contacto/usuario y del registro. Si la plantilla no admite

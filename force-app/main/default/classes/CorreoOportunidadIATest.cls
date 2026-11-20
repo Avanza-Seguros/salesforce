@@ -77,6 +77,7 @@ private class CorreoOportunidadIATest {
 		System.assertEquals('Tus cotizaciones', r.asunto);
 		System.assert(r.html.contains('<p>Hola Ana</p>'));
 		System.assert(r.html.contains('Avanza Seguro'));
+		System.assertEquals('<p>Hola Ana</p>', r.cuerpo, 'El cuerpo de la IA sin marco');
 
 		for (String malo : new List<String>{ null, 'sin json', '{"asunto": ""}' }) {
 			try {
