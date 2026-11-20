@@ -34,9 +34,11 @@ public with sharing class CorreoOportunidadIA {
 	 */
 	public static Correo generar(String prompt, Id registroId, Id destinatarioId, List<String> adjuntos) {
 		ConnectApi.WrappedValue datos = new ConnectApi.WrappedValue();
+		// En el correo del agente, si su contacto o usuario no se conoce, se saluda con el nombre del agente (Producer).
+		Boolean paraAgente = prompt != null && prompt.endsWithIgnoreCase('_Agente');
 		datos.value = registroId != null && registroId.getSObjectType() == InsurancePolicy.SObjectType
-			? datosPoliza(registroId, destinatarioId, adjuntos)
-			: datos(registroId, destinatarioId, adjuntos);
+			? datosPoliza(registroId, destinatarioId, adjuntos, paraAgente)
+			: datos(registroId, destinatarioId, adjuntos, paraAgente);
 		String texto;
 		if (Test.isRunningTest()) {
 			texto = respuestaPrueba;
@@ -65,7 +67,7 @@ public with sharing class CorreoOportunidadIA {
 	 * @return JSON con los datos
 	 */
 	@TestVisible
-	private static String datos(Id oportunidadId, Id destinatarioId, List<String> adjuntos) {
+	private static String datos(Id oportunidadId, Id destinatarioId, List<String> adjuntos, Boolean paraAgente) {
 		Opportunity o = [
 			SELECT Name, toLabel(StageName), toLabel(Ramo__c), Tipo_Contratacion__c, CloseDate, Prima_Total__c, Prima_Neta__c,
 				Account.Name, Producer__r.Name, Contacto__r.Name, Owner.Name
@@ -87,6 +89,7 @@ public with sharing class CorreoOportunidadIA {
 		}
 		marcarRecomendada(cotizaciones);
 		String[] nombres = nombre(destinatarioId);
+		if (paraAgente == true && String.isBlank(nombres[0])) { nombres = nombreDeTexto(o.Producer__r?.Name); }
 		return JSON.serialize(new Map<String, Object>{
 			'oportunidad' => o.Name,
 			'etapa' => o.StageName,
@@ -120,7 +123,7 @@ public with sharing class CorreoOportunidadIA {
 	 * @return JSON con los datos
 	 */
 	@TestVisible
-	private static String datosPoliza(Id polizaId, Id destinatarioId, List<String> adjuntos) {
+	private static String datosPoliza(Id polizaId, Id destinatarioId, List<String> adjuntos, Boolean paraAgente) {
 		InsurancePolicy p = [
 			SELECT Name, toLabel(Status), toLabel(Ramo__c), toLabel(PremiumFrequency), ProductId, Product.Name,
 				Aseguradora__r.Name, NameInsured.Name, Producer.Name, Owner.Name, EffectiveDate, ExpirationDate,
@@ -169,6 +172,7 @@ public with sharing class CorreoOportunidadIA {
 		if (fechaPago == null) { faltantes.add('fecha límite de pago'); }
 		if (totalCoberturas == 0) { faltantes.add('coberturas'); }
 		String[] nombres = nombre(destinatarioId);
+		if (paraAgente == true && String.isBlank(nombres[0])) { nombres = nombreDeTexto(p.Producer?.Name); }
 		String tipo = p.SourceOpportunity?.Tipo_Contratacion__c;
 		// Solo una fecha de pago que no ha pasado (si ya pasó, puede estar pagada) y dentro de la vigencia.
 		Date finVigencia = soloFecha(p.ExpirationDate);
@@ -182,11 +186,12 @@ public with sharing class CorreoOportunidadIA {
 		String amparo = null;
 		if (deBienes && totalBienes > 0) {
 			Boolean autos = ramo.contains('auto');
-			amparo = totalBienes == 1 && !bienes.isEmpty()
+			// Frase completa ("ampara ..."): el prompt la usa tal cual (si solo venía "el vehículo X", la IA lo repetía).
+			amparo = 'ampara ' + (totalBienes == 1 && !bienes.isEmpty()
 				? (autos ? 'el vehículo ' : 'el bien ') + bienes[0]
-				: totalBienes + (autos ? ' vehículos' : ' ubicaciones o bienes');
+				: totalBienes + (autos ? ' vehículos' : ' ubicaciones o bienes'));
 		} else if (!deBienes && !porRol.isEmpty()) {
-			amparo = personasPorRol(porRol);
+			amparo = 'ampara a ' + personasPorRol(porRol);
 		}
 		String ejecutivo = String.isNotBlank(p.Owner?.Name) ? p.Owner.Name : 'Avanza Seguro';
 		List<String> pasos = new List<String>();
@@ -312,12 +317,21 @@ public with sharing class CorreoOportunidadIA {
 			}
 		}
 		// Saludo con la primera palabra del nombre (hay contactos con el nombre completo en FirstName), con mayúscula inicial.
-		String base = String.isNotBlank(r[1]) ? r[1] : r[0];
-		if (String.isNotBlank(base)) {
-			String primera = base.trim().split('\\s+')[0].toLowerCase();
-			r[1] = primera.left(1).toUpperCase() + primera.substring(1);
-		}
+		r[1] = primeraPalabra(String.isNotBlank(r[1]) ? r[1] : r[0]);
 		return r;
+	}
+
+	// Nombre completo y nombre de pila a partir de un nombre en texto (el del agente, Producer, si no hay contacto ni usuario).
+	@TestVisible
+	private static String[] nombreDeTexto(String completo) {
+		return new String[]{ String.isBlank(completo) ? null : completo.trim(), primeraPalabra(completo) };
+	}
+
+	// Primera palabra del nombre con mayúscula inicial ("ABRAHAM GONZALEZ" -> "Abraham").
+	private static String primeraPalabra(String nombre) {
+		if (String.isBlank(nombre)) { return null; }
+		String primera = nombre.trim().split('\\s+')[0].toLowerCase();
+		return primera.left(1).toUpperCase() + primera.substring(1);
 	}
 
 	/**

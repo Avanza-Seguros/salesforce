@@ -53,7 +53,7 @@ private class CorreoOportunidadIATest {
 		Opportunity o = [SELECT Id FROM Opportunity LIMIT 1];
 		Contact c = [SELECT Id FROM Contact LIMIT 1];
 		Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
-			CorreoOportunidadIA.datos(o.Id, c.Id, new List<String>{ 'Cotizacion GNP.pdf' }));
+			CorreoOportunidadIA.datos(o.Id, c.Id, new List<String>{ 'Cotizacion GNP.pdf' }, false));
 		System.assertEquals('Ana López', d.get('destinatario'));
 		System.assertEquals('Ana', d.get('nombreDestinatario'));
 		System.assertEquals(true, ((Map<String, Object>) ((List<Object>) d.get('cotizaciones'))[0]).get('recomendada'));
@@ -111,6 +111,9 @@ private class CorreoOportunidadIATest {
 		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
 			if (pe.isActive()) { p.PremiumFrequency = pe.getValue(); break; }
 		}
+		Producer agente = new Producer(Name = 'ABRAHAM GONZALEZ PRUEBA');
+		insert agente;
+		p.ProducerId = agente.Id;
 		insert p;
 		insert new InsurancePolicyCoverage(InsurancePolicyId = p.Id, CoverageName = 'Daños materiales', LimitAmount = 350000);
 		insert new ContentVersion(Title = 'Poliza POL-IA-001', PathOnClient = 'Poliza POL-IA-001.pdf',
@@ -124,7 +127,7 @@ private class CorreoOportunidadIATest {
 		Contact c = [SELECT Id FROM Contact LIMIT 1];
 		Test.startTest();
 		Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
-			CorreoOportunidadIA.datosPoliza(p.Id, c.Id, new List<String>{ 'Poliza POL-IA-001.pdf' }));
+			CorreoOportunidadIA.datosPoliza(p.Id, c.Id, new List<String>{ 'Poliza POL-IA-001.pdf' }, false));
 		Test.stopTest();
 		System.assertEquals('POL-IA-001', d.get('numeroPoliza'));
 		System.assertEquals('Cliente Correo IA', d.get('cliente'));
@@ -143,6 +146,17 @@ private class CorreoOportunidadIATest {
 		System.assertEquals('USD', CorreoOportunidadIA.moneda('Dólares americanos'));
 		System.assertEquals('UDI', CorreoOportunidadIA.moneda('UDIS'));
 		System.assertEquals(null, CorreoOportunidadIA.fechaTexto(null));
+		// Sin contacto ni usuario del agente, su correo saluda con el nombre del agente (Producer).
+		String[] agente = CorreoOportunidadIA.nombreDeTexto('  ABRAHAM GONZALEZ GONZALEZ ');
+		System.assertEquals('ABRAHAM GONZALEZ GONZALEZ', agente[0]);
+		System.assertEquals('Abraham', agente[1]);
+		System.assertEquals(null, CorreoOportunidadIA.nombreDeTexto(null)[1]);
+		Map<String, Object> sinDestinatario = (Map<String, Object>) JSON.deserializeUntyped(
+			CorreoOportunidadIA.datosPoliza(p.Id, null, new List<String>(), true));
+		System.assertEquals('ABRAHAM GONZALEZ PRUEBA', sinDestinatario.get('destinatario'), 'Para el agente sin contacto, su nombre de Producer');
+		System.assertEquals('Abraham', sinDestinatario.get('nombreDestinatario'));
+		// El amparo es la frase completa que el prompt usa tal cual.
+		System.assert(d.get('amparo') == null || String.valueOf(d.get('amparo')).startsWith('ampara '), String.valueOf(d.get('amparo')));
 		System.assertEquals('15 asegurados, 9 miembros familiares y 1 titular', CorreoOportunidadIA.personasPorRol(
 			new Map<String, Integer>{ 'Titular' => 1, 'Asegurado' => 15, 'Miembro familiar' => 9 }));
 	}
