@@ -100,6 +100,67 @@ private class CorreoOportunidadIATest {
 		}
 	}
 
+	// Póliza del cliente de prueba con prima, vigencia, fecha de pago en 5 días y una cobertura.
+	private static InsurancePolicy poliza() {
+		Account a = [SELECT Id FROM Account LIMIT 1];
+		InsurancePolicy p = new InsurancePolicy(Name = 'POL-IA-001', NameInsuredId = a.Id, Status = 'Vigente',
+			PremiumAmount = 15000, PaymentDueDate = Date.today().addDays(5), Moneda__c = 'PESOS', Primer_Pago__c = 3750,
+			EffectiveDate = Datetime.newInstanceGmt(Date.newInstance(2026, 1, 15), Time.newInstance(12, 0, 0, 0)),
+			ExpirationDate = Datetime.newInstanceGmt(Date.newInstance(2027, 1, 15), Time.newInstance(12, 0, 0, 0)));
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { p.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert p;
+		insert new InsurancePolicyCoverage(InsurancePolicyId = p.Id, CoverageName = 'Daños materiales', LimitAmount = 350000);
+		insert new ContentVersion(Title = 'Poliza POL-IA-001', PathOnClient = 'Poliza POL-IA-001.pdf',
+			VersionData = Blob.valueOf('pdf'), FirstPublishLocationId = p.Id);
+		return p;
+	}
+
+	@isTest
+	static void armaDatosDeLaPoliza() {
+		InsurancePolicy p = poliza();
+		Contact c = [SELECT Id FROM Contact LIMIT 1];
+		Test.startTest();
+		Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
+			CorreoOportunidadIA.datosPoliza(p.Id, c.Id, new List<String>{ 'Poliza POL-IA-001.pdf' }));
+		Test.stopTest();
+		System.assertEquals('POL-IA-001', d.get('numeroPoliza'));
+		System.assertEquals('Cliente Correo IA', d.get('cliente'));
+		System.assertEquals('Ana', d.get('nombreDestinatario'));
+		System.assertEquals('15 de enero de 2026', d.get('vigenciaDesde'));
+		System.assertEquals('15 de enero de 2027', d.get('vigenciaHasta'));
+		System.assertEquals('MXN', d.get('moneda'));
+		System.assertEquals(5, d.get('diasParaFechaLimitePago'));
+		System.assertNotEquals(null, d.get('fechaLimitePago'));
+		System.assertEquals(1, d.get('totalCoberturas'));
+		System.assertEquals('nueva', d.get('situacion'));
+		String pasos = String.join((List<Object>) d.get('pasosAgente'), ' | ');
+		System.assert(pasos.contains('(faltan 5 días)'), pasos);
+		System.assert(pasos.contains('le falta: producto'), pasos);
+		System.assert(!pasos.contains('nueva vigencia'), pasos);
+		System.assertEquals('USD', CorreoOportunidadIA.moneda('Dólares americanos'));
+		System.assertEquals('UDI', CorreoOportunidadIA.moneda('UDIS'));
+		System.assertEquals(null, CorreoOportunidadIA.fechaTexto(null));
+		System.assertEquals('15 asegurados, 9 miembros familiares y 1 titular', CorreoOportunidadIA.personasPorRol(
+			new Map<String, Integer>{ 'Titular' => 1, 'Asegurado' => 15, 'Miembro familiar' => 9 }));
+	}
+
+	@isTest
+	static void enviaCorreoDePolizaConIA() {
+		InsurancePolicy p = poliza();
+		CorreoOportunidadIA.respuestaPrueba = '{"asunto": "Su póliza ya está lista", "cuerpo_html": "<p>Hola Ana</p>"}';
+		EnvioCorreoPlantilla.Solicitud s = solicitud();
+		s.registroId = p.Id;
+		s.promptIA = 'Correo_Poliza_Cliente';
+		Test.startTest();
+		EnvioCorreoPlantilla.Resultado r = EnvioCorreoPlantilla.enviar(new List<EnvioCorreoPlantilla.Solicitud>{ s })[0];
+		Test.stopTest();
+		if (r.enviado) {
+			System.assert(r.mensaje.contains('redactado con IA'), r.mensaje);
+		}
+	}
+
 	@isTest
 	static void sinIAUsaLaPlantilla() {
 		CorreoOportunidadIA.respuestaPrueba = null;

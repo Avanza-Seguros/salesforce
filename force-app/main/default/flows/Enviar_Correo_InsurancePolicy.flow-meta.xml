@@ -30,6 +30,12 @@
             </value>
         </inputParameters>
         <inputParameters>
+            <name>promptIA</name>
+            <value>
+                <stringValue>Correo_Poliza_Agente</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
             <name>registroId</name>
             <value>
                 <elementReference>recordId</elementReference>
@@ -72,6 +78,12 @@
             <name>plantilla</name>
             <value>
                 <stringValue>X123_POLIZA_CLIENTE</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>promptIA</name>
+            <value>
+                <stringValue>Correo_Poliza_Cliente</stringValue>
             </value>
         </inputParameters>
         <inputParameters>
