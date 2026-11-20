@@ -223,6 +223,9 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 etapa: etapa.etiqueta,
                 puedeCorreo: o.etapa === 'Gestion Comercial' || o.etapa === 'En proceso de emision',
                 correoAria: `Enviar correo de ${nombre}`,
+                // Ganada con póliza ligada: el correo de la póliza (documentación al cliente y aviso al agente).
+                puedeCorreoPoliza: o.etapa === 'Closed Won' && !!polizaId,
+                correoPolizaAria: `Enviar correo de la póliza de ${nombre}`,
                 archivosAria: `Ver archivos de ${nombre}`,
                 etapaClase: `etapa-tag etapa-tag-${etapa.clave}`,
                 ramoIni: ramo.ini,
@@ -649,6 +652,10 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
     // Solo dentro de Crear Oportunidad: enviar el correo de la oportunidad y ver sus archivos (modales de ese componente).
     handleCorreo(event) {
         this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'correo', id: event.currentTarget.dataset.id } }));
+    }
+    // Ganada: manda el correo de la póliza (Flow "Enviar Correo InsurancePolicy" con el Id de la póliza).
+    handleCorreoPoliza(event) {
+        this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'correoPoliza', id: event.currentTarget.dataset.poliza } }));
     }
     handleArchivos(event) {
         const { id, name } = event.currentTarget.dataset;

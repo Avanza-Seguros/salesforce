@@ -1869,7 +1869,7 @@
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
 
-        <!-- Modal: Enviar Correo (Flow "Enviar Correo Oportunidad") -->
+        <!-- Modal: Enviar Correo (Flow "Enviar Correo Oportunidad"; en Ganada, "Enviar Correo InsurancePolicy") -->
         <template if:true={correoFlowOpen}>
             <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
                 <div class="slds-modal__container">
@@ -1877,11 +1877,11 @@
                         <button class="slds-button slds-button_icon slds-modal__close" title="Cerrar" onclick={closeCorreoFlow}>
                             <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
                         </button>
-                        <h2 class="slds-modal__title slds-hyphenate">Enviar Correo</h2>
+                        <h2 class="slds-modal__title slds-hyphenate">{correoFlowTitulo}</h2>
                     </header>
                     <div class="slds-modal__content slds-p-around_medium">
                         <lightning-flow
-                            flow-api-name="Enviar_Correo_Oportunidad"
+                            flow-api-name={correoFlowApiName}
                             flow-input-variables={correoFlowInputs}
                             onstatuschange={handleCorreoFlowStatus}>
                         </lightning-flow>

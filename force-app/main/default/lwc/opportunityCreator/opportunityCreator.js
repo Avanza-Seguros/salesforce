@@ -1707,6 +1707,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Variable de entrada del Flow: el Id de la oportunidad como recordId. Se arma UNA vez al abrir el modal: si se
     // creara un arreglo nuevo en cada render, lightning-flow reiniciaría el flujo (y volvería a enviar el correo).
     correoFlowInputs = [];
+    // Flow del modal: el de la oportunidad o, en Ganada (icono de la lista), el de la póliza.
+    correoFlowApiName = 'Enviar_Correo_Oportunidad';
+    correoFlowTitulo = 'Enviar Correo';
     // Abre el modal con el Flow. Toma el Id del botón (lista) o de la oportunidad abierta.
     handleEnviarCorreo(event) {
         if (this.correoFlowOpen) { return; }   // ya hay un envío abierto (evita doble clic)
@@ -1716,6 +1719,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             return;
         }
         this.correoFlowOppId = id;
+        this.correoFlowApiName = 'Enviar_Correo_Oportunidad';
+        this.correoFlowTitulo = 'Enviar Correo';
         const inputs = [{ name: 'recordId', type: 'String', value: id }];
         // Si es la oportunidad abierta en el formulario, el correo va a las direcciones que se ven en
         // "Email cliente" y "Email Agente". Desde la lista, el Flow las toma de la cuenta y del agente.
@@ -1726,6 +1731,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (agente) { inputs.push({ name: 'correoAgente', type: 'String', value: agente }); }
         }
         this.correoFlowInputs = inputs;
+        this.correoFlowOpen = true;
+    }
+    // Oportunidad Ganada: correo de la póliza ligada (documentación al cliente y aviso al agente, redactado con IA).
+    handleEnviarCorreoPoliza(polizaId) {
+        if (this.correoFlowOpen) { return; }
+        if (!polizaId) {
+            this.showToast('Aviso', 'La oportunidad no tiene una póliza ligada para enviar el correo.', 'warning');
+            return;
+        }
+        this.correoFlowOppId = null;
+        this.correoFlowApiName = 'Enviar_Correo_InsurancePolicy';
+        this.correoFlowTitulo = 'Enviar Correo de la Póliza';
+        this.correoFlowInputs = [{ name: 'recordId', type: 'String', value: polizaId }];
         this.correoFlowOpen = true;
     }
     // "Guardar y Enviar Correo": guarda la oportunidad y, si se guardó bien, abre el envío del correo.
@@ -4088,6 +4106,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 await this.handleEditOpportunity(evento);
             } else if (accion === 'correo') {
                 this.handleEnviarCorreo(evento);
+            } else if (accion === 'correoPoliza') {
+                this.handleEnviarCorreoPoliza(id);
             } else if (accion === 'archivos') {
                 await this.handleVerArchivos(evento);
             }

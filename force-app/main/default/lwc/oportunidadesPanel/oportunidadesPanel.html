@@ -231,6 +231,10 @@
                                             aria-label={r.correoAria} title="Enviar correo de la oportunidad" onclick={handleCorreo}>
                                             <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
                                         </button>
+                                        <button lwc:if={r.puedeCorreoPoliza} type="button" class="boton-icono" data-poliza={r.polizaId}
+                                            aria-label={r.correoPolizaAria} title="Enviar correo de la póliza" onclick={handleCorreoPoliza}>
+                                            <lightning-icon icon-name="utility:email" size="x-small"></lightning-icon>
+                                        </button>
                                         <button type="button" class="boton-icono" data-id={r.id} data-name={r.nombre}
                                             aria-label={r.archivosAria} title="Ver archivos" onclick={handleArchivos}>
                                             <lightning-icon icon-name="utility:attach" size="x-small"></lightning-icon>
