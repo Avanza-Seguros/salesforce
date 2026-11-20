@@ -121,7 +121,8 @@ public with sharing class OportunidadesPanelController {
 		Datetime desde = Datetime.now().addDays(-DIAS_RECIENTES);
 		List<Opportunity> opps = [
 			SELECT Id, Name, StageName, CloseDate, Amount, Prima_Total__c, Prima_neta__c, Type, Canal__c,
-				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Producer__c, Producer__r.Name, Account.Name, CreatedDate
+				Ramo__c, Tipo_Contratacion__c, OwnerId, Owner.Name, Producer__c, Producer__r.Name, AccountId, Account.Name,
+				CreatedDate, Poliza__c
 			FROM Opportunity
 			WHERE IsClosed = false OR LastModifiedDate >= :desde
 			ORDER BY CreatedDate DESC
@@ -200,7 +201,8 @@ public with sharing class OportunidadesPanelController {
 	 * @creation date: 19/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Póliza (InsurancePolicy) de cada oportunidad, por la oportunidad de origen o por la de su
-	 *   cotización; si hay varias, la más reciente. El panel la abre directo en Póliza, Ganada y Perdida.
+	 *   cotización; si hay varias, la más reciente; sin ninguna de las dos, por el número de póliza (Poliza__c).
+	 *   El panel la abre directo en Póliza, Ganada y Perdida.
 	 * @param opps: Oportunidades del panel
 	 * @return Mapa Id de oportunidad → Id de la póliza
 	 */
@@ -223,7 +225,124 @@ public with sharing class OportunidadesPanelController {
 				res.put(oppId, pol.Id);
 			}
 		}
+		buscarPolizasPorNumero(opps, res);
 		return res;
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Para las oportunidades que no tienen la póliza ligada por origen ni por cotización (las que
+	 *   se cargaron con su número de póliza en Poliza__c), busca la póliza con ese número: primero la del mismo
+	 *   cliente y, si no hay, la más reciente con ese número.
+	 * @param opps: Oportunidades del panel (con Poliza__c y AccountId)
+	 * @param res: Mapa Id de oportunidad → Id de la póliza que se completa
+	 * @return void
+	 */
+	@TestVisible
+	static void buscarPolizasPorNumero(List<Opportunity> opps, Map<Id, Id> res) {
+		Set<String> numeros = new Set<String>();
+		for (Opportunity o : opps) {
+			if (!res.containsKey(o.Id) && String.isNotBlank(o.Poliza__c)) {
+				numeros.add(o.Poliza__c.trim());
+			}
+		}
+		if (numeros.isEmpty()) {
+			return;
+		}
+		Map<String, List<InsurancePolicy>> porNumero = new Map<String, List<InsurancePolicy>>();
+		for (InsurancePolicy pol : [
+			SELECT Id, Name, NameInsuredId
+			FROM InsurancePolicy
+			WHERE Name IN :numeros
+			ORDER BY CreatedDate DESC, Id DESC
+			LIMIT :LIMITE_POLIZAS
+		]) {
+			String k = pol.Name.trim().toUpperCase();
+			if (!porNumero.containsKey(k)) {
+				porNumero.put(k, new List<InsurancePolicy>());
+			}
+			porNumero.get(k).add(pol);
+		}
+		for (Opportunity o : opps) {
+			if (res.containsKey(o.Id) || String.isBlank(o.Poliza__c)) {
+				continue;
+			}
+			List<InsurancePolicy> candidatas = porNumero.get(o.Poliza__c.trim().toUpperCase());
+			if (candidatas == null) {
+				continue;
+			}
+			Id elegida = candidatas[0].Id;
+			for (InsurancePolicy pol : candidatas) {
+				if (o.AccountId != null && pol.NameInsuredId == o.AccountId) {
+					elegida = pol.Id;
+					break;
+				}
+			}
+			res.put(o.Id, elegida);
+		}
+		buscarPolizasPorNumeroDelCliente(opps, res);
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Número de póliza solo con letras y números y sin ceros al inicio, para comparar números
+	 *   escritos distinto ("GE 43008054" y "GE43008054", "00000573371010" y "573371010").
+	 * @param numero: Número de póliza
+	 * @return Número normalizado (null si viene vacío)
+	 */
+	@TestVisible
+	static String numeroNormalizado(String numero) {
+		if (String.isBlank(numero)) {
+			return null;
+		}
+		String n = numero.toUpperCase().replaceAll('[^A-Z0-9]', '').replaceFirst('^0+', '');
+		return String.isBlank(n) ? null : n;
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Para las que siguen sin póliza, compara su número normalizado con el de las pólizas del
+	 *   mismo cliente (la más reciente si hay varias).
+	 * @param opps: Oportunidades del panel (con Poliza__c y AccountId)
+	 * @param res: Mapa Id de oportunidad → Id de la póliza que se completa
+	 * @return void
+	 */
+	static void buscarPolizasPorNumeroDelCliente(List<Opportunity> opps, Map<Id, Id> res) {
+		Set<Id> cuentas = new Set<Id>();
+		for (Opportunity o : opps) {
+			if (!res.containsKey(o.Id) && o.AccountId != null && numeroNormalizado(o.Poliza__c) != null) {
+				cuentas.add(o.AccountId);
+			}
+		}
+		if (cuentas.isEmpty()) {
+			return;
+		}
+		Map<String, Id> porClienteYNumero = new Map<String, Id>();
+		for (InsurancePolicy pol : [
+			SELECT Id, Name, NameInsuredId
+			FROM InsurancePolicy
+			WHERE NameInsuredId IN :cuentas
+			ORDER BY CreatedDate DESC, Id DESC
+			LIMIT :LIMITE_POLIZAS
+		]) {
+			String k = pol.NameInsuredId + '|' + numeroNormalizado(pol.Name);
+			if (!porClienteYNumero.containsKey(k)) {
+				porClienteYNumero.put(k, pol.Id);
+			}
+		}
+		for (Opportunity o : opps) {
+			String n = numeroNormalizado(o.Poliza__c);
+			if (res.containsKey(o.Id) || o.AccountId == null || n == null) {
+				continue;
+			}
+			Id pol = porClienteYNumero.get(o.AccountId + '|' + n);
+			if (pol != null) {
+				res.put(o.Id, pol);
+			}
+		}
 	}
 
 	/**

@@ -105,6 +105,48 @@ private class OportunidadesPanelControllerTest {
 	}
 
 	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Sin póliza por origen ni por cotización, la oportunidad toma la póliza con su número de póliza
+	 *   (Poliza__c): la del mismo cliente si la hay; si no, la que tenga ese número. Sin número no toma ninguna.
+	 * @return void
+	 */
+	@IsTest
+	static void buscarPolizasPorNumeroDePoliza() {
+		Account cuenta = [SELECT Id FROM Account LIMIT 1];
+		// Otro nombre: con el mismo, la regla de duplicados de cuentas de algunas orgs rechaza el alta.
+		Account otra = new Account(Name = 'Otro Cliente Panel Prueba', AnnualRevenue = 1000000);
+		insert otra;
+		InsurancePolicy deOtro = CollectionsTestDataFactory.buildCompletePolicy(otra.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		deOtro.Name = 'NUM-PANEL-1';
+		InsurancePolicy delCliente = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		delCliente.Name = 'NUM-PANEL-1';
+		InsurancePolicy soloOtro = CollectionsTestDataFactory.buildCompletePolicy(otra.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		soloOtro.Name = 'NUM-PANEL-2';
+		InsurancePolicy conEspacios = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		conEspacios.Name = 'GE 4300805';
+		insert new List<InsurancePolicy>{ deOtro, delCliente, soloOtro, conEspacios };
+		Opportunity a = new Opportunity(Id = '006000000000001AAA', AccountId = cuenta.Id, Poliza__c = ' num-panel-1 ');
+		Opportunity b = new Opportunity(Id = '006000000000002AAA', AccountId = cuenta.Id, Poliza__c = 'NUM-PANEL-2');
+		Opportunity c = new Opportunity(Id = '006000000000003AAA', AccountId = cuenta.Id);
+		Opportunity d = new Opportunity(Id = '006000000000004AAA', AccountId = cuenta.Id, Poliza__c = 'ge-4300805');
+		Opportunity e = new Opportunity(Id = '006000000000005AAA', AccountId = otra.Id, Poliza__c = 'GE4300805');
+		Map<Id, Id> res = new Map<Id, Id>();
+
+		Test.startTest();
+		OportunidadesPanelController.buscarPolizasPorNumero(new List<Opportunity>{ a, b, c, d, e }, res);
+		Test.stopTest();
+
+		Assert.areEqual(delCliente.Id, res.get(a.Id), 'Con varias del mismo número toma la del cliente de la oportunidad');
+		Assert.areEqual(soloOtro.Id, res.get(b.Id), 'Sin una del cliente toma la que tiene ese número');
+		Assert.isFalse(res.containsKey(c.Id), 'Sin número de póliza no toma ninguna');
+		Assert.areEqual(conEspacios.Id, res.get(d.Id), 'Escrito distinto (espacios, guiones, ceros) toma la del cliente');
+		Assert.isFalse(res.containsKey(e.Id), 'Escrito distinto solo se compara con las pólizas del mismo cliente');
+		Assert.areEqual('573371010', OportunidadesPanelController.numeroNormalizado('00000573371010'), 'Sin ceros al inicio');
+		Assert.isNull(OportunidadesPanelController.numeroNormalizado(' - '), 'Sin letras ni números no hay número');
+	}
+
+	/**
 	 * @creation date: 16/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: La racha cuenta días consecutivos y sigue viva si hoy aún no hay emisión.
