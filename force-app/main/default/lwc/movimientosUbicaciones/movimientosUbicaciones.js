@@ -107,6 +107,10 @@ export default class MovimientosUbicaciones extends LightningElement {
     // Estado general
     // ============================================================
     get enPoliza() { return !!this.datos && this.datos.contexto === 'poliza'; }
+    // Petición desde archivo en Salesforce (póliza): no se pide fecha, número de endoso ni comentario; cada movimiento
+    // lleva la fecha y el endoso que trae el archivo (sin fecha, la de hoy).
+    get pideDatosArchivo() { return !(this.interno && this.enPoliza); }
+    get pideEndosoArchivo() { return this.interno && !this.enPoliza; }
     get enOportunidad() { return !!this.datos && this.datos.contexto === 'oportunidad'; }
     // Póliza individual: sin fecha de movimiento ni de cierre (solo las empresariales las muestran). El tipo sale de la
     // oportunidad de origen; si la póliza no viene de una, es individual cuando tiene un solo registro.

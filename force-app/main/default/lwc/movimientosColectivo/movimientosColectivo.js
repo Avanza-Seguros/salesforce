@@ -128,6 +128,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Estado general
     // ============================================================
     get enPoliza() { return !!this.datos && this.datos.contexto === 'poliza'; }
+    // Petición desde archivo en Salesforce (póliza): no se pide fecha, número de endoso ni comentario; cada movimiento
+    // lleva la fecha y el endoso que trae el archivo (sin fecha, la de hoy).
+    get pideDatosArchivo() { return !(this.interno && this.enPoliza); }
+    get pideEndosoArchivo() { return this.interno && !this.enPoliza; }
     get enOportunidad() { return !!this.datos && this.datos.contexto === 'oportunidad'; }
     // Póliza individual: sin fecha de movimiento ni de cierre (solo las empresariales las muestran). El tipo sale de la
     // oportunidad de origen; si la póliza no viene de una, es individual cuando tiene un solo registro.
@@ -1207,14 +1211,17 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     // Fecha del movimiento que trae el archivo (sin ella se usa la fecha general) y su número de endoso.
     fechaMovTxt(x) {
-        return (x.fechaMovimiento ? fechaVisible(x.fechaMovimiento) : 'General') + (x.numeroEndoso ? ` · Endoso ${x.numeroEndoso}` : '');
+        const general = this.pideDatosArchivo ? 'General' : fechaVisible(this.comun && this.comun.fecha);
+        return (x.fechaMovimiento ? fechaVisible(x.fechaMovimiento) : general) + (x.numeroEndoso ? ` · Endoso ${x.numeroEndoso}` : '');
     }
     get hayEndososArchivo() { return (this.endososArchivo || []).length > 0; }
     get textoEndososArchivo() {
         const l = this.endososArchivo || [];
         const lista = l.slice(0, 12).join(', ') + (l.length > 12 ? ` y ${l.length - 12} más` : '');
         return `El archivo trae ${l.length} ${l.length === 1 ? 'endoso' : 'endosos'} (${lista}): cada movimiento queda en su endoso, `
-            + 'con la prima que trae el archivo. El número de endoso y la prima de abajo solo aplican a los movimientos sin número.';
+            + 'con la prima que trae el archivo. '
+            + (this.pideEndosoArchivo ? 'El número de endoso y la prima de abajo solo aplican' : 'La prima del endoso de abajo solo aplica')
+            + ' a los movimientos sin número.';
     }
     get cambiosRev() {
         if (!this.revision) { return []; }

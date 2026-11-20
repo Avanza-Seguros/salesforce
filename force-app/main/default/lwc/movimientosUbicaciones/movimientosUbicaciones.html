@@ -215,10 +215,12 @@
 
                     <template if:false={sinDiferencias}>
                         <div class="slds-grid slds-wrap slds-gutters_x-small modal-form">
+                            <template lwc:if={pideDatosArchivo}>
                             <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                 <lightning-input type="date" label={etiquetaFecha} value={comun.fecha} data-campo="fecha" onchange={handleComun} required></lightning-input>
                             </div>
-                            <template lwc:if={interno}>
+                            </template>
+                            <template lwc:if={pideEndosoArchivo}>
                             <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                 <lightning-input label="Número de endoso" value={comun.endoso} data-campo="endoso" onchange={handleComun}></lightning-input>
                             </div>
@@ -235,9 +237,11 @@
                                         data-campo="motivo" onchange={handleComun} placeholder="Sin motivo"></lightning-combobox>
                                 </div>
                             </template>
+                            <template lwc:if={pideDatosArchivo}>
                             <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
                                 <lightning-input label="Comentario" value={comun.comentario} data-campo="comentario" onchange={handleComun} max-length="255"></lightning-input>
                             </div>
+                            </template>
                         </div>
                         <template if:true={enPoliza}>
                             <template lwc:if={interno}>
