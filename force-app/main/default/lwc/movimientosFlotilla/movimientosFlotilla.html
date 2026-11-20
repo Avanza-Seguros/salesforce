@@ -86,43 +86,59 @@
                         <div class="mov-scroll">
                             <table class="slds-table slds-table_bordered slds-table_cell-buffer mov-tabla">
                                 <thead>
-                                    <tr class="slds-line-height_reset">
-                                        <th scope="col" class="col-check"></th>
-                                        <th scope="col">Inciso</th>
-                                        <th scope="col">Serie</th>
-                                        <th scope="col">Vehículo</th>
-                                        <th scope="col">Modelo</th>
-                                        <th scope="col">Placas</th>
-                                        <th scope="col">Uso</th>
-                                        <th scope="col">Vigencia</th>
-                                        <template if:true={conFechasMovimiento}><th scope="col">Fecha de movimiento</th></template>
-                                        <template if:true={enPoliza}><th scope="col">Fecha de creación</th></template>
-                                        <template if:true={conFechaCierre}><th scope="col">Fecha de cierre</th></template>
-                                        <th scope="col" class="num">Valor</th>
-                                        <th scope="col" class="num">Prima</th>
-                                        <th scope="col">Estado</th>
-                                        <th scope="col" class="col-acciones"></th>
-                                    </tr>
+                                    <!-- Agrupada por solicitud: el encabezado es el de las solicitudes; el de los registros va dentro de cada una. -->
+                                    <template lwc:if={agrupado}>
+                                        <tr class="slds-line-height_reset enc-solicitudes">
+                                            <th scope="col" colspan={columnasTabla}>
+                                                <div class="sol-grid">
+                                                    <span></span><span>Número de movimiento</span><span>Póliza</span><span>Fecha de apertura</span>
+                                                    <span>Fecha de cierre</span><span>Seguimiento</span><span></span>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </template>
+                                    <template lwc:else>
+                                        <tr class="slds-line-height_reset">
+                                            <th scope="col" class="col-check"></th>
+                                            <template for:each={columnasDetalle} for:item="c">
+                                                <th key={c.key} scope="col" class={c.clase}>{c.label}</th>
+                                            </template>
+                                            <th scope="col" class="col-acciones"></th>
+                                        </tr>
+                                    </template>
                                 </thead>
                                 <template for:each={bloques} for:item="b">
                                 <tbody key={b.key}>
                                     <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
                                     <template lwc:if={b.encabezado}>
+                                        <!-- Número de movimiento | Póliza | Fecha de apertura | Fecha de cierre | Seguimiento (y el resumen). -->
                                         <tr class="fila-solicitud">
                                             <td colspan={columnasTabla}>
-                                                <div class="sol-enc">
+                                                <div class="sol-grid">
                                                     <lightning-button-icon icon-name={b.icono} variant="bare" size="small" alternative-text={b.textoColapsar}
                                                         title={b.textoColapsar} data-folio={b.folio} onclick={toggleSolicitud}></lightning-button-icon>
-                                                    <span class="sol-folio">{b.titulo}</span>
-                                                    <template lwc:if={b.continua}><span class="sol-sub">(continúa)</span></template>
-                                                    <span class="sol-sub">{b.sub}</span>
-                                                    <span class="sol-resumen">{b.resumen}</span>
-                                                    <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
-                                                    <template lwc:if={b.estadoTxt}><span class={b.claseEstado}>{b.estadoTxt}</span></template>
-                                                    <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
-                                                        class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
+                                                    <span class="sol-folio" title={b.sub}>{b.titulo}<template lwc:if={b.continua}><span class="sol-sub"> (continúa)</span></template></span>
+                                                    <span class="sol-poliza">{b.poliza}</span>
+                                                    <span>{b.aperturaTxt}</span>
+                                                    <span>{b.cierreTxt}</span>
+                                                    <span><template lwc:if={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template></span>
+                                                    <span class="sol-extra">
+                                                        <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
+                                                        <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
+                                                        <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
+                                                            class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
+                                                    </span>
                                                 </div>
                                             </td>
+                                        </tr>
+                                    </template>
+                                    <template lwc:if={b.conEncabezadoDetalle}>
+                                        <tr class="fila-enc-detalle">
+                                            <th scope="col" class="col-check"></th>
+                                            <template for:each={columnasDetalle} for:item="c">
+                                                <th key={c.key} scope="col" class={c.clase}>{c.label}</th>
+                                            </template>
+                                            <th scope="col" class="col-acciones"></th>
                                         </tr>
                                     </template>
                                     <template for:each={b.filas} for:item="v">
@@ -150,6 +166,10 @@
                                                 <span class={v.claseEstado}>{v.estado}</span>
                                                 <template if:true={v.motivoBaja}><div class="sub">{v.motivoBaja}</div></template>
                                             </td>
+                                            <template if:true={enPoliza}>
+                                                <!-- Seguimiento del trámite: Solicitado, En proceso o Concluido. -->
+                                                <td><template lwc:if={v.seguimiento}><span class={v.claseSeguimiento}>{v.seguimiento}</span></template></td>
+                                            </template>
                                             <td class="col-acciones">
                                                 <template if:true={v.puedeCerrar}>
                                                     <lightning-button-icon icon-name="utility:check" alternative-text="Cerrar movimiento" title="Cerrar movimiento"

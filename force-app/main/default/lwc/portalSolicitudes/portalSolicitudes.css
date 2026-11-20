@@ -200,6 +200,33 @@
 .tabla td { padding: 10px 12px; border-bottom: 0; border-top: 1px solid #eef1f6; color: #0b1f44; }
 .acciones { margin-top: 4px; flex-wrap: wrap; }
 
+/* Detalle de una solicitud: datos y movimientos solicitados. */
+.detalle { display: block; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid #eef1f6; }
+.detalle_titulo { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+.detalle_titulo + .tabla_contenedor { margin-top: 0; }
+.detalle_datos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; font-size: 13px; color: #64748b; margin-bottom: 12px; }
+.detalle_datos strong { color: #0b1f44; font-weight: 600; }
+.detalle_lista { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
+.tabla .estado, .detalle_datos .estado { margin-left: 0; }
+.estado_alta { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
+.estado_baja { background: #fdecec; border-color: #f7c9c9; color: #b42318; }
+.estado_cambio { background: #f3eefe; border-color: #ddd0fb; color: #6d28d9; }
+
+/* Bajas y cambios: póliza, filtro Todos | Titulares | Dependientes y el registro. */
+.registro { display: grid; gap: 6px; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.filtro { min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid #e3e8f2; background: #ffffff; color: #0b1f44;
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.filtro:hover { border-color: #c7d7fe; }
+.filtro_activo { background: #1d4ed8; border-color: #1d4ed8; color: #ffffff; }
+.filtro:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+.registro .nota { margin: 0; }
+.nota_aviso { margin: 4px 0 0; color: #a1450a; font-size: 12px; }
+.recordatorio { display: grid; gap: 2px; padding: 10px 14px; border-radius: 12px; border: 1px solid #fbd9a8; background: #fff8ec;
+    color: #7c3a06; font-size: 13px; }
+.recordatorio strong { font-weight: 700; letter-spacing: 0.02em; }
+.nota_ra { margin: 0; padding: 8px 12px; border-radius: 12px; background: #e8efff; color: #1d4ed8; }
+
 @media (max-width: 600px) {
     .solicitudes { padding: 18px 16px; }
     .cabecera .boton { width: 100%; justify-content: center; }

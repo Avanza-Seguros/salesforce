@@ -15,6 +15,7 @@ import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import { primasPorEndoso } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
+import solicitudEnProceso from '@salesforce/apex/EndosoPoliza.solicitudEnProceso';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosColectivoController.compararArchivo';
@@ -230,8 +231,22 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get flechas() {
         const f = {};
         ['certificado', 'nombre', 'parentesco', 'categoria', 'nacimiento', 'alta', 'movimiento', 'creacion', 'cierre', 'prima',
-            'estado', 'envio', 'correo'].forEach((c) => { f[c] = this.orden.campo === c ? (this.orden.asc ? '▲' : '▼') : ''; });
+            'estado', 'seguimiento', 'envio', 'correo'].forEach((c) => { f[c] = this.orden.campo === c ? (this.orden.asc ? '▲' : '▼') : ''; });
         return f;
+    }
+    // Encabezados de la tabla de asegurados: arriba de la tabla sin agrupar y, agrupada, dentro de cada solicitud
+    // desplegada (arriba de sus registros).
+    get columnasDetalle() {
+        const f = this.flechas;
+        const col = (campo, label, clase = 'col-orden') => ({ key: campo, campo, label, clase, flecha: f[campo] });
+        const l = [col('certificado', 'Certificado'), col('nombre', 'Nombre'), col('parentesco', 'Parentesco'), col('categoria', 'Categoría'),
+            col('nacimiento', 'Fecha de nacimiento'), col('alta', 'Fecha de alta')];
+        if (this.conFechasMovimiento) { l.push(col('movimiento', 'Fecha de movimiento')); }
+        if (this.enPoliza) { l.push(col('creacion', 'Fecha de creación')); }
+        if (this.conFechaCierre) { l.push(col('cierre', 'Fecha de cierre')); }
+        l.push(col('prima', 'Prima', 'num col-orden'), col('estado', 'Estado'));
+        if (this.enPoliza) { l.push(col('seguimiento', 'Seguimiento'), col('envio', 'Envío de correo'), col('correo', 'Correo')); }
+        return l;
     }
     valorOrden(m, campo) {
         switch (campo) {
@@ -246,6 +261,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             case 'cierre': return m.fechaCierre;
             case 'prima': return m.prima;
             case 'estado': return m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja');
+            case 'seguimiento': return this.seguimientoDe(m);
             // Sin correo, pendiente y enviado (por fecha de envío).
             case 'envio': return m.correoEnviado ? `2${m.fechaCorreo || ''}` : (this.correoDe(m) ? '1' : '0');
             case 'correo': return this.correoDe(m);
@@ -307,6 +323,18 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     handleCambioSolicitudes() { this.solicitudAtender = null; this.cargar(); }
     colapsadas = new Set();
     get solicitudes() { return (this.datos && this.datos.solicitudes) || []; }
+    get infoSolicitudes() { return new Map(this.solicitudes.map((x) => [x.folio, x])); }
+    // Seguimiento del trámite del registro: Concluido al cerrarse su movimiento; si no, Solicitado mientras su solicitud
+    // del sitio no se atiende y En proceso después. Sin movimiento registrado, nada.
+    seguimientoDe(m, info) {
+        if (!m.fechaCreacion) { return ''; }
+        if (m.fechaCierre) { return 'Concluido'; }
+        const s = (info || this.infoSolicitudes).get(m.solicitud);
+        return s && s.seguimiento === 'Solicitado' ? 'Solicitado' : 'En proceso';
+    }
+    claseSeguimiento(v) {
+        return `estado seg-${{ Solicitado: 'solicitado', 'En proceso': 'proceso', Concluido: 'concluido', Rechazada: 'rechazada' }[v] || 'sin'}`;
+    }
     get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
     get agrupado() { return this.hayAgrupacion && this.agruparSolicitud; }
     toggleAgrupar(e) { this.agruparSolicitud = e.target.checked; this.pagina = 1; }
@@ -345,7 +373,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         if (!this.agrupado) {
             return [{ key: 'todos', encabezado: false, filas: this.filtrados.slice(ini, fin).map((m) => this.decorar(m)) }];
         }
-        const info = new Map(this.solicitudes.map((x) => [x.folio, x]));
+        const info = this.infoSolicitudes;
         const paginas = this.paginas;
         const res = [];
         let n = 0;
@@ -356,7 +384,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // Colapsada: el encabezado va en la página donde le toca.
             const pagEnc = Math.min(Math.floor(n / POR_PAGINA) + 1, paginas);
             if (visibles.length || (colapsada && pagEnc === this.pagina)) {
-                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((m) => this.decorar(m)), n < ini && !colapsada));
+                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((m) => this.decorar(m, info)), n < ini && !colapsada));
             }
             n += filas.length;
         });
@@ -375,11 +403,25 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const endosos = [...new Set(g.lista.map((m) => m.numeroEndoso).filter((x) => x))];
         const abiertos = g.lista.filter((m) => m.fechaCreacion && !m.fechaCierre).length;
         const sin = !g.folio;
+        // Fecha de apertura (la de la solicitud), fecha de cierre (cuando ya no tiene movimientos abiertos) y seguimiento.
+        const creaciones = g.lista.map((m) => m.fechaCreacion).filter((x) => x).sort();
+        const cierres = g.lista.map((m) => m.fechaCierre).filter((x) => x).sort();
+        const apertura = s && s.fecha ? s.fecha : creaciones[0];
+        const cierre = s ? s.cierre : (!abiertos && cierres.length ? cierres[cierres.length - 1] : null);
+        const seguimiento = s && s.seguimiento ? s.seguimiento : (abiertos ? 'En proceso' : (creaciones.length ? 'Concluido' : ''));
         return {
             key: 'sol-' + (g.folio || 'sin'),
             encabezado: true,
             folio: g.folio,
-            titulo: sin ? 'Sin solicitud' : g.folio,
+            // Número de movimiento solo numérico (SOL-0004 → 0004); los registros sin solicitud son la carga inicial.
+            titulo: sin ? 'Carga inicial' : String(g.folio).replace(/^SOL-/i, ''),
+            poliza: (this.datos && this.datos.nombre) || '',
+            aperturaTxt: this.fechaHora(apertura) || '—',
+            cierreTxt: this.fechaHora(cierre) || '—',
+            seguimiento,
+            claseSeguimiento: this.claseSeguimiento(seguimiento),
+            // Encabezados de los registros, dentro de la solicitud desplegada.
+            conEncabezadoDetalle: !colapsada && filas.length > 0,
             sub: sin ? 'Registrados antes de las solicitudes'
                 : [s && s.fecha ? this.fechaHora(s.fecha) : '', s && s.portal ? `Del sitio · caso ${s.caso}${s.usuario ? ' · envió ' + s.usuario : ''}` : (s && s.usuario ? `Registró ${s.usuario}` : '')].filter((x) => x).join(' · '),
             resumen: `${g.lista.length} ${g.lista.length === 1 ? 'registro' : 'registros'}${partes.length ? ' · ' + partes.join(', ') : ''}`,
@@ -395,16 +437,19 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         };
     }
     get columnasTabla() {
-        return 10 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 3 : 0) + (this.conFechaCierre ? 1 : 0);
+        return 10 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 4 : 0) + (this.conFechaCierre ? 1 : 0);
     }
 
     get filas() {
         const ini = (this.pagina - 1) * POR_PAGINA;
         return this.filtrados.slice(ini, ini + POR_PAGINA).map((m) => this.decorar(m));
     }
-    decorar(m) {
+    decorar(m, info) {
+        const seguimiento = this.enPoliza ? this.seguimientoDe(m, info) : '';
         return ({
             ...m,
+            seguimiento,
+            claseSeguimiento: this.claseSeguimiento(seguimiento),
             seleccionado: this.seleccion.has(m.id),
             noSeleccionable: !m.activo || !this.puedeEditar,
             claseFila: (m.esTitular ? '' : 'fila-dependiente') + (m.activo ? '' : ' fila-baja'),
@@ -1422,7 +1467,15 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         }
         this.excelDe(registros, folio);
     }
+    // El ejecutivo descarga el Excel de una solicitud del sitio para la aseguradora: si nadie la atendía (Solicitado),
+    // pasa a En proceso.
+    marcarEnProceso(folio) {
+        const s = this.infoSolicitudes.get(folio);
+        if (this.portal || !this.enPoliza || !s || s.seguimiento !== 'Solicitado') { return; }
+        solicitudEnProceso({ policyId: this.recordId, folio }).then(() => this.cargar()).catch(() => {});
+    }
     excelDe(registros, sufijo) {
+        this.marcarEnProceso(sufijo);
         // Formato de la solicitud de movimientos a la aseguradora: un renglón por titular con sus dependientes en columnas.
         const porId = new Map(this.miembros.map((m) => [m.id, m]));
         const familias = new Map();

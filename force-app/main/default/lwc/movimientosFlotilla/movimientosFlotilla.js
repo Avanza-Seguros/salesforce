@@ -13,6 +13,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
+import solicitudEnProceso from '@salesforce/apex/EndosoPoliza.solicitudEnProceso';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosFlotillaController.aplicar';
@@ -188,6 +189,31 @@ export default class MovimientosFlotilla extends LightningElement {
     handleCambioSolicitudes() { this.solicitudAtender = null; this.cargar(); }
     colapsadas = new Set();
     get solicitudes() { return (this.datos && this.datos.solicitudes) || []; }
+    get infoSolicitudes() { return new Map(this.solicitudes.map((x) => [x.folio, x])); }
+    // Seguimiento del trámite del registro: Concluido al cerrarse su movimiento; si no, Solicitado mientras su solicitud
+    // del sitio no se atiende y En proceso después. Sin movimiento registrado, nada.
+    seguimientoDe(r, info) {
+        if (!r.fechaCreacion) { return ''; }
+        if (r.fechaCierre) { return 'Concluido'; }
+        const s = (info || this.infoSolicitudes).get(r.solicitud);
+        return s && s.seguimiento === 'Solicitado' ? 'Solicitado' : 'En proceso';
+    }
+    claseSeguimiento(v) {
+        return `estado seg-${{ Solicitado: 'solicitado', 'En proceso': 'proceso', Concluido: 'concluido', Rechazada: 'rechazada' }[v] || 'sin'}`;
+    }
+    // Encabezados de la tabla: arriba de la tabla sin agrupar y, agrupada, dentro de cada solicitud desplegada
+    // (arriba de sus registros).
+    get columnasDetalle() {
+        const col = (key, label, clase = '') => ({ key, label, clase });
+        const l = [col('inciso', 'Inciso'), col('serie', 'Serie'), col('vehiculo', 'Vehículo'), col('modelo', 'Modelo'),
+            col('placas', 'Placas'), col('uso', 'Uso'), col('vigencia', 'Vigencia')];
+        if (this.conFechasMovimiento) { l.push(col('movimiento', 'Fecha de movimiento')); }
+        if (this.enPoliza) { l.push(col('creacion', 'Fecha de creación')); }
+        if (this.conFechaCierre) { l.push(col('cierre', 'Fecha de cierre')); }
+        l.push(col('valor', 'Valor', 'num'), col('prima', 'Prima', 'num'), col('estado', 'Estado'));
+        if (this.enPoliza) { l.push(col('seguimiento', 'Seguimiento')); }
+        return l;
+    }
     get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
     get agrupado() { return this.hayAgrupacion && this.agruparSolicitud; }
     toggleAgrupar(e) { this.agruparSolicitud = e.target.checked; this.pagina = 1; }
@@ -226,7 +252,7 @@ export default class MovimientosFlotilla extends LightningElement {
         if (!this.agrupado) {
             return [{ key: 'todos', encabezado: false, filas: this.filtrados.slice(ini, fin).map((v) => this.decorar(v)) }];
         }
-        const info = new Map(this.solicitudes.map((x) => [x.folio, x]));
+        const info = this.infoSolicitudes;
         const paginas = this.paginas;
         const res = [];
         let n = 0;
@@ -237,7 +263,7 @@ export default class MovimientosFlotilla extends LightningElement {
             // Colapsada: el encabezado va en la página donde le toca.
             const pagEnc = Math.min(Math.floor(n / POR_PAGINA) + 1, paginas);
             if (visibles.length || (colapsada && pagEnc === this.pagina)) {
-                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((v) => this.decorar(v)), n < ini && !colapsada));
+                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((v) => this.decorar(v, info)), n < ini && !colapsada));
             }
             n += filas.length;
         });
@@ -256,11 +282,25 @@ export default class MovimientosFlotilla extends LightningElement {
         const endosos = [...new Set(g.lista.map((v) => v.numeroEndoso).filter((x) => x))];
         const abiertos = g.lista.filter((v) => v.fechaCreacion && !v.fechaCierre).length;
         const sin = !g.folio;
+        // Fecha de apertura (la de la solicitud), fecha de cierre (cuando ya no tiene movimientos abiertos) y seguimiento.
+        const creaciones = g.lista.map((v) => v.fechaCreacion).filter((y) => y).sort();
+        const cierres = g.lista.map((v) => v.fechaCierre).filter((y) => y).sort();
+        const apertura = s && s.fecha ? s.fecha : creaciones[0];
+        const cierre = s ? s.cierre : (!abiertos && cierres.length ? cierres[cierres.length - 1] : null);
+        const seguimiento = s && s.seguimiento ? s.seguimiento : (abiertos ? 'En proceso' : (creaciones.length ? 'Concluido' : ''));
         return {
             key: 'sol-' + (g.folio || 'sin'),
             encabezado: true,
             folio: g.folio,
-            titulo: sin ? 'Sin solicitud' : g.folio,
+            // Número de movimiento solo numérico (SOL-0004 → 0004); los registros sin solicitud son la carga inicial.
+            titulo: sin ? 'Carga inicial' : String(g.folio).replace(/^SOL-/i, ''),
+            poliza: (this.datos && this.datos.nombre) || '',
+            aperturaTxt: this.fechaHoraTxt(apertura) || '—',
+            cierreTxt: this.fechaHoraTxt(cierre) || '—',
+            seguimiento,
+            claseSeguimiento: this.claseSeguimiento(seguimiento),
+            // Encabezados de los registros, dentro de la solicitud desplegada.
+            conEncabezadoDetalle: !colapsada && filas.length > 0,
             sub: sin ? 'Registrados antes de las solicitudes'
                 : [s && s.fecha ? this.fechaHoraTxt(s.fecha) : '', s && s.portal ? `Del sitio · caso ${s.caso}${s.usuario ? ' · envió ' + s.usuario : ''}` : (s && s.usuario ? `Registró ${s.usuario}` : '')].filter((x) => x).join(' · '),
             resumen: `${g.lista.length} ${g.lista.length === 1 ? 'registro' : 'registros'}${partes.length ? ' · ' + partes.join(', ') : ''}`,
@@ -276,16 +316,19 @@ export default class MovimientosFlotilla extends LightningElement {
         };
     }
     get columnasTabla() {
-        return 12 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 3 : 0) + (this.conFechaCierre ? 1 : 0);
+        return 12 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 4 : 0) + (this.conFechaCierre ? 1 : 0);
     }
 
     get filas() {
         const ini = (this.pagina - 1) * POR_PAGINA;
         return this.filtrados.slice(ini, ini + POR_PAGINA).map((v) => this.decorar(v));
     }
-    decorar(v) {
+    decorar(v, info) {
+        const seguimiento = this.enPoliza ? this.seguimientoDe(v, info) : '';
         return ({
             ...v,
+            seguimiento,
+            claseSeguimiento: this.claseSeguimiento(seguimiento),
             seleccionado: this.seleccion.has(v.id),
             noSeleccionable: !v.activo || !this.puedeEditar,
             claseFila: v.activo ? '' : 'fila-baja',
@@ -799,7 +842,15 @@ export default class MovimientosFlotilla extends LightningElement {
         }
         this.excelDe(registros, folio);
     }
+    // El ejecutivo descarga el Excel de una solicitud del sitio para la aseguradora: si nadie la atendía (Solicitado),
+    // pasa a En proceso.
+    marcarEnProceso(folio) {
+        const s = this.infoSolicitudes.get(folio);
+        if (this.portal || !this.enPoliza || !s || s.seguimiento !== 'Solicitado') { return; }
+        solicitudEnProceso({ policyId: this.recordId, folio }).then(() => this.cargar()).catch(() => {});
+    }
     excelDe(registros, sufijo) {
+        this.marcarEnProceso(sufijo);
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [

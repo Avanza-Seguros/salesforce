@@ -28,13 +28,8 @@
 
                 <!-- Subir archivo con todos los datos -->
                 <template lwc:if={enArchivo}>
+                    <!-- El archivo trae cualquier combinación de altas, bajas y cambios, cada uno con su fecha (columna Tipo de movimiento). -->
                     <div class="movimiento">
-                        <div class="campos">
-                            <lightning-combobox label="¿Qué contiene el archivo?" value={tipoArchivo} options={opcionesTipoArchivo}
-                                onchange={handleTipoArchivo} required></lightning-combobox>
-                            <lightning-input type="date" label="Fecha en que aplica (opcional)" value={fechaArchivo}
-                                onchange={handleFechaArchivo}></lightning-input>
-                        </div>
                         <template lwc:if={hayListado}>
                             <div class="listado">
                                 <div class="listado_cabecera">
@@ -71,7 +66,8 @@
                                 <span class="nota">Excel (.xlsx, .xls) o CSV con un renglón por movimiento, hasta 4 MB. Te mostramos lo que trae antes de enviarlo.</span>
                                 <input type="file" accept=".xlsx,.xls,.xlsm,.csv,.txt" onchange={handleListado} class="oculto" disabled={leyendo} />
                             </label>
-                            <p class="nota">¿No tienes un formato? <button class="enlace" onclick={handlePlantilla}>Descarga la plantilla</button></p>
+                            <p class="nota"><button class="enlace" onclick={handlePlantilla}>Descargar plantilla genérica</button>
+                                · un solo Excel para altas, bajas y cambios; el sistema identifica cada movimiento</p>
                         </template>
                     </div>
                 </template>
@@ -88,8 +84,22 @@
                         </div>
                         <div class="campos">
                             <template lwc:if={m.conRegistro}>
-                                <lightning-combobox class="ancho" label={nombreRegistro} value={m.registroId} options={opcionesRegistro}
-                                    placeholder="Elige de la póliza" data-key={m.key} data-campo="registroId" onchange={handleCampo} required></lightning-combobox>
+                                <!-- Póliza (las del contratante; la actual por defecto) y el registro de esa póliza. -->
+                                <lightning-combobox class="ancho" label="Póliza" value={m.polizaId} options={opcionesPoliza}
+                                    placeholder="Elige la póliza" data-key={m.key} onchange={handlePoliza} required
+                                    field-level-help="Si tienes varias pólizas (pool), aquí aparecen todas las relacionadas."></lightning-combobox>
+                                <div class="ancho registro">
+                                    <div lwc:if={m.filtros} class="filtros" role="group" aria-label="Mostrar">
+                                        <span class="celda_sub">Mostrar:</span>
+                                        <template for:each={m.filtros} for:item="f">
+                                            <button key={f.key} class={f.clase} data-key={m.key} data-filtro={f.valor} onclick={handleFiltro}
+                                                aria-pressed={f.pressed}>{f.texto}</button>
+                                        </template>
+                                    </div>
+                                    <lightning-combobox label={etiquetaRegistro} value={m.registroId} options={m.opcionesRegistro}
+                                        placeholder={m.placeholderRegistro} data-key={m.key} data-campo="registroId" onchange={handleCampo} required></lightning-combobox>
+                                    <p lwc:if={m.avisoPoliza} class="nota">{m.avisoPoliza}</p>
+                                </div>
                             </template>
                             <p lwc:if={m.esCambio} class="nota ancho">Captura solo los datos que cambian.</p>
                             <template for:each={m.campos} for:item="c">
@@ -106,7 +116,15 @@
                                 <lightning-combobox class="ancho" label="Titular" value={m.titularId} options={opcionesTitular}
                                     placeholder="Titular del que depende" data-key={m.key} data-campo="titularId" onchange={handleCampo} required></lightning-combobox>
                             </template>
-                            <lightning-input type="date" label={m.etiquetaFecha} value={m.fecha} data-key={m.key} data-campo="fecha" onchange={handleCampo}></lightning-input>
+                            <div>
+                                <lightning-input type="date" label={m.etiquetaFecha} value={m.fecha} data-key={m.key} data-campo="fecha" onchange={handleCampo}
+                                    min={m.minFecha} message-when-range-underflow={textoRetroactivo}></lightning-input>
+                                <p lwc:if={m.notaFecha} class="nota nota_aviso">{m.notaFecha}</p>
+                            </div>
+                            <div lwc:if={m.conRecordatorioRA} class="ancho recordatorio" role="note">
+                                <span>{m.textoRA}</span>
+                                <strong>CARTA DE ANTIGÜEDAD VIGENTE  |  CARÁTULA DE PÓLIZA + COMPLEMENTO DE PAGO</strong>
+                            </div>
                             <lightning-input class="ancho" label={m.etiquetaDetalle} value={m.detalle} data-key={m.key} data-campo="detalle"
                                 onchange={handleCampo} required={m.detalleRequerido} max-length="1000"></lightning-input>
                         </div>
@@ -124,6 +142,7 @@
                     </label>
                     <span class="nota">{notaAdjuntar}</span>
                 </div>
+                <p lwc:if={avisoRA} class="nota nota_ra" role="status">{avisoRA}</p>
                 <ul lwc:if={hayArchivos} class="archivos">
                     <template for:each={listaArchivos} for:item="a">
                         <li key={a.key}>{a.nombre} <span class="celda_sub">{a.tamano}</span>
@@ -167,11 +186,53 @@
                                 <button class="enlace" data-folio={s.folio} onclick={handleVer}>{s.textoVer}</button>
                             </div>
                             <p lwc:if={s.respuesta} class="respuesta">{s.respuesta}</p>
-                            <ul lwc:if={s.abierta} class="detalle">
-                                <template for:each={s.detalle} for:item="l">
-                                    <li key={l}>{l}</li>
+                            <!-- Detalle: datos de la solicitud y los movimientos que pidió el cliente. -->
+                            <div lwc:if={s.abierta} class="detalle">
+                                <p class="detalle_titulo">Detalle de la solicitud</p>
+                                <div class="detalle_datos">
+                                    <span>Origen: <strong>Del sitio</strong></span>
+                                    <span>Caso: <strong>{s.caso}</strong></span>
+                                    <span lwc:if={s.enviadaPor}>Enviada por: <strong>{s.enviadaPor}</strong></span>
+                                    <span>Archivo: <strong>{s.archivoTxt}</strong></span>
+                                    <span>Registros: <strong>{s.registrosTxt}</strong></span>
+                                    <span lwc:if={s.seguimientoTxt}>Seguimiento: <span class={s.claseSeguimiento}>{s.seguimientoTxt}</span></span>
+                                    <span lwc:if={s.cierreTxt}>Cierre: <strong>{s.cierreTxt}</strong></span>
+                                </div>
+                                <template lwc:if={s.hayMovimientos}>
+                                    <p class="detalle_titulo">Movimientos solicitados</p>
+                                    <div class="tabla_contenedor">
+                                        <table class="tabla">
+                                            <thead>
+                                                <tr>
+                                                    <th>{etiquetaClave}</th><th>Nombre</th>
+                                                    <th lwc:if={esPersonas}>Parentesco</th>
+                                                    <th>Estado</th>
+                                                    <th lwc:if={esPersonas}>Fecha de nacimiento</th>
+                                                    <th>Fecha de movimiento</th><th>Seguimiento</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template for:each={s.movimientos} for:item="m">
+                                                    <tr key={m.key}>
+                                                        <td>{m.clave}</td><td>{m.nombre}</td>
+                                                        <td lwc:if={esPersonas}>{m.parentesco}</td>
+                                                        <td><span class={m.claseTipo}>{m.tipo}</span></td>
+                                                        <td lwc:if={esPersonas}>{m.nacimientoTxt}</td>
+                                                        <td>{m.fechaTxt}</td>
+                                                        <td><span class={m.claseSeguimiento}>{m.seguimiento}</span></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </template>
-                            </ul>
+                                <ul lwc:elseif={s.hayDetalle} class="detalle_lista">
+                                    <template for:each={s.detalle} for:item="l">
+                                        <li key={l}>{l}</li>
+                                    </template>
+                                </ul>
+                                <p lwc:else class="nota">Tu asesor todavía no registra los movimientos de esta solicitud.</p>
+                            </div>
                         </li>
                     </template>
                 </ul>

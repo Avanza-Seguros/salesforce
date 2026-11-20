@@ -7,8 +7,9 @@
 import { LightningElement, api } from 'lwc';
 import solicitudes from '@salesforce/apex/PortalPolizasPestanas.solicitudes';
 import crearSolicitud from '@salesforce/apex/PortalPolizasPestanas.crearSolicitud';
+import registrosPoliza from '@salesforce/apex/PortalPolizasPestanas.registrosPoliza';
 import { abrirTabla, detectarEncabezado, inicioDatos, mapeoAutomatico, tieneDatos, letraColumna, fold, fecha as fechaIso, fechaVisible,
-    descargarExcel } from 'c/lectorArchivos';
+    descargarExcel, renglonesEncabezadoAbajo } from 'c/lectorArchivos';
 
 // Igual que PortalPolizasPestanas.MAX_BYTES_SOLICITUD.
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -24,6 +25,8 @@ const FECHA = { key: 'fecha', etiqueta: 'Fecha del movimiento', fecha: true, ali
     'fecha movimiento', 'fecha de alta', 'fecha de baja', 'fecha de peticion', 'fecha'] };
 const COMENTARIO = { key: 'comentario', etiqueta: 'Comentario', alias: ['comentario', 'comentarios', 'observaciones', 'motivo',
     'motivo de baja', 'nota', 'notas', 'descripcion del cambio'] };
+// Número de póliza del renglón: puede ser otra póliza del mismo contratante (el movimiento se registra en esa).
+const POLIZA = { key: 'poliza', etiqueta: 'Número de póliza', alias: ['numero de poliza', 'no de poliza', 'poliza', 'num poliza'] };
 const COLUMNAS = {
     vehiculos: [MOVIMIENTO,
         { key: 'inciso', etiqueta: 'Inciso', alias: ['inciso', 'no inciso', 'numero de inciso', 'no de inciso'] },
@@ -35,7 +38,7 @@ const COLUMNAS = {
         { key: 'descripcion', etiqueta: 'Descripción', alias: ['descripcion', 'vehiculo', 'descripcion del vehiculo', 'unidad'] },
         { key: 'modelo', etiqueta: 'Modelo', alias: ['modelo', 'ano', 'anio', 'ano modelo', 'modelo ano'] },
         { key: 'uso', etiqueta: 'Uso', alias: ['uso', 'uso del vehiculo'] },
-        FECHA, COMENTARIO],
+        FECHA, COMENTARIO, POLIZA],
     personas: [MOVIMIENTO,
         { key: 'certificado', etiqueta: 'Certificado', alias: ['certificado', 'no certificado', 'numero de certificado', 'no de certificado'] },
         { key: 'nombreCompleto', etiqueta: 'Nombre completo', alias: ['nombre completo', 'asegurado', 'nombre del asegurado'] },
@@ -47,7 +50,10 @@ const COLUMNAS = {
         { key: 'parentesco', etiqueta: 'Parentesco', alias: ['parentesco', 'relacion'] },
         { key: 'titular', etiqueta: 'Titular', alias: ['titular', 'titular si es dependiente', 'nombre del titular', 'certificado del titular'] },
         { key: 'correo', etiqueta: 'Correo', alias: ['correo', 'correo electronico', 'email', 'e mail', 'mail'] },
-        FECHA, COMENTARIO],
+        { key: 'categoria', etiqueta: 'Categoría', alias: ['categoria', 'clase', 'categoria del asegurado'] },
+        { key: 'fechaAntiguedad', etiqueta: 'Fecha de antigüedad', fecha: true, alias: ['fecha de antiguedad', 'antiguedad',
+            'fecha antiguedad', 'reconocimiento de antiguedad'] },
+        FECHA, COMENTARIO, POLIZA],
     ubicaciones: [MOVIMIENTO,
         { key: 'inciso', etiqueta: 'Inciso', alias: ['inciso', 'no inciso', 'numero de inciso'] },
         { key: 'ubicacion', etiqueta: 'Nombre de la ubicación', alias: ['nombre de la ubicacion', 'ubicacion', 'nombre', 'sucursal'] },
@@ -58,7 +64,7 @@ const COLUMNAS = {
         { key: 'estado', etiqueta: 'Estado', alias: ['estado', 'entidad', 'entidad federativa'] },
         { key: 'giro', etiqueta: 'Giro', alias: ['giro', 'actividad', 'giro o actividad'] },
         { key: 'suma', etiqueta: 'Suma asegurada', alias: ['suma asegurada', 'suma', 'valor'] },
-        FECHA, COMENTARIO]
+        FECHA, COMENTARIO, POLIZA]
 };
 // Columnas que el archivo debe traer (al menos una de cada grupo), según el movimiento.
 const REQUERIDAS = {
@@ -67,13 +73,26 @@ const REQUERIDAS = {
     ubicaciones: { alta: [['direccion']], otro: [['inciso', 'ubicacion']] }
 };
 
-// Columnas de la plantilla que se puede descargar, según lo que asegura la póliza.
+// Plantilla genérica (un solo Excel para altas, bajas y cambios: la columna Tipo de movimiento dice cuál es cada
+// renglón), según lo que asegura la póliza.
 const PLANTILLA = {
-    personas: ['Movimiento (Alta, Baja o Cambio)', 'Certificado', 'Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de nacimiento',
-        'Sexo', 'Parentesco', 'Titular (si es dependiente)', 'Correo electrónico', 'Fecha del movimiento', 'Comentario'],
-    vehiculos: ['Movimiento (Alta, Baja o Cambio)', 'Inciso', 'Modelo', 'Marca', 'Versión', 'Serie', 'Placas', 'Uso', 'Fecha del movimiento', 'Comentario'],
-    ubicaciones: ['Movimiento (Alta, Baja o Cambio)', 'Inciso', 'Nombre de la ubicación', 'Calle y número', 'Colonia', 'Código postal',
-        'Municipio', 'Estado', 'Giro', 'Suma asegurada', 'Fecha del movimiento', 'Comentario']
+    personas: ['Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de nacimiento', 'Parentesco', 'Sexo (M/F)',
+        'Tipo de movimiento', 'Fecha de petición', 'Número de póliza', 'Categoría', 'Certificado', 'Fecha de antigüedad',
+        'Correo electrónico', 'Comentarios'],
+    vehiculos: ['Tipo de movimiento', 'Fecha de petición', 'Número de póliza', 'Inciso', 'Modelo', 'Marca', 'Versión', 'Serie',
+        'Placas', 'Uso', 'Comentarios'],
+    ubicaciones: ['Tipo de movimiento', 'Fecha de petición', 'Número de póliza', 'Inciso', 'Nombre de la ubicación', 'Calle y número',
+        'Colonia', 'Código postal', 'Municipio', 'Estado', 'Giro', 'Suma asegurada', 'Comentarios']
+};
+// Una alta puede ser de hasta 30 días atrás (igual que PortalPolizasPestanas.DIAS_RETROACTIVOS).
+const DIAS_RETROACTIVOS = 30;
+// Documentos de reconocimiento de antigüedad (RA), por su nombre (igual que PortalPolizasPestanas.ARCHIVO_RA).
+const ARCHIVO_RA = /antig|carta|caratula|complemento/;
+const SEGUIMIENTO = {
+    Solicitado: 'estado estado_pendiente',
+    'En proceso': 'estado estado_proceso',
+    Concluido: 'estado estado_vigente',
+    Rechazada: 'estado estado_rechazada'
 };
 
 // Datos que se piden en un alta, según lo que asegura la póliza.
@@ -83,8 +102,9 @@ const CAMPOS_ALTA = {
         { clave: 'paterno', etiqueta: 'Apellido paterno', requerido: true },
         { clave: 'materno', etiqueta: 'Apellido materno' },
         { clave: 'nacimiento', etiqueta: 'Fecha de nacimiento', tipo: 'date', requerido: true },
-        { clave: 'sexo', etiqueta: 'Sexo', opciones: ['Mujer', 'Hombre'], requerido: true },
-        { clave: 'parentesco', etiqueta: 'Parentesco', opciones: ['Titular', 'Cónyuge', 'Hijo(a)', 'Padre/Madre', 'Otro'], requerido: true },
+        { clave: 'sexo', etiqueta: 'Sexo', etiquetaCambio: 'Corrección de género', opciones: ['Mujer', 'Hombre'], requerido: true },
+        // Un parentesco nuevo es un alta, no un cambio.
+        { clave: 'parentesco', etiqueta: 'Parentesco', soloAlta: true, opciones: ['Titular', 'Cónyuge', 'Hijo(a)', 'Padre/Madre', 'Otro'], requerido: true },
         { clave: 'correo', etiqueta: 'Correo electrónico', tipo: 'email' }
     ],
     vehiculos: [
@@ -165,11 +185,25 @@ export default class PortalSolicitudes extends LightningElement {
         return null;
     }
     get haySolicitudes() { return !!this.datos && this.datos.solicitudes.length > 0; }
+    get esPersonas() { return this.tipo === 'personas'; }
+    get etiquetaClave() { return this.tipo === 'personas' ? 'Certificado' : 'Inciso'; }
     get lista() {
         if (!this.datos) { return []; }
         return this.datos.solicitudes.map((s) => {
             const abierta = this.abiertas.has(s.folio);
             const asunto = String(s.asunto || '').split(' · ');
+            // Archivo con los datos (subir archivo): el que menciona el asunto.
+            const enAsunto = /archivo (.+?)(?: \(\d+ rengl[oó]n(?:es)?\))?$/.exec(asunto.slice(2).join(' · ').replace(/ · con RA$/, ''));
+            const conteo = [['altas', 'alta', 'altas'], ['bajas', 'baja', 'bajas'], ['cambios', 'cambio', 'cambios']]
+                .filter(([k]) => s[k]).map(([k, uno, varios]) => `${s[k]} ${s[k] === 1 ? uno : varios}`);
+            const movimientos = (s.movimientos || []).map((m, i) => ({
+                ...m,
+                key: s.folio + '-' + i,
+                nacimientoTxt: fechaVisible(m.nacimiento),
+                fechaTxt: fechaVisible(m.fecha),
+                claseTipo: `estado estado_${String(m.tipo || '').toLowerCase()}`,
+                claseSeguimiento: SEGUIMIENTO[m.seguimiento] || 'estado'
+            }));
             return {
                 ...s,
                 resumen: asunto.length > 2 ? asunto.slice(2).join(' · ') : '',
@@ -177,7 +211,16 @@ export default class PortalSolicitudes extends LightningElement {
                 claseEstado: ESTADOS[s.estado] || 'estado',
                 abierta,
                 textoVer: abierta ? 'Ocultar detalle' : 'Ver detalle',
+                // Detalle de la solicitud: origen, caso, quién la envió, archivo, registros y lo que pidió.
+                archivoTxt: enAsunto ? enAsunto[1] : ((s.archivos || []).join(', ') || '—'),
+                registrosTxt: `${s.aplicados || 0}${conteo.length ? ' (' + conteo.join(', ') + ')' : ''}`,
+                seguimientoTxt: s.seguimiento,
+                claseSeguimiento: SEGUIMIENTO[s.seguimiento] || 'estado',
+                cierreTxt: s.cierre ? this.fecha(s.cierre) : '',
+                movimientos,
+                hayMovimientos: movimientos.length > 0,
                 detalle: String(s.descripcion || '').split('\n').filter((l) => /^\d+\./.test(l)),
+                hayDetalle: String(s.descripcion || '').split('\n').some((l) => /^\d+\./.test(l)),
                 avance: s.aplicados ? `${s.aplicados} ${s.aplicados === 1 ? 'movimiento aplicado' : 'movimientos aplicados'}${s.abiertos ? ` · ${s.abiertos} en trámite con la aseguradora` : ''}` : '',
                 endososTexto: s.endosos && s.endosos.length ? `Endoso ${s.endosos.join(', ')}` : '',
                 documentosTexto: s.documentos ? `${s.documentos} ${s.documentos === 1 ? 'archivo' : 'archivos'}` : ''
@@ -200,8 +243,6 @@ export default class PortalSolicitudes extends LightningElement {
         this.archivos = [];
         this.modo = 'archivo';
         this.listado = null;
-        this.tipoArchivo = 'alta';
-        this.fechaArchivo = '';
         this.formulario = true;
     }
 
@@ -209,7 +250,9 @@ export default class PortalSolicitudes extends LightningElement {
     modo = 'archivo';
     listado = null;
     leyendo = false;
-    tipoArchivo = 'alta';
+    // El archivo puede traer cualquier combinación de altas, bajas y cambios (columna Tipo de movimiento), cada uno con
+    // su fecha: el cliente ya no elige qué contiene ni la fecha en que aplica.
+    tipoArchivo = 'varios';
     fechaArchivo = '';
     get enArchivo() { return this.modo === 'archivo'; }
     get claseModoArchivo() { return 'modo' + (this.enArchivo ? ' modo_activo' : ''); }
@@ -274,16 +317,31 @@ export default class PortalSolicitudes extends LightningElement {
         const campos = COLUMNAS[this.tipo];
         const h = detectarEncabezado(filas, campos);
         const inicio = inicioDatos(filas, h);
+        // Encabezado en dos renglones (ej. «NOMBRE» sobre «NOMBRE(S) | APELLIDO PATERNO | APELLIDO MATERNO»): el título
+        // de cada columna es el de abajo cuando lo hay (o los dos, si el de abajo continúa al de arriba).
+        const abajo = filas.slice(h + 1, h + 1 + renglonesEncabezadoAbajo(filas, h));
+        const tituloDe = (c) => {
+            const arriba = String((filas[h] || [])[c] || '').trim();
+            const bajo = abajo.map((f) => String((f || [])[c] || '').trim()).filter((x) => x).join(' ');
+            if (!bajo) { return arriba; }
+            if (!arriba || fold(bajo).includes(fold(arriba))) { return bajo; }
+            return `${arriba} ${bajo}`;
+        };
         // Renglones con datos y su número en el archivo (para los mensajes).
         const renglones = filas.map((f, i) => ({ f, n: i + 1 })).slice(inicio).filter((x) => tieneDatos(x.f));
         const mapeo = mapeoAutomatico(filas, h, campos);
         const datos = renglones.map((x) => x.f);
         const ancho = Math.max((filas[h] || []).length, ...datos.map((f) => f.length));
         // Solo las columnas que traen título o algún dato.
+        // Sin título: el del dato que se reconoció en esa columna; si no, la letra de la columna.
+        const reconocida = {};
+        Object.keys(mapeo).forEach((k) => { reconocida[mapeo[k]] = campos.find((x) => x.key === k).etiqueta; });
         const columnas = [];
         for (let c = 0; c < ancho; c++) {
-            const titulo = String((filas[h] || [])[c] || '').trim();
-            if (titulo || datos.some((f) => String(f[c] || '').trim())) { columnas.push({ c, titulo: titulo || `Columna ${letraColumna(c)}` }); }
+            const titulo = tituloDe(c);
+            if (titulo || datos.some((f) => String(f[c] || '').trim())) {
+                columnas.push({ c, titulo: titulo || reconocida[String(c)] || `Columna ${letraColumna(c)}` });
+            }
         }
         // Las fechas de Excel llegan como número de serie: en columnas de fecha se muestran como dd/mm/aaaa.
         const esFecha = columnas.map((x) => /fecha|nacimiento|vigencia/.test(fold(x.titulo)));
@@ -326,8 +384,11 @@ export default class PortalSolicitudes extends LightningElement {
         const col = (k) => (h.mapeo[k] === undefined ? null : Number(h.mapeo[k]));
         const etiqueta = (k) => campos.find((c) => c.key === k).etiqueta;
         if (this.tipoArchivo === 'varios' && col('movimiento') === null) {
-            return { error: 'El archivo debe traer la columna «Movimiento» (Alta, Baja o Cambio) en cada renglón, o elige qué contiene el archivo.' };
+            return { error: 'El archivo debe traer la columna «Tipo de movimiento» (Alta, Baja o Cambio) en cada renglón. Descarga la plantilla genérica.' };
         }
+        // Número de póliza del renglón: la de esta solicitud u otra vigente del mismo contratante.
+        const polizas = new Map(((this.datos && this.datos.polizas) || []).map((p) => [this.codigo(p.nombre), p]));
+        const limite = this.fechaLimiteAlta;
         const registros = [];
         for (const x of h.crudas) {
             const valor = (k) => {
@@ -340,12 +401,28 @@ export default class PortalSolicitudes extends LightningElement {
             if (!tipo) { return { error: `Renglón ${x.n}: indica en la columna Movimiento si es Alta, Baja o Cambio.` }; }
             const datos = {};
             campos.forEach((c) => {
-                if (['movimiento', 'fecha', 'comentario', 'titular'].includes(c.key)) { return; }
+                if (['movimiento', 'fecha', 'comentario', 'titular', 'poliza'].includes(c.key)) { return; }
                 const v = valor(c.key);
                 if (v) { datos[c.key] = v; }
             });
-            registros.push({ tipo, fila: x.n, fecha: valor('fecha') || null, comentario: valor('comentario') || null,
-                titular: valor('titular') || null, campos: datos });
+            // Sexo M/F (masculino / femenino) como en la captura uno por uno.
+            if (datos.sexo) {
+                const sx = fold(datos.sexo);
+                if (/^(m|masc|masculino|h|hombre)$/.test(sx)) { datos.sexo = 'Hombre'; } else if (/^(f|fem|femenino|mujer)$/.test(sx)) { datos.sexo = 'Mujer'; }
+            }
+            const fecha = valor('fecha') || null;
+            if (tipo === 'alta' && fecha && fecha < limite) {
+                return { error: `Renglón ${x.n}: la fecha de alta puede ser de máximo ${DIAS_RETROACTIVOS} días retroactivos.` };
+            }
+            let polizaId = null;
+            const numPoliza = valor('poliza');
+            if (numPoliza) {
+                const p = polizas.get(this.codigo(numPoliza));
+                if (!p) { return { error: `Renglón ${x.n}: la póliza ${numPoliza} no es una de tus pólizas vigentes de este tipo.` }; }
+                polizaId = p.actual ? null : p.id;
+            }
+            registros.push({ tipo, fila: x.n, fecha, comentario: valor('comentario') || null,
+                titular: valor('titular') || null, campos: datos, polizaId });
         }
         // Columnas obligatorias según los movimientos que trae.
         const grupos = REQUERIDAS[this.tipo];
@@ -413,19 +490,89 @@ export default class PortalSolicitudes extends LightningElement {
         return n > 0 ? `y ${n} ${n === 1 ? 'renglón' : 'renglones'} más` : '';
     }
     handlePlantilla() {
-        const columnas = PLANTILLA[this.tipo];
-        descargarExcel(`Plantilla_solicitud_${this.nombrePlural}.xlsx`, 'Movimientos', columnas, []);
+        descargarExcel('PLANTILLA DE MOVIMIENTOS.xlsx', 'Movimientos', PLANTILLA[this.tipo], []);
     }
+    // Número de póliza, certificado o inciso para comparar: mayúsculas, sin espacios ni guiones.
+    codigo(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+    // Fecha más antigua permitida para un alta (AAAA-MM-DD).
+    get fechaLimiteAlta() {
+        const d = new Date();
+        d.setDate(d.getDate() - DIAS_RETROACTIVOS);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    get textoRetroactivo() { return `Máximo ${DIAS_RETROACTIVOS} días retroactivos`; }
     handleCancelar() { this.formulario = false; }
-    nuevoMovimiento(tipo) { return { key: 'm' + siguiente++, tipo, registroId: '', fecha: '', detalle: '', datos: {}, titularId: '' }; }
+    nuevoMovimiento(tipo) {
+        return { key: 'm' + siguiente++, tipo, polizaId: this._policyId, registroId: '', fecha: '', detalle: '', datos: {}, titularId: '',
+            filtro: 'todos' };
+    }
     handleAgregar() { this.movimientos = [...this.movimientos, this.nuevoMovimiento(this.movimientos.length ? this.movimientos[this.movimientos.length - 1].tipo : 'alta')]; }
     handleQuitar(e) {
         const k = e.currentTarget.dataset.key;
         this.movimientos = this.movimientos.filter((m) => m.key !== k);
     }
     cambiar(key, cambios) { this.movimientos = this.movimientos.map((m) => (m.key === key ? { ...m, ...cambios } : m)); }
-    handleTipo(e) { this.cambiar(e.target.dataset.key, { tipo: e.detail.value, registroId: '', detalle: '', datos: {} }); }
+    handleTipo(e) {
+        this.cambiar(e.target.dataset.key, { tipo: e.detail.value, registroId: '', detalle: '', datos: {}, polizaId: this._policyId, filtro: 'todos' });
+    }
     handleCampo(e) { this.cambiar(e.target.dataset.key, { [e.target.dataset.campo]: e.detail.value }); }
+
+    // ===== Póliza y registro de bajas y cambios =====
+    // Registros vigentes de otras pólizas del contratante (se cargan al elegirlas): póliza → { registros, mensaje }.
+    registrosOtras = {};
+    get opcionesPoliza() {
+        return ((this.datos && this.datos.polizas) || []).map((p) => ({
+            label: `${p.nombre}${p.ramo ? ' · ' + p.ramo : ''}${p.actual ? ' (esta póliza)' : ''}`, value: p.id
+        }));
+    }
+    async handlePoliza(e) {
+        const key = e.target.dataset.key;
+        const polizaId = e.detail.value;
+        this.cambiar(key, { polizaId, registroId: '' });
+        if (polizaId === this._policyId || this.registrosOtras[polizaId]) { return; }
+        this.registrosOtras = { ...this.registrosOtras, [polizaId]: { cargando: true, registros: [] } };
+        try {
+            const r = await registrosPoliza({ policyId: polizaId, cuentaVistaPrevia: this.cuentaVistaPrevia || null });
+            this.registrosOtras = { ...this.registrosOtras, [polizaId]: { registros: r.registros || [], mensaje: r.mensaje } };
+        } catch (err) {
+            this.registrosOtras = { ...this.registrosOtras, [polizaId]: { registros: [], mensaje: this.mensaje(err) } };
+        }
+    }
+    handleFiltro(e) {
+        this.cambiar(e.currentTarget.dataset.key, { filtro: e.currentTarget.dataset.filtro, registroId: '' });
+    }
+    registrosDe(polizaId) {
+        if (!polizaId || polizaId === this._policyId) { return (this.datos && this.datos.registros) || []; }
+        return (this.registrosOtras[polizaId] || {}).registros || [];
+    }
+    // Ordenados por certificado o inciso (ya vienen así); en personas indica Titular o Dependiente y se filtra.
+    opcionesRegistroDe(m) {
+        const personas = this.tipo === 'personas';
+        return this.registrosDe(m.polizaId)
+            .filter((r) => !personas || m.filtro === 'todos' || (m.filtro === 'titulares' ? !r.dependiente : r.dependiente))
+            .map((r) => ({
+                label: [r.clave, r.nombre, personas ? (r.dependiente ? `Dependiente${r.parentesco && r.parentesco !== 'Dependiente' ? ' (' + r.parentesco + ')' : ''}` : 'Titular') : r.detalle]
+                    .filter((x) => x).join(' · '),
+                value: r.id
+            }));
+    }
+    filtrosDe(m) {
+        return [['todos', 'Todos'], ['titulares', 'Titulares'], ['dependientes', 'Dependientes']].map(([v, t]) => ({
+            key: m.key + v, valor: v, texto: t, clase: 'filtro' + (m.filtro === v ? ' filtro_activo' : ''), pressed: String(m.filtro === v)
+        }));
+    }
+    get etiquetaRegistro() {
+        const n = this.nombreRegistro;
+        return n.charAt(0).toUpperCase() + n.slice(1);
+    }
+
+    // Documentos adjuntos que son de reconocimiento de antigüedad (RA), por su nombre.
+    get documentosRA() { return this.archivos.filter((a) => ARCHIVO_RA.test(fold(a.nombre))).map((a) => a.nombre); }
+    get avisoRA() {
+        const d = this.documentosRA;
+        if (!d.length || this.enArchivo || !this.movimientos.some((m) => m.tipo !== 'baja')) { return ''; }
+        return `Identificamos documentos de reconocimiento de antigüedad (RA): ${d.join(', ')}. Las altas y cambios de esta solicitud se envían con RA.`;
+    }
     handleDato(e) {
         const m = this.movimientos.find((x) => x.key === e.target.dataset.key);
         this.cambiar(m.key, { datos: { ...m.datos, [e.target.dataset.campo]: e.detail.value } });
@@ -453,10 +600,10 @@ export default class PortalSolicitudes extends LightningElement {
         return this.movimientos.map((m, i) => {
             const esAlta = m.tipo === 'alta';
             // Alta: los datos del registro nuevo. Cambio: los mismos campos, solo se llenan los que cambian.
-            const campos = m.tipo !== 'baja' ? CAMPOS_ALTA[this.tipo].map((c) => ({
+            const campos = m.tipo !== 'baja' ? CAMPOS_ALTA[this.tipo].filter((c) => esAlta || !c.soloAlta).map((c) => ({
                 ...c,
                 key: m.key + c.clave,
-                etiqueta: esAlta ? c.etiqueta : `${c.etiqueta} nuevo`.replace('(s) nuevo', '(s) nuevo(s)'),
+                etiqueta: esAlta ? c.etiqueta : (c.etiquetaCambio || `${c.etiqueta} nuevo`.replace('(s) nuevo', '(s) nuevo(s)')),
                 requerido: esAlta && c.requerido,
                 valor: m.datos[c.clave] || '',
                 tipoInput: c.tipo || 'text',
@@ -464,11 +611,22 @@ export default class PortalSolicitudes extends LightningElement {
                 opciones: (c.opciones || []).map((o) => ({ label: o, value: o }))
             })) : [];
             const parentesco = m.datos.parentesco;
+            const otra = m.polizaId && m.polizaId !== this._policyId ? this.registrosOtras[m.polizaId] : null;
             return {
                 ...m,
                 numero: i + 1,
                 esAlta,
                 conRegistro: !esAlta,
+                opcionesRegistro: esAlta ? [] : this.opcionesRegistroDe(m),
+                filtros: !esAlta && this.tipo === 'personas' ? this.filtrosDe(m) : null,
+                avisoPoliza: otra ? (otra.cargando ? 'Cargando los registros de la póliza…' : (otra.mensaje || '')) : '',
+                placeholderRegistro: `Elige ${this.tipo === 'personas' ? 'al asegurado' : 'el ' + this.nombreRegistro} (por número de ${this.tipo === 'personas' ? 'certificado' : 'inciso'})`,
+                // Reconocimiento de antigüedad: recordatorio de documentos en altas y cambios de personas.
+                conRecordatorioRA: this.tipo === 'personas' && m.tipo !== 'baja',
+                textoRA: esAlta ? 'Si el alta es con reconocimiento de antigüedad (RA), adjunta en «Adjuntar archivos»:'
+                    : 'Si el cambio es un reconocimiento de antigüedad (RA), adjunta en «Adjuntar archivos»:',
+                minFecha: esAlta ? this.fechaLimiteAlta : null,
+                notaFecha: esAlta ? this.textoRetroactivo : '',
                 campos,
                 conTitular: esAlta && this.tipo === 'personas' && !!parentesco && parentesco !== 'Titular',
                 esCambio: m.tipo === 'cambio',
@@ -533,10 +691,10 @@ export default class PortalSolicitudes extends LightningElement {
         if (this.enArchivo) {
             const l = this.listado;
             archivos.unshift({ nombre: l.nombre, base64: l.base64 });
-            listado = { tipo: this.tipoArchivo, nombre: l.nombre, fecha: this.fechaArchivo || null, encabezados: l.encabezados,
+            listado = { tipo: this.tipoArchivo, nombre: l.nombre, fecha: null, encabezados: l.encabezados,
                 filas: l.filas.slice(0, MAX_FILAS), total: l.filas.length, registros: leidos.registros };
         }
-        const movimientos = this.enArchivo ? [] : this.movimientos.map((m) => {
+        const movimientos = this.enArchivo ? [] : this.movimientos.map((m, i) => {
             const conDatos = m.tipo !== 'baja';
             const datos = conDatos ? CAMPOS_ALTA[this.tipo].filter((c) => m.tipo === 'alta' || m.datos[c.clave])
                 .map((c) => ({ etiqueta: c.etiqueta, valor: m.datos[c.clave] || '' })) : [];
@@ -546,8 +704,10 @@ export default class PortalSolicitudes extends LightningElement {
             }
             const campos = {};
             if (conDatos) { Object.keys(m.datos).filter((k) => m.datos[k]).forEach((k) => { campos[k] = m.datos[k]; }); }
+            // Bajas y cambios de otra póliza del contratante: se registran en esa póliza (su propia solicitud).
+            const polizaId = m.tipo !== 'alta' && m.polizaId && m.polizaId !== this._policyId ? m.polizaId : null;
             return { tipo: m.tipo, registroId: m.registroId || null, fecha: m.fecha || null, detalle: m.detalle || null, datos, campos,
-                titularId: m.titularId || null };
+                titularId: m.titularId || null, polizaId, numero: i + 1 };
         });
         this.enviando = true;
         this.error = undefined;
@@ -563,9 +723,10 @@ export default class PortalSolicitudes extends LightningElement {
                 cuentaVistaPrevia: this.cuentaVistaPrevia || null
             });
             this.formulario = false;
+            const varias = r.solicitudes > 1;
             this.exito = r.registrados
-                ? `Registramos tu solicitud ${r.folio}: ${r.registrados} ${r.registrados === 1 ? 'movimiento quedó' : 'movimientos quedaron'} en trámite con la aseguradora. Verás aquí su avance.`
-                : `Recibimos tu solicitud ${r.folio}. Tu asesor la revisará y verás aquí su avance.`;
+                ? `Registramos tu${varias ? 's solicitudes' : ' solicitud'} ${r.folio}: ${r.registrados} ${r.registrados === 1 ? 'movimiento quedó' : 'movimientos quedaron'} en trámite con la aseguradora. Verás aquí su avance.`
+                : `Recibimos tu${varias ? 's solicitudes' : ' solicitud'} ${r.folio}. Tu asesor la revisará y verás aquí su avance.`;
             await this.cargar();
         } catch (e) {
             this.error = this.mensaje(e);

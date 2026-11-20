@@ -29,6 +29,10 @@ public inherited sharing class EndosoPoliza {
 	@TestVisible
 	private static List<Movimiento_Poliza__c> insertados = new List<Movimiento_Poliza__c>();
 
+	// La solicitud la registra el sitio al enviarla: su caso se queda en el estado inicial («Solicitado») hasta que el
+	// ejecutivo la atiende.
+	public static Boolean registroDelSitio = false;
+
 	public static void agregar(List<Movimiento_Poliza__c> registros) {
 		if (registros != null) { insertados.addAll(registros); }
 	}
@@ -109,8 +113,8 @@ public inherited sharing class EndosoPoliza {
 			if (!casos.isEmpty() || [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :pedida] > 0) {
 				folio = pedida;
 			}
-			// El caso del sitio pasa a En proceso al aplicar sus primeros movimientos.
-			String enProceso = estadoCaso('En proceso');
+			// El caso del sitio pasa a En proceso cuando el ejecutivo aplica movimientos (no cuando el sitio los registra).
+			String enProceso = registroDelSitio ? null : estadoCaso('En proceso');
 			List<Case> cambiar = new List<Case>();
 			for (Case c : casos) {
 				if (!c.IsClosed && enProceso != null && c.Status != enProceso) { cambiar.add(new Case(Id = c.Id, Status = enProceso)); }
@@ -193,6 +197,7 @@ public inherited sharing class EndosoPoliza {
 			String t = m.Tipo__c == 'Alta' ? 'altas' : (m.Tipo__c == 'Baja' ? 'bajas' : 'cambios');
 			s.put(t, (Integer) s.get(t) + 1);
 			if (m.Fecha_Cierre__c == null) { s.put('abiertos', (Integer) s.get('abiertos') + 1); }
+			else if (s.get('cierre') == null || (Datetime) s.get('cierre') < m.Fecha_Cierre__c) { s.put('cierre', m.Fecha_Cierre__c); }
 			List<String> e = (List<String>) s.get('endosos');
 			if (String.isNotBlank(m.Numero_Endoso__c) && !e.contains(m.Numero_Endoso__c.trim())) { e.add(m.Numero_Endoso__c.trim()); }
 		}
@@ -229,13 +234,19 @@ public inherited sharing class EndosoPoliza {
 			String estado = c.IsClosed ? (total == 0 || rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
 			s.putAll(new Map<String, Object>{
 				'fecha' => previos ? s.get('fecha') : c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber,
-				'estadoPortal' => estado, 'pendiente' => estado == 'Recibida',
+				'estadoPortal' => estado, 'pendiente' => estado == 'Recibida', 'estadoCaso' => c.Status, 'casoCerrado' => c.IsClosed,
 				'enviadaPor' => previos ? s.get('usuario') : (c.CreatedBy == null ? null : c.CreatedBy.Name),
 				'usuario' => previos ? s.get('usuario') : (c.CreatedBy == null ? null : c.CreatedBy.Name),
 				'asunto' => c.Subject, 'descripcion' => c.Description, 'comentario' => c.Comentarios__c,
 				'respuesta' => comentarios.get(c.Id),
 				'documentos' => docs.containsKey(c.Id) ? docs.get(c.Id) : new List<Map<String, Object>>()
 			});
+		}
+		// Seguimiento del trámite y fecha de cierre (cuando ya no tiene movimientos abiertos).
+		String inicial = porFolio.isEmpty() ? null : estadoCaso('Creado');
+		for (Map<String, Object> s : porFolio.values()) {
+			s.put('seguimiento', seguimiento(s, inicial));
+			if ((Integer) s.get('abiertos') > 0 || (Integer) s.get('total') == 0) { s.put('cierre', null); }
 		}
 		// Más reciente primero.
 		List<SolicitudOrden> orden = new List<SolicitudOrden>();
@@ -244,6 +255,46 @@ public inherited sharing class EndosoPoliza {
 		List<Map<String, Object>> res = new List<Map<String, Object>>();
 		for (SolicitudOrden o : orden) { res.add(o.s); }
 		return res;
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Seguimiento del trámite de una solicitud: «Concluido» cuando todos sus movimientos se cerraron con el
+	 *               endoso (o se concluyó el caso), «Solicitado» mientras el caso del sitio sigue en su estado inicial (nadie
+	 *               lo ha atendido), «Rechazada» si se rechazó y, si no, «En proceso».
+	 * @param s: solicitud (de solicitudes()).
+	 * @param inicial: estado inicial de los casos del org.
+	 * @return Solicitado, En proceso, Concluido o Rechazada.
+	 */
+	@TestVisible
+	static String seguimiento(Map<String, Object> s, String inicial) {
+		if (s.get('estadoPortal') == 'Rechazada') { return 'Rechazada'; }
+		Integer total = (Integer) s.get('total');
+		Integer abiertos = (Integer) s.get('abiertos');
+		if ((total > 0 && abiertos == 0) || s.get('casoCerrado') == true) { return 'Concluido'; }
+		if (s.get('portal') == true && (total == 0 || (inicial != null && s.get('estadoCaso') == inicial))) { return 'Solicitado'; }
+		return 'En proceso';
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo descargó el Excel de la solicitud para la aseguradora: si el caso del sitio seguía sin
+	 *               atender (estado inicial), pasa a En proceso.
+	 * @param policyId: póliza.
+	 * @param folio: folio de la solicitud.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void solicitudEnProceso(Id policyId, String folio) {
+		if (policyId == null || String.isBlank(folio)) { return; }
+		String inicial = estadoCaso('Creado');
+		String enProceso = estadoCaso('En proceso');
+		List<Case> cambiar = new List<Case>();
+		for (Case c : new SinCompartir().casosDeFolio(policyId, folio)) {
+			if (!c.IsClosed && c.Status == inicial && enProceso != null && enProceso != inicial) { cambiar.add(new Case(Id = c.Id, Status = enProceso)); }
+		}
+		new SinCompartir().actualizar(cambiar);
 	}
 
 	private static Map<String, Object> nuevaSolicitud(String folio, Datetime fecha, String usuario) {

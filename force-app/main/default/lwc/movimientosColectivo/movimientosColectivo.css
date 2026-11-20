@@ -539,6 +539,27 @@
 /* Excel de la solicitud para la aseguradora (encabezado de la solicitud). */
 .sol-excel { margin-left: auto; }
 
+/* Agrupada por solicitud: Número de movimiento | Póliza | Fecha de apertura | Fecha de cierre | Seguimiento, con las
+   mismas columnas en el encabezado de la tabla y en cada solicitud. */
+.sol-grid {
+    display: grid;
+    grid-template-columns: 1.75rem 11rem 9rem 12rem 12rem 9rem minmax(0, auto);
+    align-items: center;
+    gap: 0 0.75rem;
+    font-size: 0.75rem;
+    color: #444444;
+}
+.enc-solicitudes .sol-grid { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #444444; }
+.sol-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; min-width: 0; }
+.sol-poliza { color: #0176d3; }
+/* Encabezados de los registros dentro de la solicitud desplegada. */
+.fila-enc-detalle > th { background: #fafaf9; font-size: 0.75rem; font-weight: 700; color: #444444; white-space: nowrap; }
+/* Seguimiento del trámite. */
+.seg-solicitado { background: #fef1e6; color: #a96404; }
+.seg-proceso { background: #eef4ff; color: #0176d3; }
+.seg-concluido { background: #ebf7e6; color: #2e844a; }
+.seg-rechazada { background: #f3f3f3; color: #706e6b; }
+
 /* ===================== Estilo Oportunidades (portal de empresas, nov-2026) ===================== */
 /* Solo aplica cuando el componente vive en el sitio (portal = true, clase mov-portal); en Salesforce interno no cambia nada.
    Igual que Poliza-Asegurados del diseño del sitio; Asegurados, Vehículos y Ubicaciones usan exactamente este mismo bloque. */
@@ -627,6 +648,15 @@
 .mov-portal .sol-estado { padding: 4px 11px; border: 1px solid transparent; border-radius: 999px; font-size: 0.75rem; }
 .mov-portal .sol-abierta { background: #fff4e5; border-color: #fbd9a8; color: #a1450a; }
 .mov-portal .sol-cerrada { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
+.mov-portal .enc-solicitudes .sol-grid { font-size: 11px; letter-spacing: 0.08em; color: #64748b; }
+.mov-portal .sol-grid { font-size: 0.8125rem; color: #475569; }
+.mov-portal .sol-poliza { color: #1d4ed8; }
+.mov-portal .fila-enc-detalle > th { background: #ffffff; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b;
+    padding: 10px 14px; border-top: 1px solid #eef1f6; }
+.mov-portal .seg-solicitado { background: #fff4e5; border-color: #fbd9a8; color: #a1450a; }
+.mov-portal .seg-proceso { background: #e8efff; border-color: #c7d7fe; color: #1d4ed8; }
+.mov-portal .seg-concluido { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
+.mov-portal .seg-rechazada { background: #f1f4f9; border-color: #e3e8f2; color: #475569; }
 /* Paginación centrada; vacío punteado. */
 .mov-portal .mov-paginacion { margin: 0; gap: 12px; font-size: 0.875rem; color: #475569; }
 .mov-portal .mov-vacio { justify-content: center; padding: 28px; border: 1px dashed #d5dcea; border-radius: 16px; background: #fbfcfe; color: #64748b; font-size: 0.875rem; }

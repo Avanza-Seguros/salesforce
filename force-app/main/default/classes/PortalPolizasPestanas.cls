@@ -841,29 +841,30 @@ public without sharing class PortalPolizasPestanas {
 			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
 			Boolean contratante = roles.get(policyId) == 'Titular';
 			Bienes bienes = asegurados(policyId, cuentaVistaPrevia);
-			List<Map<String, Object>> registros = new List<Map<String, Object>>();
-			if (contratante) {
-				for (Fila f : bienes.filas) {
-					if (f.activo == false) { continue; }
-					registros.add(new Map<String, Object>{ 'id' => f.id, 'clave' => f.clave, 'nombre' => f.nombre,
-						'detalle' => f.detalle, 'dependiente' => f.dependiente });
-				}
-			}
+			List<Map<String, Object>> registros = contratante ? registrosVigentes(bienes) : new List<Map<String, Object>>();
 			List<Map<String, Object>> lista = new List<Map<String, Object>>();
 			for (Map<String, Object> s : EndosoPoliza.solicitudes(policyId, null)) {
 				if (s.get('portal') != true) { continue; }
+				List<String> archivos = new List<String>();
+				for (Object o : (List<Object>) s.get('documentos')) { archivos.add(String.valueOf(((Map<String, Object>) o).get('titulo'))); }
 				lista.add(new Map<String, Object>{
 					'folio' => s.get('folio'), 'caso' => s.get('caso'), 'fecha' => s.get('fecha'), 'estado' => s.get('estadoPortal'),
 					'asunto' => s.get('asunto'), 'descripcion' => s.get('descripcion'), 'respuesta' => s.get('respuesta'),
 					'enviadaPor' => s.get('enviadaPor'), 'aplicados' => s.get('total'), 'abiertos' => s.get('abiertos'),
-					'endosos' => s.get('endosos'), 'documentos' => ((List<Object>) s.get('documentos')).size()
+					'altas' => s.get('altas'), 'bajas' => s.get('bajas'), 'cambios' => s.get('cambios'),
+					'seguimiento' => s.get('seguimiento'), 'cierre' => s.get('cierre'),
+					'endosos' => s.get('endosos'), 'documentos' => archivos.size(), 'archivos' => archivos
 				});
 			}
+			// Lo que pidió el cliente en cada solicitud (solo el contratante: son datos de todos los asegurados).
+			if (contratante) { detalleSolicitudes(policyId, bienes, lista); }
+			Boolean empresarial = esEmpresarial(policyId, bienes);
 			return new Map<String, Object>{
 				'tipo' => bienes.tipo, 'esContratante' => contratante, 'vistaPrevia' => cuentaVistaPrevia != null,
-				'esEmpresarial' => esEmpresarial(policyId, bienes),
-				'puedeSolicitar' => contratante && EndosoPoliza.tipoCaso() != null && esEmpresarial(policyId, bienes),
-				'registros' => registros, 'solicitudes' => lista
+				'esEmpresarial' => empresarial,
+				'puedeSolicitar' => contratante && EndosoPoliza.tipoCaso() != null && empresarial,
+				'registros' => registros, 'solicitudes' => lista,
+				'polizas' => contratante ? polizasDelContratante(policyId, roles, bienes.tipo) : new List<Map<String, Object>>()
 			};
 		} catch (AuraHandledException e) {
 			throw e;
@@ -871,6 +872,143 @@ public without sharing class PortalPolizasPestanas {
 			throw PortalPolizasController.errorSitio(e);
 		}
 	}
+
+	/** Registros vigentes de la póliza para elegir en bajas y cambios, ordenados por certificado o inciso. */
+	@TestVisible
+	static List<Map<String, Object>> registrosVigentes(Bienes bienes) {
+		List<FilaPorClave> orden = new List<FilaPorClave>();
+		for (Fila f : bienes.filas) { if (f.activo != false) { orden.add(new FilaPorClave(f)); } }
+		orden.sort();
+		List<Map<String, Object>> res = new List<Map<String, Object>>();
+		for (FilaPorClave o : orden) {
+			Fila f = o.f;
+			res.add(new Map<String, Object>{ 'id' => f.id, 'clave' => f.clave, 'nombre' => f.nombre, 'detalle' => f.detalle,
+				'dependiente' => f.dependiente, 'parentesco' => f.parentesco });
+		}
+		return res;
+	}
+
+	// Orden por certificado o inciso (numérico cuando lo es) y luego por nombre; sin clave al final.
+	class FilaPorClave implements Comparable {
+		Fila f;
+		FilaPorClave(Fila f) { this.f = f; }
+		String llave() {
+			String c = f.clave == null ? '' : f.clave.trim();
+			if (String.isBlank(c)) { return '~'; }
+			return c.isNumeric() ? c.leftPad(20, '0') : c.toUpperCase();
+		}
+		public Integer compareTo(Object o) {
+			FilaPorClave b = (FilaPorClave) o;
+			Integer r = llave().compareTo(b.llave());
+			return r != 0 ? r : (f.nombre == null ? '' : f.nombre).compareTo(b.f.nombre == null ? '' : b.f.nombre);
+		}
+	}
+
+	/**
+	 * Pólizas del mismo contratante (el usuario es su contratante) que aseguran lo mismo (personas, vehículos o
+	 * ubicaciones) y siguen vigentes: en bajas y cambios el cliente elige en cuál. La actual va primero.
+	 */
+	@TestVisible
+	static List<Map<String, Object>> polizasDelContratante(Id policyId, Map<Id, String> roles, String tipo) {
+		Set<Id> ids = new Set<Id>();
+		for (Id pid : roles.keySet()) { if (roles.get(pid) == 'Titular') { ids.add(pid); } }
+		List<Map<String, Object>> res = new List<Map<String, Object>>();
+		List<Map<String, Object>> otras = new List<Map<String, Object>>();
+		Map<String, String> ramos = MovimientosColectivoController.etiquetas(InsurancePolicy.Ramo__c.getDescribe());
+		for (InsurancePolicy p : [SELECT Id, Name, Ramo__c, ExpirationDate FROM InsurancePolicy WHERE Id IN :ids ORDER BY Name LIMIT 200]) {
+			Boolean actual = p.Id == policyId;
+			if (!actual && (tipoRamo(p.Ramo__c) != tipo || (p.ExpirationDate != null && p.ExpirationDate < Datetime.now()))) { continue; }
+			Map<String, Object> m = new Map<String, Object>{ 'id' => p.Id, 'nombre' => p.Name,
+				'ramo' => p.Ramo__c == null ? null : (ramos.containsKey(p.Ramo__c) ? ramos.get(p.Ramo__c) : p.Ramo__c), 'actual' => actual };
+			if (actual) { res.add(m); } else { otras.add(m); }
+		}
+		res.addAll(otras);
+		return res;
+	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Registros vigentes de otra póliza del mismo contratante (bajas y cambios de la solicitud en esa
+	 * póliza): solo el contratante y solo pólizas empresariales.
+	 * @param policyId: Id de la póliza
+	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
+	 * @return tipo, puedeSolicitar, mensaje y registros
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> registrosPoliza(Id policyId, Id cuentaVistaPrevia) {
+		try {
+			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
+			if (roles.get(policyId) != 'Titular') {
+				throw new AuraHandledException('Solo el contratante de la póliza puede enviar solicitudes de movimientos.');
+			}
+			Bienes bienes = asegurados(policyId, cuentaVistaPrevia);
+			Boolean empresarial = esEmpresarial(policyId, bienes);
+			return new Map<String, Object>{ 'tipo' => bienes.tipo, 'puedeSolicitar' => empresarial,
+				'mensaje' => empresarial ? null : 'Esta póliza no es empresarial (colectiva o flotilla): para sus movimientos contacta a tu asesor.',
+				'registros' => empresarial ? registrosVigentes(bienes) : new List<Map<String, Object>>() };
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			throw PortalPolizasController.errorSitio(e);
+		}
+	}
+
+	/**
+	 * Movimientos de cada solicitud como los pidió el cliente: registro (certificado o inciso), nombre, parentesco,
+	 * movimiento (Alta, Baja o Cambio), fecha de nacimiento, fecha del movimiento y su seguimiento (Concluido cuando se
+	 * cerró con el endoso; si no, el de la solicitud).
+	 */
+	@TestVisible
+	static void detalleSolicitudes(Id policyId, Bienes bienes, List<Map<String, Object>> lista) {
+		Map<String, Map<String, Object>> porFolio = new Map<String, Map<String, Object>>();
+		for (Map<String, Object> s : lista) {
+			s.put('movimientos', new List<Map<String, Object>>());
+			porFolio.put(String.valueOf(s.get('folio')), s);
+		}
+		if (porFolio.isEmpty()) { return; }
+		Map<Id, Fila> filas = new Map<Id, Fila>();
+		for (Fila f : bienes.filas) { filas.put(f.id, f); }
+		Set<String> folios = porFolio.keySet();
+		for (Movimiento_Poliza__c m : [
+			SELECT Solicitud__c, Tipo__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Fecha_Cierre__c, Participante__c,
+				Participante__r.FechaNacimiento__c, Inciso__c, Inciso__r.Numero_Inciso__c, Inciso__r.Descripcion__c
+			FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c IN :folios ORDER BY CreatedDate, Id LIMIT 5000
+		]) {
+			Map<String, Object> s = porFolio.get(m.Solicitud__c);
+			Fila f = filas.get(m.Participante__c != null ? (Id) m.Participante__c : (Id) m.Inciso__c);
+			String clave = String.isNotBlank(m.Certificado__c) ? m.Certificado__c
+				: (m.Inciso__c != null && m.Inciso__r.Numero_Inciso__c != null ? String.valueOf(m.Inciso__r.Numero_Inciso__c.intValue())
+					: (f == null ? null : f.clave));
+			String nombre = String.isNotBlank(m.Asegurado__c) ? m.Asegurado__c
+				: (m.Inciso__c != null ? m.Inciso__r.Descripcion__c : (f == null ? null : f.nombre));
+			Object seg = s.get('seguimiento');
+			((List<Map<String, Object>>) s.get('movimientos')).add(new Map<String, Object>{
+				'clave' => clave, 'nombre' => nombre, 'parentesco' => f == null ? null : f.parentesco, 'tipo' => m.Tipo__c,
+				'nacimiento' => m.Participante__c == null ? null : m.Participante__r.FechaNacimiento__c,
+				'fecha' => m.Fecha_Movimiento__c,
+				'seguimiento' => m.Fecha_Cierre__c != null ? 'Concluido' : (seg == 'Concluido' || seg == 'Rechazada' ? 'En proceso' : seg)
+			});
+		}
+	}
+
+	// Archivos que el cliente adjunta para un reconocimiento de antigüedad (RA): carta de antigüedad, carátula de la
+	// póliza anterior o complemento de pago.
+	static final Pattern ARCHIVO_RA = Pattern.compile('antig|carta|caratula|complemento');
+
+	/** Archivos que por su nombre son documentos de reconocimiento de antigüedad (RA). */
+	@TestVisible
+	static List<String> archivosRA(List<String> nombres) {
+		List<String> res = new List<String>();
+		for (String n : nombres) {
+			String llave = n == null ? null : CensoColectivoController.llave(n);
+			if (llave != null && ARCHIVO_RA.matcher(llave).find()) { res.add(n); }
+		}
+		return res;
+	}
+
+	// Una alta no puede ser de más de 30 días atrás.
+	@TestVisible static final Integer DIAS_RETROACTIVOS = 30;
 
 	/**
 	 * @creation date: 17/11/2026
@@ -890,6 +1028,75 @@ public without sharing class PortalPolizasPestanas {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> crearSolicitud(Id policyId, String solicitudJson, Id cuentaVistaPrevia) {
+		Map<String, Object> d;
+		try {
+			d = String.isBlank(solicitudJson) ? new Map<String, Object>() : (Map<String, Object>) JSON.deserializeUntyped(solicitudJson);
+		} catch (Exception e) {
+			throw falla('No se pudo leer la solicitud. Intenta de nuevo.');
+		}
+		// Movimientos (capturados o renglones del archivo) de otra póliza del mismo contratante: van en una solicitud de
+		// esa póliza (su folio y su caso), con el mismo comentario y los mismos archivos.
+		Map<Id, List<Object>> movsOtra = new Map<Id, List<Object>>();
+		Map<Id, List<Object>> renglonesOtra = new Map<Id, List<Object>>();
+		List<Object> movs = new List<Object>();
+		for (Object o : d.get('movimientos') instanceof List<Object> ? (List<Object>) d.get('movimientos') : new List<Object>()) {
+			Id otra = otraPoliza(o, policyId);
+			if (otra == null) { movs.add(o); } else { agregar(movsOtra, otra, o); }
+		}
+		Map<String, Object> listado = d.get('listado') instanceof Map<String, Object> ? (Map<String, Object>) d.get('listado') : null;
+		if (listado != null && listado.get('registros') instanceof List<Object>) {
+			List<Object> propios = new List<Object>();
+			for (Object o : (List<Object>) listado.get('registros')) {
+				Id otra = otraPoliza(o, policyId);
+				if (otra == null) { propios.add(o); } else { agregar(renglonesOtra, otra, o); }
+			}
+			listado.put('registros', propios);
+			listado.put('total', propios.size());
+			if (propios.isEmpty() && !renglonesOtra.isEmpty()) { d.remove('listado'); }
+		}
+		if (movsOtra.isEmpty() && renglonesOtra.isEmpty()) { return crearUna(policyId, d, cuentaVistaPrevia); }
+		d.put('movimientos', movs);
+		List<Map<String, Object>> creadas = new List<Map<String, Object>>();
+		if (!movs.isEmpty() || d.get('listado') != null) { creadas.add(crearUna(policyId, d, cuentaVistaPrevia)); }
+		Set<Id> otras = new Set<Id>(movsOtra.keySet());
+		otras.addAll(renglonesOtra.keySet());
+		for (Id pid : otras) {
+			Map<String, Object> d2 = new Map<String, Object>{ 'comentario' => d.get('comentario'), 'archivos' => d.get('archivos'),
+				'movimientos' => movsOtra.containsKey(pid) ? movsOtra.get(pid) : new List<Object>() };
+			if (renglonesOtra.containsKey(pid)) {
+				d2.put('listado', new Map<String, Object>{ 'tipo' => 'varios', 'nombre' => listado.get('nombre'), 'filas' => new List<Object>(),
+					'total' => renglonesOtra.get(pid).size(), 'registros' => renglonesOtra.get(pid) });
+			}
+			creadas.add(crearUna(pid, d2, cuentaVistaPrevia));
+		}
+		// Una respuesta con todas las solicitudes que se crearon (la de esta póliza primero).
+		List<String> folios = new List<String>();
+		Integer registrados = 0;
+		for (Map<String, Object> r : creadas) {
+			folios.add(r.get('poliza') == null || r.get('polizaId') == policyId ? String.valueOf(r.get('folio'))
+				: r.get('folio') + ' (póliza ' + r.get('poliza') + ')');
+			registrados += r.get('registrados') == null ? 0 : (Integer) r.get('registrados');
+		}
+		return new Map<String, Object>{ 'folio' => String.join(folios, ', '), 'caso' => creadas[0].get('caso'),
+			'registrados' => registrados, 'solicitudes' => creadas.size() };
+	}
+
+	/** Póliza del movimiento cuando es otra (del mismo contratante); null si es la de la solicitud. */
+	static Id otraPoliza(Object o, Id policyId) {
+		Object pid = o instanceof Map<String, Object> ? ((Map<String, Object>) o).get('polizaId') : null;
+		if (pid == null || String.isBlank(String.valueOf(pid))) { return null; }
+		Id otra;
+		try { otra = (Id) String.valueOf(pid); } catch (StringException e) { throw falla('La póliza elegida no es válida.'); }
+		return otra == policyId ? null : otra;
+	}
+
+	static void agregar(Map<Id, List<Object>> m, Id k, Object o) {
+		if (!m.containsKey(k)) { m.put(k, new List<Object>()); }
+		m.get(k).add(o);
+	}
+
+	/** Una solicitud en una póliza (ver crearSolicitud). */
+	static Map<String, Object> crearUna(Id policyId, Map<String, Object> d, Id cuentaVistaPrevia) {
 		try {
 			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
 			if (roles.get(policyId) != 'Titular') {
@@ -897,8 +1104,6 @@ public without sharing class PortalPolizasPestanas {
 			}
 			Id tipoCaso = EndosoPoliza.tipoCaso();
 			if (tipoCaso == null) { throw new AuraHandledException('Las solicitudes no están disponibles por ahora. Contacta a tu asesor.'); }
-			Map<String, Object> d = String.isBlank(solicitudJson) ? new Map<String, Object>()
-				: (Map<String, Object>) JSON.deserializeUntyped(solicitudJson);
 			List<Object> movs = d.get('movimientos') instanceof List<Object> ? (List<Object>) d.get('movimientos') : new List<Object>();
 			// Solicitud por archivo: el cliente sube un Excel/CSV con todos los datos (va adjunto al caso).
 			Map<String, Object> listado = d.get('listado') instanceof Map<String, Object> ? (Map<String, Object>) d.get('listado') : null;
@@ -919,14 +1124,16 @@ public without sharing class PortalPolizasPestanas {
 			for (Object o : movs) {
 				i++;
 				Map<String, Object> m = (Map<String, Object>) o;
+				// Número del movimiento como lo ve el cliente (cuenta todos los de la pantalla, aunque sean de otra póliza).
+				Integer num = m.get('numero') == null ? i : Integer.valueOf(String.valueOf(m.get('numero')));
 				String tipo = String.valueOf(m.get('tipo')).toLowerCase();
-				if (!nombres.containsKey(tipo)) { throw new AuraHandledException('Movimiento ' + i + ': tipo no válido.'); }
+				if (!nombres.containsKey(tipo)) { throw new AuraHandledException('Movimiento ' + num + ': tipo no válido.'); }
 				cuenta.put(tipo, cuenta.get(tipo) + 1);
 				// Datos capturados del movimiento (para validar que el alta los traiga).
 				List<String> partes = new List<String>{ nombres.get(tipo) };
 				if (tipo != 'alta') {
 					Fila f = m.get('registroId') == null ? null : vigentes.get((Id) String.valueOf(m.get('registroId')));
-					if (f == null) { throw new AuraHandledException('Movimiento ' + i + ': elige un registro vigente de la póliza.'); }
+					if (f == null) { throw new AuraHandledException('Movimiento ' + num + ': elige un registro vigente de la póliza.'); }
 					partes.add((String.isBlank(f.clave) ? '' : f.clave + ' · ') + f.nombre);
 				}
 				if (m.get('datos') instanceof List<Object>) {
@@ -937,7 +1144,8 @@ public without sharing class PortalPolizasPestanas {
 						}
 					}
 				}
-				if (tipo == 'alta' && partes.size() == 1) { throw new AuraHandledException('Movimiento ' + i + ': captura los datos del alta.'); }
+				if (tipo == 'alta' && partes.size() == 1) { throw new AuraHandledException('Movimiento ' + num + ': captura los datos del alta.'); }
+				if (tipo == 'alta') { validarRetroactivo(m.get('fecha'), 'Movimiento ' + num); }
 				if (m.get('fecha') != null && String.isNotBlank(String.valueOf(m.get('fecha')))) { partes.add('Fecha solicitada: ' + m.get('fecha')); }
 				if (m.get('detalle') != null && String.isNotBlank(String.valueOf(m.get('detalle')))) {
 					partes.add((tipo == 'baja' ? 'Motivo: ' : (tipo == 'cambio' ? 'Cambio: ' : 'Nota: ')) + m.get('detalle'));
@@ -945,10 +1153,10 @@ public without sharing class PortalPolizasPestanas {
 				Map<String, Object> campos = m.get('campos') instanceof Map<String, Object> ? (Map<String, Object>) m.get('campos') : null;
 				if (tipo == 'cambio' && (campos == null || campos.isEmpty())
 						&& (m.get('detalle') == null || String.isBlank(String.valueOf(m.get('detalle'))))) {
-					throw new AuraHandledException('Movimiento ' + i + ': describe qué se cambia.');
+					throw new AuraHandledException('Movimiento ' + num + ': describe qué se cambia.');
 				}
 				aRegistrar.add(new Map<String, Object>{ 'tipo' => tipo, 'registroId' => m.get('registroId'), 'fecha' => m.get('fecha'),
-					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + i });
+					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + num });
 			}
 			String tipoArchivo = null;
 			String resumenArchivo = null;
@@ -971,8 +1179,14 @@ public without sharing class PortalPolizasPestanas {
 						String donde = r.get('fila') == null ? 'Un renglón del archivo' : 'Renglón ' + r.get('fila') + ' del archivo';
 						if (!nombres.containsKey(t)) { throw new AuraHandledException(donde + ': indica si es alta, baja o cambio.'); }
 						Object f = r.get('fecha') != null && String.isNotBlank(String.valueOf(r.get('fecha'))) ? r.get('fecha') : listado.get('fecha');
+						if (t == 'alta') { validarRetroactivo(f, donde); }
+						Map<String, Object> campos = r.get('campos') instanceof Map<String, Object> ? (Map<String, Object>) r.get('campos') : null;
+						// Fecha de antigüedad del renglón: el alta es con reconocimiento de antigüedad (RA).
+						Date antiguedad = campos == null ? null : CensoColectivoController.fecha(texto(campos.get('fechaAntiguedad')));
+						if (campos != null) { campos.remove('fechaAntiguedad'); campos.remove('poliza'); }
 						aRegistrar.add(new Map<String, Object>{ 'tipo' => t, 'fecha' => f, 'comentario' => r.get('comentario'),
-							'campos' => r.get('campos'), 'titular' => r.get('titular'), 'etiqueta' => donde });
+							'campos' => campos, 'titular' => r.get('titular'), 'etiqueta' => donde, 'ra' => antiguedad != null,
+							'raDesde' => antiguedad == null ? null : antiguedad.format() });
 					}
 				}
 			}
@@ -990,6 +1204,20 @@ public without sharing class PortalPolizasPestanas {
 				}
 			}
 			if (bytes > MAX_BYTES_SOLICITUD) { throw new AuraHandledException('Los archivos suman más de 4 MB. Envía archivos más ligeros.'); }
+			// Reconocimiento de antigüedad (RA): se identifica por los documentos que adjuntó (carta de antigüedad,
+			// carátula de la póliza anterior o complemento de pago); aplica a las altas y cambios capturados.
+			List<String> nombresArchivos = new List<String>();
+			for (ContentVersion v : archivos) { nombresArchivos.add(v.PathOnClient); }
+			if (listado != null && listado.get('nombre') != null) {
+				Integer k = nombresArchivos.indexOf(String.valueOf(listado.get('nombre')));
+				if (k >= 0) { nombresArchivos.remove(k); }
+			}
+			List<String> documentosRA = archivosRA(nombresArchivos);
+			Integer conRA = 0;
+			for (Map<String, Object> r : aRegistrar) {
+				if (!documentosRA.isEmpty() && r.get('tipo') != 'baja' && String.valueOf(r.get('etiqueta')).startsWith('Movimiento')) { r.put('ra', true); }
+				if (r.get('ra') == true) { conRA++; }
+			}
 
 			List<String> resumen = new List<String>();
 			if (resumenArchivo != null) { resumen.add(resumenArchivo); }
@@ -1006,10 +1234,13 @@ public without sharing class PortalPolizasPestanas {
 			String comentario = d.get('comentario') == null ? '' : String.valueOf(d.get('comentario')).trim();
 			String folio = EndosoPoliza.siguienteFolio(policyId);
 			Case c = new Case(RecordTypeId = tipoCaso, InsurancePolicy__c = policyId, AccountId = yo[0], Origin = 'Sitio Web',
-				Solicitud__c = folio, Subject = (folio + ' · Póliza ' + p.Name + ' · ' + String.join(resumen, ', ')).left(255),
+				Solicitud__c = folio, Subject = (folio + ' · Póliza ' + p.Name + ' · ' + String.join(resumen, ', ')
+					+ (conRA > 0 ? ' · con RA' : '')).left(255),
 				Poliza_Number__c = p.Name,
-				Description = 'Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName()
-					+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.',
+				Description = ('Solicitud ' + folio + ' enviada desde el sitio por ' + UserInfo.getName()
+					+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.'
+					+ (conRA == 0 ? '' : '\nReconocimiento de antigüedad (RA): ' + conRA + (conRA == 1 ? ' movimiento' : ' movimientos')
+						+ (documentosRA.isEmpty() ? ' (fecha de antigüedad en el archivo).' : '; documentos: ' + String.join(documentosRA, ', ') + '.'))).left(32000),
 				Comentarios__c = String.isBlank(comentario) ? null : comentario.left(131072));
 			if (tipoUnico != null && tipoUnico != 'varios') { c.Reason = tipoUnico; }
 			// El caso lo atiende el ejecutivo dueño de la póliza.
@@ -1024,8 +1255,11 @@ public without sharing class PortalPolizasPestanas {
 			if (!archivos.isEmpty()) { insert archivos; }
 			Integer registrados;
 			try {
+				EndosoPoliza.registroDelSitio = true;
 				registrados = registrar(policyId, bienes, aRegistrar, folio);
+				EndosoPoliza.registroDelSitio = false;
 			} catch (Exception e) {
+				EndosoPoliza.registroDelSitio = false;
 				Database.rollback(sp);
 				String msg = e instanceof AuraHandledException ? e.getMessage() : MovimientosColectivoController.mensaje(e);
 				System.debug(LoggingLevel.ERROR, 'crearSolicitud (registro): ' + msg + ' | ' + e.getStackTraceString());
@@ -1034,7 +1268,7 @@ public without sharing class PortalPolizasPestanas {
 				throw a;
 			}
 			return new Map<String, Object>{ 'folio' => folio, 'caso' => [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber,
-				'registrados' => registrados };
+				'registrados' => registrados, 'poliza' => p.Name, 'polizaId' => policyId };
 		} catch (AuraHandledException e) {
 			throw e;
 		} catch (Exception e) {
@@ -1078,7 +1312,13 @@ public without sharing class PortalPolizasPestanas {
 			Map<String, Object> datos = tipo == 'vehiculos' ? datosVehiculo(c) : (tipo == 'ubicaciones' ? datosUbicacion(c) : datosPersona(c));
 			String fecha = r.get('fecha') == null || CensoColectivoController.fecha(String.valueOf(r.get('fecha'))) == null
 				? hoy : String.valueOf(r.get('fecha')).left(10);
-			String comentario = r.get('comentario') == null ? null : ('Del cliente: ' + String.valueOf(r.get('comentario')).normalizeSpace()).left(255);
+			// Comentario del movimiento: si es con reconocimiento de antigüedad (RA) y lo que escribió el cliente.
+			List<String> notas = new List<String>();
+			if (r.get('ra') == true) { notas.add('Con RA' + (r.get('raDesde') == null ? '' : ' desde ' + r.get('raDesde'))); }
+			if (r.get('comentario') != null && String.isNotBlank(String.valueOf(r.get('comentario')))) {
+				notas.add('Del cliente: ' + String.valueOf(r.get('comentario')).normalizeSpace());
+			}
+			String comentario = notas.isEmpty() ? null : String.join(notas, ' · ').left(255);
 			Map<String, Object> m = new Map<String, Object>{ 'tipo' => t, 'fecha' => fecha, 'comentario' => comentario };
 			if (t != 'alta') {
 				Id id = r.get('registroId') == null || String.isBlank(String.valueOf(r.get('registroId'))) ? buscar(tipo, c, claves)
@@ -1159,6 +1399,16 @@ public without sharing class PortalPolizasPestanas {
 		if (pol[0].SourceOpportunityId != null && pol[0].SourceOpportunity.Tipo_Contratacion__c == 'Colectiva') { return true; }
 		if (pol[0].SourceOpportunityId == null && pol[0].NameInsuredId != null && pol[0].NameInsured.IsPersonAccount != true) { return true; }
 		return bienes.filas.size() > 1;
+	}
+
+	/** Una alta puede ser de hoy o de hasta 30 días atrás («Máximo 30 días retroactivos»). */
+	@TestVisible
+	static void validarRetroactivo(Object fecha, String donde) {
+		Date f = fecha == null ? null : CensoColectivoController.fecha(String.valueOf(fecha));
+		if (f != null && f < Date.today().addDays(-DIAS_RETROACTIVOS)) {
+			throw falla(donde + ': la fecha de alta puede ser de máximo ' + DIAS_RETROACTIVOS + ' días retroactivos (desde el '
+				+ Date.today().addDays(-DIAS_RETROACTIVOS).format() + ').');
+		}
 	}
 
 	static AuraHandledException falla(String msg) {
@@ -1254,6 +1504,7 @@ public without sharing class PortalPolizasPestanas {
 		poner(d, 'parentesco', texto(c.get('parentesco')));
 		poner(d, 'email', texto(c.get('correo')));
 		poner(d, 'certificado', texto(c.get('certificado')));
+		poner(d, 'categoria', texto(c.get('categoria')));
 		return d;
 	}
 

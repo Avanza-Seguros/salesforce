@@ -628,4 +628,88 @@ private class PortalPolizasPestanasTest {
 		System.assert(visto, 'El cliente ve la solicitud rechazada');
 		Test.stopTest();
 	}
+
+	/**
+	 * @creation date: 20/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Reporte Foxconn: la solicitud del sitio queda «Solicitado» hasta que el ejecutivo la atiende (al
+	 * descargar su Excel pasa a «En proceso»), «Ver detalle» trae sus movimientos, la baja de otra póliza del mismo
+	 * contratante se registra en esa póliza (su folio y su caso), la carta de antigüedad adjunta marca el RA y un alta de
+	 * más de 30 días atrás no se acepta.
+	 * @return void
+	 */
+	@isTest
+	static void testSeguimientoDetalleYOtraPoliza() {
+		Account empresa = new Account(Name = 'Empresa Pool');
+		insert empresa;
+		InsurancePolicy uno = poliza(empresa.Id, 'POOL-1', 'GMM');
+		InsurancePolicy dos = poliza(empresa.Id, 'POOL-2', 'GMM');
+		insert new List<InsurancePolicy>{ uno, dos };
+		List<InsurancePolicyParticipant> pps = new List<InsurancePolicyParticipant>();
+		for (InsurancePolicy p : new List<InsurancePolicy>{ uno, dos }) {
+			for (Integer i = 1; i <= 2; i++) {
+				Contact c = new Contact(LastName = 'Empleado ' + p.Name + ' ' + i, AccountId = empresa.Id);
+				insert c;
+				pps.add(new InsurancePolicyParticipant(InsurancePolicyId = p.Id, PrimaryParticipantContactId = c.Id, Role = rol('asegurado'),
+					ParticipantCode = String.valueOf(3 - i), IsActiveParticipant = true));
+			}
+		}
+		insert pps;
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+		Map<String, Object> alta = new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today().addDays(-5)), 'numero' => 1,
+			'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' } },
+			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
+				'parentesco' => 'Titular' } };
+		// Baja de un asegurado de la otra póliza (el certificado 2 de POOL-2).
+		Map<String, Object> baja = new Map<String, Object>{ 'tipo' => 'baja', 'registroId' => pps[2].Id, 'polizaId' => dos.Id,
+			'detalle' => 'Renuncia', 'numero' => 2 };
+
+		Test.startTest();
+		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(uno.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ alta, baja },
+			'archivos' => new List<Object>{ new Map<String, Object>{ 'nombre' => 'Carta de antigüedad.pdf', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) } }
+		}), null);
+		Map<String, Object> vista = PortalPolizasPestanas.solicitudes(uno.Id, null);
+		Map<String, Object> otra = PortalPolizasPestanas.registrosPoliza(dos.Id, null);
+		// Alta de hace 40 días: no.
+		Map<String, Object> vieja = alta.clone();
+		vieja.put('fecha', String.valueOf(Date.today().addDays(-40)));
+		String error;
+		try { PortalPolizasPestanas.crearSolicitud(uno.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ vieja } }), null); }
+		catch (AuraHandledException e) { error = e.getMessage(); }
+		Test.stopTest();
+
+		System.assertEquals(2, r.get('solicitudes'), 'Una solicitud por póliza');
+		System.assertEquals('SOL-0001, SOL-0001 (póliza POOL-2)', r.get('folio'));
+		Case c1 = [SELECT Subject, Description, Status FROM Case WHERE InsurancePolicy__c = :uno.Id];
+		System.assert(c1.Subject.endsWith('· con RA'), c1.Subject);
+		System.assert(c1.Description.contains('Reconocimiento de antigüedad (RA): 1 movimiento; documentos: Carta de antigüedad.pdf'), c1.Description);
+		System.assertEquals(1, [SELECT COUNT() FROM Case WHERE InsurancePolicy__c = :dos.Id AND Solicitud__c = 'SOL-0001']);
+		System.assert([SELECT Comentario__c FROM Movimiento_Poliza__c WHERE Poliza__c = :uno.Id].Comentario__c.startsWith('Con RA'));
+		System.assertEquals(false, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :pps[2].Id].IsActiveParticipant,
+			'La baja se registró en POOL-2');
+		System.assert(error != null && error.contains('máximo 30 días retroactivos'), error);
+
+		// Pólizas del contratante (la actual primero) y registros de la otra, por certificado.
+		List<Object> polizas = (List<Object>) vista.get('polizas');
+		System.assertEquals(2, polizas.size());
+		System.assertEquals(true, ((Map<String, Object>) polizas[0]).get('actual'));
+		List<Object> regs = (List<Object>) otra.get('registros');
+		System.assertEquals('1', ((Map<String, Object>) regs[0]).get('clave'), 'Ordenados por certificado');
+		// Detalle de la solicitud y su seguimiento: nadie la ha atendido.
+		Map<String, Object> s = (Map<String, Object>) ((List<Object>) vista.get('solicitudes'))[0];
+		System.assertEquals('Solicitado', s.get('seguimiento'));
+		List<Object> movs = (List<Object>) s.get('movimientos');
+		System.assertEquals(1, movs.size());
+		System.assertEquals('Alta', ((Map<String, Object>) movs[0]).get('tipo'));
+		System.assertEquals('Solicitado', ((Map<String, Object>) movs[0]).get('seguimiento'));
+		System.assertEquals(new List<Object>{ 'Carta de antigüedad.pdf' }, (List<Object>) s.get('archivos'));
+		// El ejecutivo descarga el Excel para la aseguradora: pasa a En proceso.
+		EndosoPoliza.solicitudEnProceso(uno.Id, 'SOL-0001');
+		Map<String, Object> s2 = (Map<String, Object>) ((List<Object>) PortalPolizasPestanas.solicitudes(uno.Id, null).get('solicitudes'))[0];
+		System.assertEquals('En proceso', s2.get('seguimiento'));
+		System.assertEquals(new List<String>{ 'CARTA ANTIGUEDAD.pdf', 'Caratula poliza.pdf' },
+			PortalPolizasPestanas.archivosRA(new List<String>{ 'CARTA ANTIGUEDAD.pdf', 'ine.pdf', 'Caratula poliza.pdf', null }));
+	}
 }
