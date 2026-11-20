@@ -487,13 +487,16 @@ private class OpportunityControllerTest {
         Account acc = [SELECT Id FROM Account LIMIT 1];
         Contact c = new Contact(LastName = 'Viniegra', FirstName = 'Arturo', Email = 'arturo@test.com', AccountId = acc.Id);
         insert c;
-        Producer p = new Producer(Name = 'Arturo Viniegra Lopez', ContactId = c.Id);
-        insert p;
+        Producer p = new Producer(Name = 'Arturo Viniegra Lopez', ContactId = c.Id, Estatus_Agente__c = 'Definitivo');
+        Producer inactivo = new Producer(Name = 'Arturo Viniegra Inactivo', Estatus_Agente__c = 'Inactivo');
+        Producer sinEstatus = new Producer(Name = 'Arturo Viniegra Sin Estatus');
+        insert new List<Producer>{ p, inactivo, sinEstatus };
         Test.startTest();
         List<OpportunityController.ProducerResult> res = OpportunityController.searchAgentsProspectors('viniegra arturo');
         String correo = OpportunityController.getProducerEmail(p.Id);
         Test.stopTest();
-        System.assert(!res.isEmpty(), 'Debe encontrar al productor sin importar el orden de las palabras');
+        System.assertEquals(1, res.size(), 'Solo el agente activo; los inactivos o sin estatus no se pueden elegir');
+        System.assertEquals(p.Id, res[0].Id, 'Debe encontrar al productor sin importar el orden de las palabras');
         System.assertEquals('arturo@test.com', correo);
         System.assertEquals(null, OpportunityController.getProducerEmail(null));
     }

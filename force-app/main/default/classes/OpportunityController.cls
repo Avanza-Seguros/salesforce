@@ -387,7 +387,8 @@ public with sharing class OpportunityController {
 	 * @creation date: 18/09/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Busca productores (Producer) por palabras en su nombre, cuenta o contacto, sin importar el orden
-	 * ("ARTURO VINIEGRA" encuentra "Viniegra Arturo").
+	 * ("ARTURO VINIEGRA" encuentra "Viniegra Arturo"). Solo los agentes activos (Agente_Activo__c: Definitivo,
+	 * Provisional o Centro de Influencia en Agente__c de producción).
 	 * @param searchTerm: Texto a buscar (mínimo 3 caracteres)
 	 * @return Productores encontrados con su correo
 	 */
@@ -417,7 +418,7 @@ public with sharing class OpportunityController {
 			}
 			String soql = 'SELECT Id, Name, Account.Name, Account.PersonEmail, Account.Correo_electronico__c, ' +
 				'Contact.Name, Contact.Email, InternalUser.Email, Owner.Email, Type FROM Producer WHERE ' +
-				String.join(condiciones, ' AND ') + ' ORDER BY Name LIMIT 10';
+				'Agente_Activo__c = true AND ' + String.join(condiciones, ' AND ') + ' ORDER BY Name LIMIT 10';
 			List<Producer> productores = (List<Producer>) Database.queryWithBinds(soql, binds, AccessLevel.SYSTEM_MODE);
 			for (Producer p : productores) {
 				ProducerResult r = new ProducerResult();
