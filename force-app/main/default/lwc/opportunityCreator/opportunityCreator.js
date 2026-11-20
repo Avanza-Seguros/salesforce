@@ -22,6 +22,7 @@ import searchContacts from '@salesforce/apex/OpportunityController.searchContact
 import getArchivosDeOportunidad from '@salesforce/apex/OpportunityController.getArchivosDeOportunidad';
 import searchAgentsProspectors from '@salesforce/apex/OpportunityController.searchAgentsProspectors';
 import getProducerEmail from '@salesforce/apex/OpportunityController.getProducerEmail';
+import getPolicyIdByQuote from '@salesforce/apex/PolicyController.getPolicyIdByQuote';
 import apexSaveOpportunity from '@salesforce/apex/OpportunityController.saveOpportunity';
 import crearCotizacionesDesdePdf from '@salesforce/apex/PdfOpportunityCreatorController.crearCotizacionesDesdePdf';
 import guardarArchivoEnOportunidad from '@salesforce/apex/PdfOpportunityCreatorController.guardarArchivoEnOportunidad';
@@ -1305,10 +1306,23 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     async handleEditOpportunity(event) {
         const id = event.currentTarget.dataset.id;
         if (!id) return;
-        // Si la oportunidad está en Póliza, Ganada o Perdida, abre la Póliza en modo
-        // SOLO LECTURA: con el PDF de la póliza ya cargado no se puede modificar ningún dato.
+        // Si la oportunidad está en Póliza, Ganada o Perdida, abre directo la página de su póliza (InsurancePolicy);
+        // si aún no tiene, Crear Póliza en SOLO LECTURA (con el PDF ya cargado no se puede modificar ningún dato).
         const fromList = (this.opportunities || []).find(o => o.Id === id) || {};
         if (this.isPolizaStage(fromList.StageName) || this.isClosedStage(fromList.StageName)) {
+            let polizaId = null;
+            try {
+                polizaId = await getPolicyIdByQuote({ quoteId: null, opportunityId: id });
+            } catch (e) {
+                polizaId = null;
+            }
+            if (polizaId) {
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__recordPage',
+                    attributes: { recordId: polizaId, objectApiName: 'InsurancePolicy', actionName: 'view' }
+                });
+                return;
+            }
             this[NavigationMixin.Navigate]({
                 type: 'standard__navItemPage',
                 attributes: { apiName: 'Crear_Poliza' },

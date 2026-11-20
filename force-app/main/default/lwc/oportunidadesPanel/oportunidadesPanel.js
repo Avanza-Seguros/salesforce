@@ -14,6 +14,8 @@ const ETAPAS = [
     { valor: 'Closed Lost', etiqueta: 'Perdida', clave: 'perdida' }
 ];
 const ETAPAS_CERRADAS = ['Closed Won', 'Closed Lost'];
+// En estas etapas la oportunidad ya tiene póliza: se abre directo la página de la póliza (InsurancePolicy).
+const ETAPAS_POLIZA = ['Póliza', 'Closed Won', 'Closed Lost'];
 // Ramo (Ramo__c) → iniciales, etiqueta y clase de color del ícono.
 const RAMOS = {
     Automoviles: { ini: 'A', etiqueta: 'Autos', clave: 'autos' },
@@ -211,6 +213,7 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 cot ? this.plural(cot, 'cotización', 'cotizaciones') : 'Sin cotizaciones'
             ].join(' · ');
             const tipoVenta = TIPOS_VENTA[o.tipoVenta] || o.tipoVenta || 'Sin tipo';
+            const polizaId = ETAPAS_POLIZA.includes(o.etapa) && o.polizaId ? o.polizaId : null;
             return {
                 id: o.id,
                 nombre,
@@ -250,7 +253,9 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 agenteId: o.agenteId || null,
                 agente: o.agente || 'Sin agente',
                 agenteIni: o.agente ? this.iniciales(o.agente) : '—',
-                abrirAria: `Abrir ${nombre} en Crear Oportunidad`,
+                polizaId,
+                abrirAria: polizaId ? `Abrir la póliza de ${nombre}` : `Abrir ${nombre} en Crear Oportunidad`,
+                abrirTitulo: polizaId ? 'Abrir la póliza' : 'Abrir en Crear Oportunidad',
                 cotizaciones: cot,
                 busqueda: [nombre, o.cuenta, o.propietario, o.agente, ramo.etiqueta, etapa.etiqueta].join(' ').toLowerCase()
             };
@@ -634,6 +639,13 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
             state: { c__opportunityId: id }
         });
     }
+    // Página de la póliza (InsurancePolicy).
+    navegarPoliza(polizaId) {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__recordPage',
+            attributes: { recordId: polizaId, objectApiName: 'InsurancePolicy', actionName: 'view' }
+        });
+    }
     // Solo dentro de Crear Oportunidad: enviar el correo de la oportunidad y ver sus archivos (modales de ese componente).
     handleCorreo(event) {
         this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'correo', id: event.currentTarget.dataset.id } }));
@@ -643,11 +655,14 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
         this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'archivos', id, nombre: name } }));
     }
     handleAbrirEditor(event) {
-        this.navegarEditor(event.currentTarget.dataset.id);
+        const { id, poliza } = event.currentTarget.dataset;
+        if (poliza) { this.navegarPoliza(poliza); return; }
+        this.navegarEditor(id);
     }
-    // Abre el registro estándar de la oportunidad.
+    // Abre el registro estándar de la oportunidad; en Póliza, Ganada y Perdida, el de su póliza.
     handleAbrirRegistro(event) {
-        const id = event.currentTarget.dataset.id;
+        const { id, poliza } = event.currentTarget.dataset;
+        if (poliza) { this.navegarPoliza(poliza); return; }
         if (!id) { return; }
         this[NavigationMixin.Navigate]({
             type: 'standard__recordPage',

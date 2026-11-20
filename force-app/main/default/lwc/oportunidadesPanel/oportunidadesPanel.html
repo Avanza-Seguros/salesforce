@@ -205,7 +205,7 @@
                                 <li key={r.id} class="fila">
                                     <span class={r.ramoClase} title={r.ramoEtiqueta} aria-hidden="true">{r.ramoIni}</span>
                                     <div class="fila-principal">
-                                        <button type="button" class="fila-nombre" data-id={r.id} onclick={handleAbrirRegistro}>{r.nombre}</button>
+                                        <button type="button" class="fila-nombre" data-id={r.id} data-poliza={r.polizaId} onclick={handleAbrirRegistro}>{r.nombre}</button>
                                         <span class="fila-sub">{r.sub}</span>
                                     </div>
                                     <span class="celda" title={r.cuenta}>{r.cuenta}</span>
@@ -236,8 +236,8 @@
                                             <lightning-icon icon-name="utility:attach" size="x-small"></lightning-icon>
                                         </button>
                                     </template>
-                                    <button type="button" class="boton-icono" data-id={r.id} aria-label={r.abrirAria}
-                                        title="Abrir en Crear Oportunidad" onclick={handleAbrirEditor}>
+                                    <button type="button" class="boton-icono" data-id={r.id} data-poliza={r.polizaId} aria-label={r.abrirAria}
+                                        title={r.abrirTitulo} onclick={handleAbrirEditor}>
                                         <lightning-icon icon-name="utility:edit" size="x-small"></lightning-icon>
                                     </button>
                                     </div>
@@ -266,7 +266,7 @@
                                         </div>
                                         <span class="columna-prima">{c.prima}</span>
                                         <template for:each={c.tarjetas} for:item="k">
-                                            <button key={k.id} type="button" class="tarjeta-kanban" data-id={k.id} onclick={handleAbrirRegistro}>
+                                            <button key={k.id} type="button" class="tarjeta-kanban" data-id={k.id} data-poliza={k.polizaId} onclick={handleAbrirRegistro}>
                                                 <span class="kanban-cabecera">
                                                     <span class={k.ramoClaseChica} aria-hidden="true">{k.ramoIni}</span>
                                                     <strong>{k.nombre}</strong>

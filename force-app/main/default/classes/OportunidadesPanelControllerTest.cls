@@ -85,6 +85,10 @@ private class OportunidadesPanelControllerTest {
 		Assert.areEqual(productor.Id, autos.agenteId, 'Trae el agente (Producer) de la oportunidad');
 		Assert.areEqual('Agente Panel Prueba', autos.agente, 'Trae el nombre del agente');
 		Assert.isNull(gmm.agenteId, 'Sin Producer no hay agente');
+		InsurancePolicy cancelada = [SELECT Id FROM InsurancePolicy WHERE SourceOpportunityId = :gmm.id LIMIT 1];
+		Assert.areEqual(cancelada.Id, gmm.polizaId, 'Trae la póliza de la oportunidad (aunque esté cancelada)');
+		Set<Id> deAutos = new Map<Id, InsurancePolicy>([SELECT Id FROM InsurancePolicy WHERE SourceOpportunityId = :autos.id]).keySet();
+		Assert.isTrue(deAutos.contains(autos.polizaId), 'Con varias pólizas trae una de la oportunidad');
 		Boolean listado = false;
 		for (OportunidadesPanelController.Opcion a : p.agentes) {
 			if (a.id == productor.Id) { listado = true; }

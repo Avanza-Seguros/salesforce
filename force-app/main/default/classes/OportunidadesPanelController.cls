@@ -41,6 +41,7 @@ public with sharing class OportunidadesPanelController {
 		@AuraEnabled public String agente;
 		@AuraEnabled public Integer cotizaciones;
 		@AuraEnabled public Datetime creada;
+		@AuraEnabled public Id polizaId;
 	}
 
 	public class Agente {
@@ -127,6 +128,7 @@ public with sharing class OportunidadesPanelController {
 			LIMIT :LIMITE_OPORTUNIDADES
 		];
 		Map<Id, Integer> cotizaciones = contarCotizaciones(opps);
+		Map<Id, Id> polizas = buscarPolizas(opps);
 		List<Oportunidad> res = new List<Oportunidad>();
 		for (Opportunity o : opps) {
 			Oportunidad r = new Oportunidad();
@@ -146,6 +148,7 @@ public with sharing class OportunidadesPanelController {
 			r.agente = o.Producer__r != null ? o.Producer__r.Name : null;
 			r.cotizaciones = cotizaciones.containsKey(o.Id) ? cotizaciones.get(o.Id) : 0;
 			r.creada = o.CreatedDate;
+			r.polizaId = polizas.get(o.Id);
 			res.add(r);
 		}
 		return res;
@@ -189,6 +192,36 @@ public with sharing class OportunidadesPanelController {
 			GROUP BY OpportunityId
 		]) {
 			res.put((Id) ar.get('oppId'), (Integer) ar.get('n'));
+		}
+		return res;
+	}
+
+	/**
+	 * @creation date: 19/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza (InsurancePolicy) de cada oportunidad, por la oportunidad de origen o por la de su
+	 *   cotización; si hay varias, la más reciente. El panel la abre directo en Póliza, Ganada y Perdida.
+	 * @param opps: Oportunidades del panel
+	 * @return Mapa Id de oportunidad → Id de la póliza
+	 */
+	static Map<Id, Id> buscarPolizas(List<Opportunity> opps) {
+		Map<Id, Id> res = new Map<Id, Id>();
+		if (opps.isEmpty()) {
+			return res;
+		}
+		Set<Id> ids = new Map<Id, Opportunity>(opps).keySet();
+		for (InsurancePolicy pol : [
+			SELECT Id, SourceOpportunityId, SourceQuote.OpportunityId
+			FROM InsurancePolicy
+			WHERE SourceOpportunityId IN :ids OR SourceQuote.OpportunityId IN :ids
+			ORDER BY CreatedDate DESC, Id DESC
+			LIMIT 5000
+		]) {
+			Id oppId = pol.SourceOpportunityId != null && ids.contains(pol.SourceOpportunityId)
+				? pol.SourceOpportunityId : pol.SourceQuote?.OpportunityId;
+			if (oppId != null && !res.containsKey(oppId)) {
+				res.put(oppId, pol.Id);
+			}
 		}
 		return res;
 	}
