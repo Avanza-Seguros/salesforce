@@ -261,8 +261,9 @@ public inherited sharing class EndosoPoliza {
 	 * @creation date: 20/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Seguimiento del trámite de una solicitud: «Concluido» cuando todos sus movimientos se cerraron con el
-	 *               endoso (o se concluyó el caso), «Solicitado» mientras el caso del sitio sigue en su estado inicial (nadie
-	 *               lo ha atendido), «Rechazada» si se rechazó y, si no, «En proceso».
+	 *               endoso (o se concluyó el caso), «Solicitado» mientras el caso del sitio sigue en su estado inicial o en
+	 *               «Solicitado» (el ejecutivo lo pasa a mano a En proceso cuando ya está en la aseguradora), «Rechazada» si
+	 *               se rechazó y, si no, «En proceso».
 	 * @param s: solicitud (de solicitudes()).
 	 * @param inicial: estado inicial de los casos del org.
 	 * @return Solicitado, En proceso, Concluido o Rechazada.
@@ -273,28 +274,9 @@ public inherited sharing class EndosoPoliza {
 		Integer total = (Integer) s.get('total');
 		Integer abiertos = (Integer) s.get('abiertos');
 		if ((total > 0 && abiertos == 0) || s.get('casoCerrado') == true) { return 'Concluido'; }
-		if (s.get('portal') == true && (total == 0 || (inicial != null && s.get('estadoCaso') == inicial))) { return 'Solicitado'; }
+		Object estado = s.get('estadoCaso');
+		if (s.get('portal') == true && (total == 0 || estado == 'Solicitado' || (inicial != null && estado == inicial))) { return 'Solicitado'; }
 		return 'En proceso';
-	}
-
-	/**
-	 * @creation date: 20/11/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: El ejecutivo descargó el Excel de la solicitud para la aseguradora: si el caso del sitio seguía sin
-	 *               atender (estado inicial), pasa a En proceso.
-	 * @param policyId: póliza.
-	 * @param folio: folio de la solicitud.
-	 */
-	@AuraEnabled(cacheable=false)
-	public static void solicitudEnProceso(Id policyId, String folio) {
-		if (policyId == null || String.isBlank(folio)) { return; }
-		String inicial = estadoCaso('Creado');
-		String enProceso = estadoCaso('En proceso');
-		List<Case> cambiar = new List<Case>();
-		for (Case c : new SinCompartir().casosDeFolio(policyId, folio)) {
-			if (!c.IsClosed && c.Status == inicial && enProceso != null && enProceso != inicial) { cambiar.add(new Case(Id = c.Id, Status = enProceso)); }
-		}
-		new SinCompartir().actualizar(cambiar);
 	}
 
 	private static Map<String, Object> nuevaSolicitud(String folio, Datetime fecha, String usuario) {

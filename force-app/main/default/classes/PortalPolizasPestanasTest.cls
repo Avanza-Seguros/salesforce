@@ -705,11 +705,20 @@ private class PortalPolizasPestanasTest {
 		System.assertEquals('Alta', ((Map<String, Object>) movs[0]).get('tipo'));
 		System.assertEquals('Solicitado', ((Map<String, Object>) movs[0]).get('seguimiento'));
 		System.assertEquals(new List<Object>{ 'Carta de antigüedad.pdf' }, (List<Object>) s.get('archivos'));
-		// El ejecutivo descarga el Excel para la aseguradora: pasa a En proceso.
-		EndosoPoliza.solicitudEnProceso(uno.Id, 'SOL-0001');
+		// El ejecutivo la pasa a mano a En proceso cuando ya está en la aseguradora.
+		Case caso = [SELECT Id FROM Case WHERE InsurancePolicy__c = :uno.Id AND Solicitud__c = 'SOL-0001' LIMIT 1];
+		caso.Status = EndosoPoliza.estadoCaso('En proceso');
+		update caso;
 		Map<String, Object> s2 = (Map<String, Object>) ((List<Object>) PortalPolizasPestanas.solicitudes(uno.Id, null).get('solicitudes'))[0];
 		System.assertEquals('En proceso', s2.get('seguimiento'));
 		System.assertEquals(new List<String>{ 'CARTA ANTIGUEDAD.pdf', 'Caratula poliza.pdf' },
 			PortalPolizasPestanas.archivosRA(new List<String>{ 'CARTA ANTIGUEDAD.pdf', 'ine.pdf', 'Caratula poliza.pdf', null }));
+		// Caso en el estado «Solicitado»: sigue sin atender.
+		System.assertEquals('Solicitado', EndosoPoliza.seguimiento(new Map<String, Object>{ 'portal' => true, 'total' => 2, 'abiertos' => 2,
+			'estadoCaso' => 'Solicitado', 'casoCerrado' => false }, 'Creado'));
+		// Un renglón del archivo se nombra como el movimiento que ve el cliente en la vista previa.
+		System.assertEquals('Movimiento 4 · ALBERTO GOMEZ RODRIGUEZ (ALTA)', PortalPolizasPestanas.movimientoArchivo(
+			new Map<String, Object>{ 'numero' => 4, 'fila' => 7, 'nombre' => 'ALBERTO GOMEZ RODRIGUEZ' }, 'alta'));
+		System.assertEquals('Renglón 7 del archivo', PortalPolizasPestanas.movimientoArchivo(new Map<String, Object>{ 'fila' => 7 }, 'alta'));
 	}
 }

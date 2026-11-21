@@ -49,7 +49,7 @@
                                             </thead>
                                             <tbody>
                                                 <template for:each={vistaFilas} for:item="f">
-                                                    <tr key={f.key}>
+                                                    <tr key={f.key} class={f.clase}>
                                                         <template for:each={f.celdas} for:item="c"><td key={c.key}>{c.t}</td></template>
                                                     </tr>
                                                 </template>
@@ -174,10 +174,10 @@
                     <template for:each={lista} for:item="s">
                         <li key={s.folio} class="solicitud">
                             <div class="solicitud_cabecera">
-                                <span class="folio">{s.folio}</span>
+                                <span class="folio">{s.numero}</span>
                                 <span class="celda_sub">{s.fechaTexto}</span>
                                 <span class="resumen">{s.resumen}</span>
-                                <span class={s.claseEstado}>{s.estado}</span>
+                                <span class={s.claseEstado}>{s.estadoTxt}</span>
                             </div>
                             <div class="solicitud_meta">
                                 <span lwc:if={s.avance}>{s.avance}</span>

@@ -13,7 +13,6 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
-import solicitudEnProceso from '@salesforce/apex/EndosoPoliza.solicitudEnProceso';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosFlotillaController.aplicar';
@@ -842,15 +841,7 @@ export default class MovimientosFlotilla extends LightningElement {
         }
         this.excelDe(registros, folio);
     }
-    // El ejecutivo descarga el Excel de una solicitud del sitio para la aseguradora: si nadie la atendía (Solicitado),
-    // pasa a En proceso.
-    marcarEnProceso(folio) {
-        const s = this.infoSolicitudes.get(folio);
-        if (this.portal || !this.enPoliza || !s || s.seguimiento !== 'Solicitado') { return; }
-        solicitudEnProceso({ policyId: this.recordId, folio }).then(() => this.cargar()).catch(() => {});
-    }
     excelDe(registros, sufijo) {
-        this.marcarEnProceso(sufijo);
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [

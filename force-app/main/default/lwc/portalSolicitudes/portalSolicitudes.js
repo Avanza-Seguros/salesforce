@@ -129,6 +129,9 @@ const ESTADOS = {
     Rechazada: 'estado estado_rechazada'
 };
 
+// Número de la solicitud como lo ve el cliente: solo el número (SOL-0005 → 0005).
+const numeroSolicitud = (folio) => String(folio || '').replace(/SOL-/g, '');
+
 let siguiente = 1;
 
 export default class PortalSolicitudes extends LightningElement {
@@ -206,9 +209,12 @@ export default class PortalSolicitudes extends LightningElement {
             }));
             return {
                 ...s,
+                numero: numeroSolicitud(s.folio),
                 resumen: asunto.length > 2 ? asunto.slice(2).join(' · ') : '',
                 fechaTexto: this.fecha(s.fecha),
-                claseEstado: ESTADOS[s.estado] || 'estado',
+                // Estatus de la solicitud: su seguimiento (Solicitado hasta que el ejecutivo la pasa a En proceso).
+                estadoTxt: s.seguimiento || s.estado,
+                claseEstado: SEGUIMIENTO[s.seguimiento] || ESTADOS[s.estado] || 'estado',
                 abierta,
                 textoVer: abierta ? 'Ocultar detalle' : 'Ver detalle',
                 // Detalle de la solicitud: origen, caso, quién la envió, archivo, registros y lo que pidió.
@@ -221,11 +227,21 @@ export default class PortalSolicitudes extends LightningElement {
                 hayMovimientos: movimientos.length > 0,
                 detalle: String(s.descripcion || '').split('\n').filter((l) => /^\d+\./.test(l)),
                 hayDetalle: String(s.descripcion || '').split('\n').some((l) => /^\d+\./.test(l)),
-                avance: s.aplicados ? `${s.aplicados} ${s.aplicados === 1 ? 'movimiento aplicado' : 'movimientos aplicados'}${s.abiertos ? ` · ${s.abiertos} en trámite con la aseguradora` : ''}` : '',
+                avance: this.avance(s),
                 endososTexto: s.endosos && s.endosos.length ? `Endoso ${s.endosos.join(', ')}` : '',
                 documentosTexto: s.documentos ? `${s.documentos} ${s.documentos === 1 ? 'archivo' : 'archivos'}` : ''
             };
         });
+    }
+    // Avance de la solicitud según su seguimiento: «4 movimientos solicitados», «4 movimientos · 3 en trámite con la
+    // aseguradora» o «4 movimientos concluidos».
+    avance(s) {
+        const n = s.aplicados || 0;
+        if (!n) { return ''; }
+        const movs = `${n} ${n === 1 ? 'movimiento' : 'movimientos'}`;
+        if (s.seguimiento === 'Solicitado') { return `${movs} ${n === 1 ? 'solicitado' : 'solicitados'}`; }
+        if (!s.abiertos) { return `${movs} ${n === 1 ? 'concluido' : 'concluidos'}`; }
+        return `${movs} · ${s.abiertos} en trámite con la aseguradora`;
     }
     handleVer(e) {
         const f = e.currentTarget.dataset.folio;
@@ -243,12 +259,15 @@ export default class PortalSolicitudes extends LightningElement {
         this.archivos = [];
         this.modo = 'archivo';
         this.listado = null;
+        this.filaError = null;
         this.formulario = true;
     }
 
     // ===== Modo: subir archivo o capturar uno por uno =====
     modo = 'archivo';
     listado = null;
+    // Renglón de la vista previa con el error (índice en listado.filas), para resaltarlo.
+    filaError = null;
     leyendo = false;
     // El archivo puede traer cualquier combinación de altas, bajas y cambios (columna Tipo de movimiento), cada uno con
     // su fecha: el cliente ya no elige qué contiene ni la fecha en que aplica.
@@ -279,6 +298,7 @@ export default class PortalSolicitudes extends LightningElement {
         e.target.value = null;
         if (!file) { return; }
         this.error = undefined;
+        this.filaError = null;
         if (file.size + this.archivos.reduce((t, a) => t + a.tamano, 0) > MAX_BYTES) {
             this.error = 'El archivo es muy pesado: entre todos los archivos el límite es 4 MB.';
             return;
@@ -390,7 +410,8 @@ export default class PortalSolicitudes extends LightningElement {
         const polizas = new Map(((this.datos && this.datos.polizas) || []).map((p) => [this.codigo(p.nombre), p]));
         const limite = this.fechaLimiteAlta;
         const registros = [];
-        for (const x of h.crudas) {
+        for (let i = 0; i < h.crudas.length; i++) {
+            const x = h.crudas[i];
             const valor = (k) => {
                 const c = col(k);
                 const v = c === null ? '' : String(x.f[c] ?? '').trim();
@@ -398,7 +419,11 @@ export default class PortalSolicitudes extends LightningElement {
                 return fechaIso(v).iso || '';
             };
             const tipo = this.tipoDeRenglon(valor('movimiento'));
-            if (!tipo) { return { error: `Renglón ${x.n}: indica en la columna Movimiento si es Alta, Baja o Cambio.` }; }
+            // El renglón como lo ve el cliente en la vista previa: «Movimiento 4 · ALBERTO GOMEZ RODRIGUEZ (ALTA)».
+            const nombre = this.nombreRenglon(valor);
+            const mov = `Movimiento ${i + 1}${nombre ? ' · ' + nombre : ''}`;
+            const etiquetaMov = `${mov}${tipo ? ' (' + tipo.toUpperCase() + ')' : ''}`;
+            if (!tipo) { return { error: `${mov}: indica en la columna Tipo de movimiento si es Alta, Baja o Cambio.`, indice: i }; }
             const datos = {};
             campos.forEach((c) => {
                 if (['movimiento', 'fecha', 'comentario', 'titular', 'poliza'].includes(c.key)) { return; }
@@ -412,17 +437,17 @@ export default class PortalSolicitudes extends LightningElement {
             }
             const fecha = valor('fecha') || null;
             if (tipo === 'alta' && fecha && fecha < limite) {
-                return { error: `Renglón ${x.n}: la fecha de alta puede ser de máximo ${DIAS_RETROACTIVOS} días retroactivos.` };
+                return { error: `${etiquetaMov}: la fecha de alta puede ser de máximo ${DIAS_RETROACTIVOS} días retroactivos.`, indice: i };
             }
             let polizaId = null;
             const numPoliza = valor('poliza');
             if (numPoliza) {
                 const p = polizas.get(this.codigo(numPoliza));
-                if (!p) { return { error: `Renglón ${x.n}: la póliza ${numPoliza} no es una de tus pólizas vigentes de este tipo.` }; }
+                if (!p) { return { error: `${etiquetaMov}: la póliza ${numPoliza} no es una de tus pólizas vigentes de este tipo.`, indice: i }; }
                 polizaId = p.actual ? null : p.id;
             }
-            registros.push({ tipo, fila: x.n, fecha, comentario: valor('comentario') || null,
-                titular: valor('titular') || null, campos: datos, polizaId });
+            registros.push({ tipo, fila: x.n, numero: i + 1, nombre: nombre || null, fecha, comentario: valor('comentario') || null,
+                titular: valor('titular') || null, campos: datos, polizaId, etiqueta: etiquetaMov, indice: i });
         }
         // Columnas obligatorias según los movimientos que trae.
         const grupos = REQUERIDAS[this.tipo];
@@ -440,12 +465,20 @@ export default class PortalSolicitudes extends LightningElement {
         for (const r of registros) {
             const lista = r.tipo === 'alta' ? grupos.alta : grupos.otro;
             const falta = lista.find((g) => !g.some((k) => r.campos[k]));
-            if (falta) { return { error: `Renglón ${r.fila}: falta ${falta.map(etiqueta).join(' o ').toLowerCase()}.` }; }
+            if (falta) { return { error: `${r.etiqueta}: falta ${falta.map(etiqueta).join(' o ').toLowerCase()}.`, indice: r.indice }; }
             if (r.tipo === 'cambio' && Object.keys(r.campos).length < 2) {
-                return { error: `Renglón ${r.fila}: en un cambio indica cómo identificar el registro y los datos nuevos.` };
+                return { error: `${r.etiqueta}: en un cambio indica cómo identificar el registro y los datos nuevos.`, indice: r.indice };
             }
         }
-        return { registros };
+        // Lo que va al servidor (la etiqueta y el índice son solo de la pantalla).
+        return { registros: registros.map(({ etiqueta: e, indice, ...r }) => r) };
+    }
+    // Nombre del renglón para los avisos: el asegurado, el vehículo o la ubicación (o su certificado, serie o inciso).
+    nombreRenglon(valor) {
+        const unir = (...k) => k.map((x) => valor(x)).filter((v) => v).join(' ');
+        if (this.tipo === 'personas') { return unir('nombre', 'paterno', 'materno') || valor('nombreCompleto') || valor('certificado'); }
+        if (this.tipo === 'vehiculos') { return valor('descripcion') || unir('marca', 'submarca', 'version') || valor('serie') || valor('placas'); }
+        return valor('ubicacion') || valor('direccion') || (valor('inciso') ? `Inciso ${valor('inciso')}` : '');
     }
     textoCelda(v) {
         if (v === null || v === undefined) { return ''; }
@@ -459,7 +492,7 @@ export default class PortalSolicitudes extends LightningElement {
             r.readAsDataURL(file);
         });
     }
-    handleQuitarListado() { this.listado = null; }
+    handleQuitarListado() { this.listado = null; this.filaError = null; }
     handleSobreZona(e) { e.preventDefault(); }
     handleSoltar(e) {
         e.preventDefault();
@@ -483,7 +516,12 @@ export default class PortalSolicitudes extends LightningElement {
     get vistaEncabezados() { return this.listado ? this.listado.encabezados.map((t, i) => ({ key: 'h' + i, t })) : []; }
     get vistaFilas() {
         if (!this.listado) { return []; }
-        return this.listado.filas.slice(0, VISTA_FILAS).map((f, i) => ({ key: 'f' + i, celdas: f.map((t, j) => ({ key: j, t })) }));
+        const fila = (f, i) => ({ key: 'f' + i, clase: i === this.filaError ? 'fila_error' : '', celdas: f.map((t, j) => ({ key: j, t })) });
+        const filas = this.listado.filas.slice(0, VISTA_FILAS).map(fila);
+        // El renglón con el error se muestra aunque quede después de los primeros.
+        const e = this.filaError;
+        if (e !== null && e >= VISTA_FILAS && e < this.listado.filas.length) { filas.push(fila(this.listado.filas[e], e)); }
+        return filas;
     }
     get textoMasFilas() {
         const n = this.listado ? this.listado.filas.length - VISTA_FILAS : 0;
@@ -673,6 +711,7 @@ export default class PortalSolicitudes extends LightningElement {
         let leidos = null;
         if (this.enArchivo) {
             leidos = this.registrosArchivo();
+            this.filaError = leidos.indice === undefined ? null : leidos.indice;
             if (leidos.error) { this.error = leidos.error; return; }
             if (leidos.registros.length > MAX_FILAS) {
                 this.error = `El archivo trae ${leidos.registros.length} renglones; envía hasta ${MAX_FILAS} por solicitud.`;
@@ -723,13 +762,18 @@ export default class PortalSolicitudes extends LightningElement {
                 cuentaVistaPrevia: this.cuentaVistaPrevia || null
             });
             this.formulario = false;
+            this.filaError = null;
             const varias = r.solicitudes > 1;
+            const numero = numeroSolicitud(r.folio);
             this.exito = r.registrados
-                ? `Registramos tu${varias ? 's solicitudes' : ' solicitud'} ${r.folio}: ${r.registrados} ${r.registrados === 1 ? 'movimiento quedó' : 'movimientos quedaron'} en trámite con la aseguradora. Verás aquí su avance.`
-                : `Recibimos tu${varias ? 's solicitudes' : ' solicitud'} ${r.folio}. Tu asesor la revisará y verás aquí su avance.`;
+                ? `Registramos tu${varias ? 's solicitudes' : ' solicitud'} ${numero}: ${r.registrados} ${r.registrados === 1 ? 'movimiento quedó solicitado' : 'movimientos quedaron solicitados'}. Verás aquí su avance.`
+                : `Recibimos tu${varias ? 's solicitudes' : ' solicitud'} ${numero}. Tu asesor la revisará y verás aquí su avance.`;
             await this.cargar();
         } catch (e) {
             this.error = this.mensaje(e);
+            // Error de un movimiento del archivo («Movimiento 4 · …»): se resalta en la vista previa.
+            const m = this.enArchivo ? /Movimiento (\d+)/.exec(this.error) : null;
+            if (m) { this.filaError = Number(m[1]) - 1; }
         } finally {
             this.enviando = false;
         }

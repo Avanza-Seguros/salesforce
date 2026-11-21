@@ -15,7 +15,6 @@ import LightningConfirm from 'lightning/confirm';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import { primasPorEndoso } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
-import solicitudEnProceso from '@salesforce/apex/EndosoPoliza.solicitudEnProceso';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
 import compararArchivo from '@salesforce/apex/MovimientosColectivoController.compararArchivo';
@@ -1467,15 +1466,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         }
         this.excelDe(registros, folio);
     }
-    // El ejecutivo descarga el Excel de una solicitud del sitio para la aseguradora: si nadie la atendía (Solicitado),
-    // pasa a En proceso.
-    marcarEnProceso(folio) {
-        const s = this.infoSolicitudes.get(folio);
-        if (this.portal || !this.enPoliza || !s || s.seguimiento !== 'Solicitado') { return; }
-        solicitudEnProceso({ policyId: this.recordId, folio }).then(() => this.cargar()).catch(() => {});
-    }
     excelDe(registros, sufijo) {
-        this.marcarEnProceso(sufijo);
         // Formato de la solicitud de movimientos a la aseguradora: un renglón por titular con sus dependientes en columnas.
         const porId = new Map(this.miembros.map((m) => [m.id, m]));
         const familias = new Map();

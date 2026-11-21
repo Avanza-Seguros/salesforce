@@ -1081,6 +1081,18 @@ public without sharing class PortalPolizasPestanas {
 			'registrados' => registrados, 'solicitudes' => creadas.size() };
 	}
 
+	/**
+	 * Renglón del archivo como lo ve el cliente en la vista previa: «Movimiento 4 · ALBERTO GOMEZ RODRIGUEZ (ALTA)» (número
+	 * de movimiento del archivo, nombre y tipo); sin número, el renglón del archivo.
+	 */
+	@TestVisible
+	static String movimientoArchivo(Map<String, Object> r, String tipo) {
+		if (r.get('numero') == null) { return r.get('fila') == null ? 'Un renglón del archivo' : 'Renglón ' + r.get('fila') + ' del archivo'; }
+		String nombre = texto(r.get('nombre'));
+		return 'Movimiento ' + r.get('numero') + (String.isBlank(nombre) ? '' : ' · ' + nombre)
+			+ (new Set<String>{ 'alta', 'baja', 'cambio' }.contains(tipo) ? ' (' + tipo.toUpperCase() + ')' : '');
+	}
+
 	/** Póliza del movimiento cuando es otra (del mismo contratante); null si es la de la solicitud. */
 	static Id otraPoliza(Object o, Id policyId) {
 		Object pid = o instanceof Map<String, Object> ? ((Map<String, Object>) o).get('polizaId') : null;
@@ -1156,7 +1168,8 @@ public without sharing class PortalPolizasPestanas {
 					throw new AuraHandledException('Movimiento ' + num + ': describe qué se cambia.');
 				}
 				aRegistrar.add(new Map<String, Object>{ 'tipo' => tipo, 'registroId' => m.get('registroId'), 'fecha' => m.get('fecha'),
-					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + num });
+					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + num,
+					'capturado' => true });
 			}
 			String tipoArchivo = null;
 			String resumenArchivo = null;
@@ -1176,7 +1189,7 @@ public without sharing class PortalPolizasPestanas {
 					for (Object o : (List<Object>) listado.get('registros')) {
 						Map<String, Object> r = (Map<String, Object>) o;
 						String t = r.get('tipo') == null ? tipo : String.valueOf(r.get('tipo')).toLowerCase();
-						String donde = r.get('fila') == null ? 'Un renglón del archivo' : 'Renglón ' + r.get('fila') + ' del archivo';
+						String donde = movimientoArchivo(r, t);
 						if (!nombres.containsKey(t)) { throw new AuraHandledException(donde + ': indica si es alta, baja o cambio.'); }
 						Object f = r.get('fecha') != null && String.isNotBlank(String.valueOf(r.get('fecha'))) ? r.get('fecha') : listado.get('fecha');
 						if (t == 'alta') { validarRetroactivo(f, donde); }
@@ -1215,7 +1228,7 @@ public without sharing class PortalPolizasPestanas {
 			List<String> documentosRA = archivosRA(nombresArchivos);
 			Integer conRA = 0;
 			for (Map<String, Object> r : aRegistrar) {
-				if (!documentosRA.isEmpty() && r.get('tipo') != 'baja' && String.valueOf(r.get('etiqueta')).startsWith('Movimiento')) { r.put('ra', true); }
+				if (!documentosRA.isEmpty() && r.get('tipo') != 'baja' && r.get('capturado') == true) { r.put('ra', true); }
 				if (r.get('ra') == true) { conRA++; }
 			}
 

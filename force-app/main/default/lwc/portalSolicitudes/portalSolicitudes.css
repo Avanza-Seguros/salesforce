@@ -232,3 +232,6 @@
     .cabecera .boton { width: 100%; justify-content: center; }
     .acciones .boton, .acciones .boton_secundario { flex: 1 1 auto; justify-content: center; }
 }
+
+/* Movimiento del archivo con error: resaltado en la vista previa. */
+.tabla tr.fila_error td { background: #fdecec; border-top: 1px dashed #c23934; border-bottom: 1px dashed #c23934; color: #8e1b16; }

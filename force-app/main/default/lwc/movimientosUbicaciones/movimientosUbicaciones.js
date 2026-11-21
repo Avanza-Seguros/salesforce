@@ -14,7 +14,6 @@ import LightningConfirm from 'lightning/confirm';
 import { fold, fechaVisible, moneda, descargarExcel, paginasPdf, abrirTabla } from 'c/lectorArchivos';
 import { endosoDeTexto, especificacionUbicacion, mapeoComo, ubicacionesDesdeTabla, TIPOS } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosUbicacionesController.getDatos';
-import solicitudEnProceso from '@salesforce/apex/EndosoPoliza.solicitudEnProceso';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
 import aplicar from '@salesforce/apex/MovimientosUbicacionesController.aplicar';
@@ -903,15 +902,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         }
         this.excelDe(registros, folio);
     }
-    // El ejecutivo descarga el Excel de una solicitud del sitio para la aseguradora: si nadie la atendía (Solicitado),
-    // pasa a En proceso.
-    marcarEnProceso(folio) {
-        const s = this.infoSolicitudes.get(folio);
-        if (this.portal || !this.enPoliza || !s || s.seguimiento !== 'Solicitado') { return; }
-        solicitudEnProceso({ policyId: this.recordId, folio }).then(() => this.cargar()).catch(() => {});
-    }
     excelDe(registros, sufijo) {
-        this.marcarEnProceso(sufijo);
         // Formato de la solicitud de movimientos a la aseguradora (el mismo orden que en asegurados).
         const poliza = (this.datos && this.datos.nombre) || '';
         const columnas = [
