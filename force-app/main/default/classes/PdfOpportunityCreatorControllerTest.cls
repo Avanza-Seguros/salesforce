@@ -646,7 +646,19 @@ private class PdfOpportunityCreatorControllerTest {
             'Costo total 231,787.89 Estimado:  RICARDO NAVARRETE VILLAGOMEZ Es un plan de salud ideal para personas' }));
         System.assertEquals('Ana María López', PdfOpportunityCreatorController.nombreClienteDesdeTexto(new List<String>{
             'Nombre del agente: AVANZA SEGURO CONSULTORES Contratante: Ana María López RFC LOPA800101' }));
-        System.assertEquals('', PdfOpportunityCreatorController.nombreClienteDesdeTexto(new List<String>{ 'Sin datos del cliente 123' }));        Map<String, Object> det = PdfOpportunityCreatorController.buildDetalle(
+        System.assertEquals('', PdfOpportunityCreatorController.nombreClienteDesdeTexto(new List<String>{ 'Sin datos del cliente 123' }));
+        // Nombre completo desde el nombre de los archivos (la cotización solo trae el nombre de pila).
+        List<String> archivosGmm = new List<String>{
+            '01-SGMM MAPFRE OPTIMA $10,831.83  PRISCILA HERNANDEZ LOPEZ.pdf', '02-SGMM AXA ESMERALDA $9,181.56  PRISCILA HERNANDEZ LOPEZ.pdf' };
+        System.assertEquals('PRISCILA HERNANDEZ LOPEZ', PdfOpportunityCreatorController.nombreClienteDesdeArchivos(archivosGmm, 'PRISCILA'));
+        System.assertEquals('PRISCILA HERNANDEZ LOPEZ', PdfOpportunityCreatorController.nombreClienteDesdeArchivos(archivosGmm, ''));
+        System.assertEquals('PRISCILA HERNANDEZ LOPEZ', PdfOpportunityCreatorController.nombreClienteDesdeArchivos(
+            new List<String>{ archivosGmm[0] }, 'Priscila'));
+        System.assertEquals('', PdfOpportunityCreatorController.nombreClienteDesdeArchivos(archivosGmm, 'JUAN PEREZ'));
+        System.assertEquals('', PdfOpportunityCreatorController.nombreClienteDesdeArchivos(new List<String>{
+            '01-SEGURO DE VIAJE TERRAWIND USD $450.pdf', '02-SEGURO DE VIAJE CONTINENTAL USD $290.00.pdf' }, ''));
+        System.assertEquals('JUAN PEREZ', PdfOpportunityCreatorController.nombreClienteDesdeArchivos(new List<String>{
+            'LINDA - ABRAHAM GONZALEZ - AXA - JUAN PEREZ.pdf', 'LINDA - ABRAHAM GONZALEZ - GNP - JUAN PEREZ.pdf' }, ''));        Map<String, Object> det = PdfOpportunityCreatorController.buildDetalle(
             new Map<String, Object>{ 'vehiculo_detalle' => new Map<String, Object>{ 'marca' => 'NISSAN' } });
         System.assertEquals('NISSAN', det.get('marca'));
         System.assertNotEquals(null, PdfOpportunityCreatorController.buildDetalle(new Map<String, Object>()));

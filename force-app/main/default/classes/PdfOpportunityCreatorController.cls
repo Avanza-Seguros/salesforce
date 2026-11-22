@@ -1015,6 +1015,10 @@ public with sharing class PdfOpportunityCreatorController {
 			String nombreTexto = nombreClienteDesdeTexto(pdfTexts);
 			if (String.isNotBlank(nombreTexto)) { cliente.put('nombre', nombreTexto); }
 		}
+		// El nombre completo puede venir solo en el nombre de los archivos ("01-SGMM MAPFRE OPTIMA $10,831.83  PRISCILA
+		// HERNANDEZ LOPEZ.pdf") y la cotización traer solo el nombre de pila: se toma el del archivo.
+		String nombreArchivo = nombreClienteDesdeArchivos(fileNames, stringOf(cliente.get('nombre')));
+		if (String.isNotBlank(nombreArchivo)) { cliente.put('nombre', nombreArchivo); }
 
 		// Las cotizaciones solo traen lo que cambia entre aseguradoras.
 		// Se descartan las repetidas (misma aseguradora, plan, número y prima): la IA a veces
@@ -1434,6 +1438,77 @@ public with sharing class PdfOpportunityCreatorController {
 			}
 		}
 		return '';
+	}
+
+	// Palabras de los nombres de archivo que no son del cliente (ramo, tipo de documento, moneda).
+	private static final Set<String> RUIDO_ARCHIVO = new Set<String>{
+		'SEGURO', 'SEGUROS', 'DE', 'DEL', 'LA', 'EL', 'LOS', 'Y', 'PARA', 'VIAJE', 'VIAJES', 'GMM', 'SGMM', 'GMMI', 'GM',
+		'AUTO', 'AUTOS', 'VIDA', 'DANOS', 'DAÑOS', 'COT', 'COTIZACION', 'COTIZACIÓN', 'COTIZACIONES', 'PROPUESTA',
+		'POLIZA', 'PÓLIZA', 'RENOVACION', 'RENOVACIÓN', 'USD', 'MXN', 'PLAN', 'INDIVIDUAL', 'FAMILIAR', 'GASTOS',
+		'MEDICOS', 'MÉDICOS', 'MAYORES'
+	};
+
+	/**
+	 * @description: Tramos de un nombre de archivo que pueden ser un nombre de persona: palabras seguidas sin números,
+	 * montos, guiones ni palabras de cotización ("01-SGMM MAPFRE OPTIMA $10,831.83  PRISCILA HERNANDEZ LOPEZ.pdf"
+	 * -> MAPFRE OPTIMA, PRISCILA HERNANDEZ LOPEZ).
+	 * @param fileName: nombre del archivo.
+	 * @return tramos en mayúsculas.
+	 */
+	private static List<String> tramosNombreArchivo(String fileName) {
+		List<String> tramos = new List<String>();
+		List<String> actual = new List<String>();
+		String base = String.isBlank(fileName) ? '' : fileName.replaceAll('\\.[A-Za-z0-9]{2,5}$', '');
+		for (String w : base.split('[\\s_–]+|-')) {
+			String u = w.toUpperCase();
+			if (String.isNotBlank(w) && PALABRA_NOMBRE.matcher(w).matches() && !RUIDO_ARCHIVO.contains(u)) {
+				actual.add(u);
+				continue;
+			}
+			if (!actual.isEmpty()) { tramos.add(String.join(actual, ' ')); }
+			actual = new List<String>();
+		}
+		if (!actual.isEmpty()) { tramos.add(String.join(actual, ' ')); }
+		return tramos;
+	}
+
+	/**
+	 * @description: Nombre del cliente que viene en el nombre de los archivos, cuando completa el que leyó la IA o
+	 * cuando la IA no leyó ninguno. Con un archivo: el tramo que contiene todas las palabras del nombre de la IA y trae
+	 * más ("PRISCILA" -> "PRISCILA HERNANDEZ LOPEZ"). Con varios: el tramo de 2 o más palabras que se repite en todos
+	 * (sin el agente, el 2° segmento entre guiones), si contiene al de la IA o la IA no trajo ninguno.
+	 * @param fileNames: nombres de los archivos.
+	 * @param nombreIa: nombre que leyó la IA (puede venir vacío).
+	 * @return el nombre del archivo, o '' si no hay uno mejor que el de la IA.
+	 */
+	@TestVisible
+	private static String nombreClienteDesdeArchivos(List<String> fileNames, String nombreIa) {
+		if (fileNames == null || fileNames.isEmpty()) { return ''; }
+		Set<String> palabrasIa = new Set<String>();
+		if (String.isNotBlank(nombreIa) && !nombreIa.toUpperCase().contains('AVANZA')) {
+			palabrasIa.addAll(nombreIa.toUpperCase().trim().split('\\s+'));
+		}
+		Set<String> agentes = new Set<String>();
+		List<List<String>> porArchivo = new List<List<String>>();
+		for (String fn : fileNames) {
+			porArchivo.add(tramosNombreArchivo(fn));
+			List<String> segs = String.isBlank(fn) ? new List<String>() : fn.split('\\s*-\\s*');
+			if (segs.size() >= 3) { agentes.add(segs[1].trim().toUpperCase()); }
+		}
+		String mejor = '';
+		for (String t : porArchivo[0]) {
+			List<String> palabras = t.split(' ');
+			Boolean enTodos = true;
+			for (Integer i = 1; i < porArchivo.size(); i++) {
+				enTodos = enTodos && porArchivo[i].contains(t);
+			}
+			Boolean completaIa = !palabrasIa.isEmpty() && palabras.size() > palabrasIa.size()
+				&& new Set<String>(palabras).containsAll(palabrasIa);
+			Boolean comun = porArchivo.size() > 1 && enTodos && palabras.size() >= 2 && !agentes.contains(t)
+				&& (palabrasIa.isEmpty() || new Set<String>(palabras).containsAll(palabrasIa));
+			if ((completaIa || comun) && t.length() > mejor.length()) { mejor = t; }
+		}
+		return mejor;
 	}
 
 	/**
