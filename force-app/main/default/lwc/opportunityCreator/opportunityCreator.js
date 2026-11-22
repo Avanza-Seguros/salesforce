@@ -1947,7 +1947,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get aseguradosCount() { return this.asegurados ? this.asegurados.length : 0; }
     get aseguradosBadge() {
         const n = this.aseguradosCount;
-        return `${n} asegurado${n === 1 ? '' : 's'}`;
+        return `${n} ${this.isRamoViajes ? 'pasajero' : 'asegurado'}${n === 1 ? '' : 's'}`;
     }
     // Payload al Apex (contrato de guardarAsegurados).
     get aseguradosPayload() {
@@ -3102,16 +3102,16 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
 
     // Genera filas de personas (asegurados/pasajeros) para capturar los nombres, según el
-    // número indicado. Solo AGREGA filas faltantes; no borra las ya capturadas.
+    // número indicado. Solo AGREGA filas faltantes; no borra las ya capturadas. La primera persona es el
+    // asegurado titular; a las demás se les elige el parentesco (valores de Parentesco__c, sin «Pasajero»).
     ajustarFilasPersonas(n) {
         const objetivo = parseInt(n, 10);
         if (isNaN(objetivo) || objetivo < 1) { return; }
         const actual = (this.asegurados || []).length;
         if (objetivo <= actual) { return; }
-        const parentesco = this.isRamoViajes ? 'Pasajero' : 'Asegurado';
         const nuevos = [];
         for (let i = actual; i < objetivo; i++) {
-            nuevos.push(this.decorarAsegurado({ parentesco }, i));
+            nuevos.push({ ...this.decorarAsegurado({}, i), parentesco: i === 0 ? 'Asegurado titular' : '' });
         }
         this.asegurados = [...this.asegurados, ...nuevos];
     }
@@ -4157,6 +4157,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 estado:          pick(det.estado, this.gmm.estado),
                 redHospitalaria: pick(det.redHospitalaria, this.gmm.redHospitalaria)
             };
+            this.ajustarFilasPersonas(this.gmm.numAsegurados);
         } else if (r.includes('DANO') || r.includes('DAÑO') || r.includes('HOGAR') || r.includes('EMPRESAR')) {
             this.danos = { ...this.danos, subramo: pick(det.subramo, this.danos.subramo) };
         } else if (r.includes('VIAJE')) {
@@ -4164,6 +4165,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 destino:      pick(det.destino, this.viaje.destino),
                 numPasajeros: pick(det.numViajeros, this.viaje.numPasajeros)
             };
+            // Filas para capturar los nombres de los pasajeros que trae la cotización (como al escribir el número).
+            this.ajustarFilasPersonas(this.viaje.numPasajeros);
         } else if (r.includes('RC') || r.includes('RESPONSAB')) {
             const rc = this.rc || {};
             this.rc = { ...rc,
