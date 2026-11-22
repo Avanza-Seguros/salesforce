@@ -1793,7 +1793,7 @@
                                 {createButtonLabel}
                             </template>
                         </button>
-                        <template if:false={isOpportunityReadOnly}>
+                        <template if:true={mostrarGuardarYEnviar}>
                             <button class="action-btn primary" onclick={handleGuardarYEnviar} disabled={isSaveDisabled}
                                 title="Guardar la oportunidad y enviar el correo al cliente y al agente">
                                 <lightning-icon icon-name="utility:send" size="xx-small"></lightning-icon>

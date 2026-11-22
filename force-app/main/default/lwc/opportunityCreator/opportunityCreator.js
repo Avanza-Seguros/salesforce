@@ -2708,6 +2708,10 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     get isOpportunityReadOnly() {
         return !this.isOpportunityEditable;
     }
+    // «Guardar y Enviar Correo» solo cuando la oportunidad ya está creada (al crearla primero se guarda y se revisa).
+    get mostrarGuardarYEnviar() {
+        return !this.isOpportunityReadOnly && !!(this.opportunity && this.opportunity.Id);
+    }
     get readOnlyStageLabel() {
         return this.getStageLabel(this.opportunity.StageName);
     }
@@ -3745,10 +3749,14 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     updateOpportunityFromExtractedData(extractedData) {
         if (!extractedData || Array.isArray(extractedData)) return;
         try {
-            if (!this.opportunity.Name) {
-                // El nombre de la oportunidad es solo el nombre del CLIENTE (sin el ramo).
-                const clienteNombre = extractedData.clienteNombre || 'Cliente';
-                this.opportunity.Name = String(clienteNombre).substring(0, 80);
+            if (!this.opportunity.Name || (this._nombreProvisional && extractedData.clienteNombre)) {
+                // El nombre de la oportunidad es solo el nombre del CLIENTE (sin el ramo). Si los PDFs no traen
+                // al cliente: «Oportunidad Viajes» (con el ramo detectado), que se reemplaza si otra cotización sí lo trae.
+                const ramo = this.mapRamoToOption(extractedData.ramo) || extractedData.ramo;
+                this._nombreProvisional = !extractedData.clienteNombre;
+                const nombre = extractedData.clienteNombre
+                    || ('Oportunidad ' + (ramo ? this.getRamoLabel(ramo) : '')).trim();
+                this.opportunity.Name = String(nombre).substring(0, 80);
             }
             if (!this.opportunity.Ramo__c) {
                 const mapped = this.mapRamoToOption(extractedData.ramo);
@@ -4552,12 +4560,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // El AGENTE (Producer) se toma del NOMBRE DEL ARCHIVO de las cotizaciones
     // (2° segmento separado por " - ", ej. "ARTURO VINIEGRA") y se busca en Producer.
     // Ya NO se pone un agente por default; si no hay coincidencia, se captura a mano.
-    // Extrae el nombre del agente del nombre de archivo (2° segmento separado por " - ",
-    // ej. "AXA - ARTURO VINIEGRA - Auto.pdf" -> "ARTURO VINIEGRA"). Devuelve '' si no aplica.
+    // Extrae el nombre del agente del nombre de archivo (2° segmento separado por guiones, con o sin espacios,
+    // ej. "AXA - ARTURO VINIEGRA - Auto.pdf" o "NESTOR-DULCE CONTRERAS-FACTOTAL-GMM.pdf"). Devuelve '' si no aplica.
     agenteDesdeNombreArchivo(fileName) {
         if (!fileName) { return ''; }
         const base = String(fileName).replace(/\.[^.]+$/, '');
-        const segs = base.split(' - ').map(s => s.trim()).filter(Boolean);
+        const segs = base.split(/\s*-\s*/).map(s => s.trim()).filter(Boolean);
         const agente = segs.length >= 2 ? segs[1] : '';
         return (agente && agente.length >= 3) ? agente : '';
     }
@@ -4904,6 +4912,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
 
     resetWizard() {
         this.opportunity = this.getDefaultOpportunity();
+        this._nombreProvisional = false;
         this.automovil = this.getDefaultAutomovil();
         this.gmm = this.getDefaultGMM();
         this.vida = this.getDefaultVida();
