@@ -15,6 +15,10 @@ const EXCEL = /\.(xlsx|xlsm|xls|xlsb|csv)$/i;
 const MAX_SIZE_COLECTIVA = 40000000;
 // Texto de una cotización o póliza colectiva (ya pasado por fold).
 const TEXTO_COLECTIVO = /colectiv|subgrupo|\bgmg\b|vida grupo|seguro de grupo|poliza de grupo/;
+// «Colectivo» que no habla de un seguro de grupo: el tope por siniestro o evento colectivo de una cotización
+// individual (viaje: «límite máximo en caso de siniestro colectivo») o el transporte público colectivo de las exclusiones.
+const NO_COLECTIVO = /\b(?:siniestros?|eventos?|catastrofes?|transportes?(?: publicos?)?|vehiculos?(?: de transporte)?(?: publicos?)?|autobus(?:es)?|camion(?:es)?)(?: de (?:pasajeros|transporte|personas))? colectiv[oa]s?\b/g;
+const esTextoColectivo = (t) => TEXTO_COLECTIVO.test(fold((t || "").substring(0, 20000)).replace(NO_COLECTIVO, " "));
 
 export default class PdfOpportunityCreator extends LightningElement {
 
@@ -327,7 +331,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 			);
 
 			// PDF de una cotización o póliza de grupo: se va al flujo colectivo (salvo que se haya elegido Individual).
-			if (!this._tipoManual && pdfTexts.some((t) => TEXTO_COLECTIVO.test(fold((t || "").substring(0, 20000))))) {
+			if (!this._tipoManual && pdfTexts.some(esTextoColectivo)) {
 				this.tipo = "Colectiva";
 				await this.continuarColectiva();
 				return;
