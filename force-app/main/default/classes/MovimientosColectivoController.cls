@@ -605,6 +605,7 @@ public inherited sharing class MovimientosColectivoController {
 				activos.put(llave, null);
 				Date f = CensoColectivoController.fecha(m.fecha);
 				p.EffectiveFromDate = f;
+				p.Fecha_Antiguedad__c = CensoColectivoController.fecha(m.datos.fechaAntiguedad);
 				// Categoría: la del alta o, en un dependiente, la de su titular.
 				String categoria = String.isNotBlank(m.datos.categoria) ? m.datos.categoria.normalizeSpace()
 					: (dependientes && m.titularRef != null && creados.containsKey(m.titularRef) ? creados.get(m.titularRef).Categoria__c
@@ -687,6 +688,11 @@ public inherited sharing class MovimientosColectivoController {
 		if (fn != null && fn != p.FechaNacimiento__c) {
 			detalle.add('Fecha de nacimiento: ' + texto(p.FechaNacimiento__c) + ' → ' + fn.format());
 			p.FechaNacimiento__c = fn;
+		}
+		Date fa = CensoColectivoController.fecha(d.fechaAntiguedad);
+		if (fa != null && fa != p.Fecha_Antiguedad__c) {
+			detalle.add('Fecha de antigüedad: ' + texto(p.Fecha_Antiguedad__c) + ' → ' + fa.format());
+			p.Fecha_Antiguedad__c = fa;
 		}
 		if (String.isNotBlank(d.rfc) && d.rfc.deleteWhitespace().toUpperCase() != p.Identificacion__c) {
 			detalle.add('RFC: ' + texto(p.Identificacion__c) + ' → ' + d.rfc.deleteWhitespace().toUpperCase());
@@ -943,7 +949,7 @@ public inherited sharing class MovimientosColectivoController {
 	 */
 	private static String camposParticipante() {
 		return 'Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,'
-			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
+			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Fecha_Antiguedad__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
 			+ ' EffectiveToDate, IsActiveParticipant, Motivo_Baja__c, Categoria__c, PrimaryParticipantContactId, PrimaryParticipantAccountId,'
 			+ ' Correo_Enviado__c, Fecha_Envio_Correo__c, Plantilla_Correo__c, Correo_Personal__c, CreatedDate'
 			+ (TIENE_CLASE ? ', GroupClassId, GroupClass.Name' : '');
@@ -981,7 +987,7 @@ public inherited sharing class MovimientosColectivoController {
 				'parentesco' => parentesco, 'sexo' => sexoDe(p.RelationshipToInsured),
 				'certificado' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
 				'categoria' => nombreClase(p), 'fechaNacimiento' => p.FechaNacimiento__c, 'rfc' => p.Identificacion__c,
-				'sumaAsegurada' => sumas.get(p.Id), 'prima' => p.TermPremiumAmount, 'fechaAlta' => p.EffectiveFromDate,
+				'fechaAntiguedad' => p.Fecha_Antiguedad__c, 'sumaAsegurada' => sumas.get(p.Id), 'prima' => p.TermPremiumAmount, 'fechaAlta' => p.EffectiveFromDate,
 				'activo' => p.IsActiveParticipant != false,
 				'fechaBaja' => p.IsActiveParticipant == false ? p.EffectiveToDate : null,
 				'motivoBaja' => p.Motivo_Baja__c == null ? null : motivos.get(p.Motivo_Baja__c),

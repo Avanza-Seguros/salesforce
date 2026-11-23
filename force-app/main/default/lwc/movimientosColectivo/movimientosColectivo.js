@@ -1256,11 +1256,13 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
 
     abrirAlta() {
         this.form = {
-            tipo: 'titular', titularId: '', parentesco: 'Cónyuge', nombre: '', apellidos: '', fechaNacimiento: '', sexo: '',
+            tipo: 'titular', titularId: '', parentesco: 'Cónyuge', nombre: '', apellidos: '', fechaNacimiento: '', fechaAntiguedad: '', sexo: '',
             certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: '', solicitud: 'nueva'
         };
         this.modal = 'alta';
     }
+    // La antigüedad reconocida la captura el ejecutivo.
+    get conAntiguedad() { return this.enPoliza && this.interno; }
     get esAltaDependiente() { return this.form.tipo === 'dependiente'; }
     get opcionesTipoAlta() { return [{ label: 'Titular', value: 'titular' }, { label: 'Dependiente', value: 'dependiente' }]; }
     get opcionesTitulares() {
@@ -1277,7 +1279,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         if (!m) { return; }
         this.form = {
             id: m.id, nombreActual: m.nombre, original: { ...m }, nombreCompleto: m.nombre, certificado: m.certificado || '',
-            fechaNacimiento: m.fechaNacimiento || '', categoria: m.categoria || '', sumaAsegurada: m.sumaAsegurada, prima: m.prima,
+            fechaNacimiento: m.fechaNacimiento || '', fechaAntiguedad: m.fechaAntiguedad || '', categoria: m.categoria || '', sumaAsegurada: m.sumaAsegurada, prima: m.prima,
             rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
         };
         this.modal = 'cambio';
@@ -1340,7 +1342,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const dep = f.tipo === 'dependiente';
         const datos = {
             nombre: f.nombre, apellidos: f.apellidos, nombreCompleto: `${f.nombre || ''} ${f.apellidos || ''}`.trim(),
-            fechaNacimiento: f.fechaNacimiento || null, sexo: f.sexo, parentesco: dep ? f.parentesco : 'Titular',
+            fechaNacimiento: f.fechaNacimiento || null, fechaAntiguedad: f.fechaAntiguedad || null, sexo: f.sexo, parentesco: dep ? f.parentesco : 'Titular',
             certificado: f.certificado, categoria: f.categoria, sumaAsegurada: f.sumaAsegurada, prima: f.prima,
             rfc: f.rfc, email: f.email, fechaAlta: dep ? null : f.fecha
         };
@@ -1357,6 +1359,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         if (distinto(f.nombreCompleto, o.nombre)) { datos.nombreCompleto = f.nombreCompleto; }
         if (distinto(f.certificado, o.certificado)) { datos.certificado = f.certificado; }
         if (distinto(f.fechaNacimiento, o.fechaNacimiento)) { datos.fechaNacimiento = f.fechaNacimiento; }
+        if (f.fechaAntiguedad && distinto(f.fechaAntiguedad, o.fechaAntiguedad)) { datos.fechaAntiguedad = f.fechaAntiguedad; }
         if (distinto(f.categoria, o.categoria)) { datos.categoria = f.categoria; }
         if (distinto(f.sumaAsegurada, o.sumaAsegurada)) { datos.sumaAsegurada = f.sumaAsegurada; }
         if (distinto(f.prima, o.prima)) { datos.prima = f.prima; }

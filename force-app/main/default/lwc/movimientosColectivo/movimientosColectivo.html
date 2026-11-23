@@ -615,6 +615,12 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} data-campo="fechaNacimiento" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={conAntiguedad}>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="date" label="Fecha de antigüedad" value={form.fechaAntiguedad} data-campo="fechaAntiguedad" onchange={handleForm}
+                                            field-level-help="Antigüedad reconocida (RA). Vacía: cuenta desde su primera alta."></lightning-input>
+                                    </div>
+                                    </template>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-combobox label="Sexo" value={form.sexo} options={opcionesSexo} data-campo="sexo" onchange={handleForm} placeholder="Selecciona"></lightning-combobox>
                                     </div>
@@ -681,6 +687,12 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} data-campo="fechaNacimiento" onchange={handleForm}></lightning-input>
                                     </div>
+                                    <template lwc:if={conAntiguedad}>
+                                    <div class="slds-col slds-size_1-of-3">
+                                        <lightning-input type="date" label="Fecha de antigüedad" value={form.fechaAntiguedad} data-campo="fechaAntiguedad" onchange={handleForm}
+                                            field-level-help="Antigüedad reconocida (RA). Vacía: cuenta desde su primera alta."></lightning-input>
+                                    </div>
+                                    </template>
                                     <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="RFC" value={form.rfc} data-campo="rfc" onchange={handleForm} max-length="13"></lightning-input>

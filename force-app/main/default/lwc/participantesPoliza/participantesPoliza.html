@@ -89,6 +89,7 @@
                                     <template if:true={conCategoria}><th scope="col" class="col-orden" data-campo="categoria" onclick={ordenar}>Categoría <span class="flecha">{flechas.categoria}</span></th></template>
                                     <th scope="col" class="col-orden" data-campo="nacimiento" onclick={ordenar}>Nacimiento <span class="flecha">{flechas.nacimiento}</span></th>
                                     <template if:true={conPrima}><th scope="col" class="num col-orden" data-campo="prima" onclick={ordenar}>Prima <span class="flecha">{flechas.prima}</span></th></template>
+                                    <template lwc:if={conAntiguedad}><th scope="col" class="col-orden" data-campo="antiguedad" onclick={ordenar}>Antigüedad <span class="flecha">{flechas.antiguedad}</span></th></template>
                                     <th scope="col" class="col-orden" data-campo="fechaMovimiento" onclick={ordenar}>Fecha de movimiento <span class="flecha">{flechas.fechaMovimiento}</span></th>
                                     <th scope="col" class="col-orden" data-campo="estado" onclick={ordenar}>Estado <span class="flecha">{flechas.estado}</span></th>
                                     <th scope="col" class="col-orden" data-campo="envio" onclick={ordenar}>Envío de correo <span class="flecha">{flechas.envio}</span></th>
@@ -108,6 +109,7 @@
                                         <template if:true={conCategoria}><td>{p.categoria}</td></template>
                                         <td>{p.nacimientoTxt}</td>
                                         <template if:true={conPrima}><td class="num">{p.primaTxt}</td></template>
+                                        <template lwc:if={conAntiguedad}><td>{p.antiguedadTxt}</td></template>
                                         <td>{p.fechaMovimientoTxt}</td>
                                         <td>
                                             <span class={p.claseEstado}>{p.estado}</span>
@@ -147,6 +149,14 @@
                                                         </dl>
                                                         <lightning-button lwc:if={interno} label="Ver participante" variant="base" icon-name="utility:new_window"
                                                             data-id={p.id} onclick={abrirRegistro}></lightning-button>
+                                                        <template lwc:if={p.hayAntiguedad}>
+                                                            <h4 class="slds-m-top_small">Antigüedad</h4>
+                                                            <dl class="datos">
+                                                                <template for:each={p.datosAntiguedad} for:item="d">
+                                                                    <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                                                                </template>
+                                                            </dl>
+                                                        </template>
                                                     </div>
                                                     <div class="detalle-bloque">
                                                         <h4>Archivos adjuntos</h4>
@@ -205,6 +215,7 @@
                                     <th scope="col" class="col-orden" data-campo="nombre" onclick={ordenar}>Nombre <span class="flecha">{flechas.nombre}</span></th>
                                     <th scope="col" class="col-orden" data-campo="parentesco" onclick={ordenar}>Parentesco <span class="flecha">{flechas.parentesco}</span></th>
                                     <template if:true={enBeneficiarios}><th scope="col" class="num col-orden" data-campo="porcentaje" onclick={ordenar}>Porcentaje <span class="flecha">{flechas.porcentaje}</span></th></template>
+                                    <template lwc:if={conAntiguedadLista}><th scope="col" class="col-orden" data-campo="antiguedad" onclick={ordenar}>Antigüedad <span class="flecha">{flechas.antiguedad}</span></th></template>
                                     <th scope="col" class="col-orden" data-campo="fechaMovimiento" onclick={ordenar}>Fecha de movimiento <span class="flecha">{flechas.fechaMovimiento}</span></th>
                                     <th scope="col" class="col-orden" data-campo="estado" onclick={ordenar}>Estado <span class="flecha">{flechas.estado}</span></th>
                                     <th scope="col" class="col-orden" data-campo="envio" onclick={ordenar}>Envío de correo <span class="flecha">{flechas.envio}</span></th>
@@ -224,6 +235,7 @@
                                         </td>
                                         <td>{p.parentesco}</td>
                                         <template if:true={enBeneficiarios}><td class="num">{p.porcentajeTxt}</td></template>
+                                        <template lwc:if={conAntiguedadLista}><td>{p.antiguedadTxt}</td></template>
                                         <td>{p.fechaMovimientoTxt}</td>
                                         <td><span class={p.claseEstado}>{p.estado}</span></td>
                                         <td>
@@ -234,7 +246,7 @@
                                     </tr>
                                     <template if:true={p.abierto}>
                                         <tr key={p.keyDetalle} class="fila-detalle">
-                                            <td colspan="8">
+                                            <td colspan={columnasLista}>
                                                 <div class="detalle">
                                                     <div class="detalle-bloque">
                                                         <h4>{p.personaTitulo}</h4>
@@ -260,6 +272,14 @@
                                                         </dl>
                                                         <lightning-button lwc:if={interno} label="Ver participante" variant="base" icon-name="utility:new_window"
                                                             data-id={p.id} onclick={abrirRegistro}></lightning-button>
+                                                        <template lwc:if={p.hayAntiguedad}>
+                                                            <h4 class="slds-m-top_small">Antigüedad</h4>
+                                                            <dl class="datos">
+                                                                <template for:each={p.datosAntiguedad} for:item="d">
+                                                                    <div key={d.key} class="dato"><dt>{d.etiqueta}</dt><dd>{d.valor}</dd></div>
+                                                                </template>
+                                                            </dl>
+                                                        </template>
                                                     </div>
                                                 </div>
                                             </td>

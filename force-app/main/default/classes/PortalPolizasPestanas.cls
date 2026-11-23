@@ -1200,7 +1200,7 @@ public without sharing class PortalPolizasPestanas {
 						if (campos != null) { campos.remove('fechaAntiguedad'); campos.remove('poliza'); }
 						aRegistrar.add(new Map<String, Object>{ 'tipo' => t, 'fecha' => f, 'comentario' => r.get('comentario'),
 							'campos' => campos, 'titular' => r.get('titular'), 'etiqueta' => donde, 'ra' => antiguedad != null,
-							'raDesde' => antiguedad == null ? null : antiguedad.format() });
+							'raDesde' => antiguedad == null ? null : antiguedad.format(), 'antiguedad' => antiguedad == null ? null : String.valueOf(antiguedad) });
 					}
 				}
 			}
@@ -1344,6 +1344,8 @@ public without sharing class PortalPolizasPestanas {
 				}
 				m.put('id', id);
 			}
+			// La antigüedad reconocida se guarda en el asegurado.
+			if (tipo == 'personas' && r.get('antiguedad') != null) { datos.put('fechaAntiguedad', r.get('antiguedad')); }
 			if (t == 'cambio' && datos.isEmpty()) {
 				throw falla(donde + ': indica los datos nuevos (solo los que cambian).');
 			}

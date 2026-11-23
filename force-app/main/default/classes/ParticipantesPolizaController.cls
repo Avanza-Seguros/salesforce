@@ -64,6 +64,10 @@ public inherited sharing class ParticipantesPolizaController {
 			};
 			for (InsurancePolicyParticipant p : lista) {
 				Map<String, Object> m = participante(p, roles, parentescos, motivos);
+				if (m.get('antiguedad') == null && pol.EffectiveDate != null) {
+					m.put('antiguedad', pol.EffectiveDate.date());
+					m.put('antiguedadOrigen', 'Inicio');
+				}
 				// Tipo y fecha del último movimiento (alta, baja o cambio).
 				MovimientosColectivoController.ponerMovimiento(m, ultimos.get(p.Id), m.get('activo') == true, (Date) m.get('desde'),
 					p.EffectiveToDate != null ? p.EffectiveToDate : (Date) m.get('hasta'));
@@ -491,6 +495,7 @@ public inherited sharing class ParticipantesPolizaController {
 				LegalGuardianId, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,
 				PriorParticipantId, PriorParticipant.InsurancePolicy.Name,
 				OriginalParticipantId, OriginalParticipant.InsurancePolicy.Name, OriginalParticipant.InsurancePolicy.EffectiveDate,
+				OriginalParticipant.EffectiveFromDate, OriginalParticipant.Fecha_Antiguedad__c, PriorParticipant.Fecha_Antiguedad__c, Fecha_Antiguedad__c,
 				Correo_Enviado__c, Fecha_Envio_Correo__c, Plantilla_Correo__c
 			FROM InsurancePolicyParticipant
 			WHERE InsurancePolicyId = :policyId
@@ -516,10 +521,16 @@ public inherited sharing class ParticipantesPolizaController {
 		// El grupo se decide por el valor y por la etiqueta del rol (el picklist estándar puede traer valores en inglés).
 		List<String> llavesRol = new List<String>(rolesLista);
 		llavesRol.addAll(rolesTexto);
-		Date antiguedad = null;
-		if (p.OriginalParticipantId != null && p.OriginalParticipant.InsurancePolicy.EffectiveDate != null) {
-			antiguedad = p.OriginalParticipant.InsurancePolicy.EffectiveDate.date();
+		// Antigüedad: la reconocida (RA, de esta vigencia o de la anterior); si no, la de su primera póliza; si no, su alta.
+		Date reconocida = p.Fecha_Antiguedad__c;
+		if (reconocida == null && p.PriorParticipantId != null) { reconocida = p.PriorParticipant.Fecha_Antiguedad__c; }
+		if (reconocida == null && p.OriginalParticipantId != null) { reconocida = p.OriginalParticipant.Fecha_Antiguedad__c; }
+		Date primera = null;
+		if (p.OriginalParticipantId != null) {
+			primera = p.OriginalParticipant.EffectiveFromDate;
+			if (primera == null && p.OriginalParticipant.InsurancePolicy.EffectiveDate != null) { primera = p.OriginalParticipant.InsurancePolicy.EffectiveDate.date(); }
 		}
+		Date alta = p.EffectiveFromDate != null ? p.EffectiveFromDate : (p.EffectiveDate == null ? null : p.EffectiveDate.date());
 		return new Map<String, Object>{
 			'id' => p.Id, 'folio' => p.Name, 'nombre' => p.ParticipantName, 'certificado' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
 			'roles' => rolesTexto, 'rolesTexto' => String.join(rolesTexto, ', '), 'grupo' => grupo(llavesRol, p),
@@ -535,7 +546,8 @@ public inherited sharing class ParticipantesPolizaController {
 			'prima' => p.StandardPremiumAmount,
 			'vigenciaAnterior' => p.PriorParticipantId == null ? null : p.PriorParticipant.InsurancePolicy.Name,
 			'polizaOriginal' => p.OriginalParticipantId == null ? null : p.OriginalParticipant.InsurancePolicy.Name,
-			'aseguradoDesde' => antiguedad,
+			'antiguedad' => reconocida != null ? reconocida : (primera != null ? primera : alta),
+			'antiguedadOrigen' => reconocida != null ? 'Reconocida' : (primera != null ? 'Poliza' : 'Alta'),
 			'correoEnviado' => p.Correo_Enviado__c == true, 'fechaCorreo' => p.Fecha_Envio_Correo__c,
 			'plantillaCorreo' => p.Plantilla_Correo__c
 		};

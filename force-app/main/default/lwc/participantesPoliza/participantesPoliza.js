@@ -3,7 +3,7 @@
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Participantes de la póliza (cualquier ramo) con su información relacionada: contratante, asegurados con
  *               sus dependientes y, si los hay (Vida), beneficiarios. Cada participante se abre para ver su contacto o cuenta
- *               (RFC, correo, teléfonos, domicilio), su vigencia o baja, el envío de su correo, sus archivos adjuntos y, si
+ *               (RFC, correo, teléfonos, domicilio), su vigencia o baja, su antigüedad, el envío de su correo, sus archivos adjuntos y, si
  *               es titular, sus dependientes. Las columnas se ajustan a lo que trae la póliza (categoría, suma asegurada, prima…).
  *               Solo lectura. Usa ParticipantesPolizaController.
  */
@@ -249,11 +249,15 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     // ============================================================
     // «POR ASIGNAR»: pólizas empresariales de personas (en las individuales no hay certificado).
     get conCertificado() { return !this.avisoBienes && (this.resumen.asegurado || 0) > 1; }
+    // Antigüedad: pólizas de personas (no vehículos ni ubicaciones); los beneficiarios no la tienen.
+    get conAntiguedad() { return !this.avisoBienes; }
+    get conAntiguedadLista() { return this.conAntiguedad && !this.enBeneficiarios; }
+    get columnasLista() { return this.conAntiguedadLista || this.enBeneficiarios ? 8 : 7; }
     get conCategoria() { return this.participantes.some((p) => p.categoria); }
     get conPrima() { return this.participantes.some((p) => p.prima != null); }
     get conParentesco() { return this.participantes.some((p) => p.parentesco || p.titularNombre); }
     get columnasAsegurados() {
-        return 8 + (this.conCategoria ? 1 : 0) +(this.conPrima ? 1 : 0) + (this.conParentesco ? 1 : 0);
+        return 8 + (this.conAntiguedad ? 1 : 0) + (this.conCategoria ? 1 : 0) +(this.conPrima ? 1 : 0) + (this.conParentesco ? 1 : 0);
     }
 
     // ============================================================
@@ -283,6 +287,9 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             nacimientoTxt: nacimiento ? `${fechaVisible(nacimiento)} (${this.edad(nacimiento)} años)` : '',
             parentescoTxt: p.parentesco || (esDependiente ? 'Dependiente' : (p.grupo === 'asegurado' ? 'Titular' : '')),
             deTxt: p.titularNombre ? `de ${p.titularNombre}` : '',
+            antiguedadTxt: p.antiguedad && p.grupo !== 'otro' ? fechaVisible(p.antiguedad) : '',
+            datosAntiguedad: this.antiguedad(p),
+            hayAntiguedad: this.conAntiguedad && !!p.antiguedad && (p.grupo === 'asegurado' || p.grupo === 'dependiente'),
             primaTxt: moneda(p.prima),
             porcentajeTxt: p.porcentaje != null ? `${p.porcentaje}%` : '',
             // Estado = último movimiento: Alta, Baja o Cambio.
@@ -357,6 +364,32 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             ['Puesto', c.puesto],
             ['Empresa', c.cuentaNombre],
             ['Domicilio', c.domicilio]
+        ].filter(([, v]) => v).map(([etiqueta, valor]) => ({ key: etiqueta, etiqueta, valor }));
+    }
+
+    // Apartado de antigüedad: desde cuándo, cuánto lleva (hasta su baja, si ya salió) y de dónde sale la fecha.
+    antiguedad(p) {
+        if (!p.antiguedad) { return []; }
+        const [a, m, d] = String(p.antiguedad).substring(0, 10).split('-').map(Number);
+        const hoy = new Date();
+        const [a2, m2, d2] = !p.activo && p.hasta ? String(p.hasta).substring(0, 10).split('-').map(Number)
+            : [hoy.getFullYear(), hoy.getMonth() + 1, hoy.getDate()];
+        const meses = Math.max(0, (a2 - a) * 12 + (m2 - m) - (d2 < d ? 1 : 0));
+        const anios = Math.floor(meses / 12);
+        const resto = meses % 12;
+        const tiempo = [anios ? `${anios} ${anios === 1 ? 'año' : 'años'}` : '', resto ? `${resto} ${resto === 1 ? 'mes' : 'meses'}` : '']
+            .filter((x) => x).join(' y ');
+        const origen = {
+            Reconocida: 'Reconocimiento de antigüedad (RA)',
+            Poliza: p.polizaOriginal ? `Desde la póliza ${p.polizaOriginal}` : 'Desde su primera póliza',
+            Alta: 'Desde su alta en la póliza',
+            Inicio: 'Desde el inicio de la póliza'
+        };
+        return [
+            ['Fecha de antigüedad', fechaVisible(p.antiguedad)],
+            ['Tiempo', tiempo || 'Menos de un mes'],
+            ['Origen', origen[p.antiguedadOrigen]],
+            ['Vigencia anterior', p.vigenciaAnterior]
         ].filter(([, v]) => v).map(([etiqueta, valor]) => ({ key: etiqueta, etiqueta, valor }));
     }
 

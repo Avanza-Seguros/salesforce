@@ -592,7 +592,7 @@ export default class PortalSolicitudes extends LightningElement {
         return this.registrosDe(m.polizaId)
             .filter((r) => !personas || m.filtro === 'todos' || (m.filtro === 'titulares' ? !r.dependiente : r.dependiente))
             .map((r) => ({
-                label: [r.clave, r.nombre, personas ? (r.dependiente ? `Dependiente${r.parentesco && r.parentesco !== 'Dependiente' ? ' (' + r.parentesco + ')' : ''}` : 'Titular') : r.detalle]
+                label: [r.clave || (personas ? 'POR ASIGNAR' : ''), r.nombre, personas ? (r.dependiente ? `Dependiente${r.parentesco && r.parentesco !== 'Dependiente' ? ' (' + r.parentesco + ')' : ''}` : 'Titular') : r.detalle]
                     .filter((x) => x).join(' · '),
                 value: r.id
             }));
@@ -654,7 +654,8 @@ export default class PortalSolicitudes extends LightningElement {
                 opcionesRegistro: esAlta ? [] : this.opcionesRegistroDe(m),
                 filtros: !esAlta && this.tipo === 'personas' ? this.filtrosDe(m) : null,
                 avisoPoliza: otra ? (otra.cargando ? 'Cargando los registros de la póliza…' : (otra.mensaje || '')) : '',
-                placeholderRegistro: `Elige ${this.tipo === 'personas' ? 'al asegurado' : 'el ' + this.nombreRegistro} (por número de ${this.tipo === 'personas' ? 'certificado' : 'inciso'})`,
+                placeholderRegistro: { personas: 'Elige al asegurado o escribe su nombre o certificado', vehiculos: 'Elige el vehículo o escribe su inciso, serie, placas o descripción',
+                    ubicaciones: 'Elige la ubicación o escribe su inciso, nombre o dirección' }[this.tipo],
                 minFecha: esAlta ? this.fechaLimiteAlta : null,
                 notaFecha: esAlta ? this.textoRetroactivo : '',
                 campos,
@@ -669,7 +670,7 @@ export default class PortalSolicitudes extends LightningElement {
     }
 
     async handleEnviar() {
-        const validos = [...this.template.querySelectorAll('lightning-input, lightning-combobox, lightning-textarea')]
+        const validos = [...this.template.querySelectorAll('lightning-input, lightning-combobox, lightning-textarea, c-buscador-registro')]
             .reduce((ok, c) => (c.reportValidity ? c.reportValidity() : true) && ok, true);
         if (!validos) { return; }
         if (this.enArchivo && !this.listado) {

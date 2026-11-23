@@ -95,8 +95,9 @@
                                                 aria-pressed={f.pressed}>{f.texto}</button>
                                         </template>
                                     </div>
-                                    <lightning-combobox label={etiquetaRegistro} value={m.registroId} options={m.opcionesRegistro}
-                                        placeholder={m.placeholderRegistro} data-key={m.key} data-campo="registroId" onchange={handleCampo} required></lightning-combobox>
+                                    <!-- Lista desplegable en la que también se escribe para buscar. -->
+                                    <c-buscador-registro label={etiquetaRegistro} value={m.registroId} options={m.opcionesRegistro}
+                                        placeholder={m.placeholderRegistro} data-key={m.key} data-campo="registroId" onchange={handleCampo} required></c-buscador-registro>
                                     <p lwc:if={m.avisoPoliza} class="nota">{m.avisoPoliza}</p>
                                 </div>
                             </template>
@@ -112,8 +113,8 @@
                                 </template>
                             </template>
                             <template lwc:if={m.conTitular}>
-                                <lightning-combobox class="ancho" label="Titular" value={m.titularId} options={opcionesTitular}
-                                    placeholder="Titular del que depende" data-key={m.key} data-campo="titularId" onchange={handleCampo} required></lightning-combobox>
+                                <c-buscador-registro class="ancho" label="Titular" value={m.titularId} options={opcionesTitular}
+                                    placeholder="Elige o escribe el nombre o certificado del titular" data-key={m.key} data-campo="titularId" onchange={handleCampo} required></c-buscador-registro>
                             </template>
                             <div>
                                 <lightning-input type="date" label={m.etiquetaFecha} value={m.fecha} data-key={m.key} data-campo="fecha" onchange={handleCampo}

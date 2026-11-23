@@ -1,0 +1,21 @@
+<template>
+    <label class="etiqueta" for="campo"><abbr lwc:if={required} class="requerido" title="Obligatorio">*</abbr>{label}</label>
+    <div class="caja">
+        <input id="campo" type="text" class={claseCampo} value={textoVisible} placeholder={placeholder} disabled={disabled} autocomplete="off"
+            role="combobox" aria-autocomplete="list" aria-controls="lista" aria-expanded={expandido} aria-invalid={invalido} aria-describedby="error"
+            onfocus={handleFoco} onclick={abrir} oninput={handleEscribir} onchange={handleCambioNativo}
+            onblur={handleSalir} onkeydown={handleTecla} />
+        <button lwc:if={limpiable} type="button" class="boton_limpiar" tabindex="-1" aria-label="Borrar" title="Borrar" onmousedown={handleLimpiar}>×</button>
+        <button type="button" class="boton_flecha" tabindex="-1" aria-label="Mostrar la lista" onmousedown={handleFlecha} disabled={disabled}></button>
+        <div id="lista" class="lista" role="listbox" aria-label={label} hidden={cerrado} onmousedown={handleSostener}>
+            <template lwc:if={hayOpciones}>
+                <template for:each={opciones} for:item="o">
+                    <div key={o.key} class={o.clase} role="option" aria-selected={o.elegida} data-i={o.i} onclick={handleOpcion}>{o.label}</div>
+                </template>
+                <p lwc:if={textoMas} class="nota">{textoMas}</p>
+            </template>
+            <p lwc:else class="nota">{textoVacio}</p>
+        </div>
+    </div>
+    <p id="error" class="error" role="alert">{error}</p>
+</template>

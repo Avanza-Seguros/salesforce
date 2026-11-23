@@ -35,7 +35,8 @@ private class ParticipantesPolizaControllerTest {
 		Schema.DescribeFieldResult rol = InsurancePolicyParticipant.Role.getDescribe();
 		String rolAsegurado = CensoColectivoController.valorPicklist(rol, new List<String>{ 'Asegurado', 'Insured' });
 		InsurancePolicyParticipant t = new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, Role = rolAsegurado,
-			PrimaryParticipantContactId = titular.Id, ParticipantCode = '1', StandardPremiumAmount = 1200);
+			PrimaryParticipantContactId = titular.Id, ParticipantCode = '1', StandardPremiumAmount = 1200,
+			Fecha_Antiguedad__c = Date.newInstance(2020, 3, 15));
 		t.put('Categoria__c', 'Ejecutivos');
 		InsurancePolicyParticipant baja = new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, Role = rolAsegurado,
 			PrimaryParticipantAccountId = acc.Id, ParticipantCode = '2', IsActiveParticipant = false,
@@ -96,6 +97,9 @@ private class ParticipantesPolizaControllerTest {
 		}
 		Map<String, Object> titular = porGrupo.get('asegurado');
 		Assert.areEqual('Ejecutivos', titular.get('categoria'));
+		Assert.areEqual(Date.newInstance(2020, 3, 15), (Date) titular.get('antiguedad'));
+		Assert.areEqual('Reconocida', titular.get('antiguedadOrigen'));
+		Assert.areEqual('Inicio', porGrupo.get('dependiente').get('antiguedadOrigen'), 'Sin fecha de alta cuenta desde el inicio de la póliza');
 		Assert.areEqual(500000, (Decimal) titular.get('sumaAsegurada'));
 		Assert.areEqual(1, ((List<Object>) titular.get('coberturas')).size());
 		Map<String, Object> contacto = (Map<String, Object>) titular.get('contacto');

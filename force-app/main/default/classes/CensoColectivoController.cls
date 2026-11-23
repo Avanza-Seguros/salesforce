@@ -48,6 +48,8 @@ public inherited sharing class CensoColectivoController {
 		public Decimal prima;
 		public String certificado;
 		public String fechaAlta;
+		// Fecha de antigüedad reconocida (RA).
+		public String fechaAntiguedad;
 		public String numEmpleado;
 		public String rfc;
 		public String email;

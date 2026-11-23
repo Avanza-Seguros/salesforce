@@ -101,7 +101,8 @@ private class MovimientosColectivoControllerTest {
 		List<Object> movs = new List<Object>{
 			bajaJuan,
 			mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2500, 'sumaAsegurada' => 750000, 'categoria' => 'Gerentes',
-				'certificado' => '002-B', 'rfc' => 'GODP901122AAA', 'fechaNacimiento' => '1990-11-23', 'nombreCompleto' => 'Pedro Gómez Díaz Jr' }),
+				'certificado' => '002-B', 'rfc' => 'GODP901122AAA', 'fechaNacimiento' => '1990-11-23', 'nombreCompleto' => 'Pedro Gómez Díaz Jr',
+				'fechaAntiguedad' => '2018-05-01' }),
 			mov('alta', null, new Map<String, Object>{ 'nombre' => 'Ana', 'apellidos' => 'Ruiz Soto', 'parentesco' => 'Titular',
 				'sexo' => 'Mujer', 'fechaNacimiento' => '1995-03-03', 'certificado' => '003', 'categoria' => 'Empleados', 'sumaAsegurada' => 300000 })
 		};
@@ -124,7 +125,8 @@ private class MovimientosColectivoControllerTest {
 			System.assertEquals(motivo(), p.Motivo_Baja__c, 'Con su motivo');
 			System.assertEquals(Date.today(), p.EffectiveToDate, 'Fecha de baja');
 		}
-		InsurancePolicyParticipant p = [SELECT TermPremiumAmount, ParticipantCode, ParticipantName, Categoria__c FROM InsurancePolicyParticipant WHERE Id = :pedro];
+		InsurancePolicyParticipant p = [SELECT TermPremiumAmount, ParticipantCode, ParticipantName, Categoria__c, Fecha_Antiguedad__c FROM InsurancePolicyParticipant WHERE Id = :pedro];
+		System.assertEquals(Date.newInstance(2018, 5, 1), p.Fecha_Antiguedad__c, 'Antigüedad reconocida');
 		System.assertEquals('Gerentes', p.Categoria__c, 'Categoría cambiada');
 		System.assertEquals(2500, p.TermPremiumAmount, 'Prima cambiada');
 		System.assertEquals('002-B', p.ParticipantCode, 'Certificado cambiado');
