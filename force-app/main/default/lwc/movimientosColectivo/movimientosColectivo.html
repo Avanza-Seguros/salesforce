@@ -328,7 +328,7 @@
                             </template>
                         </div>
                         <template if:true={enPoliza}>
-                            <template lwc:if={interno}>
+                            <template lwc:if={pideEndoso}>
                             <c-datos-endoso></c-datos-endoso>
                             </template>
                         </template>
@@ -530,7 +530,7 @@
                                         <lightning-combobox label="Motivo de baja (opcional)" value={form.motivo} options={motivos} data-campo="motivo"
                                             onchange={handleForm} placeholder="Sin motivo"></lightning-combobox>
                                     </div>
-                                    <template lwc:if={interno}>
+                                    <template lwc:if={pideEndoso}>
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
@@ -577,7 +577,7 @@
                                     </div>
                                 </template>
                                 <template if:true={enPoliza}>
-                                    <template lwc:if={interno}>
+                                    <template lwc:if={pideEndoso}>
                                     <c-datos-endoso></c-datos-endoso>
                                     </template>
                                 </template>
@@ -650,7 +650,7 @@
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
                                     </div>
-                                    <template lwc:if={interno}>
+                                    <template lwc:if={pideEndoso}>
                                     <div class="slds-col slds-size_1-of-2">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
@@ -663,7 +663,7 @@
                                     </template>
                                 </div>
                                 <template if:true={enPoliza}>
-                                    <template lwc:if={interno}>
+                                    <template lwc:if={pideEndoso}>
                                     <c-datos-endoso></c-datos-endoso>
                                     </template>
                                 </template>
@@ -728,7 +728,7 @@
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
                                     </div>
-                                    <template lwc:if={interno}>
+                                    <template lwc:if={pideEndoso}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
@@ -744,7 +744,7 @@
                                     </div>
                                 </div>
                                 <template if:true={enPoliza}>
-                                    <template lwc:if={interno}>
+                                    <template lwc:if={pideEndoso}>
                                     <c-datos-endoso></c-datos-endoso>
                                     </template>
                                 </template>

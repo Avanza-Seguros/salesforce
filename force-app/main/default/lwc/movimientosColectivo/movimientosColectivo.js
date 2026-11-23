@@ -102,7 +102,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     handleNuevaSolicitud() { this.pedir(null, []); }
     pedir(tipo, ids) { this.dispatchEvent(new CustomEvent('nuevasolicitud', { detail: { tipo, ids } })); }
     // En GMM no aplican los endosos (ni en Salesforce ni en el sitio).
-    get conEndosos() { return this.enPoliza && !/^gmm/i.test((this.datos && this.datos.ramo) || ''); }
+    get esGmm() { return /^gmm/i.test((this.datos && this.datos.ramo) || ''); }
+    get conEndosos() { return this.enPoliza && !this.esGmm; }
+    // Número de endoso y datos del endoso (prima y documento) en los formularios.
+    get pideEndoso() { return this.interno && !this.esGmm; }
     get correoPendientes() { return this.enPoliza && !this.portal; }
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
     get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar; }
@@ -149,7 +152,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Petición desde archivo en Salesforce (póliza): no se pide fecha, número de endoso ni comentario; cada movimiento
     // lleva la fecha y el endoso que trae el archivo (sin fecha, la de hoy).
     get pideDatosArchivo() { return !(this.interno && this.enPoliza); }
-    get pideEndosoArchivo() { return this.interno && !this.enPoliza; }
+    get pideEndosoArchivo() { return this.pideEndoso && !this.enPoliza; }
     get enOportunidad() { return !!this.datos && this.datos.contexto === 'oportunidad'; }
     // Póliza individual: sin fecha de movimiento ni de cierre (solo las empresariales las muestran). El tipo sale de la
     // oportunidad de origen; si la póliza no viene de una, es individual cuando tiene un solo registro.
@@ -1530,8 +1533,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const lista = l.slice(0, 12).join(', ') + (l.length > 12 ? ` y ${l.length - 12} más` : '');
         return `El archivo trae ${l.length} ${l.length === 1 ? 'endoso' : 'endosos'} (${lista}): cada movimiento queda en su endoso, `
             + 'con la prima que trae el archivo. '
-            + (this.pideEndosoArchivo ? 'El número de endoso y la prima de abajo solo aplican' : 'La prima del endoso de abajo solo aplica')
-            + ' a los movimientos sin número.';
+            + (!this.pideEndoso ? '' : (this.pideEndosoArchivo ? 'El número de endoso y la prima de abajo solo aplican' : 'La prima del endoso de abajo solo aplica')
+                + ' a los movimientos sin número.');
     }
     get cambiosRev() {
         if (!this.revision) { return []; }
@@ -1750,7 +1753,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const grupos = [...familias.values()];
         // Solo las columnas de los dependientes que hay (ninguna si no hay); en GMM no aplica el porcentaje.
         const numDep = Math.max(0, ...grupos.map((g) => g.dependientes.length));
-        const conPorcentaje = !/^gmm/i.test((this.datos && this.datos.ramo) || '');
+        const conPorcentaje = !this.esGmm;
         const columnas = ['Nombre', 'Apellido Paterno del Asegurado', 'Apellido Materno del Asegurado',
             'Fecha de nacimiento', 'Sexo', 'Tipo de petición', 'Fecha de petición', 'Poliza', 'Categorias',
             'Certificado', 'Parentesco'];

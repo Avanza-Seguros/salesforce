@@ -94,6 +94,7 @@ public inherited sharing class MovimientosColectivoController {
 				InsurancePolicy anterior = polizaAnteriorDe(opp);
 				res.put('contexto', 'oportunidad');
 				res.put('aplica', aplicaRamo(opp.Ramo__c));
+				res.put('ramo', opp.Ramo__c);
 				res.put('nombre', opp.Name);
 				res.put('esRenovacion', String.isNotBlank(opp.Type) && opp.Type.containsIgnoreCase('renewal'));
 				res.put('polizaAnteriorId', anterior == null ? null : anterior.Id);
