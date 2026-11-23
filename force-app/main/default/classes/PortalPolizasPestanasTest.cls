@@ -415,12 +415,20 @@ private class PortalPolizasPestanasTest {
 				Placas__c = 'XYZ999', Modelo__c = 2021, Fecha_Alta__c = Date.today().addDays(-10))
 		};
 		User sitio;
+		Boolean comoEnElSitio = EndosoPoliza.estadoCaso('Solicitado') == 'Solicitado';
 		System.runAs(yo) {
-			Profile perfil = [SELECT Id FROM Profile WHERE UserLicense.Name = 'Partner Community' ORDER BY Name LIMIT 1];
+			// Perfil y permiso de los usuarios del sitio de empresas (en DEV no hay estado «Solicitado» y una regla de los
+			// casos no deja usar ese perfil: se usa otro, que no sube archivos).
+			Profile perfil = comoEnElSitio ? [SELECT Id FROM Profile WHERE Name = 'Standard Partner Community' LIMIT 1]
+				: [SELECT Id FROM Profile WHERE UserLicense.Name = 'Partner Community' ORDER BY Name LIMIT 1];
+			for (Network red : [SELECT Id FROM Network WHERE Name = 'Avanza Empresas' LIMIT 1]) { PortalPolizasPestanas.redPrueba = red.Id; }
 			sitio = new User(ProfileId = perfil.Id, ContactId = contacto.Id, LastName = 'Contratante', Alias = 'contsit',
 				Email = 'contratante@prueba.test', Username = 'contratante.sitio.' + Datetime.now().getTime() + '@prueba.test',
 				TimeZoneSidKey = 'America/Mexico_City', LocaleSidKey = 'es_MX', EmailEncodingKey = 'UTF-8', LanguageLocaleKey = 'es');
 			insert sitio;
+			for (PermissionSet ps : [SELECT Id FROM PermissionSet WHERE Name = 'Portal_Polizas_Cliente' LIMIT 1]) {
+				insert new PermissionSetAssignment(AssigneeId = sitio.Id, PermissionSetId = ps.Id);
+			}
 		}
 		PortalPolizasController.cuentaPrueba = cliente.Id;
 		PortalPolizasController.contactoPrueba = null;
@@ -438,7 +446,14 @@ private class PortalPolizasPestanasTest {
 		String error;
 		Test.startTest();
 		System.runAs(sitio) {
+			((Map<String, Object>) ((List<Object>) archivo.get('registros'))[0]).put('numero', 1);
 			r = PortalPolizasPestanas.crearSolicitud(auto.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null);
+			// El usuario del sitio adjunta la factura al vehículo del alta.
+			Map<String, Object> alta1 = (Map<String, Object>) ((List<Object>) r.get('movimientos'))[0];
+			if (comoEnElSitio) {
+				PortalPolizasPestanas.adjuntarDocumento(auto.Id, 'SOL-0001', (String) alta1.get('registroId'), 'Factura', 'f.pdf',
+					EncodingUtil.base64Encode(Blob.valueOf('x')), null);
+			}
 			// Un renglón que no está en la póliza: no queda nada.
 			archivo.put('registros', new List<Object>{
 				new Map<String, Object>{ 'tipo' => 'alta', 'fila' => 4, 'campos' => new Map<String, Object>{ 'serie' => 'CCC333', 'descripcion' => 'KIA RIO' } },
@@ -454,6 +469,7 @@ private class PortalPolizasPestanasTest {
 		Inciso_Flotilla__c nuevo = [SELECT Descripcion__c, Modelo__c, Placas__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'JTDKT9D38ED585824'];
 		System.assert(nuevo.Descripcion__c.startsWith('TOYOTA YARIS CORE'), nuevo.Descripcion__c);
 		System.assertEquals(2014, nuevo.Modelo__c);
+		System.assertEquals(comoEnElSitio ? 1 : 0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :nuevo.Id], 'La factura queda en el vehículo');
 		System.assertNotEquals(null, [SELECT Fecha_Baja__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'AAA111'].Fecha_Baja__c);
 		System.assertEquals('NEW123', [SELECT Placas__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'BBB222'].Placas__c);
 		System.assert(error != null && error.contains('Renglón 5 del archivo'), error);
@@ -723,5 +739,63 @@ private class PortalPolizasPestanasTest {
 		System.assertEquals('Movimiento 4 · ALBERTO GOMEZ RODRIGUEZ (ALTA)', PortalPolizasPestanas.movimientoArchivo(
 			new Map<String, Object>{ 'numero' => 4, 'fila' => 7, 'nombre' => 'ALBERTO GOMEZ RODRIGUEZ' }, 'alta'));
 		System.assertEquals('Renglón 7 del archivo', PortalPolizasPestanas.movimientoArchivo(new Map<String, Object>{ 'fila' => 7 }, 'alta'));
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Documentos del alta: la carta de antigüedad que el cliente identifica con su registro marca solo ese
+	 * movimiento con RA y queda en el contacto del asegurado y en el caso; un registro ajeno no se acepta.
+	 * @return void
+	 */
+	@isTest
+	static void testDocumentosDelAlta() {
+		Account empresa = new Account(Name = 'Empresa Documentos');
+		insert empresa;
+		InsurancePolicy pol = poliza(empresa.Id, 'DOCS-1', 'GMM');
+		insert pol;
+		Contact c = new Contact(LastName = 'Empleado docs', AccountId = empresa.Id);
+		insert c;
+		InsurancePolicyParticipant otro = new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, PrimaryParticipantContactId = c.Id,
+			Role = rol('asegurado'), ParticipantCode = '1', IsActiveParticipant = true);
+		Contact c2 = new Contact(LastName = 'Empleado docs dos', AccountId = empresa.Id);
+		insert c2;
+		insert new List<InsurancePolicyParticipant>{ otro, new InsurancePolicyParticipant(InsurancePolicyId = pol.Id,
+			PrimaryParticipantContactId = c2.Id, Role = rol('asegurado'), ParticipantCode = '2', IsActiveParticipant = true) };
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+		List<Object> movs = new List<Object>();
+		Integer n = 0;
+		for (String nombre : new List<String>{ 'Ana', 'Eva' }) {
+			n++;
+			movs.add(new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()), 'numero' => n,
+				'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => nombre } },
+				'campos' => new Map<String, Object>{ 'nombre' => nombre, 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
+					'parentesco' => 'Titular' } });
+		}
+		String b64 = EncodingUtil.base64Encode(Blob.valueOf('carta'));
+		Test.startTest();
+		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(pol.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => movs,
+			'documentos' => new List<Object>{ new Map<String, Object>{ 'movimiento' => 2, 'tipo' => 'Carta de antigüedad', 'nombre' => 'doc1.pdf' } } }), null);
+		Map<String, Object> m2 = (Map<String, Object>) ((List<Object>) r.get('movimientos'))[1];
+		String folio = (String) m2.get('folio');
+		PortalPolizasPestanas.adjuntarDocumento(pol.Id, folio, (String) m2.get('registroId'), 'Carta de antigüedad', 'doc1.pdf', b64, null);
+		Integer errores = 0;
+		try { PortalPolizasPestanas.adjuntarDocumento(pol.Id, folio, otro.Id, 'Otro', 'x.pdf', b64, null); } catch (AuraHandledException e) { errores++; }
+		try { PortalPolizasPestanas.adjuntarDocumento(pol.Id, 'SOL-9999', null, 'Otro', 'x.pdf', b64, null); } catch (AuraHandledException e) { errores++; }
+		try { PortalPolizasPestanas.adjuntarDocumento(pol.Id, folio, null, 'Otro', 'x.pdf', '', null); } catch (AuraHandledException e) { errores++; }
+		Test.stopTest();
+		System.assertEquals(3, errores, 'Registro ajeno, folio que no existe y documento vacío');
+		InsurancePolicyParticipant eva = [SELECT ParticipantName, PrimaryParticipantContactId FROM InsurancePolicyParticipant WHERE Id = :(String) m2.get('registroId')];
+		System.assert(eva.ParticipantName.contains('Eva'), eva.ParticipantName);
+		Id caso = [SELECT Id FROM Case WHERE InsurancePolicy__c = :pol.Id].Id;
+		for (Id donde : new List<Id>{ caso, eva.PrimaryParticipantContactId != null ? eva.PrimaryParticipantContactId : eva.Id }) {
+			System.assertEquals('Carta de antigüedad - doc1', [SELECT ContentDocument.Title FROM ContentDocumentLink WHERE LinkedEntityId = :donde].ContentDocument.Title);
+		}
+		Integer conRA = 0;
+		for (Movimiento_Poliza__c m : [SELECT Asegurado__c, Comentario__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id]) {
+			if (m.Comentario__c != null && m.Comentario__c.startsWith('Con RA')) { conRA++; System.assert(m.Asegurado__c.contains('Eva')); }
+		}
+		System.assertEquals(1, conRA, 'RA solo en el registro con su carta');
 	}
 }

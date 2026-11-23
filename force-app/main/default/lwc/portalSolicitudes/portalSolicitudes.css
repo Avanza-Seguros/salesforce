@@ -230,3 +230,14 @@
 
 /* Movimiento del archivo con error: resaltado en la vista previa. */
 .tabla tr.fila_error td { background: #fdecec; border-top: 1px dashed #c23934; border-bottom: 1px dashed #c23934; color: #8e1b16; }
+
+/* Documentos de las altas y cambios. */
+.documentos { display: grid; gap: 0.625rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #edf0f6; }
+.documentos .nota { margin: 0; }
+.documentos_titulo { margin: 0; font-size: 0.9375rem; font-weight: 700; color: #0b1f44; }
+.documentos_ra { padding: 0.75rem 1rem; border: 1px solid #fbd9a8; border-radius: 12px; background: #fff8ec; }
+.documentos_ra p { margin: 0; }
+.documentos_ra ul { margin: 0.25rem 0; padding-left: 1.125rem; list-style: disc; }
+.documento { padding: 0.75rem 1rem; border: 1px solid #e3e8f2; border-radius: 12px; }
+.documento_archivo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+.documento_nombre { font-weight: 600; overflow-wrap: anywhere; }

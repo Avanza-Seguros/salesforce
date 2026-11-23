@@ -1023,9 +1023,10 @@ public without sharing class PortalPolizasPestanas {
 	 *                          datos: [{ etiqueta, valor }], campos: { clave: valor } }],
 	 *                        listado: { tipo, nombre, fecha, encabezados, filas, total,
 	 *                          registros: [{ tipo, fila, fecha, comentario, titular, campos: { clave: valor } }] },
-	 *                        comentario, archivos: [{ nombre, base64 }] }
+	 *                        comentario, archivos: [{ nombre, base64 }],
+	 *                        documentos: [{ movimiento: número, tipo, nombre }] (los que se adjuntan después a cada registro) }
 	 * @param cuentaVistaPrevia: Cuenta a simular (vista previa de administrador, para pruebas); null para el usuario real
-	 * @return folio y número de caso
+	 * @return folio, número de caso y «movimientos»: el registro de cada movimiento, para adjuntar sus documentos
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> crearSolicitud(Id policyId, String solicitudJson, Id cuentaVistaPrevia) {
@@ -1063,6 +1064,7 @@ public without sharing class PortalPolizasPestanas {
 		otras.addAll(renglonesOtra.keySet());
 		for (Id pid : otras) {
 			Map<String, Object> d2 = new Map<String, Object>{ 'comentario' => d.get('comentario'), 'archivos' => d.get('archivos'),
+				'documentos' => d.get('documentos'),
 				'movimientos' => movsOtra.containsKey(pid) ? movsOtra.get(pid) : new List<Object>() };
 			if (renglonesOtra.containsKey(pid)) {
 				d2.put('listado', new Map<String, Object>{ 'tipo' => 'varios', 'nombre' => listado.get('nombre'), 'filas' => new List<Object>(),
@@ -1073,13 +1075,15 @@ public without sharing class PortalPolizasPestanas {
 		// Una respuesta con todas las solicitudes que se crearon (la de esta póliza primero).
 		List<String> folios = new List<String>();
 		Integer registrados = 0;
+		List<Object> movimientos = new List<Object>();
 		for (Map<String, Object> r : creadas) {
+			if (r.get('movimientos') != null) { movimientos.addAll((List<Object>) r.get('movimientos')); }
 			folios.add(r.get('poliza') == null || r.get('polizaId') == policyId ? String.valueOf(r.get('folio'))
 				: r.get('folio') + ' (póliza ' + r.get('poliza') + ')');
 			registrados += r.get('registrados') == null ? 0 : (Integer) r.get('registrados');
 		}
 		return new Map<String, Object>{ 'folio' => String.join(folios, ', '), 'caso' => creadas[0].get('caso'),
-			'registrados' => registrados, 'solicitudes' => creadas.size() };
+			'registrados' => registrados, 'solicitudes' => creadas.size(), 'movimientos' => movimientos };
 	}
 
 	/**
@@ -1106,6 +1110,74 @@ public without sharing class PortalPolizasPestanas {
 	static void agregar(Map<Id, List<Object>> m, Id k, Object o) {
 		if (!m.containsKey(k)) { m.put(k, new List<Object>()); }
 		m.get(k).add(o);
+	}
+
+	// Documentos de reconocimiento de antigüedad que el cliente identifica al adjuntarlos.
+	static final Set<String> TIPOS_RA = new Set<String>{ 'Carta de antigüedad', 'Carátula de la póliza anterior', 'Comprobante de pago' };
+	// Tamaño máximo de cada documento (el contenido viaja en base64).
+	@TestVisible static Id redPrueba;
+	@TestVisible static final Integer MAX_BYTES_DOCUMENTO = 3 * 1024 * 1024;
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Adjunta un documento del alta o cambio (carta de antigüedad, identificación, factura...) al registro que
+	 * el cliente eligió: al contacto del asegurado, al vehículo o a la ubicación. También queda en el caso de la solicitud,
+	 * con el tipo de documento en su nombre. Se llama una vez por documento, después de crearSolicitud.
+	 * @param policyId: póliza del movimiento
+	 * @param folio: folio de la solicitud
+	 * @param registroId: registro del movimiento (de crearSolicitud); null deja el documento solo en el caso
+	 * @param tipo: qué documento es («Carta de antigüedad», «Identificación»...)
+	 * @param nombre: nombre del archivo
+	 * @param base64: contenido
+	 * @param cuentaVistaPrevia: Cuenta a simular (vista previa de administrador); null para el usuario real
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void adjuntarDocumento(Id policyId, String folio, String registroId, String tipo, String nombre, String base64, Id cuentaVistaPrevia) {
+		try {
+			if (PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia).get(policyId) != 'Titular') {
+				throw falla('Solo el contratante de la póliza puede adjuntar documentos.');
+			}
+			Id tipoCaso = EndosoPoliza.tipoCaso();
+			List<Case> casos = [SELECT Id FROM Case WHERE RecordTypeId = :tipoCaso AND InsurancePolicy__c = :policyId AND Solicitud__c = :folio LIMIT 1];
+			if (casos.isEmpty() || String.isBlank(folio)) { throw falla('La solicitud no existe.'); }
+			if (String.isBlank(nombre) || String.isBlank(base64)) { throw falla('El documento está vacío.'); }
+			Blob contenido = EncodingUtil.base64Decode(base64);
+			if (contenido.size() > MAX_BYTES_DOCUMENTO) { throw falla('El documento pesa más de 3 MB.'); }
+			Id destino = String.isBlank(registroId) ? null : destinoDocumento(policyId, folio, registroId);
+			String titulo = (String.isBlank(tipo) ? '' : tipo.normalizeSpace().left(80) + ' - ') + nombre.substringBeforeLast('.');
+			ContentVersion v = new ContentVersion(Title = titulo.left(255), PathOnClient = nombre.right(255), VersionData = contenido,
+				FirstPublishLocationId = casos[0].Id);
+			// En el sitio, la red la pone la plataforma; en pruebas no hay sitio.
+			if (redPrueba != null) { v.NetworkId = redPrueba; }
+			insert v;
+			if (destino != null) {
+				insert new ContentDocumentLink(ContentDocumentId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :v.Id].ContentDocumentId,
+					LinkedEntityId = destino, ShareType = 'V');
+			}
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			System.debug(LoggingLevel.ERROR, 'adjuntarDocumento: ' + e.getMessage() + ' | ' + e.getStackTraceString());
+			throw falla('No se pudo adjuntar el documento.');
+		}
+	}
+
+	// Dónde se guarda el documento: el registro debe tener un movimiento de esa solicitud o ser un bien de la póliza.
+	private static Id destinoDocumento(Id policyId, String folio, String registroId) {
+		Id r;
+		try { r = Id.valueOf(registroId); } catch (StringException e) { throw falla('El registro no es de esta solicitud.'); }
+		for (Movimiento_Poliza__c m : [
+			SELECT Inciso__c, Participante__r.PrimaryParticipantContactId, Participante__r.PrimaryParticipantAccountId
+			FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :folio AND (Participante__c = :r OR Inciso__c = :r) LIMIT 1
+		]) {
+			if (m.Inciso__c == r) { return r; }
+			if (m.Participante__r.PrimaryParticipantContactId != null) { return m.Participante__r.PrimaryParticipantContactId; }
+			return m.Participante__r.PrimaryParticipantAccountId != null ? m.Participante__r.PrimaryParticipantAccountId : r;
+		}
+		if (r.getSObjectType() == InsurancePolicyAsset.SObjectType
+				&& [SELECT COUNT() FROM InsurancePolicyAsset WHERE Id = :r AND InsurancePolicyId = :policyId] > 0) { return r; }
+		throw falla('El registro no es de esta solicitud.');
 	}
 
 	/** Una solicitud en una póliza (ver crearSolicitud). */
@@ -1170,7 +1242,7 @@ public without sharing class PortalPolizasPestanas {
 				}
 				aRegistrar.add(new Map<String, Object>{ 'tipo' => tipo, 'registroId' => m.get('registroId'), 'fecha' => m.get('fecha'),
 					'comentario' => m.get('detalle'), 'campos' => campos, 'titularId' => m.get('titularId'), 'etiqueta' => 'Movimiento ' + num,
-					'capturado' => true });
+					'numero' => num, 'capturado' => true });
 			}
 			String tipoArchivo = null;
 			String resumenArchivo = null;
@@ -1199,7 +1271,7 @@ public without sharing class PortalPolizasPestanas {
 						Date antiguedad = campos == null ? null : CensoColectivoController.fecha(texto(campos.get('fechaAntiguedad')));
 						if (campos != null) { campos.remove('fechaAntiguedad'); campos.remove('poliza'); }
 						aRegistrar.add(new Map<String, Object>{ 'tipo' => t, 'fecha' => f, 'comentario' => r.get('comentario'),
-							'campos' => campos, 'titular' => r.get('titular'), 'etiqueta' => donde, 'ra' => antiguedad != null,
+							'campos' => campos, 'titular' => r.get('titular'), 'etiqueta' => donde, 'numero' => r.get('numero'), 'ra' => antiguedad != null,
 							'raDesde' => antiguedad == null ? null : antiguedad.format(), 'antiguedad' => antiguedad == null ? null : String.valueOf(antiguedad) });
 					}
 				}
@@ -1227,9 +1299,28 @@ public without sharing class PortalPolizasPestanas {
 				if (k >= 0) { nombresArchivos.remove(k); }
 			}
 			List<String> documentosRA = archivosRA(nombresArchivos);
+			Boolean hayRA = !documentosRA.isEmpty();
+			// Documentos que el cliente identificó con su registro (se adjuntan después, uno por uno: adjuntarDocumento).
+			Map<String, List<Map<String, Object>>> documentos = new Map<String, List<Map<String, Object>>>();
+			for (Object o : d.get('documentos') instanceof List<Object> ? (List<Object>) d.get('documentos') : new List<Object>()) {
+				Map<String, Object> x = (Map<String, Object>) o;
+				String k = String.valueOf(x.get('movimiento'));
+				if (!documentos.containsKey(k)) { documentos.put(k, new List<Map<String, Object>>()); }
+				documentos.get(k).add(x);
+			}
 			Integer conRA = 0;
 			for (Map<String, Object> r : aRegistrar) {
-				if (!documentosRA.isEmpty() && r.get('tipo') != 'baja' && r.get('capturado') == true) { r.put('ra', true); }
+				List<Map<String, Object>> suyos = r.get('numero') == null || r.get('tipo') == 'baja' ? null : documentos.get(String.valueOf(r.get('numero')));
+				if (suyos != null) {
+					for (Map<String, Object> x : suyos) {
+						if (!TIPOS_RA.contains(texto(x.get('tipo')))) { continue; }
+						r.put('ra', true);
+						documentosRA.add(texto(x.get('nombre')));
+					}
+				}
+			}
+			for (Map<String, Object> r : aRegistrar) {
+				if (hayRA && r.get('tipo') != 'baja' && r.get('capturado') == true) { r.put('ra', true); }
 				if (r.get('ra') == true) { conRA++; }
 			}
 
@@ -1281,7 +1372,14 @@ public without sharing class PortalPolizasPestanas {
 				a.setMessage('No se pudo registrar la solicitud: ' + msg);
 				throw a;
 			}
-			return new Map<String, Object>{ 'folio' => folio, 'caso' => [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber,
+			// Registro de cada movimiento, para adjuntarle sus documentos.
+			List<Object> movimientos = new List<Object>();
+			for (Map<String, Object> r : aRegistrar) {
+				if (r.get('numero') == null || r.get('tipo') == 'baja') { continue; }
+				movimientos.add(new Map<String, Object>{ 'numero' => r.get('numero'), 'registroId' => r.get('idRegistrado'),
+					'polizaId' => policyId, 'folio' => folio });
+			}
+			return new Map<String, Object>{ 'movimientos' => movimientos, 'folio' => folio, 'caso' => [SELECT CaseNumber FROM Case WHERE Id = :c.Id].CaseNumber,
 				'registrados' => registrados, 'poliza' => p.Name, 'polizaId' => policyId };
 		} catch (AuraHandledException e) {
 			throw e;
@@ -1382,6 +1480,8 @@ public without sharing class PortalPolizasPestanas {
 			}
 			throw falla(msg);
 		}
+		List<String> ids = (List<String>) res.get('ids');
+		for (Integer n = 0; ids != null && n < regs.size() && n < ids.size(); n++) { regs[n].put('idRegistrado', ids[n]); }
 		Integer total = 0;
 		for (String k : new List<String>{ 'altas', 'bajas', 'cambios' }) {
 			if (res.get(k) instanceof Integer) { total += (Integer) res.get(k); }

@@ -150,6 +150,10 @@ public inherited sharing class MovimientosUbicacionesController {
 			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
 			r.put('solicitud', EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
 			r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso));
+			// Registro de cada movimiento, en su orden (el sitio adjunta ahí los documentos del alta).
+			List<String> ids = new List<String>();
+			for (Movimiento m : movs) { ids.add(m.id); }
+			r.put('ids', ids);
 			return r;
 		} catch (AuraHandledException e) {
 			Database.rollback(sp);
@@ -311,6 +315,7 @@ public inherited sharing class MovimientosUbicacionesController {
 				ya.EffectiveFromDate = f;
 				ya.EffectiveToDate = fin;
 				actualizar.put(ya.Id, ya);
+				m.id = ya.Id;
 				Movimiento_Poliza__c r = registro(m, ALTA, CONTEXTO_ENDOSO, policyId, null, ubicacion(ya));
 				r.Detalle__c = ('Reingreso de la ubicación\n' + detalleAlta(m.datos)).trim();
 				registro.add(r);
@@ -335,6 +340,7 @@ public inherited sharing class MovimientosUbicacionesController {
 				if (porId.containsKey(a.Id) || a.CustomerProperty == null) { continue; }
 				Movimiento m = nuevas.get(PolicyController.llaveBien(a.CustomerProperty));
 				if (m == null) { continue; }
+				m.id = a.Id;
 				a.EffectiveFromDate = CensoColectivoController.fecha(m.fecha);
 				desde.add(a);
 				Movimiento_Poliza__c r = registro(m, ALTA, CONTEXTO_ENDOSO, policyId, null, ubicacion(a));

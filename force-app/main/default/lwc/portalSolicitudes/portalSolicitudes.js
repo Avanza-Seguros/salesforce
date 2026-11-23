@@ -7,12 +7,36 @@
 import { LightningElement, api } from 'lwc';
 import solicitudes from '@salesforce/apex/PortalPolizasPestanas.solicitudes';
 import crearSolicitud from '@salesforce/apex/PortalPolizasPestanas.crearSolicitud';
+import adjuntarDocumento from '@salesforce/apex/PortalPolizasPestanas.adjuntarDocumento';
 import registrosPoliza from '@salesforce/apex/PortalPolizasPestanas.registrosPoliza';
 import { abrirTabla, detectarEncabezado, inicioDatos, mapeoAutomatico, tieneDatos, letraColumna, fold, fecha as fechaIso, fechaVisible,
-    descargarExcel, renglonesEncabezadoAbajo } from 'c/lectorArchivos';
+    descargarExcel, renglonesEncabezadoAbajo, paginasPdf } from 'c/lectorArchivos';
 
 // Igual que PortalPolizasPestanas.MAX_BYTES_SOLICITUD.
 const MAX_BYTES = 4 * 1024 * 1024;
+// Documento de un registro (igual que PortalPolizasPestanas.MAX_BYTES_DOCUMENTO).
+const MAX_BYTES_DOCUMENTO = 3 * 1024 * 1024;
+const MAX_PAGINAS_DOCUMENTO = 10;
+const OTRO_DOCUMENTO = 'Otro documento';
+// Documentos que se identifican al adjuntarlos (los de antigüedad, igual que PortalPolizasPestanas.TIPOS_RA), con lo que
+// los reconoce en el nombre del archivo.
+const TIPOS_DOCUMENTO = {
+    personas: [
+        { valor: 'Carta de antigüedad', patron: /antig/ },
+        { valor: 'Carátula de la póliza anterior', patron: /caratula/ },
+        { valor: 'Comprobante de pago', patron: /comprobante|recibo|complemento|\bpago\b/ },
+        { valor: 'Identificación oficial', patron: /\bine\b|\bife\b|identificacion|pasaporte/ },
+        { valor: 'Acta de nacimiento', patron: /\bacta\b/ }
+    ],
+    vehiculos: [
+        { valor: 'Factura', patron: /factura/ },
+        { valor: 'Tarjeta de circulación', patron: /circulacion/ }
+    ],
+    ubicaciones: [
+        { valor: 'Escritura o contrato', patron: /escritura|contrato|arrendamiento/ },
+        { valor: 'Avalúo', patron: /avaluo/ }
+    ]
+};
 // Renglones del archivo que se mandan para el detalle del caso (el archivo completo va adjunto).
 const MAX_FILAS = 2000;
 
@@ -272,6 +296,8 @@ export default class PortalSolicitudes extends LightningElement {
         this.modo = 'archivo';
         this.listado = null;
         this.filaError = null;
+        this.documentos = [];
+        this.avance = '';
         this.formulario = true;
     }
 
@@ -611,6 +637,152 @@ export default class PortalSolicitudes extends LightningElement {
         const m = this.movimientos.find((x) => x.key === e.target.dataset.key);
         this.cambiar(m.key, { datos: { ...m.datos, [e.target.dataset.campo]: e.detail.value } });
     }
+    // ===== Documentos de los registros (altas y cambios): qué son y a quién corresponden =====
+    documentos = [];
+    avance = '';
+    // Altas y cambios de la solicitud a los que se les puede adjuntar un documento.
+    get candidatos() {
+        return this.enArchivo ? this.candidatosArchivo() : this.candidatosManual();
+    }
+    candidatosManual() {
+        return this.movimientos.map((m, i) => {
+            if (m.tipo === 'baja') { return null; }
+            const d = m.datos;
+            let nombre;
+            let claves = [];
+            if (m.tipo === 'cambio') {
+                const r = this.registrosDe(m.polizaId).find((x) => x.id === m.registroId);
+                nombre = r ? r.nombre : '';
+                claves = r ? [r.clave] : [];
+            } else if (this.tipo === 'personas') {
+                nombre = [d.nombre, d.paterno, d.materno].filter((x) => x).join(' ');
+            } else if (this.tipo === 'vehiculos') {
+                nombre = d.descripcion || d.serie || '';
+                claves = [d.serie, d.placas];
+            } else {
+                nombre = d.ubicacion || d.direccion || '';
+            }
+            return this.candidato(i + 1, m.tipo, nombre, claves);
+        }).filter((c) => c);
+    }
+    candidatosArchivo() {
+        const h = this.listado && this.listado.hoja;
+        if (!h || !h.filas.length) { return []; }
+        // El archivo no cambia mientras está elegido: se arma una vez.
+        if (this._candidatosDe === h) { return this._candidatos; }
+        const valorDe = (x) => (k) => (h.mapeo[k] === undefined ? '' : String(x.f[Number(h.mapeo[k])] ?? '').trim());
+        this._candidatosDe = h;
+        this._candidatos = h.crudas.map((x, i) => {
+            const valor = valorDe(x);
+            const tipo = this.tipoDeRenglon(valor('movimiento'));
+            return tipo === 'alta' || tipo === 'cambio'
+                ? this.candidato(i + 1, tipo, this.nombreRenglon(valor), [valor('certificado'), valor('serie'), valor('placas')]) : null;
+        }).filter((c) => c);
+        return this._candidatos;
+    }
+    candidato(numero, tipo, nombre, claves) {
+        return { value: String(numero), label: `${numero} · ${nombre || (tipo === 'alta' ? 'Alta' : 'Cambio') + ' sin nombre'}${tipo === 'cambio' ? ' (cambio)' : ''}`,
+            nombre, partes: fold(nombre).split(' ').filter((p) => p),
+            claves: claves.map((c) => this.codigo(c).toLowerCase()).filter((c) => c.length >= 5) };
+    }
+    // El documento nombra al registro: todas las palabras de su nombre, el nombre pegado, su serie, placas o certificado.
+    coincide(c, texto) {
+        const tokens = fold(texto).split(' ').filter((t) => t);
+        const pegado = tokens.join('');
+        if (c.claves.some((k) => pegado.includes(k))) { return true; }
+        if (c.partes.length < 2) { return false; }
+        const set = new Set(tokens);
+        if (c.partes.every((p) => set.has(p))) { return true; }
+        return c.partes.some((x, i) => pegado.includes([...c.partes.slice(i), ...c.partes.slice(0, i)].join('')));
+    }
+    identificar(doc, candidatos) {
+        if (doc.movimiento !== null && (doc.movimiento === '' || candidatos.some((c) => c.value === doc.movimiento))) { return doc.movimiento; }
+        if (candidatos.length === 1) { return candidatos[0].value; }
+        for (const lineas of [[doc.nombre.replace(/\.[^.]+$/, '')], doc.lineas || []]) {
+            const hallados = candidatos.filter((c) => lineas.some((l) => this.coincide(c, l)));
+            if (hallados.length === 1) { return hallados[0].value; }
+            // Varios: el nombre más largo si contiene a los demás (ANA RUIZ y ANA RUIZ LOPEZ).
+            if (hallados.length > 1) {
+                const largo = hallados.reduce((a, b) => (b.partes.length > a.partes.length ? b : a));
+                if (hallados.every((c) => c === largo || (c.partes.length < largo.partes.length && c.partes.every((p) => largo.partes.includes(p))))) { return largo.value; }
+            }
+        }
+        return '';
+    }
+    get tiposDocumento() { return [...TIPOS_DOCUMENTO[this.tipo].map((t) => t.valor), OTRO_DOCUMENTO]; }
+    get opcionesTipoDocumento() { return this.tiposDocumento.map((t) => ({ label: t, value: t })); }
+    tipoDe(doc) {
+        if (doc.tipo) { return doc.tipo; }
+        const t = TIPOS_DOCUMENTO[this.tipo].find((x) => x.patron.test(fold(doc.nombre)));
+        if (t) { return t.valor; }
+        // Por lo que dice el documento: la carta de antigüedad.
+        return this.esPersonas && /carta (de )?antiguedad|reconocimiento de antiguedad/.test(fold((doc.lineas || []).slice(0, 80).join(' ')))
+            ? TIPOS_DOCUMENTO.personas[0].valor : OTRO_DOCUMENTO;
+    }
+    get conDocumentos() { return this.candidatos.length > 0 || this.documentos.length > 0; }
+    get hayDocumentos() { return this.documentos.length > 0; }
+    get textoDocumentos() {
+        return this.esPersonas ? 'Adjunta cartas de antigüedad u otros documentos e indica de quién son: quedan en el registro de cada asegurado.'
+            : `Adjunta los documentos e indica de qué ${this.nombreRegistro} son: quedan en su registro.`;
+    }
+    get opcionesCandidato() { return this.candidatos.map(({ value, label }) => ({ value, label })); }
+    get listaDocumentos() {
+        const candidatos = this.candidatos;
+        return this.documentos.map((d) => {
+            const tipo = this.tipoDe(d);
+            return { ...d, tipoTxt: tipo, esOtro: tipo === OTRO_DOCUMENTO, movimientoTxt: this.identificar(d, candidatos), tamanoTxt: this.tamano(d.tamano) };
+        });
+    }
+    handleDocumentos(e) {
+        const files = [...((e.target && e.target.files) || (e.dataTransfer && e.dataTransfer.files) || [])];
+        if (e.target) { e.target.value = null; }
+        this.agregarDocumentos(files);
+    }
+    handleSoltarDocumentos(e) {
+        e.preventDefault();
+        this.agregarDocumentos([...((e.dataTransfer && e.dataTransfer.files) || [])]);
+    }
+    agregarDocumentos(files) {
+        const grandes = files.filter((f) => f.size > MAX_BYTES_DOCUMENTO);
+        this.error = grandes.length ? `${grandes.map((f) => f.name).join(', ')}: ${grandes.length === 1 ? 'pesa' : 'pesan'} más de 3 MB.` : undefined;
+        const nuevos = files.filter((f) => f.size && f.size <= MAX_BYTES_DOCUMENTO).map((f) => ({
+            key: 'd' + siguiente++, file: f, nombre: f.name, tamano: f.size, tipo: '', descripcion: '', movimiento: null, lineas: [] }));
+        this.documentos = [...this.documentos, ...nuevos];
+        // Si el nombre del archivo no dice de quién es, se busca en el PDF.
+        nuevos.filter((d) => /\.pdf$/i.test(d.nombre)).forEach(async (d) => {
+            try {
+                const texto = (await paginasPdf(this, d.file, null, () => MAX_PAGINAS_DOCUMENTO)).join('\n');
+                this.cambiarDocumento(d.key, { lineas: texto.split('\n').slice(0, 1500) });
+            } catch (err) { /* Escaneado o protegido: el cliente elige el registro. */ }
+        });
+    }
+    cambiarDocumento(key, cambios) { this.documentos = this.documentos.map((d) => (d.key === key ? { ...d, ...cambios } : d)); }
+    handleDocumento(e) { this.cambiarDocumento(e.target.dataset.key, { [e.target.dataset.campo]: e.detail.value }); }
+    handleQuitarDocumento(e) {
+        const k = e.currentTarget.dataset.key;
+        this.documentos = this.documentos.filter((d) => d.key !== k);
+    }
+    // Adjunta cada documento a su registro (ya creada la solicitud). Regresa los que no se pudieron.
+    async adjuntarDocumentos(lista, movimientos) {
+        const porNumero = new Map((movimientos || []).map((m) => [String(m.numero), m]));
+        const fallidos = [];
+        for (let i = 0; i < lista.length; i++) {
+            const d = lista[i];
+            this.avance = `Adjuntando documentos: ${i + 1} de ${lista.length}…`;
+            try {
+                const m = porNumero.get(d.movimiento);
+                // eslint-disable-next-line no-await-in-loop
+                const base64 = await this.leerBase64(d.file);
+                // eslint-disable-next-line no-await-in-loop
+                await adjuntarDocumento({ policyId: m.polizaId, folio: m.folio, registroId: m.registroId || null, tipo: d.tipo, nombre: d.nombre, base64,
+                    cuentaVistaPrevia: this.cuentaVistaPrevia || null });
+            } catch (err) {
+                fallidos.push(d.nombre);
+            }
+        }
+        this.avance = '';
+        return fallidos;
+    }
     handleComentario(e) { this.comentario = e.detail.value; }
 
     get opcionesTipo() {
@@ -693,6 +865,13 @@ export default class PortalSolicitudes extends LightningElement {
                 return;
             }
         }
+        const documentos = this.listaDocumentos.map((x) => ({ file: x.file, nombre: x.nombre, movimiento: x.movimientoTxt,
+            tipo: x.esOtro ? (x.descripcion || '').trim() || OTRO_DOCUMENTO : x.tipoTxt }));
+        const sinRegistro = documentos.find((x) => !x.movimiento);
+        if (sinRegistro) {
+            this.error = `Elige a qué ${this.nombreRegistro} corresponde el documento «${sinRegistro.nombre}».`;
+            return;
+        }
         const registros = new Map(((this.datos && this.datos.registros) || []).map((r) => [r.id, r]));
         // El archivo con los datos queda adjunto al caso.
         const archivos = [];
@@ -727,10 +906,12 @@ export default class PortalSolicitudes extends LightningElement {
                     movimientos,
                     listado,
                     comentario: this.comentario,
-                    archivos
+                    archivos,
+                    documentos: documentos.map(({ movimiento, tipo, nombre }) => ({ movimiento, tipo, nombre }))
                 }),
                 cuentaVistaPrevia: this.cuentaVistaPrevia || null
             });
+            const fallidos = await this.adjuntarDocumentos(documentos, r.movimientos);
             this.formulario = false;
             this.filaError = null;
             const varias = r.solicitudes > 1;
@@ -738,6 +919,9 @@ export default class PortalSolicitudes extends LightningElement {
             this.exito = r.registrados
                 ? `Registramos tu${varias ? 's solicitudes' : ' solicitud'} ${numero}: ${r.registrados} ${r.registrados === 1 ? 'movimiento quedó solicitado' : 'movimientos quedaron solicitados'}. Verás aquí su avance.`
                 : `Recibimos tu${varias ? 's solicitudes' : ' solicitud'} ${numero}. Tu asesor la revisará y verás aquí su avance.`;
+            if (fallidos.length) {
+                this.exito += ` No se ${fallidos.length === 1 ? 'pudo adjuntar' : 'pudieron adjuntar'}: ${fallidos.join(', ')}. Envíalo a tu asesor.`;
+            }
             if (this.soloFormulario) { this.cerrar(this.exito); return; }
             await this.cargar();
         } catch (e) {

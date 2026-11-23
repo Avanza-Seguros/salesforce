@@ -131,6 +131,41 @@
 
                 <lightning-textarea label="Comentario (opcional)" value={comentario} onchange={handleComentario} max-length="4000"
                     class="comentario"></lightning-textarea>
+                <!-- Documentos de las altas y cambios: cada uno se identifica y queda en el registro que corresponde. -->
+                <section lwc:if={conDocumentos} class="documentos" aria-label="Documentos">
+                    <h3 class="documentos_titulo">Documentos (opcional)</h3>
+                    <p class="nota">{textoDocumentos}</p>
+                    <div lwc:if={esPersonas} class="nota documentos_ra">
+                        <p>Si solicitas reconocimiento de antigüedad, adjunta los documentos según la procedencia del asegurado (hasta 3 MB cada uno):</p>
+                        <ul>
+                            <li><strong>Viene de otro seguro colectivo:</strong> carta de antigüedad expedida hace no más de 30 días naturales.</li>
+                            <li><strong>Viene de un seguro de GMM individual:</strong> carátula de la póliza y comprobante de pago.</li>
+                        </ul>
+                        <p>En ambos casos no deben haber pasado más de 30 días naturales sin cobertura entre la baja del seguro anterior y esta alta.</p>
+                    </div>
+                    <template for:each={listaDocumentos} for:item="d">
+                        <div key={d.key} class="documento">
+                            <div class="documento_archivo">
+                                <span class="documento_nombre">{d.nombre}</span> <span class="celda_sub">{d.tamanoTxt}</span>
+                                <button class="enlace quitar" data-key={d.key} onclick={handleQuitarDocumento}>Quitar</button>
+                            </div>
+                            <div class="campos">
+                                <lightning-combobox label="¿Qué documento es?" value={d.tipoTxt} options={opcionesTipoDocumento} data-key={d.key}
+                                    data-campo="tipo" onchange={handleDocumento} required></lightning-combobox>
+                                <lightning-input lwc:if={d.esOtro} label="Nombre del documento (opcional)" value={d.descripcion} data-key={d.key}
+                                    data-campo="descripcion" onchange={handleDocumento} max-length="80"></lightning-input>
+                                <c-buscador-registro label={etiquetaRegistro} value={d.movimientoTxt} options={opcionesCandidato} data-key={d.key}
+                                    data-campo="movimiento" onchange={handleDocumento} placeholder="¿A quién corresponde?" required></c-buscador-registro>
+                            </div>
+                        </div>
+                    </template>
+                    <label class="zona zona_documentos" ondragover={handleSobreZona} ondrop={handleSoltarDocumentos}>
+                        <span class="zona_titulo">Elige o arrastra aquí los documentos</span>
+                        <span class="nota">PDF, imagen o Word, hasta 3 MB cada uno. Intentamos reconocer de quién es cada uno; revísalo antes de enviar.</span>
+                        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onchange={handleDocumentos} class="oculto" disabled={enviando} />
+                    </label>
+                </section>
+                <p lwc:if={avance} class="nota" role="status">{avance}</p>
                 <div class="acciones">
                     <button class="boton_secundario" onclick={handleCancelar} disabled={enviando}>Cancelar</button>
                     <button class="boton" onclick={handleEnviar} disabled={enviando}>Enviar solicitud</button>

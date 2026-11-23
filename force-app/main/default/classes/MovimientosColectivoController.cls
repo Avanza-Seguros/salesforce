@@ -162,6 +162,10 @@ public inherited sharing class MovimientosColectivoController {
 				r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
 				r.put('endosos', endosos.size());
 			}
+			// Registro de cada movimiento, en su orden (el sitio adjunta ahí los documentos del alta).
+			List<String> ids = new List<String>();
+			for (Movimiento m : movs) { ids.add(m.id); }
+			r.put('ids', ids);
 			// Las altas que vienen de un cambio se cuentan como cambios.
 			Integer comoCambio = 0;
 			for (Movimiento m : movs) { if (m.tipo == ALTA && m.comoCambio == true) { comoCambio++; } }
@@ -635,6 +639,7 @@ public inherited sharing class MovimientosColectivoController {
 		for (Integer i : creados.keySet()) {
 			Movimiento m = movs[i];
 			InsurancePolicyParticipant p = creados.get(i);
+			m.id = p.Id;
 			if (m.datos.sumaAsegurada != null) { sumas.put(p.Id, m.datos.sumaAsegurada); }
 			Movimiento_Poliza__c r = registro(m, ALTA, CONTEXTO_ENDOSO, pol.Id, null, p.Id, p.ParticipantName, p.ParticipantCode);
 			r.Detalle__c = detalleAlta(m.datos);

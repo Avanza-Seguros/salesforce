@@ -146,6 +146,10 @@ public inherited sharing class MovimientosFlotillaController {
 			List<Id> endosos = EndosoPoliza.registrarTodos(recordId, primaEndoso, primasEndosos);
 			r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
 			r.put('transacciones', EndosoPoliza.ultimosPorNumero);
+			// Registro de cada movimiento, en su orden (el sitio adjunta ahí los documentos del alta).
+			List<String> ids = new List<String>();
+			for (Movimiento m : movs) { ids.add(m.id); }
+			r.put('ids', ids);
 			return r;
 		} catch (AuraHandledException e) {
 			Database.rollback(sp);
@@ -416,6 +420,7 @@ public inherited sharing class MovimientosFlotillaController {
 				ya.Motivo_Baja__c = null;
 				ya.Fecha_Alta__c = f;
 				actualizar.put(ya.Id, ya);
+				m.id = ya.Id;
 				InsurancePolicyAsset a = bienes.get(ya.Vehiculo__c);
 				if (a != null) {
 					a.IsActive = true;
@@ -451,6 +456,7 @@ public inherited sharing class MovimientosFlotillaController {
 			Map<Id, Date> fechaPorVehiculo = new Map<Id, Date>();
 			for (Inciso_Flotilla__c i : creados) {
 				Movimiento m = nuevos.get(serie(i.Serie__c));
+				m.id = i.Id;
 				i.Fecha_Alta__c = CensoColectivoController.fecha(m.fecha);
 				// Lo que guardarVehiculosDesdePdf no lleva (viene del PDF de la póliza, no de un censo).
 				if (m.datos.valor != null) { i.Valor__c = m.datos.valor; }

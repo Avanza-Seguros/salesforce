@@ -565,7 +565,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             puedeCorreo: this.enPoliza && !!this.correoDe(m),
             // En el sitio no se adjuntan archivos ni se envían correos.
             // En el sitio, solo el contratante (quien puede editar) ve y adjunta archivos.
-            muestraArchivos: m.esTitular && (!this.portal || this.puedeEditar),
+            // Los dependientes, solo si ya tienen (p. ej. su carta de antigüedad).
+            muestraArchivos: (m.esTitular || m.archivos > 0) && (!this.portal || this.puedeEditar),
             muestraCorreo: this.enPoliza && !!this.correoDe(m),
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         });
@@ -740,7 +741,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     async abrirArchivos(e) {
         const id = e.currentTarget.dataset.id;
         const m = this.miembros.find((x) => x.id === id);
-        if (!m || !m.esTitular) { return; }
+        if (!m || (!m.esTitular && !m.archivos)) { return; }
         this.archivos = { id, nombre: m.nombre, destinoId: null, lista: [], cargando: true };
         this.modal = 'archivos';
         await this.cargarArchivos();

@@ -281,6 +281,25 @@
                                                             </dl>
                                                         </template>
                                                     </div>
+                                                    <div class="detalle-bloque">
+                                                        <h4>Archivos adjuntos</h4>
+                                                        <template if:true={p.hayArchivos}>
+                                                            <ul class="lista">
+                                                                <template for:each={p.archivosTxt} for:item="a">
+                                                                    <li key={a.key} class="archivo">
+                                                                        <lightning-icon icon-name={a.icono} size="x-small" alternative-text={a.tipo}></lightning-icon>
+                                                                        <div class="archivo-cuerpo">
+                                                                            <a href="#" data-id={a.id} data-participante={a.participanteId} onclick={verArchivo} title="Ver archivo">{a.titulo}</a>
+                                                                            <div class="sub">{a.detalle}</div>
+                                                                        </div>
+                                                                    </li>
+                                                                </template>
+                                                            </ul>
+                                                        </template>
+                                                        <template if:false={p.hayArchivos}>
+                                                            <p class="sub">No hay archivos adjuntos.</p>
+                                                        </template>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
