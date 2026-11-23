@@ -87,7 +87,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
-    // Sitio, contratante de una póliza empresarial: Alta, Baja y Nueva solicitud abren el formulario de solicitudes
+    // Sitio, contratante de una póliza empresarial: Baja y Nueva solicitud abren el formulario de solicitudes
     // (c-portal-solicitudes, lo muestra c-portal-polizas).
     get conFormulario() { return this.portal && this.puedeEditar && !!this.datos && this.datos.puedeSolicitar === true; }
     get conCarga() { return !this.conFormulario; }
@@ -1060,7 +1060,6 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get textoBaja() { return `Se darán de baja ${this.bajaNombres.length} asegurados. Los dependientes de un titular se dan de baja con él.`; }
 
     abrirAlta() {
-        if (this.conFormulario) { this.pedir('alta', []); return; }
         this.form = {
             tipo: 'titular', titularId: '', parentesco: 'Cónyuge', nombre: '', apellidos: '', fechaNacimiento: '', sexo: '',
             certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: '', solicitud: 'nueva'

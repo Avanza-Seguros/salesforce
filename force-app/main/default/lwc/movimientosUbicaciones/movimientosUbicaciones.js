@@ -66,7 +66,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
-    // Sitio, contratante de una póliza empresarial: Alta, Baja y Nueva solicitud abren el formulario de solicitudes
+    // Sitio, contratante de una póliza empresarial: Baja y Nueva solicitud abren el formulario de solicitudes
     // (c-portal-solicitudes, lo muestra c-portal-polizas).
     get conFormulario() { return this.portal && this.puedeEditar && !!this.datos && this.datos.puedeSolicitar === true; }
     get conCarga() { return !this.conFormulario; }
@@ -788,7 +788,6 @@ export default class MovimientosUbicaciones extends LightningElement {
     get textoBaja() { return `Se darán de baja ${this.bajaNombres.length} ubicaciones.`; }
 
     abrirAlta() {
-        if (this.conFormulario) { this.pedir('alta', []); return; }
         this.form = { nombre: '', direccion: '', giro: '', sumaAsegurada: null, prima: null, inciso: null, fecha: this.fechaDefault, endoso: '', solicitud: 'nueva' };
         this.modal = 'alta';
     }

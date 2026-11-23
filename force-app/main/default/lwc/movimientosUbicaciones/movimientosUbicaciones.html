@@ -57,10 +57,10 @@
                             </template>
                         </div>
                         <div class="mov-acciones">
-                            <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo). -->
+                            <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo); las altas se piden ahí. -->
                             <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
                             <template if:true={puedeEditar}>
-                                <lightning-button label="Alta de ubicación" icon-name="utility:add" onclick={abrirAlta}></lightning-button>
+                                <template lwc:if={interno}><lightning-button label="Alta de ubicación" icon-name="utility:add" onclick={abrirAlta}></lightning-button></template>
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
                                     onclick={abrirBaja} disabled={sinBaja}></lightning-button>
                                 <template lwc:if={conCarga}><lightning-button label="Cargar ubicaciones" icon-name="utility:upload" onclick={elegirArchivo}
