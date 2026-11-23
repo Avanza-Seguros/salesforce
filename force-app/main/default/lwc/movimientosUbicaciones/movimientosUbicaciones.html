@@ -58,7 +58,7 @@
                         </div>
                         <div class="mov-acciones">
                             <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo); las altas se piden ahí. -->
-                            <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
+                            <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:clock" onclick={verHistorial}></lightning-button></template>
                             <template if:true={puedeEditar}>
                                 <template lwc:if={interno}><lightning-button label="Alta de ubicación" icon-name="utility:add" onclick={abrirAlta}></lightning-button></template>
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
@@ -71,7 +71,7 @@
                             <!-- En el sitio (portal) no se genera el Excel. -->
                             <template lwc:if={interno}><template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template></template>
                             <template if:true={enPoliza}><lightning-button label="Endosos" icon-name="utility:file" onclick={verEndosos}></lightning-button></template>
-                            <template lwc:if={interno}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
+                            <template lwc:if={interno}><lightning-button label={textoHistorial} icon-name="utility:clock" onclick={verHistorial}></lightning-button></template>
                             <template lwc:if={conFormulario}><lightning-button label="Nueva solicitud" icon-name="utility:add" variant="brand" class="mov-nueva"
                                 onclick={handleNuevaSolicitud}></lightning-button></template>
                         </div>
