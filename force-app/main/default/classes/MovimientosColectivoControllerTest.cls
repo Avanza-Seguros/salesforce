@@ -879,4 +879,47 @@ private class MovimientosColectivoControllerTest {
 		Map<String, Object> s = (Map<String, Object>) PortalPolizasPestanas.solicitudesParaAgrupar(datos.get('solicitudes'))[0];
 		System.assertNotEquals(null, s.get('seguimiento'), 'El sitio muestra el seguimiento de la solicitud');
 	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Registro sin certificado («ASIGNAR»): no se muestra ese texto y toma el certificado de sus documentos,
+	 *               también en sus movimientos; no se cambia a quien ya lo tiene ni se usa el de otro asegurado.
+	 * @return void
+	 */
+	@isTest
+	static void testCompletarCertificados() {
+		for (String c : new List<String>{ 'ASIGNAR', 'Por asignar', 'Pendiente', 'S/N', '0', ' ', null }) {
+			System.assertEquals(null, CensoColectivoController.certificadoLimpio(c), 'Sin certificado: ' + c);
+		}
+		System.assertEquals('0000092423', CensoColectivoController.certificadoLimpio(' 0000092423 '));
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id pedro = participante(pol.Id, 'Pedro%');
+		Id juan = participante(pol.Id, 'Juan%');
+		update new List<InsurancePolicyParticipant>{ new InsurancePolicyParticipant(Id = pedro, ParticipantCode = 'ASIGNAR'),
+			new InsurancePolicyParticipant(Id = juan, ParticipantCode = '0000092422') };
+		Movimiento_Poliza__c m = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = pedro, Certificado__c = 'ASIGNAR', Tipo__c = 'Alta');
+		insert m;
+		for (Object o : (List<Object>) MovimientosColectivoController.getDatos(pol.Id).get('miembros')) {
+			if (((Map<String, Object>) o).get('id') == pedro) { System.assertEquals(null, ((Map<String, Object>) o).get('certificado')); }
+		}
+		Test.startTest();
+		Map<String, Object> ajeno = MovimientosColectivoController.completarCertificados(pol.Id, pedido(pedro, new List<String>{ '0000092422' }));
+		System.assertEquals(1, ((List<String>) ajeno.get('avisos')).size(), 'Ya es de otro asegurado');
+		Map<String, Object> distintos = MovimientosColectivoController.completarCertificados(pol.Id, pedido(pedro, new List<String>{ '0000092423', '0000092424' }));
+		System.assertEquals(1, ((List<String>) distintos.get('avisos')).size(), 'Certificados distintos');
+		System.assertEquals('ASIGNAR', [SELECT ParticipantCode FROM InsurancePolicyParticipant WHERE Id = :pedro].ParticipantCode);
+		Map<String, Object> r = MovimientosColectivoController.completarCertificados(pol.Id, pedido(pedro, new List<String>{ '0000092423', '0000092423' }));
+		System.assertEquals(1, ((List<String>) r.get('actualizados')).size());
+		MovimientosColectivoController.completarCertificados(pol.Id, pedido(juan, new List<String>{ '0000099999' }));
+		Test.stopTest();
+		System.assertEquals('0000092423', [SELECT ParticipantCode FROM InsurancePolicyParticipant WHERE Id = :pedro].ParticipantCode);
+		System.assertEquals('0000092423', [SELECT Certificado__c FROM Movimiento_Poliza__c WHERE Id = :m.Id].Certificado__c);
+		System.assertEquals('0000092422', [SELECT ParticipantCode FROM InsurancePolicyParticipant WHERE Id = :juan].ParticipantCode, 'Ya tenía');
+	}
+	private static String pedido(Id registroId, List<String> certificados) {
+		List<Object> l = new List<Object>();
+		for (String c : certificados) { l.add(new Map<String, Object>{ 'registroId' => registroId, 'certificado' => c }); }
+		return JSON.serialize(l);
+	}
 }

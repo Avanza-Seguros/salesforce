@@ -229,7 +229,7 @@ public inherited sharing class ParticipantesPolizaController {
 				continue;
 			}
 			llenarMarcadores(m, new Map<String, String>{
-				'NOMBRE_ASEGURADO' => p.ParticipantName, 'POLIZA' => pol.Name, 'CERTIFICADO' => p.ParticipantCode,
+				'NOMBRE_ASEGURADO' => p.ParticipantName, 'POLIZA' => pol.Name, 'CERTIFICADO' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
 				'ASEGURADORA' => aseguradora, 'VIGENCIA' => vigencia, 'CORREO_SERVICIO' => 'info@avanzaseguro.com'
 			});
 			m.setToAddresses(new List<String>{ correo });
@@ -446,7 +446,7 @@ public inherited sharing class ParticipantesPolizaController {
 		Date fecha = m != null && m.Fecha_Movimiento__c != null ? m.Fecha_Movimiento__c
 			: (p.EffectiveToDate != null ? p.EffectiveToDate :(m != null ? m.CreatedDate.date() : Date.today()));
 		String motivo = m != null && String.isNotBlank(m.Motivo_Baja__c) ? m.Motivo_Baja__c : p.Motivo_Baja__c;
-		String certificado = m != null && String.isNotBlank(m.Certificado__c) ? m.Certificado__c : p.ParticipantCode;
+		String certificado = CensoColectivoController.certificadoLimpio(m != null && String.isNotBlank(m.Certificado__c) ? m.Certificado__c : p.ParticipantCode);
 		List<List<String>> filas = new List<List<String>>{
 			new List<String>{ 'Asegurado', p.ParticipantName },
 			new List<String>{ 'Póliza', pol.Name },
@@ -521,7 +521,7 @@ public inherited sharing class ParticipantesPolizaController {
 			antiguedad = p.OriginalParticipant.InsurancePolicy.EffectiveDate.date();
 		}
 		return new Map<String, Object>{
-			'id' => p.Id, 'folio' => p.Name, 'nombre' => p.ParticipantName, 'certificado' => p.ParticipantCode,
+			'id' => p.Id, 'folio' => p.Name, 'nombre' => p.ParticipantName, 'certificado' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
 			'roles' => rolesTexto, 'rolesTexto' => String.join(rolesTexto, ', '), 'grupo' => grupo(llavesRol, p),
 			'parentesco' => CensoColectivoController.parentescoPolizaVisible(p.RelationshipToInsured, parentescos),
 			'titularId' => p.RelatedInsPolicyParticipantId,

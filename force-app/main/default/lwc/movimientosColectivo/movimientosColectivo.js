@@ -21,6 +21,7 @@ import compararArchivo from '@salesforce/apex/MovimientosColectivoController.com
 import traerDePoliza from '@salesforce/apex/MovimientosColectivoController.traerDePoliza';
 import archivosAsegurado from '@salesforce/apex/MovimientosColectivoController.archivosAsegurado';
 import asignarArchivos from '@salesforce/apex/MovimientosColectivoController.asignarArchivos';
+import completarCertificados from '@salesforce/apex/MovimientosColectivoController.completarCertificados';
 import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.subirDocumentoBaja';
 import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
@@ -742,7 +743,15 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const n = (e.detail.files || []).length;
         this.toast('Archivos', `${n} archivo(s) adjuntado(s).`, 'success');
         this.archivos = { ...this.archivos, cargando: true };
+        const id = this.archivos.id;
+        // Sin certificado: toma el del archivo si su nombre es el de este asegurado.
+        const certificados = (e.detail.files || []).filter((f) => this.detectarPersona(f.name).id === id)
+            .map((f) => ({ registroId: id, certificado: this.certificadoNuevo(id, f.name) })).filter((x) => x.certificado);
         await this.cargarArchivos();
+        if (certificados.length) {
+            await this.guardarCertificados(certificados);
+            await this.cargar();
+        }
     }
     // Sitio: adjunta los archivos elegidos al asegurado por PortalPolizasMovimientos (hasta 3 MB cada uno).
     async subirArchivosSitio(e) {
@@ -904,6 +913,42 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const listos = this.varios.filas.filter((f) => f.estado === 'listo').length;
         return `Subiendo archivos: ${listos} de ${total}…`;
     }
+    // Certificado que trae el nombre del archivo («0000092423_CERT_ALBERTOGOMEZRODRIGUEZ_GMG-24857_V1.pdf»): el número con
+    // el que empieza o, si no, el único con el largo de los certificados de la póliza. Nunca el número de póliza ni una fecha.
+    certificadoDeArchivo(nombreArchivo) {
+        const base = String(nombreArchivo || '').replace(/\.[^.]+$/, '');
+        const tokens = base.split(/[^A-Za-z0-9]+/).filter((t) => t);
+        const poliza = new Set(this.fold((this.datos && this.datos.nombre) || '').split(/[^a-z0-9]+/));
+        const fecha = (t) => /^(19|20)\d{2}(0[1-9]|1[0-2])([0-2]\d|3[01])$/.test(t) || /^([0-2]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}$/.test(t);
+        const valido = (t) => /^\d{4,12}$/.test(t) && !/^0+$/.test(t) && !poliza.has(t) && !fecha(t);
+        if (tokens.length && valido(tokens[0]) && tokens[0].length >= 5) { return tokens[0]; }
+        const largos = new Set(this.miembros.map((m) => String(m.certificado || '').trim()).filter((c) => /^\d{5,}$/.test(c)).map((c) => c.length));
+        const otros = [...new Set(tokens.filter((t) => valido(t) && largos.has(t.length)))];
+        return otros.length === 1 ? otros[0] : '';
+    }
+    // Certificado nuevo para la persona: solo si aún no tiene y el archivo lo trae.
+    certificadoNuevo(registroId, nombreArchivo) {
+        const m = registroId ? this.miembros.find((x) => x.id === registroId) : null;
+        return m && !m.certificado ? this.certificadoDeArchivo(nombreArchivo) : '';
+    }
+    async guardarCertificados(lista) {
+        if (!lista.length || this.portal) { return; }
+        try {
+            const r = await completarCertificados({ recordId: this._recordId, certificadosJson: JSON.stringify(lista) });
+            if (r.actualizados.length) { this.toast('Certificado actualizado', r.actualizados.join(' · '), 'success'); }
+            if (r.avisos.length) { this.toast('Certificado', r.avisos.join(' '), 'warning'); }
+        } catch (err) {
+            this.mostrarError(err);
+        }
+    }
+    // El nombre completo pegado, como lo mandan algunas aseguradoras (ALBERTOGOMEZRODRIGUEZ, o con los apellidos primero):
+    // el nombre sin espacios es una o varias palabras seguidas del archivo.
+    nombrePegado(nombre, tokens) {
+        const partes = this.fold(nombre).split(/[^a-z0-9]+/).filter((t) => t);
+        if (partes.length < 2) { return false; }
+        const buscados = new Set(partes.map((x, i) => [...partes.slice(i), ...partes.slice(0, i)].join('')));
+        return tokens.some((x, i) => tokens.slice(i).some((y, j) => buscados.has(tokens.slice(i, i + j + 1).join(''))));
+    }
     // Busca en el nombre del archivo el RFC, el nombre completo o el certificado de un asegurado.
     detectarPersona(nombreArchivo) {
         const base = this.fold(String(nombreArchivo || '').replace(/\.[^.]+$/, ''));
@@ -922,7 +967,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             } else {
                 const partes = this.fold(m.nombre).split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !ignorar.has(t));
                 const hallados = partes.filter((t) => set.has(t)).length;
-                if (partes.length >= 2 && hallados === partes.length) { puntos = 90; como = 'Por nombre'; }
+                if ((partes.length >= 2 && hallados === partes.length) || this.nombrePegado(m.nombre, tokens)) { puntos = 90; como = 'Por nombre'; }
                 else if (hallados >= 2) { puntos = 60 + hallados; como = 'Por nombre (parcial)'; }
                 const c = this.fold(m.certificado).replace(/[^a-z0-9]/g, '');
                 if (c.length >= 3 && set.has(c)) {
@@ -961,6 +1006,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         return this.varios.filas.map((f) => ({
             ...f,
             registroId: f.registroId || '',
+            certificadoTxt: this.certificadoNuevo(f.registroId, f.nombre) ? `Certificado nuevo: ${this.certificadoNuevo(f.registroId, f.nombre)}` : '',
             claseDeteccion: f.registroId ? (f.deteccion === 'Asignado a mano' ? 'tipo tipo-cambio' : 'tipo tipo-alta') : 'tipo tipo-baja',
             estadoTxt: { pendiente: 'En espera', subiendo: 'Subiendo…', listo: 'Subido', error: 'No se subió' }[f.estado] || '',
             claseEstado: f.estado === 'error' ? 'sub texto-error' : 'sub',
@@ -980,6 +1026,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.varios = { ...this.varios, cargando: true };
         try {
             const n = await asignarArchivos({ recordId: this._recordId, asignacionesJson: JSON.stringify(asignaciones) });
+            // Registros sin certificado («ASIGNAR»): toman el que trae el nombre de sus documentos.
+            await this.guardarCertificados(this.varios.filas.filter((f) => f.registroId && f.documentId)
+                .map((f) => ({ registroId: f.registroId, certificado: this.certificadoNuevo(f.registroId, f.nombre) })).filter((x) => x.certificado));
             const pendientes = this.totalSubidos - asignaciones.length;
             this.toast('Archivos', `${n} archivo(s) adjuntado(s) a cada asegurado.`
                 + (pendientes ? ` ${pendientes} sin asignar se quedaron en la póliza.` : ''), 'success');

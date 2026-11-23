@@ -439,7 +439,7 @@ public without sharing class PortalPolizasPestanas {
 					cuentaVistaPrevia, salida)) {
 				Fila f = new Fila();
 				f.id = pp.Id;
-				f.clave = pp.ParticipantCode;
+				f.clave = CensoColectivoController.certificadoLimpio(pp.ParticipantCode);
 				f.nombre = pp.ParticipantName;
 				List<String> etiquetasRol = new List<String>();
 				for (String r : String.isBlank(pp.Role) ? new List<String>() : pp.Role.split(';')) {
@@ -610,7 +610,7 @@ public without sharing class PortalPolizasPestanas {
 			if (!ids.contains(pp.Id)) { continue; }
 			Fila f = new Fila();
 			f.id = pp.Id;
-			f.clave = pp.ParticipantCode;
+			f.clave = CensoColectivoController.certificadoLimpio(pp.ParticipantCode);
 			f.nombre = pp.ParticipantName;
 			f.dependiente = pp.RelatedInsPolicyParticipantId != null;
 			f.parentesco = !f.dependiente ? 'Titular'
@@ -977,7 +977,7 @@ public without sharing class PortalPolizasPestanas {
 		]) {
 			Map<String, Object> s = porFolio.get(m.Solicitud__c);
 			Fila f = filas.get(m.Participante__c != null ? (Id) m.Participante__c : (Id) m.Inciso__c);
-			String clave = String.isNotBlank(m.Certificado__c) ? m.Certificado__c
+			String clave = CensoColectivoController.certificadoLimpio(m.Certificado__c) != null ? m.Certificado__c
 				: (m.Inciso__c != null && m.Inciso__r.Numero_Inciso__c != null ? String.valueOf(m.Inciso__r.Numero_Inciso__c.intValue())
 					: (f == null ? null : f.clave));
 			String nombre = String.isNotBlank(m.Asegurado__c) ? m.Asegurado__c

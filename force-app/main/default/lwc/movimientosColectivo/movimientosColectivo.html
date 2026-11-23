@@ -783,7 +783,9 @@
                                                                 options={opcionesPersonas} placeholder="Sin asignar" data-id={v.key}
                                                                 onchange={asignarPersona}></lightning-combobox>
                                                         </td>
-                                                        <td><span class={v.claseDeteccion}>{v.deteccion}</span></td>
+                                                        <td><span class={v.claseDeteccion}>{v.deteccion}</span>
+                                                            <template lwc:if={v.certificadoTxt}><div class="sub">{v.certificadoTxt}</div></template>
+                                                        </td>
                                                     </tr>
                                                 </template>
                                             </tbody>

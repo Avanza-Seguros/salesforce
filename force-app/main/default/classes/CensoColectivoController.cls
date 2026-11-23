@@ -1211,7 +1211,7 @@ public inherited sharing class CensoColectivoController {
 		]) {
 			yaEstan.put(llaveParticipante(p.ParticipantCode, p.ParticipantName), p);
 			// Sin certificado (ej. la persona que trae el PDF de la póliza): se reconoce solo por el nombre.
-			if (String.isBlank(p.ParticipantCode)) { sinCertificado.put(llaveParticipante(null, p.ParticipantName), p); }
+			if (certificadoLimpio(p.ParticipantCode) == null) { sinCertificado.put(llaveParticipante(null, p.ParticipantName), p); }
 		}
 
 		String rolTitular = valorPicklist(InsurancePolicyParticipant.Role.getDescribe(), new List<String>{ 'Asegurado', 'Insured' });
@@ -1598,7 +1598,7 @@ public inherited sharing class CensoColectivoController {
 		String nombre = String.isNotBlank(m.Name) ? m.Name : ((m.FirstName == null ? '' : m.FirstName + ' ') + m.LastName);
 		p.ParticipantName = nombre.normalizeSpace().left(255);
 		if (String.isNotBlank(rol)) { p.Role = rol; }
-		if (String.isNotBlank(m.Certificado__c)) { p.ParticipantCode = m.Certificado__c.left(255); }
+		if (certificadoLimpio(m.Certificado__c) != null) { p.ParticipantCode = m.Certificado__c.left(255); }
 		// Categoría (subgrupo): el campo existe en versiones recientes de la API; si no está disponible se omite.
 		if (m.GroupClassId != null) { try { p.put('GroupClassId', m.GroupClassId); } catch (Exception e) { System.debug(LoggingLevel.FINE, e.getMessage()); } }
 		if (m.GroupClass != null && String.isNotBlank(m.GroupClass.Name)) { p.Categoria__c = m.GroupClass.Name.left(80); }
@@ -1695,9 +1695,28 @@ public inherited sharing class CensoColectivoController {
 	 * @return llave.
 	 */
 	public static String llaveParticipante(String certificado, String nombre) {
+		certificado = certificadoLimpio(certificado);
 		// Sin acentos: el PDF de la aseguradora suele traer el nombre sin ellos ("PEREZ" / "Pérez").
 		String n = nombre == null ? '' : nombre.normalizeSpace().toUpperCase().replace('Á', 'A').replace('É', 'E').replace('Í', 'I')
 			.replace('Ó', 'O').replace('Ú', 'U').replace('Ü', 'U');
 		return (certificado == null ? '' : certificado.trim()) + '|' + n;
+	}
+
+	// Textos que no son un número de certificado: el registro aún no lo tiene («ASIGNAR», «Pendiente», «S/N», «0»…).
+	private static final Pattern SIN_CERTIFICADO = Pattern.compile(
+		'(?:X*|0*|(?:POR|SIN)?ASIGNAR|SINASIGNAR|PENDIENTE|NA|SN|SC|SINCERTIFICADO|SINNUMERO|TBD)');
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Número de certificado, o null si está vacío o trae un texto en su lugar («ASIGNAR»): hay registros que
+	 *               llegan sin certificado y la aseguradora lo asigna después.
+	 * @param certificado: valor capturado o del archivo.
+	 * @return certificado sin espacios a los lados, o null.
+	 */
+	public static String certificadoLimpio(String certificado) {
+		if (String.isBlank(certificado)) { return null; }
+		String c = certificado.trim();
+		return SIN_CERTIFICADO.matcher(c.toUpperCase().replaceAll('[^A-Z0-9]', '')).matches() ? null : c;
 	}
 }

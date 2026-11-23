@@ -144,6 +144,10 @@ public inherited sharing class MovimientosColectivoController {
 			throw CensoColectivoController.error('Los movimientos no tienen un formato válido: ' + e.getMessage());
 		}
 		if (movs.isEmpty()) { throw CensoColectivoController.error('No hay movimientos para aplicar.'); }
+		// «ASIGNAR» y similares no son un certificado: el registro queda sin él hasta que llegan sus documentos.
+		for (Movimiento m : movs) {
+			if (m.datos != null) { m.datos.certificado = CensoColectivoController.certificadoLimpio(m.datos.certificado); }
+		}
 		validar(movs);
 		Savepoint sp = Database.setSavepoint();
 		try {
@@ -191,6 +195,7 @@ public inherited sharing class MovimientosColectivoController {
 		} catch (Exception e) {
 			throw CensoColectivoController.error('El archivo no tiene un formato válido: ' + e.getMessage());
 		}
+		for (CensoColectivoController.MiembroEntrada e : entrada) { e.certificado = CensoColectivoController.certificadoLimpio(e.certificado); }
 		List<Map<String, Object>> base = new List<Map<String, Object>>();
 		for (Map<String, Object> a : esPoliza(recordId) ? aseguradosPoliza(recordId, true) : aseguradosCenso(recordId)) {
 			if (a.get('activo') != false) { base.add(a); }
@@ -971,7 +976,8 @@ public inherited sharing class MovimientosColectivoController {
 				'id' => (String) p.Id, 'nombre' => p.ParticipantName, 'esTitular' => esTitular,
 				'titularId' => esTitular ? null : (String) p.RelatedInsPolicyParticipantId,
 				'titularNombre' => esTitular ? null : p.RelatedInsPolicyParticipant.ParticipantName,
-				'parentesco' => parentesco, 'sexo' => sexoDe(p.RelationshipToInsured), 'certificado' => p.ParticipantCode,
+				'parentesco' => parentesco, 'sexo' => sexoDe(p.RelationshipToInsured),
+				'certificado' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
 				'categoria' => nombreClase(p), 'fechaNacimiento' => p.FechaNacimiento__c, 'rfc' => p.Identificacion__c,
 				'sumaAsegurada' => sumas.get(p.Id), 'prima' => p.TermPremiumAmount, 'fechaAlta' => p.EffectiveFromDate,
 				'activo' => p.IsActiveParticipant != false,
@@ -1128,6 +1134,100 @@ public inherited sharing class MovimientosColectivoController {
 			Database.rollback(sp);
 			throw CensoColectivoController.error('No se pudieron adjuntar los archivos: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pone el número de certificado que trae el nombre de los documentos (certificado, tarjeta) a los
+	 *               asegurados que no lo tienen («ASIGNAR» o vacío), y a sus movimientos. No cambia el de quien ya lo tiene
+	 *               ni usa uno que ya es de otro asegurado.
+	 * @param recordId: póliza u oportunidad.
+	 * @param certificadosJson: lista de {registroId, certificado}.
+	 * @return { actualizados: [«Nombre: certificado»], avisos: [texto] }
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> completarCertificados(Id recordId, String certificadosJson) {
+		if (UserInfo.getUserType() != 'Standard') { throw CensoColectivoController.error('Solo un ejecutivo puede completar el certificado.'); }
+		List<String> actualizados = new List<String>();
+		List<String> avisos = new List<String>();
+		try {
+			Map<Id, Set<String>> pedidos = new Map<Id, Set<String>>();
+			for (Object o : (List<Object>) JSON.deserializeUntyped(String.isBlank(certificadosJson) ? '[]' : certificadosJson)) {
+				Map<String, Object> a = (Map<String, Object>) o;
+				String c = CensoColectivoController.certificadoLimpio((String) a.get('certificado'));
+				if (a.get('registroId') == null || c == null || !Pattern.matches('[A-Za-z0-9-]{3,30}', c)) { continue; }
+				Id r = Id.valueOf((String) a.get('registroId'));
+				if (!pedidos.containsKey(r)) { pedidos.put(r, new Set<String>()); }
+				pedidos.get(r).add(c);
+			}
+			Boolean poliza = esPoliza(recordId);
+			Set<Id> ids = pedidos.keySet();
+			Set<String> certs = new Set<String>();
+			for (Set<String> s : pedidos.values()) { certs.addAll(s); }
+			// Dueño de cada certificado en la póliza u oportunidad (el titular y sus dependientes pueden compartirlo).
+			Map<String, Set<Id>> duenos = new Map<String, Set<Id>>();
+			List<SObject> registros = poliza
+				? (List<SObject>) [SELECT Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId FROM InsurancePolicyParticipant
+					WHERE InsurancePolicyId = :recordId AND (Id IN :ids OR ParticipantCode IN :certs)]
+				: (List<SObject>) [SELECT Id, Name, Certificado__c, PrimaryGroupCensusMemberId FROM GroupCensusMember
+					WHERE GroupCensus.Oportunidad__c = :recordId AND (Id IN :ids OR Certificado__c IN :certs)];
+			String campo = poliza ? 'ParticipantCode' : 'Certificado__c';
+			String campoTitular = poliza ? 'RelatedInsPolicyParticipantId' : 'PrimaryGroupCensusMemberId';
+			String campoNombre = poliza ? 'ParticipantName' : 'Name';
+			for (SObject x : registros) {
+				String c = CensoColectivoController.certificadoLimpio((String) x.get(campo));
+				if (c == null) { continue; }
+				if (!duenos.containsKey(c)) { duenos.put(c, new Set<Id>()); }
+				duenos.get(c).add(x.get(campoTitular) == null ? x.Id : (Id) x.get(campoTitular));
+			}
+			List<SObject> cambiar = new List<SObject>();
+			Map<Id, String> nuevos = new Map<Id, String>();
+			for (SObject x : registros) {
+				if (!ids.contains(x.Id) || CensoColectivoController.certificadoLimpio((String) x.get(campo)) != null) { continue; }
+				String nombre = (String) x.get(campoNombre);
+				if (pedidos.get(x.Id).size() > 1) {
+					avisos.add(nombre + ': sus documentos traen certificados distintos (' + String.join(new List<String>(pedidos.get(x.Id)), ', ') + '); captúralo a mano.');
+					continue;
+				}
+				String c = new List<String>(pedidos.get(x.Id))[0];
+				Id titular = x.get(campoTitular) == null ? x.Id : (Id) x.get(campoTitular);
+				Set<Id> otros = duenos.containsKey(c) ? duenos.get(c).clone() : new Set<Id>();
+				otros.remove(titular);
+				if (!otros.isEmpty()) {
+					avisos.add(nombre + ': el certificado ' + c + ' ya es de otro asegurado; no se actualizó.');
+					continue;
+				}
+				if (!duenos.containsKey(c)) { duenos.put(c, new Set<Id>()); }
+				duenos.get(c).add(titular);
+				SObject n = x.getSObjectType().newSObject(x.Id);
+				n.put(campo, c);
+				cambiar.add(n);
+				nuevos.put(x.Id, c);
+				actualizados.add(nombre + ': ' + c);
+			}
+			Savepoint sp = Database.setSavepoint();
+			try {
+				update cambiar;
+				if (poliza && !nuevos.isEmpty()) {
+					List<Movimiento_Poliza__c> movs = new List<Movimiento_Poliza__c>();
+					for (Movimiento_Poliza__c m : [
+						SELECT Id, Participante__c, Certificado__c FROM Movimiento_Poliza__c WHERE Poliza__c = :recordId AND Participante__c IN :nuevos.keySet()
+					]) {
+						if (CensoColectivoController.certificadoLimpio(m.Certificado__c) == null) {
+							movs.add(new Movimiento_Poliza__c(Id = m.Id, Certificado__c = nuevos.get(m.Participante__c).left(80)));
+						}
+					}
+					update movs;
+				}
+			} catch (Exception e) {
+				Database.rollback(sp);
+				throw e;
+			}
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo completar el certificado: ' + mensaje(e));
+		}
+		return new Map<String, Object>{ 'actualizados' => actualizados, 'avisos' => avisos };
 	}
 
 	// Registro donde se guardan los archivos de cada asegurado: su contacto, si no su cuenta, si no el propio registro.
@@ -1381,7 +1481,8 @@ public inherited sharing class MovimientosColectivoController {
 				'titularId' => esTitular ? null : (String) m.PrimaryGroupCensusMemberId,
 				'titularNombre' => esTitular ? null : m.PrimaryGroupCensusMember.Name,
 				'parentesco' => CensoColectivoController.parentescoVisible(m.AssociationWithPrimaryMbr, esTitular),
-				'sexo' => m.Gender == null ? null : sexoVisible(sexos.get(m.Gender)), 'certificado' => m.Certificado__c,
+				'sexo' => m.Gender == null ? null : sexoVisible(sexos.get(m.Gender)),
+				'certificado' => CensoColectivoController.certificadoLimpio(m.Certificado__c),
 				'categoria' => m.GroupClass == null ? null : m.GroupClass.Name, 'fechaNacimiento' => m.Birthdate, 'rfc' => m.RFC__c,
 				'sumaAsegurada' => m.Suma_Asegurada__c, 'prima' => m.Prima__c, 'fechaAlta' => m.JoinDate, 'activo' => true,
 				'contactoId' => (String) m.ContactId
@@ -1439,7 +1540,8 @@ public inherited sharing class MovimientosColectivoController {
 			ORDER BY CreatedDate DESC, Name DESC LIMIT 500
 		]) {
 			res.add(new Map<String, Object>{
-				'id' => m.Id, 'nombre' => m.Name, 'tipo' => m.Tipo__c, 'asegurado' => m.Asegurado__c, 'certificado' => m.Certificado__c,
+				'id' => m.Id, 'nombre' => m.Name, 'tipo' => m.Tipo__c, 'asegurado' => m.Asegurado__c,
+				'certificado' => CensoColectivoController.certificadoLimpio(m.Certificado__c),
 				'fecha' => m.Fecha_Movimiento__c, 'motivo' => m.Motivo_Baja__c != null ? motivos.get(m.Motivo_Baja__c)
 					: (m.Motivo_Baja_Vehiculo__c != null ? motivosVehiculo.get(m.Motivo_Baja_Vehiculo__c) : motivosUbicacion.get(m.Motivo_Baja_Ubicacion__c)),
 				'endoso' => m.Numero_Endoso__c, 'detalle' => m.Detalle__c, 'comentario' => m.Comentario__c,
@@ -1500,7 +1602,7 @@ public inherited sharing class MovimientosColectivoController {
 			String asegurado, String certificado) {
 		Movimiento_Poliza__c r = new Movimiento_Poliza__c(Poliza__c = polizaId, Oportunidad__c = oppId, Participante__c = participanteId,
 			Contexto__c = contexto, Asegurado__c = asegurado == null ? null : asegurado.left(255),
-			Certificado__c = certificado == null ? null : certificado.left(80), Fecha_Movimiento__c = CensoColectivoController.fecha(m.fecha),
+			Certificado__c = CensoColectivoController.certificadoLimpio(certificado) == null ? null : certificado.left(80), Fecha_Movimiento__c = CensoColectivoController.fecha(m.fecha),
 			Numero_Endoso__c = String.isBlank(m.endoso) ? null : m.endoso.trim().left(80),
 			Comentario__c = String.isBlank(m.comentario) ? null : m.comentario.trim().left(255));
 		r.Tipo__c = tipo == ALTA && m.comoCambio != true ? 'Alta' : (tipo == BAJA ? 'Baja' : 'Cambio');
