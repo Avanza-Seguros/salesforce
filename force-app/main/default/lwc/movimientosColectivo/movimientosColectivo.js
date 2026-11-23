@@ -101,8 +101,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get conCarga() { return !this.conFormulario; }
     handleNuevaSolicitud() { this.pedir(null, []); }
     pedir(tipo, ids) { this.dispatchEvent(new CustomEvent('nuevasolicitud', { detail: { tipo, ids } })); }
-    // En GMM del sitio no aplican los endosos.
-    get conEndosos() { return this.enPoliza && !(this.portal && /^gmm/i.test((this.datos && this.datos.ramo) || '')); }
+    // En GMM no aplican los endosos (ni en Salesforce ni en el sitio).
+    get conEndosos() { return this.enPoliza && !/^gmm/i.test((this.datos && this.datos.ramo) || ''); }
     get correoPendientes() { return this.enPoliza && !this.portal; }
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
     get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar; }
