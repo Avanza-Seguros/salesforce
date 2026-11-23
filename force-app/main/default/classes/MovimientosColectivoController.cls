@@ -956,7 +956,8 @@ public inherited sharing class MovimientosColectivoController {
 		Map<Id, Decimal> sumas = sumasDe(policyId, new Map<Id, InsurancePolicyParticipant>(ps).keySet());
 		Map<String, String> motivos = etiquetas(Movimiento_Poliza__c.Motivo_Baja__c.getDescribe());
 		Map<String, String> relaciones = etiquetas(InsurancePolicyParticipant.RelationshipToInsured.getDescribe());
-		Map<Id, Movimiento_Poliza__c> ultimos = ultimosMovimientos(policyId);
+		Map<Id, List<Movimiento_Poliza__c>> conSolicitud = new Map<Id, List<Movimiento_Poliza__c>>();
+		Map<Id, Movimiento_Poliza__c> ultimos = ultimosMovimientos(policyId, conSolicitud);
 		Map<Id, String> correos = ParticipantesPolizaController.correosDe(ps);
 		Map<Id, Contact> contactos = contactosDe(ps);
 		List<Map<String, Object>> lista = new List<Map<String, Object>>();
@@ -982,6 +983,7 @@ public inherited sharing class MovimientosColectivoController {
 			});
 			Map<String, Object> fila = lista[lista.size() - 1];
 			ponerMovimiento(fila, ultimos.get(p.Id), p.IsActiveParticipant != false, p.EffectiveFromDate, p.EffectiveToDate);
+			ponerSolicitudes(fila, conSolicitud.get(p.Id));
 			ponerNombre(fila, contactos.get(p.PrimaryParticipantContactId));
 			// Sin registro de movimiento (carga inicial): se crea con el participante y se cierra con el primer correo.
 			if (fila.get('fechaCreacion') == null) {
@@ -1191,6 +1193,11 @@ public inherited sharing class MovimientosColectivoController {
 	 * @return movimiento más reciente por participante.
 	 */
 	public static Map<Id, Movimiento_Poliza__c> ultimosMovimientos(Id policyId) {
+		return ultimosMovimientos(policyId, null);
+	}
+
+	// Igual; además junta en «todos» los movimientos de cada participante que tienen solicitud (el más reciente primero).
+	private static Map<Id, Movimiento_Poliza__c> ultimosMovimientos(Id policyId, Map<Id, List<Movimiento_Poliza__c>> todos) {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
@@ -1199,8 +1206,31 @@ public inherited sharing class MovimientosColectivoController {
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
 			if (!r.containsKey(m.Participante__c)) { r.put(m.Participante__c, m); }
+			if (todos != null && String.isNotBlank(m.Solicitud__c)) {
+				if (!todos.containsKey(m.Participante__c)) { todos.put(m.Participante__c, new List<Movimiento_Poliza__c>()); }
+				todos.get(m.Participante__c).add(m);
+			}
 		}
 		return r;
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Agrega a la fila todos los movimientos del registro que tienen solicitud, para que cada solicitud
+	 *               muestre los suyos aunque el registro tenga otro movimiento posterior (asegurados, vehículos y ubicaciones).
+	 * @param fila: registro como mapa.
+	 * @param movs: movimientos del registro con solicitud (o null).
+	 */
+	public static void ponerSolicitudes(Map<String, Object> fila, List<Movimiento_Poliza__c> movs) {
+		if (movs == null || movs.isEmpty()) { return; }
+		List<Map<String, Object>> l = new List<Map<String, Object>>();
+		for (Movimiento_Poliza__c m : movs) {
+			l.add(new Map<String, Object>{ 'movimientoId' => m.Id, 'movimientoNumero' => m.Name, 'solicitud' => m.Solicitud__c,
+				'tipoMovimiento' => m.Tipo__c, 'fechaMovimiento' => m.Fecha_Movimiento__c, 'fechaCreacion' => m.CreatedDate,
+				'fechaCierre' => m.Fecha_Cierre__c, 'seguimientoMov' => m.Seguimiento__c, 'numeroEndoso' => m.Numero_Endoso__c });
+		}
+		fila.put('movimientos', l);
 	}
 
 	/**

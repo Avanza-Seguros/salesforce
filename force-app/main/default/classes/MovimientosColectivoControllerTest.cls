@@ -842,4 +842,33 @@ private class MovimientosColectivoControllerTest {
 		System.assertEquals('En proceso', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'), 'Se puede volver a atender');
 		Test.stopTest();
 	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Un registro con movimientos en dos solicitudes sale en las dos (no solo en la del último).
+	 * @return void
+	 */
+	@isTest
+	static void testMovimientosPorSolicitud() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id pedro = participante(pol.Id, 'Pedro%');
+		insert new List<Movimiento_Poliza__c>{
+			new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = pedro, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta'),
+			new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = pedro, Solicitud__c = 'SOL-0002', Tipo__c = 'Cambio') };
+		Test.startTest();
+		Map<String, Object> datos = MovimientosColectivoController.getDatos(pol.Id);
+		Test.stopTest();
+		Set<String> vistos = new Set<String>();
+		for (Object o : (List<Object>) datos.get('miembros')) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			if (m.get('id') != pedro) { continue; }
+			for (Object x : (List<Object>) m.get('movimientos')) {
+				vistos.add(((Map<String, Object>) x).get('solicitud') + ' ' + ((Map<String, Object>) x).get('tipoMovimiento'));
+			}
+		}
+		System.assertEquals(new Set<String>{ 'SOL-0001 Alta', 'SOL-0002 Cambio' }, vistos);
+		Map<String, Object> s = (Map<String, Object>) PortalPolizasPestanas.solicitudesParaAgrupar(datos.get('solicitudes'))[0];
+		System.assertNotEquals(null, s.get('seguimiento'), 'El sitio muestra el seguimiento de la solicitud');
+	}
 }

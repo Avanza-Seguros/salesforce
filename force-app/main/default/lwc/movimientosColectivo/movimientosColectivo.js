@@ -293,13 +293,13 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const grupos = new Map();
         lista.forEach((m) => {
             const k = !m.esTitular && m.titularId && ids.has(m.titularId) ? m.titularId : m.id;
-            if (!grupos.has(k)) { grupos.set(k, { cabeza: null, deps: [] }); }
+            if (!grupos.has(k)) { grupos.set(k, { cabezas: [], deps: [] }); }
             const g = grupos.get(k);
-            if (k === m.id) { g.cabeza = m; } else { g.deps.push(m); }
+            if (k === m.id) { g.cabezas.push(m); } else { g.deps.push(m); }
         });
         return [...grupos.values()]
-            .sort((g1, g2) => this.comparar(g1.cabeza, g2.cabeza))
-            .flatMap((g) => [g.cabeza, ...g.deps.sort((d1, d2) => this.comparar(d1, d2))]);
+            .sort((g1, g2) => this.comparar(g1.cabezas[0], g2.cabezas[0]))
+            .flatMap((g) => [...g.cabezas, ...g.deps.sort((d1, d2) => this.comparar(d1, d2))]);
     }
 
     get filtrados() {
@@ -319,7 +319,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     // ============================================================
     // Solicitudes del cliente: cada registro de movimientos (un archivo, una baja, un alta o un cambio) queda en una
-    // solicitud con folio (SOL-0001...). La tabla se agrupa por la solicitud del último movimiento de cada asegurado.
+    // solicitud con folio (SOL-0001...). La tabla se agrupa por solicitud, con todos los movimientos de cada asegurado.
     // ============================================================
     agruparSolicitud = true;
     // Solicitud del sitio que el ejecutivo está atendiendo: los movimientos que registre llevan su folio.
@@ -363,6 +363,28 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         })));
     }
     // Asegurados por solicitud (la más reciente primero; sin solicitud al final) y, dentro, por la columna elegida.
+    // Un renglón por cada movimiento del registro que tiene solicitud: la solicitud muestra todo lo que se pidió en ella
+    // (altas, bajas y cambios) aunque el registro tenga después otro movimiento.
+    movimientosDe(m) {
+        return (m.movimientos || []).map((x) => ({ ...m, ...x, esMovimiento: true, filaKey: `${m.id}-${x.movimientoId}`,
+            motivoBaja: x.tipoMovimiento === 'Baja' ? m.motivoBaja : null }));
+    }
+    // Filtro de la tabla para los movimientos de una solicitud («Vigentes» no oculta sus bajas).
+    pasaMovimiento(m) {
+        if (this.filtro === 'bajas') { return m.tipoMovimiento === 'Baja'; }
+        if (this.filtro === 'cambios') { return m.tipoMovimiento === 'Cambio'; }
+        if (this.filtro === 'sincorreo') { return this.sinEnviar(m); }
+        if (this.filtro === 'concorreo') { return !!m.correoEnviado; }
+        return true;
+    }
+    // Registros de una solicitud (o, sin folio, los que no tienen) para el Excel.
+    registrosDe(folio) {
+        const folios = this.infoSolicitudes;
+        return this.miembros.flatMap((m) => {
+            const movs = this.movimientosDe(m).filter((x) => folios.has(x.solicitud));
+            return folio ? movs.filter((x) => x.solicitud === folio) : (movs.length ? [] : [m]);
+        });
+    }
     // Solicitud del sitio que aún no tiene registros (sin buscar ni filtrar): también sale, para poder atenderla.
     vacia(s) {
         return !!s && !this.portal && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
@@ -372,9 +394,16 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const infoVacias = this.infoSolicitudes;
         const porFolio = new Map(this.solicitudes.map((x) => [x.folio, []]));
         porFolio.set('', []);
-        this.filtradosSinOrden.forEach((m) => {
-            const k = m.solicitud && porFolio.has(m.solicitud) ? m.solicitud : '';
-            porFolio.get(k).push(m);
+        const q = this.fold(this.busqueda);
+        const sinSolicitud = new Set(this.filtradosSinOrden.map((m) => m.id));
+        this.miembros.forEach((m) => {
+            const movs = this.movimientosDe(m).filter((x) => porFolio.has(x.solicitud));
+            if (!movs.length) {
+                if (sinSolicitud.has(m.id)) { porFolio.get('').push(m); }
+                return;
+            }
+            if (q && !this.fold(`${m.nombre} ${m.certificado || ''} ${m.titularNombre || ''} ${m.categoria || ''} ${m.correo || ''}`).includes(q)) { return; }
+            movs.filter((x) => this.pasaMovimiento(x)).forEach((x) => porFolio.get(x.solicitud).push(x));
         });
         return [...porFolio.entries()].filter(([k, l]) => l.length || this.vacia(infoVacias.get(k))).map(([k, l]) => ({ folio: k, lista: this.ordenarLista(l) }));
     }
@@ -468,6 +497,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const seguimiento = this.enPoliza ? this.seguimientoDe(m, info) : '';
         return ({
             ...m,
+            filaKey: m.filaKey || m.id,
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
             // Clic para cambiar el estado del registro (en una solicitud rechazada se cambia el de la solicitud).
@@ -475,7 +505,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 && ((info || this.infoSolicitudes).get(m.solicitud) || {}).seguimiento !== 'Rechazada',
             seleccionado: this.seleccion.has(m.id),
             noSeleccionable: !m.activo || !this.puedeEditar,
-            claseFila: (m.esTitular ? '' : 'fila-dependiente') + (m.activo ? '' : ' fila-baja'),
+            claseFila: (m.esTitular ? '' : 'fila-dependiente') + ((m.esMovimiento ? m.tipoMovimiento !== 'Baja' : m.activo) ? '' : ' fila-baja'),
             nacimientoTxt: fechaVisible(m.fechaNacimiento),
             altaTxt: fechaVisible(m.fechaAlta),
             fechaMovimientoTxt: fechaVisible(m.fechaMovimiento),
@@ -1443,7 +1473,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Solicitudes (folio) que tienen registros, la más reciente primero, con cuántos registros tiene cada una.
     abrirExcel() {
         const porFolio = new Map();
-        this.miembros.forEach((r) => {
+        const folios = this.infoSolicitudes;
+        this.miembros.flatMap((r) => {
+            const movs = this.movimientosDe(r).filter((x) => folios.has(x.solicitud));
+            return movs.length ? movs : [{ ...r, solicitud: '' }];
+        }).forEach((r) => {
             const folio = r.solicitud || '';
             const fecha = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
             const s = porFolio.get(folio) || { n: 0, fecha: '' };
@@ -1475,7 +1509,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     generarExcel() {
         const elegida = this.solicitudesExcel.find((s) => s.sel);
         if (!elegida) { return; }
-        const registros = this.miembros.filter((r) => (r.solicitud || '') === elegida.folio);
+        const registros = this.registrosDe(elegida.folio);
         this.excelDe(registros, elegida.folio || 'sin_solicitud');
         this.cerrarModal();
     }
@@ -1483,7 +1517,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // solicitud en la tabla o desde las solicitudes del sitio.
     handleExcelSolicitud(e) {
         const folio = (e.detail && e.detail.folio) || (e.currentTarget && e.currentTarget.dataset.folio);
-        const registros = this.miembros.filter((r) => r.solicitud === folio);
+        const registros = this.registrosDe(folio);
         if (!registros.length) {
             this.toast('Excel', `La solicitud ${folio} no tiene registros.`, 'info');
             return;

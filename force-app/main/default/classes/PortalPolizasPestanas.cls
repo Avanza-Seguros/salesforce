@@ -1595,11 +1595,11 @@ public without sharing class PortalPolizasPestanas {
 		}
 	}
 
-	/** Solicitudes para agrupar la tabla en el sitio: solo folio, fecha, origen y conteos (nada interno del caso). */
+	/** Solicitudes para agrupar la tabla en el sitio: solo folio, fechas, origen, seguimiento y conteos (nada interno del caso). */
 	@TestVisible
 	static List<Object> solicitudesParaAgrupar(Object origen) {
 		Set<String> campos = new Set<String>{ 'folio', 'fecha', 'portal', 'caso', 'usuario', 'enviadaPor', 'total', 'abiertos',
-			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos' };
+			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos', 'seguimiento', 'cierre' };
 		List<Object> res = new List<Object>();
 		if (!(origen instanceof List<Object>)) { return res; }
 		for (Object o : (List<Object>) origen) {

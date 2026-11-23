@@ -185,7 +185,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     }
     // ============================================================
     // Solicitudes del cliente: cada registro de movimientos (un archivo, una baja, un alta o un cambio) queda en una
-    // solicitud con folio (SOL-0001...). La tabla se agrupa por la solicitud del último movimiento de cada registro.
+    // solicitud con folio (SOL-0001...). La tabla se agrupa por solicitud, con todos los movimientos de cada registro.
     // ============================================================
     agruparSolicitud = true;
     // Solicitud del sitio que el ejecutivo está atendiendo: los movimientos que registre llevan su folio.
@@ -241,6 +241,25 @@ export default class MovimientosUbicaciones extends LightningElement {
         })));
     }
     // Asegurados por solicitud (la más reciente primero; sin solicitud al final) y, dentro, por la columna elegida.
+    // Un renglón por cada movimiento del registro que tiene solicitud: la solicitud muestra todo lo que se pidió en ella
+    // (altas, bajas y cambios) aunque el registro tenga después otro movimiento.
+    movimientosDe(u) {
+        return (u.movimientos || []).map((x) => ({ ...u, ...x, esMovimiento: true, filaKey: `${u.id}-${x.movimientoId}`,
+            motivoBaja: x.tipoMovimiento === 'Baja' ? u.motivoBaja : null }));
+    }
+    // Filtro de la tabla para los movimientos de una solicitud («Vigentes» no oculta sus bajas).
+    pasaMovimiento(u) {
+        if (this.filtro === 'bajas') { return u.tipoMovimiento === 'Baja'; }
+        return true;
+    }
+    // Registros de una solicitud (o, sin folio, los que no tienen) para el Excel.
+    registrosDe(folio) {
+        const folios = this.infoSolicitudes;
+        return this.ubicaciones.flatMap((u) => {
+            const movs = this.movimientosDe(u).filter((x) => folios.has(x.solicitud));
+            return folio ? movs.filter((x) => x.solicitud === folio) : (movs.length ? [] : [u]);
+        });
+    }
     // Solicitud del sitio que aún no tiene registros (sin buscar ni filtrar): también sale, para poder atenderla.
     vacia(s) {
         return !!s && !this.portal && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
@@ -250,9 +269,16 @@ export default class MovimientosUbicaciones extends LightningElement {
         const infoVacias = this.infoSolicitudes;
         const porFolio = new Map(this.solicitudes.map((x) => [x.folio, []]));
         porFolio.set('', []);
-        this.filtrados.forEach((u) => {
-            const k = u.solicitud && porFolio.has(u.solicitud) ? u.solicitud : '';
-            porFolio.get(k).push(u);
+        const q = this.fold(this.busqueda);
+        const sinSolicitud = new Set(this.filtrados.map((u) => u.id));
+        this.ubicaciones.forEach((u) => {
+            const movs = this.movimientosDe(u).filter((x) => porFolio.has(x.solicitud));
+            if (!movs.length) {
+                if (sinSolicitud.has(u.id)) { porFolio.get('').push(u); }
+                return;
+            }
+            if (q && !this.fold(`${u.inciso || ''} ${u.nombre || ''} ${u.direccion || ''} ${u.giro || ''}`).includes(q)) { return; }
+            movs.filter((x) => this.pasaMovimiento(x)).forEach((x) => porFolio.get(x.solicitud).push(x));
         });
         return [...porFolio.entries()].filter(([k, l]) => l.length || this.vacia(infoVacias.get(k))).map(([k, l]) => ({ folio: k, lista: l }));
     }
@@ -346,6 +372,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         const seguimiento = this.enPoliza ? this.seguimientoDe(u, info) : '';
         return ({
             ...u,
+            filaKey: u.filaKey || u.id,
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
             // Clic para cambiar el estado del registro (en una solicitud rechazada se cambia el de la solicitud).
@@ -353,7 +380,7 @@ export default class MovimientosUbicaciones extends LightningElement {
                 && ((info || this.infoSolicitudes).get(u.solicitud) || {}).seguimiento !== 'Rechazada',
             seleccionado: this.seleccion.has(u.id),
             noSeleccionable: !u.activo || !this.puedeEditar,
-            claseFila: u.activo ? '' : 'fila-baja',
+            claseFila: (u.esMovimiento ? u.tipoMovimiento !== 'Baja' : u.activo) ? '' : 'fila-baja',
             sumaTxt: moneda(u.sumaAsegurada),
             primaTxt: moneda(u.prima),
             altaTxt: fechaVisible(u.fechaAlta),
@@ -879,7 +906,11 @@ export default class MovimientosUbicaciones extends LightningElement {
     // Solicitudes (folio) que tienen registros, la más reciente primero, con cuántos registros tiene cada una.
     abrirExcel() {
         const porFolio = new Map();
-        this.ubicaciones.forEach((r) => {
+        const folios = this.infoSolicitudes;
+        this.ubicaciones.flatMap((r) => {
+            const movs = this.movimientosDe(r).filter((x) => folios.has(x.solicitud));
+            return movs.length ? movs : [{ ...r, solicitud: '' }];
+        }).forEach((r) => {
             const folio = r.solicitud || '';
             const fecha = r.fechaMovimiento ? String(r.fechaMovimiento).substring(0, 10) : '';
             const s = porFolio.get(folio) || { n: 0, fecha: '' };
@@ -911,7 +942,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     generarExcel() {
         const elegida = this.solicitudesExcel.find((s) => s.sel);
         if (!elegida) { return; }
-        const registros = this.ubicaciones.filter((r) => (r.solicitud || '') === elegida.folio);
+        const registros = this.registrosDe(elegida.folio);
         this.excelDe(registros, elegida.folio || 'sin_solicitud');
         this.cerrarModal();
     }
@@ -919,7 +950,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     // solicitud en la tabla o desde las solicitudes del sitio.
     handleExcelSolicitud(e) {
         const folio = (e.detail && e.detail.folio) || (e.currentTarget && e.currentTarget.dataset.folio);
-        const registros = this.ubicaciones.filter((r) => r.solicitud === folio);
+        const registros = this.registrosDe(folio);
         if (!registros.length) {
             this.toast('Excel', `La solicitud ${folio} no tiene registros.`, 'info');
             return;

@@ -591,6 +591,7 @@ public inherited sharing class MovimientosUbicacionesController {
 	 */
 	private static List<Object> conMovimiento(List<Object> filas, Id recordId) {
 		Map<String, Movimiento_Poliza__c> ultimos = new Map<String, Movimiento_Poliza__c>();
+		Map<String, List<Movimiento_Poliza__c>> conSolicitud = new Map<String, List<Movimiento_Poliza__c>>();
 		Boolean esPoliza = MovimientosColectivoController.esPoliza(recordId);
 		for (Movimiento_Poliza__c m : esPoliza
 				? [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
@@ -599,11 +600,17 @@ public inherited sharing class MovimientosUbicacionesController {
 					WHERE Oportunidad__c = :recordId AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]) {
 			String k = PolicyController.llaveDireccion(m.Asegurado__c);
 			if (String.isNotBlank(k) && !ultimos.containsKey(k)) { ultimos.put(k, m); }
+			if (String.isNotBlank(k) && String.isNotBlank(m.Solicitud__c)) {
+				if (!conSolicitud.containsKey(k)) { conSolicitud.put(k, new List<Movimiento_Poliza__c>()); }
+				conSolicitud.get(k).add(m);
+			}
 		}
 		for (Object o : filas) {
 			Map<String, Object> u = (Map<String, Object>) o;
 			String dir = (String) u.get('direccion');
-			Movimiento_Poliza__c m = String.isBlank(dir) ? null : ultimos.get(PolicyController.llaveDireccion(dir.left(255)));
+			String llave = String.isBlank(dir) ? null : PolicyController.llaveDireccion(dir.left(255));
+			Movimiento_Poliza__c m = llave == null ? null : ultimos.get(llave);
+			if (llave != null) { MovimientosColectivoController.ponerSolicitudes(u, conSolicitud.get(llave)); }
 			MovimientosColectivoController.ponerMovimiento(u, m, u.get('activo') != false, comoFecha(u.get('fechaAlta')), comoFecha(u.get('fechaBaja')));
 		}
 		return filas;

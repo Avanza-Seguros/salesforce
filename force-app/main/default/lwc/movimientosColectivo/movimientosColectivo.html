@@ -167,7 +167,7 @@
                                         </template>
                                     </template>
                                     <template for:each={b.filas} for:item="m">
-                                        <tr key={m.id} class={m.claseFila}>
+                                        <tr key={m.filaKey} class={m.claseFila}>
                                             <td class="col-check">
                                                 <template if:false={m.noSeleccionable}>
                                                     <input type="checkbox" data-id={m.id} checked={m.seleccionado} onchange={handleSeleccion}

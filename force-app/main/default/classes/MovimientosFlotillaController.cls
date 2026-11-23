@@ -602,6 +602,7 @@ public inherited sharing class MovimientosFlotillaController {
 		Map<String, String> motivos = MovimientosColectivoController.etiquetas(Inciso_Flotilla__c.Motivo_Baja__c.getDescribe());
 		// Último movimiento de cada inciso: fecha de movimiento, creación, cierre y estado (igual que en asegurados).
 		Map<Id, Movimiento_Poliza__c> ultimos = new Map<Id, Movimiento_Poliza__c>();
+		Map<Id, List<Movimiento_Poliza__c>> conSolicitud = new Map<Id, List<Movimiento_Poliza__c>>();
 		Set<Id> ids = new Map<Id, Inciso_Flotilla__c>(incisos).keySet();
 		if (!ids.isEmpty()) {
 			for (Movimiento_Poliza__c m : [
@@ -609,6 +610,10 @@ public inherited sharing class MovimientosFlotillaController {
 				WHERE Inciso__c IN :ids ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 			]) {
 				if (!ultimos.containsKey(m.Inciso__c)) { ultimos.put(m.Inciso__c, m); }
+				if (String.isNotBlank(m.Solicitud__c)) {
+					if (!conSolicitud.containsKey(m.Inciso__c)) { conSolicitud.put(m.Inciso__c, new List<Movimiento_Poliza__c>()); }
+					conSolicitud.get(m.Inciso__c).add(m);
+				}
 			}
 		}
 		List<Object> l = new List<Object>();
@@ -621,6 +626,7 @@ public inherited sharing class MovimientosFlotillaController {
 				'motivoBaja' => i.Motivo_Baja__c == null ? null : motivos.get(i.Motivo_Baja__c)
 			};
 			MovimientosColectivoController.ponerMovimiento(fila, ultimos.get(i.Id), i.Fecha_Baja__c == null, i.Fecha_Alta__c, i.Fecha_Baja__c);
+			MovimientosColectivoController.ponerSolicitudes(fila, conSolicitud.get(i.Id));
 			l.add(fila);
 		}
 		return l;
