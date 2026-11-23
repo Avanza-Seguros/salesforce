@@ -971,7 +971,7 @@ public without sharing class PortalPolizasPestanas {
 		for (Fila f : bienes.filas) { filas.put(f.id, f); }
 		Set<String> folios = porFolio.keySet();
 		for (Movimiento_Poliza__c m : [
-			SELECT Solicitud__c, Tipo__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Fecha_Cierre__c, Participante__c,
+			SELECT Solicitud__c, Seguimiento__c, Tipo__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Fecha_Cierre__c, Participante__c,
 				Participante__r.FechaNacimiento__c, Inciso__c, Inciso__r.Numero_Inciso__c, Inciso__r.Descripcion__c
 			FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c IN :folios ORDER BY CreatedDate, Id LIMIT 5000
 		]) {
@@ -987,7 +987,8 @@ public without sharing class PortalPolizasPestanas {
 				'clave' => clave, 'nombre' => nombre, 'parentesco' => f == null ? null : f.parentesco, 'tipo' => m.Tipo__c,
 				'nacimiento' => m.Participante__c == null ? null : m.Participante__r.FechaNacimiento__c,
 				'fecha' => m.Fecha_Movimiento__c,
-				'seguimiento' => m.Fecha_Cierre__c != null ? 'Concluido' : (seg == 'Concluido' || seg == 'Rechazada' ? 'En proceso' : seg)
+				'seguimiento' => m.Fecha_Cierre__c != null ? 'Concluido'
+					: (m.Seguimiento__c != null ? m.Seguimiento__c : (seg == 'Concluido' || seg == 'Rechazada' ? 'En proceso' : seg))
 			});
 		}
 	}

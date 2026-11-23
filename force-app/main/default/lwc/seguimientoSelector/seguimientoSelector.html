@@ -1,0 +1,7 @@
+<template>
+    <select class={clase} onchange={handleCambio} disabled={guardando} aria-label="Seguimiento" title="Clic para cambiar el estado">
+        <template for:each={opciones} for:item="o">
+            <option key={o.valor} value={o.valor} selected={o.elegida}>{o.valor}</option>
+        </template>
+    </select>
+</template>

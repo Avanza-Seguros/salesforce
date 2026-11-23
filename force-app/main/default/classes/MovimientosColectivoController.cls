@@ -1194,7 +1194,7 @@ public inherited sharing class MovimientosColectivoController {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
-			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :policyId AND Participante__c != null
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
@@ -1259,6 +1259,8 @@ public inherited sharing class MovimientosColectivoController {
 			if (campos.containsKey('Numero_Endoso__c')) { fila.put('numeroEndoso', ultimo.Numero_Endoso__c); }
 			// Solicitud del cliente con la que se registró (agrupa la tabla).
 			if (campos.containsKey('Solicitud__c')) { fila.put('solicitud', ultimo.Solicitud__c); }
+			// Seguimiento elegido a mano en el movimiento (vacío = el de su solicitud).
+			if (campos.containsKey('Seguimiento__c')) { fila.put('seguimientoMov', ultimo.Seguimiento__c); }
 		} else if (!activo) {
 			tipo = 'Baja';
 			fecha = hasta;
@@ -1292,6 +1294,37 @@ public inherited sharing class MovimientosColectivoController {
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudo cerrar el movimiento: ' + mensaje(e));
 		}
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo cambia el seguimiento de un registro (su movimiento) o de toda una solicitud.
+	 * @param policyId: póliza.
+	 * @param folio: solicitud (null si el movimiento no tiene).
+	 * @param movimientoId: movimiento, o null para toda la solicitud.
+	 * @param valor: Solicitado, En proceso o Concluido.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String valor) {
+		try {
+			EndosoPoliza.cambiarSeguimiento(policyId, folio, movimientoId, valor);
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo cambiar el seguimiento: ' + mensaje(e));
+		}
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo rechaza una solicitud del sitio con el motivo que ve el cliente.
+	 * @param casoId: caso de la solicitud.
+	 * @param motivo: por qué no procede.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void rechazarSolicitud(Id casoId, String motivo) {
+		if (UserInfo.getUserType() != 'Standard') { throw CensoColectivoController.error('Solo un ejecutivo puede rechazarla.'); }
+		EndosoPoliza.rechazarSolicitud(casoId, motivo);
 	}
 
 	/**

@@ -43,11 +43,6 @@
                         </div>
                     </template>
 
-                    <!-- Solicitudes que el cliente envió desde el sitio y siguen por atender (solo en Salesforce). -->
-                    <template lwc:if={conSolicitudesPorAtender}>
-                        <c-solicitudes-portal solicitudes={solicitudes} atendiendo={solicitudAtender} puede-editar={puedeEditar}
-                            onatender={handleAtenderSolicitud} onexcel={handleExcelSolicitud} oncambio={handleCambioSolicitudes}></c-solicitudes-portal>
-                    </template>
                     <div class="mov-barra">
                         <div class="mov-filtros">
                             <lightning-input type="search" label="Buscar" variant="label-hidden" placeholder="Buscar por inciso, serie, placas o vehículo"
@@ -121,10 +116,16 @@
                                                     <span class="sol-poliza">{b.poliza}</span>
                                                     <span>{b.aperturaTxt}</span>
                                                     <span>{b.cierreTxt}</span>
-                                                    <span><template lwc:if={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template></span>
+                                                    <!-- Seguimiento de la solicitud: en Salesforce se cambia con un clic. -->
+                                                    <span>
+                                                        <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio} caso-id={b.casoId}
+                                                            sin-movimientos={b.sinMovimientos} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
+                                                        <template lwc:elseif={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template>
+                                                    </span>
                                                     <span class="sol-extra">
                                                         <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
                                                         <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
+                                                        <template lwc:if={b.ligaCaso}><a href={b.ligaCaso} target="_blank" class="sol-sub">{b.casoTxt}</a></template>
                                                         <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
                                                             class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
                                                     </span>
@@ -168,7 +169,11 @@
                                             </td>
                                             <template if:true={enPoliza}>
                                                 <!-- Seguimiento del trámite: Solicitado, En proceso o Concluido. -->
-                                                <td><template lwc:if={v.seguimiento}><span class={v.claseSeguimiento}>{v.seguimiento}</span></template></td>
+                                                <td>
+                                                    <template lwc:if={v.puedeSeguimiento}><c-seguimiento-selector valor={v.seguimiento} policy-id={recordId} folio={v.solicitud}
+                                                        movimiento-id={v.movimientoId} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
+                                                    <template lwc:elseif={v.seguimiento}><span class={v.claseSeguimiento}>{v.seguimiento}</span></template>
+                                                </td>
                                             </template>
                                             <td class="col-acciones">
                                                 <template if:true={v.puedeCerrar}>

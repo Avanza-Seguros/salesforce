@@ -2,5 +2,5 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>false</isExposed>
-    <description>Solicitudes de movimientos del sitio pendientes de atender (en asegurados, vehículos y ubicaciones de la póliza).</description>
+    <description>Seguimiento de un movimiento o de su solicitud: con un clic se elige otro estado.</description>
 </LightningComponentBundle>

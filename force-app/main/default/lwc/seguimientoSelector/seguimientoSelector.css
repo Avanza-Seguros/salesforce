@@ -1,0 +1,38 @@
+.seg {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 0.0625rem 1.25rem 0.0625rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 1rem;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    /* Flecha de la lista. */
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 0.6875rem) 52%, calc(100% - 0.4375rem) 52%;
+    background-size: 0.25rem 0.25rem, 0.25rem 0.25rem;
+    background-repeat: no-repeat;
+}
+
+.seg:hover,
+.seg:focus {
+    border-color: currentColor;
+    outline: none;
+}
+
+.seg:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.seg option {
+    background: #ffffff;
+    color: #181818;
+}
+
+.seg-solicitado { background-color: #fef1e6; color: #a96404; }
+.seg-proceso { background-color: #eef4ff; color: #0176d3; }
+.seg-concluido { background-color: #ebf7e6; color: #2e844a; }
+.seg-rechazada { background-color: #f3f3f3; color: #706e6b; }

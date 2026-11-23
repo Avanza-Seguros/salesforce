@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Seguimiento__c</fullName>
+    <description>Estado del trámite que el ejecutivo eligió para este movimiento. Vacío = el de su solicitud (caso). Un movimiento con fecha de cierre está Concluido.</description>
+    <label>Seguimiento</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Solicitado</fullName>
+                <default>false</default>
+                <label>Solicitado</label>
+            </value>
+            <value>
+                <fullName>En proceso</fullName>
+                <default>false</default>
+                <label>En proceso</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
