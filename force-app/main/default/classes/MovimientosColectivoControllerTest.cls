@@ -722,7 +722,7 @@ private class MovimientosColectivoControllerTest {
 	/**
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Solicitud del sitio (caso): al aplicar movimientos con su folio, el caso pasa a En proceso y la
+	 * @description: Solicitud del sitio (caso): al aplicar movimientos con su folio el caso sigue Solicitado y la
 	 *               solicitud aparece como del sitio; al cerrar sus movimientos, el caso se concluye. El siguiente folio
 	 *               cuenta los de los casos.
 	 * @return void
@@ -742,11 +742,39 @@ private class MovimientosColectivoControllerTest {
 			'movimientos' => new List<Object>{ mov('cambio', pedro, new Map<String, Object>{ 'prima' => 2500 }) }, 'solicitud' => 'SOL-0001' }));
 		Test.stopTest();
 		System.assertEquals('SOL-0001', r.get('solicitud'), 'Se atiende con el folio del caso');
-		System.assertEquals(EndosoPoliza.estadoCaso('En proceso'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
+		System.assertEquals(c.Id, [SELECT Id FROM Case WHERE Id = :c.Id AND Status = :EndosoPoliza.estadoCaso('Creado')].Id,
+			'Capturar movimientos no cambia el estatus');
 		Map<String, Object> s = (Map<String, Object>) ((List<Object>) MovimientosColectivoController.getDatos(pol.Id).get('solicitudes'))[0];
 		System.assertEquals(true, s.get('portal'));
 		System.assertEquals('En proceso', s.get('estadoPortal'));
+		System.assertEquals('Solicitado', s.get('seguimiento'), 'Nadie la ha atendido');
 		MovimientosColectivoController.cerrarMovimiento([SELECT Id FROM Movimiento_Poliza__c WHERE Solicitud__c = 'SOL-0001' LIMIT 1].Id);
 		System.assertEquals(true, [SELECT IsClosed FROM Case WHERE Id = :c.Id].IsClosed, 'Movimientos cerrados: caso concluido');
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: «Atender» pasa la solicitud del sitio de Solicitado a En proceso (aunque no tenga movimientos); una
+	 *               concluida ya no se atiende.
+	 * @return void
+	 */
+	@isTest
+	static void testAtenderSolicitud() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Case c = new Case(RecordTypeId = EndosoPoliza.tipoCaso(), InsurancePolicy__c = pol.Id, Solicitud__c = 'SOL-0001',
+			Subject = 'SOL-0001 · prueba', Origin = 'Sitio Web', Status = EndosoPoliza.estadoCaso('Solicitado'));
+		insert c;
+		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
+		Test.startTest();
+		EndosoPoliza.atenderSolicitud(c.Id);
+		EndosoPoliza.atenderSolicitud(c.Id);
+		System.assertEquals(EndosoPoliza.estadoCaso('En proceso'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
+		System.assertEquals('En proceso', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
+		update new Case(Id = c.Id, Status = EndosoPoliza.estadoCaso('Concluido'));
+		Boolean cerrada = false;
+		try { EndosoPoliza.atenderSolicitud(c.Id); } catch (AuraHandledException e) { cerrada = true; }
+		System.assert(cerrada, 'Una solicitud concluida no se atiende');
+		Test.stopTest();
 	}
 }

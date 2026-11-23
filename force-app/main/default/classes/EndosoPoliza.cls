@@ -29,10 +29,6 @@ public inherited sharing class EndosoPoliza {
 	@TestVisible
 	private static List<Movimiento_Poliza__c> insertados = new List<Movimiento_Poliza__c>();
 
-	// La solicitud la registra el sitio al enviarla: su caso se queda en el estado inicial («Solicitado») hasta que el
-	// ejecutivo la atiende.
-	public static Boolean registroDelSitio = false;
-
 	public static void agregar(List<Movimiento_Poliza__c> registros) {
 		if (registros != null) { insertados.addAll(registros); }
 	}
@@ -113,13 +109,7 @@ public inherited sharing class EndosoPoliza {
 			if (!casos.isEmpty() || [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :pedida] > 0) {
 				folio = pedida;
 			}
-			// El caso del sitio pasa a En proceso cuando el ejecutivo aplica movimientos (no cuando el sitio los registra).
-			String enProceso = registroDelSitio ? null : estadoCaso('En proceso');
-			List<Case> cambiar = new List<Case>();
-			for (Case c : casos) {
-				if (!c.IsClosed && enProceso != null && c.Status != enProceso) { cambiar.add(new Case(Id = c.Id, Status = enProceso)); }
-			}
-			new SinCompartir().actualizar(cambiar);
+			// El estatus del caso no cambia aquí: el ejecutivo lo pasa a En proceso con «Atender».
 		}
 		if (folio == null) { folio = siguienteFolio(policyId); }
 		for (Movimiento_Poliza__c m : l) { m.Solicitud__c = folio; }
@@ -153,8 +143,9 @@ public inherited sharing class EndosoPoliza {
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Valor de estado de caso que corresponde (los orgs no tienen los mismos): 'Creado' (el inicial),
-	 *               'En proceso' (abierto que no es el inicial) o 'Concluido' (cerrado, sin contar Merged).
-	 * @param buscado: 'Creado', 'En proceso' o 'Concluido'.
+	 *               'Solicitado' (o el inicial si el org no lo tiene), 'En proceso' (abierto que no es el inicial) o
+	 *               'Concluido' (cerrado, sin contar Merged).
+	 * @param buscado: 'Creado', 'Solicitado', 'En proceso' o 'Concluido'.
 	 * @return el valor del org, o null.
 	 */
 	public static String estadoCaso(String buscado) {
@@ -164,10 +155,10 @@ public inherited sharing class EndosoPoliza {
 		for (CaseStatus s : [SELECT ApiName, IsClosed, IsDefault FROM CaseStatus ORDER BY SortOrder]) {
 			if (s.ApiName == buscado) { return s.ApiName; }
 			if (s.IsDefault && inicial == null) { inicial = s.ApiName; }
-			else if (!s.IsClosed && abierto == null) { abierto = s.ApiName; }
+			else if (!s.IsClosed && s.ApiName != 'Solicitado' && abierto == null) { abierto = s.ApiName; }
 			else if (s.IsClosed && s.ApiName != 'Merged' && cerrado == null) { cerrado = s.ApiName; }
 		}
-		return buscado == 'Creado' ? inicial : (buscado == 'Concluido' ? cerrado : abierto);
+		return buscado == 'Creado' || buscado == 'Solicitado' ? inicial : (buscado == 'Concluido' ? cerrado : abierto);
 	}
 
 	/**
@@ -262,8 +253,8 @@ public inherited sharing class EndosoPoliza {
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Seguimiento del trámite de una solicitud: «Concluido» cuando todos sus movimientos se cerraron con el
 	 *               endoso (o se concluyó el caso), «Solicitado» mientras el caso del sitio sigue en su estado inicial o en
-	 *               «Solicitado» (el ejecutivo lo pasa a mano a En proceso cuando ya está en la aseguradora), «Rechazada» si
-	 *               se rechazó y, si no, «En proceso».
+	 *               «Solicitado» (el ejecutivo lo pasa a mano a En proceso con «Atender»), «Rechazada» si se rechazó y, si
+	 *               no, «En proceso».
 	 * @param s: solicitud (de solicitudes()).
 	 * @param inicial: estado inicial de los casos del org.
 	 * @return Solicitado, En proceso, Concluido o Rechazada.
@@ -275,7 +266,7 @@ public inherited sharing class EndosoPoliza {
 		Integer abiertos = (Integer) s.get('abiertos');
 		if ((total > 0 && abiertos == 0) || s.get('casoCerrado') == true) { return 'Concluido'; }
 		Object estado = s.get('estadoCaso');
-		if (s.get('portal') == true && (total == 0 || estado == 'Solicitado' || (inicial != null && estado == inicial))) { return 'Solicitado'; }
+		if (s.get('portal') == true && (estado == 'Solicitado' || (inicial != null && estado == inicial))) { return 'Solicitado'; }
 		return 'En proceso';
 	}
 
@@ -320,6 +311,27 @@ public inherited sharing class EndosoPoliza {
 		}
 	}
 
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo atiende una solicitud que el cliente envió desde el sitio («Atender»): su caso pasa a
+	 *               En proceso. Es el único paso que cambia Solicitado por En proceso (o cambiar el caso a mano).
+	 * @param casoId: caso de la solicitud.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void atenderSolicitud(Id casoId) {
+		try {
+			if (casoId == null || UserInfo.getUserType() != 'Standard') {
+				throw new IllegalArgumentException('solo un ejecutivo puede atenderla.');
+			}
+			new SinCompartir().atender(casoId, estadoCaso('En proceso'));
+		} catch (Exception e) {
+			AuraHandledException ex = new AuraHandledException('No se pudo atender la solicitud: ' + e.getMessage());
+			ex.setMessage('No se pudo atender la solicitud: ' + e.getMessage());
+			throw ex;
+		}
+	}
+
 	// Casos del sitio: el ejecutivo los ve y los atiende aunque no sea su dueño.
 	private without sharing class SinCompartir {
 		List<Case> casosDe(Id policyId, String folio) {
@@ -338,13 +350,18 @@ public inherited sharing class EndosoPoliza {
 		}
 		List<Case> casos(Id policyId) { return casosDe(policyId, null); }
 		List<Case> casosDeFolio(Id policyId, String folio) { return casosDe(policyId, folio); }
-		void actualizar(List<Case> l) { if (!l.isEmpty()) { update l; } }
 		List<ContentDocumentLink> archivos(Set<Id> ids) {
 			return [SELECT LinkedEntityId, ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension
 				FROM ContentDocumentLink WHERE LinkedEntityId IN :ids];
 		}
 		List<CaseComment> comentarios(Set<Id> ids) {
 			return [SELECT ParentId, CommentBody FROM CaseComment WHERE ParentId IN :ids AND IsPublished = true ORDER BY CreatedDate DESC];
+		}
+		void atender(Id casoId, String enProceso) {
+			Id rt = tipoCaso();
+			List<Case> l = [SELECT Id, IsClosed, Status FROM Case WHERE Id = :casoId AND RecordTypeId = :rt];
+			if (l.isEmpty() || l[0].IsClosed) { throw new IllegalArgumentException('ya está concluida o no es una solicitud del sitio.'); }
+			if (enProceso != null && l[0].Status != enProceso) { update new Case(Id = casoId, Status = enProceso); }
 		}
 		void rechazar(Id casoId, String motivo, String cerrado) {
 			insert new CaseComment(ParentId = casoId, IsPublished = true, CommentBody = ('Solicitud rechazada: ' + motivo).left(4000));

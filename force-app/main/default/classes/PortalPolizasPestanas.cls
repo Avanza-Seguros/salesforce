@@ -1256,6 +1256,9 @@ public without sharing class PortalPolizasPestanas {
 						+ (documentosRA.isEmpty() ? ' (fecha de antigüedad en el archivo).' : '; documentos: ' + String.join(documentosRA, ', ') + '.'))).left(32000),
 				Comentarios__c = String.isBlank(comentario) ? null : comentario.left(131072));
 			if (tipoUnico != null && tipoUnico != 'varios') { c.Reason = tipoUnico; }
+			// Queda Solicitado hasta que el ejecutivo la atiende.
+			String solicitado = EndosoPoliza.estadoCaso('Solicitado');
+			if (solicitado != null) { c.Status = solicitado; }
 			// El caso lo atiende el ejecutivo dueño de la póliza.
 			if (p.OwnerId != null && p.OwnerId.getSobjectType() == User.SObjectType
 					&& [SELECT COUNT() FROM User WHERE Id = :p.OwnerId AND IsActive = true AND ContactId = null] > 0) {
@@ -1268,11 +1271,8 @@ public without sharing class PortalPolizasPestanas {
 			if (!archivos.isEmpty()) { insert archivos; }
 			Integer registrados;
 			try {
-				EndosoPoliza.registroDelSitio = true;
 				registrados = registrar(policyId, bienes, aRegistrar, folio);
-				EndosoPoliza.registroDelSitio = false;
 			} catch (Exception e) {
-				EndosoPoliza.registroDelSitio = false;
 				Database.rollback(sp);
 				String msg = e instanceof AuraHandledException ? e.getMessage() : MovimientosColectivoController.mensaje(e);
 				System.debug(LoggingLevel.ERROR, 'crearSolicitud (registro): ' + msg + ' | ' + e.getStackTraceString());

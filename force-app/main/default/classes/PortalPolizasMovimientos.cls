@@ -228,7 +228,7 @@ public without sharing class PortalPolizasMovimientos {
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Lo que el contratante registra en Asegurados, Vehículos o Ubicaciones del sitio sigue el mismo proceso
 	 * que una solicitud enviada desde Solicitudes: si el folio aún no tiene caso, se crea el caso «Solicitud de
-	 * movimientos» (En proceso, del ejecutivo dueño de la póliza, con aviso a Avanza por el flujo del caso), así aparece
+	 * movimientos» (Solicitado, del ejecutivo dueño de la póliza, con aviso a Avanza por el flujo del caso), así aparece
 	 * en Salesforce entre las solicitudes del sitio en trámite y en el sitio con su caso.
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (vista previa de administrador); null para el usuario real
@@ -266,8 +266,9 @@ public without sharing class PortalPolizasMovimientos {
 			Description = 'Solicitud ' + folio + ' registrada desde el sitio por ' + UserInfo.getName()
 				+ (cuentaVistaPrevia == null ? '' : ' (vista previa de administrador)') + ' para la póliza ' + p.Name + '.');
 		if (tipos == 1) { c.Reason = tipoUnico; }
-		String enProceso = EndosoPoliza.estadoCaso('En proceso');
-		if (enProceso != null) { c.Status = enProceso; }
+		// Queda Solicitado hasta que el ejecutivo la atiende.
+		String solicitado = EndosoPoliza.estadoCaso('Solicitado');
+		if (solicitado != null) { c.Status = solicitado; }
 		// El caso lo atiende el ejecutivo dueño de la póliza.
 		if (p.OwnerId != null && p.OwnerId.getSobjectType() == User.SObjectType
 				&& [SELECT COUNT() FROM User WHERE Id = :p.OwnerId AND IsActive = true AND ContactId = null] > 0) {

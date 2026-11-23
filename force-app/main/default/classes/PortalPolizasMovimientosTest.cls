@@ -176,10 +176,11 @@ private class PortalPolizasMovimientosTest {
 		Test.stopTest();
 
 		if (EndosoPoliza.tipoCaso() == null) { return; }
-		List<Case> casos = [SELECT Solicitud__c, Subject, Origin, Reason FROM Case WHERE InsurancePolicy__c = :pol.Id];
+		List<Case> casos = [SELECT Solicitud__c, Subject, Origin, Reason, Status FROM Case WHERE InsurancePolicy__c = :pol.Id];
 		System.assertEquals(1, casos.size(), 'Un caso por folio');
 		System.assertEquals('SOL-0001', casos[0].Solicitud__c);
 		System.assertEquals('Sitio Web', casos[0].Origin);
+		System.assertEquals(EndosoPoliza.estadoCaso('Solicitado'), casos[0].Status, 'Nace Solicitado');
 		System.assert(casos[0].Subject.contains('2 altas'));
 		System.assertNotEquals(null, r1.get('caso'));
 		System.assertEquals(r1.get('caso'), r2.get('caso'));
