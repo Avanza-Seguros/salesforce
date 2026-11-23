@@ -2,15 +2,16 @@
  * @creation date: 01/11/2026
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Participantes de la póliza (cualquier ramo) con su información relacionada: contratante, asegurados con
- *               sus dependientes, beneficiarios y otros roles. Cada participante se abre para ver su contacto o cuenta
- *               (RFC, correo, teléfonos, domicilio), sus coberturas, su vigencia o baja, su antigüedad y, si es asegurado,
- *               sus beneficiarios. Las columnas se ajustan a lo que trae la póliza (categoría, suma asegurada, prima…).
+ *               sus dependientes y, si los hay (Vida), beneficiarios. Cada participante se abre para ver su contacto o cuenta
+ *               (RFC, correo, teléfonos, domicilio), su vigencia o baja, el envío de su correo, sus archivos adjuntos y, si
+ *               es titular, sus dependientes. Las columnas se ajustan a lo que trae la póliza (categoría, suma asegurada, prima…).
  *               Solo lectura. Usa ParticipantesPolizaController.
  */
 import { LightningElement, api, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { fechaVisible, moneda } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/ParticipantesPolizaController.getDatos';
+import { descargarDocumento, fijarPortal } from 'c/portalContexto';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 
 const POR_PAGINA = 50;
@@ -27,7 +28,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     pagina = 1;
     _recordId;
     // Sitio de empresas (portalPolizas): igual que en Salesforce en solo lectura, con los datos de PortalPolizasPestanas;
-    // sin archivos ni enlaces a registros de Salesforce (no existen en el sitio).
+    // sin enlaces a registros de Salesforce (no existen en el sitio); los archivos se descargan.
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
@@ -49,6 +50,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
         if (!this._recordId) { return; }
         // Espera a que lleguen todas las propiedades (portal, cuentaVistaPrevia) antes de la primera carga.
         await Promise.resolve();
+        if (this.portal) { fijarPortal(this._recordId, this.cuentaVistaPrevia); }
         this.cargando = true;
         try {
             this.datos = await (this.portal
@@ -56,8 +58,8 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
                 : getDatos({ policyId: this._recordId }));
             this.errorMensaje = '';
             // Abre la vista que tenga participantes (ej. una póliza con solo beneficiarios u otros roles).
-            if (!this.cuenta('asegurados')) {
-                const otra = ['beneficiarios', 'otros'].find((v) => this.cuenta(v));
+            if (!this.cuenta(this.vista)) {
+                const otra = ['asegurados', 'dependientes', 'beneficiarios'].find((v) => this.cuenta(v));
                 if (otra) { this.vista = otra; }
             }
         } catch (e) {
@@ -97,10 +99,10 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     get stats() {
         const r = this.resumen;
         return [
-            { key: 'a', num: r.asegurado || 0, lbl: 'Titulares' },
+            { key: 'a', num: this.cuenta('asegurados'), lbl: 'Titulares' },
             { key: 'd', num: r.dependiente || 0, lbl: 'Dependientes' },
-            { key: 'b', num: r.beneficiario || 0, lbl: 'Beneficiarios' },
-            { key: 'o', num: r.otro || 0, lbl: 'Otros roles' },
+            // Beneficiarios: solo las pólizas que los tienen (Vida).
+            ...(r.beneficiario ? [{ key: 'b', num: r.beneficiario, lbl: 'Beneficiarios' }] : []),
             { key: 'x', num: r.bajas || 0, lbl: 'Dados de baja', clase: 'stat stat-baja' }
         ].map((s) => ({ ...s, clase: s.clase || 'stat' }));
     }
@@ -110,21 +112,21 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     // ============================================================
     cuenta(vista) {
         const r = this.resumen;
-        if (vista === 'asegurados') { return (r.asegurado || 0) + (r.dependiente || 0); }
-        if (vista === 'beneficiarios') { return r.beneficiario || 0; }
-        return r.otro || 0;
+        // En Titulares también van las personas con otro papel (p. ej. el conductor en autos).
+        if (vista === 'asegurados') { return (r.asegurado || 0) + (r.otro || 0); }
+        if (vista === 'dependientes') { return r.dependiente || 0; }
+        return r.beneficiario || 0;
     }
     get vistas() {
         return [
             { value: 'asegurados', label: `Titulares (${this.cuenta('asegurados')})` },
-            { value: 'beneficiarios', label: `Beneficiarios (${this.cuenta('beneficiarios')})` },
-            { value: 'otros', label: `Otros roles (${this.cuenta('otros')})` }
+            { value: 'dependientes', label: `Dependientes (${this.cuenta('dependientes')})` },
+            ...(this.cuenta('beneficiarios') ? [{ value: 'beneficiarios', label: `Beneficiarios (${this.cuenta('beneficiarios')})` }] : [])
         ].map((v) => ({ ...v, variante: v.value === this.vista ? 'brand' : 'neutral' }));
     }
     cambiarVista(e) { this.vista = e.target.dataset.vista; this.pagina = 1; }
     get enAsegurados() { return this.vista === 'asegurados'; }
     get enBeneficiarios() { return this.vista === 'beneficiarios'; }
-    get enOtros() { return this.vista === 'otros'; }
 
     get opcionesEstado() {
         return [
@@ -152,9 +154,9 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     }
 
     // ============================================================
-    // Asegurados (titulares con sus dependientes debajo)
+    // Asegurados (titulares; sus dependientes van en su detalle y en la pestaña Dependientes)
     // ============================================================
-    get titulares() { return this.participantes.filter((p) => p.grupo === 'asegurado'); }
+    get titulares() { return this.participantes.filter((p) => p.grupo === 'asegurado' || p.grupo === 'otro'); }
     get dependientesPorTitular() {
         const m = new Map();
         this.participantes.filter((p) => p.grupo === 'dependiente').forEach((d) => {
@@ -173,21 +175,10 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
         });
         return m;
     }
-    // Titulares que pasan el filtro (o que tienen un dependiente que lo pasa) y dependientes sin titular en la póliza.
+    // Titulares que pasan el filtro.
     get gruposAsegurados() {
-        const deps = this.dependientesPorTitular;
-        const ids = new Set(this.titulares.map((t) => t.id));
-        const grupos = [];
-        this.titulares.forEach((t) => {
-            const suyos = this.ordenarLista((deps.get(t.id) || []).filter((d) => this.pasaFiltro(d)));
-            if (this.pasaFiltro(t) || suyos.length) { grupos.push({ titular: t, dependientes: suyos }); }
-        });
-        [...deps.keys()].filter((k) => !ids.has(k)).forEach((k) => {
-            deps.get(k).filter((d) => this.pasaFiltro(d)).forEach((d) => grupos.push({ titular: d, dependientes: [] }));
-        });
-        // Se ordena por el titular; sus dependientes quedan debajo de él.
-        if (!this.orden.campo) { return grupos; }
-        return grupos.sort((a, b) => this.comparar(a.titular, b.titular));
+        const lista = this.titulares.filter((t) => this.pasaFiltro(t)).map((titular) => ({ titular }));
+        return this.orden.campo ? lista.sort((a, b) => this.comparar(a.titular, b.titular)) : lista;
     }
 
     // ============================================================
@@ -213,7 +204,6 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             case 'estado': return p.tipoMovimiento || (p.activo ? 'Alta' : 'Baja');
             case 'envio': return p.correoEnviado ? 'Enviado' : (c.correo ? 'Pendiente' : 'Sin correo');
             case 'correo': return c.correo || '';
-            case 'rol': return p.rolesTexto || '';
             default: return p[campo];
         }
     }
@@ -234,12 +224,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     }
     get filasAsegurados() {
         const ini = (this.pagina - 1) * POR_PAGINA;
-        const filas = [];
-        this.gruposAsegurados.slice(ini, ini + POR_PAGINA).forEach((g) => {
-            filas.push(this.fila(g.titular, false));
-            g.dependientes.forEach((d) => filas.push(this.fila(d, true)));
-        });
-        return filas;
+        return this.gruposAsegurados.slice(ini, ini + POR_PAGINA).map((g) => this.fila(g.titular, false));
     }
     get totalPaginable() {
         if (this.enAsegurados) { return this.gruposAsegurados.length; }
@@ -247,10 +232,10 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     }
 
     // ============================================================
-    // Beneficiarios y otros roles
+    // Dependientes y beneficiarios
     // ============================================================
     get listaVista() {
-        const grupo = this.enBeneficiarios ? 'beneficiario' : 'otro';
+        const grupo = this.enBeneficiarios ? 'beneficiario' : 'dependiente';
         return this.ordenarLista(this.participantes.filter((p) => p.grupo === grupo && this.pasaFiltro(p)));
     }
     get filasLista() {
@@ -262,6 +247,8 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     // ============================================================
     // Columnas según lo que trae la póliza
     // ============================================================
+    // «POR ASIGNAR»: pólizas empresariales de personas (en las individuales no hay certificado).
+    get conCertificado() { return !this.avisoBienes && (this.resumen.asegurado || 0) > 1; }
     get conCategoria() { return this.participantes.some((p) => p.categoria); }
     get conPrima() { return this.participantes.some((p) => p.prima != null); }
     get conParentesco() { return this.participantes.some((p) => p.parentesco || p.titularNombre); }
@@ -279,8 +266,12 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
         const beneficiarios = (this.beneficiariosPorAsegurado.get(p.id) || []).map((b) => ({
             id: b.id, texto: `${b.nombre}${b.parentesco ? ' · ' + b.parentesco : ''}${b.porcentaje != null ? ' · ' + b.porcentaje + '%' : ''}`
         }));
+        const dependientes = (this.dependientesPorTitular.get(p.id) || []).map((d) => ({
+            id: d.id, texto: `${d.nombre}${d.parentesco ? ' · ' + d.parentesco : ''}${d.activo ? '' : ' · baja'}`
+        }));
         return {
             ...p,
+            certificadoTxt: p.certificado || (this.conCertificado ? 'POR ASIGNAR' : ''),
             key: p.id,
             keyDetalle: p.id + '-detalle',
             claseFila: [esDependiente ? 'fila-dependiente' : '', p.activo ? '' : 'fila-baja', abierto ? 'fila-abierta' : ''].join(' ').trim(),
@@ -305,7 +296,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             claseCorreo: `estado ${p.correoEnviado ? 'correo-enviado' : (c.correo ? 'correo-pendiente' : 'correo-sin')}`,
             fechaCorreoTxt: p.correoEnviado && p.fechaCorreo ? this.fechaHora(p.fechaCorreo) : '',
             tituloCorreo: p.correoEnviado
-                ? `Enviado el ${this.fechaHora(p.fechaCorreo)}${p.plantillaCorreo ? ' · ' + p.plantillaCorreo : ''}`
+                ? `Enviado el ${this.fechaHora(p.fechaCorreo)}`
                 : (c.correo ? `Aún no se envía el correo a ${c.correo}` : 'El participante no tiene correo'),
             // Detalle
             datosPersona: this.lineas(c, p),
@@ -313,21 +304,18 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             personaTitulo: p.contacto ? 'Contacto' : (p.cuenta ? (p.cuenta.tipo === 'Persona' ? 'Cuenta (persona)' : 'Cuenta') : 'Contacto'),
             personaId: c.id,
             datosPoliza: [
-                ['Roles', p.rolesTexto],
-                ['Certificado', p.certificado],
+                ['Certificado', p.certificado || (this.conCertificado ? 'POR ASIGNAR' : '')],
                 ['Categoría', p.categoria],
                 ['Parentesco', p.parentesco],
                 ['Titular', p.titularNombre],
                 ['Vigencia', p.desde ? `${fechaVisible(p.desde)}${p.hasta ? ' – ' + fechaVisible(p.hasta) : ''}` : ''],
-                ['Asegurado desde', p.aseguradoDesde ? `${fechaVisible(p.aseguradoDesde)}${p.polizaOriginal ? ' (' + p.polizaOriginal + ')' : ''}` : ''],
-                ['Vigencia anterior', p.vigenciaAnterior],
                 ['Motivo de baja', p.motivoBaja],
                 ['Identificación', p.identificacion],
                 ['Porcentaje', p.porcentaje != null ? `${p.porcentaje}%` : ''],
                 ['Menor de edad', p.menor ? 'Sí' : ''],
                 ['Tutor', p.tutor ? p.tutor.nombre : ''],
                 ['Contratante', p.contratante ? 'Sí' : ''],
-                ['Correo enviado', p.correoEnviado ? `${this.fechaHora(p.fechaCorreo)}${p.plantillaCorreo ? ' · ' + p.plantillaCorreo : ''}` : '']
+                ['Correo enviado', p.correoEnviado ? this.fechaHora(p.fechaCorreo) : '']
             ].filter(([, v]) => v).map(([etiqueta, valor]) => ({ key: etiqueta, etiqueta, valor })),
             coberturasTxt: (p.coberturas || []).map((cob) => ({
                 key: cob.id,
@@ -339,6 +327,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             archivosTxt: (p.archivos || []).map((a) => ({
                 key: a.id,
                 id: a.id,
+                participanteId: p.id,
                 titulo: a.titulo + (a.tipo ? '.' + a.tipo : ''),
                 tipo: a.tipo || 'archivo',
                 icono: this.iconoArchivo(a.tipo),
@@ -347,7 +336,9 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             })),
             hayArchivos: (p.archivos || []).length > 0,
             beneficiarios,
-            hayBeneficiarios: beneficiarios.length > 0
+            hayBeneficiarios: beneficiarios.length > 0,
+            dependientes,
+            hayDependientes: dependientes.length > 0
         };
     }
 
@@ -377,10 +368,26 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
     }
 
     // Vista previa del archivo (Salesforce Files).
-    verArchivo(e) {
+    async verArchivo(e) {
         e.preventDefault();
         const id = e.currentTarget.dataset.id;
+        const participanteId = e.currentTarget.dataset.participante;
         if (!id) { return; }
+        if (this.portal) {
+            // En el sitio el archivo se descarga (el usuario del sitio no tiene acceso directo a él).
+            const contenedor = this.template.querySelector('.part');
+            try {
+                try {
+                    await descargarDocumento(id, contenedor, participanteId);
+                } catch (sinPersona) {
+                    // Archivo de la póliza (el del contratante).
+                    await descargarDocumento(id, contenedor);
+                }
+            } catch (err) {
+                this.errorMensaje = (err && err.body && err.body.message) || 'No se pudo descargar el archivo.';
+            }
+            return;
+        }
         this[NavigationMixin.Navigate]({ type: 'standard__namedPage', attributes: { pageName: 'filePreview' },
             state: { selectedRecordId: id } });
     }

@@ -46,6 +46,8 @@ public inherited sharing class MovimientosColectivoController {
 		public Boolean comoCambio;
 		// Baja en la póliza: correo personal del asegurado (el corporativo suele dejar de existir).
 		public String correoPersonal;
+		// Lo que cobra o devuelve la aseguradora por el movimiento (complemento del archivo).
+		public Decimal prima;
 	}
 
 	// ============================================================
@@ -267,7 +269,7 @@ public inherited sharing class MovimientosColectivoController {
 				bajas.add(new Map<String, Object>{
 					'id' => a.get('id'), 'nombre' => a.get('nombre'), 'parentesco' => a.get('parentesco'),
 					'certificado' => a.get('certificado'), 'titularId' => a.get('titularId'), 'titularNombre' => a.get('titularNombre'),
-					'fechaMovimiento' => e.fechaAlta, 'numeroEndoso' => e.numeroEndoso
+					'fechaMovimiento' => e.fechaAlta, 'numeroEndoso' => e.numeroEndoso, 'primaMovimiento' => e.primaMovimiento
 				});
 				continue;
 			}
@@ -1230,6 +1232,76 @@ public inherited sharing class MovimientosColectivoController {
 		return new Map<String, Object>{ 'actualizados' => actualizados, 'avisos' => avisos };
 	}
 
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda en cada movimiento lo que cobra la aseguradora por él (el complemento del listado de
+	 *               movimientos, PDF). Se toma el movimiento del asegurado del mismo tipo y la misma fecha; si no hay uno
+	 *               con esa fecha, el más reciente de ese tipo.
+	 * @param policyId: póliza.
+	 * @param primasJson: lista de {registroId, tipo: Alta|Baja|Cambio, fecha: AAAA-MM-DD, prima}.
+	 * @return { guardadas: número, avisos: [texto] }
+	 */
+	@AuraEnabled(cacheable=false)
+	public static Map<String, Object> guardarPrimas(Id policyId, String primasJson) {
+		if (UserInfo.getUserType() != 'Standard') { throw CensoColectivoController.error('Solo un ejecutivo puede guardar la prima.'); }
+		List<String> avisos = new List<String>();
+		Map<Id, Movimiento_Poliza__c> cambiar = new Map<Id, Movimiento_Poliza__c>();
+		try {
+			List<Object> filas = (List<Object>) JSON.deserializeUntyped(String.isBlank(primasJson) ? '[]' : primasJson);
+			Set<Id> ids = new Set<Id>();
+			for (Object o : filas) { ids.add(Id.valueOf((String) ((Map<String, Object>) o).get('registroId'))); }
+			Map<Id, List<Movimiento_Poliza__c>> movs = new Map<Id, List<Movimiento_Poliza__c>>();
+			for (Movimiento_Poliza__c m : [
+				SELECT Id, Participante__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c FROM Movimiento_Poliza__c
+				WHERE Poliza__c = :policyId AND Participante__c IN :ids ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
+			]) {
+				if (!movs.containsKey(m.Participante__c)) { movs.put(m.Participante__c, new List<Movimiento_Poliza__c>()); }
+				movs.get(m.Participante__c).add(m);
+			}
+			for (Object o : filas) {
+				Map<String, Object> f = (Map<String, Object>) o;
+				if (f.get('prima') == null) { continue; }
+				Id r = Id.valueOf((String) f.get('registroId'));
+				String tipo = f.get('tipo') == null ? 'Alta' : (String) f.get('tipo');
+				Date fecha = CensoColectivoController.fecha((String) f.get('fecha'));
+				Movimiento_Poliza__c elegido;
+				if (movs.containsKey(r)) {
+					for (Movimiento_Poliza__c m : movs.get(r)) {
+						if (m.Tipo__c != tipo) { continue; }
+						if (elegido == null) { elegido = m; }
+						if (fecha != null && m.Fecha_Movimiento__c == fecha) { elegido = m; break; }
+					}
+				}
+				if (elegido == null) {
+					avisos.add((f.get('nombre') == null ? 'Un asegurado' : String.valueOf(f.get('nombre'))) + ': no tiene un movimiento de ' + tipo.toLowerCase() + '.');
+					continue;
+				}
+				cambiar.put(elegido.Id, new Movimiento_Poliza__c(Id = elegido.Id, Prima__c = Decimal.valueOf(String.valueOf(f.get('prima')))));
+			}
+			update cambiar.values();
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo guardar la prima: ' + mensaje(e));
+		}
+		return new Map<String, Object>{ 'guardadas' => cambiar.size(), 'avisos' => avisos };
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Contenido de un PDF ya subido (hasta 3 MB), para reconocer a quién corresponde por lo que dice.
+	 * @param documentId: ContentDocument que el usuario puede ver.
+	 * @return base64, o null si no es PDF o pesa más.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static String contenidoPdf(Id documentId) {
+		for (ContentVersion v : [SELECT FileExtension, ContentSize FROM ContentVersion WHERE ContentDocumentId = :documentId AND IsLatest = true LIMIT 1]) {
+			if (v.FileExtension == null || v.FileExtension.toLowerCase() != 'pdf' || v.ContentSize > 3 * 1024 * 1024) { return null; }
+			return EncodingUtil.base64Encode([SELECT VersionData FROM ContentVersion WHERE Id = :v.Id].VersionData);
+		}
+		return null;
+	}
+
 	// Registro donde se guardan los archivos de cada asegurado: su contacto, si no su cuenta, si no el propio registro.
 	private static Map<Id, Id> destinosArchivo(Set<Id> registros) {
 		Map<Id, Id> r = new Map<Id, Id>();
@@ -1302,7 +1374,7 @@ public inherited sharing class MovimientosColectivoController {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
-			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Prima__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :policyId AND Participante__c != null
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
@@ -1330,7 +1402,7 @@ public inherited sharing class MovimientosColectivoController {
 			l.add(new Map<String, Object>{ 'movimientoId' => m.Id, 'movimientoNumero' => m.Name, 'solicitud' => m.Solicitud__c,
 				'tipoMovimiento' => m.Tipo__c, 'fechaMovimiento' => m.Fecha_Movimiento__c, 'fechaCreacion' => m.CreatedDate,
 				'fechaCierre' => m.Fecha_Cierre__c, 'seguimientoMov' => m.Seguimiento__c, 'motivoRechazo' => m.Motivo_Rechazo__c,
-				'numeroEndoso' => m.Numero_Endoso__c });
+				'numeroEndoso' => m.Numero_Endoso__c, 'primaMovimiento' => m.Prima__c });
 		}
 		fila.put('movimientos', l);
 	}
@@ -1394,6 +1466,8 @@ public inherited sharing class MovimientosColectivoController {
 			// Seguimiento elegido a mano en el movimiento (vacío = el de su solicitud).
 			if (campos.containsKey('Seguimiento__c')) { fila.put('seguimientoMov', ultimo.Seguimiento__c); }
 			if (campos.containsKey('Motivo_Rechazo__c')) { fila.put('motivoRechazo', ultimo.Motivo_Rechazo__c); }
+			// Lo que cobra la aseguradora por el movimiento (complemento de su listado).
+			if (campos.containsKey('Prima__c')) { fila.put('primaMovimiento', ultimo.Prima__c); }
 		} else if (!activo) {
 			tipo = 'Baja';
 			fecha = hasta;
@@ -1438,11 +1512,12 @@ public inherited sharing class MovimientosColectivoController {
 	 * @param movimientoId: movimiento, o null para toda la solicitud.
 	 * @param valor: Solicitado, En proceso, Concluido o Rechazado (este, solo en un registro).
 	 * @param motivo: motivo del rechazo.
+	 * @return aviso del correo al cliente cuando la solicitud quedó concluida, o null.
 	 */
 	@AuraEnabled(cacheable=false)
-	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String valor, String motivo) {
+	public static String cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String valor, String motivo) {
 		try {
-			EndosoPoliza.cambiarSeguimiento(policyId, folio, movimientoId, valor, motivo);
+			return EndosoPoliza.cambiarSeguimiento(policyId, folio, movimientoId, valor, motivo);
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudo cambiar el seguimiento: ' + mensaje(e));
 		}
@@ -1607,6 +1682,7 @@ public inherited sharing class MovimientosColectivoController {
 			Comentario__c = String.isBlank(m.comentario) ? null : m.comentario.trim().left(255));
 		r.Tipo__c = tipo == ALTA && m.comoCambio != true ? 'Alta' : (tipo == BAJA ? 'Baja' : 'Cambio');
 		if (tipo == BAJA) { r.Motivo_Baja__c = m.motivo; }
+		r.Prima__c = m.prima != null ? m.prima : (m.datos == null ? null : m.datos.primaMovimiento);
 		return r;
 	}
 

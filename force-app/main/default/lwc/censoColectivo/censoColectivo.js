@@ -14,6 +14,7 @@ import {
     opcionesColumnas, opcionesEncabezado, bloquesPdf, inicioDatos, descargarArchivo
 } from 'c/lectorArchivos';
 import {
+    listadoMovimiento,
     CAMPOS_CENSO, mapeoCenso, normalizarCenso, payloadMiembro, conteoMovimientos, MOVIMIENTOS, movimientosPorRevisar, AVISO_SIN_CONTACTO,
     endosoDeTexto, clausulaDeTexto
 } from 'c/clasificadorArchivos';
@@ -418,6 +419,15 @@ export default class CensoColectivo extends LightningElement {
                 this._endosos.push({ endoso, clausula, documento: file, archivo: file.name });
                 return;
             }
+        }
+        // Listado de movimientos de la aseguradora: se lee directo, con la prima (complemento) de cada movimiento.
+        const listado = this.esLector ? listadoMovimiento(bloques.join('\n')) : null;
+        if (listado) {
+            this.filasCrudas = [];
+            this.agregarArchivo(listado.filas.map((f, i) => ({ fila: i + 1, nombreCompleto: f.nombre, certificado: f.certificado,
+                parentesco: f.parentesco, sexo: f.sexo, fechaNacimiento: f.fechaNacimiento, fechaAlta: f.fecha, prima: f.prima,
+                tipoMovimiento: f.tipo, primaMovimiento: f.complemento })));
+            return;
         }
         const datos = [];
         for (let i = 0; i < bloques.length; i++) {

@@ -15,7 +15,6 @@ import { abrirTabla, detectarEncabezado, inicioDatos, mapeoAutomatico, tieneDato
 const MAX_BYTES = 4 * 1024 * 1024;
 // Renglones del archivo que se mandan para el detalle del caso (el archivo completo va adjunto).
 const MAX_FILAS = 2000;
-const VISTA_FILAS = 8;
 
 // Columnas que se reconocen en el archivo (por su encabezado), según lo que asegura la póliza. Con ellas los
 // movimientos se registran en la póliza al enviar la solicitud. «fecha» es la columna con fecha (se pasa a AAAA-MM-DD).
@@ -86,8 +85,6 @@ const PLANTILLA = {
 };
 // Una alta puede ser de hasta 30 días atrás (igual que PortalPolizasPestanas.DIAS_RETROACTIVOS).
 const DIAS_RETROACTIVOS = 30;
-// Documentos de reconocimiento de antigüedad (RA), por su nombre (igual que PortalPolizasPestanas.ARCHIVO_RA).
-const ARCHIVO_RA = /antig|carta|caratula|complemento/;
 const SEGUIMIENTO = {
     Solicitado: 'estado estado_pendiente',
     'En proceso': 'estado estado_proceso',
@@ -105,7 +102,7 @@ const CAMPOS_ALTA = {
         { clave: 'nacimiento', etiqueta: 'Fecha de nacimiento', tipo: 'date', requerido: true },
         { clave: 'sexo', etiqueta: 'Sexo', etiquetaCambio: 'Corrección de género', opciones: ['Mujer', 'Hombre'], requerido: true },
         // Un parentesco nuevo es un alta, no un cambio.
-        { clave: 'parentesco', etiqueta: 'Parentesco', soloAlta: true, opciones: ['Titular', 'Cónyuge', 'Hijo(a)', 'Padre/Madre', 'Otro'], requerido: true },
+        { clave: 'parentesco', etiqueta: 'Parentesco', soloAlta: true, opciones: ['Titular', 'Cónyuge', 'Hijo(a)'], requerido: true },
         { clave: 'correo', etiqueta: 'Correo electrónico', tipo: 'email' }
     ],
     vehiculos: [
@@ -159,7 +156,6 @@ export default class PortalSolicitudes extends LightningElement {
     formulario = false;
     movimientos = [];
     comentario = '';
-    archivos = [];
     exito;
     abiertas = new Set();
 
@@ -273,7 +269,6 @@ export default class PortalSolicitudes extends LightningElement {
         this.error = undefined;
         this.movimientos = [this.nuevoMovimiento('alta')];
         this.comentario = '';
-        this.archivos = [];
         this.modo = 'archivo';
         this.listado = null;
         this.filaError = null;
@@ -316,8 +311,8 @@ export default class PortalSolicitudes extends LightningElement {
         if (!file) { return; }
         this.error = undefined;
         this.filaError = null;
-        if (file.size + this.archivos.reduce((t, a) => t + a.tamano, 0) > MAX_BYTES) {
-            this.error = 'El archivo es muy pesado: entre todos los archivos el límite es 4 MB.';
+        if (file.size > MAX_BYTES) {
+            this.error = 'El archivo es muy pesado: el límite es 4 MB.';
             return;
         }
         this.leyendo = true;
@@ -517,11 +512,6 @@ export default class PortalSolicitudes extends LightningElement {
         if (files.length) { this.handleListado({ target: { files, value: null } }); }
     }
     get textoZona() { return this.leyendo ? 'Leyendo el archivo…' : 'Elige o arrastra aquí el archivo con los datos'; }
-    get textoAdjuntar() { return this.enArchivo ? 'Adjuntar documentos' : 'Adjuntar archivos'; }
-    get notaAdjuntar() {
-        return this.enArchivo ? 'Opcional: identificaciones, actas, facturas o lo que pida la aseguradora (hasta 4 MB en total).'
-            : 'Excel con el listado, identificaciones, actas o lo que pida la aseguradora (hasta 4 MB en total).';
-    }
     get hayListado() { return !!this.listado; }
     get listadoConDatos() { return !!this.listado && this.listado.filas.length > 0; }
     get textoListado() {
@@ -531,18 +521,11 @@ export default class PortalSolicitudes extends LightningElement {
         return n ? `${n} ${n === 1 ? 'renglón' : 'renglones'} con datos · ${peso}` : peso;
     }
     get vistaEncabezados() { return this.listado ? this.listado.encabezados.map((t, i) => ({ key: 'h' + i, t })) : []; }
+    // Todos los renglones del archivo (la tabla se desplaza); el del error va resaltado.
     get vistaFilas() {
-        if (!this.listado) { return []; }
-        const fila = (f, i) => ({ key: 'f' + i, clase: i === this.filaError ? 'fila_error' : '', celdas: f.map((t, j) => ({ key: j, t })) });
-        const filas = this.listado.filas.slice(0, VISTA_FILAS).map(fila);
-        // El renglón con el error se muestra aunque quede después de los primeros.
-        const e = this.filaError;
-        if (e !== null && e >= VISTA_FILAS && e < this.listado.filas.length) { filas.push(fila(this.listado.filas[e], e)); }
-        return filas;
-    }
-    get textoMasFilas() {
-        const n = this.listado ? this.listado.filas.length - VISTA_FILAS : 0;
-        return n > 0 ? `y ${n} ${n === 1 ? 'renglón' : 'renglones'} más` : '';
+        return this.listado ? this.listado.filas.map((f, i) => ({
+            key: 'f' + i, clase: i === this.filaError ? 'fila_error' : '', celdas: f.map((t, j) => ({ key: j, t }))
+        })) : [];
     }
     handlePlantilla() {
         descargarExcel('PLANTILLA DE MOVIMIENTOS.xlsx', 'Movimientos', PLANTILLA[this.tipo], []);
@@ -624,13 +607,6 @@ export default class PortalSolicitudes extends LightningElement {
         return n.charAt(0).toUpperCase() + n.slice(1);
     }
 
-    // Documentos adjuntos que son de reconocimiento de antigüedad (RA), por su nombre.
-    get documentosRA() { return this.archivos.filter((a) => ARCHIVO_RA.test(fold(a.nombre))).map((a) => a.nombre); }
-    get avisoRA() {
-        const d = this.documentosRA;
-        if (!d.length || this.enArchivo || !this.movimientos.some((m) => m.tipo !== 'baja')) { return ''; }
-        return `Identificamos documentos de reconocimiento de antigüedad (RA): ${d.join(', ')}. Las altas y cambios de esta solicitud se envían con RA.`;
-    }
     handleDato(e) {
         const m = this.movimientos.find((x) => x.key === e.target.dataset.key);
         this.cambiar(m.key, { datos: { ...m.datos, [e.target.dataset.campo]: e.detail.value } });
@@ -679,10 +655,6 @@ export default class PortalSolicitudes extends LightningElement {
                 filtros: !esAlta && this.tipo === 'personas' ? this.filtrosDe(m) : null,
                 avisoPoliza: otra ? (otra.cargando ? 'Cargando los registros de la póliza…' : (otra.mensaje || '')) : '',
                 placeholderRegistro: `Elige ${this.tipo === 'personas' ? 'al asegurado' : 'el ' + this.nombreRegistro} (por número de ${this.tipo === 'personas' ? 'certificado' : 'inciso'})`,
-                // Reconocimiento de antigüedad: recordatorio de documentos en altas y cambios de personas.
-                conRecordatorioRA: this.tipo === 'personas' && m.tipo !== 'baja',
-                textoRA: esAlta ? 'Si el alta es con reconocimiento de antigüedad (RA), adjunta en «Adjuntar archivos»:'
-                    : 'Si el cambio es un reconocimiento de antigüedad (RA), adjunta en «Adjuntar archivos»:',
                 minFecha: esAlta ? this.fechaLimiteAlta : null,
                 notaFecha: esAlta ? this.textoRetroactivo : '',
                 campos,
@@ -694,30 +666,6 @@ export default class PortalSolicitudes extends LightningElement {
                 puedeQuitar: this.movimientos.length > 1
             };
         });
-    }
-
-    async handleArchivos(e) {
-        const nuevos = [...(e.target.files || [])];
-        e.target.value = null;
-        const leidos = await Promise.all(nuevos.map((f) => new Promise((ok, mal) => {
-            const r = new FileReader();
-            r.onload = () => ok({ nombre: f.name, tamano: f.size, base64: String(r.result).split(',')[1] });
-            r.onerror = () => mal(r.error);
-            r.readAsDataURL(f);
-        })));
-        const todos = [...this.archivos, ...leidos];
-        if (todos.reduce((t, a) => t + a.tamano, 0) + (this.enArchivo && this.listado ? this.listado.tamano : 0) > MAX_BYTES) {
-            this.error = 'Los archivos suman más de 4 MB. Adjunta archivos más ligeros.';
-            return;
-        }
-        this.error = undefined;
-        this.archivos = todos;
-    }
-    get listaArchivos() { return this.archivos.map((a, i) => ({ key: i + a.nombre, i, nombre: a.nombre, tamano: this.tamano(a.tamano) })); }
-    get hayArchivos() { return this.archivos.length > 0; }
-    handleQuitarArchivo(e) {
-        const i = Number(e.currentTarget.dataset.i);
-        this.archivos = this.archivos.filter((a, j) => j !== i);
     }
 
     async handleEnviar() {
@@ -745,11 +693,12 @@ export default class PortalSolicitudes extends LightningElement {
             }
         }
         const registros = new Map(((this.datos && this.datos.registros) || []).map((r) => [r.id, r]));
-        const archivos = this.archivos.map((a) => ({ nombre: a.nombre, base64: a.base64 }));
+        // El archivo con los datos queda adjunto al caso.
+        const archivos = [];
         let listado = null;
         if (this.enArchivo) {
             const l = this.listado;
-            archivos.unshift({ nombre: l.nombre, base64: l.base64 });
+            archivos.push({ nombre: l.nombre, base64: l.base64 });
             listado = { tipo: this.tipoArchivo, nombre: l.nombre, fecha: null, encabezados: l.encabezados,
                 filas: l.filas.slice(0, MAX_FILAS), total: l.filas.length, registros: leidos.registros };
         }

@@ -281,7 +281,7 @@ private class PortalPolizasPestanasTest {
 		List<Object> participantes = (List<Object>) part.get('participantes');
 		System.assert(!participantes.isEmpty());
 		for (Object o : participantes) {
-			System.assertEquals(0, ((List<Object>) ((Map<String, Object>) o).get('archivos')).size(), 'Sin archivos en el sitio');
+			System.assertEquals(0, ((List<Object>) ((Map<String, Object>) o).get('archivos')).size(), 'No tienen archivos');
 		}
 		System.assertNotEquals(null, veh);
 		System.assertEquals(false, veh.get('soloMiGrupo'));

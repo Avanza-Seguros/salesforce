@@ -590,6 +590,73 @@ export function primasPorEndoso(miembros) {
     return res;
 }
 
+// Letra dañada: algunos PDF traen un renglón con la letra sin tabla de equivalencias y cada carácter llega recorrido
+// («(5,&.)» es «ERICK»). Se reconoce porque no hay palabras y sí signos, y se regresa a su letra.
+const ACENTOS_DANADOS = { 'È': 'Á', e: 'É', 'Ë': 'Í', 'Ï': 'Ó', 'Ò': 'Ú', f: 'Ñ', h: 'Ü' };
+export function textoReparado(texto) {
+    const t = String(texto || '');
+    if (/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}/.test(t) || !/[\x03$%&()*+,/0-9<=>]/.test(t)) { return t; }
+    return [...t].map((c) => {
+        if (ACENTOS_DANADOS[c]) { return ACENTOS_DANADOS[c]; }
+        const n = c.charCodeAt(0);
+        return n >= 3 && n <= 0x5d ? String.fromCharCode(n + 29) : c;
+    }).join('').replace(/\s+/g, ' ').trim();
+}
+
+const importe = (t) => {
+    const x = String(t).replace(/[,$]/g, '');
+    const n = Number(x.endsWith('-') ? '-' + x.slice(0, -1) : x);
+    return Number.isNaN(n) ? null : n;
+};
+const isoDe = (t) => t.split('/').reverse().join('-');
+const FECHA_MX = '(\\d{2}\\/\\d{2}\\/\\d{4})';
+const RENGLON_LISTADO = new RegExp('^([ABCM])?\\s*(\\d{5,12})\\s+(\\d{2})\\s+(.+?)\\s+([MF])\\s+(\\d{1,3})\\s+' + FECHA_MX + '\\s+' + FECHA_MX + '\\s+'
+    + FECHA_MX + '\\s+(-?[\\d,]+\\.\\d{2}-?)\\s+(-?\\d+)\\s+(-?[\\d,]+\\.\\d{2}-?)$');
+
+/**
+ * Listado de movimientos de GMM que manda la aseguradora (PDF «Relación de asegurados por movimiento»): cada asegurado
+ * con su complemento, que es lo que cobra o devuelve por el movimiento (ya con IVA). El total del movimiento es la suma
+ * de los complementos.
+ * @param texto: texto del PDF, un renglón por línea.
+ * @return { poliza, movimiento, filas: [{ tipo, certificado, parentesco, nombre, sexo, fechaNacimiento, fecha, prima,
+ *          complemento }], total }, o null si el PDF no es un listado.
+ */
+export function listadoMovimiento(texto) {
+    const t = String(texto || '');
+    if (!/COMPLEM/i.test(t)) { return null; }
+    const filas = [];
+    t.split('\n').forEach((linea) => {
+        // Los renglones con la letra dañada traen un carácter de control en lugar de los espacios del nombre.
+        const m = RENGLON_LISTADO.exec(linea.replace(/[ \t]+/g, ' ').trim());
+        if (!m) { return; }
+        filas.push({
+            tipo: { B: 'Baja', C: 'Cambio', M: 'Cambio' }[m[1]] || 'Alta',
+            certificado: m[2], parentesco: { '01': 'Titular', '02': 'Cónyuge', '03': 'Hijo(a)' }[m[3]] || 'Otro',
+            nombre: textoReparado(m[4]), sexo: m[5] === 'M' ? 'Hombre' : 'Mujer', fechaNacimiento: isoDe(m[7]), fecha: isoDe(m[9]),
+            prima: importe(m[10]), complemento: importe(m[12])
+        });
+    });
+    if (!filas.length) { return null; }
+    const poliza = /\b[A-Z]{2,4}-\d{3,}\b/.exec(t);
+    const mov = /MOVIMIENTO\s*:\s*(\d+)/i.exec(t);
+    return {
+        poliza: poliza ? poliza[0] : '', movimiento: mov ? mov[1] : '', filas,
+        total: Math.round(filas.reduce((n, f) => n + (f.complemento || 0), 0) * 100) / 100
+    };
+}
+
+/**
+ * Número de certificado y de póliza que dice un documento de un asegurado (certificado, credencial…), por su etiqueta.
+ * @return { certificado, poliza } (vacíos si no vienen o si el documento trae varios certificados distintos).
+ */
+export function datosDocumento(texto) {
+    const t = String(texto || '');
+    const certs = new Set([...t.matchAll(/certificado\s*(?:individual)?\s*(?:n[uú]m(?:ero)?|no)?\.?\s*[:#]?\s*(\d{4,12})\b/gi)].map((m) => m[1]).filter((c) => !/^0+$/.test(c)));
+    const pol = [...t.matchAll(/p[oó]liza\s*(?:n[uú]m(?:ero)?|no)?\.?\s*[:#]\s*([A-Z0-9][A-Z0-9/-]{3,})/gi)].map((m) => m[1])
+        .find((x) => /\d{3,}/.test(x) && !/^\d{1,2}\/\d{1,2}\//.test(x));
+    return { certificado: certs.size === 1 ? [...certs][0] : '', poliza: pol || '' };
+}
+
 /**
  * Asegurados válidos del censo listos para Apex: titularIndex es la posición del titular en la misma lista.
  * Devuelve { miembros, conError }.

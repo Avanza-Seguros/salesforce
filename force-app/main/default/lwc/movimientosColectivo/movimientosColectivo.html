@@ -71,12 +71,12 @@
                             </template>
                         </div>
                         <div class="mov-acciones">
-                            <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo); las altas se piden ahí. -->
+                            <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo); las altas y bajas se piden ahí. -->
                             <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:clock" onclick={verHistorial}></lightning-button></template>
                             <template if:true={puedeEditar}>
                                 <template lwc:if={interno}><lightning-button label="Alta de asegurado" icon-name="utility:adduser" onclick={abrirAlta}></lightning-button></template>
-                                <lightning-button label={textoBajaSeleccion} icon-name="utility:ban" variant="destructive-text"
-                                    onclick={abrirBaja} disabled={sinBaja}></lightning-button>
+                                <template lwc:if={interno}><lightning-button label={textoBajaSeleccion} icon-name="utility:ban" variant="destructive-text"
+                                    onclick={abrirBaja} disabled={sinSeleccion}></lightning-button></template>
                                 <template lwc:if={conCarga}><lightning-button label="Cargar asegurados" icon-name="utility:upload" onclick={verArchivo}></lightning-button></template>
                             </template>
                             <!-- Envío de correo a todos los pendientes: solo en Salesforce. -->
@@ -114,7 +114,7 @@
                                             <th scope="col" colspan={columnasTabla}>
                                                 <div class="sol-grid">
                                                     <span></span><span>Número de movimiento</span><span>Póliza</span><span>Fecha de apertura</span>
-                                                    <span>Fecha de cierre</span><span>Seguimiento</span><span></span>
+                                                    <span>Fecha de cierre</span><span>Seguimiento</span><span>Prima</span><span></span>
                                                 </div>
                                             </th>
                                         </tr>
@@ -134,7 +134,7 @@
                                 <tbody key={b.key}>
                                     <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
                                     <template lwc:if={b.encabezado}>
-                                        <!-- Número de movimiento | Póliza | Fecha de apertura | Fecha de cierre | Seguimiento (y el resumen). -->
+                                        <!-- Número de movimiento | Póliza | Fecha de apertura | Fecha de cierre | Seguimiento | Prima (y el resumen). -->
                                         <tr class="fila-solicitud">
                                             <td colspan={columnasTabla}>
                                                 <div class="sol-grid">
@@ -150,6 +150,8 @@
                                                             sin-movimientos={b.sinMovimientos} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                         <template lwc:elseif={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template>
                                                     </span>
+                                                    <!-- Lo que cobra la aseguradora por todo el movimiento. -->
+                                                    <span class="sol-prima">{b.primaTxt}</span>
                                                     <span class="sol-extra">
                                                         <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
                                                         <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
@@ -179,7 +181,7 @@
                                                         aria-label="Seleccionar asegurado" />
                                                 </template>
                                             </td>
-                                            <td>{m.certificado}</td>
+                                            <td>{m.certificadoTxt}</td>
                                             <td>
                                                 <div class="nombre"><button class="enlace-otras" data-id={m.id} data-titulo={m.nombre}
                                                     onclick={verOtrasPolizas} title="Ver si este asegurado existe en otras pólizas">{m.nombre}</button></div>
@@ -218,8 +220,8 @@
                                                 <template if:true={m.puedeMover}>
                                                     <lightning-button-icon icon-name="utility:edit" alternative-text="Cambiar datos" title="Cambiar datos"
                                                         data-id={m.id} onclick={abrirCambio} size="small"></lightning-button-icon>
-                                                    <lightning-button-icon icon-name="utility:ban" alternative-text="Dar de baja" title="Dar de baja"
-                                                        data-id={m.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
+                                                    <template lwc:if={interno}><lightning-button-icon icon-name="utility:ban" alternative-text="Dar de baja" title="Dar de baja"
+                                                        data-id={m.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon></template>
                                                 </template>
                                                 <!-- Archivos: solo titulares (en el sitio no). -->
                                                 <template if:true={m.muestraArchivos}>
@@ -750,7 +752,7 @@
                                 </template>
                                 <p class="sub slds-m-bottom_small">
                                     Selecciona los archivos de todos los titulares a la vez. Cada archivo se asigna al titular cuyo nombre,
-                                    RFC o certificado viene en el nombre del archivo (por ejemplo «INE JUAN PEREZ LOPEZ.pdf»). Los archivos
+                                    RFC o certificado viene en el nombre del archivo o, si es PDF, en su contenido (por ejemplo «INE JUAN PEREZ LOPEZ.pdf»). Los archivos
                                     solo se adjuntan a titulares, no a cónyuges, hijos u otros dependientes. Revisa la asignación y corrige
                                     la que haga falta antes de adjuntar.
                                 </p>
@@ -785,6 +787,8 @@
                                                         </td>
                                                         <td><span class={v.claseDeteccion}>{v.deteccion}</span>
                                                             <template lwc:if={v.certificadoTxt}><div class="sub">{v.certificadoTxt}</div></template>
+                                                            <template lwc:if={v.listadoTxt}><div class="sub">{v.listadoTxt}</div></template>
+                                                            <template lwc:if={v.otraPolizaTxt}><div class="sub texto-error">{v.otraPolizaTxt}</div></template>
                                                         </td>
                                                     </tr>
                                                 </template>

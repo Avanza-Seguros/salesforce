@@ -1559,7 +1559,7 @@ public without sharing class PortalPolizasPestanas {
 	 * los mismos controladores de Salesforce (inherited sharing, así que aquí corren sin compartir). Quien no es el
 	 * contratante solo ve a su grupo familiar (y sus beneficiarios). Al contratante se le entregan las solicitudes solo
 	 * para agrupar la tabla como en Salesforce (folio, fecha y conteos, sin los datos internos del caso); a los demás,
-	 * ninguna. No se entregan los archivos de cada persona.
+	 * ninguna. Los archivos de cada persona solo los ve el contratante.
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @param tipo: asegurados | vehiculos | ubicaciones | participantes
@@ -1577,6 +1577,7 @@ public without sharing class PortalPolizasPestanas {
 				res = MovimientosUbicacionesController.getDatos(policyId);
 			} else if (tipo == 'participantes') {
 				res = ParticipantesPolizaController.getDatos(policyId);
+				// El contratante ve los archivos adjuntos de cada asegurado (igual que en Asegurados); los demás, no.
 				filtrarParticipantes(res, soloMiGrupo ? idsVisibles(policyId, cuentaVistaPrevia) : null);
 			} else if (tipo == 'asegurados') {
 				res = MovimientosColectivoController.getDatos(policyId);
@@ -1612,7 +1613,7 @@ public without sharing class PortalPolizasPestanas {
 	@TestVisible
 	static List<Object> solicitudesParaAgrupar(Object origen) {
 		Set<String> campos = new Set<String>{ 'folio', 'fecha', 'portal', 'caso', 'usuario', 'enviadaPor', 'total', 'abiertos',
-			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos', 'seguimiento', 'cierre', 'respuesta' };
+			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos', 'seguimiento', 'cierre', 'respuesta', 'prima' };
 		List<Object> res = new List<Object>();
 		if (!(origen instanceof List<Object>)) { return res; }
 		for (Object o : (List<Object>) origen) {
@@ -1653,7 +1654,7 @@ public without sharing class PortalPolizasPestanas {
 		res.put('movimientos', movimientos);
 	}
 
-	/** Participantes: quita los archivos de cada persona y, si aplica, deja solo los del grupo (recalcula el resumen). */
+	/** Participantes: si no es el contratante, deja solo los del grupo y sin los archivos de cada persona (recalcula el resumen). */
 	static void filtrarParticipantes(Map<String, Object> res, Set<String> visibles) {
 		List<Object> lista = new List<Object>();
 		Map<String, Integer> resumen = (Map<String, Integer>) res.get('resumen');
@@ -1662,8 +1663,8 @@ public without sharing class PortalPolizasPestanas {
 		}
 		for (Object o : (List<Object>) res.get('participantes')) {
 			Map<String, Object> m = (Map<String, Object>) o;
-			m.put('archivos', new List<Object>());
 			if (visibles != null) {
+				m.put('archivos', new List<Object>());
 				if (!visibles.contains(String.valueOf(m.get('id')))) { continue; }
 				String grupo = (String) m.get('grupo');
 				String estado = m.get('activo') == true ? 'vigentes' : 'bajas';

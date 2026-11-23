@@ -58,11 +58,10 @@ export default class MovimientosFlotilla extends LightningElement {
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
-    // Sitio, contratante de una póliza empresarial: Baja y Nueva solicitud abren el formulario de solicitudes
+    // Sitio, contratante de una póliza empresarial: Nueva solicitud abre el formulario de solicitudes
     // (c-portal-solicitudes, lo muestra c-portal-polizas).
     get conFormulario() { return this.portal && this.puedeEditar && !!this.datos && this.datos.puedeSolicitar === true; }
     get conCarga() { return !this.conFormulario; }
-    get sinBaja() { return this.sinSeleccion && !this.conFormulario; }
     handleNuevaSolicitud() { this.pedir(null, []); }
     pedir(tipo, ids) { this.dispatchEvent(new CustomEvent('nuevasolicitud', { detail: { tipo, ids } })); }
     // En el sitio de empresas se agrega «mov-portal» para tomar el estilo del sitio (igual que movimientosColectivo).
@@ -310,7 +309,7 @@ export default class MovimientosFlotilla extends LightningElement {
             // Colapsada: el encabezado va en la página donde le toca.
             const pagEnc = Math.min(Math.floor(n / POR_PAGINA) + 1, paginas);
             if (visibles.length || ((colapsada || !filas.length) && pagEnc === this.pagina)) {
-                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((v) => this.decorar(v, info)), n < ini && !colapsada));
+                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((v) => this.decorar(v, info, g.lista)), n < ini && !colapsada));
             }
             n += filas.length;
         });
@@ -346,6 +345,8 @@ export default class MovimientosFlotilla extends LightningElement {
             cierreTxt: this.fechaHoraTxt(cierre) || '—',
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
+            // Prima del movimiento: la suma de lo que cobra la aseguradora por cada registro (o el total de sus endosos).
+            primaTxt: s && s.prima !== null && s.prima !== undefined ? moneda(s.prima) : '—',
             // Encabezados de los registros, dentro de la solicitud desplegada.
             conEncabezadoDetalle: !colapsada && filas.length > 0,
             sub: sin ? 'Registrados antes de las solicitudes'
@@ -378,7 +379,13 @@ export default class MovimientosFlotilla extends LightningElement {
         const ini = (this.pagina - 1) * POR_PAGINA;
         return this.filtrados.slice(ini, ini + POR_PAGINA).map((v) => this.decorar(v));
     }
-    decorar(v, info) {
+    // Prima del registro: lo que cobra la aseguradora por su movimiento; en una solicitud sin ese dato, la de la póliza.
+    primaDe(x, grupo) {
+        const tiene = (y) => y.primaMovimiento !== null && y.primaMovimiento !== undefined;
+        if (tiene(x)) { return x.primaMovimiento; }
+        return grupo && grupo.some(tiene) ? null : x.prima;
+    }
+    decorar(v, info, grupo) {
         const seguimiento = this.enPoliza ? this.seguimientoDe(v, info) : '';
         return ({
             ...v,
@@ -389,10 +396,11 @@ export default class MovimientosFlotilla extends LightningElement {
             puedeSeguimiento: this.cambiaSeguimiento && !!seguimiento && !!v.movimientoId
                 && ((info || this.infoSolicitudes).get(v.solicitud) || {}).seguimiento !== 'Rechazada',
             seleccionado: this.seleccion.has(v.id),
-            noSeleccionable: !v.activo || !this.puedeEditar,
+            // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
+            noSeleccionable: this.portal || !v.activo || !this.puedeEditar,
             claseFila: (v.esMovimiento ? v.tipoMovimiento !== 'Baja' : v.activo) ? '' : 'fila-baja',
             valorTxt: moneda(v.valor),
-            primaTxt: moneda(v.prima),
+            primaTxt: moneda(this.primaDe(v, grupo)),
             vigenciaTxt: this.vigenciaTxt(v),
             fechaMovimientoTxt: fechaVisible(v.fechaMovimiento),
             // Creación del movimiento y su cierre (botón «Cerrar movimiento»).
@@ -423,7 +431,7 @@ export default class MovimientosFlotilla extends LightningElement {
         this.seleccion = s;
     }
     get sinSeleccion() { return this.seleccion.size === 0; }
-    get textoBajaSeleccion() { return `${this.conFormulario ? 'Baja de vehículo' : 'Dar de baja'} (${this.seleccion.size})`; }
+    get textoBajaSeleccion() { return `Dar de baja (${this.seleccion.size})`; }
 
     async handleTraer() {
         if (this.vehiculos.length) {
@@ -469,7 +477,6 @@ export default class MovimientosFlotilla extends LightningElement {
 
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
-        if (this.conFormulario) { this.pedir('baja', ids); return; }
         if (!ids.length) { return; }
         this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', solicitud: 'nueva' };
         this.modal = 'baja';

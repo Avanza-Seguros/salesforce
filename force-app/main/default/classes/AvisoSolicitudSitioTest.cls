@@ -99,6 +99,11 @@ private class AvisoSolicitudSitioTest {
 		Assert.isTrue(r[0].enviado, r[0].mensaje);
 		Assert.isTrue(x.renglones >= 1, 'Renglones de asegurados');
 		Assert.isNotNull(x.contenido, 'Excel generado');
+		// GMM sin dependientes: sin columnas de dependientes ni porcentaje; sin certificado, «POR ASIGNAR».
+		Compression.ZipReader z = new Compression.ZipReader(x.contenido);
+		String hoja = z.extract('xl/worksheets/sheet1.xml').toString();
+		Assert.isFalse(hoja.contains('Porcentaje') || hoja.contains('Sexo Dependiente'), 'Sin columnas de dependientes');
+		Assert.isTrue(hoja.contains('POR ASIGNAR'), 'Alta sin certificado');
 		Assert.isFalse(AvisoSolicitudSitio.excel(col.Id, 'SOL-9999').renglones > 0, 'Otro folio no tiene registros');
 	}
 

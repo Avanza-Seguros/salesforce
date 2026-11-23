@@ -15,11 +15,11 @@ public with sharing class AvisoRenovacionPoliza implements Database.Batchable<SO
 	public static final List<Integer> DIAS_AVISO = new List<Integer>{ 30, 15 };
 	public static final String NOMBRE_JOB = 'Aviso de renovación de pólizas';
 	public static final String ASUNTO_TAREA = 'Aviso de renovación enviado';
-	static final String CORREO_SERVICIO = 'info@avanzaseguro.com';
-	static final String COPIA_PRODUCCION = 'correos@avanzaseguro.com';
+	public static final String CORREO_SERVICIO = 'info@avanzaseguro.com';
+	public static final String COPIA_PRODUCCION = 'correos@avanzaseguro.com';
 	static final String ORG_PRODUCCION = '00D8a000001KZ9w';
-	@TestVisible static final List<String> PRUEBA_PARA = new List<String>{ 'abraham.gonzalez@avanzaseguro.com' };
-	@TestVisible static final List<String> PRUEBA_COPIA = new List<String>{ 'sergio.uribe@volestra.com' };
+	public static final List<String> PRUEBA_PARA = new List<String>{ 'abraham.gonzalez@avanzaseguro.com' };
+	public static final List<String> PRUEBA_COPIA = new List<String>{ 'sergio.uribe@volestra.com' };
 	@TestVisible static Boolean produccionPrueba;
 
 	/**
@@ -257,7 +257,7 @@ public with sharing class AvisoRenovacionPoliza implements Database.Batchable<SO
 		return r.replaceAll('\\{\\{[A-Z_]+\\}\\}', '');
 	}
 
-	static String filaPrueba(String correoCliente) {
+	public static String filaPrueba(String correoCliente) {
 		String c = String.isBlank(correoCliente) ? 'sin correo registrado'
 			: correoCliente.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;');
 		return '<tr><td style="background:#FFF4D6;color:#7A5B00;font-size:12px;text-align:center;padding:8px;">'
@@ -268,7 +268,7 @@ public with sharing class AvisoRenovacionPoliza implements Database.Batchable<SO
 		return Datetime.newInstance(d, Time.newInstance(0, 0, 0, 0));
 	}
 
-	static Boolean esProduccion() {
+	public static Boolean esProduccion() {
 		if (produccionPrueba != null) { return produccionPrueba; }
 		return String.valueOf(UserInfo.getOrganizationId()).startsWith(ORG_PRODUCCION)
 			&& [SELECT IsSandbox FROM Organization LIMIT 1].IsSandbox == false;

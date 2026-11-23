@@ -175,6 +175,9 @@ public inherited sharing class EndosoPoliza {
 	public static List<Map<String, Object>> solicitudes(Id policyId, String ramo) {
 		Map<String, Map<String, Object>> porFolio = new Map<String, Map<String, Object>>();
 		if (policyId == null) { return new List<Map<String, Object>>(); }
+		// Total de cada endoso y las solicitudes de sus movimientos.
+		Map<Id, Decimal> totalEndoso = new Map<Id, Decimal>();
+		Map<Id, Set<String>> foliosEndoso = new Map<Id, Set<String>>();
 		// Sin compartir: el cliente del sitio también ve el avance de sus solicitudes.
 		for (Movimiento_Poliza__c m : new SinCompartir().movimientos(policyId)) {
 			String r = m.Participante__c != null ? 'asegurados' : (m.Inciso__c != null ? 'vehiculos' : 'ubicaciones');
@@ -194,8 +197,24 @@ public inherited sharing class EndosoPoliza {
 				if (k != null) { s.put(k, (Integer) s.get(k) + 1); }
 			}
 			else if (s.get('cierre') == null || (Datetime) s.get('cierre') < m.Fecha_Cierre__c) { s.put('cierre', m.Fecha_Cierre__c); }
+			// Prima de la solicitud: la suma de lo que cobra la aseguradora por cada movimiento.
+			if (m.Transaccion__c != null && m.Transaccion__r.TotalTransactionAmount != null) {
+				totalEndoso.put(m.Transaccion__c, m.Transaccion__r.TotalTransactionAmount);
+				if (!foliosEndoso.containsKey(m.Transaccion__c)) { foliosEndoso.put(m.Transaccion__c, new Set<String>()); }
+				foliosEndoso.get(m.Transaccion__c).add(m.Solicitud__c);
+			}
+			if (m.Prima__c != null) { s.put('prima', (s.get('prima') == null ? 0 : (Decimal) s.get('prima')) + m.Prima__c); }
 			List<String> e = (List<String>) s.get('endosos');
 			if (String.isNotBlank(m.Numero_Endoso__c) && !e.contains(m.Numero_Endoso__c.trim())) { e.add(m.Numero_Endoso__c.trim()); }
+		}
+		// Si la aseguradora no mandó la prima por movimiento: el total de sus endosos (los que son solo de esa solicitud).
+		Set<String> conPrima = new Set<String>();
+		for (Map<String, Object> s : porFolio.values()) { if (s.get('prima') != null) { conPrima.add((String) s.get('folio')); } }
+		for (Id t : totalEndoso.keySet()) {
+			Set<String> folios = foliosEndoso.get(t);
+			if (folios.size() != 1 || conPrima.containsAll(folios)) { continue; }
+			Map<String, Object> s = porFolio.get(new List<String>(folios)[0]);
+			s.put('prima', (s.get('prima') == null ? 0 : (Decimal) s.get('prima')) + totalEndoso.get(t));
 		}
 		// Casos del sitio: la fecha y quién la registró son las del caso.
 		List<Case> casos = new SinCompartir().casos(policyId);
@@ -313,14 +332,25 @@ public inherited sharing class EndosoPoliza {
 	 * @param movimientoId: movimiento, o null para toda la solicitud.
 	 * @param nuevo: Solicitado, En proceso, Concluido o Rechazado.
 	 * @param motivo: motivo del rechazo (lo ve el cliente).
+	 * @return aviso del correo al cliente cuando la solicitud quedó concluida, o null.
 	 */
-	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String nuevo, String motivo) {
+	public static String cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String nuevo, String motivo) {
 		if (UserInfo.getUserType() != 'Standard') { throw new IllegalArgumentException('Solo un ejecutivo puede cambiarlo.'); }
 		if (!new Set<String>{ 'Solicitado', 'En proceso', 'Concluido', 'Rechazado' }.contains(nuevo)) { throw new IllegalArgumentException('Estado no válido.'); }
 		if (nuevo == 'Rechazado' && movimientoId == null) { throw new IllegalArgumentException('Se rechaza cada registro, no toda la solicitud.'); }
 		if (nuevo == 'Rechazado' && String.isBlank(motivo)) { throw new IllegalArgumentException('Escribe el motivo del rechazo.'); }
 		if ([SELECT COUNT() FROM InsurancePolicy WHERE Id = :policyId] == 0) { throw new IllegalArgumentException('No tienes acceso a la póliza.'); }
 		new SinCompartir().cambiar(policyId, folio, movimientoId, nuevo, motivo);
+		return avisosConclusion.isEmpty() ? null : String.join(avisosConclusion, ' ');
+	}
+
+	// Avisos de los correos de conclusión que se mandaron en esta transacción (para la pantalla).
+	private static List<String> avisosConclusion = new List<String>();
+
+	// Solicitud concluida: se le manda al cliente el resumen de lo realizado.
+	private static void avisarConclusion(Id policyId, String folio) {
+		String aviso = AvisoMovimientoConcluido.programar(policyId, folio);
+		if (aviso != null) { avisosConclusion.add(aviso); }
 	}
 
 	// Casos del sitio: el ejecutivo los ve y los atiende aunque no sea su dueño.
@@ -335,7 +365,8 @@ public inherited sharing class EndosoPoliza {
 		}
 		List<Movimiento_Poliza__c> movimientos(Id policyId) {
 			return [
-				SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Seguimiento__c, Participante__c, Inciso__c
+				SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Seguimiento__c, Participante__c, Inciso__c, Prima__c,
+					Transaccion__c, Transaccion__r.TotalTransactionAmount
 				FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c != null ORDER BY CreatedDate, Id LIMIT 10000
 			];
 		}
@@ -370,7 +401,10 @@ public inherited sharing class EndosoPoliza {
 			}
 			if (nuevo == 'Concluido') {
 				// Solicitud sin movimientos: se concluye su caso.
-				if (movs.isEmpty()) { update new Case(Id = caso.Id, Status = estadoCaso('Concluido')); }
+				if (movs.isEmpty()) {
+					update new Case(Id = caso.Id, Status = estadoCaso('Concluido'));
+					avisarConclusion(policyId, folio);
+				}
 				else { concluirElegidos(elegidos, completa); }
 				return;
 			}
@@ -435,7 +469,7 @@ public inherited sharing class EndosoPoliza {
 				l.add(m);
 			}
 			update l;
-			aprobarCerrados(new Map<Id, Movimiento_Poliza__c>(elegidos).keySet());
+			aprobarCerrados(new Map<Id, Movimiento_Poliza__c>(l).keySet());
 		}
 		// Al cerrar los movimientos de una solicitud del sitio, su caso se concluye.
 		void concluir(Set<Id> movimientoIds) {
@@ -445,7 +479,7 @@ public inherited sharing class EndosoPoliza {
 				folios.get(m.Poliza__c).add(m.Solicitud__c);
 			}
 			Id rt = tipoCaso();
-			if (folios.isEmpty() || rt == null) { return; }
+			if (folios.isEmpty()) { return; }
 			Set<String> todos = new Set<String>();
 			for (Set<String> s : folios.values()) { todos.addAll(s); }
 			Set<String> abiertos = new Set<String>();
@@ -453,6 +487,11 @@ public inherited sharing class EndosoPoliza {
 				SELECT Poliza__c, Solicitud__c FROM Movimiento_Poliza__c
 				WHERE Poliza__c IN :folios.keySet() AND Solicitud__c IN :todos AND Fecha_Cierre__c = null
 			]) { abiertos.add(m.Poliza__c + '|' + m.Solicitud__c); }
+			// La solicitud ya no tiene movimientos abiertos: correo al cliente con el resumen.
+			for (Id pol : folios.keySet()) {
+				for (String folio : folios.get(pol)) { if (!abiertos.contains(pol + '|' + folio)) { avisarConclusion(pol, folio); } }
+			}
+			if (rt == null) { return; }
 			String cerrado = estadoCaso('Concluido');
 			List<Case> l = new List<Case>();
 			for (Case c : [

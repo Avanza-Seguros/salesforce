@@ -12,8 +12,8 @@ import { LightningElement, api, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
-import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
-import { primasPorEndoso } from 'c/clasificadorArchivos';
+import { fechaVisible, moneda, descargarExcel, paginasPdf } from 'c/lectorArchivos';
+import { primasPorEndoso, listadoMovimiento, datosDocumento } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import aplicar from '@salesforce/apex/MovimientosColectivoController.aplicar';
@@ -22,6 +22,8 @@ import traerDePoliza from '@salesforce/apex/MovimientosColectivoController.traer
 import archivosAsegurado from '@salesforce/apex/MovimientosColectivoController.archivosAsegurado';
 import asignarArchivos from '@salesforce/apex/MovimientosColectivoController.asignarArchivos';
 import completarCertificados from '@salesforce/apex/MovimientosColectivoController.completarCertificados';
+import guardarPrimas from '@salesforce/apex/MovimientosColectivoController.guardarPrimas';
+import contenidoPdf from '@salesforce/apex/MovimientosColectivoController.contenidoPdf';
 import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.subirDocumentoBaja';
 import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
@@ -41,7 +43,12 @@ const LOTE_CORREO_ADJUNTOS = 5;
 // Tamaño máximo por archivo al subir en lote (el contenido viaja en base64 a Apex, que admite unos 4 MB por llamada).
 const MAX_ARCHIVO_LOTE = 3 * 1024 * 1024;
 
+// Páginas que se leen de un PDF para reconocer a quién corresponde.
+const MAX_PAGINAS_PDF = 40;
+
 const POR_PAGINA = 50;
+// Registro que aún no tiene número de certificado (lo pone la aseguradora).
+const POR_ASIGNAR = 'POR ASIGNAR';
 const PARENTESCOS = ['Cónyuge', 'Hijo(a)', 'Padre/Madre', 'Suegro(a)', 'Otro'];
 
 // Datos del archivo que se muestran en las altas (solo las columnas que el archivo trae).
@@ -88,11 +95,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
-    // Sitio, contratante de una póliza empresarial: Baja y Nueva solicitud abren el formulario de solicitudes
+    // Sitio, contratante de una póliza empresarial: Nueva solicitud abre el formulario de solicitudes
     // (c-portal-solicitudes, lo muestra c-portal-polizas).
     get conFormulario() { return this.portal && this.puedeEditar && !!this.datos && this.datos.puedeSolicitar === true; }
     get conCarga() { return !this.conFormulario; }
-    get sinBaja() { return this.sinSeleccion && !this.conFormulario; }
     handleNuevaSolicitud() { this.pedir(null, []); }
     pedir(tipo, ids) { this.dispatchEvent(new CustomEvent('nuevasolicitud', { detail: { tipo, ids } })); }
     // En GMM del sitio no aplican los endosos.
@@ -275,7 +281,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             case 'movimiento': return m.fechaMovimiento;
             case 'creacion': return m.fechaCreacion;
             case 'cierre': return m.fechaCierre;
-            case 'prima': return m.prima;
+            case 'prima': return this.primaDe(m);
             case 'estado': return m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja');
             case 'seguimiento': return this.seguimientoDe(m);
             // Sin correo, pendiente y enviado (por fecha de envío).
@@ -438,7 +444,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // Colapsada: el encabezado va en la página donde le toca.
             const pagEnc = Math.min(Math.floor(n / POR_PAGINA) + 1, paginas);
             if (visibles.length || ((colapsada || !filas.length) && pagEnc === this.pagina)) {
-                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((m) => this.decorar(m, info)), n < ini && !colapsada));
+                res.push(this.encabezadoSolicitud(g, info.get(g.folio), colapsada, visibles.map((m) => this.decorar(m, info, g.lista)), n < ini && !colapsada));
             }
             n += filas.length;
         });
@@ -474,6 +480,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             cierreTxt: this.fechaHora(cierre) || '—',
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
+            // Prima del movimiento: la suma de lo que cobra la aseguradora por cada registro (o el total de sus endosos).
+            primaTxt: s && s.prima !== null && s.prima !== undefined ? moneda(s.prima) : '—',
             // Encabezados de los registros, dentro de la solicitud desplegada.
             conEncabezadoDetalle: !colapsada && filas.length > 0,
             sub: sin ? 'Registrados antes de las solicitudes'
@@ -506,24 +514,32 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const ini = (this.pagina - 1) * POR_PAGINA;
         return this.filtrados.slice(ini, ini + POR_PAGINA).map((m) => this.decorar(m));
     }
-    decorar(m, info) {
+    // Prima del registro: lo que cobra la aseguradora por su movimiento; en una solicitud sin ese dato, la de la póliza.
+    primaDe(x, grupo) {
+        const tiene = (y) => y.primaMovimiento !== null && y.primaMovimiento !== undefined;
+        if (tiene(x)) { return x.primaMovimiento; }
+        return grupo && grupo.some(tiene) ? null : x.prima;
+    }
+    decorar(m, info, grupo) {
         const seguimiento = this.enPoliza ? this.seguimientoDe(m, info) : '';
         return ({
             ...m,
             filaKey: m.filaKey || m.id,
+            certificadoTxt: m.certificado || (this.esIndividual ? '' : POR_ASIGNAR),
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
             // Clic para cambiar el estado del registro (en una solicitud rechazada se cambia el de la solicitud).
             puedeSeguimiento: this.cambiaSeguimiento && !!seguimiento && !!m.movimientoId
                 && ((info || this.infoSolicitudes).get(m.solicitud) || {}).seguimiento !== 'Rechazada',
             seleccionado: this.seleccion.has(m.id),
-            noSeleccionable: !m.activo || !this.puedeEditar,
+            // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
+            noSeleccionable: this.portal || !m.activo || !this.puedeEditar,
             claseFila: (m.esTitular ? '' : 'fila-dependiente') + ((m.esMovimiento ? m.tipoMovimiento !== 'Baja' : m.activo) ? '' : ' fila-baja'),
             nacimientoTxt: fechaVisible(m.fechaNacimiento),
             altaTxt: fechaVisible(m.fechaAlta),
             fechaMovimientoTxt: fechaVisible(m.fechaMovimiento),
             sumaTxt: moneda(m.sumaAsegurada),
-            primaTxt: moneda(m.prima),
+            primaTxt: moneda(this.primaDe(m, grupo)),
             // Estado = último movimiento: Alta, Baja o Cambio.
             estado: m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja'),
             claseEstado: `estado estado-${String(m.tipoMovimiento || (m.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
@@ -683,7 +699,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     get totalSeleccion() { return this.seleccion.size; }
     get sinSeleccion() { return this.seleccion.size === 0; }
-    get textoBajaSeleccion() { return `${this.conFormulario ? 'Baja de asegurado' : 'Dar de baja'} (${this.seleccion.size})`; }
+    get textoBajaSeleccion() { return `Dar de baja (${this.seleccion.size})`; }
 
     async handleTraer() {
         if (this.miembros.length) {
@@ -744,12 +760,23 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.toast('Archivos', `${n} archivo(s) adjuntado(s).`, 'success');
         this.archivos = { ...this.archivos, cargando: true };
         const id = this.archivos.id;
-        // Sin certificado: toma el del archivo si su nombre es el de este asegurado.
-        const certificados = (e.detail.files || []).filter((f) => this.detectarPersona(f.name).id === id)
-            .map((f) => ({ registroId: id, certificado: this.certificadoNuevo(id, f.name) })).filter((x) => x.certificado);
+        // Sin certificado: toma el del archivo si por su nombre o su contenido es de este asegurado.
+        const certificados = [];
+        const listados = [];
+        for (const f of e.detail.files || []) {
+            // eslint-disable-next-line no-await-in-loop
+            const contenido = this.portal ? null : await this.contenidoSubido(f);
+            if (contenido && contenido.listado) { listados.push(contenido.listado); continue; }
+            const certificado = this.detectar(f.name, contenido).id === id ? this.certificadoNuevo(id, f.name, contenido) : '';
+            if (certificado) { certificados.push({ registroId: id, certificado }); }
+        }
         await this.cargarArchivos();
-        if (certificados.length) {
+        if (certificados.length || listados.length) {
             await this.guardarCertificados(certificados);
+            for (const l of listados) {
+                // eslint-disable-next-line no-await-in-loop
+                await this.aplicarListado(l);
+            }
             await this.cargar();
         }
     }
@@ -848,6 +875,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             return { key: f.documentId, documentId: f.documentId, nombre: f.name, registroId: d.id, deteccion: d.como, estado: 'listo' };
         });
         this.varios = { ...this.varios, filas: [...this.varios.filas, ...nuevos] };
+        nuevos.forEach((n) => this.contenidoSubido({ documentId: n.documentId, name: n.nombre }).then((c) => this.ponerContenido(n.key, c)));
     }
     // Selección sin límite de cantidad: cada archivo se sube por separado a la póliza.
     elegirArchivosVarios() {
@@ -885,6 +913,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 const n = cola.shift();
                 this.actualizarFila(n.key, { estado: 'subiendo' });
                 try {
+                    // Se valida también por lo que dice el PDF (su nombre puede no tener nada que ver).
+                    this.ponerContenido(n.key, await this.contenidoDe(porKey.get(n.key)));
                     const base64 = await this.leerBase64(porKey.get(n.key));
                     const documentId = await subirArchivoSitio({ recordId: this._recordId, nombre: n.nombre, base64 });
                     this.actualizarFila(n.key, { estado: 'listo', documentId });
@@ -895,6 +925,109 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             }
         };
         await Promise.all([trabajador(), trabajador(), trabajador()]);
+    }
+    // ===== Contenido del PDF: a quién corresponde, su certificado y su póliza, o el listado del movimiento.
+    async contenidoDe(archivo) {
+        if (!archivo || !/\.pdf$/i.test(archivo.name || '')) { return null; }
+        try {
+            const texto = (await paginasPdf(this, archivo, null, () => MAX_PAGINAS_PDF)).join('\n');
+            if (!texto.trim()) { return null; }
+            const listado = listadoMovimiento(texto);
+            if (listado) { return { listado, poliza: listado.poliza }; }
+            return { ...datosDocumento(texto), ...this.personaPorContenido(texto) };
+        } catch (err) {
+            // Sin texto (escaneado) o protegido: se queda con lo que dice el nombre.
+            return null;
+        }
+    }
+    // Archivo que subió el componente estándar (no da su contenido): se lee de Salesforce.
+    async contenidoSubido(f) {
+        if (!/\.pdf$/i.test(f.name || '')) { return null; }
+        try {
+            const base64 = await contenidoPdf({ documentId: f.documentId });
+            if (!base64) { return null; }
+            const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+            return await this.contenidoDe({ name: f.name, arrayBuffer: async () => bytes.buffer });
+        } catch (err) {
+            return null;
+        }
+    }
+    ponerContenido(key, contenido) {
+        const fila = this.varios.filas.find((f) => f.key === key);
+        if (!fila || !contenido) { return; }
+        if (fila.deteccion === 'Asignado a mano' || fila.deteccion === 'Sin asignar') { this.actualizarFila(key, { contenido }); return; }
+        const d = this.detectar(fila.nombre, contenido);
+        this.actualizarFila(key, { contenido, registroId: d.id, deteccion: d.como });
+    }
+    // Titular que nombra el documento: por RFC, por su nombre completo en un renglón o por su certificado.
+    personaPorContenido(texto) {
+        const lineas = this.fold(texto).split('\n').map((l) => l.split(/[^a-z0-9]+/).filter((t) => t).slice(0, 80)).filter((l) => l.length);
+        const pegado = lineas.map((l) => l.join('')).join(' ');
+        const { certificado } = datosDocumento(texto);
+        const cert = this.fold(certificado);
+        let mejor = null;
+        let empate = false;
+        this.titularesArchivo.forEach((m) => {
+            let puntos = 0;
+            const rfc = this.fold(m.rfc).replace(/[^a-z0-9]/g, '');
+            if (rfc.length >= 10 && pegado.includes(rfc.substring(0, 10))) { puntos = 100; }
+            else if (lineas.some((l) => this.nombrePegado(m.nombre, l))) { puntos = 90; }
+            if (cert && cert === this.fold(m.certificado).replace(/[^a-z0-9]/g, '')) { puntos += puntos ? 5 : 70; }
+            if (puntos && m.activo) { puntos += 0.5; }
+            if (!puntos) { return; }
+            if (!mejor || puntos > mejor.puntos) { mejor = { id: m.id, puntos }; empate = false; }
+            else if (puntos === mejor.puntos) { empate = true; }
+        });
+        return { personaId: mejor && !empate ? mejor.id : null };
+    }
+    // Por el nombre del archivo y por su contenido; si no coinciden, manda lo que dice el documento.
+    detectar(nombreArchivo, contenido) {
+        const porNombre = this.detectarPersona(nombreArchivo);
+        if (!contenido) { return porNombre; }
+        // El listado trae a varias personas: se queda en la póliza.
+        if (contenido.listado) { return { id: null, como: 'Listado del movimiento' }; }
+        if (!contenido.personaId) { return porNombre; }
+        if (porNombre.id === contenido.personaId) { return { id: porNombre.id, como: `${porNombre.como} y contenido` }; }
+        return { id: contenido.personaId, como: porNombre.id ? 'Por contenido (el nombre del archivo es de otra persona)' : 'Por contenido' };
+    }
+    // El documento dice otra póliza.
+    otraPoliza(contenido) {
+        if (!this.enPoliza) { return ''; }
+        const limpio = (v) => this.fold(v).replace(/[^a-z0-9]/g, '');
+        const suya = limpio(contenido && contenido.poliza);
+        const esta = limpio(this.datos && this.datos.nombre);
+        return suya && esta && !esta.includes(suya) && !suya.includes(esta) ? contenido.poliza : '';
+    }
+    // Asegurado de cada renglón del listado: por su nombre (y certificado, si hay homónimos) o por su certificado.
+    personaDeListado(f) {
+        const clave = (v) => this.fold(v).split(/[^a-z0-9]+/).filter((t) => t).sort().join(' ');
+        const num = (v) => String(v || '').replace(/^0+/, '');
+        const iguales = this.miembros.filter((m) => clave(m.nombre) === clave(f.nombre));
+        if (iguales.length === 1) { return iguales[0]; }
+        const porCert = (iguales.length ? iguales : this.miembros.filter((m) => m.esTitular === (f.parentesco === 'Titular')))
+            .filter((m) => m.certificado && num(m.certificado) === num(f.certificado));
+        return porCert.length === 1 ? porCert[0] : null;
+    }
+    textoListado(contenido) {
+        const l = contenido && contenido.listado;
+        if (!l) { return ''; }
+        const n = l.filas.filter((f) => this.personaDeListado(f)).length;
+        return `${l.filas.length} ${l.filas.length === 1 ? 'asegurado' : 'asegurados'} (${n} en esta póliza) · prima ${moneda(l.total)}`;
+    }
+    // Guarda la prima (complemento) de cada movimiento del listado y el certificado de quien no lo tenía.
+    async aplicarListado(listado) {
+        if (!this.enPoliza || this.portal || this.otraPoliza(listado)) { return; }
+        const filas = listado.filas.map((f) => ({ f, m: this.personaDeListado(f) })).filter((x) => x.m);
+        if (!filas.length) { return; }
+        await this.guardarCertificados(filas.filter((x) => !x.m.certificado).map((x) => ({ registroId: x.m.id, certificado: x.f.certificado })));
+        try {
+            const r = await guardarPrimas({ policyId: this._recordId, primasJson: JSON.stringify(filas.map((x) => ({
+                registroId: x.m.id, nombre: x.f.nombre, tipo: x.f.tipo, fecha: x.f.fecha, prima: x.f.complemento }))) });
+            if (r.guardadas) { this.toast('Prima del movimiento', `Se actualizó la prima de ${r.guardadas} ${r.guardadas === 1 ? 'registro' : 'registros'}.`, 'success'); }
+            if (r.avisos.length) { this.toast('Prima del movimiento', r.avisos.join(' '), 'warning'); }
+        } catch (err) {
+            this.mostrarError(err);
+        }
     }
     actualizarFila(key, cambios) {
         this.varios = { ...this.varios, filas: this.varios.filas.map((f) => (f.key === key ? { ...f, ...cambios } : f)) };
@@ -926,10 +1059,13 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const otros = [...new Set(tokens.filter((t) => valido(t) && largos.has(t.length)))];
         return otros.length === 1 ? otros[0] : '';
     }
-    // Certificado nuevo para la persona: solo si aún no tiene y el archivo lo trae.
-    certificadoNuevo(registroId, nombreArchivo) {
+    // Certificado nuevo para la persona: solo si aún no tiene y el documento lo trae (en su contenido o en su nombre).
+    certificadoNuevo(registroId, nombreArchivo, contenido) {
         const m = registroId ? this.miembros.find((x) => x.id === registroId) : null;
-        return m && !m.certificado ? this.certificadoDeArchivo(nombreArchivo) : '';
+        if (!m || m.certificado || (contenido && (contenido.listado || this.otraPoliza(contenido)))) { return ''; }
+        // El documento es de otra persona: no se toma su certificado.
+        if (contenido && contenido.personaId && contenido.personaId !== registroId) { return ''; }
+        return (contenido && contenido.certificado) || this.certificadoDeArchivo(nombreArchivo);
     }
     async guardarCertificados(lista) {
         if (!lista.length || this.portal) { return; }
@@ -1006,8 +1142,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         return this.varios.filas.map((f) => ({
             ...f,
             registroId: f.registroId || '',
-            certificadoTxt: this.certificadoNuevo(f.registroId, f.nombre) ? `Certificado nuevo: ${this.certificadoNuevo(f.registroId, f.nombre)}` : '',
-            claseDeteccion: f.registroId ? (f.deteccion === 'Asignado a mano' ? 'tipo tipo-cambio' : 'tipo tipo-alta') : 'tipo tipo-baja',
+            certificadoTxt: this.certificadoNuevo(f.registroId, f.nombre, f.contenido) ? `Certificado nuevo: ${this.certificadoNuevo(f.registroId, f.nombre, f.contenido)}` : '',
+            listadoTxt: this.textoListado(f.contenido),
+            otraPolizaTxt: this.otraPoliza(f.contenido) ? `El documento es de la póliza ${this.otraPoliza(f.contenido)}, no de esta.` : '',
+            claseDeteccion: f.registroId || (f.contenido && f.contenido.listado) ? (f.deteccion === 'Asignado a mano' ? 'tipo tipo-cambio' : 'tipo tipo-alta') : 'tipo tipo-baja',
             estadoTxt: { pendiente: 'En espera', subiendo: 'Subiendo…', listo: 'Subido', error: 'No se subió' }[f.estado] || '',
             claseEstado: f.estado === 'error' ? 'sub texto-error' : 'sub',
             conError: f.estado === 'error'
@@ -1017,20 +1155,29 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get totalAsignados() { return this.varios.filas.filter((f) => f.registroId && f.documentId).length; }
     get totalSubidos() { return this.varios.filas.filter((f) => f.documentId).length; }
     get textoVarios() { return `${this.varios.filas.length} archivo(s) · ${this.totalAsignados} con persona detectada o asignada`; }
-    get sinAsignados() { return this.totalAsignados === 0 || this.varios.cargando || this.subiendoVarios; }
-    get textoAdjuntarVarios() { return `Adjuntar ${this.totalAsignados} archivo(s)`; }
+    // Listados del movimiento ya subidos: se guardan sus primas al adjuntar.
+    get listadosVarios() { return this.varios.filas.filter((f) => f.documentId && f.contenido && f.contenido.listado && !this.otraPoliza(f.contenido)).map((f) => f.contenido.listado); }
+    get sinAsignados() { return (this.totalAsignados === 0 && !this.listadosVarios.length) || this.varios.cargando || this.subiendoVarios; }
+    get textoAdjuntarVarios() {
+        return this.totalAsignados || !this.listadosVarios.length ? `Adjuntar ${this.totalAsignados} archivo(s)` : 'Guardar la prima';
+    }
     async adjuntarVarios() {
         const asignaciones = this.varios.filas.filter((f) => f.registroId && f.documentId)
             .map((f) => ({ documentId: f.documentId, registroId: f.registroId }));
-        if (!asignaciones.length) { return; }
+        const listados = this.listadosVarios;
+        if (!asignaciones.length && !listados.length) { return; }
         this.varios = { ...this.varios, cargando: true };
         try {
-            const n = await asignarArchivos({ recordId: this._recordId, asignacionesJson: JSON.stringify(asignaciones) });
-            // Registros sin certificado («ASIGNAR»): toman el que trae el nombre de sus documentos.
+            const n = !asignaciones.length ? 0 : await asignarArchivos({ recordId: this._recordId, asignacionesJson: JSON.stringify(asignaciones) });
+            // Registros sin certificado («ASIGNAR»): toman el que trae su documento (contenido o nombre).
             await this.guardarCertificados(this.varios.filas.filter((f) => f.registroId && f.documentId)
-                .map((f) => ({ registroId: f.registroId, certificado: this.certificadoNuevo(f.registroId, f.nombre) })).filter((x) => x.certificado));
+                .map((f) => ({ registroId: f.registroId, certificado: this.certificadoNuevo(f.registroId, f.nombre, f.contenido) })).filter((x) => x.certificado));
+            for (const l of listados) {
+                // eslint-disable-next-line no-await-in-loop
+                await this.aplicarListado(l);
+            }
             const pendientes = this.totalSubidos - asignaciones.length;
-            this.toast('Archivos', `${n} archivo(s) adjuntado(s) a cada asegurado.`
+            this.toast('Archivos', (n ? `${n} archivo(s) adjuntado(s) a cada asegurado.` : '')
                 + (pendientes ? ` ${pendientes} sin asignar se quedaron en la póliza.` : ''), 'success');
             this.modal = null;
             this.varios = { filas: [], cargando: false };
@@ -1055,7 +1202,6 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
 
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
-        if (this.conFormulario) { this.pedir('baja', ids); return; }
         if (!ids.length) { return; }
         const correos = {};
         ids.forEach((id) => {
@@ -1470,7 +1616,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.revision.bajas.filter((b) => b.sel).forEach((b) => {
             // El motivo es opcional.
             movs.push({ tipo: 'baja', id: b.id, fecha: b.fechaMovimiento || c.fecha, motivo: b.motivo || c.motivo || null,
-                endoso: b.numeroEndoso || c.endoso, comentario: c.comentario });
+                endoso: b.numeroEndoso || c.endoso, comentario: c.comentario, prima: b.primaMovimiento ?? null });
         });
         this.revision.cambios.filter((x) => x.sel).forEach((x) => {
             movs.push({ tipo: 'cambio', id: x.id, datos: x.datos, fecha: x.fechaMovimiento || c.fecha, endoso: x.numeroEndoso || c.endoso, comentario: c.comentario });
@@ -1599,12 +1745,15 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             if (r.id !== clave) { fam.dependientes.push(r); }
         });
         const grupos = [...familias.values()];
-        const numDep = Math.max(3, ...grupos.map((g) => g.dependientes.length));
+        // Solo las columnas de los dependientes que hay (ninguna si no hay); en GMM no aplica el porcentaje.
+        const numDep = Math.max(0, ...grupos.map((g) => g.dependientes.length));
+        const conPorcentaje = !/^gmm/i.test((this.datos && this.datos.ramo) || '');
         const columnas = ['Nombre', 'Apellido Paterno del Asegurado', 'Apellido Materno del Asegurado',
             'Fecha de nacimiento', 'Sexo', 'Tipo de petición', 'Fecha de petición', 'Poliza', 'Categorias',
             'Certificado', 'Parentesco'];
         for (let i = 1; i <= numDep; i++) {
-            columnas.push('Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de Nacimiento', 'Parentesco', `Sexo Dependiente ${i}`, 'Porcentaje');
+            columnas.push('Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de Nacimiento', 'Parentesco', `Sexo Dependiente ${i}`);
+            if (conPorcentaje) { columnas.push('Porcentaje'); }
         }
         columnas.push('Descripción', 'Correo electrónico');
         const poliza = (this.datos && this.datos.nombre) || '';
@@ -1615,15 +1764,16 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             const n = this.partesNombre(t);
             const fila = [n.nombres, n.paterno, n.materno, fechaVisible(t.fechaNacimiento), this.sexoExcel(t),
                 mov.tipoMovimiento || (mov.activo ? 'Alta' : 'Baja'), fechaVisible(mov.fechaMovimiento), poliza,
-                t.categoria || '', t.certificado || '', '01 Titular'];
+                t.categoria || '', t.certificado || POR_ASIGNAR, '01 Titular'];
             for (let i = 0; i < numDep; i++) {
                 const d = g.dependientes[i];
                 if (d) {
                     const nd = this.partesNombre(d);
-                    fila.push(nd.nombres, nd.paterno, nd.materno, fechaVisible(d.fechaNacimiento), d.parentesco || '', this.sexoExcel(d), 0);
+                    fila.push(nd.nombres, nd.paterno, nd.materno, fechaVisible(d.fechaNacimiento), d.parentesco || '', this.sexoExcel(d));
                 } else {
-                    fila.push('', '', '', '', '', '', 0);
+                    fila.push('', '', '', '', '', '');
                 }
+                if (conPorcentaje) { fila.push(0); }
             }
             const motivos = g.enMovimiento.filter((r) => r.motivoBaja).map((r) => (r.id === t.id ? r.motivoBaja : `${r.nombre}: ${r.motivoBaja}`));
             fila.push(motivos.join(' | '), this.correoDe(t) || '');

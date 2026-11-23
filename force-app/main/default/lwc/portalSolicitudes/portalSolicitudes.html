@@ -40,7 +40,7 @@
                                 <p lwc:if={listado.aviso} class="nota">{listado.aviso}</p>
                                 <p lwc:if={columnasReconocidas} class="nota">{columnasReconocidas}</p>
                                 <template lwc:if={listadoConDatos}>
-                                    <div class="tabla_contenedor">
+                                    <div class="tabla_contenedor tabla_archivo">
                                         <table class="tabla">
                                             <thead>
                                                 <tr>
@@ -56,7 +56,6 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <p lwc:if={textoMasFilas} class="nota">{textoMasFilas}</p>
                                 </template>
                             </div>
                         </template>
@@ -121,10 +120,6 @@
                                     min={m.minFecha} message-when-range-underflow={textoRetroactivo}></lightning-input>
                                 <p lwc:if={m.notaFecha} class="nota nota_aviso">{m.notaFecha}</p>
                             </div>
-                            <div lwc:if={m.conRecordatorioRA} class="ancho recordatorio" role="note">
-                                <span>{m.textoRA}</span>
-                                <strong>CARTA DE ANTIGÜEDAD VIGENTE  |  CARÁTULA DE PÓLIZA + COMPLEMENTO DE PAGO</strong>
-                            </div>
                             <lightning-input class="ancho" label={m.etiquetaDetalle} value={m.detalle} data-key={m.key} data-campo="detalle"
                                 onchange={handleCampo} required={m.detalleRequerido} max-length="1000"></lightning-input>
                         </div>
@@ -135,20 +130,6 @@
 
                 <lightning-textarea label="Comentario (opcional)" value={comentario} onchange={handleComentario} max-length="4000"
                     class="comentario"></lightning-textarea>
-                <div class="adjuntos">
-                    <label class="boton_secundario">
-                        {textoAdjuntar}
-                        <input type="file" multiple onchange={handleArchivos} class="oculto" />
-                    </label>
-                    <span class="nota">{notaAdjuntar}</span>
-                </div>
-                <p lwc:if={avisoRA} class="nota nota_ra" role="status">{avisoRA}</p>
-                <ul lwc:if={hayArchivos} class="archivos">
-                    <template for:each={listaArchivos} for:item="a">
-                        <li key={a.key}>{a.nombre} <span class="celda_sub">{a.tamano}</span>
-                            <button class="enlace" data-i={a.i} onclick={handleQuitarArchivo}>Quitar</button></li>
-                    </template>
-                </ul>
                 <div class="acciones">
                     <button class="boton_secundario" onclick={handleCancelar} disabled={enviando}>Cancelar</button>
                     <button class="boton" onclick={handleEnviar} disabled={enviando}>Enviar solicitud</button>

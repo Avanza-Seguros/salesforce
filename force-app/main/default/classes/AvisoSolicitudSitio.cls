@@ -197,7 +197,7 @@ public without sharing class AvisoSolicitudSitio {
 			for (Object o : lista(base.get('miembros'))) { miembros.add((Map<String, Object>) o); }
 			for (Map<String, Object> r : miembros) { if (deFolio(r, folio)) { registros.add(r); } }
 			hoja = 'Asegurados'; prefijo = 'Asegurados'; a.bienes = 'asegurados';
-			columnas = asegurados(registros, miembros, poliza, filas);
+			columnas = asegurados(registros, miembros, poliza, (String) base.get('ramo'), filas);
 		}
 		a.renglones = filas.size();
 		for (Map<String, Object> r : registros) {
@@ -216,7 +216,9 @@ public without sharing class AvisoSolicitudSitio {
 
 	// Un renglón por titular con sus dependientes en columnas (igual que movimientosColectivo.excelDe).
 	private static List<String> asegurados(List<Map<String, Object>> registros, List<Map<String, Object>> miembros, String poliza,
-			List<List<Object>> filas) {
+			String ramo, List<List<Object>> filas) {
+		// El porcentaje no aplica en GMM.
+		Boolean conPorcentaje = ramo == null || !ramo.toUpperCase().startsWith('GMM');
 		Map<String, Map<String, Object>> porId = new Map<String, Map<String, Object>>();
 		for (Map<String, Object> m : miembros) { porId.put(String.valueOf(m.get('id')), m); }
 		Map<String, Map<String, Object>> titulares = new Map<String, Map<String, Object>>();
@@ -233,14 +235,16 @@ public without sharing class AvisoSolicitudSitio {
 			enMovimiento.get(clave).add(r);
 			if (id != clave) { dependientes.get(clave).add(r); }
 		}
-		Integer numDep = 3;
+		// Solo las columnas de los dependientes que hay (ninguna si no hay).
+		Integer numDep = 0;
 		for (String k : dependientes.keySet()) { numDep = Math.max(numDep, dependientes.get(k).size()); }
 		List<String> columnas = new List<String>{ 'Nombre', 'Apellido Paterno del Asegurado',
 			'Apellido Materno del Asegurado', 'Fecha de nacimiento', 'Sexo', 'Tipo de petición', 'Fecha de petición',
 			'Poliza', 'Categorias', 'Certificado', 'Parentesco' };
 		for (Integer i = 1; i <= numDep; i++) {
 			columnas.addAll(new List<String>{ 'Nombre(s)', 'Apellido paterno', 'Apellido materno', 'Fecha de Nacimiento', 'Parentesco',
-				'Sexo Dependiente ' + i, 'Porcentaje' });
+				'Sexo Dependiente ' + i });
+			if (conPorcentaje) { columnas.add('Porcentaje'); }
 		}
 		columnas.addAll(new List<String>{ 'Descripción', 'Correo electrónico' });
 		for (String clave : titulares.keySet()) {
@@ -250,16 +254,17 @@ public without sharing class AvisoSolicitudSitio {
 			String[] n = partesNombre(t);
 			List<Object> f = new List<Object>{ n[0], n[1], n[2], fecha(t.get('fechaNacimiento')), sexo(t),
 				tipo(mov), fecha(mov.get('fechaMovimiento')), poliza, txt(t.get('categoria')),
-				txt(t.get('certificado')), '01 Titular' };
+				t.get('certificado') == null ? 'POR ASIGNAR' : txt(t.get('certificado')), '01 Titular' };
 			List<Map<String, Object>> deps = dependientes.get(clave);
 			for (Integer i = 0; i < numDep; i++) {
 				if (i < deps.size()) {
 					Map<String, Object> d = deps[i];
 					String[] nd = partesNombre(d);
-					f.addAll(new List<Object>{ nd[0], nd[1], nd[2], fecha(d.get('fechaNacimiento')), txt(d.get('parentesco')), sexo(d), 0 });
+					f.addAll(new List<Object>{ nd[0], nd[1], nd[2], fecha(d.get('fechaNacimiento')), txt(d.get('parentesco')), sexo(d) });
 				} else {
-					f.addAll(new List<Object>{ '', '', '', '', '', '', 0 });
+					f.addAll(new List<Object>{ '', '', '', '', '', '' });
 				}
+				if (conPorcentaje) { f.add(0); }
 			}
 			List<String> motivos = new List<String>();
 			for (Map<String, Object> r : enMovimiento.get(clave)) {

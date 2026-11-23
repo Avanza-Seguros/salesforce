@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prima__c</fullName>
+    <description>Lo que la aseguradora cobra (o devuelve) por este movimiento, con IVA: el complemento del listado de movimientos que manda (PDF o Excel). La prima de la solicitud es la suma de sus movimientos.</description>
+    <externalId>false</externalId>
+    <label>Prima del movimiento</label>
+    <precision>16</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>

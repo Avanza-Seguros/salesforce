@@ -102,7 +102,7 @@
                                             <lightning-button-icon icon-name={p.iconoAbrir} variant="bare" alternative-text={p.textoAbrir} title={p.textoAbrir}
                                                 data-id={p.id} onclick={toggleDetalle}></lightning-button-icon>
                                         </td>
-                                        <td>{p.certificado}</td>
+                                        <td>{p.certificadoTxt}</td>
                                         <td><div class={p.claseNombre}>{p.nombre}</div></td>
                                         <template if:true={conParentesco}><td>{p.parentescoTxt}</td></template>
                                         <template if:true={conCategoria}><td>{p.categoria}</td></template>
@@ -149,15 +149,14 @@
                                                             data-id={p.id} onclick={abrirRegistro}></lightning-button>
                                                     </div>
                                                     <div class="detalle-bloque">
-                                                        <template lwc:if={interno}>
-                                                        <h4>Archivos</h4>
+                                                        <h4>Archivos adjuntos</h4>
                                                         <template if:true={p.hayArchivos}>
                                                             <ul class="lista">
                                                                 <template for:each={p.archivosTxt} for:item="a">
                                                                     <li key={a.key} class="archivo">
                                                                         <lightning-icon icon-name={a.icono} size="x-small" alternative-text={a.tipo}></lightning-icon>
                                                                         <div class="archivo-cuerpo">
-                                                                            <a href="#" data-id={a.id} onclick={verArchivo} title="Ver archivo">{a.titulo}</a>
+                                                                            <a href="#" data-id={a.id} data-participante={a.participanteId} onclick={verArchivo} title="Ver archivo">{a.titulo}</a>
                                                                             <div class="sub">{a.detalle}</div>
                                                                         </div>
                                                                     </li>
@@ -165,8 +164,15 @@
                                                             </ul>
                                                         </template>
                                                         <template if:false={p.hayArchivos}>
-                                                            <p class="sub">No hay archivos adjuntos para este contacto.</p>
+                                                            <p class="sub">No hay archivos adjuntos.</p>
                                                         </template>
+                                                        <template if:true={p.hayDependientes}>
+                                                            <h4 class="slds-m-top_small">Dependientes</h4>
+                                                            <ul class="lista">
+                                                                <template for:each={p.dependientes} for:item="d">
+                                                                    <li key={d.id}>{d.texto}</li>
+                                                                </template>
+                                                            </ul>
                                                         </template>
                                                         <template if:true={p.hayBeneficiarios}>
                                                             <h4 class="slds-m-top_small">Beneficiarios</h4>
@@ -188,7 +194,7 @@
                 </template>
             </template>
 
-            <!-- ====================== BENEFICIARIOS Y OTROS ROLES ====================== -->
+            <!-- ====================== DEPENDIENTES (Y BENEFICIARIOS) ====================== -->
             <template if:false={enAsegurados}>
                 <template if:false={sinFilas}>
                     <div class="part-scroll">
@@ -197,7 +203,6 @@
                                 <tr class="slds-line-height_reset">
                                     <th scope="col" class="col-abrir"></th>
                                     <th scope="col" class="col-orden" data-campo="nombre" onclick={ordenar}>Nombre <span class="flecha">{flechas.nombre}</span></th>
-                                    <th scope="col" class="col-orden" data-campo="rol" onclick={ordenar}>Rol <span class="flecha">{flechas.rol}</span></th>
                                     <th scope="col" class="col-orden" data-campo="parentesco" onclick={ordenar}>Parentesco <span class="flecha">{flechas.parentesco}</span></th>
                                     <template if:true={enBeneficiarios}><th scope="col" class="num col-orden" data-campo="porcentaje" onclick={ordenar}>Porcentaje <span class="flecha">{flechas.porcentaje}</span></th></template>
                                     <th scope="col" class="col-orden" data-campo="fechaMovimiento" onclick={ordenar}>Fecha de movimiento <span class="flecha">{flechas.fechaMovimiento}</span></th>
@@ -217,7 +222,6 @@
                                             <div class="nombre">{p.nombre}</div>
                                             <div class="sub">{p.deTxt}</div>
                                         </td>
-                                        <td>{p.rolesTexto}</td>
                                         <td>{p.parentesco}</td>
                                         <template if:true={enBeneficiarios}><td class="num">{p.porcentajeTxt}</td></template>
                                         <td>{p.fechaMovimientoTxt}</td>
@@ -230,7 +234,7 @@
                                     </tr>
                                     <template if:true={p.abierto}>
                                         <tr key={p.keyDetalle} class="fila-detalle">
-                                            <td colspan="9">
+                                            <td colspan="8">
                                                 <div class="detalle">
                                                     <div class="detalle-bloque">
                                                         <h4>{p.personaTitulo}</h4>

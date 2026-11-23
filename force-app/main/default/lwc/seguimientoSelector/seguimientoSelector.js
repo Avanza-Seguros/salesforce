@@ -44,14 +44,14 @@ export default class SeguimientoSelector extends LightningElement {
             } else {
                 if (!this.movimientoId && !this.sinMovimientos && (nuevo === 'Concluido' || this.valor === 'Concluido')) {
                     const ok = await LightningConfirm.open({
-                        message: nuevo === 'Concluido' ? 'Se concluyen todos los movimientos abiertos de la solicitud. ¿Continuar?'
+                        message: nuevo === 'Concluido' ? 'Se concluyen todos los movimientos abiertos de la solicitud y se le envía al cliente el correo con el resumen. ¿Continuar?'
                             : `Los movimientos de la solicitud se reabren (se quita su fecha de cierre) y quedan ${nuevo}. ¿Continuar?`,
                         variant: 'header', label: 'Cambiar seguimiento', theme: 'warning' });
                     if (!ok) { this.regresar(); return; }
                 }
             }
-            await cambiarSeguimiento({ policyId: this.policyId, folio: this.folio || null, movimientoId: this.movimientoId || null, valor: nuevo, motivo });
-            this.dispatchEvent(new ShowToastEvent({ title: 'Seguimiento', message: `Quedó ${nuevo}.`, variant: 'success' }));
+            const aviso = await cambiarSeguimiento({ policyId: this.policyId, folio: this.folio || null, movimientoId: this.movimientoId || null, valor: nuevo, motivo });
+            this.dispatchEvent(new ShowToastEvent({ title: 'Seguimiento', message: `Quedó ${nuevo}.${aviso ? ' ' + aviso : ''}`, variant: 'success' }));
             this.dispatchEvent(new CustomEvent('cambio'));
         } catch (err) {
             this.regresar();
