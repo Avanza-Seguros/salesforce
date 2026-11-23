@@ -384,18 +384,26 @@
                      (datos por PortalPolizasPestanas.datosComponente; altas, bajas, carga y endosos por PortalPolizasMovimientos, solo
                      el contratante). -->
                 <div lwc:if={verAsegurados} class="panel pestana_sf" role="tabpanel">
-                    <p lwc:if={notaMiGrupoAsegurados} class="nota">Se muestran solo tú y tus dependientes.</p>
-                    <template lwc:if={bienesVehiculos}>
-                        <c-movimientos-flotilla portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
-                            record-id={seleccionadaId}></c-movimientos-flotilla>
-                    </template>
-                    <template lwc:elseif={bienesUbicaciones}>
-                        <c-movimientos-ubicaciones portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
-                            record-id={seleccionadaId}></c-movimientos-ubicaciones>
+                    <!-- Solicitud de altas, bajas y cambios: Nueva solicitud, Alta o Baja. -->
+                    <template lwc:if={solicitudNueva}>
+                        <c-portal-solicitudes policy-id={seleccionadaId} cuenta-vista-previa={cuentaVistaPrevia} solo-formulario={siempre}
+                            tipo-inicial={solicitudNueva.tipo} registros-iniciales={solicitudNueva.ids} oncerrar={handleCerrarSolicitud}></c-portal-solicitudes>
                     </template>
                     <template lwc:else>
-                        <c-movimientos-colectivo portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
-                            record-id={seleccionadaId}></c-movimientos-colectivo>
+                        <div lwc:if={avisoSolicitud} class="aviso aviso_ok" role="status">{avisoSolicitud}</div>
+                        <p lwc:if={notaMiGrupoAsegurados} class="nota">Se muestran solo tú y tus dependientes.</p>
+                        <template lwc:if={bienesVehiculos}>
+                            <c-movimientos-flotilla portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
+                                record-id={seleccionadaId} onnuevasolicitud={handleNuevaSolicitud}></c-movimientos-flotilla>
+                        </template>
+                        <template lwc:elseif={bienesUbicaciones}>
+                            <c-movimientos-ubicaciones portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
+                                record-id={seleccionadaId} onnuevasolicitud={handleNuevaSolicitud}></c-movimientos-ubicaciones>
+                        </template>
+                        <template lwc:else>
+                            <c-movimientos-colectivo portal={siempre} cuenta-vista-previa={cuentaVistaPrevia} read-only={soloConsulta}
+                                record-id={seleccionadaId} onnuevasolicitud={handleNuevaSolicitud}></c-movimientos-colectivo>
+                        </template>
                     </template>
                 </div>
 
@@ -404,10 +412,6 @@
                     <p lwc:if={notaMiGrupoParticipantes} class="nota">Se muestran solo tú, tus dependientes y tus beneficiarios.</p>
                     <c-participantes-poliza portal={siempre} cuenta-vista-previa={cuentaVistaPrevia}
                         record-id={seleccionadaId}></c-participantes-poliza>
-                </div>
-                <!-- Solicitudes de altas, bajas y cambios -->
-                <div lwc:if={verSolicitudes} class="panel" role="tabpanel">
-                    <c-portal-solicitudes policy-id={seleccionadaId} cuenta-vista-previa={cuentaVistaPrevia}></c-portal-solicitudes>
                 </div>
             </template>
         </template>

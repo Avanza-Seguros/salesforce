@@ -201,10 +201,11 @@
     color: #706e6b;
 }
 
-.col-correo {
-    max-width: 16rem;
-    overflow-wrap: anywhere;
-    white-space: normal;
+/* El correo completo en una sola línea (la tabla se desplaza a lo ancho). */
+.mov-tabla td.col-correo {
+    max-width: none;
+    white-space: nowrap;
+    text-align: left;
 }
 
 .varios-zona {
@@ -559,6 +560,7 @@
 .seg-proceso { background: #eef4ff; color: #0176d3; }
 .seg-concluido { background: #ebf7e6; color: #2e844a; }
 .seg-rechazada { background: #f3f3f3; color: #706e6b; }
+.motivo-rechazo { max-width: 14rem; white-space: normal; }
 
 /* ===================== Estilo Oportunidades (portal de empresas, nov-2026) ===================== */
 /* Solo aplica cuando el componente vive en el sitio (portal = true, clase mov-portal); en Salesforce interno no cambia nada.
@@ -611,7 +613,8 @@
 /* Barra: buscador redondo que crece y botones en píldora. */
 .mov-portal .mov-barra { margin: 0; gap: 12px; align-items: center; }
 .mov-portal .mov-filtros { flex: 1 1 360px; gap: 12px; min-width: 0; }
-.mov-portal .mov-acciones { gap: 8px; }
+.mov-portal .mov-acciones { gap: 8px; flex: 1 1 100%; }
+.mov-portal .mov-nueva { margin-left: auto; }
 .mov-portal .mov-buscar { flex: 1 1 280px; min-width: 0; }
 .mov-portal .mov-filtro { flex: 0 1 200px; min-width: 10rem; }
 /* Tabla: una sola línea por fila, encabezado gris en mayúsculas; se desplaza dentro de su caja. */
@@ -623,7 +626,6 @@
 .mov-portal .mov-tabla tbody tr:hover > td { background: #fbfcfe; }
 .mov-portal .mov-tabla .num { font-weight: 800; }
 .mov-portal .mov-tabla input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1d4ed8; cursor: pointer; }
-.mov-portal .col-correo { white-space: nowrap; max-width: 230px; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
 .mov-portal .nombre { font-weight: 700; }
 .mov-portal .nombre .enlace-otras { color: #1d4ed8; font-weight: 700; }
 .mov-portal .fila-dependiente td { background: #fbfcfe; }

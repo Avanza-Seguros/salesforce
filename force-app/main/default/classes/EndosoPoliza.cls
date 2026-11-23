@@ -224,10 +224,10 @@ public inherited sharing class EndosoPoliza {
 			}
 			Integer total = (Integer) s.get('total');
 			Integer abiertos = (Integer) s.get('abiertos');
-			// Rechazada: sin movimientos o con el comentario de rechazo (se puede rechazar aunque ya tenga movimientos).
+			// Rechazada: con el comentario de rechazo (solicitudes anteriores; ahora se rechaza cada registro).
 			String respuesta = comentarios.get(c.Id);
 			Boolean rechazo = respuesta != null && respuesta.startsWith('Solicitud rechazada:');
-			String estado = c.IsClosed ? (total == 0 || rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
+			String estado = c.IsClosed ? (rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
 			s.putAll(new Map<String, Object>{
 				'fecha' => previos ? s.get('fecha') : c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber,
 				'estadoPortal' => estado, 'pendiente' => estado == 'Recibida', 'estadoCaso' => c.Status, 'casoCerrado' => c.IsClosed,
@@ -303,41 +303,24 @@ public inherited sharing class EndosoPoliza {
 	}
 
 	/**
-	 * @creation date: 17/11/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: El ejecutivo rechaza una solicitud que el cliente envió desde el sitio: el motivo queda como
-	 *               comentario público del caso (el cliente lo ve en el sitio) y el caso se concluye.
-	 * @param casoId: caso de la solicitud.
-	 * @param motivo: por qué no procede.
-	 */
-	@AuraEnabled(cacheable=false)
-	public static void rechazarSolicitud(Id casoId, String motivo) {
-		if (casoId == null || String.isBlank(motivo)) { throw new AuraHandledException('Escribe el motivo del rechazo.'); }
-		try {
-			new SinCompartir().rechazar(casoId, motivo.trim(), estadoCaso('Concluido'));
-		} catch (Exception e) {
-			AuraHandledException ex = new AuraHandledException('No se pudo rechazar la solicitud: ' + e.getMessage());
-			ex.setMessage('No se pudo rechazar la solicitud: ' + e.getMessage());
-			throw ex;
-		}
-	}
-
-	/**
 	 * @creation date: 23/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: El ejecutivo cambia a mano el seguimiento de un movimiento o de toda una solicitud. Concluido cierra
-	 *               el movimiento; Solicitado o En proceso lo reabren si estaba cerrado. El caso del sitio sigue a sus
+	 *               el movimiento; Rechazado (solo un movimiento, con su motivo) también; Solicitado o En proceso lo reabren. El caso del sitio sigue a sus
 	 *               movimientos: Solicitado mientras ninguno abierto está En proceso.
 	 * @param policyId: póliza.
 	 * @param folio: solicitud (null si el movimiento no tiene).
 	 * @param movimientoId: movimiento, o null para toda la solicitud.
-	 * @param nuevo: Solicitado, En proceso o Concluido.
+	 * @param nuevo: Solicitado, En proceso, Concluido o Rechazado.
+	 * @param motivo: motivo del rechazo (lo ve el cliente).
 	 */
-	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String nuevo) {
+	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String nuevo, String motivo) {
 		if (UserInfo.getUserType() != 'Standard') { throw new IllegalArgumentException('Solo un ejecutivo puede cambiarlo.'); }
-		if (!new Set<String>{ 'Solicitado', 'En proceso', 'Concluido' }.contains(nuevo)) { throw new IllegalArgumentException('Estado no válido.'); }
+		if (!new Set<String>{ 'Solicitado', 'En proceso', 'Concluido', 'Rechazado' }.contains(nuevo)) { throw new IllegalArgumentException('Estado no válido.'); }
+		if (nuevo == 'Rechazado' && movimientoId == null) { throw new IllegalArgumentException('Se rechaza cada registro, no toda la solicitud.'); }
+		if (nuevo == 'Rechazado' && String.isBlank(motivo)) { throw new IllegalArgumentException('Escribe el motivo del rechazo.'); }
 		if ([SELECT COUNT() FROM InsurancePolicy WHERE Id = :policyId] == 0) { throw new IllegalArgumentException('No tienes acceso a la póliza.'); }
-		new SinCompartir().cambiar(policyId, folio, movimientoId, nuevo);
+		new SinCompartir().cambiar(policyId, folio, movimientoId, nuevo, motivo);
 	}
 
 	// Casos del sitio: el ejecutivo los ve y los atiende aunque no sea su dueño.
@@ -365,7 +348,7 @@ public inherited sharing class EndosoPoliza {
 		List<CaseComment> comentarios(Set<Id> ids) {
 			return [SELECT ParentId, CommentBody FROM CaseComment WHERE ParentId IN :ids AND IsPublished = true ORDER BY CreatedDate DESC];
 		}
-		void cambiar(Id policyId, String folio, Id movimientoId, String nuevo) {
+		void cambiar(Id policyId, String folio, Id movimientoId, String nuevo, String motivo) {
 			Boolean completa = movimientoId == null;
 			List<Movimiento_Poliza__c> movs = String.isBlank(folio)
 				? [SELECT Id, Fecha_Cierre__c, Seguimiento__c, Transaccion__c FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Id = :movimientoId]
@@ -376,8 +359,19 @@ public inherited sharing class EndosoPoliza {
 			Case caso = casos.isEmpty() ? null : casos[0];
 			if (movs.isEmpty() && caso == null) { throw new IllegalArgumentException('La solicitud ya no existe.'); }
 			List<Movimiento_Poliza__c> elegidos = completa ? movs : new List<Movimiento_Poliza__c>{ porId.get(movimientoId) };
+			if (nuevo == 'Rechazado') {
+				Movimiento_Poliza__c m = elegidos[0];
+				if (m.Fecha_Cierre__c == null) { m.Fecha_Cierre__c = ahora(); }
+				m.Seguimiento__c = 'Rechazado';
+				m.Motivo_Rechazo__c = motivo.trim().left(255);
+				update m;
+				aprobarCerrados(new Set<Id>{ m.Id });
+				return;
+			}
 			if (nuevo == 'Concluido') {
-				concluirElegidos(elegidos);
+				// Solicitud sin movimientos: se concluye su caso.
+				if (movs.isEmpty()) { update new Case(Id = caso.Id, Status = estadoCaso('Concluido')); }
+				else { concluirElegidos(elegidos, completa); }
 				return;
 			}
 			Boolean cerrado = caso != null && caso.IsClosed;
@@ -390,13 +384,19 @@ public inherited sharing class EndosoPoliza {
 			Map<Id, Movimiento_Poliza__c> cambios = new Map<Id, Movimiento_Poliza__c>();
 			Set<Id> reabiertas = new Set<Id>();
 			for (Movimiento_Poliza__c m : elegidos) {
+				// Los rechazados solo cambian en su registro.
+				if (completa && m.Seguimiento__c == 'Rechazado') { continue; }
 				// Al cambiar toda la solicitud, lo ya concluido solo se reabre si ya estaba todo concluido.
 				if (completa && m.Fecha_Cierre__c != null && !todosCerrados) { continue; }
 				if (m.Fecha_Cierre__c != null && m.Transaccion__c != null) { reabiertas.add(m.Transaccion__c); }
 				m.Fecha_Cierre__c = null;
+				m.Motivo_Rechazo__c = null;
 				// Con caso, la solicitud completa toma el estado del caso (también si luego se cambia en el caso).
 				m.Seguimiento__c = completa && caso != null ? null : nuevo;
 				cambios.put(m.Id, m);
+			}
+			if (completa && cambios.isEmpty() && todosCerrados && !movs.isEmpty()) {
+				throw new IllegalArgumentException('Todos sus registros están rechazados: cambia el estado del registro.');
 			}
 			String estado = nuevo;
 			if (!completa) {
@@ -422,19 +422,20 @@ public inherited sharing class EndosoPoliza {
 				update l;
 			}
 		}
-		void concluirElegidos(List<Movimiento_Poliza__c> elegidos) {
-			if (elegidos.isEmpty()) { throw new IllegalArgumentException('La solicitud no tiene movimientos que concluir; recházala si no procede.'); }
-			Datetime ahora = Datetime.newInstance((Datetime.now().getTime() / 1000) * 1000);
+		// Al segundo, como se guarda.
+		Datetime ahora() { return Datetime.newInstance((Datetime.now().getTime() / 1000) * 1000); }
+		void concluirElegidos(List<Movimiento_Poliza__c> elegidos, Boolean completa) {
 			List<Movimiento_Poliza__c> l = new List<Movimiento_Poliza__c>();
 			for (Movimiento_Poliza__c m : elegidos) {
-				if (m.Fecha_Cierre__c == null) { m.Fecha_Cierre__c = ahora; l.add(m); }
+				// Al concluir toda la solicitud, los rechazados se quedan así.
+				Boolean rechazado = m.Seguimiento__c == 'Rechazado';
+				if (m.Fecha_Cierre__c != null && (completa || !rechazado)) { continue; }
+				if (m.Fecha_Cierre__c == null) { m.Fecha_Cierre__c = ahora(); }
+				if (rechazado) { m.Seguimiento__c = null; m.Motivo_Rechazo__c = null; }
+				l.add(m);
 			}
 			update l;
 			aprobarCerrados(new Map<Id, Movimiento_Poliza__c>(elegidos).keySet());
-		}
-		void rechazar(Id casoId, String motivo, String cerrado) {
-			insert new CaseComment(ParentId = casoId, IsPublished = true, CommentBody = ('Solicitud rechazada: ' + motivo).left(4000));
-			update new Case(Id = casoId, Status = cerrado);
 		}
 		// Al cerrar los movimientos de una solicitud del sitio, su caso se concluye.
 		void concluir(Set<Id> movimientoIds) {
@@ -655,6 +656,12 @@ public inherited sharing class EndosoPoliza {
 		for (AggregateResult ar : [
 			SELECT Transaccion__c t FROM Movimiento_Poliza__c WHERE Transaccion__c IN :trans AND Fecha_Cierre__c = null GROUP BY Transaccion__c
 		]) { trans.remove((Id) ar.get('t')); }
+		// Un endoso con todos sus movimientos rechazados no se aprueba.
+		Set<Id> conProcedentes = new Set<Id>();
+		for (AggregateResult ar : [
+			SELECT Transaccion__c t FROM Movimiento_Poliza__c WHERE Transaccion__c IN :trans AND Seguimiento__c != 'Rechazado' GROUP BY Transaccion__c
+		]) { conProcedentes.add((Id) ar.get('t')); }
+		trans.retainAll(conProcedentes);
 		String aprobado = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Aprobado');
 		if (trans.isEmpty() || aprobado == null) { return; }
 		List<InsurancePolicyTransaction> l = new List<InsurancePolicyTransaction>();

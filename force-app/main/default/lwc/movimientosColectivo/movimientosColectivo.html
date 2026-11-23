@@ -71,14 +71,16 @@
                             </template>
                         </div>
                         <div class="mov-acciones">
+                            <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo). -->
+                            <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
                             <template if:true={puedeEditar}>
                                 <lightning-button label="Alta de asegurado" icon-name="utility:adduser" onclick={abrirAlta}></lightning-button>
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:ban" variant="destructive-text"
-                                    onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
-                                <lightning-button label="Cargar asegurados" icon-name="utility:upload" onclick={verArchivo}></lightning-button>
+                                    onclick={abrirBaja} disabled={sinBaja}></lightning-button>
+                                <template lwc:if={conCarga}><lightning-button label="Cargar asegurados" icon-name="utility:upload" onclick={verArchivo}></lightning-button></template>
                             </template>
-                            <!-- Envío de correo a los asegurados: también en el sitio (solo el contratante). -->
-                            <template if:true={enPoliza}>
+                            <!-- Envío de correo a todos los pendientes: solo en Salesforce. -->
+                            <template lwc:if={correoPendientes}>
                                 <lightning-button label={textoEnviarPendientes} icon-name="utility:email" onclick={abrirCorreoPendientes}
                                     disabled={sinPendientesCorreo}></lightning-button>
                             </template>
@@ -89,8 +91,10 @@
                             <!-- Excel de movimientos: solo pólizas empresariales. -->
                             <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
                             </template>
-                            <template if:true={enPoliza}><lightning-button label="Endosos" icon-name="utility:file" onclick={verEndosos}></lightning-button></template>
-                            <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
+                            <template if:true={conEndosos}><lightning-button label="Endosos" icon-name="utility:file" onclick={verEndosos}></lightning-button></template>
+                            <template lwc:if={interno}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
+                            <template lwc:if={conFormulario}><lightning-button label="Nueva solicitud" icon-name="utility:add" variant="brand" class="mov-nueva"
+                                onclick={handleNuevaSolicitud}></lightning-button></template>
                         </div>
                     </div>
 
@@ -142,13 +146,14 @@
                                                     <span>{b.cierreTxt}</span>
                                                     <!-- Seguimiento de la solicitud: en Salesforce se cambia con un clic. -->
                                                     <span>
-                                                        <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio} caso-id={b.casoId}
+                                                        <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio}
                                                             sin-movimientos={b.sinMovimientos} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                         <template lwc:elseif={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template>
                                                     </span>
                                                     <span class="sol-extra">
                                                         <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
                                                         <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
+                                                        <template lwc:if={b.respuesta}><span class="sol-sub">{b.respuesta}</span></template>
                                                         <template lwc:if={b.ligaCaso}><a href={b.ligaCaso} target="_blank" class="sol-sub">{b.casoTxt}</a></template>
                                                         <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
                                                             class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
@@ -198,6 +203,7 @@
                                                     <template lwc:if={m.puedeSeguimiento}><c-seguimiento-selector valor={m.seguimiento} policy-id={recordId} folio={m.solicitud}
                                                         movimiento-id={m.movimientoId} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                     <template lwc:elseif={m.seguimiento}><span class={m.claseSeguimiento}>{m.seguimiento}</span></template>
+                                                    <template lwc:if={m.motivoRechazo}><div class="sub motivo-rechazo" title={m.motivoRechazo}>{m.motivoRechazo}</div></template>
                                                 </td>
                                                 <td>
                                                     <span class={m.claseCorreo} title={m.tituloCorreo}>{m.correoTxt}</span>

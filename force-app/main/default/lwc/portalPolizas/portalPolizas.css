@@ -346,6 +346,7 @@ button.documento:disabled { cursor: progress; opacity: 0.7; }
 
 /* ===== Avisos ===== */
 .aviso { padding: 12px 16px; border-radius: 14px; background: #f7f9fc; border: 1px solid #e3e8f2; font-size: 14px; }
+.aviso_ok { background: #e7f6ee; border-color: #bfe6cf; color: #15703d; }
 .aviso_error { background: var(--pp-error-suave); border-color: #f8c9c5; color: var(--pp-error); }
 .aviso_alerta { background: var(--pp-alerta-suave); border-color: #fbd9a8; color: var(--pp-alerta); }
 

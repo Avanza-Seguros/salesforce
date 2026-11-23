@@ -66,6 +66,13 @@ export default class MovimientosUbicaciones extends LightningElement {
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
+    // Sitio, contratante de una póliza empresarial: Alta, Baja y Nueva solicitud abren el formulario de solicitudes
+    // (c-portal-solicitudes, lo muestra c-portal-polizas).
+    get conFormulario() { return this.portal && this.puedeEditar && !!this.datos && this.datos.puedeSolicitar === true; }
+    get conCarga() { return !this.conFormulario; }
+    get sinBaja() { return this.sinSeleccion && !this.conFormulario; }
+    handleNuevaSolicitud() { this.pedir(null, []); }
+    pedir(tipo, ids) { this.dispatchEvent(new CustomEvent('nuevasolicitud', { detail: { tipo, ids } })); }
     // En el sitio de empresas se agrega «mov-portal» para tomar el estilo del sitio (igual que movimientosColectivo).
     get claseRaiz() { return this.portal ? 'mov mov-portal' : 'mov'; }
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
@@ -200,13 +207,14 @@ export default class MovimientosUbicaciones extends LightningElement {
     // su solicitud (Solicitado o En proceso). Sin movimiento registrado, nada.
     seguimientoDe(r, info) {
         if (!r.fechaCreacion) { return ''; }
+        if (r.seguimientoMov === 'Rechazado') { return 'Rechazado'; }
         if (r.fechaCierre) { return 'Concluido'; }
         if (r.seguimientoMov) { return r.seguimientoMov; }
         const s = (info || this.infoSolicitudes).get(r.solicitud);
         return s && s.seguimiento === 'Solicitado' ? 'Solicitado' : 'En proceso';
     }
     claseSeguimiento(v) {
-        return `estado seg-${{ Solicitado: 'solicitado', 'En proceso': 'proceso', Concluido: 'concluido', Rechazada: 'rechazada' }[v] || 'sin'}`;
+        return `estado seg-${{ Solicitado: 'solicitado', 'En proceso': 'proceso', Concluido: 'concluido', Rechazado: 'rechazada', Rechazada: 'rechazada' }[v] || 'sin'}`;
     }
     // Encabezados de la tabla: arriba de la tabla sin agrupar y, agrupada, dentro de cada solicitud desplegada
     // (arriba de sus registros).
@@ -262,8 +270,8 @@ export default class MovimientosUbicaciones extends LightningElement {
     }
     // Solicitud del sitio que aún no tiene registros (sin buscar ni filtrar): también sale, para poder atenderla.
     vacia(s) {
-        return !!s && !this.portal && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
-            && (s.seguimiento === 'Solicitado' || s.seguimiento === 'En proceso');
+        return !!s && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
+            && (s.seguimiento === 'Solicitado' || s.seguimiento === 'En proceso' || (this.portal && s.seguimiento === 'Rechazada'));
     }
     get filtradosAgrupados() {
         const infoVacias = this.infoSolicitudes;
@@ -353,10 +361,11 @@ export default class MovimientosUbicaciones extends LightningElement {
             folioExcel: this.portal || !g.lista.length ? null : g.folio,
             // Seguimiento de toda la solicitud (clic para cambiarlo) y el caso de la que envió el cliente.
             puedeSeguimiento: this.cambiaSeguimiento && !!s && !!seguimiento,
-            casoId: s && s.portal ? s.casoId : null,
             sinMovimientos: !!s && !s.total,
             ligaCaso: !this.portal && s && s.casoId ? `/lightning/r/Case/${s.casoId}/view` : null,
             casoTxt: s && s.caso ? `Caso ${s.caso}` : '',
+            // Respuesta del ejecutivo (motivo del rechazo): la ve el cliente en el sitio.
+            respuesta: this.portal && s && s.respuesta ? s.respuesta : '',
             filas
         };
     }
@@ -413,7 +422,7 @@ export default class MovimientosUbicaciones extends LightningElement {
         this.seleccion = s;
     }
     get sinSeleccion() { return this.seleccion.size === 0; }
-    get textoBajaSeleccion() { return `Dar de baja (${this.seleccion.size})`; }
+    get textoBajaSeleccion() { return `${this.conFormulario ? 'Baja de ubicación' : 'Dar de baja'} (${this.seleccion.size})`; }
 
     async handleTraer() {
         if (this.ubicaciones.length) {
@@ -767,6 +776,7 @@ export default class MovimientosUbicaciones extends LightningElement {
 
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
+        if (this.conFormulario) { this.pedir('baja', ids); return; }
         if (!ids.length) { return; }
         this.form = { ids, fecha: this.fechaDefault, motivo: '', endoso: '', comentario: '', solicitud: 'nueva' };
         this.modal = 'baja';
@@ -778,6 +788,7 @@ export default class MovimientosUbicaciones extends LightningElement {
     get textoBaja() { return `Se darán de baja ${this.bajaNombres.length} ubicaciones.`; }
 
     abrirAlta() {
+        if (this.conFormulario) { this.pedir('alta', []); return; }
         this.form = { nombre: '', direccion: '', giro: '', sumaAsegurada: null, prima: null, inciso: null, fecha: this.fechaDefault, endoso: '', solicitud: 'nueva' };
         this.modal = 'alta';
     }

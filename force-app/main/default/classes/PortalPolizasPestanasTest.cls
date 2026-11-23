@@ -265,6 +265,8 @@ private class PortalPolizasPestanasTest {
 
 		System.assertEquals(false, aseg.get('soloMiGrupo'));
 		System.assertEquals(true, aseg.get('portal'));
+		System.assertEquals(true, aseg.get('puedeSolicitar'), 'Contratante de una póliza empresarial: Nueva solicitud');
+		System.assertEquals(false, asegSuyos.get('puedeSolicitar'), 'Un empleado no envía solicitudes');
 		// Al contratante le llegan las solicitudes para agrupar (sin datos internos del caso); a un empleado, ninguna.
 		System.assertEquals(0, ((List<Object>) asegSuyos.get('solicitudes')).size(), 'Un empleado no ve las solicitudes');
 		List<Object> agrupar = PortalPolizasPestanas.solicitudesParaAgrupar(new List<Object>{ new Map<String, Object>{
@@ -616,7 +618,8 @@ private class PortalPolizasPestanasTest {
 
 		// Sin movimientos que registrar (solo el archivo) queda Recibida. Rechazo del ejecutivo: el cliente ve el motivo.
 		Case recibida = [SELECT Id FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = :String.valueOf(ra.get('folio'))];
-		EndosoPoliza.rechazarSolicitud(recibida.Id, 'Falta el acta de nacimiento');
+		insert new CaseComment(ParentId = recibida.Id, IsPublished = true, CommentBody = 'Solicitud rechazada: Falta el acta de nacimiento');
+		update new Case(Id = recibida.Id, Status = EndosoPoliza.estadoCaso('Concluido'));
 		Boolean visto = false;
 		for (Object o : (List<Object>) PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('solicitudes')) {
 			Map<String, Object> s = (Map<String, Object>) o;

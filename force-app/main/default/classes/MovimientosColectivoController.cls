@@ -73,6 +73,7 @@ public inherited sharing class MovimientosColectivoController {
 				accountId = pol.NameInsuredId;
 				res.put('contexto', 'poliza');
 				res.put('aplica', aplicaRamo(pol.Ramo__c));
+				res.put('ramo', pol.Ramo__c);
 				res.put('flotilla', MovimientosFlotillaController.esFlotilla(pol.Ramo__c));
 				res.put('ubicaciones', MovimientosUbicacionesController.esUbicaciones(pol.Ramo__c));
 				res.put('nombre', pol.Name);
@@ -1201,7 +1202,7 @@ public inherited sharing class MovimientosColectivoController {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
-			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :policyId AND Participante__c != null
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
@@ -1228,7 +1229,8 @@ public inherited sharing class MovimientosColectivoController {
 		for (Movimiento_Poliza__c m : movs) {
 			l.add(new Map<String, Object>{ 'movimientoId' => m.Id, 'movimientoNumero' => m.Name, 'solicitud' => m.Solicitud__c,
 				'tipoMovimiento' => m.Tipo__c, 'fechaMovimiento' => m.Fecha_Movimiento__c, 'fechaCreacion' => m.CreatedDate,
-				'fechaCierre' => m.Fecha_Cierre__c, 'seguimientoMov' => m.Seguimiento__c, 'numeroEndoso' => m.Numero_Endoso__c });
+				'fechaCierre' => m.Fecha_Cierre__c, 'seguimientoMov' => m.Seguimiento__c, 'motivoRechazo' => m.Motivo_Rechazo__c,
+				'numeroEndoso' => m.Numero_Endoso__c });
 		}
 		fila.put('movimientos', l);
 	}
@@ -1291,6 +1293,7 @@ public inherited sharing class MovimientosColectivoController {
 			if (campos.containsKey('Solicitud__c')) { fila.put('solicitud', ultimo.Solicitud__c); }
 			// Seguimiento elegido a mano en el movimiento (vacío = el de su solicitud).
 			if (campos.containsKey('Seguimiento__c')) { fila.put('seguimientoMov', ultimo.Seguimiento__c); }
+			if (campos.containsKey('Motivo_Rechazo__c')) { fila.put('motivoRechazo', ultimo.Motivo_Rechazo__c); }
 		} else if (!activo) {
 			tipo = 'Baja';
 			fecha = hasta;
@@ -1333,28 +1336,16 @@ public inherited sharing class MovimientosColectivoController {
 	 * @param policyId: póliza.
 	 * @param folio: solicitud (null si el movimiento no tiene).
 	 * @param movimientoId: movimiento, o null para toda la solicitud.
-	 * @param valor: Solicitado, En proceso o Concluido.
+	 * @param valor: Solicitado, En proceso, Concluido o Rechazado (este, solo en un registro).
+	 * @param motivo: motivo del rechazo.
 	 */
 	@AuraEnabled(cacheable=false)
-	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String valor) {
+	public static void cambiarSeguimiento(Id policyId, String folio, Id movimientoId, String valor, String motivo) {
 		try {
-			EndosoPoliza.cambiarSeguimiento(policyId, folio, movimientoId, valor);
+			EndosoPoliza.cambiarSeguimiento(policyId, folio, movimientoId, valor, motivo);
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudo cambiar el seguimiento: ' + mensaje(e));
 		}
-	}
-
-	/**
-	 * @creation date: 23/11/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: El ejecutivo rechaza una solicitud del sitio con el motivo que ve el cliente.
-	 * @param casoId: caso de la solicitud.
-	 * @param motivo: por qué no procede.
-	 */
-	@AuraEnabled(cacheable=false)
-	public static void rechazarSolicitud(Id casoId, String motivo) {
-		if (UserInfo.getUserType() != 'Standard') { throw CensoColectivoController.error('Solo un ejecutivo puede rechazarla.'); }
-		EndosoPoliza.rechazarSolicitud(casoId, motivo);
 	}
 
 	/**

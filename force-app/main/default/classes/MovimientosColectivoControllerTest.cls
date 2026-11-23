@@ -774,16 +774,16 @@ private class MovimientosColectivoControllerTest {
 		Movimiento_Poliza__c b = new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta');
 		insert new List<Movimiento_Poliza__c>{ a, b };
 		Test.startTest();
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso', null);
 		System.assertEquals('En proceso', [SELECT Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Seguimiento__c);
 		System.assertEquals('Solicitado', [SELECT Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :b.Id].Seguimiento__c, 'El otro no cambia');
 		System.assertEquals(EndosoPoliza.estadoCaso('En proceso'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
 		System.assertEquals('En proceso', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Solicitado');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Solicitado', null);
 		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Concluido');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Concluido', null);
 		System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Fecha_Cierre__c);
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso', null);
 		System.assertEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Fecha_Cierre__c, 'Se reabre');
 		Test.stopTest();
 	}
@@ -799,19 +799,18 @@ private class MovimientosColectivoControllerTest {
 	static void testSeguimientoDeSolicitud() {
 		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
 		Case c = casoPrueba(pol.Id);
-		Boolean sinMovs = false;
-		try { MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Concluido'); } catch (AuraHandledException e) { sinMovs = true; }
-		System.assert(sinMovs, 'Sin movimientos no se concluye');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Concluido', null);
+		System.assertEquals('Concluido', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'), 'Sin movimientos se concluye el caso');
 		insert new List<Movimiento_Poliza__c>{ new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta'),
 			new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0002', Tipo__c = 'Alta') };
 		Test.startTest();
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'En proceso');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'En proceso', null);
 		System.assertEquals(EndosoPoliza.estadoCaso('En proceso'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Concluido');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Concluido', null);
 		System.assertEquals(true, [SELECT IsClosed FROM Case WHERE Id = :c.Id].IsClosed);
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Solicitado');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Solicitado', null);
 		System.assertEquals(EndosoPoliza.estadoCaso('Solicitado'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0002', null, 'Solicitado');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0002', null, 'Solicitado', null);
 		for (Map<String, Object> s : EndosoPoliza.solicitudes(pol.Id, null)) { System.assertEquals('Solicitado', s.get('seguimiento'), String.valueOf(s.get('folio'))); }
 		Test.stopTest();
 	}
@@ -819,27 +818,36 @@ private class MovimientosColectivoControllerTest {
 	/**
 	 * @creation date: 23/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Solicitud rechazada: el estado de sus registros no se cambia (primero el de la solicitud). Solo se
-	 *               aceptan los estados que hay.
+	 * @description: Rechazado es de cada registro (con su motivo), no de toda la solicitud; cuenta como cerrado y, si
+	 *               cambia la solicitud, se queda rechazado. Solo se aceptan los estados que hay.
 	 * @return void
 	 */
 	@isTest
-	static void testSeguimientoRechazada() {
+	static void testSeguimientoRechazado() {
 		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
-		Case c = casoPrueba(pol.Id);
-		Movimiento_Poliza__c m = new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta');
-		insert m;
+		casoPrueba(pol.Id);
+		Movimiento_Poliza__c a = new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta');
+		Movimiento_Poliza__c b = new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta');
+		insert new List<Movimiento_Poliza__c>{ a, b };
+		Integer errores = 0;
+		try { MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Rechazado', 'No procede'); } catch (AuraHandledException e) { errores++; }
+		try { MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Rechazado', ' '); } catch (AuraHandledException e) { errores++; }
+		try { MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Otro', null); } catch (AuraHandledException e) { errores++; }
+		System.assertEquals(3, errores, 'Toda la solicitud, sin motivo y un estado que no existe');
 		Test.startTest();
-		MovimientosColectivoController.rechazarSolicitud(c.Id, 'No procede');
-		System.assertEquals('Rechazada', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
-		Boolean cerrada = false;
-		try { MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', m.Id, 'En proceso'); } catch (AuraHandledException e) { cerrada = true; }
-		System.assert(cerrada, 'Rechazada: se cambia el estado de la solicitud, no el del registro');
-		Boolean invalido = false;
-		try { MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Otro'); } catch (AuraHandledException e) { invalido = true; }
-		System.assert(invalido, 'Solo los estados que hay');
-		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'En proceso');
-		System.assertEquals('En proceso', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'), 'Se puede volver a atender');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Rechazado', 'Falta el acta');
+		Movimiento_Poliza__c r = [SELECT Seguimiento__c, Motivo_Rechazo__c, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id];
+		System.assertEquals('Rechazado', r.Seguimiento__c);
+		System.assertEquals('Falta el acta', r.Motivo_Rechazo__c);
+		System.assertNotEquals(null, r.Fecha_Cierre__c);
+		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'), 'El otro sigue abierto');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Concluido', null);
+		System.assertEquals('Rechazado', [SELECT Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Seguimiento__c, 'Se queda rechazado');
+		System.assertEquals('Concluido', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso', null);
+		r = [SELECT Seguimiento__c, Motivo_Rechazo__c, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id];
+		System.assertEquals('En proceso', r.Seguimiento__c);
+		System.assert(r.Motivo_Rechazo__c == null && r.Fecha_Cierre__c == null, 'Se reabre sin motivo');
 		Test.stopTest();
 	}
 

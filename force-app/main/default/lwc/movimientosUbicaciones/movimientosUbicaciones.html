@@ -57,19 +57,23 @@
                             </template>
                         </div>
                         <div class="mov-acciones">
+                            <!-- En el sitio, Historial va a la izquierda y Nueva solicitud a la derecha (en lugar de cargar el archivo). -->
+                            <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
                             <template if:true={puedeEditar}>
                                 <lightning-button label="Alta de ubicación" icon-name="utility:add" onclick={abrirAlta}></lightning-button>
                                 <lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
-                                    onclick={abrirBaja} disabled={sinSeleccion}></lightning-button>
-                                <lightning-button label="Cargar ubicaciones" icon-name="utility:upload" onclick={elegirArchivo}
-                                    title="Listado de ubicaciones de la aseguradora (Excel, CSV o PDF) o el PDF de un endoso"></lightning-button>
+                                    onclick={abrirBaja} disabled={sinBaja}></lightning-button>
+                                <template lwc:if={conCarga}><lightning-button label="Cargar ubicaciones" icon-name="utility:upload" onclick={elegirArchivo}
+                                    title="Listado de ubicaciones de la aseguradora (Excel, CSV o PDF) o el PDF de un endoso"></lightning-button></template>
                                 <input type="file" class="archivo-input slds-hide" accept=".xlsx,.xlsm,.xls,.csv,.pdf" onchange={handleArchivo} />
                             </template>
                             <!-- Excel de movimientos: solo pólizas empresariales. -->
                             <!-- En el sitio (portal) no se genera el Excel. -->
                             <template lwc:if={interno}><template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template></template>
                             <template if:true={enPoliza}><lightning-button label="Endosos" icon-name="utility:file" onclick={verEndosos}></lightning-button></template>
-                            <lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button>
+                            <template lwc:if={interno}><lightning-button label={textoHistorial} icon-name="utility:history" onclick={verHistorial}></lightning-button></template>
+                            <template lwc:if={conFormulario}><lightning-button label="Nueva solicitud" icon-name="utility:add" variant="brand" class="mov-nueva"
+                                onclick={handleNuevaSolicitud}></lightning-button></template>
                         </div>
                     </div>
 
@@ -120,13 +124,14 @@
                                                     <span>{b.cierreTxt}</span>
                                                     <!-- Seguimiento de la solicitud: en Salesforce se cambia con un clic. -->
                                                     <span>
-                                                        <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio} caso-id={b.casoId}
+                                                        <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio}
                                                             sin-movimientos={b.sinMovimientos} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                         <template lwc:elseif={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template>
                                                     </span>
                                                     <span class="sol-extra">
                                                         <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
                                                         <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
+                                                        <template lwc:if={b.respuesta}><span class="sol-sub">{b.respuesta}</span></template>
                                                         <template lwc:if={b.ligaCaso}><a href={b.ligaCaso} target="_blank" class="sol-sub">{b.casoTxt}</a></template>
                                                         <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
                                                             class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
@@ -175,6 +180,7 @@
                                                     <template lwc:if={u.puedeSeguimiento}><c-seguimiento-selector valor={u.seguimiento} policy-id={recordId} folio={u.solicitud}
                                                         movimiento-id={u.movimientoId} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                     <template lwc:elseif={u.seguimiento}><span class={u.claseSeguimiento}>{u.seguimiento}</span></template>
+                                                    <template lwc:if={u.motivoRechazo}><div class="sub motivo-rechazo" title={u.motivoRechazo}>{u.motivoRechazo}</div></template>
                                                 </td>
                                             </template>
                                             <td class="col-acciones">

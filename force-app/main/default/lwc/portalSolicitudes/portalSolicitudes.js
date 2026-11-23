@@ -92,6 +92,7 @@ const SEGUIMIENTO = {
     Solicitado: 'estado estado_pendiente',
     'En proceso': 'estado estado_proceso',
     Concluido: 'estado estado_vigente',
+    Rechazado: 'estado estado_rechazada',
     Rechazada: 'estado estado_rechazada'
 };
 
@@ -137,6 +138,11 @@ let siguiente = 1;
 export default class PortalSolicitudes extends LightningElement {
     _policyId;
     @api cuentaVistaPrevia;
+    // Solo el formulario (se abre desde Asegurados, Vehículos o Ubicaciones): con tipo 'alta' o 'baja' inicia la captura
+    // uno por uno, la baja con los registros elegidos. Al enviar o cancelar avisa con «cerrar».
+    @api soloFormulario = false;
+    @api tipoInicial;
+    @api registrosIniciales;
     @api
     get policyId() { return this._policyId; }
     set policyId(v) {
@@ -168,6 +174,7 @@ export default class PortalSolicitudes extends LightningElement {
         this.error = undefined;
         try {
             this.datos = await solicitudes({ policyId: this._policyId, cuentaVistaPrevia: this.cuentaVistaPrevia || null });
+            if (this.soloFormulario && !this.formulario && this.puedeSolicitar) { this.iniciar(); }
         } catch (e) {
             this.error = this.mensaje(e);
         } finally {
@@ -251,6 +258,16 @@ export default class PortalSolicitudes extends LightningElement {
     }
 
     // ===== Formulario =====
+    get verLista() { return !this.soloFormulario; }
+    iniciar() {
+        this.handleNueva();
+        if (this.tipoInicial !== 'alta' && this.tipoInicial !== 'baja') { return; }
+        this.modo = 'manual';
+        const vigentes = new Set(((this.datos && this.datos.registros) || []).map((r) => r.id));
+        const ids = this.tipoInicial === 'baja' ? (this.registrosIniciales || []).filter((id) => vigentes.has(id)) : [];
+        this.movimientos = ids.length ? ids.map((registroId) => ({ ...this.nuevoMovimiento('baja'), registroId })) : [this.nuevoMovimiento(this.tipoInicial)];
+    }
+    cerrar(exito) { this.dispatchEvent(new CustomEvent('cerrar', { detail: { exito: exito || '' } })); }
     handleNueva() {
         this.exito = undefined;
         this.error = undefined;
@@ -539,7 +556,10 @@ export default class PortalSolicitudes extends LightningElement {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
     get textoRetroactivo() { return `Máximo ${DIAS_RETROACTIVOS} días retroactivos`; }
-    handleCancelar() { this.formulario = false; }
+    handleCancelar() {
+        this.formulario = false;
+        if (this.soloFormulario) { this.cerrar(); }
+    }
     nuevoMovimiento(tipo) {
         return { key: 'm' + siguiente++, tipo, polizaId: this._policyId, registroId: '', fecha: '', detalle: '', datos: {}, titularId: '',
             filtro: 'todos' };
@@ -768,6 +788,7 @@ export default class PortalSolicitudes extends LightningElement {
             this.exito = r.registrados
                 ? `Registramos tu${varias ? 's solicitudes' : ' solicitud'} ${numero}: ${r.registrados} ${r.registrados === 1 ? 'movimiento quedó solicitado' : 'movimientos quedaron solicitados'}. Verás aquí su avance.`
                 : `Recibimos tu${varias ? 's solicitudes' : ' solicitud'} ${numero}. Tu asesor la revisará y verás aquí su avance.`;
+            if (this.soloFormulario) { this.cerrar(this.exito); return; }
             await this.cargar();
         } catch (e) {
             this.error = this.mensaje(e);

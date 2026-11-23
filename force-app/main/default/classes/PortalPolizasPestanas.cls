@@ -987,7 +987,7 @@ public without sharing class PortalPolizasPestanas {
 				'clave' => clave, 'nombre' => nombre, 'parentesco' => f == null ? null : f.parentesco, 'tipo' => m.Tipo__c,
 				'nacimiento' => m.Participante__c == null ? null : m.Participante__r.FechaNacimiento__c,
 				'fecha' => m.Fecha_Movimiento__c,
-				'seguimiento' => m.Fecha_Cierre__c != null ? 'Concluido'
+				'seguimiento' => m.Seguimiento__c == 'Rechazado' ? 'Rechazado' : m.Fecha_Cierre__c != null ? 'Concluido'
 					: (m.Seguimiento__c != null ? m.Seguimiento__c : (seg == 'Concluido' || seg == 'Rechazada' ? 'En proceso' : seg))
 			});
 		}
@@ -1586,6 +1586,9 @@ public without sharing class PortalPolizasPestanas {
 			}
 			res.put('solicitudes', soloMiGrupo ? new List<Object>() : solicitudesParaAgrupar(res.get('solicitudes')));
 			res.put('portal', true);
+			// «Nueva solicitud», Alta y Baja con el formulario de solicitudes: contratante de una póliza empresarial.
+			res.put('puedeSolicitar', !soloMiGrupo && tipo != 'participantes' && EndosoPoliza.tipoCaso() != null
+				&& esEmpresarial(policyId, bienesDe(tipo, res)));
 			res.put('soloMiGrupo', soloMiGrupo && (tipo == 'asegurados' || tipo == 'participantes'));
 			return res;
 		} catch (AuraHandledException e) {
@@ -1595,11 +1598,21 @@ public without sharing class PortalPolizasPestanas {
 		}
 	}
 
+	// Tipo y cantidad de registros de la pestaña (lo que necesita esEmpresarial).
+	private static Bienes bienesDe(String tipo, Map<String, Object> res) {
+		Bienes b = new Bienes();
+		b.tipo = tipo == 'asegurados' ? 'personas' : tipo;
+		Object l = res.get(tipo == 'asegurados' ? 'miembros' : tipo);
+		Integer n = l instanceof List<Object> ? ((List<Object>) l).size() : 0;
+		for (Integer i = 0; i < n && i < 2; i++) { b.filas.add(new Fila()); }
+		return b;
+	}
+
 	/** Solicitudes para agrupar la tabla en el sitio: solo folio, fechas, origen, seguimiento y conteos (nada interno del caso). */
 	@TestVisible
 	static List<Object> solicitudesParaAgrupar(Object origen) {
 		Set<String> campos = new Set<String>{ 'folio', 'fecha', 'portal', 'caso', 'usuario', 'enviadaPor', 'total', 'abiertos',
-			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos', 'seguimiento', 'cierre' };
+			'estadoPortal', 'altas', 'bajas', 'cambios', 'endosos', 'seguimiento', 'cierre', 'respuesta' };
 		List<Object> res = new List<Object>();
 		if (!(origen instanceof List<Object>)) { return res; }
 		for (Object o : (List<Object>) origen) {

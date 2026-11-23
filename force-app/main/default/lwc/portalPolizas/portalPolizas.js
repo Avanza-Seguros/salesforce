@@ -311,7 +311,8 @@ export default class PortalPolizas extends LightningElement {
         this.cargandoDetalle = true;
         this.reiniciarPestanas();
         if (pestana && ['info', 'pagos', 'vigencias', 'asegurados', 'participantes', 'solicitudes'].includes(pestana)) {
-            this.pestana = pestana;
+            // Las solicitudes se ven y se piden en Asegurados, Vehículos o Ubicaciones.
+            this.pestana = pestana === 'solicitudes' ? 'asegurados' : pestana;
         }
         this.seleccionadaId = id;
     }
@@ -343,6 +344,7 @@ export default class PortalPolizas extends LightningElement {
     reiniciarPestanas() {
         this.pestana = 'info';
         this.pestanas = this.pestanasVacias();
+        this.quitarSolicitud();
     }
 
     get pestanaInfo() { return this.pestanas.info; }
@@ -352,20 +354,19 @@ export default class PortalPolizas extends LightningElement {
     handlePestana(event) {
         const clave = event.currentTarget.dataset.value;
         this.pestana = clave;
+        this.quitarSolicitud();
         this.cargarPestana(clave);
     }
 
     // Pestañas del detalle con el mismo estilo que los filtros (botones de color, la activa rellena).
     get opcionesPestanas() {
-        const colores = { info: '#1d4ed8', pagos: '#0e9488', vigencias: '#7c3aed', asegurados: '#d97706', participantes: '#4f46e5', solicitudes: '#0891b2' };
+        const colores = { info: '#1d4ed8', pagos: '#0e9488', vigencias: '#7c3aed', asegurados: '#d97706', participantes: '#4f46e5' };
         return this.opciones([
             { label: 'Información Póliza', value: 'info' },
             { label: 'Pagos', value: 'pagos' },
             { label: 'Vigencias', value: 'vigencias' },
             { label: this.tituloBienes, value: 'asegurados' },
-            { label: 'Participantes', value: 'participantes' },
-            // Altas, bajas y cambios que pide el cliente (c-portal-solicitudes carga sus propios datos).
-            { label: 'Solicitudes', value: 'solicitudes' }
+            { label: 'Participantes', value: 'participantes' }
         ], this.pestana).map((o) => ({ ...o, estiloPunto: `background:${colores[o.value]}` }));
     }
 
@@ -391,7 +392,23 @@ export default class PortalPolizas extends LightningElement {
     get verVigencias() { return this.pestana === 'vigencias'; }
     get verAsegurados() { return this.pestana === 'asegurados'; }
     get verParticipantes() { return this.pestana === 'participantes'; }
-    get verSolicitudes() { return this.pestana === 'solicitudes'; }
+
+    // Solicitud nueva (Nueva solicitud, Alta o Baja): el formulario toma el lugar de la tabla hasta enviarlo o cancelar.
+    solicitudNueva = null;
+    avisoSolicitud = '';
+    handleNuevaSolicitud(event) {
+        const d = event.detail || {};
+        this.avisoSolicitud = '';
+        this.solicitudNueva = { tipo: d.tipo || null, ids: d.ids || [] };
+    }
+    handleCerrarSolicitud(event) {
+        this.solicitudNueva = null;
+        this.avisoSolicitud = (event.detail && event.detail.exito) || '';
+    }
+    quitarSolicitud() {
+        this.solicitudNueva = null;
+        this.avisoSolicitud = '';
+    }
 
     async cargarPestana(clave) {
         const actual = this.pestanas[clave];

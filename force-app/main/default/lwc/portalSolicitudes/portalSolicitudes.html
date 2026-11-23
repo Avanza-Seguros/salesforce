@@ -157,7 +157,7 @@
         </template>
 
         <!-- Solicitudes enviadas -->
-        <template lwc:else>
+        <template lwc:elseif={verLista}>
             <div class="cabecera">
                 <div>
                     <h2 class="t2">Solicitudes</h2>
@@ -238,6 +238,10 @@
                 </ul>
             </template>
             <div lwc:elseif={datos} class="empty">Aún no hay solicitudes de esta póliza.</div>
+        </template>
+        <template lwc:else>
+            <p lwc:if={avisoSinPermiso} class="nota">{avisoSinPermiso}</p>
+            <button class="boton_secundario" onclick={handleCancelar}>Regresar</button>
         </template>
     </div>
 </template>

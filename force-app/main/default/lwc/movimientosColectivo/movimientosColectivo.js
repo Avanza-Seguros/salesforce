@@ -87,6 +87,16 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     @api portal = false;
     @api cuentaVistaPrevia;
     get interno() { return !this.portal; }
+    // Sitio, contratante de una póliza empresarial: Alta, Baja y Nueva solicitud abren el formulario de solicitudes
+    // (c-portal-solicitudes, lo muestra c-portal-polizas).
+    get conFormulario() { return this.portal && this.puedeEditar && !!this.datos && this.datos.puedeSolicitar === true; }
+    get conCarga() { return !this.conFormulario; }
+    get sinBaja() { return this.sinSeleccion && !this.conFormulario; }
+    handleNuevaSolicitud() { this.pedir(null, []); }
+    pedir(tipo, ids) { this.dispatchEvent(new CustomEvent('nuevasolicitud', { detail: { tipo, ids } })); }
+    // En GMM del sitio no aplican los endosos.
+    get conEndosos() { return this.enPoliza && !(this.portal && /^gmm/i.test((this.datos && this.datos.ramo) || '')); }
+    get correoPendientes() { return this.enPoliza && !this.portal; }
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
     get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar; }
     // En el sitio de empresas se agrega «mov-portal» para tomar el estilo de Oportunidades.
@@ -334,13 +344,14 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // su solicitud (Solicitado o En proceso). Sin movimiento registrado, nada.
     seguimientoDe(m, info) {
         if (!m.fechaCreacion) { return ''; }
+        if (m.seguimientoMov === 'Rechazado') { return 'Rechazado'; }
         if (m.fechaCierre) { return 'Concluido'; }
         if (m.seguimientoMov) { return m.seguimientoMov; }
         const s = (info || this.infoSolicitudes).get(m.solicitud);
         return s && s.seguimiento === 'Solicitado' ? 'Solicitado' : 'En proceso';
     }
     claseSeguimiento(v) {
-        return `estado seg-${{ Solicitado: 'solicitado', 'En proceso': 'proceso', Concluido: 'concluido', Rechazada: 'rechazada' }[v] || 'sin'}`;
+        return `estado seg-${{ Solicitado: 'solicitado', 'En proceso': 'proceso', Concluido: 'concluido', Rechazado: 'rechazada', Rechazada: 'rechazada' }[v] || 'sin'}`;
     }
     get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
     get agrupado() { return this.hayAgrupacion && this.agruparSolicitud; }
@@ -387,8 +398,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     // Solicitud del sitio que aún no tiene registros (sin buscar ni filtrar): también sale, para poder atenderla.
     vacia(s) {
-        return !!s && !this.portal && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
-            && (s.seguimiento === 'Solicitado' || s.seguimiento === 'En proceso');
+        return !!s && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
+            && (s.seguimiento === 'Solicitado' || s.seguimiento === 'En proceso' || (this.portal && s.seguimiento === 'Rechazada'));
     }
     get filtradosAgrupados() {
         const infoVacias = this.infoSolicitudes;
@@ -478,10 +489,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             folioExcel: this.portal || !g.lista.length ? null : g.folio,
             // Seguimiento de toda la solicitud (clic para cambiarlo) y el caso de la que envió el cliente.
             puedeSeguimiento: this.cambiaSeguimiento && !!s && !!seguimiento,
-            casoId: s && s.portal ? s.casoId : null,
             sinMovimientos: !!s && !s.total,
             ligaCaso: !this.portal && s && s.casoId ? `/lightning/r/Case/${s.casoId}/view` : null,
             casoTxt: s && s.caso ? `Caso ${s.caso}` : '',
+            // Respuesta del ejecutivo (motivo del rechazo): la ve el cliente en el sitio.
+            respuesta: this.portal && s && s.respuesta ? s.respuesta : '',
             filas
         };
     }
@@ -550,7 +562,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Se toman de todos los asegurados (no del filtro de la tabla), porque las bajas no salen en «Vigentes».
     get pendientesCorreo() { return this.miembros.filter((m) => !m.correoEnviado && this.correoDe(m)); }
     // Sin enviar: vigentes sin correo enviado y bajas con correo personal por enviar.
-    sinEnviar(m) { return !m.correoEnviado && (m.activo || !!this.correoDe(m)); }
+    // A un registro rechazado no se le envía el correo.
+    sinEnviar(m) { return !m.correoEnviado && m.seguimientoMov !== 'Rechazado' && (m.activo || !!this.correoDe(m)); }
     // Correo al que se envía: el personal si está dado de baja y lo capturaron; si no, el de su contacto o cuenta.
     correoDe(m) { return (!m.activo && m.correoPersonal) ? m.correoPersonal : m.correo; }
     async cargarPlantillas() {
@@ -669,7 +682,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     get totalSeleccion() { return this.seleccion.size; }
     get sinSeleccion() { return this.seleccion.size === 0; }
-    get textoBajaSeleccion() { return `Dar de baja (${this.seleccion.size})`; }
+    get textoBajaSeleccion() { return `${this.conFormulario ? 'Baja de asegurado' : 'Dar de baja'} (${this.seleccion.size})`; }
 
     async handleTraer() {
         if (this.miembros.length) {
@@ -993,6 +1006,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
 
     abrirBaja(e) {
         const ids = e && e.target && e.target.dataset && e.target.dataset.id ? [e.target.dataset.id] : [...this.seleccion];
+        if (this.conFormulario) { this.pedir('baja', ids); return; }
         if (!ids.length) { return; }
         const correos = {};
         ids.forEach((id) => {
@@ -1046,6 +1060,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get textoBaja() { return `Se darán de baja ${this.bajaNombres.length} asegurados. Los dependientes de un titular se dan de baja con él.`; }
 
     abrirAlta() {
+        if (this.conFormulario) { this.pedir('alta', []); return; }
         this.form = {
             tipo: 'titular', titularId: '', parentesco: 'Cónyuge', nombre: '', apellidos: '', fechaNacimiento: '', sexo: '',
             certificado: '', categoria: '', sumaAsegurada: null, prima: null, rfc: '', email: '', fecha: this.fechaDefault, endoso: '', solicitud: 'nueva'

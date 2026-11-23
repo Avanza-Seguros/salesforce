@@ -594,9 +594,9 @@ public inherited sharing class MovimientosUbicacionesController {
 		Map<String, List<Movimiento_Poliza__c>> conSolicitud = new Map<String, List<Movimiento_Poliza__c>>();
 		Boolean esPoliza = MovimientosColectivoController.esPoliza(recordId);
 		for (Movimiento_Poliza__c m : esPoliza
-				? [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				? [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 					WHERE Poliza__c = :recordId AND Oportunidad__c = null AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]
-				: [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				: [SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Asegurado__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 					WHERE Oportunidad__c = :recordId AND Asegurado__c != null ORDER BY CreatedDate DESC, Id DESC LIMIT 10000]) {
 			String k = PolicyController.llaveDireccion(m.Asegurado__c);
 			if (String.isNotBlank(k) && !ultimos.containsKey(k)) { ultimos.put(k, m); }
