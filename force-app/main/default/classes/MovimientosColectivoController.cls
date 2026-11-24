@@ -1017,6 +1017,14 @@ public inherited sharing class MovimientosColectivoController {
 				fila.put('fechaCierre', p.Fecha_Envio_Correo__c);
 			}
 		}
+		// Correo del titular: a él le llega el correo de la baja de sus dependientes.
+		Map<String, Map<String, Object>> filas = new Map<String, Map<String, Object>>();
+		for (Map<String, Object> f : lista) { filas.put((String) f.get('id'), f); }
+		for (Map<String, Object> f : lista) {
+			Map<String, Object> t = f.get('titularId') == null ? null : filas.get((String) f.get('titularId'));
+			if (t == null) { continue; }
+			f.put('correoTitular', t.get('activo') == false && String.isNotBlank((String) t.get('correoPersonal')) ? t.get('correoPersonal') : t.get('correo'));
+		}
 		return porFamilia(lista);
 	}
 

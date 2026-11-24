@@ -630,18 +630,19 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // Correo: enviado (con fecha), pendiente o sin correo. Los dados de baja usan su correo personal.
             correoMostrar: this.correoDe(m),
             esCorreoPersonal: !m.activo && !!m.correoPersonal,
+            esCorreoTitular: !m.activo && !m.correoPersonal && !m.esTitular && !!m.correoTitular,
             correoTxt: m.correoEnviado ? 'Enviado' : (this.correoDe(m) ? 'Pendiente' : 'Sin correo'),
             claseCorreo: `estado ${m.correoEnviado ? 'correo-enviado' : (this.correoDe(m) ? 'correo-pendiente' : 'correo-sin')}`,
             fechaCorreoTxt: m.correoEnviado ? this.fechaHora(m.fechaCorreo) : '',
             tituloCorreo: m.correoEnviado
                 ? `Enviado el ${this.fechaHora(m.fechaCorreo)}${m.plantillaCorreo ? ' · ' + m.plantillaCorreo : ''}`
                 : (this.correoDe(m) ? `Aún no se envía el correo a ${this.correoDe(m)}` : 'El asegurado no tiene correo'),
-            puedeCorreo: this.enPoliza && !!this.correoDe(m),
+            puedeCorreo: this.enPoliza && (!!this.correoDe(m) || this.bajaPorEnviar(m)),
             // En el sitio no se adjuntan archivos ni se envían correos.
             // En el sitio, solo el contratante (quien puede editar) ve y adjunta archivos.
             // Los dependientes, solo si ya tienen (p. ej. su carta de antigüedad).
             muestraArchivos: (m.esTitular || m.archivos > 0) && (!this.portal || this.puedeEditar),
-            muestraCorreo: this.enPoliza && !!this.correoDe(m),
+            muestraCorreo: this.enPoliza && (!!this.correoDe(m) || this.bajaPorEnviar(m)),
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         });
     }
@@ -655,12 +656,18 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Pendientes del filtro actual (todas las páginas): vigentes con correo a los que no se les ha enviado.
     // Pendientes: altas, cambios y bajas cuyo correo aún no se envía (a la baja se le escribe a su correo personal).
     // Se toman de todos los asegurados (no del filtro de la tabla), porque las bajas no salen en «Vigentes».
-    get pendientesCorreo() { return this.miembros.filter((m) => !m.correoEnviado && m.seguimientoMov !== 'Rechazado' && this.correoDe(m)); }
+    get pendientesCorreo() { return this.miembros.filter((m) => !m.correoEnviado && m.seguimientoMov !== 'Rechazado' && (this.correoDe(m) || this.bajaPorEnviar(m))); }
     // Sin enviar: vigentes sin correo enviado y bajas con correo personal por enviar.
     // A un registro rechazado no se le envía el correo.
     sinEnviar(m) { return !m.correoEnviado && m.seguimientoMov !== 'Rechazado' && (m.activo || !!this.correoDe(m)); }
-    // Correo al que se envía: el personal si está dado de baja y lo capturaron; si no, el de su contacto o cuenta.
-    correoDe(m) { return (!m.activo && m.correoPersonal) ? m.correoPersonal : m.correo; }
+    // Correo al que se envía: el de su contacto o cuenta; si está dado de baja, el personal que le capturaron o, si es
+    // dependiente, el de su titular.
+    correoDe(m) {
+        if (m.activo) { return m.correo; }
+        return m.correoPersonal || (!m.esTitular && m.correoTitular) || m.correo;
+    }
+    // Baja abierta de una solicitud: aunque no tenga correo se puede capturar al enviar.
+    bajaPorEnviar(m) { return !m.activo && m.tipoMovimiento === 'Baja' && !!m.movimientoId && !m.fechaCierre && /^SOL-/.test(m.solicitud || ''); }
     async cargarPlantillas() {
         if (this.plantillas.length) { return; }
         this.plantillas = (await getPlantillasSitio()).map((t) => ({ value: t.id, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
@@ -706,7 +713,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         }
     }
     async abrirCorreo(ids, reenvio) {
-        this.correo = { ...this.correo, ids, reenvio, enviando: false, avance: '', errores: [] };
+        this.correo = { ...this.correo, ids, reenvio, enviando: false, avance: '', errores: [], cambiados: {} };
         this.modal = 'correo';
         try {
             await this.cargarPlantillas();
@@ -714,23 +721,54 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.correo = { ...this.correo, errores: [this.textoError(err)] };
         }
     }
+    // Bajas: el correo al que se envía se puede cambiar (el de un dependiente es, por omisión, el de su titular).
+    get bajasCorreo() {
+        const ids = new Set(this.correo.ids);
+        const cambiados = this.correo.cambiados || {};
+        return this.miembros.filter((m) => ids.has(m.id) && !m.activo).map((m) => ({
+            id: m.id, nombre: m.nombre,
+            valor: cambiados[m.id] !== undefined ? cambiados[m.id] : (this.correoDe(m) || ''),
+            nota: m.esTitular ? 'Titular' : `${m.parentesco || 'Dependiente'} de ${m.titularNombre || 'su titular'}`
+                + (!m.correoPersonal && m.correoTitular ? ': le llega a su titular' : '')
+        }));
+    }
+    get hayBajasCorreo() { return this.bajasCorreo.length > 0; }
+    cambiarCorreoBaja(e) {
+        this.correo = { ...this.correo, cambiados: { ...(this.correo.cambiados || {}), [e.target.dataset.id]: (e.detail.value || '').trim() } };
+    }
+    // Correo final de cada destinatario ('' = no se le envía).
+    correoFinal(m) {
+        const c = (this.correo.cambiados || {})[m.id];
+        return (!m.activo && c !== undefined ? c : this.correoDe(m)) || '';
+    }
+    get destinatarios() {
+        const ids = new Set(this.correo.ids);
+        return this.miembros.filter((m) => ids.has(m.id) && this.correoFinal(m));
+    }
     cambiarPlantilla(e) { this.correo = { ...this.correo, plantilla: e.detail.value }; }
     cambiarAdjuntar(e) { this.correo = { ...this.correo, adjuntar: e.target.checked }; }
     get textoDestinatarios() {
-        const ids = new Set(this.correo.ids);
-        const d = this.miembros.filter((m) => ids.has(m.id));
+        const d = this.destinatarios;
         const elegida = this.solicitudesCorreo.find((s) => s.sel);
         const deSolicitud = this.concluyeFolio ? ` del movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : elegida ? ` de ${elegida.folio ? 'la solicitud ' + elegida.folio : 'los registros sin solicitud'}` : '';
-        if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoDe(d[0])})${deSolicitud}.`; }
+        if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoFinal(d[0])})${deSolicitud}.`; }
         return `Se enviará a ${d.length} asegurados${deSolicitud} con correo que aún no lo reciben.`;
     }
     get avisoReenvio() { return this.correo.reenvio ? 'A este asegurado ya se le envió un correo; se enviará de nuevo.' : ''; }
     get hayErroresCorreo() { return this.correo.errores.length > 0; }
     get erroresCorreo() { return this.correo.errores.map((t, i) => ({ key: String(i), texto: t })); }
-    get sinEnviarCorreo() { return !this.correo.plantilla || !this.correo.ids.length || this.correo.enviando; }
+    get sinEnviarCorreo() { return !this.correo.plantilla || !this.destinatarios.length || this.correo.enviando; }
     get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : (this.concluyeFolio ? 'Enviar y concluir' : 'Enviar'); }
     async enviarCorreos() {
-        const { ids, plantilla, adjuntar } = this.correo;
+        const validos = [...this.template.querySelectorAll('.correo-baja')].reduce((ok, c) => c.reportValidity() && ok, true);
+        if (!validos) { return; }
+        const { plantilla, adjuntar } = this.correo;
+        const cambiados = this.correo.cambiados || {};
+        const destinatarios = this.destinatarios;
+        const ids = destinatarios.map((m) => m.id);
+        // Solo los que se cambiaron: quedan como el correo personal de la baja.
+        const correos = {};
+        destinatarios.filter((m) => !m.activo && cambiados[m.id] && cambiados[m.id] !== this.correoDe(m)).forEach((m) => { correos[m.id] = cambiados[m.id]; });
         const lote = adjuntar ? LOTE_CORREO_ADJUNTOS : LOTE_CORREO;
         let enviados = 0;
         const errores = [];
@@ -738,7 +776,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         for (let i = 0; i < ids.length; i += lote) {
             this.correo = { ...this.correo, avance: `Enviando ${Math.min(i + lote, ids.length)} de ${ids.length}…` };
             try {
-                const r = await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar });
+                const r = await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar,
+                    correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null });
                 enviados += r.enviados || 0;
                 errores.push(...(r.errores || []));
             } catch (err) {
@@ -1332,7 +1371,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         return (this.form.ids || []).map((id) => {
             const m = this.miembros.find((x) => x.id === id) || {};
             return { id, etiqueta: `Correo personal de ${m.nombre || 'asegurado'}`, valor: correos[id] || '',
-                corporativo: m.correo ? `Correo registrado: ${m.correo}` : 'No tiene correo registrado',
+                corporativo: !m.esTitular && m.correoTitular ? `Sin correo propio, le llega a su titular: ${m.correoTitular}`
+                    : (m.correo ? `Correo registrado: ${m.correo}` : 'No tiene correo registrado'),
                 etiquetaDocumento: `Documento de baja de ${m.nombre || 'asegurado'} (opcional)`,
                 documento: documentos[id] || '' };
         });
@@ -1861,17 +1901,21 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.excelDe(registros, folio);
     }
     excelDe(registros, sufijo) {
-        // Formato de la solicitud de movimientos a la aseguradora: un renglón por titular con sus dependientes en columnas.
-        const porId = new Map(this.miembros.map((m) => [m.id, m]));
-        const familias = new Map();
+        // Formato de la solicitud de movimientos a la aseguradora, solo con los registros que se solicitan: el dependiente va en
+        // las columnas de su titular si el titular se pide con el mismo tipo de movimiento; si no, en su propio renglón.
+        const tipoDe = (r) => r.tipoMovimiento || (r.activo ? 'Alta' : 'Baja');
+        const grupos = [];
+        const porTitular = new Map();
         registros.forEach((r) => {
-            const clave = r.esTitular ? r.id : (r.titularId || r.id);
-            if (!familias.has(clave)) { familias.set(clave, { titular: porId.get(clave) || r, enMovimiento: [], dependientes: [] }); }
-            const fam = familias.get(clave);
-            fam.enMovimiento.push(r);
-            if (r.id !== clave) { fam.dependientes.push(r); }
+            if (!r.esTitular && registros.some((t) => t.esTitular && t.id === r.titularId && tipoDe(t) === tipoDe(r))) { return; }
+            const g = { titular: r, enMovimiento: [r], dependientes: [] };
+            grupos.push(g);
+            if (r.esTitular) { porTitular.set(`${r.id}|${tipoDe(r)}`, g); }
         });
-        const grupos = [...familias.values()];
+        registros.filter((r) => !r.esTitular).forEach((r) => {
+            const g = porTitular.get(`${r.titularId}|${tipoDe(r)}`);
+            if (g) { g.enMovimiento.push(r); g.dependientes.push(r); }
+        });
         // Solo las columnas de los dependientes que hay (ninguna si no hay); en GMM no aplica el porcentaje.
         const numDep = Math.max(0, ...grupos.map((g) => g.dependientes.length));
         const conPorcentaje = !this.esGmm;
@@ -1886,12 +1930,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const poliza = (this.datos && this.datos.nombre) || '';
         const filas = grupos.map((g) => {
             const t = g.titular;
-            // El movimiento del renglón: el del titular si va en él; si no, el del primer dependiente.
-            const mov = g.enMovimiento.find((r) => r.id === t.id) || g.enMovimiento[0];
             const n = this.partesNombre(t);
             const fila = [n.nombres, n.paterno, n.materno, fechaVisible(t.fechaNacimiento), this.sexoExcel(t),
-                mov.tipoMovimiento || (mov.activo ? 'Alta' : 'Baja'), fechaVisible(mov.fechaMovimiento), poliza,
-                t.categoria || '', t.certificado || POR_ASIGNAR, '01 Titular'];
+                tipoDe(t), fechaVisible(t.fechaMovimiento), poliza,
+                t.categoria || '', t.certificado || POR_ASIGNAR, t.esTitular ? '01 Titular' : (t.parentesco || 'Dependiente')];
             for (let i = 0; i < numDep; i++) {
                 const d = g.dependientes[i];
                 if (d) {

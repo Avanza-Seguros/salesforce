@@ -197,7 +197,7 @@ public without sharing class AvisoSolicitudSitio {
 			for (Object o : lista(base.get('miembros'))) { miembros.add((Map<String, Object>) o); }
 			for (Map<String, Object> r : miembros) { if (deFolio(r, folio)) { registros.add(r); } }
 			hoja = 'Asegurados'; prefijo = 'Asegurados'; a.bienes = 'asegurados';
-			columnas = asegurados(registros, miembros, poliza, (String) base.get('ramo'), filas);
+			columnas = asegurados(registros, poliza, (String) base.get('ramo'), filas);
 		}
 		a.renglones = filas.size();
 		for (Map<String, Object> r : registros) {
@@ -214,26 +214,30 @@ public without sharing class AvisoSolicitudSitio {
 		return a;
 	}
 
-	// Un renglón por titular con sus dependientes en columnas (igual que movimientosColectivo.excelDe).
-	private static List<String> asegurados(List<Map<String, Object>> registros, List<Map<String, Object>> miembros, String poliza,
-			String ramo, List<List<Object>> filas) {
+	// Solo los registros solicitados, los dependientes en las columnas de su titular (igual que movimientosColectivo.excelDe).
+	private static List<String> asegurados(List<Map<String, Object>> registros, String poliza, String ramo,
+			List<List<Object>> filas) {
 		// El porcentaje no aplica en GMM.
 		Boolean conPorcentaje = ramo == null || !ramo.toUpperCase().startsWith('GMM');
-		Map<String, Map<String, Object>> porId = new Map<String, Map<String, Object>>();
-		for (Map<String, Object> m : miembros) { porId.put(String.valueOf(m.get('id')), m); }
+		// Solo los registros que se solicitan: el dependiente va en las columnas de su titular si el titular se pide con el mismo
+		// tipo de movimiento; si no, en su propio renglón.
+		Set<String> titularesPedidos = new Set<String>();
+		for (Map<String, Object> r : registros) { if (r.get('esTitular') == true) { titularesPedidos.add(r.get('id') + '|' + tipo(r)); } }
 		Map<String, Map<String, Object>> titulares = new Map<String, Map<String, Object>>();
 		Map<String, List<Map<String, Object>>> enMovimiento = new Map<String, List<Map<String, Object>>>();
 		Map<String, List<Map<String, Object>>> dependientes = new Map<String, List<Map<String, Object>>>();
+		List<Map<String, Object>> conTitular = new List<Map<String, Object>>();
 		for (Map<String, Object> r : registros) {
-			String id = String.valueOf(r.get('id'));
-			String clave = r.get('esTitular') == true ? id : (r.get('titularId') != null ? String.valueOf(r.get('titularId')) : id);
-			if (!titulares.containsKey(clave)) {
-				titulares.put(clave, porId.containsKey(clave) ? porId.get(clave) : r);
-				enMovimiento.put(clave, new List<Map<String, Object>>());
-				dependientes.put(clave, new List<Map<String, Object>>());
-			}
+			if (r.get('esTitular') != true && titularesPedidos.contains(r.get('titularId') + '|' + tipo(r))) { conTitular.add(r); continue; }
+			String clave = r.get('id') + '|' + tipo(r);
+			titulares.put(clave, r);
+			enMovimiento.put(clave, new List<Map<String, Object>>{ r });
+			dependientes.put(clave, new List<Map<String, Object>>());
+		}
+		for (Map<String, Object> r : conTitular) {
+			String clave = r.get('titularId') + '|' + tipo(r);
 			enMovimiento.get(clave).add(r);
-			if (id != clave) { dependientes.get(clave).add(r); }
+			dependientes.get(clave).add(r);
 		}
 		// Solo las columnas de los dependientes que hay (ninguna si no hay).
 		Integer numDep = 0;
@@ -249,12 +253,11 @@ public without sharing class AvisoSolicitudSitio {
 		columnas.addAll(new List<String>{ 'Descripción', 'Correo electrónico' });
 		for (String clave : titulares.keySet()) {
 			Map<String, Object> t = titulares.get(clave);
-			Map<String, Object> mov = enMovimiento.get(clave)[0];
-			for (Map<String, Object> r : enMovimiento.get(clave)) { if (String.valueOf(r.get('id')) == String.valueOf(t.get('id'))) { mov = r; } }
 			String[] n = partesNombre(t);
 			List<Object> f = new List<Object>{ n[0], n[1], n[2], fecha(t.get('fechaNacimiento')), sexo(t),
-				tipo(mov), fecha(mov.get('fechaMovimiento')), poliza, txt(t.get('categoria')),
-				t.get('certificado') == null ? 'POR ASIGNAR' : txt(t.get('certificado')), '01 Titular' };
+				tipo(t), fecha(t.get('fechaMovimiento')), poliza, txt(t.get('categoria')),
+				t.get('certificado') == null ? 'POR ASIGNAR' : txt(t.get('certificado')),
+				t.get('esTitular') == true ? '01 Titular' : (t.get('parentesco') == null ? 'Dependiente' : txt(t.get('parentesco'))) };
 			List<Map<String, Object>> deps = dependientes.get(clave);
 			for (Integer i = 0; i < numDep; i++) {
 				if (i < deps.size()) {

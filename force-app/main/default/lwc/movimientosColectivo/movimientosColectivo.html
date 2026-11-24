@@ -219,6 +219,7 @@
                                                 <td class="col-correo" title={m.correoMostrar}>
                                                     {m.correoMostrar}
                                                     <template if:true={m.esCorreoPersonal}><div class="sub">Personal</div></template>
+                                                    <template if:true={m.esCorreoTitular}><div class="sub">De su titular</div></template>
                                                 </td>
                                             </template>
                                             <td class="col-acciones">
@@ -887,6 +888,17 @@
                                 </template>
                                 <p class="slds-m-bottom_small">{textoDestinatarios}</p>
                                 <template lwc:if={concluyeFolio}><p class="sub slds-m-bottom_small">{textoConcluir}</p></template>
+                                <!-- Bajas: a qué correo se envía. -->
+                                <template lwc:if={hayBajasCorreo}>
+                                    <div class="mov-correos-baja slds-m-bottom_small">
+                                        <p class="sub slds-m-bottom_xx-small">Bajas: revisa o cambia el correo al que se envía (vacío: no se le envía).</p>
+                                        <template for:each={bajasCorreo} for:item="b">
+                                            <lightning-input key={b.id} type="email" class="correo-baja slds-m-bottom_xx-small" label={b.nombre} value={b.valor} data-id={b.id}
+                                                field-level-help={b.nota} placeholder="Correo" onchange={cambiarCorreoBaja} disabled={correo.enviando}
+                                                message-when-type-mismatch="Escribe un correo válido"></lightning-input>
+                                        </template>
+                                    </div>
+                                </template>
                                 <template if:true={avisoReenvio}><p class="sub slds-m-bottom_small">{avisoReenvio}</p></template>
                                 <lightning-combobox label="Plantilla" placeholder="Selecciona la plantilla" options={plantillas}
                                     value={correo.plantilla} onchange={cambiarPlantilla} required></lightning-combobox>

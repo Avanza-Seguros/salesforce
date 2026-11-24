@@ -179,18 +179,22 @@ public inherited sharing class ParticipantesPolizaController {
 	 * @param participanteIds: participantes a los que se envía (máximo 50 por llamada).
 	 * @param plantillaId: plantilla de correo.
 	 * @param adjuntarArchivos: adjunta los archivos del participante (contacto, cuenta o participante).
+	 * @param correosJson: { participanteId: correo } de los dados de baja a los que se les cambió el correo (opcional). Sin
+	 *        cambio, el de un dependiente dado de baja le llega a su titular.
 	 * @return {enviados, errores}.
 	 */
 	@AuraEnabled
-	public static Map<String, Object> enviarCorreo(Id policyId, List<Id> participanteIds, Id plantillaId, Boolean adjuntarArchivos) {
+	public static Map<String, Object> enviarCorreo(Id policyId, List<Id> participanteIds, Id plantillaId, Boolean adjuntarArchivos,
+			String correosJson) {
 		if (participanteIds == null || participanteIds.isEmpty()) { throw CensoColectivoController.error('Selecciona al menos un participante.'); }
 		if (participanteIds.size() > 50) { throw CensoColectivoController.error('Envía máximo 50 correos a la vez.'); }
 		List<EmailTemplate> tpls = [SELECT Id, Name FROM EmailTemplate WHERE Id = :plantillaId AND IsActive = true LIMIT 1];
 		if (tpls.isEmpty()) { throw CensoColectivoController.error('Selecciona una plantilla de correo activa.'); }
 		EmailTemplate tpl = tpls[0];
+		Map<Id, String> correosBaja = correosDeBaja(correosJson);
 		List<InsurancePolicyParticipant> ps = [
 			SELECT Id, ParticipantName, ParticipantCode, PrimaryParticipantContactId, PrimaryParticipantAccountId,
-				IsActiveParticipant, Correo_Personal__c, Motivo_Baja__c, EffectiveToDate
+				IsActiveParticipant, Correo_Personal__c, Motivo_Baja__c, EffectiveToDate, RelatedInsPolicyParticipantId
 			FROM InsurancePolicyParticipant WHERE Id IN :participanteIds AND InsurancePolicyId = :policyId
 		];
 		// Datos de la póliza para las plantillas con marcadores {{...}}.
@@ -200,7 +204,15 @@ public inherited sharing class ParticipantesPolizaController {
 		String aseguradora = aseguradoraDe(policyId);
 		Set<Id> cIds = new Set<Id>();
 		Set<Id> aIds = new Set<Id>();
+		// Titulares de los dependientes dados de baja: a ellos les llega el correo.
+		Set<Id> titularIds = new Set<Id>();
 		for (InsurancePolicyParticipant p : ps) {
+			if (p.RelatedInsPolicyParticipantId != null && esBaja(p)) { titularIds.add(p.RelatedInsPolicyParticipantId); }
+		}
+		Map<Id, InsurancePolicyParticipant> titulares = titularesDe(titularIds);
+		List<InsurancePolicyParticipant> conTitulares = new List<InsurancePolicyParticipant>(ps);
+		conTitulares.addAll(titulares.values());
+		for (InsurancePolicyParticipant p : conTitulares) {
 			if (p.PrimaryParticipantContactId != null) { cIds.add(p.PrimaryParticipantContactId); }
 			if (p.PrimaryParticipantAccountId != null) { aIds.add(p.PrimaryParticipantAccountId); }
 		}
@@ -217,14 +229,30 @@ public inherited sharing class ParticipantesPolizaController {
 			Map<String, Object> c = p.PrimaryParticipantContactId != null ? contactosM.get(p.PrimaryParticipantContactId)
 				: (p.PrimaryParticipantAccountId != null ? cuentasM.get(p.PrimaryParticipantAccountId) : null);
 			String correo = c == null ? null : (String) c.get('correo');
-			// Dado de baja: se usa su correo personal (el corporativo suele dejar de existir).
-			if (esBaja(p) && String.isNotBlank(p.Correo_Personal__c)) { correo = p.Correo_Personal__c; }
+			InsurancePolicyParticipant titular = esBaja(p) ? titulares.get(p.RelatedInsPolicyParticipantId) : null;
+			Map<String, Object> ct = titular == null ? null : (titular.PrimaryParticipantContactId != null
+				? contactosM.get(titular.PrimaryParticipantContactId) : cuentasM.get(titular.PrimaryParticipantAccountId));
+			if (esBaja(p)) {
+				// Dado de baja: el que se capturó al enviar, su correo personal (el corporativo suele dejar de existir) o, si es
+				// dependiente, el de su titular.
+				if (String.isNotBlank(correosBaja.get(p.Id))) { correo = correosBaja.get(p.Id); }
+				else if (String.isNotBlank(p.Correo_Personal__c)) { correo = p.Correo_Personal__c; }
+				else if (titular != null) {
+					String suyo = esBaja(titular) && String.isNotBlank(titular.Correo_Personal__c) ? titular.Correo_Personal__c
+						: (ct == null ? null : (String) ct.get('correo'));
+					if (String.isNotBlank(suyo)) { correo = suyo; }
+				}
+			}
 			if (String.isBlank(correo)) { errores.add(p.ParticipantName + ': no tiene correo.'); continue; }
 			if (adjuntos.containsKey(p.Id) && adjuntos.get(p.Id) == null) {
 				errores.add(p.ParticipantName + ': sus archivos pesan más de 4 MB; envíalo sin adjuntos.');
 				continue;
 			}
 			Id whoId = p.PrimaryParticipantContactId != null ? p.PrimaryParticipantContactId : (c == null ? null : (Id) c.get('personContactId'));
+			// El dependiente sin contacto: la plantilla se dirige a su titular.
+			if (whoId == null && titular != null) {
+				whoId = titular.PrimaryParticipantContactId != null ? titular.PrimaryParticipantContactId : (ct == null ? null : (Id) ct.get('personContactId'));
+			}
 			Messaging.SingleEmailMessage m;
 			try {
 				m = renderizar(tpl.Id, whoId, policyId);
@@ -255,8 +283,11 @@ public inherited sharing class ParticipantesPolizaController {
 			List<InsurancePolicyParticipant> marcar = new List<InsurancePolicyParticipant>();
 			for (Integer i = 0; i < res.size(); i++) {
 				if (res[i].isSuccess()) {
-					marcar.add(new InsurancePolicyParticipant(Id = destinos[i].Id, Correo_Enviado__c = true,
-						Fecha_Envio_Correo__c = Datetime.now(), Plantilla_Correo__c = tpl.Name.left(255)));
+					InsurancePolicyParticipant x = new InsurancePolicyParticipant(Id = destinos[i].Id, Correo_Enviado__c = true,
+						Fecha_Envio_Correo__c = Datetime.now(), Plantilla_Correo__c = tpl.Name.left(255));
+					// El correo que se cambió al enviar la baja queda como su correo personal.
+					if (esBaja(destinos[i]) && String.isNotBlank(correosBaja.get(destinos[i].Id))) { x.Correo_Personal__c = correosBaja.get(destinos[i].Id); }
+					marcar.add(x);
 				} else {
 					errores.add(destinos[i].ParticipantName + ': ' + res[i].getErrors()[0].getMessage());
 				}
@@ -266,6 +297,31 @@ public inherited sharing class ParticipantesPolizaController {
 			cerrarMovimientos(policyId, new Map<Id, InsurancePolicyParticipant>(marcar).keySet());
 		}
 		return new Map<String, Object>{ 'enviados' => enviados, 'errores' => errores };
+	}
+
+	// Titulares (con su correo) de los dependientes.
+	private static Map<Id, InsurancePolicyParticipant> titularesDe(Set<Id> ids) {
+		if (ids.isEmpty()) { return new Map<Id, InsurancePolicyParticipant>(); }
+		return new Map<Id, InsurancePolicyParticipant>([
+			SELECT Id, PrimaryParticipantContactId, PrimaryParticipantAccountId, IsActiveParticipant, Correo_Personal__c, Motivo_Baja__c, EffectiveToDate
+			FROM InsurancePolicyParticipant WHERE Id IN :ids
+		]);
+	}
+
+	// Correos cambiados al enviar, validados.
+	private static Map<Id, String> correosDeBaja(String json) {
+		Map<Id, String> r = new Map<Id, String>();
+		if (String.isBlank(json)) { return r; }
+		Map<String, Object> m = (Map<String, Object>) System.JSON.deserializeUntyped(json);
+		for (String k : m.keySet()) {
+			String correo = m.get(k) == null ? '' : String.valueOf(m.get(k)).trim();
+			if (correo == '') { continue; }
+			if (correo.length() > 80 || !Pattern.matches('[^@\\s,;]+@[^@\\s,;]+\\.[^@\\s,;]+', correo)) {
+				throw CensoColectivoController.error('El correo «' + correo + '» no es válido.');
+			}
+			r.put(Id.valueOf(k), correo);
+		}
+		return r;
 	}
 
 	// Reemplaza los marcadores {{NOMBRE}} de la plantilla. Los enlaces {{LINK_...}} sin valor quedan como «#» y cualquier

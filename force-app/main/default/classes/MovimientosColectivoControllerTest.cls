@@ -403,7 +403,7 @@ private class MovimientosColectivoControllerTest {
 		Id doc = MovimientosColectivoController.subirDocumentoBaja(pol.Id, pedro, 'baja.pdf', EncodingUtil.base64Encode(Blob.valueOf('baja')));
 		Map<String, Object> r;
 		try {
-			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ pedro }, tpl.Id, true);
+			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ pedro }, tpl.Id, true, null);
 		} catch (AuraHandledException e) {
 			System.assertNotEquals(null, e.getMessage(), 'Org sin entrega de correo');
 		}
