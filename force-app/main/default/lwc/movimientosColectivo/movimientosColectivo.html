@@ -147,7 +147,8 @@
                                                     <!-- Seguimiento de la solicitud: en Salesforce se cambia con un clic. -->
                                                     <span>
                                                         <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio}
-                                                            sin-movimientos={b.sinMovimientos} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
+                                                            sin-movimientos={b.sinMovimientos} correos-pendientes={b.correosPendientes} onconcluir={handleConcluir}
+                                                            oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                         <template lwc:elseif={b.seguimiento}><span class={b.claseSeguimiento}>{b.seguimiento}</span></template>
                                                     </span>
                                                     <!-- Lo que cobra la aseguradora por todo el movimiento. -->
@@ -159,6 +160,9 @@
                                                         <template lwc:if={b.ligaCaso}><a href={b.ligaCaso} target="_blank" class="sol-sub">{b.casoTxt}</a></template>
                                                         <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
                                                             class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
+                                                        <!-- Eliminar toda la solicitud: solo en Salesforce y si no está Concluida. -->
+                                                        <template lwc:if={b.puedeEliminar}><lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                                                            alternative-text="Eliminar movimiento" title="Eliminar movimiento" data-folio={b.folio} onclick={handleEliminarSolicitud}></lightning-button-icon></template>
                                                     </span>
                                                 </div>
                                             </td>
@@ -233,6 +237,11 @@
                                                 <template if:true={m.muestraCorreo}>
                                                     <lightning-button-icon icon-name="utility:email" alternative-text={m.textoEnviar} title={m.textoEnviar}
                                                         data-id={m.id} onclick={abrirCorreoAsegurado} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
+                                                </template>
+                                                <!-- Eliminar el registro: solo en Salesforce y si no está Concluido. -->
+                                                <template lwc:if={m.puedeEliminar}>
+                                                    <lightning-button-icon icon-name="utility:delete" alternative-text="Eliminar registro" title="Eliminar registro"
+                                                        data-mov={m.movimientoId} onclick={handleEliminarRegistro} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
                                                 </template>
                                             </td>
                                         </tr>
@@ -861,7 +870,7 @@
 
                         <!-- Envío de correo a uno o varios asegurados. -->
                         <template if:true={enModalCorreo}>
-                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Enviar correo</h2></div>
+                            <div class="slds-modal__header"><h2 class="slds-text-heading_medium">{tituloCorreoModal}</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">
                                 <!-- Pendientes: se envía por solicitud, no a todos. -->
                                 <template if:true={correoPorSolicitud}>
@@ -877,6 +886,7 @@
                                     </div>
                                 </template>
                                 <p class="slds-m-bottom_small">{textoDestinatarios}</p>
+                                <template lwc:if={concluyeFolio}><p class="sub slds-m-bottom_small">{textoConcluir}</p></template>
                                 <template if:true={avisoReenvio}><p class="sub slds-m-bottom_small">{avisoReenvio}</p></template>
                                 <lightning-combobox label="Plantilla" placeholder="Selecciona la plantilla" options={plantillas}
                                     value={correo.plantilla} onchange={cambiarPlantilla} required></lightning-combobox>
@@ -893,6 +903,8 @@
                             </div>
                             <div class="slds-modal__footer">
                                 <lightning-button label="Cerrar" onclick={cerrarModal} disabled={correo.enviando}></lightning-button>
+                                <template lwc:if={concluyeFolio}><lightning-button class="slds-m-left_x-small" label="Concluir sin enviar" onclick={concluirSinCorreo}
+                                    disabled={correo.enviando}></lightning-button></template>
                                 <lightning-button class="slds-m-left_x-small" variant="brand" label={textoBotonCorreo} icon-name="utility:send"
                                     onclick={enviarCorreos} disabled={sinEnviarCorreo}></lightning-button>
                             </div>

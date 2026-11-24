@@ -61,7 +61,7 @@
                             <template lwc:if={portal}><lightning-button label={textoHistorial} icon-name="utility:clock" onclick={verHistorial}></lightning-button></template>
                             <template if:true={puedeEditar}>
                                 <template lwc:if={interno}><lightning-button label="Alta de vehículo" icon-name="utility:add" onclick={abrirAlta}></lightning-button></template>
-                                <template lwc:if={interno}><lightning-button label={textoBajaSeleccion} icon-name="utility:delete" variant="destructive-text"
+                                <template lwc:if={interno}><lightning-button label={textoBajaSeleccion} icon-name="utility:ban" variant="destructive-text"
                                     onclick={abrirBaja} disabled={sinSeleccion}></lightning-button></template>
                                 <template lwc:if={conCarga}><lightning-button label="Cargar vehículos" icon-name="utility:upload" onclick={verArchivo}></lightning-button></template>
                             </template>
@@ -135,6 +135,9 @@
                                                         <template lwc:if={b.ligaCaso}><a href={b.ligaCaso} target="_blank" class="sol-sub">{b.casoTxt}</a></template>
                                                         <template lwc:if={b.folioExcel}><lightning-button variant="base" label="Excel para la aseguradora" icon-name="utility:download"
                                                             class="sol-excel" data-folio={b.folio} onclick={handleExcelSolicitud}></lightning-button></template>
+                                                        <!-- Eliminar toda la solicitud: solo en Salesforce y si no está Concluida. -->
+                                                        <template lwc:if={b.puedeEliminar}><lightning-button-icon icon-name="utility:delete" variant="bare" size="small"
+                                                            alternative-text="Eliminar movimiento" title="Eliminar movimiento" data-folio={b.folio} onclick={handleEliminarSolicitud}></lightning-button-icon></template>
                                                     </span>
                                                 </div>
                                             </td>
@@ -191,8 +194,13 @@
                                                 <template if:true={v.puedeMover}>
                                                     <lightning-button-icon icon-name="utility:edit" alternative-text="Cambiar datos" title="Cambiar datos"
                                                         data-id={v.id} onclick={abrirCambio} size="small"></lightning-button-icon>
-                                                    <template lwc:if={interno}><lightning-button-icon icon-name="utility:delete" alternative-text="Dar de baja" title="Dar de baja"
+                                                    <template lwc:if={interno}><lightning-button-icon icon-name="utility:ban" alternative-text="Dar de baja" title="Dar de baja"
                                                         data-id={v.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon></template>
+                                                </template>
+                                                <!-- Eliminar el registro: solo en Salesforce y si no está Concluido. -->
+                                                <template lwc:if={v.puedeEliminar}>
+                                                    <lightning-button-icon icon-name="utility:delete" alternative-text="Eliminar registro" title="Eliminar registro"
+                                                        data-mov={v.movimientoId} onclick={handleEliminarRegistro} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
                                                 </template>
                                             </td>
                                         </tr>

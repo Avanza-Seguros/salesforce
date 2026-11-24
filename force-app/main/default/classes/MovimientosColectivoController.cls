@@ -1567,6 +1567,26 @@ public inherited sharing class MovimientosColectivoController {
 	}
 
 	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo elimina un registro o toda una solicitud (asegurados, vehículos o ubicaciones) que no está
+	 *               Concluida; se deshace lo que hizo (ver EliminarMovimientos).
+	 * @param policyId: póliza.
+	 * @param folio: solicitud.
+	 * @param movimientoId: movimiento, o null para toda la solicitud.
+	 * @return lo que se hizo.
+	 */
+	@AuraEnabled(cacheable=false)
+	public static String eliminarMovimiento(Id policyId, String folio, Id movimientoId) {
+		if ([SELECT COUNT() FROM InsurancePolicy WHERE Id = :policyId] == 0) { throw CensoColectivoController.error('No tienes acceso a la póliza.'); }
+		try {
+			return EliminarMovimientos.eliminar(policyId, folio, movimientoId);
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se eliminó: ' + mensaje(e));
+		}
+	}
+
+	/**
 	 * @creation date: 31/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Asegurados del censo de la oportunidad, cada titular seguido de sus dependientes.

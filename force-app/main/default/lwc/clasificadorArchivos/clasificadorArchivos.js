@@ -610,12 +610,13 @@ const importe = (t) => {
 };
 const isoDe = (t) => t.split('/').reverse().join('-');
 const FECHA_MX = '(\\d{2}\\/\\d{2}\\/\\d{4})';
-const RENGLON_LISTADO = new RegExp('^([ABCM])?\\s*(\\d{5,12})\\s+(\\d{2})\\s+(.+?)\\s+([MF])\\s+(\\d{1,3})\\s+' + FECHA_MX + '\\s+' + FECHA_MX + '\\s+'
-    + FECHA_MX + '\\s+(-?[\\d,]+\\.\\d{2}-?)\\s+(-?\\d+)\\s+(-?[\\d,]+\\.\\d{2}-?)$');
+const INICIO_LISTADO = '^([ABCM])?\\s*(\\d{5,12})\\s+(\\d{2})\\s+(.+?)\\s+([MF])\\s+(\\d{1,3})\\s+' + FECHA_MX + '\\s+' + FECHA_MX + '\\s+' + FECHA_MX + '\\s+';
+// «PRIMA FRAC | DIAS | COMPLEM.» o «DÍAS | PRIMA ANUAL | IMPORTE»: lo que se cobra o devuelve es la última columna.
+const RENGLON_LISTADO = new RegExp(INICIO_LISTADO + '(?:(-?[\\d,]+\\.\\d{2}-?)\\s+-?\\d+|-?\\d+\\s+(-?[\\d,]+\\.\\d{2}-?))\\s+(-?[\\d,]+\\.\\d{2}-?)$');
 
 /**
  * Listado de movimientos de GMM que manda la aseguradora (PDF «Relación de asegurados por movimiento»): cada asegurado
- * con su complemento, que es lo que cobra o devuelve por el movimiento (ya con IVA). El total del movimiento es la suma
+ * con su complemento (o importe), que es lo que cobra o devuelve por el movimiento. El total del movimiento es la suma
  * de los complementos.
  * @param texto: texto del PDF, un renglón por línea.
  * @return { poliza, movimiento, filas: [{ tipo, certificado, parentesco, nombre, sexo, fechaNacimiento, fecha, prima,
@@ -623,7 +624,7 @@ const RENGLON_LISTADO = new RegExp('^([ABCM])?\\s*(\\d{5,12})\\s+(\\d{2})\\s+(.+
  */
 export function listadoMovimiento(texto) {
     const t = String(texto || '');
-    if (!/COMPLEM/i.test(t)) { return null; }
+    if (!/COMPLEM|\bIMPORTE\b/i.test(t)) { return null; }
     const filas = [];
     t.split('\n').forEach((linea) => {
         // Los renglones con la letra dañada traen un carácter de control en lugar de los espacios del nombre.
@@ -633,7 +634,7 @@ export function listadoMovimiento(texto) {
             tipo: { B: 'Baja', C: 'Cambio', M: 'Cambio' }[m[1]] || 'Alta',
             certificado: m[2], parentesco: { '01': 'Titular', '02': 'Cónyuge', '03': 'Hijo(a)' }[m[3]] || 'Otro',
             nombre: textoReparado(m[4]), sexo: m[5] === 'M' ? 'Hombre' : 'Mujer', fechaNacimiento: isoDe(m[7]), fecha: isoDe(m[9]),
-            prima: importe(m[10]), complemento: importe(m[12])
+            prima: importe(m[10] || m[11]), complemento: importe(m[12])
         });
     });
     if (!filas.length) { return null; }

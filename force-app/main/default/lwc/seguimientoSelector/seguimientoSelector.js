@@ -18,6 +18,8 @@ export default class SeguimientoSelector extends LightningElement {
     @api movimientoId;
     // Solicitud que aún no tiene movimientos: al concluirla se concluye su caso.
     @api sinMovimientos = false;
+    // Correos por enviar a los asegurados de la solicitud: al concluirla se abre su envío (evento «concluir»).
+    @api correosPendientes = 0;
     guardando = false;
 
     get clase() { return `seg seg-${CLASES[this.valor] || 'proceso'}`; }
@@ -34,6 +36,11 @@ export default class SeguimientoSelector extends LightningElement {
     async handleCambio(e) {
         const nuevo = e.target.value;
         if (!nuevo || nuevo === this.valor) { return; }
+        if (nuevo === 'Concluido' && !this.movimientoId && this.correosPendientes > 0) {
+            this.regresar();
+            this.dispatchEvent(new CustomEvent('concluir', { detail: { folio: this.folio } }));
+            return;
+        }
         this.guardando = true;
         try {
             let motivo = null;

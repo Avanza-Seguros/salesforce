@@ -234,6 +234,8 @@ public inherited sharing class EndosoPoliza {
 		for (Case c : casos) {
 			if (String.isBlank(c.Solicitud__c)) { continue; }
 			Map<String, Object> s = porFolio.get(c.Solicitud__c);
+			// Solicitud que el ejecutivo eliminó (EliminarMovimientos): ya no se muestra.
+			if (s == null && c.IsClosed && comentarios.get(c.Id) != null && comentarios.get(c.Id).startsWith(EliminarMovimientos.COMENTARIO_CASO)) { continue; }
 			// Caso creado después de los movimientos (registrados en las pestañas del sitio): fecha y autor son los de
 			// los movimientos.
 			Boolean previos = s != null && (Integer) s.get('total') > 0 && s.get('fecha') != null && (Datetime) s.get('fecha') < c.CreatedDate;

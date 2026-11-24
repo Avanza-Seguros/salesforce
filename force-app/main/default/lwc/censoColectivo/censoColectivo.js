@@ -91,6 +91,8 @@ export default class CensoColectivo extends LightningElement {
     @api portal = false;
     get etiquetaFila() { return this.portal ? 'Núm. de registro' : 'Fila'; }
     _endosos = [];
+    // Listados o recibos de movimientos que se leyeron (con la prima de cada movimiento).
+    _listados = [];
 
     get esLector() { return this.modo === 'lector'; }
     get mostrarCenso() { return !this.esLector; }
@@ -222,6 +224,7 @@ export default class CensoColectivo extends LightningElement {
         this._acumulado = [];
         this._rangos = [];
         this._endosos = [];
+        this._listados = [];
         this.errorMensaje = '';
         await this.siguienteArchivo();
     }
@@ -391,6 +394,7 @@ export default class CensoColectivo extends LightningElement {
         this._acumulado = [];
         this._rangos = [];
         this._endosos = [];
+        this._listados = [];
     }
     volverAMapeo() {
         // Con un solo Excel se puede volver a su mapeo; con varios archivos se empieza de nuevo.
@@ -411,6 +415,17 @@ export default class CensoColectivo extends LightningElement {
         if (!bloques.length) {
             throw new Error('No se pudo leer texto del PDF (¿está escaneado?). Pide el censo en Excel.');
         }
+        // Listado o recibo de movimientos de la aseguradora: se lee directo. La prima de cada quien es su complemento
+        // (COMPLEM.), no la prima anual (PRIMA FRAC).
+        const listado = this.esLector ? listadoMovimiento(bloques.join('\n')) : null;
+        if (listado) {
+            this._listados.push(listado);
+            this.filasCrudas = [];
+            this.agregarArchivo(listado.filas.map((f, i) => ({ fila: i + 1, nombreCompleto: f.nombre, certificado: f.certificado,
+                parentesco: f.parentesco, sexo: f.sexo, fechaNacimiento: f.fechaNacimiento, fechaAlta: f.fecha, prima: f.complemento,
+                tipoMovimiento: f.tipo, primaMovimiento: f.complemento })));
+            return;
+        }
         if (this.esLector && this.leeEndosos) {
             const texto = bloques.join('\n');
             const clausula = clausulaDeTexto(texto);
@@ -419,15 +434,6 @@ export default class CensoColectivo extends LightningElement {
                 this._endosos.push({ endoso, clausula, documento: file, archivo: file.name });
                 return;
             }
-        }
-        // Listado de movimientos de la aseguradora: se lee directo, con la prima (complemento) de cada movimiento.
-        const listado = this.esLector ? listadoMovimiento(bloques.join('\n')) : null;
-        if (listado) {
-            this.filasCrudas = [];
-            this.agregarArchivo(listado.filas.map((f, i) => ({ fila: i + 1, nombreCompleto: f.nombre, certificado: f.certificado,
-                parentesco: f.parentesco, sexo: f.sexo, fechaNacimiento: f.fechaNacimiento, fechaAlta: f.fecha, prima: f.prima,
-                tipoMovimiento: f.tipo, primaMovimiento: f.complemento })));
-            return;
         }
         const datos = [];
         for (let i = 0; i < bloques.length; i++) {
@@ -648,7 +654,7 @@ export default class CensoColectivo extends LightningElement {
             if (!lista.length) { return; }
             const posicion = new Map(lista.map((r, j) => [r.idx, j]));
             const miembros = lista.map((r) => ({ ...this.payload(r), titularIndex: r.esTitular ? null : (posicion.get(r.titularIndex) ?? null) }));
-            this.dispatchEvent(new CustomEvent('leido', { detail: { miembros, archivo: this.archivoNombre, endosos: this._endosos } }));
+            this.dispatchEvent(new CustomEvent('leido', { detail: { miembros, archivo: this.archivoNombre, endosos: this._endosos, listados: this._listados } }));
             this.cancelar();
             return;
         }

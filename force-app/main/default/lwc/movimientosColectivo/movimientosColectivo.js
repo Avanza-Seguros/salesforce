@@ -12,6 +12,7 @@ import { LightningElement, api, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
+import { sePuedeEliminar, eliminarRegistro, eliminarSolicitud } from 'c/eliminarMovimiento';
 import { fechaVisible, moneda, descargarExcel, paginasPdf } from 'c/lectorArchivos';
 import { primasPorEndoso, listadoMovimiento, datosDocumento } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
@@ -27,6 +28,7 @@ import contenidoPdf from '@salesforce/apex/MovimientosColectivoController.conten
 import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.subirDocumentoBaja';
 import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
+import cambiarSeguimiento from '@salesforce/apex/MovimientosColectivoController.cambiarSeguimiento';
 import enviarCorreo from '@salesforce/apex/ParticipantesPolizaController.enviarCorreo';
 import { llamar, fijarPortal, descargarDocumento } from 'c/portalContexto';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
@@ -356,6 +358,62 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     agruparSolicitud = true;
     // Solicitud del sitio que el ejecutivo está atendiendo: los movimientos que registre llevan su folio.
     handleCambioSeguimiento() { this.cargar(); }
+    // ===== Eliminar (solo en Salesforce): un registro o toda la solicitud =====
+    async handleEliminarRegistro(e) {
+        const id = e.currentTarget.dataset.mov;
+        const r = this.miembros.flatMap((x) => [x, ...this.movimientosDe(x)]).find((x) => x.movimientoId === id);
+        if (!r) { return; }
+        await this.eliminar(() => eliminarRegistro({ policyId: this._recordId, folio: r.solicitud, movimientoId: id, tipo: r.tipoMovimiento,
+            nombre: r.nombre || 'el registro',
+            conDependientes: r.esTitular && this.registrosDe(r.solicitud).some((x) => x.titularId === r.id && x.tipoMovimiento === r.tipoMovimiento) }));
+    }
+    async handleEliminarSolicitud(e) {
+        const { folio } = e.currentTarget.dataset;
+        await this.eliminar(() => eliminarSolicitud({ policyId: this._recordId, folio, registros: this.registrosDe(folio) }));
+    }
+    async eliminar(accion) {
+        try {
+            const hecho = await accion();
+            if (!hecho) { return; }
+            this.toast('Eliminar', hecho, 'success');
+            await this.cargar();
+            this.avisarCambio();
+        } catch (err) {
+            this.mostrarError(err);
+        }
+    }
+    // Concluir la solicitud funciona como «Enviar correo a pendientes» para ella: se eligen la plantilla y los adjuntos y, al
+    // enviar, queda concluida (los que no tienen correo o ya lo recibieron solo se concluyen).
+    concluyeFolio = '';
+    pendientesDe(folio) { return folio ? this.pendientesCorreo.filter((m) => m.solicitud === folio) : []; }
+    handleConcluir(e) {
+        const { folio } = e.detail;
+        const ids = this.pendientesDe(folio).map((m) => m.id);
+        if (!ids.length) { return; }
+        this.solicitudesCorreo = [];
+        this.concluyeFolio = folio;
+        this.abrirCorreo(ids, false);
+    }
+    get tituloCorreoModal() { return this.concluyeFolio ? `Concluir el movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : 'Enviar correo'; }
+    get textoConcluir() {
+        return 'Al enviar, el movimiento y sus registros quedan Concluidos y se manda el resumen al cliente. Los registros sin correo, o que ya lo recibieron, solo se concluyen.';
+    }
+    concluirSinCorreo() { return this.concluirSolicitud(); }
+    async concluirSolicitud() {
+        const folio = this.concluyeFolio;
+        this.correo = { ...this.correo, enviando: true, avance: 'Concluyendo el movimiento…' };
+        try {
+            const aviso = await cambiarSeguimiento({ policyId: this._recordId, folio, movimientoId: null, valor: 'Concluido', motivo: null });
+            this.toast('Seguimiento', `El movimiento ${folio.replace(/^SOL-/i, '')} quedó Concluido.${aviso ? ' ' + aviso : ''}`, 'success');
+            this.concluyeFolio = '';
+            this.modal = null;
+            await this.cargar();
+        } catch (err) {
+            this.correo = { ...this.correo, errores: [this.textoError(err)] };
+        } finally {
+            this.correo = { ...this.correo, enviando: false, avance: '' };
+        }
+    }
     // Las solicitudes salen sin desplegar; al buscar se despliegan para ver los resultados. Aquí van las que el usuario
     // cambió (desplegó o, al buscar, ocultó).
     volteadas = new Set();
@@ -514,6 +572,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // Seguimiento de toda la solicitud (clic para cambiarlo) y el caso de la que envió el cliente.
             puedeSeguimiento: this.cambiaSeguimiento && !!s && !!seguimiento,
             sinMovimientos: !!s && !s.total,
+            puedeEliminar: this.cambiaSeguimiento && !!s && sePuedeEliminar(g.folio, s.seguimiento),
+            correosPendientes: this.cambiaSeguimiento ? this.pendientesDe(g.folio).length : 0,
             ligaCaso: !this.portal && s && s.casoId ? `/lightning/r/Case/${s.casoId}/view` : null,
             casoTxt: s && s.caso ? `Caso ${s.caso}` : '',
             // Respuesta del ejecutivo (motivo del rechazo): la ve el cliente en el sitio.
@@ -546,6 +606,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // Clic para cambiar el estado del registro (en una solicitud rechazada se cambia el de la solicitud).
             puedeSeguimiento: this.cambiaSeguimiento && !!seguimiento && !!m.movimientoId
                 && ((info || this.infoSolicitudes).get(m.solicitud) || {}).seguimiento !== 'Rechazada',
+            puedeEliminar: this.cambiaSeguimiento && !!m.movimientoId && sePuedeEliminar(m.solicitud, seguimiento),
             seleccionado: this.seleccion.has(m.id),
             // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
             noSeleccionable: this.portal || !m.activo || !this.puedeEditar,
@@ -594,7 +655,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Pendientes del filtro actual (todas las páginas): vigentes con correo a los que no se les ha enviado.
     // Pendientes: altas, cambios y bajas cuyo correo aún no se envía (a la baja se le escribe a su correo personal).
     // Se toman de todos los asegurados (no del filtro de la tabla), porque las bajas no salen en «Vigentes».
-    get pendientesCorreo() { return this.miembros.filter((m) => !m.correoEnviado && this.correoDe(m)); }
+    get pendientesCorreo() { return this.miembros.filter((m) => !m.correoEnviado && m.seguimientoMov !== 'Rechazado' && this.correoDe(m)); }
     // Sin enviar: vigentes sin correo enviado y bajas con correo personal por enviar.
     // A un registro rechazado no se le envía el correo.
     sinEnviar(m) { return !m.correoEnviado && m.seguimientoMov !== 'Rechazado' && (m.activo || !!this.correoDe(m)); }
@@ -626,6 +687,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 detalle: `${ids.length} ${ids.length === 1 ? 'asegurado pendiente' : 'asegurados pendientes'}`
             }));
         const primera = this.solicitudesCorreo[0];
+        this.concluyeFolio = '';
         this.abrirCorreo(primera ? primera.ids : [], false);
     }
     elegirSolicitudCorreo(e) {
@@ -639,6 +701,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const m = this.miembros.find((x) => x.id === e.currentTarget.dataset.id);
         if (m) {
             this.solicitudesCorreo = [];
+            this.concluyeFolio = '';
             this.abrirCorreo([m.id], m.correoEnviado);
         }
     }
@@ -657,7 +720,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const ids = new Set(this.correo.ids);
         const d = this.miembros.filter((m) => ids.has(m.id));
         const elegida = this.solicitudesCorreo.find((s) => s.sel);
-        const deSolicitud = elegida ? ` de ${elegida.folio ? 'la solicitud ' + elegida.folio : 'los registros sin solicitud'}` : '';
+        const deSolicitud = this.concluyeFolio ? ` del movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : elegida ? ` de ${elegida.folio ? 'la solicitud ' + elegida.folio : 'los registros sin solicitud'}` : '';
         if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoDe(d[0])})${deSolicitud}.`; }
         return `Se enviará a ${d.length} asegurados${deSolicitud} con correo que aún no lo reciben.`;
     }
@@ -665,7 +728,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get hayErroresCorreo() { return this.correo.errores.length > 0; }
     get erroresCorreo() { return this.correo.errores.map((t, i) => ({ key: String(i), texto: t })); }
     get sinEnviarCorreo() { return !this.correo.plantilla || !this.correo.ids.length || this.correo.enviando; }
-    get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : 'Enviar'; }
+    get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : (this.concluyeFolio ? 'Enviar y concluir' : 'Enviar'); }
     async enviarCorreos() {
         const { ids, plantilla, adjuntar } = this.correo;
         const lote = adjuntar ? LOTE_CORREO_ADJUNTOS : LOTE_CORREO;
@@ -689,7 +752,14 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 + (errores.length ? `; ${errores.length} no se pudieron enviar.` : '.'), errores.length ? 'warning' : 'success');
             await this.cargar();
         }
-        if (!errores.length) { this.modal = null; }
+        if (errores.length && !this.correo.reenvio) {
+            // Solo quedan los que no se pudieron: al reintentar no se repite a quien ya lo recibió.
+            const pendientes = new Set(this.pendientesCorreo.map((m) => m.id));
+            this.correo = { ...this.correo, ids: ids.filter((x) => pendientes.has(x)) };
+        }
+        if (errores.length) { return; }
+        if (this.concluyeFolio) { await this.concluirSolicitud(); return; }
+        this.modal = null;
     }
     textoError(e) { return (e && e.body && e.body.message) || (e && e.message) || 'Ocurrió un error inesperado.'; }
     fechaHora(v) {
@@ -872,6 +942,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.toast('Archivos', 'Los archivos que no se adjuntaron se quedaron en la póliza.', 'info');
         }
         this.modal = null;
+        this.concluyeFolio = '';
         this.form = {};
         this.varios = { filas: [], cargando: false };
     }
@@ -1013,9 +1084,37 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const esta = limpio(this.datos && this.datos.nombre);
         return suya && esta && !esta.includes(suya) && !suya.includes(esta) ? contenido.poliza : '';
     }
+    claveNombre(v) { return this.fold(v).split(/[^a-z0-9]+/).filter((t) => t).sort().join(' '); }
+    // Guarda la prima de los renglones del recibo que ya tienen su movimiento. Regresa sus nombres, o null si se canceló.
+    async primasDelRecibo(listados) {
+        const hechos = new Set();
+        for (const l of listados) {
+            const otra = this.otraPoliza(l);
+            if (otra) {
+                this.mostrarError({ message: `El recibo es de la póliza ${otra}, no de esta.` });
+                return null;
+            }
+            const filas = l.filas.filter((f) => {
+                const m = this.personaDeListado(f);
+                return m && [m, ...(m.movimientos || [])].some((x) => x.movimientoId && x.tipoMovimiento === f.tipo);
+            });
+            if (!filas.length) { continue; }
+            const total = filas.reduce((n, f) => n + (f.complemento || 0), 0);
+            // eslint-disable-next-line no-await-in-loop
+            const ok = await LightningConfirm.open({
+                message: `${filas.length} de ${l.filas.length} asegurados del recibo ya tienen su movimiento: se guarda su prima (columna COMPLEM.), en total ${moneda(total)}. ¿Continuar?`,
+                variant: 'header', label: 'Prima del movimiento', theme: 'info'
+            });
+            if (!ok) { return null; }
+            // eslint-disable-next-line no-await-in-loop
+            await this.aplicarListado({ ...l, filas });
+            filas.forEach((f) => hechos.add(this.claveNombre(f.nombre)));
+        }
+        return hechos;
+    }
     // Asegurado de cada renglón del listado: por su nombre (y certificado, si hay homónimos) o por su certificado.
     personaDeListado(f) {
-        const clave = (v) => this.fold(v).split(/[^a-z0-9]+/).filter((t) => t).sort().join(' ');
+        const clave = (v) => this.claveNombre(v);
         const num = (v) => String(v || '').replace(/^0+/, '');
         const iguales = this.miembros.filter((m) => clave(m.nombre) === clave(f.nombre));
         if (iguales.length === 1) { return iguales[0]; }
@@ -1445,6 +1544,18 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         // Soporte de recibo con número de endoso por renglón: cada movimiento va a su endoso, con su prima.
         this.primasArchivo = primasPorEndoso(e.detail.miembros);
         this.endososArchivo = [...new Set((e.detail.miembros || []).map((x) => (x.numeroEndoso ? String(x.numeroEndoso).trim() : '')).filter((x) => x))];
+        // Recibo o listado de movimientos: a quien ya tiene su movimiento solo se le pone su prima (COMPLEM.); los demás se revisan.
+        let yaRegistrados = new Set();
+        if (this.enPoliza && this.interno && (e.detail.listados || []).length) {
+            yaRegistrados = await this.primasDelRecibo(e.detail.listados);
+            if (!yaRegistrados) { this.vista = 'lista'; return; }
+            if (yaRegistrados.size >= (e.detail.miembros || []).length) {
+                this.vista = 'lista';
+                await this.cargar();
+                return;
+            }
+        }
+        const registrado = (nombre) => yaRegistrados.has(this.claveNombre(nombre));
         this.cargando = true;
         try {
             const r = await compararArchivoSitio({
@@ -1456,9 +1567,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.revision = {
                 altas: r.altas.map((a) => ({ ...a, key: 'a' + a.ref, sel: true })),
                 bajas: r.bajas.filter((b) => !b.faltante).map((b) => ({ ...b, key: 'b' + b.id, sel: true, motivo: '' })),
-                cambios: r.cambios.map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
+                cambios: r.cambios.filter((c) => !registrado(c.nombre)).map((c) => ({ ...c, key: 'c' + c.id, sel: true })),
                 sinCambios: r.sinCambios,
-                duplicados: (r.duplicados || []).map((d, i) => this.rechazo(d, i))
+                duplicados: (r.duplicados || []).filter((d) => !registrado(d.nombre)).map((d, i) => this.rechazo(d, i))
             };
             this.comun = { fecha: this.fechaDefault, endoso: '', motivo: '', comentario: '', solicitud: 'nueva' };
             this.vista = 'revision';

@@ -11,6 +11,7 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
+import { sePuedeEliminar, eliminarRegistro, eliminarSolicitud } from 'c/eliminarMovimiento';
 import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
@@ -196,6 +197,29 @@ export default class MovimientosFlotilla extends LightningElement {
     agruparSolicitud = true;
     // Solicitud del sitio que el ejecutivo está atendiendo: los movimientos que registre llevan su folio.
     handleCambioSeguimiento() { this.cargar(); }
+    // ===== Eliminar (solo en Salesforce): un registro o toda la solicitud =====
+    async handleEliminarRegistro(e) {
+        const id = e.currentTarget.dataset.mov;
+        const r = this.vehiculos.flatMap((x) => [x, ...this.movimientosDe(x)]).find((x) => x.movimientoId === id);
+        if (!r) { return; }
+        await this.eliminar(() => eliminarRegistro({ policyId: this._recordId, folio: r.solicitud, movimientoId: id, tipo: r.tipoMovimiento,
+            nombre: r.descripcion || 'el registro' }));
+    }
+    async handleEliminarSolicitud(e) {
+        const { folio } = e.currentTarget.dataset;
+        await this.eliminar(() => eliminarSolicitud({ policyId: this._recordId, folio, registros: this.registrosDe(folio) }));
+    }
+    async eliminar(accion) {
+        try {
+            const hecho = await accion();
+            if (!hecho) { return; }
+            this.toast('Eliminar', hecho, 'success');
+            await this.cargar();
+            this.avisarCambio();
+        } catch (err) {
+            this.mostrarError(err);
+        }
+    }
     // Las solicitudes salen sin desplegar; al buscar se despliegan para ver los resultados. Aquí van las que el usuario
     // cambió (desplegó o, al buscar, ocultó).
     volteadas = new Set();
@@ -364,6 +388,7 @@ export default class MovimientosFlotilla extends LightningElement {
             // Seguimiento de toda la solicitud (clic para cambiarlo) y el caso de la que envió el cliente.
             puedeSeguimiento: this.cambiaSeguimiento && !!s && !!seguimiento,
             sinMovimientos: !!s && !s.total,
+            puedeEliminar: this.cambiaSeguimiento && !!s && sePuedeEliminar(g.folio, s.seguimiento),
             ligaCaso: !this.portal && s && s.casoId ? `/lightning/r/Case/${s.casoId}/view` : null,
             casoTxt: s && s.caso ? `Caso ${s.caso}` : '',
             // Respuesta del ejecutivo (motivo del rechazo): la ve el cliente en el sitio.
@@ -395,6 +420,7 @@ export default class MovimientosFlotilla extends LightningElement {
             // Clic para cambiar el estado del registro (en una solicitud rechazada se cambia el de la solicitud).
             puedeSeguimiento: this.cambiaSeguimiento && !!seguimiento && !!v.movimientoId
                 && ((info || this.infoSolicitudes).get(v.solicitud) || {}).seguimiento !== 'Rechazada',
+            puedeEliminar: this.cambiaSeguimiento && !!v.movimientoId && sePuedeEliminar(v.solicitud, seguimiento),
             seleccionado: this.seleccion.has(v.id),
             // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
             noSeleccionable: this.portal || !v.activo || !this.puedeEditar,
