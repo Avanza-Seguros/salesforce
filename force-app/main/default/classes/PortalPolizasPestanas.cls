@@ -1415,6 +1415,19 @@ public without sharing class PortalPolizasPestanas {
 		Map<String, Id> claves = clavesVigentes(policyId, bienes);
 		String hoy = String.valueOf(Date.today());
 		List<Map<String, Object>> movs = new List<Map<String, Object>>();
+		// Altas de titulares del archivo por certificado (sus dependientes traen el mismo) y el último titular que se leyó
+		// (los dependientes van debajo de él).
+		Map<String, Integer> titularPorCertificado = new Map<String, Integer>();
+		Integer arriba = null;
+		Id idArriba = null;
+		for (Integer n = 0; tipo == 'personas' && n < regs.size(); n++) {
+			if (regs[n].get('tipo') != 'alta' || !(regs[n].get('campos') instanceof Map<String, Object>)) { continue; }
+			Map<String, Object> cn = (Map<String, Object>) regs[n].get('campos');
+			String cert = CensoColectivoController.certificadoLimpio(texto(cn.get('certificado')));
+			if (cert != null && esTitular(texto(cn.get('parentesco'))) && !titularPorCertificado.containsKey(codigo(cert))) {
+				titularPorCertificado.put(codigo(cert), n);
+			}
+		}
 		// Altas de titulares en la misma solicitud (para ligar a sus dependientes): nombre -> posición.
 		Map<String, Integer> altasTitular = new Map<String, Integer>();
 		for (Map<String, Object> r : regs) {
@@ -1441,6 +1454,7 @@ public without sharing class PortalPolizasPestanas {
 						+ ' entre los vigentes de la póliza.');
 				}
 				m.put('id', id);
+				if (tipo == 'personas' && esTitular(texto(c.get('parentesco')))) { arriba = null; idArriba = t == 'cambio' ? id : null; }
 			}
 			// La antigüedad reconocida se guarda en el asegurado.
 			if (tipo == 'personas' && r.get('antiguedad') != null) { datos.put('fechaAntiguedad', r.get('antiguedad')); }
@@ -1450,16 +1464,39 @@ public without sharing class PortalPolizasPestanas {
 			if (t != 'baja') { m.put('datos', datos); }
 			if (tipo == 'personas' && t == 'alta') {
 				String parentesco = String.valueOf(datos.get('parentesco'));
-				if (String.isBlank(parentesco) || CensoColectivoController.llave(parentesco) == 'titular') {
+				if (esTitular(parentesco)) {
+					arriba = movs.size();
+					idArriba = null;
 					altasTitular.put(llaveNombre(texto(datos.get('nombre')) + ' ' + texto(datos.get('apellidos'))), movs.size());
 				} else if (r.get('titularId') != null && String.isNotBlank(String.valueOf(r.get('titularId')))) {
 					m.put('titularId', String.valueOf(r.get('titularId')));
 				} else {
 					String titular = r.get('titular') == null ? '' : String.valueOf(r.get('titular'));
-					Id tid = String.isBlank(titular) ? null : buscar('personas', new Map<String, Object>{ 'certificado' => titular, 'nombreCompleto' => titular }, claves);
-					Integer ref = altasTitular.get(llaveNombre(titular));
+					Id tid = null;
+					Integer ref = null;
+					if (String.isNotBlank(titular)) {
+						tid = claves.get('T:' + codigo(titular));
+						if (tid == null) { tid = claves.get('N:' + llaveNombre(titular)); }
+						ref = altasTitular.get(llaveNombre(titular));
+						if (ref == null) { ref = titularPorCertificado.get(codigo(titular)); }
+					} else {
+						// Sin columna Titular: el del mismo certificado (del archivo o de la póliza) o el que está arriba en el archivo.
+						String cert = CensoColectivoController.certificadoLimpio(texto(c.get('certificado')));
+						if (cert != null) {
+							ref = titularPorCertificado.get(codigo(cert));
+							if (ref == null) { tid = claves.get('T:' + codigo(cert)); }
+						}
+						if (ref == null && tid == null && r.get('capturado') != true) {
+							String certArriba = arriba == null ? null
+								: CensoColectivoController.certificadoLimpio(texto(((Map<String, Object>) regs[arriba].get('campos')).get('certificado')));
+							if (cert == null || certArriba == null) {
+								ref = arriba;
+								tid = idArriba;
+							}
+						}
+					}
 					if (tid != null) { m.put('titularId', tid); } else if (ref != null) { m.put('titularRef', ref); } else {
-						throw falla(donde + ': indica el titular del dependiente (su certificado o nombre).');
+						throw falla(donde + ': no encontramos a su titular. Ponlo debajo de su titular en el archivo o con el mismo certificado.');
 					}
 				}
 			}
@@ -1547,14 +1584,30 @@ public without sharing class PortalPolizasPestanas {
 			}
 			return res;
 		}
+		// Certificados que comparten varias personas (el titular y sus dependientes): solos no dicen de quién se trata.
+		Set<String> vistos = new Set<String>();
+		Set<String> repetidos = new Set<String>();
 		for (Fila f : bienes.filas) {
 			if (f.activo == false) { continue; }
-			if (String.isNotBlank(f.clave)) { res.put((bienes.tipo == 'ubicaciones' ? 'I:' : 'C:') + codigo(f.clave), f.id); }
+			if (String.isNotBlank(f.clave)) {
+				String k = codigo(f.clave);
+				if (bienes.tipo == 'ubicaciones') { res.put('I:' + k, f.id); }
+				else {
+					if (!vistos.add(k)) { repetidos.add(k); }
+					res.put('C:' + k, f.id);
+					res.put('CN:' + k + '|' + llaveNombre(f.nombre), f.id);
+					if (f.dependiente != true && !res.containsKey('T:' + k)) { res.put('T:' + k, f.id); }
+				}
+			}
 			if (String.isNotBlank(f.nombre)) { res.put('N:' + llaveNombre(f.nombre), f.id); }
 		}
+		for (String k : repetidos) { res.remove('C:' + k); }
 		return res;
 	}
 
+	static Boolean esTitular(String parentesco) {
+		return String.isBlank(parentesco) || parentesco == 'null' || CensoColectivoController.llave(parentesco).contains('titular');
+	}
 	static Id buscar(String tipo, Map<String, Object> c, Map<String, Id> claves) {
 		List<String> llaves = new List<String>();
 		if (tipo == 'vehiculos') {
@@ -1565,10 +1618,15 @@ public without sharing class PortalPolizasPestanas {
 			llaves.add('I:' + codigo(texto(c.get('inciso'))));
 			llaves.add('N:' + llaveNombre(texto(c.get('ubicacion'))));
 		} else {
-			llaves.add('C:' + codigo(texto(c.get('certificado'))));
 			String completo = c.get('nombreCompleto') != null ? texto(c.get('nombreCompleto'))
 				: texto(c.get('nombre')) + ' ' + texto(c.get('paterno')) + ' ' + texto(c.get('materno'));
-			llaves.add('N:' + llaveNombre(completo));
+			String certificado = codigo(CensoColectivoController.certificadoLimpio(texto(c.get('certificado'))));
+			String nombre = llaveNombre(completo);
+			llaves.add('CN:' + certificado + '|' + nombre);
+			llaves.add('C:' + certificado);
+			llaves.add('N:' + nombre);
+			// Certificado compartido sin nombre que coincida: el titular, si el renglón no dice que es dependiente.
+			if (esTitular(texto(c.get('parentesco')))) { llaves.add('T:' + certificado); }
 		}
 		for (String k : llaves) {
 			if (k.length() > 2 && claves.containsKey(k)) { return claves.get(k); }

@@ -798,4 +798,62 @@ private class PortalPolizasPestanasTest {
 		}
 		System.assertEquals(1, conRA, 'RA solo en el registro con su carta');
 	}
+
+	static Map<String, Object> renglon(Integer n, String tipo, String nombre, String parentesco, String certificado) {
+		return new Map<String, Object>{ 'tipo' => tipo, 'numero' => n, 'nombre' => nombre, 'fecha' => String.valueOf(Date.today()),
+			'campos' => new Map<String, Object>{ 'nombre' => nombre.substringBefore(' '), 'paterno' => nombre.substringAfter(' '),
+				'parentesco' => parentesco, 'certificado' => certificado, 'nacimiento' => '1990-01-0' + n, 'sexo' => 'Mujer' } };
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Archivo sin columna Titular: el titular de cada dependiente es el del mismo certificado (del archivo o
+	 * de la póliza) o, sin certificado («ASIGNAR»), el que está arriba. Con un certificado compartido, la baja es de la
+	 * persona que dice el renglón.
+	 * @return void
+	 */
+	@isTest
+	static void testTitularDelArchivo() {
+		Account empresa = new Account(Name = 'Empresa Titulares');
+		insert empresa;
+		InsurancePolicy pol = poliza(empresa.Id, 'TIT-1', 'GMM');
+		insert pol;
+		List<Contact> cs = new List<Contact>{ new Contact(FirstName = 'Luz', LastName = 'Vega', AccountId = empresa.Id),
+			new Contact(FirstName = 'Leo', LastName = 'Vega', AccountId = empresa.Id) };
+		insert cs;
+		InsurancePolicyParticipant luz = new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, PrimaryParticipantContactId = cs[0].Id,
+			Role = rol('asegurado'), ParticipantCode = '00900', ParticipantName = 'Luz Vega', IsActiveParticipant = true);
+		insert luz;
+		InsurancePolicyParticipant leo = new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, PrimaryParticipantContactId = cs[1].Id,
+			Role = rol('asegurado'), ParticipantCode = '00900', ParticipantName = 'Leo Vega', IsActiveParticipant = true, RelatedInsPolicyParticipantId = luz.Id);
+		insert leo;
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+		Map<String, Object> archivo = new Map<String, Object>{ 'tipo' => 'varios', 'nombre' => 'LAYOUT.xlsx', 'total' => 7,
+			'registros' => new List<Object>{
+				renglon(1, 'alta', 'ADRIANA CORTES', 'TITULAR', '00365'), renglon(2, 'alta', 'JAVIER LOMELI', 'CONYUGE', '00365'),
+				renglon(3, 'alta', 'FERNANDA ALVARADO', 'TITULAR', 'ASIGNAR'), renglon(4, 'alta', 'DANIEL SOLIS', 'CONYUGE', 'ASIGNAR'),
+				renglon(5, 'alta', 'VALENTINA SOLIS', 'HIJA', 'ASIGNAR'), renglon(6, 'alta', 'ANA VEGA', 'HIJA', '00900'),
+				renglon(7, 'baja', 'LEO VEGA', 'HIJO', '00900') } };
+		Test.startTest();
+		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(pol.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null);
+		String error;
+		archivo.put('registros', new List<Object>{ renglon(1, 'alta', 'OTRA PERSONA', 'TITULAR', '00777'), renglon(2, 'alta', 'SIN TITULAR', 'HIJA', '00778') });
+		try { PortalPolizasPestanas.crearSolicitud(pol.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null); }
+		catch (AuraHandledException e) { error = e.getMessage(); }
+		Test.stopTest();
+		System.assertEquals(7, r.get('registrados'));
+		Map<String, String> titular = new Map<String, String>();
+		for (InsurancePolicyParticipant p : [SELECT ParticipantName, RelatedInsPolicyParticipant.ParticipantName FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id]) {
+			titular.put(p.ParticipantName.toUpperCase(), p.RelatedInsPolicyParticipantId == null ? null : p.RelatedInsPolicyParticipant.ParticipantName.toUpperCase());
+		}
+		System.assertEquals('ADRIANA CORTES', titular.get('JAVIER LOMELI'), 'Mismo certificado en el archivo');
+		System.assertEquals('FERNANDA ALVARADO', titular.get('DANIEL SOLIS'), 'El que está arriba');
+		System.assertEquals('FERNANDA ALVARADO', titular.get('VALENTINA SOLIS'), 'El titular de arriba, no el cónyuge');
+		System.assertEquals('LUZ VEGA', titular.get('ANA VEGA'), 'Titular vigente de la póliza con ese certificado');
+		System.assertEquals(false, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :leo.Id].IsActiveParticipant, 'Baja del dependiente');
+		System.assertEquals(true, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :luz.Id].IsActiveParticipant, 'Su titular sigue vigente');
+		System.assert(error != null && error.contains('no encontramos a su titular'), error);
+	}
 }
