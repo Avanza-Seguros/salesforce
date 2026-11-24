@@ -90,8 +90,8 @@
                                         <tr class="slds-line-height_reset enc-solicitudes">
                                             <th scope="col" colspan={columnasTabla}>
                                                 <div class="sol-grid">
-                                                    <span></span><span>Número de movimiento</span><span>Póliza</span><span>Fecha de apertura</span>
-                                                    <span>Fecha de cierre</span><span>Seguimiento</span><span>Prima</span><span></span>
+                                                    <span></span><span>Movimiento</span><span>Póliza</span><span>Fecha de apertura</span>
+                                                    <span>Fecha de cierre</span><span>Tiempo de respuesta</span><span>Seguimiento</span><span>Prima</span><span></span>
                                                 </div>
                                             </th>
                                         </tr>
@@ -110,7 +110,7 @@
                                 <tbody key={b.key}>
                                     <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
                                     <template lwc:if={b.encabezado}>
-                                        <!-- Número de movimiento | Póliza | Fecha de apertura | Fecha de cierre | Seguimiento | Prima (y el resumen). -->
+                                        <!-- Movimiento | Póliza | Fecha de apertura | Fecha de cierre | Tiempo de respuesta | Seguimiento | Prima (y el resumen). -->
                                         <tr class="fila-solicitud">
                                             <td colspan={columnasTabla}>
                                                 <div class="sol-grid">
@@ -120,6 +120,7 @@
                                                     <span class="sol-poliza">{b.poliza}</span>
                                                     <span>{b.aperturaTxt}</span>
                                                     <span>{b.cierreTxt}</span>
+                                                    <span>{b.respuestaTxt}</span>
                                                     <!-- Seguimiento de la solicitud: en Salesforce se cambia con un clic. -->
                                                     <span>
                                                         <template lwc:if={b.puedeSeguimiento}><c-seguimiento-selector valor={b.seguimiento} policy-id={recordId} folio={b.folio}

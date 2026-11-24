@@ -12,7 +12,7 @@ import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { sePuedeEliminar, eliminarRegistro, eliminarSolicitud } from 'c/eliminarMovimiento';
-import { fold, fechaVisible, moneda, descargarExcel, paginasPdf, abrirTabla } from 'c/lectorArchivos';
+import { fold, fechaVisible, tiempoEntre, moneda, descargarExcel, paginasPdf, abrirTabla } from 'c/lectorArchivos';
 import { endosoDeTexto, especificacionUbicacion, mapeoComo, ubicacionesDesdeTabla, TIPOS } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosUbicacionesController.getDatos';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
@@ -366,6 +366,8 @@ export default class MovimientosUbicaciones extends LightningElement {
             poliza: (this.datos && this.datos.nombre) || '',
             aperturaTxt: this.fechaHoraTxt(apertura) || '—',
             cierreTxt: this.fechaHoraTxt(cierre) || '—',
+            // Cuánto tardó en concluirse: de la apertura al cierre.
+            respuestaTxt: tiempoEntre(apertura, cierre) || '—',
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
             // Prima del movimiento: la suma de lo que cobra la aseguradora por cada registro (o el total de sus endosos).

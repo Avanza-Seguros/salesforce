@@ -13,7 +13,7 @@ import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { sePuedeEliminar, eliminarRegistro, eliminarSolicitud } from 'c/eliminarMovimiento';
-import { fechaVisible, moneda, descargarExcel, paginasPdf } from 'c/lectorArchivos';
+import { fechaVisible, tiempoEntre, moneda, descargarExcel, paginasPdf } from 'c/lectorArchivos';
 import { primasPorEndoso, listadoMovimiento, datosDocumento } from 'c/clasificadorArchivos';
 import getDatos from '@salesforce/apex/MovimientosColectivoController.getDatos';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
@@ -551,6 +551,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             poliza: (this.datos && this.datos.nombre) || '',
             aperturaTxt: this.fechaHora(apertura) || '—',
             cierreTxt: this.fechaHora(cierre) || '—',
+            // Cuánto tardó en concluirse: de la apertura al cierre.
+            respuestaTxt: tiempoEntre(apertura, cierre) || '—',
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
             // Prima del movimiento: la suma de lo que cobra la aseguradora por cada registro (o el total de sus endosos).
@@ -1314,7 +1316,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     async adjuntarVarios() {
         const asignaciones = this.varios.filas.filter((f) => f.registroId && f.documentId)
-            .map((f) => ({ documentId: f.documentId, registroId: f.registroId }));
+            .map((f) => ({ documentId: f.documentId, registroId: f.registroId, movimiento: (f.contenido && f.contenido.movimiento) || null }));
         const listados = this.listadosVarios;
         if (!asignaciones.length && !listados.length) { return; }
         this.varios = { ...this.varios, cargando: true };

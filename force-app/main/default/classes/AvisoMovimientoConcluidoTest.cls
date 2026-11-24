@@ -36,7 +36,9 @@ private class AvisoMovimientoConcluidoTest {
 			new Movimiento_Poliza__c(Poliza__c = p.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta', Asegurado__c = 'Ana Prueba',
 				Participante__c = ana.Id, Fecha_Movimiento__c = Date.newInstance(2026, 11, 16)),
 			new Movimiento_Poliza__c(Poliza__c = p.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Baja', Asegurado__c = 'Luis Baja',
-				Certificado__c = '0000005154', Prima__c = -1506.63, Fecha_Movimiento__c = Date.newInstance(2026, 11, 2))
+				Certificado__c = '0000005154', Prima__c = -1506.63, Fecha_Movimiento__c = Date.newInstance(2026, 11, 2)),
+			new Movimiento_Poliza__c(Poliza__c = p.Id, Solicitud__c = 'SOL-0002', Tipo__c = 'Cambio', Asegurado__c = 'Eva Cambio',
+				Detalle__c = 'RFC:  → EVCA900101AAA\nCategoría: 00 → 01')
 		};
 	}
 
@@ -53,7 +55,9 @@ private class AvisoMovimientoConcluidoTest {
 		System.assertEquals(1, r.get('guardadas'));
 		System.assertEquals(1, ((List<String>) r.get('avisos')).size(), 'Ana no tiene una baja');
 		System.assertEquals(337.18, [SELECT Prima__c FROM Movimiento_Poliza__c WHERE Participante__c = :ana].Prima__c);
-		System.assertEquals(-1169.45, EndosoPoliza.solicitudes(p.Id, null)[0].get('prima'), 'La prima de la solicitud es la suma');
+		for (Map<String, Object> s : EndosoPoliza.solicitudes(p.Id, null)) {
+			if (s.get('folio') == 'SOL-0001') { System.assertEquals(-1169.45, s.get('prima'), 'La prima de la solicitud es la suma'); }
+		}
 		System.assertEquals(null, MovimientosColectivoController.contenidoPdf(null));
 		Test.stopTest();
 	}
@@ -74,6 +78,8 @@ private class AvisoMovimientoConcluidoTest {
 			System.assert(html.contains(t), t + ' en ' + html);
 		}
 		System.assertEquals(1, [SELECT COUNT() FROM Task WHERE WhatId = :p.Id AND Subject LIKE '%0001%'], 'Queda la tarea del envío');
+		String cambio = AvisoMovimientoConcluido.cuerpo(p, 'SOL-0002', '');
+		System.assert(cambio.contains('EVCA900101AAA') && cambio.contains('00 ') && cambio.contains('1 cambio'), cambio);
 	}
 
 	@isTest

@@ -12,7 +12,7 @@ import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { sePuedeEliminar, eliminarRegistro, eliminarSolicitud } from 'c/eliminarMovimiento';
-import { fechaVisible, moneda, descargarExcel } from 'c/lectorArchivos';
+import { fechaVisible, tiempoEntre, moneda, descargarExcel } from 'c/lectorArchivos';
 import getDatos from '@salesforce/apex/MovimientosFlotillaController.getDatos';
 import datosComponente from '@salesforce/apex/PortalPolizasPestanas.datosComponente';
 import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.cerrarMovimiento';
@@ -367,6 +367,8 @@ export default class MovimientosFlotilla extends LightningElement {
             poliza: (this.datos && this.datos.nombre) || '',
             aperturaTxt: this.fechaHoraTxt(apertura) || '—',
             cierreTxt: this.fechaHoraTxt(cierre) || '—',
+            // Cuánto tardó en concluirse: de la apertura al cierre.
+            respuestaTxt: tiempoEntre(apertura, cierre) || '—',
             seguimiento,
             claseSeguimiento: this.claseSeguimiento(seguimiento),
             // Prima del movimiento: la suma de lo que cobra la aseguradora por cada registro (o el total de sus endosos).

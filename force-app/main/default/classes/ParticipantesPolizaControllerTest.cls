@@ -282,4 +282,31 @@ private class ParticipantesPolizaControllerTest {
 			Assert.isNotNull(e.getMessage());
 		}
 	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: En el correo de un cambio solo van los archivos del cambio, por su nombre o por lo que se leyó de ellos.
+	 * @return void
+	 */
+	@isTest
+	static void archivosDelCambio() {
+		Datetime registrado = Datetime.newInstance(2026, 11, 23, 19, 0, 0);
+		Map<String, Object> altaCert = archivo('0000000364_ALTA_CERT_X_V1', null, registrado.addHours(-1));
+		Map<String, Object> cambioCert = archivo('0000000364_CAMBIO_CERT_X_V1', null, registrado.addHours(1));
+		Map<String, Object> cambioViejo = archivo('0000000364_CAMBIO_CERT_X_V0', null, registrado.addDays(-30));
+		Map<String, Object> leido = archivo('archivo1', 'Movimiento: Cambio', registrado.addHours(2));
+		Map<String, Object> suelto = archivo('documento', null, registrado.addHours(2));
+		Map<String, Object> altaTarde = archivo('otro', 'Movimiento: Alta', registrado.addHours(2));
+		Assert.areEqual(new List<Object>{ cambioCert, leido }, ParticipantesPolizaController.soloDelCambio(
+			new List<Object>{ altaCert, cambioCert, cambioViejo, leido, suelto, altaTarde }, registrado));
+		Assert.areEqual(new List<Object>{ cambioViejo }, ParticipantesPolizaController.soloDelCambio(new List<Object>{ altaCert, cambioViejo, suelto }, registrado));
+		Assert.areEqual(new List<Object>{ suelto }, ParticipantesPolizaController.soloDelCambio(new List<Object>{ altaCert, suelto, altaTarde }, registrado));
+		Assert.areEqual(0, ParticipantesPolizaController.soloDelCambio(new List<Object>{ altaCert, altaTarde }, registrado).size());
+		Assert.areEqual('Baja', ParticipantesPolizaController.movimientoDeArchivo('0000000371_BAJA_CARTA-ANTIGUEDAD_X', null));
+	}
+
+	static Map<String, Object> archivo(String titulo, String descripcion, Datetime creado) {
+		return new Map<String, Object>{ 'titulo' => titulo, 'descripcion' => descripcion, 'creado' => creado };
+	}
 }

@@ -1115,7 +1115,8 @@ public inherited sharing class MovimientosColectivoController {
 	 *               se pasan a la persona que les toca (su contacto, su cuenta o el propio registro del asegurado). El
 	 *               archivo deja de estar en la póliza. Los que no se asignan se quedan en la póliza.
 	 * @param recordId: póliza u oportunidad donde se subieron.
-	 * @param asignacionesJson: lista de {documentId, registroId}.
+	 * @param asignacionesJson: lista de {documentId, registroId, movimiento}; movimiento (Alta, Baja o Cambio) es el que dice el
+	 *        documento: queda en su descripción, para adjuntar al correo solo los de ese movimiento.
 	 * @return número de archivos adjuntados.
 	 */
 	@AuraEnabled(cacheable=false)
@@ -1127,10 +1128,14 @@ public inherited sharing class MovimientosColectivoController {
 			throw CensoColectivoController.error('Las asignaciones no tienen un formato válido.');
 		}
 		Map<Id, Id> registroPorDocumento = new Map<Id, Id>();
+		Map<Id, String> movimientos = new Map<Id, String>();
 		for (Object o : lista) {
 			Map<String, Object> a = (Map<String, Object>) o;
 			if (a.get('documentId') == null || a.get('registroId') == null) { continue; }
 			registroPorDocumento.put(Id.valueOf((String) a.get('documentId')), Id.valueOf((String) a.get('registroId')));
+			if (new Set<Object>{ 'Alta', 'Baja', 'Cambio' }.contains(a.get('movimiento'))) {
+				movimientos.put(Id.valueOf((String) a.get('documentId')), (String) a.get('movimiento'));
+			}
 		}
 		if (registroPorDocumento.isEmpty()) { return 0; }
 		Savepoint sp = Database.setSavepoint();
@@ -1157,6 +1162,12 @@ public inherited sharing class MovimientosColectivoController {
 				}
 			}
 			if (!nuevos.isEmpty()) { insert nuevos; }
+			if (!movimientos.isEmpty()) {
+				Set<Id> conMovimiento = movimientos.keySet();
+				List<ContentVersion> versiones = [SELECT Id, ContentDocumentId, Description FROM ContentVersion WHERE ContentDocumentId IN :conMovimiento AND IsLatest = true];
+				for (ContentVersion v : versiones) { v.Description = ParticipantesPolizaController.MARCA_MOVIMIENTO + movimientos.get(v.ContentDocumentId); }
+				update versiones;
+			}
 			// Ya no quedan en la póliza u oportunidad.
 			if (recordId != null) {
 				List<ContentDocumentLink> quitar = [SELECT Id FROM ContentDocumentLink WHERE LinkedEntityId = :recordId AND ContentDocumentId IN :docs];

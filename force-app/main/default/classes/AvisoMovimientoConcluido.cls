@@ -3,7 +3,7 @@
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Correo al cliente cuando una solicitud de movimientos (altas, bajas y cambios) queda concluida, a mano o
  *               al cerrarse su último movimiento, con el resumen de lo realizado: cada registro con su movimiento, su
- *               fecha, su estado (Concluido, o Rechazado con el motivo) y su prima, y el total de la solicitud.
+ *               fecha, su estado (Concluido, o Rechazado con el motivo), su prima y, si es un cambio, qué datos cambiaron, y el total de la solicitud.
  *               Va a quien envió la solicitud desde el sitio de empresas o, si no vino del sitio, al contratante de la
  *               póliza. Se envía en segundo plano: una falla del correo no impide concluir. Cada envío queda como tarea
  *               en la póliza. Fuera de producción va a los destinatarios de prueba, nunca al cliente.
@@ -120,7 +120,7 @@ public without sharing class AvisoMovimientoConcluido implements Queueable {
 	@TestVisible
 	static String cuerpo(InsurancePolicy p, String folio, String filaPrueba) {
 		List<Movimiento_Poliza__c> movs = [
-			SELECT Tipo__c, Asegurado__c, Certificado__c, Fecha_Movimiento__c, Fecha_Cierre__c, Seguimiento__c, Motivo_Rechazo__c,
+			SELECT Tipo__c, Asegurado__c, Certificado__c, Detalle__c, Fecha_Movimiento__c, Fecha_Cierre__c, Seguimiento__c, Motivo_Rechazo__c,
 				Numero_Endoso__c, Prima__c, Participante__c, Inciso__c, Inciso__r.Numero_Inciso__c, Inciso__r.Descripcion__c
 			FROM Movimiento_Poliza__c WHERE Poliza__c = :p.Id AND Solicitud__c = :folio ORDER BY CreatedDate, Id LIMIT 5000
 		];
@@ -159,7 +159,7 @@ public without sharing class AvisoMovimientoConcluido implements Queueable {
 					: CensoColectivoController.certificadoLimpio(m.Certificado__c);
 				if (clave == null) { clave = personas ? 'POR ASIGNAR' : ''; }
 				tabla += '<tr>' + td(clave) + td(String.isNotBlank(m.Asegurado__c) ? m.Asegurado__c : (m.Inciso__c == null ? '' : m.Inciso__r.Descripcion__c))
-					+ td(m.Tipo__c) + td(fecha(m.Fecha_Movimiento__c))
+					+ tdMovimiento(m) + td(fecha(m.Fecha_Movimiento__c))
 					+ td(rechazado ? 'Rechazado' + (String.isBlank(m.Motivo_Rechazo__c) ? '' : ': ' + m.Motivo_Rechazo__c) : 'Concluido')
 					+ (conPrima ? td(dinero(m.Prima__c)) : '') + '</tr>';
 			}
@@ -184,6 +184,15 @@ public without sharing class AvisoMovimientoConcluido implements Queueable {
 	private static String numero(String folio) { return folio == null ? '' : folio.replace('SOL-', ''); }
 	private static String esc(String s) { return s == null ? '' : s.escapeHtml4(); }
 	private static String td(String v) { return '<td style="padding:8px;border:1px solid #D5DEEE;">' + esc(v) + '</td>'; }
+	// En un cambio, lo que cambió de cada dato («RFC: anterior → nuevo»).
+	private static String tdMovimiento(Movimiento_Poliza__c m) {
+		List<String> cambios = new List<String>();
+		if (m.Tipo__c == 'Cambio' && String.isNotBlank(m.Detalle__c)) {
+			for (String l : m.Detalle__c.split('\n')) { if (String.isNotBlank(l)) { cambios.add(esc(l.trim())); } }
+		}
+		return '<td style="padding:8px;border:1px solid #D5DEEE;">' + esc(m.Tipo__c)
+			+ (cambios.isEmpty() ? '' : '<div style="margin-top:4px;font-size:12px;color:#555555;">' + String.join(cambios, '<br/>') + '</div>') + '</td>';
+	}
 	private static String dato(String etiqueta, String v) {
 		return String.isBlank(v) ? '' : '<tr><td style="color:#555555;"><b>' + etiqueta + '</b></td><td>' + esc(v) + '</td></tr>';
 	}

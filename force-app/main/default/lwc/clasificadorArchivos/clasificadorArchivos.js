@@ -648,14 +648,16 @@ export function listadoMovimiento(texto) {
 
 /**
  * Número de certificado y de póliza que dice un documento de un asegurado (certificado, credencial…), por su etiqueta.
- * @return { certificado, poliza } (vacíos si no vienen o si el documento trae varios certificados distintos).
+ * @return { certificado, poliza, movimiento } (movimiento: Alta, Baja o Cambio; vacíos si no vienen o si el documento trae varios certificados distintos).
  */
 export function datosDocumento(texto) {
     const t = String(texto || '');
     const certs = new Set([...t.matchAll(/certificado\s*(?:individual)?\s*(?:n[uú]m(?:ero)?|no)?\.?\s*[:#]?\s*(\d{4,12})\b/gi)].map((m) => m[1]).filter((c) => !/^0+$/.test(c)));
     const pol = [...t.matchAll(/p[oó]liza\s*(?:n[uú]m(?:ero)?|no)?\.?\s*[:#]\s*([A-Z0-9][A-Z0-9/-]{3,})/gi)].map((m) => m[1])
         .find((x) => /\d{3,}/.test(x) && !/^\d{1,2}\/\d{1,2}\//.test(x));
-    return { certificado: certs.size === 1 ? [...certs][0] : '', poliza: pol || '' };
+    const mov = /tipo de movimiento\s*:\s*([^\n]*)/i.exec(t);
+    const movimiento = !mov ? '' : (/cambio|modificaci/i.test(mov[1]) ? 'Cambio' : (/baja/i.test(mov[1]) ? 'Baja' : (/alta/i.test(mov[1]) ? 'Alta' : '')));
+    return { certificado: certs.size === 1 ? [...certs][0] : '', poliza: pol || '', movimiento };
 }
 
 /**

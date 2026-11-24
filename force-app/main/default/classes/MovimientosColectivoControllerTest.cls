@@ -356,7 +356,8 @@ private class MovimientosColectivoControllerTest {
 		// El documento de un dependiente queda en él y en su titular.
 		Id maria = participante(pol.Id, 'Mar%');
 		MovimientosColectivoController.asignarArchivos(pol.Id, System.JSON.serialize(new List<Object>{
-			new Map<String, Object>{ 'documentId' => (String) docId, 'registroId' => (String) maria } }));
+			new Map<String, Object>{ 'documentId' => (String) docId, 'registroId' => (String) maria, 'movimiento' => 'Cambio' } }));
+		System.assertEquals('Movimiento: Cambio', [SELECT Description FROM ContentVersion WHERE ContentDocumentId = :docId].Description, 'Lo que dice el documento');
 		System.assertEquals(1, ((List<Object>) MovimientosColectivoController.archivosAsegurado(maria).get('archivos')).size(), 'En el dependiente');
 		System.assertEquals(1, ((List<Object>) MovimientosColectivoController.archivosAsegurado(juan).get('archivos')).size(), 'Y en su titular, sin duplicar');
 		System.assertEquals(0, MovimientosColectivoController.asignarArchivos(pol.Id, '[]'));

@@ -122,14 +122,14 @@ public inherited sharing class ParticipantesPolizaController {
 		if (ids.isEmpty()) { return r; }
 		for (ContentDocumentLink l : [
 			SELECT LinkedEntityId, ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension,
-				ContentDocument.ContentSize, ContentDocument.LastModifiedDate
+				ContentDocument.ContentSize, ContentDocument.LastModifiedDate, ContentDocument.CreatedDate, ContentDocument.Description
 			FROM ContentDocumentLink WHERE LinkedEntityId IN :ids
 			ORDER BY ContentDocument.LastModifiedDate DESC LIMIT 2000
 		]) {
 			if (!r.containsKey(l.LinkedEntityId)) { r.put(l.LinkedEntityId, new List<Map<String, Object>>()); }
 			r.get(l.LinkedEntityId).add(new Map<String, Object>{
 				'id' => l.ContentDocumentId, 'titulo' => l.ContentDocument.Title, 'tipo' => l.ContentDocument.FileExtension,
-				'tamano' => l.ContentDocument.ContentSize,
+				'tamano' => l.ContentDocument.ContentSize, 'creado' => l.ContentDocument.CreatedDate, 'descripcion' => l.ContentDocument.Description,
 				'fecha' => l.ContentDocument.LastModifiedDate == null ? null : l.ContentDocument.LastModifiedDate.date()
 			});
 		}
@@ -415,7 +415,7 @@ public inherited sharing class ParticipantesPolizaController {
 
 	// Archivos de cada participante (contacto, cuenta o participante) como adjuntos. A un dado de baja solo se le adjunta
 	// el documento de su último movimiento de baja; si no se subió ninguno se genera una constancia de baja en PDF.
-	// Los activos solo llevan archivos si se pidió adjuntarlos. Si pasan de 4 MB en total se deja null para avisar.
+	// Los activos solo llevan archivos si se pidió adjuntarlos (en un cambio, solo los del cambio). Si pasan de 4 MB en total se deja null para avisar.
 	@TestVisible
 	private static Map<Id, List<Messaging.EmailFileAttachment>> adjuntos(List<InsurancePolicyParticipant> ps, Boolean todos,
 		InsurancePolicy pol, String aseguradora) {
@@ -446,6 +446,7 @@ public inherited sharing class ParticipantesPolizaController {
 		}
 		ids.remove(null);
 		Map<Id, List<Map<String, Object>>> archivos = archivosDe(ids);
+		Map<Id, Datetime> cambios = cambiosDe(ps, inactivos);
 		Map<Id, List<Object>> porParticipante = new Map<Id, List<Object>>();
 		Set<Id> docIds = new Set<Id>();
 		Long total = 0;
@@ -456,6 +457,7 @@ public inherited sharing class ParticipantesPolizaController {
 			List<Object> suyos = deBaja
 				? (bajaDe.containsKey(p.Id) ? unirArchivos(archivos, new List<Id>{ bajaDe.get(p.Id) }) : new List<Object>())
 				: unirArchivos(archivos, new List<Id>{ p.PrimaryParticipantContactId, p.PrimaryParticipantAccountId, p.Id });
+			if (!deBaja && cambios.containsKey(p.Id)) { suyos = soloDelCambio(suyos, cambios.get(p.Id)); }
 			if (suyos.isEmpty() && deBaja) {
 				Messaging.EmailFileAttachment c = constanciaBaja(datosBaja.get(p.Id), movBaja.get(p.Id), pol, aseguradora);
 				if (c != null) { r.put(p.Id, new List<Messaging.EmailFileAttachment>{ c }); }
@@ -492,6 +494,55 @@ public inherited sharing class ParticipantesPolizaController {
 		}
 		return r;
 	}
+
+	// Asegurados cuyo último movimiento es un cambio: cuándo se registró.
+	private static Map<Id, Datetime> cambiosDe(List<InsurancePolicyParticipant> ps, Set<Id> inactivos) {
+		Set<Id> ids = new Map<Id, InsurancePolicyParticipant>(ps).keySet().clone();
+		ids.removeAll(inactivos);
+		Map<Id, Datetime> r = new Map<Id, Datetime>();
+		if (ids.isEmpty()) { return r; }
+		Set<Id> vistos = new Set<Id>();
+		for (Movimiento_Poliza__c m : [
+			SELECT Participante__c, Tipo__c, CreatedDate FROM Movimiento_Poliza__c WHERE Participante__c IN :ids ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
+		]) {
+			if (vistos.add(m.Participante__c) && m.Tipo__c == 'Cambio') { r.put(m.Participante__c, m.CreatedDate); }
+		}
+		return r;
+	}
+
+	// Archivos del cambio: los que dicen «cambio» en su nombre (o en su contenido, al adjuntarlos) desde que se registró; si
+	// ninguno es de después, los que dicen «cambio». Si ninguno lo dice, los adjuntados después que no son de alta ni de baja.
+	@TestVisible
+	private static List<Object> soloDelCambio(List<Object> archivos, Datetime registrado) {
+		List<Object> delCambio = new List<Object>();
+		List<Object> recientes = new List<Object>();
+		List<Object> otros = new List<Object>();
+		for (Object o : archivos) {
+			Map<String, Object> a = (Map<String, Object>) o;
+			Boolean despues = a.get('creado') != null && (Datetime) a.get('creado') >= registrado;
+			String tipo = movimientoDeArchivo((String) a.get('titulo'), (String) a.get('descripcion'));
+			if (tipo == 'Cambio') {
+				delCambio.add(o);
+				if (despues) { recientes.add(o); }
+			} else if (tipo == null && despues) {
+				otros.add(o);
+			}
+		}
+		return !recientes.isEmpty() ? recientes : (!delCambio.isEmpty() ? delCambio : otros);
+	}
+
+	// Alta, Baja o Cambio según el nombre del archivo («0000000364_CAMBIO_CERT_...») o lo que se leyó de él al adjuntarlo
+	// («Movimiento: Cambio» en su descripción); null si no lo dice.
+	@TestVisible
+	private static String movimientoDeArchivo(String titulo, String descripcion) {
+		String d = descripcion == null ? '' : descripcion;
+		for (String t : new List<String>{ 'Cambio', 'Alta', 'Baja' }) { if (d.startsWith(MARCA_MOVIMIENTO + t)) { return t; } }
+		Set<String> palabras = new Set<String>(CensoColectivoController.llave(titulo == null ? '' : titulo.replace('_', ' ')).split(' '));
+		if (palabras.contains('cambio') || palabras.contains('cambios') || palabras.contains('modificacion')) { return 'Cambio'; }
+		if (palabras.contains('baja') || palabras.contains('bajas')) { return 'Baja'; }
+		return palabras.contains('alta') || palabras.contains('altas') ? 'Alta' : null;
+	}
+	public static final String MARCA_MOVIMIENTO = 'Movimiento: ';
 
 	// Dado de baja: tiene motivo de baja, o está inactivo con fecha de fin.
 	private static Boolean esBaja(InsurancePolicyParticipant p) {

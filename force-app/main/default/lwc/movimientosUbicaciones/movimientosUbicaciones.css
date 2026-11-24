@@ -425,11 +425,11 @@
 /* Excel de la solicitud para la aseguradora (encabezado de la solicitud). */
 .sol-excel { margin-left: auto; }
 
-/* Agrupada por solicitud: Número de movimiento | Póliza | Fecha de apertura | Fecha de cierre | Seguimiento | Prima, con las
+/* Agrupada por solicitud: Movimiento | Póliza | Fecha de apertura | Fecha de cierre | Tiempo de respuesta | Seguimiento | Prima, con las
    mismas columnas en el encabezado de la tabla y en cada solicitud. */
 .sol-grid {
     display: grid;
-    grid-template-columns: 1.75rem 11rem 9rem 12rem 12rem 9rem 8rem minmax(0, auto);
+    grid-template-columns: 1.75rem 7rem 8rem 10rem 10rem 10rem 8.5rem 7rem minmax(0, auto);
     align-items: center;
     gap: 0 0.75rem;
     font-size: 0.75rem;

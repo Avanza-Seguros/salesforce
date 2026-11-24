@@ -94,6 +94,22 @@ export function fecha(v) {
     return iso ? { iso } : { iso: '', invalida: true };
 }
 
+/**
+ * Tiempo entre dos fechas con hora, en sus dos unidades mayores: «3 días 4 h», «2 h 15 min» o «17 min». Vacío si falta alguna.
+ */
+export function tiempoEntre(desde, hasta) {
+    const a = desde ? new Date(desde).getTime() : NaN;
+    const b = hasta ? new Date(hasta).getTime() : NaN;
+    if (Number.isNaN(a) || Number.isNaN(b) || b < a) { return ''; }
+    const min = Math.floor((b - a) / 60000);
+    if (min < 1) { return 'Menos de 1 min'; }
+    const d = Math.floor(min / 1440);
+    const h = Math.floor((min % 1440) / 60);
+    const m = min % 60;
+    const partes = [d ? `${d} ${d === 1 ? 'día' : 'días'}` : '', h ? `${h} h` : '', !d && m ? `${m} min` : ''];
+    return partes.filter((x) => x).join(' ');
+}
+
 export function fechaVisible(iso) {
     if (!iso) { return ''; }
     const [a, m, d] = String(iso).substring(0, 10).split('-');
