@@ -108,6 +108,17 @@ private class CorreoCotizacionAutoTest {
 		Assert.areEqual('523312345678', CorreoCotizacionAuto.whatsapp('52-3312345678'));
 		Assert.areEqual(null, CorreoCotizacionAuto.whatsapp('1234'));
 		Assert.areEqual(null, CorreoCotizacionAuto.whatsapp(null));
+		String sitio = 'https://' + DomainCreator.getExperienceCloudSitesHostname() + '/resource/';
+		for (String l : new List<String>{ '/resource/1795534385000/afirmeLogo', 'resource/1795534385000/afirmeLogo',
+			'https://x--uat.sandbox.lightning.force.com/resource/1795534385000/afirmeLogo',
+			' https://x.my.salesforce.com/resource/1795534385000/afirmeLogo ' }) {
+			Assert.areEqual(sitio + '1795534385000/afirmeLogo', CorreoCotizacionAuto.ligaPublica(l), l);
+		}
+		Assert.areEqual('https://ejemplo.test/a.png', CorreoCotizacionAuto.ligaPublica('ejemplo.test/a.png'));
+		Assert.areEqual('https://x.my.site.com/resource/a', CorreoCotizacionAuto.ligaPublica('https://x.my.site.com/resource/a'));
+		Assert.areEqual(Url.getOrgDomainUrl().toExternalForm() + '/servlet/servlet.ImageServer?id=1', CorreoCotizacionAuto.ligaPublica('/servlet/servlet.ImageServer?id=1'));
+		Assert.areEqual(null, CorreoCotizacionAuto.ligaPublica('/sfc/servlet.shepherd/version/download/068'), 'Archivo interno: siglas');
+		Assert.areEqual(null, CorreoCotizacionAuto.ligaPublica(' '));
 		Assert.areEqual('HDI', CorreoCotizacionAuto.siglas('HDI Seguros'));
 		Assert.areEqual('CH', CorreoCotizacionAuto.siglas('Chubb México'));
 		Assert.areEqual(Date.newInstance(2026, 11, 27), CorreoCotizacionAuto.diasHabiles(Date.newInstance(2026, 11, 24), 3));

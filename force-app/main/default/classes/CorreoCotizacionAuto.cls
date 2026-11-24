@@ -110,7 +110,7 @@ public with sharing class CorreoCotizacionAuto {
 			Map<String, Object> op = new Map<String, Object>{
 				'aseguradora' => String.isNotBlank(q.Aseguradora__r?.Name) ? q.Aseguradora__r.Name : q.Name.substringBefore(' - '),
 				'plan' => plan,
-				'logo' => q.Aseguradora__r?.Logo_URL__c,
+				'logo' => ligaPublica(q.Aseguradora__r?.Logo_URL__c),
 				'primaAnual' => anual,
 				'sumaAsegurada' => q.SumaAsegurada__c,
 				'prima' => moneda(anual),
@@ -187,7 +187,7 @@ public with sharing class CorreoCotizacionAuto {
 				FROM Producer WHERE Id = :o.Producer__c LIMIT 1
 			]) {
 				a.nombre = p.Name;
-				a.logo = p.Logo_URL__c;
+				a.logo = ligaPublica(p.Logo_URL__c);
 				celulares.addAll(new List<String>{ p.Contact?.MobilePhone, p.InternalUser?.MobilePhone, p.Contact?.Phone, p.InternalUser?.Phone, p.Account?.Phone });
 			}
 			a.correo = OpportunityController.getProducerEmail(o.Producer__c);
@@ -332,6 +332,29 @@ public with sharing class CorreoCotizacionAuto {
 				+ '- Constancia de Situación Fiscal\n- Auto a nombre de empresa: acta constitutiva, poder e identificación del representante '
 				+ 'legal, Constancia de Situación Fiscal y comprobante de domicilio de la empresa\n- Auto financiado: la financiera es ________\n\n'
 				+ '(Borra lo que no aplique y adjunta tus archivos antes de enviar)\n\nQuedo atento a mi póliza.\n\nGracias,\n' + cliente);
+	}
+
+	// Liga del logo que abre sin sesión. La de un recurso estático, como la copia Salesforce (/resource/1795534385000/logo o con el
+	// dominio del org), solo abre con sesión: se cambia por la del sitio público. Las que no se pueden abrir desde un correo
+	// (archivos internos) no se usan, para que no salga una imagen rota.
+	@TestVisible
+	private static String ligaPublica(String liga) {
+		if (String.isBlank(liga)) { return null; }
+		String l = liga.trim();
+		Boolean relativa = l.startsWith('/') || l.startsWithIgnoreCase('resource/');
+		if (!relativa && !l.startsWithIgnoreCase('http://') && !l.startsWithIgnoreCase('https://')) { l = 'https://' + l; }
+		String dominio = relativa ? '' : l.substringAfter('://').substringBefore('/').toLowerCase();
+		Boolean interna = relativa || dominio.endsWith('.my.salesforce.com') || dominio.endsWith('.force.com')
+			|| dominio.endsWith('.my.salesforce-setup.com');
+		if (!interna) { return l; }
+		String ruta = relativa ? (l.startsWith('/') ? l : '/' + l) : '/' + l.substringAfter('://').substringAfter('/');
+		if (ruta.contains('/resource/')) {
+			return 'https://' + DomainCreator.getExperienceCloudSitesHostname() + '/resource/' + ruta.substringAfter('/resource/');
+		}
+		if (ruta.contains('servlet.ImageServer') || ruta.startsWith('/sfc/dist/')) {
+			return relativa ? Url.getOrgDomainUrl().toExternalForm() + ruta : l;
+		}
+		return null;
 	}
 
 	// Logo del encabezado: el del agente o, si no tiene, el de Avanza.
