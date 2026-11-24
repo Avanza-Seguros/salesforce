@@ -144,6 +144,16 @@
                 <identifier>RecordOwnerIdField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Logo_URL__c</fieldItem>
+                <identifier>RecordLogo_URL_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-757aa578-6e68-4351-8575-b1c872eea33d</name>
         <type>Facet</type>
     </flexiPageRegions>

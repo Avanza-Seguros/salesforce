@@ -25,6 +25,10 @@
                 <behavior>Edit</behavior>
                 <field>ContactId</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Logo_URL__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>
