@@ -441,8 +441,8 @@
 .filas-cabecera,
 .fila {
     display: grid;
-    grid-template-columns: 32px minmax(130px, 2fr) minmax(110px, 1.5fr) 150px 96px 96px 96px 116px 100px 124px minmax(110px, 1fr) 116px;
-    min-width: 1410px;
+    grid-template-columns: 32px minmax(130px, 2fr) 150px 96px 96px 96px 116px 100px 124px minmax(110px, 1fr) 116px;
+    min-width: 1288px;
     align-items: center;
     column-gap: 12px;
     padding: 0 20px;

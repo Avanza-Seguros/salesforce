@@ -1150,7 +1150,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
         } catch (e) {
             // Si falla la búsqueda, dejamos el nombre escrito para crear al guardar.
-            this.opportunity = { ...this.opportunity, AccountName: clean };
+            const tipo = this.pareceEmpresaNombre(clean) ? 'Empresa' : 'Persona';
+            this.opportunity = { ...this.opportunity, AccountName: clean, tipoCliente: tipo, Mercado__c: this.mercadoPorTipo(tipo) };
             this.isNewAccount = true;
         }
     }
@@ -4346,6 +4347,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             this.handleCancelAddPdf();
         } else {
             this._colectivoPorCrear = null;
+            this._colectivaPorArchivos = true;
             this.pdfArchivos = archivos || [];
             // Ramo provisional para mostrar la sección de cotizaciones colectivas; el real se detecta al leer.
             this.opportunity = {
@@ -4501,6 +4503,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         // Primero mostramos el formulario (comportamiento de siempre). El comparativo
         // de la IA es opcional y NO debe afectar este flujo.
         this.viewMode = VIEW_MODES.CREATE;
+        // Antes se habían subido cotizaciones empresariales y ahora individuales: deja de ser empresarial.
+        if (this._colectivaPorArchivos && !this.opportunity.Id) {
+            this._colectivoPorCrear = null;
+            this.opportunity = { ...this.opportunity, Tipo_Contratacion__c: 'Individual' };
+            this.opportunity = { ...this.opportunity, Mercado__c: this.mercadoPorTipo(this.opportunity.tipoCliente) };
+        }
+        this._colectivaPorArchivos = false;
         this.comparativoHtml = this.repararAcentos(d.comparativoHtml || '');
         this._comparativoGuardado = false;
         this._comparativoDirty = true;
@@ -4533,6 +4542,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         if (nombreCuenta) {
             this.opportunity = { ...this.opportunity, AccountName: nombreCuenta };
             this.resolveAccountByName(nombreCuenta);
+        } else if (this.isRamoGMM) {
+            // Sin nombre del cliente: una cotización individual de GMM es de una persona.
+            this.opportunity = { ...this.opportunity, Mercado__c: this.mercadoPorTipo(this.opportunity.tipoCliente) };
         }
         this.setDefaultAgente(d);
         this.loadEditableQuotes();
@@ -4927,6 +4939,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.asegurados = [];
         this.uploadedQuotes = [];
         this._colectivoPorCrear = null;
+        this._colectivaPorArchivos = false;
         this.hasExtractedData = false;
         this.extractedOpportunityData = null;
         this.selectedQuoteRamo = '';

@@ -18,7 +18,21 @@ const TEXTO_COLECTIVO = /colectiv|subgrupo|\bgmg\b|vida grupo|seguro de grupo|po
 // «Colectivo» que no habla de un seguro de grupo: el tope por siniestro o evento colectivo de una cotización
 // individual (viaje: «límite máximo en caso de siniestro colectivo») o el transporte público colectivo de las exclusiones.
 const NO_COLECTIVO = /\b(?:siniestros?|eventos?|catastrofes?|transportes?(?: publicos?)?|vehiculos?(?: de transporte)?(?: publicos?)?|autobus(?:es)?|camion(?:es)?)(?: de (?:pasajeros|transporte|personas))? colectiv[oa]s?\b/g;
-const esTextoColectivo = (t) => TEXTO_COLECTIVO.test(fold((t || "").substring(0, 20000)).replace(NO_COLECTIVO, " "));
+// Tampoco cuando habla de la póliza de grupo que la persona tiene o deja: beneficios de un GMM individual (MetLife
+// MédicaLife Familiar: «al causar baja de una póliza colectiva», «conversión por endoso colectivo», «salir de la póliza
+// de grupo»). Algunos PDF traen la letra acentuada separada («p ó liza»).
+const OTRA_POLIZA = /\b(?:baja|bajas|salir|salida|sales|conversi ?o ?n|beneficio|proven\w*|procedente\w*|antig ?u ?edad)(?: [a-z0-9]+){0,5}? (?:p ?o ?liza|seguro|endoso) (?:colectiv[oa]|de grupo)\b/g;
+// Cotización de una persona o su familia, y lo que solo trae un seguro de grupo (manda sobre lo anterior).
+const TEXTO_INDIVIDUAL = /gastos m ?e ?dicos(?: mayores)? (?:individual|familiar)|m ?e ?dicalife familiar|personas incluidas en esta cotizaci ?o ?n|integrantes cotizados|nombre del titular|\bgmmi\b/;
+const SOLO_COLECTIVO = /subgrupo|\bgmg\b|vida grupo|colectivo emp|mayores colectivo|seguro colectivo|colectividad/;
+const textoDeGrupo = (t) => fold((t || "").substring(0, 20000)).replace(NO_COLECTIVO, " ").replace(OTRA_POLIZA, " ");
+// Los archivos son cotizaciones de lo mismo: si alguna es claramente de grupo, todas lo son; si solo lo mencionan y
+// alguna es de una persona, no.
+const sonDeGrupo = (textos) => {
+	const limpios = textos.map(textoDeGrupo);
+	return limpios.some((t) => SOLO_COLECTIVO.test(t))
+		|| (limpios.some((t) => TEXTO_COLECTIVO.test(t)) && !limpios.some((t) => TEXTO_INDIVIDUAL.test(t)));
+};
 
 export default class PdfOpportunityCreator extends LightningElement {
 
@@ -277,8 +291,8 @@ export default class PdfOpportunityCreator extends LightningElement {
 		}
 		this.files = accepted;
 		// Un Excel o un PDF de más de 4.5 MB solo puede ser cotización colectiva.
-		if (!this._tipoManual && accepted.some((f) => EXCEL.test(f.name) || f.size > MAX_SIZE)) {
-			this.tipo = "Colectiva";
+		if (!this._tipoManual) {
+			this.tipo = accepted.some((f) => EXCEL.test(f.name) || f.size > MAX_SIZE) ? "Colectiva" : "Individual";
 		}
 
 		if (this.files.length > 0 && this.files.length < MIN_FILES) {
@@ -331,7 +345,7 @@ export default class PdfOpportunityCreator extends LightningElement {
 			);
 
 			// PDF de una cotización o póliza de grupo: se va al flujo colectivo (salvo que se haya elegido Individual).
-			if (!this._tipoManual && pdfTexts.some(esTextoColectivo)) {
+			if (!this._tipoManual && sonDeGrupo(pdfTexts)) {
 				this.tipo = "Colectiva";
 				await this.continuarColectiva();
 				return;

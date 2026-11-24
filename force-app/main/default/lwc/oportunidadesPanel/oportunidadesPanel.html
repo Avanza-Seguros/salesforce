@@ -189,7 +189,6 @@
                         <div class="filas-cabecera" aria-hidden="true">
                             <span></span>
                             <span>Oportunidad</span>
-                            <span>Cuenta</span>
                             <span>Etapa</span>
                             <span>Ramo</span>
                             <span>Tipo</span>
@@ -205,10 +204,9 @@
                                 <li key={r.id} class="fila">
                                     <span class={r.ramoClase} title={r.ramoEtiqueta} aria-hidden="true">{r.ramoIni}</span>
                                     <div class="fila-principal">
-                                        <button type="button" class="fila-nombre" data-id={r.id} data-poliza={r.polizaId} onclick={handleAbrirRegistro}>{r.nombre}</button>
+                                        <button type="button" class="fila-nombre" data-id={r.id} data-poliza={r.polizaId} title={r.abrirTitulo} onclick={handleAbrirEditor}>{r.nombre}</button>
                                         <span class="fila-sub">{r.sub}</span>
                                     </div>
-                                    <span class="celda" title={r.cuenta}>{r.cuenta}</span>
                                     <span class={r.etapaClase}>{r.etapa}</span>
                                     <span class="celda" title={r.ramoEtiqueta}>{r.ramoEtiqueta}</span>
                                     <span class="celda" title={r.tipoVenta}>{r.tipoVenta}</span>
@@ -270,7 +268,7 @@
                                         </div>
                                         <span class="columna-prima">{c.prima}</span>
                                         <template for:each={c.tarjetas} for:item="k">
-                                            <button key={k.id} type="button" class="tarjeta-kanban" data-id={k.id} data-poliza={k.polizaId} onclick={handleAbrirRegistro}>
+                                            <button key={k.id} type="button" class="tarjeta-kanban" data-id={k.id} data-poliza={k.polizaId} title={k.abrirTitulo} onclick={handleAbrirEditor}>
                                                 <span class="kanban-cabecera">
                                                     <span class={k.ramoClaseChica} aria-hidden="true">{k.ramoIni}</span>
                                                     <strong>{k.nombre}</strong>

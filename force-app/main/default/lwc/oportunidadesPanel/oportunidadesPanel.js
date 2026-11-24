@@ -235,7 +235,6 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
                 prima: Number(o.prima) || 0,
                 primaTexto: this.dinero(o.prima),
                 detalleVenta: `${tipoVenta} · ${o.canal || 'Sin canal'}`,
-                cuenta: o.cuenta || '—',
                 tipoVenta,
                 canal: o.canal || '—',
                 cierreTexto: this.formatoFecha(o.fechaCierre),
@@ -661,19 +660,10 @@ export default class OportunidadesPanel extends NavigationMixin(LightningElement
         const { id, name } = event.currentTarget.dataset;
         this.dispatchEvent(new CustomEvent('accion', { detail: { accion: 'archivos', id, nombre: name } }));
     }
+    // El nombre, la tarjeta del tablero y el lápiz: Crear Oportunidad; en Póliza, Ganada y Perdida, el registro de su póliza.
     handleAbrirEditor(event) {
         const { id, poliza } = event.currentTarget.dataset;
         if (poliza) { this.navegarPoliza(poliza); return; }
         this.navegarEditor(id);
-    }
-    // Abre el registro estándar de la oportunidad; en Póliza, Ganada y Perdida, el de su póliza.
-    handleAbrirRegistro(event) {
-        const { id, poliza } = event.currentTarget.dataset;
-        if (poliza) { this.navegarPoliza(poliza); return; }
-        if (!id) { return; }
-        this[NavigationMixin.Navigate]({
-            type: 'standard__recordPage',
-            attributes: { recordId: id, objectApiName: 'Opportunity', actionName: 'view' }
-        });
     }
 }
