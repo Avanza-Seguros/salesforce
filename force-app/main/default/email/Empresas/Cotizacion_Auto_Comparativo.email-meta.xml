@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Correo de cotización de Auto individual (dos o más cotizaciones), botón Enviar Correo de la oportunidad. La clase CorreoCotizacionAuto llena los marcadores con llaves dobles. El testimonio se agrega cuando haya uno real.</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Cotización Auto Comparativo</name>
+    <style>none</style>
+    <subject>{{NOMBRE}}, tu cotización de seguro para el {{VEHICULO}} está lista</subject>
+    <type>custom</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

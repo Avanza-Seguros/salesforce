@@ -1,0 +1,187 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NOMBRE}}, tu cotización de seguro para el {{VEHICULO}} está lista</title>
+<style type="text/css">
+  body { margin:0 !important; padding:0; -webkit-text-size-adjust:100%; }
+  table td { border-collapse:collapse; }
+  @media only screen and (max-width:620px) { .container { width:100% !important; } .qt th, .qt td { padding-left:4px !important; padding-right:4px !important; } }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#EEF2F5;">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#EEF2F5;">Comparamos varias aseguradoras y te compartimos nuestra recomendación. Confirma hoy y deja tu auto protegido.</div>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEF2F5;">
+<tr><td align="center" style="padding:24px 8px;">
+<table class="container" width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:600px;max-width:600px;background:#FFFFFF;border-radius:10px;overflow:hidden;">
+
+<tr><td style="background:#FFFFFF;padding:18px 28px;border-bottom:4px solid #0B3B60;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td valign="middle">{{ENCABEZADO}}</td>
+    <td align="right" valign="middle" style="font-family:Arial, Helvetica, sans-serif;font-size:11px;color:#5B6775;text-transform:uppercase;letter-spacing:1px;">Cotización · Auto</td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:28px 28px 8px 28px;">
+  <h1 style="margin:0 0 10px 0;font-family:Arial, Helvetica, sans-serif;font-size:24px;line-height:1.25;color:#0B3B60;">Hola, {{NOMBRE}}: tu cotización está lista</h1>
+  <p style="margin:0;font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.55;color:#1F2A37;">Comparamos las opciones de varias aseguradoras para proteger tu <strong>{{VEHICULO}}</strong>. Te compartimos el resumen y nuestra recomendación; el detalle de cada opción viene en los PDF adjuntos.</p>
+</td></tr>
+
+<tr><td style="padding:20px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" class="qt" style="border:1px solid #DDE3EA;border-radius:8px;font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1F2A37;">
+    <tr style="background:#EAF2F8;"><th align="left" style="padding:10px;font-size:12px;color:#0B3B60;">Aseguradora y plan</th><th align="right" style="padding:10px;font-size:12px;color:#0B3B60;">Prima anual</th><th style="padding:10px;font-size:12px;color:#0B3B60;text-align:center;">Contratar</th></tr>
+    {{FILAS}}
+  </table>
+</td></tr>
+<tr><td style="padding:16px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td style="background:#EAFAF1;border-left:4px solid #1E8E5A;padding:12px 16px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;color:#1F2A37;"><strong>Nuestra recomendación: {{ASEGURADORA}}.</strong> {{MOTIVO}} Si prefieres otra de las opciones, con gusto te apoyamos con ella.</td>
+  </tr></table>
+</td></tr>
+<!--PLAN_AMPLIO--><tr><td style="padding:20px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #DDE3EA;border-radius:8px;"><tr><td style="padding:16px 20px 8px 20px;">
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#0B3B60;text-transform:uppercase;letter-spacing:1px;padding-bottom:10px;">Qué te cubre un plan amplio</div>
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td width="24" valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1E8E5A;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Daños materiales.</strong> <span style="color:#5B6775;">Reparación de tu auto por choque, volcadura o fenómenos naturales.</span></td></tr><tr><td width="24" valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1E8E5A;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Robo total.</strong> <span style="color:#5B6775;">Te pagamos tu auto si te lo roban.</span></td></tr><tr><td width="24" valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1E8E5A;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Responsabilidad civil.</strong> <span style="color:#5B6775;">Cubre los daños que causes a otras personas o a sus bienes.</span></td></tr><tr><td width="24" valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1E8E5A;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Gastos médicos a ocupantes.</strong> <span style="color:#5B6775;">Atención médica para ti y tus acompañantes.</span></td></tr><tr><td width="24" valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1E8E5A;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 9px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Asistencia vial y legal.</strong> <span style="color:#5B6775;">Grúa, paso de corriente, abogado y fianzas cuando lo necesites.</span></td></tr></table>
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:12px;color:#5B6775;padding-bottom:8px;">Los límites y deducibles exactos de tu plan vienen en el PDF adjunto.</div>
+  </td></tr></table>
+</td></tr><!--/PLAN_AMPLIO-->
+<tr><td style="padding:24px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0B3B60;border-radius:8px;"><tr><td style="padding:20px 22px 8px 22px;">
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:19px;font-weight:bold;color:#FFFFFF;line-height:1.3;padding-bottom:6px;">Más que una póliza, un respaldo</div>
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;color:#CFE0F0;padding-bottom:14px;">Al contratar con Avanza Seguro cuentas con un equipo que estará contigo cuando más lo necesites.</div>
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr><td width="30" valign="top" style="padding:0 0 12px 0;font-family:Arial, Helvetica, sans-serif;font-size:16px;color:#7FD3A8;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 12px 0;font-family:Arial, Helvetica, sans-serif;"><div style="font-size:15px;font-weight:bold;color:#FFFFFF;">Acompañamiento en caso de siniestro</div>
+      <div style="font-size:14px;line-height:1.5;color:#CFE0F0;padding-top:2px;">Te orientamos desde el reporte y damos seguimiento con la aseguradora hasta su resolución.</div></td></tr>
+      <tr><td width="30" valign="top" style="padding:0 0 12px 0;font-family:Arial, Helvetica, sans-serif;font-size:16px;color:#7FD3A8;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 12px 0;font-family:Arial, Helvetica, sans-serif;"><div style="font-size:15px;font-weight:bold;color:#FFFFFF;">Asesoría clara</div>
+      <div style="font-size:14px;line-height:1.5;color:#CFE0F0;padding-top:2px;">Te explicamos tus coberturas y lo que debes hacer en cada situación.</div></td></tr>
+      <tr><td width="30" valign="top" style="padding:0 0 12px 0;font-family:Arial, Helvetica, sans-serif;font-size:16px;color:#7FD3A8;font-weight:bold;">&#10003;</td>
+      <td valign="top" style="padding:0 0 12px 0;font-family:Arial, Helvetica, sans-serif;"><div style="font-size:15px;font-weight:bold;color:#FFFFFF;">Atención personal</div>
+      <div style="font-size:14px;line-height:1.5;color:#CFE0F0;padding-top:2px;">Te atienden tu agente y nuestro equipo, que conocen tu póliza y tu historial.</div></td></tr></table>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:20px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#F4F6F8;border-radius:8px;"><tr><td style="padding:14px 12px;">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td width="33%" align="center" valign="top" style="padding:6px 4px;font-family:Arial, Helvetica, sans-serif;"><div style="font-size:20px;font-weight:bold;color:#0B3B60;">+50,000</div><div style="font-size:12px;color:#5B6775;">familias protegidas</div></td><td width="33%" align="center" valign="top" style="padding:6px 4px;font-family:Arial, Helvetica, sans-serif;"><div style="font-size:20px;font-weight:bold;color:#0B3B60;">+15 años</div><div style="font-size:12px;color:#5B6775;">de experiencia</div></td><td width="33%" align="center" valign="top" style="padding:6px 4px;font-family:Arial, Helvetica, sans-serif;"><div style="font-size:20px;font-weight:bold;color:#0B3B60;">4.9</div><div style="font-size:12px;color:#5B6775;"><span style='color:#F5B301;font-size:15px;letter-spacing:1px;'>&#9733;&#9733;&#9733;&#9733;&#9733;</span><br>en Google</div></td></tr></table>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:24px 28px 0 28px;">
+  <div style="font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#0B3B60;text-transform:uppercase;letter-spacing:1px;padding-bottom:14px;">Pasos para contratar</div>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td width="40" valign="top" style="padding:0 0 16px 0;">
+          <div style="width:28px;height:28px;line-height:28px;border-radius:14px;background:#0B3B60;color:#FFFFFF;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;text-align:center;">1</div>
+        </td>
+        <td valign="top" style="padding:3px 0 16px 0;font-family:Arial, Helvetica, sans-serif;">
+          <div style="font-size:15px;font-weight:bold;color:#1F2A37;">Revisa el comparativo</div>
+          <div style="font-size:14px;line-height:1.5;color:#5B6775;padding-top:2px;">En el PDF «Comparativo» adjunto encontrarás el detalle de coberturas y deducibles de cada opción.</div>
+        </td>
+      </tr>
+      <tr>
+        <td width="40" valign="top" style="padding:0 0 16px 0;">
+          <div style="width:28px;height:28px;line-height:28px;border-radius:14px;background:#0B3B60;color:#FFFFFF;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;text-align:center;">2</div>
+        </td>
+        <td valign="top" style="padding:3px 0 16px 0;font-family:Arial, Helvetica, sans-serif;">
+          <div style="font-size:15px;font-weight:bold;color:#1F2A37;">Confirma la opción que elegiste</div>
+          <div style="font-size:14px;line-height:1.5;color:#5B6775;padding-top:2px;">Elige tu opción en la tabla, por correo o por WhatsApp, o comunícalo a tu agente. Con tu confirmación iniciamos la emisión de tu póliza.</div>
+        </td>
+      </tr>
+      <tr>
+        <td width="40" valign="top" style="padding:0 0 16px 0;">
+          <div style="width:28px;height:28px;line-height:28px;border-radius:14px;background:#0B3B60;color:#FFFFFF;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;text-align:center;">3</div>
+        </td>
+        <td valign="top" style="padding:3px 0 16px 0;font-family:Arial, Helvetica, sans-serif;">
+          <div style="font-size:15px;font-weight:bold;color:#1F2A37;">Envía tus documentos</div>
+          <div style="font-size:14px;line-height:1.5;color:#5B6775;padding-top:2px;">Reúne los documentos de la lista de abajo y envíalos a tu agente o a cotizaciones@avanzaseguro.com.</div>
+        </td>
+      </tr>
+      <tr>
+        <td width="40" valign="top" style="padding:0 0 16px 0;">
+          <div style="width:28px;height:28px;line-height:28px;border-radius:14px;background:#0B3B60;color:#FFFFFF;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;text-align:center;">4</div>
+        </td>
+        <td valign="top" style="padding:3px 0 16px 0;font-family:Arial, Helvetica, sans-serif;">
+          <div style="font-size:15px;font-weight:bold;color:#1F2A37;">Emitimos tu póliza</div>
+          <div style="font-size:14px;line-height:1.5;color:#5B6775;padding-top:2px;">Con tus documentos completos emitimos tu póliza y te la enviamos por correo.</div>
+        </td>
+      </tr>
+      <tr>
+        <td width="40" valign="top" style="padding:0 0 16px 0;">
+          <div style="width:28px;height:28px;line-height:28px;border-radius:14px;background:#0B3B60;color:#FFFFFF;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;text-align:center;">5</div>
+        </td>
+        <td valign="top" style="padding:3px 0 16px 0;font-family:Arial, Helvetica, sans-serif;">
+          <div style="font-size:15px;font-weight:bold;color:#1F2A37;">Realiza tu pago</div>
+          <div style="font-size:14px;line-height:1.5;color:#5B6775;padding-top:2px;">Junto con tu póliza recibes las opciones de pago para dejarla activa.</div>
+        </td>
+      </tr>
+  </table>
+</td></tr>
+<tr><td style="padding:20px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #DDE3EA;border-radius:8px;"><tr><td style="padding:18px 20px 8px 20px;">
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#0B3B60;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Documentos para emitir tu póliza de auto</div>
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:13px;color:#5B6775;padding-bottom:12px;">Fotos legibles o PDF son suficientes.</div>
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+        <tr><td width="28" valign="top" style="padding:4px 0 8px 0;"><div style='width:14px;height:14px;border:2px solid #0B3B60;border-radius:3px;'></div></td>
+        <td valign="top" style="padding:2px 0 8px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Identificación oficial vigente</strong><br><span style="color:#5B6775;font-size:13px;">INE o pasaporte, por ambos lados.</span></td></tr>
+        <tr><td width="28" valign="top" style="padding:4px 0 8px 0;"><div style='width:14px;height:14px;border:2px solid #0B3B60;border-radius:3px;'></div></td>
+        <td valign="top" style="padding:2px 0 8px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Comprobante de domicilio</strong><br><span style="color:#5B6775;font-size:13px;">No mayor a 3 meses (luz, agua, teléfono o estado de cuenta).</span></td></tr>
+        <tr><td width="28" valign="top" style="padding:4px 0 8px 0;"><div style='width:14px;height:14px;border:2px solid #0B3B60;border-radius:3px;'></div></td>
+        <td valign="top" style="padding:2px 0 8px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>CURP</strong><br><span style="color:#5B6775;font-size:13px;">Solo si no aparece en tu identificación.</span></td></tr>
+        <tr><td width="28" valign="top" style="padding:4px 0 8px 0;"><div style='width:14px;height:14px;border:2px solid #0B3B60;border-radius:3px;'></div></td>
+        <td valign="top" style="padding:2px 0 8px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Factura del vehículo</strong><br><span style="color:#5B6775;font-size:13px;">O tarjeta de circulación vigente.</span></td></tr>
+        <tr><td width="28" valign="top" style="padding:4px 0 8px 0;"><div style='width:14px;height:14px;border:2px solid #0B3B60;border-radius:3px;'></div></td>
+        <td valign="top" style="padding:2px 0 8px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Número de serie (VIN) y placas</strong><br><span style="color:#5B6775;font-size:13px;">Vienen en la factura o en la tarjeta de circulación.</span></td></tr>
+        <tr><td width="28" valign="top" style="padding:4px 0 8px 0;"><div style='width:14px;height:14px;border:2px solid #0B3B60;border-radius:3px;'></div></td>
+        <td valign="top" style="padding:2px 0 8px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.45;color:#1F2A37;"><strong>Constancia de Situación Fiscal</strong><br><span style="color:#5B6775;font-size:13px;">Si no la envías, la factura se emite con RFC genérico y no será deducible ni podrá usarse como comprobante fiscal a tu nombre.</span></td></tr></table>
+    <div style="font-family:Arial, Helvetica, sans-serif;font-size:13px;line-height:1.5;color:#5B6775;border-top:1px solid #DDE3EA;padding:10px 0 10px 0;margin-top:4px;">
+      <strong style="color:#1F2A37;">Si el auto está a nombre de una empresa:</strong> acta constitutiva, poder del representante legal, identificación del representante, Constancia de Situación Fiscal y comprobante de domicilio de la empresa.<br>
+      <strong style="color:#1F2A37;">Si el auto está financiado:</strong> nombre de la financiera, para registrarla como beneficiario preferente.
+    </div>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:16px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td style="background:#EAF2F8;border-radius:8px;padding:14px 18px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.55;color:#1F2A37;">
+      <strong>¿A dónde envío mis documentos?</strong><br>
+      A tu agente, <strong>{{AGENTE}}</strong> ({{CORREO_AGENTE}}), o directamente a nuestro equipo en <strong>cotizaciones@avanzaseguro.com</strong>. Indica en el asunto tu nombre y la aseguradora elegida.
+    </td></tr></table>
+</td></tr>
+<tr><td style="padding:8px 28px 0 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td style="background:#FFF6E0;border-left:4px solid #B7791F;padding:14px 18px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.55;color:#1F2A37;">
+      <strong>No lo dejes para después.</strong> Las tarifas de las aseguradoras pueden cambiar sin previo aviso y, mientras tu auto no esté asegurado, cualquier imprevisto corre por tu cuenta. Confirma hoy tu opción y en cuanto tengamos tus documentos, emitimos tu póliza.
+    </td></tr></table>
+</td></tr>
+<tr><td align="center" style="padding:18px 28px 8px 28px;">
+  <div style="font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold;color:#0B3B60;padding-bottom:10px;">Asegurar mi auto ahora</div>
+  <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td style="padding:0 5px 6px 5px;"><a href="mailto:cotizaciones@avanzaseguro.com?cc={{CORREO_AGENTE}}&subject=RE%3A%20{{NOMBRE}}%2C%20tu%20cotizaci%C3%B3n%20de%20seguro%20para%20el%20{{VEHICULO}}%20est%C3%A1%20lista&body=Hola%2C%20equipo%20Avanza%20Seguro%20y%20{{AGENTE}}%3A%0A%0AElijo%20la%20opci%C3%B3n%20de%20%5Bescribe%20aqu%C3%AD%20la%20aseguradora%5D%20y%20quiero%20contratar%20mi%20seguro.%0A%0ALes%20adjunto%20mis%20documentos%20para%20la%20emisi%C3%B3n%3A%0A-%20Identificaci%C3%B3n%20oficial%20vigente%20%28INE%20o%20pasaporte%2C%20por%20ambos%20lados%29%0A-%20Comprobante%20de%20domicilio%20no%20mayor%20a%203%20meses%0A-%20CURP%20%28solo%20si%20tu%20identificaci%C3%B3n%20no%20la%20incluye%29%0A-%20Factura%20del%20veh%C3%ADculo%20o%20tarjeta%20de%20circulaci%C3%B3n%20vigente%0A-%20Constancia%20de%20Situaci%C3%B3n%20Fiscal%0A-%20Auto%20a%20nombre%20de%20empresa%3A%20acta%20constitutiva%2C%20poder%20e%20identificaci%C3%B3n%20del%20representante%20legal%2C%20Constancia%20de%20Situaci%C3%B3n%20Fiscal%20y%20comprobante%20de%20domicilio%20de%20la%20empresa%0A-%20Auto%20financiado%3A%20la%20financiera%20es%20________%0A%0A%28Borra%20lo%20que%20no%20aplique%20y%20adjunta%20tus%20archivos%20antes%20de%20enviar%29%0A%0AQuedo%20atento%20a%20mi%20p%C3%B3liza.%0A%0AGracias%2C%0A{{NOMBRE}}" style="display:inline-block;padding:12px 20px;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:6px;background:#0B3B60;">&#9993; Confirmar por correo</a></td>
+    <td style="padding:0 5px 6px 5px;"><a href="https://wa.me/{{WHATSAPP_AGENTE}}?text=Hola%2C%20{{AGENTE}}.%20Soy%20{{NOMBRE}}.%20Elijo%20la%20opci%C3%B3n%20de%20%5Bescribe%20aqu%C3%AD%20la%20aseguradora%5D%20para%20mi%20{{VEHICULO}}%20y%20quiero%20contratar%20mi%20seguro.%20En%20seguida%20te%20env%C3%ADo%20mis%20documentos%20por%20aqu%C3%AD." style="display:inline-block;padding:12px 20px;font-family:Arial, Helvetica, sans-serif;font-size:14px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:6px;background:#25D366;">Confirmar por WhatsApp</a></td>
+  </tr></table><div style='font-family:Arial, Helvetica, sans-serif;font-size:12px;color:#5B6775;padding-top:10px;'>También puedes elegir directo junto a cada opción de la tabla.</div>
+</td></tr>
+<tr><td style="padding:24px 28px 8px 28px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #DDE3EA;border-radius:8px;"><tr>
+    <td style="padding:16px 20px;font-family:Arial, Helvetica, sans-serif;">
+      <div style="font-size:11px;color:#5B6775;text-transform:uppercase;letter-spacing:1px;">Agente a cargo</div>
+      <div style="font-size:16px;font-weight:bold;color:#0B3B60;padding:4px 0 6px 0;">{{AGENTE}}</div>
+      <div style="font-size:14px;color:#1F2A37;line-height:1.6;">Tel. y WhatsApp: {{TELEFONO_AGENTE}}<br>{{CORREO_AGENTE}}</div>
+    </td></tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:16px;"><tr>
+    <td valign="middle" style="font-family:Arial, Helvetica, sans-serif;font-size:14px;color:#1F2A37;line-height:1.5;">Gracias por confiar en nosotros.<br><strong>Avanza Seguro Consultores</strong><br><span style="color:#1E8E5A;font-weight:bold;font-style:italic;">Que nada te detenga</span></td>
+    <td valign="middle" align="right" width="170">{{LOGO_AVANZA}}</td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:22px 28px;background:#F4F6F8;font-family:Arial, Helvetica, sans-serif;font-size:11px;line-height:1.6;color:#6B7682;">
+  <div style="font-size:12px;font-weight:bold;color:#1F2A37;padding-bottom:8px;">Las coberturas están sujetas a las condiciones generales de cada aseguradora.</div>
+  <strong style="color:#1F2A37;">Avanza Seguro Consultores</strong><br>
+  Tel. +52 33 3575 4472 · cotizaciones@avanzaseguro.com<br>
+  Consulta nuestro <a href="https://www.avanzaseguro.com/pages/avisos-de-privacidad" style="color:#0B3B60;text-decoration:underline;">Aviso de Privacidad</a>.
+</td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

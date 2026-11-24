@@ -343,8 +343,7 @@ public with sharing class CorreoOportunidadIA {
 	 * @param cotizaciones: Cotizaciones ordenadas de menor a mayor prima
 	 * @return void
 	 */
-	@TestVisible
-	private static void marcarRecomendada(List<Map<String, Object>> cotizaciones) {
+	public static void marcarRecomendada(List<Map<String, Object>> cotizaciones) {
 		Map<String, Object> menor = null;
 		for (Map<String, Object> c : cotizaciones) {
 			if (c.get('primaAnual') != null) { menor = c; break; }

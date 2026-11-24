@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Imagen de los correos de cotización (CorreoCotizacionAuto)</description>
+    <internalUseOnly>false</internalUseOnly>
+    <name>Correo Icono WhatsApp</name>
+    <public>true</public>
+</Document>

@@ -109,7 +109,14 @@ public with sharing class EnvioCorreoPlantilla {
 		}
 		Messaging.SingleEmailMessage m = null;
 		String redaccion = '';
-		if (String.isNotBlank(s.promptIA) && s.registroId != null) {
+		// Cotización de Auto individual: lleva su propio diseño (el mismo para el cliente y el agente), sin IA.
+		CorreoOportunidadIA.Correo deAuto = CorreoCotizacionAuto.armar(s.registroId);
+		if (deAuto != null) {
+			m = new Messaging.SingleEmailMessage();
+			m.setSubject(deAuto.asunto);
+			m.setHtmlBody(deAuto.html);
+			m.setReplyTo(CorreoCotizacionAuto.RESPUESTA);
+		} else if (String.isNotBlank(s.promptIA) && s.registroId != null) {
 			try {
 				List<String> nombres = new List<String>();
 				for (Messaging.EmailFileAttachment a : adjuntos) { nombres.add(a.getFileName()); }
@@ -129,7 +136,7 @@ public with sharing class EnvioCorreoPlantilla {
 		if (m == null) {
 			m = renderizar(tpls[0].Id, s.destinatarioId, s.registroId);
 		}
-		if (m.getHtmlBody() != null) { m.setHtmlBody(conRamo(m.getHtmlBody(), ramoDe(s.registroId))); }
+		if (deAuto == null && m.getHtmlBody() != null) { m.setHtmlBody(conRamo(m.getHtmlBody(), ramoDe(s.registroId))); }
 		// Solo a la dirección: sin setTargetObjectId, que lo mandaría otra vez al contacto/usuario.
 		m.setToAddresses(new List<String>{ correo });
 		m.setSaveAsActivity(false);
@@ -141,6 +148,7 @@ public with sharing class EnvioCorreoPlantilla {
 		Integer adjuntados = adjuntos.size();
 		Messaging.SendEmailResult res = Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ m }, false)[0];
 		if (!res.isSuccess()) { throw new CorreoException(res.getErrors()[0].getMessage()); }
+		if (deAuto != null) { CorreoCotizacionAuto.seguimiento(s.registroId); }
 		return 'Correo enviado a ' + correo + redaccion + ' con ' + adjuntados + ' PDF(s) adjunto(s)' + aviso + '.';
 	}
 

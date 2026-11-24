@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Ver y llenar las ligas de los logos (agentes y aseguradoras) de los correos de cotización.</description>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Aseguradora__c.Logo_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Producer.Logo_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Logos de correos</label>
+</PermissionSet>
