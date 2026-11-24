@@ -255,7 +255,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     get flechas() {
         const f = {};
-        ['certificado', 'nombre', 'parentesco', 'categoria', 'nacimiento', 'alta', 'movimiento', 'creacion', 'cierre', 'prima',
+        ['certificado', 'nombre', 'parentesco', 'sexo', 'categoria', 'nacimiento', 'alta', 'movimiento', 'creacion', 'cierre', 'prima',
             'estado', 'seguimiento', 'envio', 'correo'].forEach((c) => { f[c] = this.orden.campo === c ? (this.orden.asc ? '▲' : '▼') : ''; });
         return f;
     }
@@ -264,7 +264,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get columnasDetalle() {
         const f = this.flechas;
         const col = (campo, label, clase = 'col-orden') => ({ key: campo, campo, label, clase, flecha: f[campo] });
-        const l = [col('certificado', 'Certificado'), col('nombre', 'Nombre'), col('parentesco', 'Parentesco'), col('categoria', 'Categoría'),
+        const l = [col('certificado', 'Certificado'), col('nombre', 'Nombre'), col('parentesco', 'Parentesco'), col('sexo', 'Sexo'), col('categoria', 'Categoría'),
             col('nacimiento', 'Fecha de nacimiento'), col('alta', 'Fecha de alta')];
         if (this.conFechasMovimiento) { l.push(col('movimiento', 'Fecha de movimiento')); }
         if (this.enPoliza) { l.push(col('creacion', 'Fecha de creación')); }
@@ -278,6 +278,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             case 'certificado': return m.certificado;
             case 'nombre': return m.nombre;
             case 'parentesco': return m.parentesco;
+            case 'sexo': return this.sexoExcel(m);
             case 'categoria': return m.categoria;
             case 'nacimiento': return m.fechaNacimiento;
             case 'alta': return m.fechaAlta;
@@ -510,7 +511,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         };
     }
     get columnasTabla() {
-        return 10 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 4 : 0) + (this.conFechaCierre ? 1 : 0);
+        return 11 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 4 : 0) + (this.conFechaCierre ? 1 : 0);
     }
 
     get filas() {
@@ -538,6 +539,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
             noSeleccionable: this.portal || !m.activo || !this.puedeEditar,
             claseFila: (m.esTitular ? '' : 'fila-dependiente') + ((m.esMovimiento ? m.tipoMovimiento !== 'Baja' : m.activo) ? '' : ' fila-baja'),
+            sexoTxt: this.sexoExcel(m),
             nacimientoTxt: fechaVisible(m.fechaNacimiento),
             altaTxt: fechaVisible(m.fechaAlta),
             fechaMovimientoTxt: fechaVisible(m.fechaMovimiento),
@@ -1799,11 +1801,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         return { nombres: p.join(' '), paterno: '', materno: '' };
     }
     sexoExcel(r) {
-        const s = this.fold(r.sexoContacto || r.sexo);
+        const s = this.fold(r.sexo || r.sexoContacto);
         if (!s) { return ''; }
         if (s.startsWith('f') || s.startsWith('mujer')) { return 'Femenino'; }
         if (s.startsWith('mas') || s.startsWith('h') || s === 'm') { return 'Masculino'; }
-        return r.sexoContacto || r.sexo;
+        return r.sexo || r.sexoContacto;
     }
     fechaHoraTxt(v) {
         if (!v) { return ''; }

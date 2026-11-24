@@ -489,7 +489,7 @@ public inherited sharing class ParticipantesPolizaController {
 	private static List<InsurancePolicyParticipant> participantes(Id policyId) {
 		return [
 			SELECT Id, Name, ParticipantName, ParticipantCode, Role, RelationshipToInsured, IsPolicyholder, IsActiveParticipant,
-				Categoria__c, FechaNacimiento__c, Identificacion__c, Motivo_Baja__c, BeneficiarySharePercentage, IsMinorBeneficiary,
+				Categoria__c, FechaNacimiento__c, Sexo__c, Identificacion__c, Motivo_Baja__c, BeneficiarySharePercentage, IsMinorBeneficiary,
 				EffectiveDate, ExpirationDate, EffectiveFromDate, EffectiveToDate, StandardPremiumAmount,
 				PrimaryParticipantContactId, PrimaryParticipantAccountId, RelatedParticipantContactId, RelatedParticipantAccountId,
 				LegalGuardianId, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,
@@ -538,7 +538,7 @@ public inherited sharing class ParticipantesPolizaController {
 			'titularId' => p.RelatedInsPolicyParticipantId,
 			'titularNombre' => p.RelatedInsPolicyParticipantId == null ? null : p.RelatedInsPolicyParticipant.ParticipantName,
 			'contratante' => p.IsPolicyholder == true, 'activo' => activo, 'categoria' => p.Categoria__c,
-			'fechaNacimiento' => p.FechaNacimiento__c, 'identificacion' => p.Identificacion__c,
+			'fechaNacimiento' => p.FechaNacimiento__c, 'sexo' => p.Sexo__c, 'identificacion' => p.Identificacion__c,
 			'motivoBaja' => p.Motivo_Baja__c == null ? null : motivos.get(p.Motivo_Baja__c),
 			'porcentaje' => p.BeneficiarySharePercentage, 'menor' => p.IsMinorBeneficiary == true,
 			'desde' => p.EffectiveFromDate != null ? p.EffectiveFromDate : (p.EffectiveDate == null ? null : p.EffectiveDate.date()),

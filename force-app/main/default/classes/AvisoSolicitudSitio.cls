@@ -295,7 +295,7 @@ public without sharing class AvisoSolicitudSitio {
 	}
 
 	private static String sexo(Map<String, Object> r) {
-		Object v = r.get('sexoContacto') != null ? r.get('sexoContacto') : r.get('sexo');
+		Object v = r.get('sexo') != null ? r.get('sexo') : r.get('sexoContacto');
 		String s = txt(v).toLowerCase().trim();
 		if (String.isBlank(s)) { return ''; }
 		if (s.startsWith('f') || s.startsWith('mujer')) { return 'Femenino'; }

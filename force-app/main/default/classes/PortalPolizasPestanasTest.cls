@@ -849,6 +849,12 @@ private class PortalPolizasPestanasTest {
 			titular.put(p.ParticipantName.toUpperCase(), p.RelatedInsPolicyParticipantId == null ? null : p.RelatedInsPolicyParticipant.ParticipantName.toUpperCase());
 		}
 		System.assertEquals('ADRIANA CORTES', titular.get('JAVIER LOMELI'), 'Mismo certificado en el archivo');
+		// El sexo del archivo queda en el titular, su contacto y sus dependientes.
+		for (InsurancePolicyParticipant p : [SELECT ParticipantName, Sexo__c, PrimaryParticipantContact.Sexo__c, PrimaryParticipantContactId FROM InsurancePolicyParticipant
+				WHERE InsurancePolicyId = :pol.Id AND ParticipantCode = '00365']) {
+			System.assertEquals('Femenino', p.Sexo__c, p.ParticipantName);
+			if (p.PrimaryParticipantContactId != null) { System.assertEquals('Femenino', p.PrimaryParticipantContact.Sexo__c, p.ParticipantName); }
+		}
 		System.assertEquals('FERNANDA ALVARADO', titular.get('DANIEL SOLIS'), 'El que está arriba');
 		System.assertEquals('FERNANDA ALVARADO', titular.get('VALENTINA SOLIS'), 'El titular de arriba, no el cónyuge');
 		System.assertEquals('LUZ VEGA', titular.get('ANA VEGA'), 'Titular vigente de la póliza con ese certificado');

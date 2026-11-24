@@ -1397,25 +1397,32 @@ public inherited sharing class CensoColectivoController {
 		if (sinContacto.isEmpty()) { return; }
 
 		Map<String, Id> existentes = new Map<String, Id>();
-		for (Contact c : [SELECT Id, Name, FirstName, LastName, Birthdate, RFC__c FROM Contact WHERE AccountId = :accountId LIMIT 10000]) {
+		Set<Id> sinSexo = new Set<Id>();
+		for (Contact c : [SELECT Id, Name, FirstName, LastName, Birthdate, RFC__c, Sexo__c FROM Contact WHERE AccountId = :accountId LIMIT 10000]) {
+			if (c.Sexo__c == null) { sinSexo.add(c.Id); }
 			if (String.isNotBlank(c.RFC__c)) { existentes.put('rfc:' + c.RFC__c.deleteWhitespace().toUpperCase(), c.Id); }
 			existentes.put(llaveContacto((c.FirstName == null ? '' : c.FirstName + ' ') + c.LastName, c.Birthdate), c.Id);
 		}
 
 		List<GroupCensusMember> porCrear = new List<GroupCensusMember>();
 		List<Contact> nuevos = new List<Contact>();
+		Map<Id, Contact> ponerSexo = new Map<Id, Contact>();
 		for (GroupCensusMember m : sinContacto) {
+			String sexo = sexoMiembro(m);
 			String rfc = String.isBlank(m.RFC__c) ? null : 'rfc:' + m.RFC__c.deleteWhitespace().toUpperCase();
 			String llave = llaveContacto((m.FirstName == null || m.FirstName == '-' ? '' : m.FirstName + ' ') + m.LastName, m.Birthdate);
 			Id existe = rfc != null && existentes.containsKey(rfc) ? existentes.get(rfc) : existentes.get(llave);
 			if (existe != null) {
 				m.ContactId = existe;
+				// El contacto que ya existía sin sexo lo toma del asegurado.
+				if (sexo != null && sinSexo.contains(existe)) { ponerSexo.put(existe, new Contact(Id = existe, Sexo__c = sexo)); }
 				continue;
 			}
 			Contact c = new Contact(AccountId = accountId, LastName = m.LastName.left(80), Birthdate = m.Birthdate);
 			if (String.isNotBlank(m.FirstName) && m.FirstName != '-') { c.FirstName = m.FirstName.left(40); }
 			if (String.isNotBlank(m.RFC__c)) { c.RFC__c = m.RFC__c.deleteWhitespace().toUpperCase().left(13); }
 			if (String.isNotBlank(m.Email)) { c.Email = m.Email; }
+			c.Sexo__c = sexo;
 			// Celular: el campo Teléfono tiene una regla de formato que rechazaría el contacto completo.
 			if (String.isNotBlank(m.PhoneNumber)) { c.MobilePhone = m.PhoneNumber.left(40); }
 			porCrear.add(m);
@@ -1436,6 +1443,7 @@ public inherited sharing class CensoColectivoController {
 				}
 			}
 		}
+		if (!ponerSexo.isEmpty()) { Database.update(ponerSexo.values(), false); }
 		List<GroupCensusMember> actualizar = new List<GroupCensusMember>();
 		for (GroupCensusMember m : sinContacto) {
 			if (m.ContactId != null && m.Id != null) { actualizar.add(new GroupCensusMember(Id = m.Id, ContactId = m.ContactId)); }
@@ -1587,6 +1595,25 @@ public inherited sharing class CensoColectivoController {
 	}
 
 	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Sexo como se guarda en el contacto y en el asegurado de la póliza.
+	 * @param valor: Hombre, Mujer, Masculino, Femenino, Male, Female, H o F.
+	 * @return Masculino, Femenino o null.
+	 */
+	public static String sexo(String valor) {
+		String v = llave(valor);
+		if (String.isBlank(v)) { return null; }
+		if (v.startsWith('f') || v.startsWith('muj')) { return 'Femenino'; }
+		return v.startsWith('mas') || v.startsWith('h') || v == 'male' ? 'Masculino' : null;
+	}
+
+	// Sexo del asegurado del censo (si se consultó o se capturó).
+	private static String sexoMiembro(GroupCensusMember m) {
+		return m.getPopulatedFieldsAsMap().containsKey('Gender') ? sexo(m.Gender) : null;
+	}
+
+	/**
 	 * @creation date: 15/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Participante de la póliza con los datos del asegurado del censo.
@@ -1619,6 +1646,7 @@ public inherited sharing class CensoColectivoController {
 			p.ExpirationDate = pol.ExpirationDate;
 		}
 		if (m.Birthdate != null) { p.FechaNacimiento__c = m.Birthdate; }
+		p.Sexo__c = sexoMiembro(m);
 		if (String.isNotBlank(m.RFC__c)) { p.Identificacion__c = m.RFC__c.left(50); }
 		// Prima individual del asegurado (del listado de la aseguradora) como prima del periodo del participante.
 		if (m.Prima__c != null) { p.TermPremiumAmount = m.Prima__c; }

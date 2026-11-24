@@ -695,6 +695,11 @@ public inherited sharing class MovimientosColectivoController {
 			detalle.add('Fecha de nacimiento: ' + texto(p.FechaNacimiento__c) + ' → ' + fn.format());
 			p.FechaNacimiento__c = fn;
 		}
+		String sx = CensoColectivoController.sexo(d.sexo);
+		if (sx != null && sx != p.Sexo__c) {
+			if (p.Sexo__c != null || sx != CensoColectivoController.sexo(sexoDe(p.RelationshipToInsured))) { detalle.add('Sexo: ' + texto(p.Sexo__c) + ' → ' + sx); }
+			p.Sexo__c = sx;
+		}
 		Date fa = CensoColectivoController.fecha(d.fechaAntiguedad);
 		if (fa != null && fa != p.Fecha_Antiguedad__c) {
 			detalle.add('Fecha de antigüedad: ' + texto(p.Fecha_Antiguedad__c) + ' → ' + fa.format());
@@ -955,7 +960,7 @@ public inherited sharing class MovimientosColectivoController {
 	 */
 	private static String camposParticipante() {
 		return 'Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,'
-			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Fecha_Antiguedad__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
+			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Fecha_Antiguedad__c, Sexo__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
 			+ ' EffectiveToDate, IsActiveParticipant, Motivo_Baja__c, Categoria__c, PrimaryParticipantContactId, PrimaryParticipantAccountId,'
 			+ ' Correo_Enviado__c, Fecha_Envio_Correo__c, Plantilla_Correo__c, Correo_Personal__c, CreatedDate'
 			+ (TIENE_CLASE ? ', GroupClassId, GroupClass.Name' : '');
@@ -990,7 +995,7 @@ public inherited sharing class MovimientosColectivoController {
 				'id' => (String) p.Id, 'nombre' => p.ParticipantName, 'esTitular' => esTitular,
 				'titularId' => esTitular ? null : (String) p.RelatedInsPolicyParticipantId,
 				'titularNombre' => esTitular ? null : p.RelatedInsPolicyParticipant.ParticipantName,
-				'parentesco' => parentesco, 'sexo' => sexoDe(p.RelationshipToInsured),
+				'parentesco' => parentesco, 'sexo' => p.Sexo__c != null ? (p.Sexo__c == 'Femenino' ? 'Mujer' : 'Hombre') : sexoDe(p.RelationshipToInsured),
 				'certificado' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
 				'categoria' => nombreClase(p), 'fechaNacimiento' => p.FechaNacimiento__c, 'rfc' => p.Identificacion__c,
 				'fechaAntiguedad' => p.Fecha_Antiguedad__c, 'sumaAsegurada' => sumas.get(p.Id), 'prima' => p.TermPremiumAmount, 'fechaAlta' => p.EffectiveFromDate,

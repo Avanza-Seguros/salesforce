@@ -314,6 +314,8 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
                 ['Certificado', p.certificado || (this.conCertificado ? 'POR ASIGNAR' : '')],
                 ['Categoría', p.categoria],
                 ['Parentesco', p.parentesco],
+                // Sin contacto (dependientes): sus datos van aquí.
+                ['Sexo', p.contacto || p.cuenta ? '' : p.sexo],
                 ['Titular', p.titularNombre],
                 ['Vigencia', p.desde ? `${fechaVisible(p.desde)}${p.hasta ? ' – ' + fechaVisible(p.hasta) : ''}` : ''],
                 ['Motivo de baja', p.motivoBaja],
@@ -356,7 +358,7 @@ export default class ParticipantesPoliza extends NavigationMixin(LightningElemen
             ['Nombre', c.nombre],
             ['Tipo', c.tipo],
             ['RFC', c.rfc],
-            ['Sexo', c.sexo],
+            ['Sexo', (p && p.sexo) || c.sexo],
             ['Fecha de nacimiento', nacimiento ? `${fechaVisible(nacimiento)} (${this.edad(nacimiento)} años)` : ''],
             ['Correo', c.correo],
             ['Teléfono', c.telefono],
