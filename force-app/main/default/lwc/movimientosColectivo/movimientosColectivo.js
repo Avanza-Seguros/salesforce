@@ -217,9 +217,20 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get totalMovimientos() { return ((this.datos && this.datos.movimientos) || []).length; }
     get textoHistorial() { return `Historial (${this.totalMovimientos})`; }
     get sinAsegurados() { return this.miembros.length === 0; }
-    // Los archivos solo se adjuntan a titulares (no a cónyuge, hijos u otros dependientes).
-    get titularesArchivo() { return this.miembros.filter((m) => m.esTitular); }
-    get sinTitulares() { return this.titularesArchivo.length === 0; }
+    // Los documentos se reconocen para titulares y dependientes; los de un dependiente quedan también en su titular (a él
+    // se le envía el correo).
+    get personasArchivo() { return this.miembros; }
+    get sinPersonas() { return this.miembros.length === 0; }
+    familiaDe(m) { return m.esTitular ? m.id : (m.titularId || m.id); }
+    // La persona con más puntos; si empatan las de una misma familia (p. ej. por el certificado), su titular.
+    mejorPersona(hallados) {
+        if (!hallados.length) { return { mejor: null, empate: false }; }
+        const max = Math.max(...hallados.map((h) => h.puntos));
+        const arriba = hallados.filter((h) => h.puntos === max);
+        if (arriba.length === 1) { return { mejor: arriba[0], empate: false }; }
+        const titular = arriba.find((h) => h.m.esTitular) || null;
+        return titular && arriba.every((h) => this.familiaDe(h.m) === titular.m.id) ? { mejor: titular, empate: false } : { mejor: null, empate: true };
+    }
     get puedeTraer() { return this.puedeEditar && this.enOportunidad && this.datos.aseguradosAnterior > 0; }
     get textoTraer() { return `Traer ${this.datos.aseguradosAnterior} asegurados vigentes de ${this.datos.polizaAnteriorNombre}`; }
 
@@ -965,26 +976,24 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const d = this.detectar(fila.nombre, contenido);
         this.actualizarFila(key, { contenido, registroId: d.id, deteccion: d.como });
     }
-    // Titular que nombra el documento: por RFC, por su nombre completo en un renglón o por su certificado.
+    // Persona (titular o dependiente) que nombra el documento: por RFC, por su nombre completo en un renglón o por su certificado.
     personaPorContenido(texto) {
         const lineas = this.fold(texto).split('\n').map((l) => l.split(/[^a-z0-9]+/).filter((t) => t).slice(0, 80)).filter((l) => l.length);
         const pegado = lineas.map((l) => l.join('')).join(' ');
         const { certificado } = datosDocumento(texto);
         const cert = this.fold(certificado);
-        let mejor = null;
-        let empate = false;
-        this.titularesArchivo.forEach((m) => {
+        const hallados = [];
+        this.personasArchivo.forEach((m) => {
             let puntos = 0;
             const rfc = this.fold(m.rfc).replace(/[^a-z0-9]/g, '');
             if (rfc.length >= 10 && pegado.includes(rfc.substring(0, 10))) { puntos = 100; }
             else if (lineas.some((l) => this.nombrePegado(m.nombre, l))) { puntos = 90; }
             if (cert && cert === this.fold(m.certificado).replace(/[^a-z0-9]/g, '')) { puntos += puntos ? 5 : 70; }
             if (puntos && m.activo) { puntos += 0.5; }
-            if (!puntos) { return; }
-            if (!mejor || puntos > mejor.puntos) { mejor = { id: m.id, puntos }; empate = false; }
-            else if (puntos === mejor.puntos) { empate = true; }
+            if (puntos) { hallados.push({ m, puntos }); }
         });
-        return { personaId: mejor && !empate ? mejor.id : null };
+        const { mejor } = this.mejorPersona(hallados);
+        return { personaId: mejor ? mejor.m.id : null };
     }
     // Por el nombre del archivo y por su contenido; si no coinciden, manda lo que dice el documento.
     detectar(nombreArchivo, contenido) {
@@ -1098,9 +1107,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const pegado = tokens.join('');
         const set = new Set(tokens);
         const ignorar = new Set(['de', 'del', 'la', 'las', 'los', 'y']);
-        let mejor = null;
-        let empate = false;
-        this.titularesArchivo.forEach((m) => {
+        const hallados = [];
+        this.personasArchivo.forEach((m) => {
             let puntos = 0;
             let como = '';
             const rfc = this.fold(m.rfc).replace(/[^a-z0-9]/g, '');
@@ -1108,9 +1116,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 puntos = 100; como = 'Por RFC';
             } else {
                 const partes = this.fold(m.nombre).split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !ignorar.has(t));
-                const hallados = partes.filter((t) => set.has(t)).length;
-                if ((partes.length >= 2 && hallados === partes.length) || this.nombrePegado(m.nombre, tokens)) { puntos = 90; como = 'Por nombre'; }
-                else if (hallados >= 2) { puntos = 60 + hallados; como = 'Por nombre (parcial)'; }
+                const iguales = partes.filter((t) => set.has(t)).length;
+                if ((partes.length >= 2 && iguales === partes.length) || this.nombrePegado(m.nombre, tokens)) { puntos = 90; como = 'Por nombre'; }
+                else if (iguales >= 2) { puntos = 60 + iguales; como = 'Por nombre (parcial)'; }
                 const c = this.fold(m.certificado).replace(/[^a-z0-9]/g, '');
                 if (c.length >= 3 && set.has(c)) {
                     if (puntos) { puntos += 5; } else { puntos = 70; como = 'Por certificado'; }
@@ -1118,19 +1126,18 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             }
             // Prefiere a los vigentes sobre los dados de baja con el mismo puntaje.
             if (puntos && m.activo) { puntos += 0.5; }
-            if (!puntos) { return; }
-            if (!mejor || puntos > mejor.puntos) { mejor = { id: m.id, puntos, como }; empate = false; }
-            else if (puntos === mejor.puntos) { empate = true; }
+            if (puntos) { hallados.push({ m, puntos, como }); }
         });
+        const { mejor, empate } = this.mejorPersona(hallados);
         if (!mejor || empate) { return { id: null, como: empate ? 'Coincide con varias personas' : 'No detectado' }; }
-        return { id: mejor.id, como: mejor.como };
+        return { id: mejor.m.id, como: mejor.como };
     }
     get opcionesPersonas() {
         const ops = [{ label: '— Sin asignar (se queda en la póliza) —', value: '' }];
-        [...this.titularesArchivo]
+        [...this.personasArchivo]
             .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)))
             .forEach((m) => ops.push({
-                label: `${m.nombre}${m.certificado ? ' (' + m.certificado + ')' : ''}${m.activo ? '' : ' · baja'}`,
+                label: `${m.nombre}${m.certificado ? ' (' + m.certificado + ')' : ''}${m.esTitular ? '' : ' · ' + (m.parentesco || 'dependiente') + (m.titularNombre ? ' de ' + m.titularNombre : '')}${m.activo ? '' : ' · baja'}`,
                 value: m.id
             }));
         return ops;

@@ -87,7 +87,7 @@
                             <!-- En el sitio (portal) no se adjuntan documentos varios ni se genera el Excel. -->
                             <template lwc:if={interno}>
                             <lightning-button label="Adjuntar documentos" icon-name="utility:attach" onclick={abrirArchivosVarios}
-                                disabled={sinTitulares}></lightning-button>
+                                disabled={sinPersonas}></lightning-button>
                             <!-- Excel de movimientos: solo pólizas empresariales. -->
                             <template if:true={conFechasMovimiento}><lightning-button label="Generar Excel" icon-name="utility:download" onclick={abrirExcel}></lightning-button></template>
                             </template>
@@ -224,7 +224,7 @@
                                                     <template lwc:if={interno}><lightning-button-icon icon-name="utility:ban" alternative-text="Dar de baja" title="Dar de baja"
                                                         data-id={m.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon></template>
                                                 </template>
-                                                <!-- Archivos: solo titulares (en el sitio no). -->
+                                                <!-- Archivos: titulares y los dependientes que ya tienen. -->
                                                 <template if:true={m.muestraArchivos}>
                                                     <lightning-button-icon icon-name="utility:attach" alternative-text={m.textoArchivos} title={m.textoArchivos}
                                                         variant={m.varianteArchivos} data-id={m.id} onclick={abrirArchivos} size="small"

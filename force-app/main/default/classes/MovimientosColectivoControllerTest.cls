@@ -353,6 +353,12 @@ private class MovimientosColectivoControllerTest {
 		System.assertEquals(1, n);
 		System.assertEquals(1, ((List<Object>) r.get('archivos')).size(), 'Quedó en el asegurado');
 		System.assertEquals(0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :pol.Id AND ContentDocumentId = :docId], 'Ya no está en la póliza');
+		// El documento de un dependiente queda en él y en su titular.
+		Id maria = participante(pol.Id, 'Mar%');
+		MovimientosColectivoController.asignarArchivos(pol.Id, System.JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'documentId' => (String) docId, 'registroId' => (String) maria } }));
+		System.assertEquals(1, ((List<Object>) MovimientosColectivoController.archivosAsegurado(maria).get('archivos')).size(), 'En el dependiente');
+		System.assertEquals(1, ((List<Object>) MovimientosColectivoController.archivosAsegurado(juan).get('archivos')).size(), 'Y en su titular, sin duplicar');
 		System.assertEquals(0, MovimientosColectivoController.asignarArchivos(pol.Id, '[]'));
 		try { MovimientosColectivoController.asignarArchivos(pol.Id, 'no es json'); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
 	}

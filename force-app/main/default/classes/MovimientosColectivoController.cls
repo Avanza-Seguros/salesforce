@@ -1127,7 +1127,11 @@ public inherited sharing class MovimientosColectivoController {
 		if (registroPorDocumento.isEmpty()) { return 0; }
 		Savepoint sp = Database.setSavepoint();
 		try {
-			Map<Id, Id> destino = destinosArchivo(new Set<Id>(registroPorDocumento.values()));
+			// El documento de un dependiente queda también en su titular (a él se le envía el correo con sus archivos).
+			Map<Id, Id> titularDe = titularesDe(new Set<Id>(registroPorDocumento.values()));
+			Set<Id> conTitulares = new Set<Id>(registroPorDocumento.values());
+			conTitulares.addAll(titularDe.values());
+			Map<Id, Id> destino = destinosArchivo(conTitulares);
 			Set<Id> docs = registroPorDocumento.keySet();
 			// Enlaces que ya existen (no se duplican).
 			Set<String> existentes = new Set<String>();
@@ -1138,9 +1142,11 @@ public inherited sharing class MovimientosColectivoController {
 			}
 			List<ContentDocumentLink> nuevos = new List<ContentDocumentLink>();
 			for (Id doc : docs) {
-				Id d = destino.get(registroPorDocumento.get(doc));
-				if (d == null || existentes.contains(doc + '|' + d)) { continue; }
-				nuevos.add(new ContentDocumentLink(ContentDocumentId = doc, LinkedEntityId = d, ShareType = 'V'));
+				Id r = registroPorDocumento.get(doc);
+				for (Id d : new Set<Id>{ destino.get(r), destino.get(titularDe.get(r)) }) {
+					if (d == null || !existentes.add(doc + '|' + d)) { continue; }
+					nuevos.add(new ContentDocumentLink(ContentDocumentId = doc, LinkedEntityId = d, ShareType = 'V'));
+				}
 			}
 			if (!nuevos.isEmpty()) { insert nuevos; }
 			// Ya no quedan en la póliza u oportunidad.
@@ -1317,6 +1323,26 @@ public inherited sharing class MovimientosColectivoController {
 			return EncodingUtil.base64Encode([SELECT VersionData FROM ContentVersion WHERE Id = :v.Id].VersionData);
 		}
 		return null;
+	}
+
+	// Titular de cada dependiente (asegurados de la póliza o del censo).
+	private static Map<Id, Id> titularesDe(Set<Id> registros) {
+		Map<Id, Id> r = new Map<Id, Id>();
+		Set<Id> participantes = new Set<Id>();
+		Set<Id> miembros = new Set<Id>();
+		for (Id i : registros) {
+			if (i.getSObjectType() == InsurancePolicyParticipant.SObjectType) { participantes.add(i); }
+			if (i.getSObjectType() == GroupCensusMember.SObjectType) { miembros.add(i); }
+		}
+		if (!participantes.isEmpty()) {
+			for (InsurancePolicyParticipant p : [SELECT Id, RelatedInsPolicyParticipantId FROM InsurancePolicyParticipant
+					WHERE Id IN :participantes AND RelatedInsPolicyParticipantId != null]) { r.put(p.Id, p.RelatedInsPolicyParticipantId); }
+		}
+		if (!miembros.isEmpty()) {
+			for (GroupCensusMember m : [SELECT Id, PrimaryGroupCensusMemberId FROM GroupCensusMember
+					WHERE Id IN :miembros AND PrimaryGroupCensusMemberId != null]) { r.put(m.Id, m.PrimaryGroupCensusMemberId); }
+		}
+		return r;
 	}
 
 	// Registro donde se guardan los archivos de cada asegurado: su contacto, si no su cuenta, si no el propio registro.
