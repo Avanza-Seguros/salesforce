@@ -1047,7 +1047,9 @@ public with sharing class PdfOpportunityCreatorController {
 			}
 			vistas.add(llave);
 			Map<String, Object> fq = mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm);
-			fq.put('primaNeta', primaNetaReal(fq, textoDeCotizacion(fq, fileNames, pdfTexts)));
+			String textoPdf = textoDeCotizacion(fq, fileNames, pdfTexts);
+			fq.put('primaNeta', primaNetaReal(fq, textoPdf));
+			if (ramoForm == 'Automoviles') { fq.put('plan', planDeAuto(stringOf(fq.get('plan')), detalle, textoPdf)); }
 			// Producto y aseguradora encontrados en el catálogo: se precargan en la cotización.
 			Product2 prod = productoPorIndice.get(idx);
 			if (prod != null) {
@@ -2623,8 +2625,10 @@ public with sharing class PdfOpportunityCreatorController {
 		Map<String,Id> asegByName = resolveAseguradoraByName(nombres);
 
 		List<Map<String,Object>> asegOpts = new List<Map<String,Object>>();
+		Map<Id, String> nombreAseg = new Map<Id, String>();
 		for (Aseguradora__c a : [SELECT Id, Name FROM Aseguradora__c ORDER BY Name]) {
 			asegOpts.add(new Map<String,Object>{ 'label' => a.Name, 'value' => a.Id });
+			nombreAseg.put(a.Id, a.Name);
 		}
 
 		for (Object o : raw) {
@@ -2642,7 +2646,9 @@ public with sharing class PdfOpportunityCreatorController {
 			for (Product2 p : prods) {
 				productos.add(new Map<String,Object>{ 'label' => p.Name, 'value' => p.Id });
 			}
-			Id sugerido = productoMasParecido(prods, stringOf(m.get('plan')));
+			Id sugerido = foldRamo(ramo).contains('auto')
+				? productoDeAuto(prods, stringOf(m.get('plan')), compania + ' ' + nombreAseg.get(asegId))
+				: productoMasParecido(prods, stringOf(m.get('plan')));
 
 			out.add(new Map<String,Object>{
 				'id' => stringOf(m.get('id')),
@@ -2730,6 +2736,104 @@ public with sharing class PdfOpportunityCreatorController {
 		}
 		// Si ninguna palabra del plan coincide, no se preselecciona nada: el usuario elige el producto (o lo da de alta).
 		return mejor;
+	}
+
+	// Auto: palabras del producto que no lo distinguen, las de los productos que no son el seguro normal de un auto y los
+	// paquetes (que no se mezclan).
+	private static final Set<String> GENERICAS_AUTO = new Set<String>{
+		'plan', 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'para', 'en', 'seguro', 'seguros', 'poliza', 'auto', 'autos', 'automovil',
+		'automoviles', 'pickup', 'pickups', 'pick', 'up', 'individual', 'individuales', 'personal', 'personales', 'paquete', 'modalidad',
+		'mexico', 'cv', 'sa' };
+	private static final Set<String> ESPECIALES_AUTO = new Set<String>{
+		'flotilla', 'flotillas', 'colectividades', 'empresa', 'pyme', 'pymes', 'corporativo', 'corporativos', 'camion', 'camiones', 'tractos',
+		'tractocamiones', 'equipo', 'pesado', 'carga', 'transporte', 'moto', 'motos', 'motocicleta', 'motocicletas', 'taxi', 'uber', 'chofer',
+		'conductores', 'autobuses', 'pasajeros', 'turista', 'turistas', 'tourist', 'northbound', 'fronterizos', 'regularizados', 'unidos',
+		'clasico', 'lujo', 'beneficios', 'modulo', 'obligatorio', 'autocompara', 'app', 'km', 'movil', 'parametrico' };
+	private static final Map<String, String> PAQUETES_AUTO = new Map<String, String>{
+		'amplia' => 'amplio', 'amplio' => 'amplio', 'limitada' => 'limitado', 'limitado' => 'limitado', 'basica' => 'basico',
+		'basico' => 'basico', 'rc' => 'rc' };
+
+	private static Set<String> tokensAuto(String s) {
+		Set<String> out = new Set<String>();
+		for (String t : tokensDe(s == null ? '' : s.toLowerCase().replace('responsabilidad civil', 'rc'))) {
+			out.add(PAQUETES_AUTO.containsKey(t) ? PAQUETES_AUTO.get(t) : t);
+		}
+		return out;
+	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Producto de una cotización de auto. El plan suele decir solo el paquete («AMPLIA»): gana el producto con más
+	 * palabras del plan y menos palabras de más («Amplia» y «Amplio» son lo mismo). Si ninguno lo menciona, es el seguro de auto
+	 * general de la aseguradora («Seguro de Auto GNP»). No se sugieren los de flotilla, motos, turistas, etc. si el plan no lo dice.
+	 * @param prods: productos de la aseguradora y el ramo.
+	 * @param plan: plan de la cotización.
+	 * @param aseguradora: nombre de la aseguradora (sus palabras no cuentan).
+	 * @return Id del producto, o null si no se sabe cuál es.
+	 */
+	@TestVisible
+	private static Id productoDeAuto(List<Product2> prods, String plan, String aseguradora) {
+		if (prods == null || prods.isEmpty()) { return null; }
+		Set<String> ignorar = GENERICAS_AUTO.clone();
+		ignorar.addAll(tokensDe(aseguradora));
+		Set<String> delPlan = tokensAuto(plan);
+		delPlan.removeAll(ignorar);
+		Set<String> paquetes = new Set<String>(PAQUETES_AUTO.values());
+		Set<String> paquetesPlan = paquetes.clone();
+		paquetesPlan.retainAll(delPlan);
+		Id mejor;
+		Integer mejorComunes = -1;
+		Integer mejorSobran = 0;
+		Boolean mejorIndividual = false;
+		for (Product2 p : prods) {
+			Set<String> nombre = tokensAuto(p.Name);
+			Boolean individual = nombre.contains('individual') || nombre.contains('individuales');
+			nombre.removeAll(ignorar);
+			Set<String> comunes = nombre.clone();
+			comunes.retainAll(delPlan);
+			Set<String> sobran = nombre.clone();
+			sobran.removeAll(delPlan);
+			Boolean especial = false;
+			for (String t : sobran) { if (ESPECIALES_AUTO.contains(t) || (paquetes.contains(t) && !paquetesPlan.isEmpty())) { especial = true; } }
+			if (especial || (comunes.isEmpty() && !sobran.isEmpty())) { continue; }
+			Integer c = comunes.size();
+			Integer s = sobran.size();
+			if (c > mejorComunes || (c == mejorComunes && (s < mejorSobran || (s == mejorSobran && individual && !mejorIndividual)))) {
+				mejor = p.Id;
+				mejorComunes = c;
+				mejorSobran = s;
+				mejorIndividual = individual;
+			}
+		}
+		return mejor;
+	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Plan de una cotización de auto: si la IA puso el vehículo («EX30 ULTRA») o nada, es el paquete que dice el
+	 * documento, cuando solo dice uno. En Afirme se agrega el producto leído de su imagen («AMPLIA ELITE VERDE»).
+	 * @param plan: plan que dio la IA.
+	 * @param vehiculo: detalle del vehículo.
+	 * @param texto: texto del PDF.
+	 * @return el plan.
+	 */
+	@TestVisible
+	private static String planDeAuto(String plan, Map<String, Object> vehiculo, String texto) {
+		String r = plan == null ? '' : plan.trim();
+		Set<String> auto = new Set<String>();
+		for (String k : new List<String>{ 'marca', 'modelo', 'version', 'descripcion', 'anio' }) { auto.addAll(tokensDe(stringOf(vehiculo.get(k)))); }
+		Set<String> palabras = tokensDe(r);
+		if (auto.containsAll(palabras)) {
+			Set<String> paquetes = new Set<String>();
+			Matcher m = Pattern.compile('(?i)\\b(AMPLIA|AMPLIO|LIMITADA|LIMITADO)\\b').matcher(texto == null ? '' : texto);
+			while (m.find()) { paquetes.add(PAQUETES_AUTO.get(m.group(1).toLowerCase())); }
+			if (paquetes.size() == 1) { r = paquetes.contains('amplio') ? 'AMPLIA' : 'LIMITADA'; }
+		}
+		Matcher e = Pattern.compile('Etiqueta Afirme: ((?:ELITE|PREMIUM)(?: VERDE)?)').matcher(texto == null ? '' : texto);
+		if (e.find() && !tokensDe(r).containsAll(tokensDe(e.group(1)))) { r = (r + ' ' + e.group(1)).trim(); }
+		return r;
 	}
 
 	// Palabras que no distinguen un plan de otro ("Plan Total" no se parece a "Plan Essential" por decir "Plan").

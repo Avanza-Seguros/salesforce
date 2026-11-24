@@ -2,6 +2,7 @@ import { LightningElement, track } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import { loadScript } from "lightning/platformResourceLoader";
 import PDFJS from "@salesforce/resourceUrl/pdfjs";
+import { productoAfirme } from "./etiquetaAfirme";
 import fontsResource from "@salesforce/resourceUrl/fuentes_pdf";
 import analyzeQuotes from "@salesforce/apex/PdfOpportunityCreatorController.analyzeQuotes";
 import { fold } from "c/lectorArchivos";
@@ -567,6 +568,15 @@ export default class PdfOpportunityCreator extends LightningElement {
 				const page = await pdf.getPage(p);
 				const content = await page.getTextContent();
 				text += content.items.map((it) => it.str).join(" ") + "\n";
+			}
+			// Afirme: el producto (ELITE VERDE...) viene como imagen.
+			if (/afirmeseguros|afirme seguros|seguros afirme/i.test(text) && /robo total/i.test(text)) {
+				try {
+					const producto = await productoAfirme(pdf, window.pdfjsLib.OPS);
+					if (producto) { text += "Etiqueta Afirme: " + producto + "\n"; }
+				} catch (e) {
+					// Sin la etiqueta se sigue con el texto.
+				}
 			}
 			return text.trim();
 		})();

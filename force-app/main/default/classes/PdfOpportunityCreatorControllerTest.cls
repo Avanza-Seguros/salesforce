@@ -838,4 +838,64 @@ private class PdfOpportunityCreatorControllerTest {
 		quotes[0].put('primaTotal', 1);
 		Assert.areEqual(html, PdfOpportunityCreatorController.corregirFilaNeta(html, quotes), 'Columna sin cotización: no se toca');
 	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El producto de una cotización de auto se encuentra por su paquete, con los nombres del catálogo.
+	 * @return void
+	 */
+	@isTest
+	static void productoDeCotizacionDeAuto() {
+		List<String> chubb = new List<String>{ 'Chubb Auto - Amplia', 'Chubb Auto - Limitada', 'Chubb Auto - RC', 'Seguro de Auto Chubb', 'Seguro de Auto Turista Northbound' };
+		List<String> gnp = new List<String>{ 'Autos (Corporativo)', 'Beneficios Soy Cliente GNP - Seguro de Auto', 'Chofer Privado', 'Responsabilidad Civil Autos',
+			'Seguro Auto Elite', 'Seguro de Auto Básico', 'Seguro de Auto GNP', 'Seguro de Auto Turista GNP', 'Seguro para Motos' };
+		List<String> qualitas = new List<String>{ 'Autos y Pickups Amplio', 'Autos y Pickups Básico', 'Autos y Pickups Limitado', 'Autos y Pickups Personales - Amplio',
+			'RC en Estados Unidos y Canadá', 'Turistas' };
+		List<String> afirme = new List<String>{ 'Automoviles Individuales', 'Seguro de Auto New Generation Elite', 'Seguro de Auto New Generation Elite Verde',
+			'Seguro de Auto New Generation Premium', 'Seguro de Auto New Generation Premium Verde', 'Taxi' };
+		List<String> hdi = new List<String>{ 'Autocompara Santander', 'HDI EN MI AUTO', 'Seguro de Autos', 'Tourist Auto (English Version)' };
+		Assert.areEqual('Chubb Auto - Amplia', producto(chubb, 'AMPLIA', 'Chubb Chubb México'));
+		Assert.areEqual('Chubb Auto - RC', producto(chubb, 'Responsabilidad Civil', 'Chubb México'));
+		Assert.areEqual('Seguro de Auto GNP', producto(gnp, 'AMPLIA', 'GNP GNP Seguros'));
+		Assert.areEqual('Seguro de Auto GNP', producto(gnp, 'Amplia / PREMIER', 'GNP Seguros'));
+		Assert.areEqual('Autos y Pickups Amplio', producto(qualitas, 'AMPLIA', 'Qualitas Quálitas'));
+		Assert.areEqual('Autos y Pickups Limitado', producto(qualitas, 'Limitada', 'Quálitas'));
+		Assert.areEqual('Seguro de Auto New Generation Elite Verde', producto(afirme, 'AMPLIA ELITE VERDE', 'Afirme Seguros'));
+		Assert.areEqual('Seguro de Auto New Generation Premium', producto(afirme, 'AMPLIA PREMIUM', 'Afirme Seguros'));
+		Assert.areEqual('Automoviles Individuales', producto(afirme, 'AMPLIA', 'Afirme Seguros'));
+		Assert.areEqual('HDI EN MI AUTO', producto(hdi, 'HDI EN MI AUTO', 'HDI Seguros'));
+		Assert.areEqual('Seguro de Autos', producto(hdi, 'Amplia Plus', 'HDI Seguros'));
+		Assert.areEqual('Seguro de Auto Individual', producto(new List<String>{ 'Auto', 'Planmed Uber', 'Seguro de Auto Individual' }, 'AMPLIA', 'AXA Seguros'));
+		Assert.areEqual(null, producto(new List<String>{ 'Taxi', 'Seguro para Motos' }, 'AMPLIA', 'X'));
+		Assert.areEqual(null, PdfOpportunityCreatorController.productoDeAuto(null, 'AMPLIA', 'X'));
+	}
+
+	static String producto(List<String> nombres, String plan, String aseguradora) {
+		Map<Id, Product2> prods = new Map<Id, Product2>();
+		String prefijo = Product2.SObjectType.getDescribe().getKeyPrefix();
+		for (Integer i = 0; i < nombres.size(); i++) {
+			Id pid = Id.valueOf(prefijo + String.valueOf(i + 1).leftPad(12, '0'));
+			prods.put(pid, new Product2(Id = pid, Name = nombres[i]));
+		}
+		Id r = PdfOpportunityCreatorController.productoDeAuto(prods.values(), plan, aseguradora);
+		return r == null ? null : prods.get(r).Name;
+	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El plan de auto no es el vehículo: es el paquete que dice el documento; en Afirme lleva su producto.
+	 * @return void
+	 */
+	@isTest
+	static void planDeCotizacionDeAuto() {
+		Map<String, Object> auto = new Map<String, Object>{ 'marca' => 'VOLVO', 'modelo' => 'EX30 ULTRA', 'version' => 'ULTRA 272 CP' };
+		Assert.areEqual('AMPLIA', PdfOpportunityCreatorController.planDeAuto('EX30 ULTRA', auto, 'Paquete: 09/NOV/2027 AMPLIA 1'));
+		Assert.areEqual('AMPLIA', PdfOpportunityCreatorController.planDeAuto(null, auto, 'AMPLIA'));
+		Assert.areEqual('EX30 ULTRA', PdfOpportunityCreatorController.planDeAuto('EX30 ULTRA', auto, 'amplia y limitada'));
+		Assert.areEqual('HDI EN MI AUTO', PdfOpportunityCreatorController.planDeAuto('HDI EN MI AUTO', auto, 'AMPLIA'));
+		Assert.areEqual('AMPLIA ELITE VERDE', PdfOpportunityCreatorController.planDeAuto('AMPLIA', auto, 'x Etiqueta Afirme: ELITE VERDE'));
+		Assert.areEqual('Amplia Elite Verde', PdfOpportunityCreatorController.planDeAuto('Amplia Elite Verde', auto, 'Etiqueta Afirme: ELITE VERDE'));
+	}
 }
