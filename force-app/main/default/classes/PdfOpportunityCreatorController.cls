@@ -1019,6 +1019,15 @@ public with sharing class PdfOpportunityCreatorController {
 		// HERNANDEZ LOPEZ.pdf") y la cotización traer solo el nombre de pila: se toma el del archivo.
 		String nombreArchivo = nombreClienteDesdeArchivos(fileNames, stringOf(cliente.get('nombre')));
 		if (String.isNotBlank(nombreArchivo)) { cliente.put('nombre', nombreArchivo); }
+		quitarContactoAjeno(cliente, pdfTexts);
+		// GMM: el estado de la república del cliente viene en las cotizaciones («Entidad  Sonora», «Residencia  Sonora, Agua
+		// Prieta»); si no, es el que da la IA o el de su código postal.
+		if (ramoForm == 'GMM') {
+			String estado = estadoDesdeTexto(pdfTexts);
+			if (String.isBlank(estado)) { estado = stringOf(detalle.get('estado')); }
+			if (String.isBlank(estado)) { estado = estadoPorCP(stringOf(cliente.get('cp'))); }
+			detalle.put('estado', estado);
+		}
 
 		// Las cotizaciones solo traen lo que cambia entre aseguradoras.
 		// Se descartan las repetidas (misma aseguradora, plan, número y prima): la IA a veces
@@ -1038,6 +1047,7 @@ public with sharing class PdfOpportunityCreatorController {
 			}
 			vistas.add(llave);
 			Map<String, Object> fq = mapAseguradoraToFormQuote((Map<String, Object>) a, ramoForm);
+			fq.put('primaNeta', primaNetaReal(fq, textoDeCotizacion(fq, fileNames, pdfTexts)));
 			// Producto y aseguradora encontrados en el catálogo: se precargan en la cotización.
 			Product2 prod = productoPorIndice.get(idx);
 			if (prod != null) {
@@ -1085,7 +1095,8 @@ public with sharing class PdfOpportunityCreatorController {
 		String htmlIa = stringOf(comparison.get('comparativo_html'));
 		// Si el catálogo corrigió el ramo, el HTML de la IA está armado con el ramo equivocado
 		// (ej. filas de Deducible/Coaseguro de GMM en una póliza de Vida): también se rehace.
-		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas && !ramoCorregido) ? htmlIa : '';
+		String htmlComparativo = (esHtmlComparativoCompleto(htmlIa) && !huboDuplicadas && !ramoCorregido)
+			? corregirFilaNeta(htmlIa, quotes) : '';
 
 		return new Map<String, Object>{
 			'ramo' => ramoForm,
@@ -1397,6 +1408,319 @@ public with sharing class PdfOpportunityCreatorController {
 			'cp' => '',
 			'direccion' => ''
 		};
+	}
+
+	// Importes de una cotización («$ 31,607.03», «-10,903.40», «51,995»).
+	private static final Pattern IMPORTE = Pattern.compile('(-\\s?)?(?<![0-9,.])([0-9]{1,3}(?:,[0-9]{3})+(?:\\.[0-9]{1,2})?|[0-9]+\\.[0-9]{2})(?![0-9])');
+
+	// Texto del archivo del que salió la cotización; '' si no se sabe cuál es.
+	private static String textoDeCotizacion(Map<String, Object> q, List<String> fileNames, List<String> pdfTexts) {
+		if (fileNames == null || pdfTexts == null) { return ''; }
+		String archivo = stringOf(q.get('archivoOrigen')).trim();
+		for (Integer i = 0; i < fileNames.size() && i < pdfTexts.size(); i++) {
+			if (String.isNotBlank(archivo) && archivo.equalsIgnoreCase(stringOf(fileNames[i]).trim())) { return pdfTexts[i] == null ? '' : pdfTexts[i]; }
+		}
+		return '';
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Prima neta de la cotización. La que da la IA se respeta si está en el documento y es menor que el total. Si no,
+	 * se calcula con sus importes: total menos IVA es igual a la neta (con su descuento) más los derechos. Si no desglosa los
+	 * derechos, son la diferencia entre el primer pago y los subsecuentes sin IVA, cuando es la misma en dos formas de pago.
+	 * @param q: cotización (primaNeta, primaTotal y ramo).
+	 * @param texto: texto del PDF de la cotización.
+	 * @return la prima neta, o null si el documento no permite saberla.
+	 */
+	@TestVisible
+	private static Decimal primaNetaReal(Map<String, Object> q, String texto) {
+		Decimal neta = asDecimal(q.get('primaNeta'));
+		if (neta == 0) { neta = null; }
+		Decimal total = asDecimal(q.get('primaTotal'));
+		// Vida y Viajes no desglosan IVA: la neta puede ser el total.
+		if (total == null || total <= 0 || new Set<String>{ 'Vida', 'Viajes' }.contains(stringOf(q.get('ramo')))) { return neta; }
+		Boolean posible = neta != null && neta < total;
+		List<Decimal> importes = new List<Decimal>();
+		List<Decimal> descuentos = new List<Decimal>();
+		Set<String> vistos = new Set<String>();
+		Matcher m = IMPORTE.matcher(texto == null ? '' : texto);
+		while (m.find()) {
+			if (!vistos.add((m.group(1) == null ? '' : '-') + m.group(2))) { continue; }
+			Decimal v = Decimal.valueOf(m.group(2).replace(',', ''));
+			if (m.group(1) == null) { importes.add(v); } else { descuentos.add(v); }
+			if (posible && Math.abs(v - neta) <= 0.01) { return neta; }
+		}
+		Decimal subtotal;
+		for (Decimal v : importes) {
+			if (Math.abs(v - total * 0.16 / 1.16) <= 0.05 || Math.abs(v - total * 0.08 / 1.08) <= 0.05) { subtotal = total - v; }
+		}
+		if (subtotal != null) {
+			Decimal calculada = netaPorDesglose(subtotal, total, importes, descuentos);
+			if (calculada == null) { calculada = netaPorPagos(subtotal, total, importes); }
+			if (calculada != null) { return calculada; }
+		}
+		return posible ? neta : null;
+	}
+
+	// Neta + derechos = subtotal, o neta - descuento + derechos = subtotal.
+	private static Decimal netaPorDesglose(Decimal subtotal, Decimal total, List<Decimal> importes, List<Decimal> descuentos) {
+		List<Decimal> derechos = new List<Decimal>();
+		for (Decimal d : importes) { if (d >= 50 && d <= subtotal * 0.2) { derechos.add(d); } }
+		for (Decimal x : importes) {
+			if (x < subtotal * 0.5) { continue; }
+			for (Decimal d : derechos) {
+				if (Math.abs(x + d - subtotal) <= 0.02) { return x; }
+			}
+		}
+		for (Decimal x : importes) {
+			if (x < subtotal * 0.5) { continue; }
+			for (Decimal menos : descuentos) {
+				for (Decimal d : derechos) {
+					if (Math.abs(x - menos + d - subtotal) <= 0.02) { return x < total ? x : x - menos; }
+				}
+			}
+		}
+		return null;
+	}
+
+	// Los derechos se cobran en el primer pago: primer pago - subsecuente, sin IVA (la misma cifra en dos formas de pago).
+	private static Decimal netaPorPagos(Decimal subtotal, Decimal total, List<Decimal> importes) {
+		List<Decimal> pagos = new List<Decimal>();
+		for (Decimal v : importes) { if (v >= total / 20 && v <= total * 0.75) { pagos.add(v); } }
+		if (pagos.size() > 60) { return null; }
+		Decimal factor = total / subtotal;
+		Map<Long, Set<Integer>> formas = new Map<Long, Set<Integer>>();
+		for (Decimal primero : pagos) {
+			for (Decimal siguiente : pagos) {
+				Decimal derecho = (primero - siguiente) / factor;
+				if (derecho < 50 || derecho > subtotal * 0.2) { continue; }
+				for (Integer n : new List<Integer>{ 1, 3, 11 }) {
+					Decimal financiado = primero + siguiente * n;
+					for (Decimal v : importes) {
+						if (v < total || Math.abs(v - financiado) > 0.12) { continue; }
+						Long redondo = derecho.round();
+						if (!formas.containsKey(redondo)) { formas.put(redondo, new Set<Integer>()); }
+						formas.get(redondo).add(n);
+					}
+				}
+			}
+		}
+		for (Long d : formas.keySet()) { if (formas.get(d).size() >= 2) { return subtotal - d; } }
+		return null;
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pone en la fila «Prima neta» del comparativo de la IA la prima neta de cada cotización (la columna se reconoce
+	 * por su prima total), con formato de moneda; «—» si el documento no la trae. Sin ninguna, se quita la fila.
+	 * @param html: comparativo de la IA.
+	 * @param quotes: cotizaciones con su prima neta.
+	 * @return el comparativo corregido.
+	 */
+	@TestVisible
+	private static String corregirFilaNeta(String html, List<Map<String, Object>> quotes) {
+		List<String> filas = html.split('(?i)</tr>');
+		Integer iNeta = -1;
+		List<String> totales;
+		for (Integer i = 0; i < filas.size(); i++) {
+			Integer ini = filas[i].toLowerCase().lastIndexOf('<tr');
+			if (ini < 0) { continue; }
+			List<String> celdas = celdasDe(filas[i].substring(ini));
+			if (celdas.isEmpty()) { continue; }
+			String titulo = textoPlano(celdas[0]);
+			if (iNeta < 0 && titulo == 'prima neta') { iNeta = i; }
+			if (totales == null && (titulo.contains('prima total') || titulo.contains('precio anual'))) { totales = celdas; }
+		}
+		if (iNeta < 0 || totales == null) { return html; }
+		Integer ini = filas[iNeta].toLowerCase().lastIndexOf('<tr');
+		List<String> partes = filas[iNeta].substring(ini).split('(?i)(?=</t[dh]>)');
+		Integer conDato = 0;
+		// Cada parte termina en el contenido de una celda; la última solo cierra la fila.
+		for (Integer c = 1; c < partes.size() - 1; c++) {
+			Decimal neta;
+			Boolean hallada = false;
+			for (Map<String, Object> q : quotes) {
+				Decimal total = asDecimal(q.get('primaTotal'));
+				if (c >= totales.size() || total == null) { continue; }
+				// El total completo, no como parte de otro (3,720.83 en 23,720.83).
+				String conComas = dosDecimales(total).removeEnd('.00');
+				if (Pattern.compile('(?<![0-9,.])(?:' + conComas.replace('.', '\\.') + '|' + conComas.replace(',', '').replace('.', '\\.')
+					+ ')(?:\\.00?)?(?![0-9]|[.,][0-9])').matcher(totales[c]).find()) {
+					hallada = true;
+					neta = asDecimal(q.get('primaNeta'));
+					break;
+				}
+			}
+			if (!hallada) { return html; }
+			if (neta != null && neta > 0) { conDato++; }
+			Integer abre = partes[c].toLowerCase().indexOf('<t', 1);
+			Integer fin = abre < 0 ? -1 : partes[c].indexOf('>', abre);
+			if (fin < 0) { return html; }
+			partes[c] = partes[c].substring(0, fin + 1) + (neta != null && neta > 0 ? '$' + dosDecimales(neta) : '—');
+		}
+		if (conDato == 0) {
+			String antes = filas.remove(iNeta).substring(0, ini);
+			filas[iNeta] = antes + filas[iNeta];
+		} else {
+			filas[iNeta] = filas[iNeta].substring(0, ini) + String.join(partes, '');
+		}
+		return String.join(filas, '</tr>');
+	}
+
+	// Texto de cada celda de una fila.
+	private static List<String> celdasDe(String fila) {
+		List<String> celdas = new List<String>();
+		List<String> partes = fila.split('(?i)</t[dh]>');
+		for (String p : partes) {
+			Integer abre = Math.max(p.toLowerCase().lastIndexOf('<td'), p.toLowerCase().lastIndexOf('<th'));
+			if (abre >= 0) { celdas.add(p.substring(abre).replaceAll('<[^>]*>', ' ').replace('&nbsp;', ' ').trim()); }
+		}
+		return celdas;
+	}
+
+	// 19748.9 -> 19,748.90
+	private static String dosDecimales(Decimal v) {
+		List<String> p = v.setScale(2, System.RoundingMode.HALF_UP).toPlainString().split('\\.');
+		return p[0].reverse().replaceAll('([0-9]{3})(?=[0-9])', '$1,').reverse() + '.' + p[1];
+	}
+
+	// De quién es un dato de contacto, según lo que se lee antes de él: del agente o la aseguradora, o del cliente.
+	private static final Pattern MARCA_CONTACTO = Pattern.compile(
+		'(\\bagentes?\\b|\\basesor|\\bpromotor|\\bsuscriptor|avanza seguro|comuni(?:car|que)|\\bllam[ae]|contact[ae]nos|escribanos'
+		+ '|atenci ?o ?n |unidad especializada|centro de contacto|condusef|sin costo)'
+		+ '|\\b(contratante|asegurad[oa] (?:titular|principal)|asegurado|titular|solicitante|cliente|prospecto)\\b');
+	// Domicilios de aseguradoras y de la Condusef impresos en las cotizaciones.
+	private static final Pattern DOMICILIO_ASEGURADORA = Pattern.compile(
+		'(?:cerro de las torres\\D{0,12}395|insurgentes sur\\D{0,14}(?:1457|762)|felix cuevas\\D{0,10}366|castorena\\D{0,10}426'
+		+ '|revolucion\\D{0,10}507|paseo de la reforma\\D{0,10}342|avila camacho\\D{0,10}164)(?!\\d)');
+	private static final Pattern CP_DIRECCION = Pattern.compile('\\bc ?\\. ?p ?\\.? ?([0-9]{5})(?![0-9])|\\bcp ([0-9]{5})(?![0-9])');
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Quita de los datos del cliente el correo, teléfono y dirección que no son suyos: los de Avanza, los que en la
+	 * cotización están junto al agente o a la aseguradora, los 800, el domicilio de la aseguradora y la dirección de otro C.P.
+	 * @param cliente: datos del cliente leídos por la IA; se modifican.
+	 * @param pdfTexts: textos extraídos de los PDFs.
+	 */
+	@TestVisible
+	private static void quitarContactoAjeno(Map<String, Object> cliente, List<String> pdfTexts) {
+		List<String> textos = new List<String>();
+		for (String t : pdfTexts == null ? new List<String>() : pdfTexts) { textos.add(textoPlano(t)); }
+		String email = textoPlano(stringOf(cliente.get('email')));
+		if (email.contains('@avanzaseguro') || esAjeno(Pattern.quote(email), email, textos)) { cliente.put('email', ''); }
+		String digitos = stringOf(cliente.get('telefono')).replaceAll('[^0-9]', '');
+		String tel = digitos.right(10);
+		List<String> sueltos = tel.split('');
+		Boolean lada800 = Pattern.matches('(?:01)?800[0-9]{7}', digitos);
+		if (lada800 || (tel.length() >= 8 && esAjeno(String.join(sueltos, '[ ().-]*'), tel, textos))) { cliente.put('telefono', ''); }
+		String direccion = textoPlano(stringOf(cliente.get('direccion')));
+		if (String.isBlank(direccion)) { return; }
+		Matcher m = CP_DIRECCION.matcher(direccion);
+		String cpDireccion = !m.find() ? '' : (m.group(1) != null ? m.group(1) : m.group(2));
+		String cp = stringOf(cliente.get('cp')).trim();
+		Boolean deAseguradora = DOMICILIO_ASEGURADORA.matcher(direccion).find();
+		Boolean otroCp = String.isNotBlank(cpDireccion) && String.isNotBlank(cp) && cpDireccion != cp;
+		if (deAseguradora || otroCp || esAjeno(Pattern.quote(direccion.left(30).trim()), direccion, textos)) {
+			cliente.put('direccion', '');
+			if (deAseguradora && cpDireccion == cp) { cliente.put('cp', ''); }
+		}
+	}
+
+	// El dato aparece en las cotizaciones junto al agente o a la aseguradora y en ninguna junto al cliente.
+	private static Boolean esAjeno(String patron, String valor, List<String> textos) {
+		if (String.isBlank(valor)) { return false; }
+		Boolean ajeno = false;
+		Pattern p = Pattern.compile('(?<![0-9a-z])' + patron);
+		for (String t : textos) {
+			Matcher m = p.matcher(t);
+			while (m.find()) {
+				Matcher marca = MARCA_CONTACTO.matcher(t.substring(Math.max(0, m.start() - 160), m.start()));
+				String ultima;
+				while (marca.find()) { ultima = marca.group(1) != null ? 'ajeno' : 'cliente'; }
+				if (ultima == 'cliente') { return false; }
+				if (ultima == 'ajeno') { ajeno = true; }
+			}
+		}
+		return ajeno;
+	}
+
+	// En minúsculas, sin acentos y con un solo espacio entre palabras.
+	private static String textoPlano(String s) {
+		String t = s == null ? '' : s.toLowerCase();
+		t = t.replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ü', 'u').replace('ñ', 'n');
+		return t.replaceAll('\\s+', ' ').trim();
+	}
+
+	// Estados de la república y los dos primeros dígitos de su código postal (desde, hasta). Baja California Sur va antes que
+	// Baja California, para reconocerlo en el texto.
+	private static final Map<String, List<Integer>> ESTADOS = new Map<String, List<Integer>>{
+		'Ciudad de México' => new List<Integer>{ 1, 16 }, 'Aguascalientes' => new List<Integer>{ 20, 20 },
+		'Baja California Sur' => new List<Integer>{ 23, 23 }, 'Baja California' => new List<Integer>{ 21, 22 },
+		'Campeche' => new List<Integer>{ 24, 24 }, 'Coahuila' => new List<Integer>{ 25, 27 }, 'Colima' => new List<Integer>{ 28, 28 },
+		'Chiapas' => new List<Integer>{ 29, 30 }, 'Chihuahua' => new List<Integer>{ 31, 33 }, 'Durango' => new List<Integer>{ 34, 35 },
+		'Guanajuato' => new List<Integer>{ 36, 38 }, 'Guerrero' => new List<Integer>{ 39, 41 }, 'Hidalgo' => new List<Integer>{ 42, 43 },
+		'Jalisco' => new List<Integer>{ 44, 49 }, 'Estado de México' => new List<Integer>{ 50, 57 }, 'Michoacán' => new List<Integer>{ 58, 61 },
+		'Morelos' => new List<Integer>{ 62, 62 }, 'Nayarit' => new List<Integer>{ 63, 63 }, 'Nuevo León' => new List<Integer>{ 64, 67 },
+		'Oaxaca' => new List<Integer>{ 68, 71 }, 'Puebla' => new List<Integer>{ 72, 75 }, 'Querétaro' => new List<Integer>{ 76, 76 },
+		'Quintana Roo' => new List<Integer>{ 77, 77 }, 'San Luis Potosí' => new List<Integer>{ 78, 79 }, 'Sinaloa' => new List<Integer>{ 80, 82 },
+		'Sonora' => new List<Integer>{ 83, 85 }, 'Tabasco' => new List<Integer>{ 86, 86 }, 'Tamaulipas' => new List<Integer>{ 87, 89 },
+		'Tlaxcala' => new List<Integer>{ 90, 90 }, 'Veracruz' => new List<Integer>{ 91, 96 }, 'Yucatán' => new List<Integer>{ 97, 97 },
+		'Zacatecas' => new List<Integer>{ 98, 99 }
+	};
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Estado de la república del cliente según las cotizaciones: el que sigue a «Entidad», «Estado» o «Residencia».
+	 * @param pdfTexts: textos extraídos de los PDFs.
+	 * @return el estado, o '' si ninguna lo dice.
+	 */
+	@TestVisible
+	private static String estadoDesdeTexto(List<String> pdfTexts) {
+		if (pdfTexts == null) { return ''; }
+		Map<String, String> patrones = new Map<String, String>();
+		for (String e : ESTADOS.keySet()) {
+			String p = e.replace(' ', '\\s+');
+			// Los PDF de MetLife separan las letras acentuadas («Nuevo Le ó n»).
+			for (List<String> v : new List<List<String>>{ new List<String>{ 'á', 'a' }, new List<String>{ 'é', 'e' }, new List<String>{ 'í', 'i' }, new List<String>{ 'ó', 'o' } }) {
+				p = p.replace(v[0], '\\s?[' + v[1] + v[0] + ']\\s?');
+			}
+			patrones.put(e, e == 'Ciudad de México' ? p + '|CDMX|Distrito Federal' : p);
+		}
+		String todos = '(' + String.join(patrones.values(), '|') + ')(?!\\p{L})';
+		Pattern etiqueta = Pattern.compile('(?iu)\\b(?:(?:Entidad(?: federativa)?|Estado(?: de residencia)?)\\s*:?\\s+' + todos
+			+ '|Residencia\\s*:?\\s+(?:[^,.:\\n]{2,40},\\s*)?' + todos + ')');
+		for (String texto : pdfTexts) {
+			if (String.isBlank(texto)) { continue; }
+			Matcher m = etiqueta.matcher(texto);
+			if (!m.find()) { continue; }
+			String encontrado = (m.group(1) != null ? m.group(1) : m.group(2)).trim();
+			for (String e : patrones.keySet()) {
+				if (Pattern.compile('(?iu)(?:' + patrones.get(e) + ')').matcher(encontrado).matches()) { return e; }
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Estado de la república de un código postal, por sus dos primeros dígitos.
+	 * @param cp: código postal de cinco dígitos.
+	 * @return el estado, o '' si no es un código postal.
+	 */
+	@TestVisible
+	private static String estadoPorCP(String cp) {
+		String limpio = cp == null ? '' : cp.trim();
+		if (!Pattern.matches('[0-9]{5}', limpio)) { return ''; }
+		Integer inicio = Integer.valueOf(limpio.left(2));
+		for (String e : ESTADOS.keySet()) {
+			if (inicio >= ESTADOS.get(e)[0] && inicio <= ESTADOS.get(e)[1]) { return e; }
+		}
+		return '';
 	}
 
 	// Etiquetas con las que las aseguradoras ponen el nombre del cliente en la cotización.

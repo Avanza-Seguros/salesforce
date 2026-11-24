@@ -665,4 +665,18 @@ private class OpportunityControllerTest {
         insert c;
         System.assertEquals(c.Id, OpportunityController.contactoDeCuenta(acc.Id), 'Toma el contacto de la cuenta');
     }
+
+    /**
+     * @creation date: 23/11/2026
+     * @author: Sergio Uribe Toledo - Volestra
+     * @description: El nombre completo se separa en nombre(s) y apellidos; con dos palabras no hay apellido materno.
+     * @return void
+     */
+    @isTest
+    static void nombreCompletoSeparado() {
+        Assert.areEqual(new List<String>{ 'VALENTINA', 'MEDINA', null }, OpportunityController.separarNombre(' VALENTINA  MEDINA '));
+        Assert.areEqual(new List<String>{ 'ANA MARIA', 'LOPEZ', 'RUIZ' }, OpportunityController.separarNombre('ANA MARIA LOPEZ RUIZ'));
+        Assert.areEqual(new List<String>{ 'ANA', null, null }, OpportunityController.separarNombre('ANA'));
+        Assert.areEqual(new List<String>{ null, null, null }, OpportunityController.separarNombre(null));
+    }
 }

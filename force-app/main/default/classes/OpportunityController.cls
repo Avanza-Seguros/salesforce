@@ -788,6 +788,13 @@ public with sharing class OpportunityController {
 						}
 					}
 				}
+				// Solo el nombre completo (sin apellidos): se separa, para no guardarlo entero como apellido.
+				if (String.isBlank(paterno) && String.isBlank(materno)) {
+					List<String> completo = separarNombre(String.isNotBlank(acc.FirstName) ? getStr(d, 'clienteNombre') : getStr(d, 'AccountName'));
+					acc.FirstName = capLen(completo[0], 40);
+					paterno = completo[1];
+					materno = completo[2];
+				}
 				String last;
 				if (String.isNotBlank(materno)) {
 					try { acc.put('MiddleName', capLen(paterno, 40)); } catch (Exception ignore) {}
@@ -1434,6 +1441,25 @@ public with sharing class OpportunityController {
 		}
 		insert c;
 		return c.Id;
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Separa un nombre completo como el formulario: con dos palabras, nombre y apellido paterno; con más, las dos
+	 * últimas son los apellidos.
+	 * @param completo: Nombre completo
+	 * @return Lista de tres: nombre(s), apellido paterno y apellido materno (null el que no tiene)
+	 */
+	@TestVisible
+	private static List<String> separarNombre(String completo) {
+		List<String> p = String.isBlank(completo) ? new List<String>() : completo.trim().split('\\s+');
+		Integer n = p.size();
+		if (n < 2) { return new List<String>{ n == 1 ? p[0] : null, null, null }; }
+		if (n == 2) { return new List<String>{ p[0], p[1], null }; }
+		String materno = p.remove(n - 1);
+		String paterno = p.remove(n - 2);
+		return new List<String>{ String.join(p, ' '), paterno, materno };
 	}
 
 	/**

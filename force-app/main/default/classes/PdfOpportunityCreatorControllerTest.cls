@@ -728,4 +728,114 @@ private class PdfOpportunityCreatorControllerTest {
         System.assertEquals(0, danos.size(), 'Sin productos de Daños no ofrece los de otro ramo');
         System.assertEquals(1, vida.size());
     }
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Estado de la república del cliente: por el texto de las cotizaciones o por su código postal.
+	 * @return void
+	 */
+	@isTest
+	static void estadoDelCliente() {
+		Map<String, String> casos = new Map<String, String>{
+			'Fecha de creación  10-11-2026  Entidad  Sonora  Vigencia  10-11-2026' => 'Sonora',
+			'Anual Residencia   Sonora, Agua Prieta Te mostramos' => 'Sonora',
+			'Residencia   Nuevo Le ó n, Monterrey Te mostramos' => 'Nuevo León',
+			'Residencia: La Paz, Baja California Sur' => 'Baja California Sur',
+			'Estado MICHOACAN Población MORELIA' => 'Michoacán',
+			'Estado: CIUDAD DE MÉXICO. Población: Miguel Hidalgo' => 'Ciudad de México',
+			'con base en la zona de residencia del Contratante. A: Baja California, Sonora' => '',
+			'Franja Fronteriza de Estados Unidos con M é xico' => ''
+		};
+		for (String texto : casos.keySet()) {
+			Assert.areEqual(casos.get(texto), PdfOpportunityCreatorController.estadoDesdeTexto(new List<String>{ null, texto }), texto);
+		}
+		Assert.areEqual('', PdfOpportunityCreatorController.estadoDesdeTexto(null));
+		Assert.areEqual('Sonora', PdfOpportunityCreatorController.estadoPorCP('84200'));
+		Assert.areEqual('Ciudad de México', PdfOpportunityCreatorController.estadoPorCP('04200'));
+		Assert.areEqual('', PdfOpportunityCreatorController.estadoPorCP('842'));
+		Assert.areEqual('', PdfOpportunityCreatorController.estadoPorCP('17000'));
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Los datos de contacto del agente o de la aseguradora no quedan como del cliente; los del cliente sí.
+	 * @return void
+	 */
+	@isTest
+	static void contactoDelCliente() {
+		List<String> textos = new List<String>{ null,
+			'Agente:    AVANZA SEGURO CONSULTORES  Tel é fono:    52-3310045546  MetLife',
+			'no dudes en comunicarte con nosotros al 55 5202 1701.',
+			'Contratante: VALENTINA MEDINA  Correo: vale@correo.test  Teléfono: (33) 1122-3344',
+			'Agente: Juan Perez  Correo: juan@otro.test' };
+		Map<String, Object> c = new Map<String, Object>{ 'telefono' => '55 5202 1701', 'email' => 'INFO@AVANZASEGURO.COM', 'cp' => '84200',
+			'direccion' => 'Av. Cerro de las Torres 395 Col. Campestre Churubusco C.P. 04200, Coyoacán, Ciudad de México' };
+		PdfOpportunityCreatorController.quitarContactoAjeno(c, textos);
+		Assert.areEqual(new Map<String, Object>{ 'telefono' => '', 'email' => '', 'cp' => '84200', 'direccion' => '' }, c);
+		c = new Map<String, Object>{ 'telefono' => '52-3310045546', 'email' => 'juan@otro.test', 'cp' => '03920',
+			'direccion' => 'Avenida Insurgentes Sur número 1457, pisos 7 al 14, C. P. 03920' };
+		PdfOpportunityCreatorController.quitarContactoAjeno(c, textos);
+		Assert.areEqual(new Map<String, Object>{ 'telefono' => '', 'email' => '', 'cp' => '', 'direccion' => '' }, c);
+		c = new Map<String, Object>{ 'telefono' => '33 1122 3344', 'email' => 'vale@correo.test', 'cp' => '84200', 'direccion' => 'Calle 5 No. 10, CP 84200' };
+		PdfOpportunityCreatorController.quitarContactoAjeno(c, textos);
+		Assert.areEqual(new Map<String, Object>{ 'telefono' => '33 1122 3344', 'email' => 'vale@correo.test', 'cp' => '84200',
+			'direccion' => 'Calle 5 No. 10, CP 84200' }, c);
+		c = new Map<String, Object>{ 'telefono' => '01 800 123 4567', 'email' => '', 'cp' => '84200', 'direccion' => 'Calle 5, C.P. 44100' };
+		PdfOpportunityCreatorController.quitarContactoAjeno(c, null);
+		Assert.areEqual(new Map<String, Object>{ 'telefono' => '', 'email' => '', 'cp' => '84200', 'direccion' => '' }, c);
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: La prima neta sale del documento: la impresa, la que tiene descuento o la que se calcula con los pagos.
+	 * @return void
+	 */
+	@isTest
+	static void primaNetaDelDocumento() {
+		String afirme = 'Prima Total: $23,720.83 IVA $ 3,271.84 $ 0.00 $ 23,720.83 $ 3,415.61 $ 24,763.18 $ 12,787.58 $ 11,975.60 $ 3,486.71 '
+			+ '$ 25,278.63 $ 6,928.65 $ 6,116.66 $ 3,549.90 $ 25,736.81 $ 2,889.15 $ 2,077.06';
+		String hdi = 'Prima Neta 31,607.03 Descuento -10,903.40 0.00 Derecho de Póliza 750.00 I.V.A. 3,432.58 24,886.21 Total a pagar';
+		String chubb = 'Prima neta 26,807.85 0.00 849.00 4,425.10 32,081.95';
+		String qualitas = 'PRIMA NETA 25,409.26 -508.19 670.00 25,571.07 4,091.37 29,662.44';
+		Assert.areEqual(19748.99, neta(0, 23720.83, 'Automoviles', afirme));
+		Assert.areEqual(20703.63, neta(31607.03, 24886.21, 'Automoviles', hdi));
+		Assert.areEqual(26807.85, neta(28425.85, 32081.95, 'Automoviles', chubb), 'La que no está en el documento no se usa');
+		Assert.areEqual(26807.85, neta(26807.85, 32081.95, 'Automoviles', chubb));
+		Assert.areEqual(25409.26, neta(25409.26, 29662.44, 'Automoviles', qualitas));
+		Assert.areEqual(25409.26, neta(null, 29662.44, 'Automoviles', qualitas));
+		Assert.areEqual(null, neta(31848, 31848, 'Automoviles', 'Prima total anual $ 31,848'), 'Sin desglose no se sabe');
+		Assert.areEqual(51995, neta(51995, 62170, 'GMM', ''));
+		Assert.areEqual(4433, neta(4433, 4433, 'Vida', null));
+	}
+
+	static Decimal neta(Decimal neta, Decimal total, String ramo, String texto) {
+		return PdfOpportunityCreatorController.primaNetaReal(new Map<String, Object>{ 'primaNeta' => neta, 'primaTotal' => total, 'ramo' => ramo }, texto);
+	}
+
+	/**
+	 * @creation date: 23/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: La fila «Prima neta» del comparativo lleva la de cada cotización, aunque las columnas vengan en otro orden.
+	 * @return void
+	 */
+	@isTest
+	static void filaPrimaNeta() {
+		String html = '<table><thead><tr><th>Aseguradora</th><th>A</th><th>B</th><th>C</th></tr></thead><tbody><tr><td>Prima neta</td><td style="x">0</td>'
+			+ '<td><b>31607.03</b></td><td>31848</td></tr><tr><td><b>Precio Anual / Prima total</b></td><td>$23,720.83<br>el más barato</td>'
+			+ '<td>$24,886.21</td><td>$31,848.00</td></tr><tr><td>Robo</td><td>1</td><td>2</td><td>3</td></tr></tbody></table>';
+		List<Map<String, Object>> quotes = new List<Map<String, Object>>{
+			new Map<String, Object>{ 'primaTotal' => 24886.21, 'primaNeta' => 20703.63 },
+			new Map<String, Object>{ 'primaTotal' => 31848, 'primaNeta' => null },
+			new Map<String, Object>{ 'primaTotal' => 23720.83, 'primaNeta' => 19748.9 } };
+		String r = PdfOpportunityCreatorController.corregirFilaNeta(html, quotes);
+		Assert.areEqual(html.replace('<td style="x">0</td><td><b>31607.03</b></td><td>31848</td>', '<td style="x">$19,748.90</td><td>$20,703.63</td><td>—</td>'), r);
+		for (Map<String, Object> q : quotes) { q.put('primaNeta', null); }
+		r = PdfOpportunityCreatorController.corregirFilaNeta(html, quotes);
+		Assert.isTrue(!r.contains('Prima neta') && r.contains('<tbody><tr><td><b>Precio Anual'), r);
+		quotes[0].put('primaTotal', 1);
+		Assert.areEqual(html, PdfOpportunityCreatorController.corregirFilaNeta(html, quotes), 'Columna sin cotización: no se toca');
+	}
 }

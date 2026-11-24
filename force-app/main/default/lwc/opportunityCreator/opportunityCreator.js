@@ -3496,7 +3496,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // (datos viejos), separa el nombre completo. Para empresa, el nombre es la razón social.
     nombrePartesDesdeCuenta(acc) {
         if (acc && acc.IsPersonAccount) {
-            if (acc.clienteApellidoPaterno || acc.clienteApellidoMaterno) {
+            // Sin nombre de pila, el nombre completo quedó guardado como apellido ("VALENTINA MEDINA"): se separa.
+            if (acc.clienteNombre && (acc.clienteApellidoPaterno || acc.clienteApellidoMaterno)) {
                 return {
                     clienteNombre: acc.clienteNombre || '',
                     clienteApellidoPaterno: acc.clienteApellidoPaterno || '',
