@@ -678,7 +678,7 @@ public with sharing class OpportunityController {
 	private static AccountResult toAccountResult(Account a, Boolean tieneMiddle) {
 		AccountResult r = new AccountResult();
 		r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
-		r.typeLabel = tipoDeCuenta(a.IsPersonAccount, a.RecordType?.DeveloperName);
+		r.typeLabel = tipoDeCuenta(a.Name, a.IsPersonAccount, a.RecordType?.DeveloperName);
 		if (a.IsPersonAccount) {
 			// Se invierte el mapeo usado al crear la cuenta persona:
 			//   FirstName = Nombre(s), MiddleName = Apellido Paterno, LastName = Apellido Materno.
@@ -1086,14 +1086,44 @@ public with sharing class OpportunityController {
 	/**
 	 * @creation date: 24/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Tipo de cliente de una cuenta: el que tiene en Salesforce (su tipo de registro), sin ver su nombre.
+	 * @description: Tipo de cliente de una cuenta: el de su tipo de registro en Salesforce, salvo las cuentas empresa
+	 *               cuyo nombre es claramente de una persona (personas registradas como empresa), que son Persona.
+	 * @param nombre: Nombre de la cuenta
 	 * @param esPersona: IsPersonAccount
 	 * @param tipoRegistro: DeveloperName del tipo de registro
 	 * @return Persona o Empresa
 	 */
 	@TestVisible
-	private static String tipoDeCuenta(Boolean esPersona, String tipoRegistro) {
-		return esPersona == true || TIPOS_DE_PERSONA.contains(tipoRegistro) ? 'Persona' : 'Empresa';
+	private static String tipoDeCuenta(String nombre, Boolean esPersona, String tipoRegistro) {
+		if (esPersona == true || TIPOS_DE_PERSONA.contains(tipoRegistro)) { return 'Persona'; }
+		return !pareceEmpresa(nombre) && pareceNombrePersona(nombre) ? 'Persona' : 'Empresa';
+	}
+
+	private static final List<String> RAICES_EMPRESA = new List<String>{ 'PUBLICIDAD', 'CREATIV', 'GRUPO', 'SERVICIO', 'COMERCIAL', 'CONSULTOR', 'CONSTRUC', 'INMOBILIARI', 'DISTRIBUI', 'CORPORATIV', 'INDUSTRIA', 'TRANSPORTE', 'SOLUCION', 'TECNOLOG', 'ASOCIADOS', 'HOTEL', 'RESTAURA', 'CLINICA', 'HOSPITAL', 'COLEGIO', 'ESCUELA', 'INSTITUTO', 'FUNDACION', 'AGENCIA', 'TALLER', 'FARMACIA', 'LABORATORIO', 'IMPORTADORA', 'EXPORTADORA', 'LOGISTIC', 'SISTEMAS', 'INGENIERIA', 'ARQUITECT', 'DESARROLL', 'PRODUCCION', 'PRODUCTOS', 'MARKETING', 'DISENO', 'ESTUDIO', 'CENTRO', 'ALIMENTOS', 'AUTOMOTRIZ', 'MOTORS', 'SEGUROS', 'FINANCIER', 'INVERSION', 'CAPITAL', 'PROMOTORA', 'ADMINISTRA', 'OPERADORA', 'CONSORCIO', 'EMPRESA', 'NEGOCIO', 'COMPANIA', 'HERMANOS', 'ASOCIACION', 'SOCIEDAD', 'COOPERATIVA', 'UNIVERSIDAD', 'ACADEMIA', 'TIENDA', 'ABARROTES', 'PANADERIA', 'MUEBLE', 'FERRETER', 'PAPELER', 'GASOLINER', 'AGRICOLA', 'GANADER', 'MINERA', 'ENERGIA', 'TEXTIL', 'IMPRENTA', 'EDITORIAL', 'GLOBAL', 'INTERNACIONAL', 'NACIONAL', 'MEXICANA', 'SERVICES', 'STUDIO', 'GROUP', 'CONSULTING', 'SOLUTIONS', 'COMUNICACION', 'EVENTOS', 'VIAJES', 'TURISMO', 'BIENES', 'RAICES', 'PROYECTOS', 'EQUIPOS', 'MAQUINARIA', 'SUMINISTROS', 'COMERCIO', 'MERCADO', 'ESTETICA', 'GIMNASIO', 'DESPACHO', 'BUFETE', 'NOTARIA', 'CONTADORES', 'ABOGADOS', 'MEDICOS', 'DENTAL', 'MATERIAL', 'SUSTENTAB', 'INDOOR', 'CYCLING', 'PLATICA', 'COORDENADA', 'LIVING', 'BODEGA', 'MEXICO', 'GRAFIC', 'HOGAR', 'AUTOTRANSPORT' };
+	private static final Set<String> PALABRAS_EMPRESA_CORTAS = new Set<String>{ 'CIA', 'HNOS', 'CLUB', 'Y', 'E', '&', 'AND', 'INC', 'LLC', 'LTD', 'CO', 'SPA', 'SAS', 'CV' };
+
+	/**
+	 * @creation date: 15/10/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Indica si el nombre es claramente de una persona: de 2 a 7 palabras, solo letras, sin conectores
+	 *               de razón social (Y, E, &) ni palabras de giro o negocio (Publicidad, Grupo, Servicios...).
+	 * @param nombre: Nombre a revisar
+	 * @return true si parece nombre de persona
+	 */
+	@TestVisible
+	private static Boolean pareceNombrePersona(String nombre) {
+		if (String.isBlank(nombre)) { return false; }
+		String n = nombre.toUpperCase().replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O')
+			.replace('Ú', 'U').replace('Ü', 'U').replace('Ñ', 'N').replace('.', ' ').replace(',', ' ').normalizeSpace();
+		List<String> palabras = n.split(' ');
+		if (palabras.size() < 2 || palabras.size() > 7) { return false; }
+		for (String p : palabras) {
+			if (!Pattern.matches('^[A-Z\'-]+$', p) || PALABRAS_EMPRESA_CORTAS.contains(p)) { return false; }
+			for (String r : RAICES_EMPRESA) {
+				if (p.startsWith(r)) { return false; }
+			}
+		}
+		return true;
 	}
 
 	/**

@@ -642,14 +642,19 @@ private class OpportunityControllerTest {
     /**
      * @creation date: 24/11/2026
      * @author: Sergio Uribe Toledo - Volestra
-     * @description: El tipo de cliente de una cuenta es el de Salesforce, aunque su nombre parezca de otro tipo.
+     * @description: El tipo de cliente de una cuenta es el de Salesforce; una persona registrada como empresa es Persona.
      */
     @isTest
     static void testTipoDeCuenta() {
-        System.assertEquals('Persona', OpportunityController.tipoDeCuenta(true, 'PersonAccount'));
-        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta(false, 'Business_Account'));
-        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta(false, null));
-        System.assertEquals('Persona', OpportunityController.tipoDeCuenta(false, 'Default_Account'), 'Grupo familiar');
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('Cualquier Nombre SA de CV', true, 'PersonAccount'));
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('Familia Pérez', false, 'Default_Account'), 'Grupo familiar');
+        for (String n : new List<String>{ 'Diego Huerta Hurtado', 'ABEL PEREZ QUIJANO', 'María de la Luz Núñez', 'Mariana Rubi De Anda De La Cruz' }) {
+            System.assertEquals('Persona', OpportunityController.tipoDeCuenta(n, false, 'Business_Account'), n);
+        }
+        for (String n : new List<String>{ 'MATERIALES SUSTENTABLES PEÑA', 'Publicidad y Creatividad Viva', 'Grupo Industrial Monterrey', 'Avanza SA de CV', 'Avanza', 'Supplant Mexico', 'Indoor Cycling', 'Polisolution SAS de CV' }) {
+            System.assertEquals('Empresa', OpportunityController.tipoDeCuenta(n, false, 'Business_Account'), n);
+        }
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Avanza', false, null));
         Account empresa = new Account(Name = 'MATERIALES SUSTENTABLES PRUEBA');
         Schema.RecordTypeInfo rt = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
         if (rt != null) { empresa.RecordTypeId = rt.getRecordTypeId(); }

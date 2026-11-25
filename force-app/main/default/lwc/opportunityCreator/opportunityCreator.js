@@ -1151,7 +1151,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
     }
 
-    // Tipo de una cuenta que ya existe: el que tiene en Salesforce (lo calcula el Apex), sin ver su nombre.
+    // Tipo de una cuenta que ya existe: lo calcula el Apex (tipoDeCuenta).
     tipoDeCuenta(acc) {
         return (acc && acc.typeLabel) || (acc && acc.IsPersonAccount ? 'Persona' : 'Empresa');
     }
