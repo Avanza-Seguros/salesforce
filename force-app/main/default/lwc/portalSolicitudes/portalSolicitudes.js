@@ -73,7 +73,8 @@ const COLUMNAS = {
         { key: 'parentesco', etiqueta: 'Parentesco', alias: ['parentesco', 'relacion'] },
         { key: 'titular', etiqueta: 'Titular', alias: ['titular', 'titular si es dependiente', 'nombre del titular', 'certificado del titular'] },
         { key: 'correo', etiqueta: 'Correo', alias: ['correo', 'correo electronico', 'email', 'e mail', 'mail'] },
-        { key: 'categoria', etiqueta: 'Categoría', alias: ['categoria', 'clase', 'categoria del asegurado'] },
+        { key: 'categoria', etiqueta: 'Categoría', alias: ['categoria', 'categorias', 'clase', 'categoria del asegurado',
+            'subgrupo', 'grupo asegurado'] },
         { key: 'fechaAntiguedad', etiqueta: 'Fecha de antigüedad', fecha: true, alias: ['fecha de antiguedad', 'antiguedad',
             'fecha antiguedad', 'reconocimiento de antiguedad'] },
         FECHA, COMENTARIO, POLIZA],
@@ -127,6 +128,8 @@ const CAMPOS_ALTA = {
         { clave: 'sexo', etiqueta: 'Sexo', etiquetaCambio: 'Corrección de género', opciones: ['Mujer', 'Hombre'], requerido: true },
         // Un parentesco nuevo es un alta, no un cambio.
         { clave: 'parentesco', etiqueta: 'Parentesco', soloAlta: true, opciones: ['Titular', 'Cónyuge', 'Hijo(a)'], requerido: true },
+        // Lista con las categorías de la póliza; si no hay ninguna registrada, se escribe.
+        { clave: 'categoria', etiqueta: 'Categoría', etiquetaCambio: 'Nueva categoría', categorias: true, requerido: true },
         { clave: 'correo', etiqueta: 'Correo electrónico', tipo: 'email' }
     ],
     vehiculos: [
@@ -484,6 +487,7 @@ export default class PortalSolicitudes extends LightningElement {
                 if (!p) { return { error: `${etiquetaMov}: la póliza ${numPoliza} no es una de tus pólizas vigentes de este tipo.`, indice: i }; }
                 polizaId = p.actual ? null : p.id;
             }
+            if (datos.categoria) { datos.categoria = this.categoriaDeLista(datos.categoria, polizaId); }
             registros.push({ tipo, fila: x.n, numero: i + 1, nombre: nombre || null, fecha, comentario: valor('comentario') || null,
                 titular: valor('titular') || null, campos: datos, polizaId, etiqueta: etiquetaMov, indice: i });
         }
@@ -504,6 +508,11 @@ export default class PortalSolicitudes extends LightningElement {
             const lista = r.tipo === 'alta' ? grupos.alta : grupos.otro;
             const falta = lista.find((g) => !g.some((k) => r.campos[k]));
             if (falta) { return { error: `${r.etiqueta}: falta ${falta.map(etiqueta).join(' o ').toLowerCase()}.`, indice: r.indice }; }
+            // La categoría es obligatoria en el titular; el dependiente sin ella toma la de su titular.
+            const esTitular = !r.campos.parentesco || fold(r.campos.parentesco).includes('titular');
+            if (this.esPersonas && r.tipo === 'alta' && esTitular && !r.campos.categoria) {
+                return { error: `${r.etiqueta}: falta categoría.`, indice: r.indice };
+            }
             if (r.tipo === 'cambio' && Object.keys(r.campos).length < 2) {
                 return { error: `${r.etiqueta}: en un cambio indica cómo identificar el registro y los datos nuevos.`, indice: r.indice };
             }
@@ -582,7 +591,30 @@ export default class PortalSolicitudes extends LightningElement {
     handleTipo(e) {
         this.cambiar(e.target.dataset.key, { tipo: e.detail.value, registroId: '', detalle: '', datos: {}, polizaId: this._policyId, filtro: 'todos' });
     }
-    handleCampo(e) { this.cambiar(e.target.dataset.key, { [e.target.dataset.campo]: e.detail.value }); }
+    handleCampo(e) {
+        const { key, campo } = e.target.dataset;
+        const cambios = { [campo]: e.detail.value };
+        if (campo === 'titularId') {
+            // El dependiente toma la categoría de su titular (se puede cambiar).
+            const t = this.registrosDe(this._policyId).find((r) => r.id === e.detail.value);
+            const m = this.movimientos.find((x) => x.key === key);
+            if (t && t.categoria && m) { cambios.datos = { ...m.datos, categoria: t.categoria }; }
+        }
+        this.cambiar(key, cambios);
+    }
+    // Categorías de la póliza del movimiento.
+    categoriasDe(polizaId) {
+        if (!polizaId || polizaId === this._policyId) { return (this.datos && this.datos.categorias) || []; }
+        return (this.registrosOtras[polizaId] || {}).categorias || [];
+    }
+    // Categoría del archivo como está en la póliza: un «00» guardado como número llega como 0.
+    categoriaDeLista(valor, polizaId) {
+        const lista = this.categoriasDe(polizaId);
+        const igual = lista.find((c) => fold(c) === fold(valor));
+        if (igual || !/^\d+$/.test(valor)) { return igual || valor; }
+        const iguales = lista.filter((c) => /^\d+$/.test(c) && Number(c) === Number(valor));
+        return iguales.length === 1 ? iguales[0] : valor;
+    }
 
     // ===== Póliza y registro de bajas y cambios =====
     // Registros vigentes de otras pólizas del contratante (se cargan al elegirlas): póliza → { registros, mensaje }.
@@ -600,7 +632,7 @@ export default class PortalSolicitudes extends LightningElement {
         this.registrosOtras = { ...this.registrosOtras, [polizaId]: { cargando: true, registros: [] } };
         try {
             const r = await registrosPoliza({ policyId: polizaId, cuentaVistaPrevia: this.cuentaVistaPrevia || null });
-            this.registrosOtras = { ...this.registrosOtras, [polizaId]: { registros: r.registros || [], mensaje: r.mensaje } };
+            this.registrosOtras = { ...this.registrosOtras, [polizaId]: { registros: r.registros || [], categorias: r.categorias || [], mensaje: r.mensaje } };
         } catch (err) {
             this.registrosOtras = { ...this.registrosOtras, [polizaId]: { registros: [], mensaje: this.mensaje(err) } };
         }
@@ -813,8 +845,8 @@ export default class PortalSolicitudes extends LightningElement {
                 requerido: esAlta && c.requerido,
                 valor: m.datos[c.clave] || '',
                 tipoInput: c.tipo || 'text',
-                esLista: !!c.opciones,
-                opciones: (c.opciones || []).map((o) => ({ label: o, value: o }))
+                esLista: !!c.opciones || (!!c.categorias && this.categoriasDe(m.polizaId).length > 0),
+                opciones: (c.opciones || (c.categorias ? this.categoriasDe(m.polizaId) : [])).map((o) => ({ label: o, value: o }))
             })) : [];
             const parentesco = m.datos.parentesco;
             const otra = m.polizaId && m.polizaId !== this._policyId ? this.registrosOtras[m.polizaId] : null;

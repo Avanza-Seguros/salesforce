@@ -104,7 +104,7 @@
                             <p lwc:if={m.esCambio} class="nota ancho">Captura solo los datos que cambian.</p>
                             <template for:each={m.campos} for:item="c">
                                 <template lwc:if={c.esLista}>
-                                    <lightning-combobox key={c.key} label={c.etiqueta} value={c.valor} options={c.opciones} data-key={m.key}
+                                    <lightning-combobox key={c.key} label={c.etiqueta} value={c.valor} options={c.opciones} data-key={m.key} placeholder="Selecciona"
                                         data-campo={c.clave} onchange={handleDato} required={c.requerido}></lightning-combobox>
                                 </template>
                                 <template lwc:else>

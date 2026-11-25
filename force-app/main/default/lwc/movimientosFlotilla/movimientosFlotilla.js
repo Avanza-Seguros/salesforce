@@ -526,14 +526,22 @@ export default class MovimientosFlotilla extends LightningElement {
     abrirCambio(e) {
         const v = this.vehiculos.find((x) => x.id === e.target.dataset.id);
         if (!v) { return; }
+        // En Salesforce la edición corrige el dato; en el sitio, solo si el movimiento sigue Solicitado.
+        const corrige = this.enPoliza && (this.interno || (!!v.movimientoId && this.seguimientoDe(v) === 'Solicitado'));
         this.form = {
             id: v.id, nombreActual: this.nombre(v), original: { ...v }, inciso: v.inciso, serie: v.serie || '',
             descripcion: v.descripcion || '', modelo: v.modelo, placas: v.placas || '', uso: v.uso || '',
             tipoVehiculo: v.tipoVehiculo || '', paquete: v.paquete || '', valor: v.valor, prima: v.prima,
-            fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
+            fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: corrige ? 'correccion' : 'nueva', corrige,
+            movimientoId: v.movimientoId || null
         };
         this.modal = 'cambio';
     }
+
+    get opcionesSolicitudCambio() {
+        return (this.form.corrige ? [{ label: 'Solo corregir (sin movimiento nuevo)', value: 'correccion' }] : []).concat(this.opcionesSolicitud);
+    }
+    get registraCambio() { return this.form.solicitud !== 'correccion'; }
 
     handleForm(e) {
         const campo = e.target.dataset.campo;
@@ -577,7 +585,9 @@ export default class MovimientosFlotilla extends LightningElement {
             this.toast('Cambio', 'No modificaste ningún dato.', 'info');
             return;
         }
-        await this.enviar([{ tipo: 'cambio', id: f.id, datos, fecha: f.fecha, endoso: f.endoso, comentario: f.comentario }]);
+        const sinMovimiento = this.enPoliza && f.solicitud === 'correccion';
+        await this.enviar([{ tipo: 'cambio', id: f.id, datos, fecha: f.fecha, endoso: f.endoso, comentario: f.comentario,
+            sinMovimiento, movimientoId: sinMovimiento ? f.movimientoId : null }]);
     }
 
     async enviar(movs) {
@@ -611,7 +621,7 @@ export default class MovimientosFlotilla extends LightningElement {
             if (r.altas) { partes.push(`${r.altas} altas`); }
             if (r.bajas) { partes.push(`${r.bajas} bajas`); }
             if (r.cambios) { partes.push(`${r.cambios} cambios`); }
-            this.toast('Movimientos', (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
+            this.toast('Movimientos', movs.some((x) => x.sinMovimiento) ? 'Datos corregidos, sin registrar un movimiento nuevo.' : (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
                 + (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : '')
                 + (r.solicitud ? ` Solicitud ${r.solicitud}.` : ''), 'success');
             this.cerrarModal();

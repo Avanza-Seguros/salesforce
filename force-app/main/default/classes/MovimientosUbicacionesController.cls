@@ -53,6 +53,10 @@ public inherited sharing class MovimientosUbicacionesController {
 		public String motivo;
 		public String endoso;
 		public String comentario;
+		// Cambio en la póliza que solo corrige el dato: no registra otro movimiento. Si el registro tiene un movimiento abierto
+		// (movimientoId), lo que se corrigió queda en el detalle de ese movimiento.
+		public Boolean sinMovimiento;
+		public String movimientoId;
 	}
 
 	/**
@@ -274,6 +278,13 @@ public inherited sharing class MovimientosUbicacionesController {
 				continue;
 			}
 			actualizar.put(a.Id, a);
+			if (m.sinMovimiento == true) {
+				// Con el inciso ya corregido (la dirección no cambia en la póliza).
+				MovimientosColectivoController.corregir(policyId, m.movimientoId, detalle, (String) antes.get('direccion'),
+					m.datos.inciso == null ? null : 'Inciso ' + m.datos.inciso);
+				cambios++;
+				continue;
+			}
 			Movimiento_Poliza__c r = registro(m, CAMBIO, CONTEXTO_ENDOSO, policyId, null, antes);
 			r.Detalle__c = String.join(detalle, '\n');
 			registro.add(r);

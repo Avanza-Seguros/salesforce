@@ -325,7 +325,7 @@ private class PortalPolizasPestanasTest {
 			new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' },
 			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } },
 			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
-				'parentesco' => 'Titular' } };
+				'parentesco' => 'Titular', 'categoria' => '00' } };
 		Map<String, Object> baja = new Map<String, Object>{ 'tipo' => 'baja', 'registroId' => titular.Id, 'detalle' => 'Renuncia' };
 		Test.startTest();
 		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
@@ -601,15 +601,23 @@ private class PortalPolizasPestanasTest {
 			new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' },
 			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } },
 			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
-				'parentesco' => 'Titular' } };
+				'parentesco' => 'Titular', 'categoria' => '00' } };
 		Test.startTest();
 		// Vista previa de administrador: puede enviar una solicitud de prueba como la cuenta elegida.
 		PortalPolizasController.permisoVistaPreviaPrueba = true;
 		System.assertEquals(true, PortalPolizasPestanas.solicitudes(col.Id, empresa.Id).get('puedeSolicitar'));
-		alta.put('campos', new Map<String, Object>{ 'nombre' => 'Luis', 'paterno' => 'Paz', 'sexo' => 'Hombre', 'parentesco' => 'Titular' });
+		Map<String, Object> campos = new Map<String, Object>{ 'nombre' => 'Luis', 'paterno' => 'Paz', 'sexo' => 'Hombre', 'parentesco' => 'Titular' };
+		alta.put('campos', campos);
+		Boolean sinCategoria = false;
+		try {
+			PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ alta } }), empresa.Id);
+		} catch (AuraHandledException e) { sinCategoria = e.getMessage().contains('categoría'); }
+		System.assert(sinCategoria, 'La categoría del alta es obligatoria');
+		campos.put('categoria', '00');
 		Map<String, Object> rp = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{
 			'movimientos' => new List<Object>{ alta } }), empresa.Id);
 		System.assertEquals('SOL-0001', rp.get('folio'));
+		System.assertEquals(1, [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :col.Id AND Categoria__c = '00']);
 		Case cp = [SELECT AccountId, Description FROM Case WHERE InsurancePolicy__c = :col.Id AND Solicitud__c = 'SOL-0001'];
 		System.assertEquals(empresa.Id, cp.AccountId);
 		System.assert(cp.Description.contains('vista previa de administrador'), cp.Description);
@@ -679,7 +687,7 @@ private class PortalPolizasPestanasTest {
 		Map<String, Object> alta = new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today().addDays(-5)), 'numero' => 1,
 			'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' } },
 			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
-				'parentesco' => 'Titular' } };
+				'parentesco' => 'Titular', 'categoria' => '00' } };
 		// Baja de un asegurado de la otra póliza (el certificado 2 de POOL-2).
 		Map<String, Object> baja = new Map<String, Object>{ 'tipo' => 'baja', 'registroId' => pps[2].Id, 'polizaId' => dos.Id,
 			'detalle' => 'Renuncia', 'numero' => 2 };
@@ -771,7 +779,7 @@ private class PortalPolizasPestanasTest {
 			movs.add(new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()), 'numero' => n,
 				'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => nombre } },
 				'campos' => new Map<String, Object>{ 'nombre' => nombre, 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
-					'parentesco' => 'Titular' } });
+					'parentesco' => 'Titular', 'categoria' => '00' } });
 		}
 		String b64 = EncodingUtil.base64Encode(Blob.valueOf('carta'));
 		Test.startTest();
@@ -861,5 +869,25 @@ private class PortalPolizasPestanasTest {
 		System.assertEquals(false, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :leo.Id].IsActiveParticipant, 'Baja del dependiente');
 		System.assertEquals(true, [SELECT IsActiveParticipant FROM InsurancePolicyParticipant WHERE Id = :luz.Id].IsActiveParticipant, 'Su titular sigue vigente');
 		System.assert(error != null && error.contains('no encontramos a su titular'), error);
+	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Categorías de Nueva solicitud: las de los asegurados, sin repetir y en orden; solo en pólizas de personas.
+	 * @return void
+	 */
+	@isTest
+	static void testCategoriasSolicitud() {
+		PortalPolizasPestanas.Bienes b = new PortalPolizasPestanas.Bienes();
+		b.tipo = 'personas';
+		for (String c : new List<String>{ '01', '00', '00', null }) {
+			PortalPolizasPestanas.Fila f = new PortalPolizasPestanas.Fila();
+			f.detalle = c;
+			b.filas.add(f);
+		}
+		System.assertEquals(new List<String>{ '00', '01' }, PortalPolizasPestanas.categoriasSolicitud(null, b));
+		b.tipo = 'vehiculos';
+		System.assertEquals(0, PortalPolizasPestanas.categoriasSolicitud(null, b).size());
 	}
 }

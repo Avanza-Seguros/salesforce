@@ -864,6 +864,7 @@ public without sharing class PortalPolizasPestanas {
 				'esEmpresarial' => empresarial,
 				'puedeSolicitar' => contratante && EndosoPoliza.tipoCaso() != null && empresarial,
 				'registros' => registros, 'solicitudes' => lista,
+				'categorias' => contratante ? categoriasSolicitud(policyId, bienes) : new List<String>(),
 				'polizas' => contratante ? polizasDelContratante(policyId, roles, bienes.tipo) : new List<Map<String, Object>>()
 			};
 		} catch (AuraHandledException e) {
@@ -883,9 +884,39 @@ public without sharing class PortalPolizasPestanas {
 		for (FilaPorClave o : orden) {
 			Fila f = o.f;
 			res.add(new Map<String, Object>{ 'id' => f.id, 'clave' => f.clave, 'nombre' => f.nombre, 'detalle' => f.detalle,
-				'dependiente' => f.dependiente, 'parentesco' => f.parentesco });
+				'dependiente' => f.dependiente, 'parentesco' => f.parentesco,
+				'categoria' => bienes.tipo == 'personas' ? f.detalle : null });
 		}
 		return res;
+	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Categorías que se eligen en Nueva solicitud: las que ya usan los asegurados de la póliza o, si ninguno
+	 *               tiene, las de la empresa contratante.
+	 * @param policyId: póliza.
+	 * @param bienes: registros de la póliza.
+	 * @return nombres de las categorías, en orden.
+	 */
+	@TestVisible
+	static List<String> categoriasSolicitud(Id policyId, Bienes bienes) {
+		Map<String, String> res = new Map<String, String>();
+		if (bienes.tipo != 'personas') { return res.values(); }
+		for (Fila f : bienes.filas) {
+			if (String.isNotBlank(f.detalle)) { res.put(CensoColectivoController.llave(f.detalle), f.detalle.normalizeSpace()); }
+		}
+		if (res.isEmpty()) {
+			Id cuenta = [SELECT NameInsuredId FROM InsurancePolicy WHERE Id = :policyId].NameInsuredId;
+			if (cuenta != null) {
+				for (GroupClass g : [SELECT Name FROM GroupClass WHERE AccountId = :cuenta ORDER BY Name LIMIT 500]) {
+					res.put(CensoColectivoController.llave(g.Name), g.Name);
+				}
+			}
+		}
+		List<String> l = res.values();
+		l.sort();
+		return l;
 	}
 
 	// Orden por certificado o inciso (numérico cuando lo es) y luego por nombre; sin clave al final.
@@ -946,6 +977,7 @@ public without sharing class PortalPolizasPestanas {
 			Boolean empresarial = esEmpresarial(policyId, bienes);
 			return new Map<String, Object>{ 'tipo' => bienes.tipo, 'puedeSolicitar' => empresarial,
 				'mensaje' => empresarial ? null : 'Esta póliza no es empresarial (colectiva o flotilla): para sus movimientos contacta a tu asesor.',
+				'categorias' => empresarial ? categoriasSolicitud(policyId, bienes) : new List<String>(),
 				'registros' => empresarial ? registrosVigentes(bienes) : new List<Map<String, Object>>() };
 		} catch (AuraHandledException e) {
 			throw e;
@@ -1236,6 +1268,9 @@ public without sharing class PortalPolizasPestanas {
 					partes.add((tipo == 'baja' ? 'Motivo: ' : (tipo == 'cambio' ? 'Cambio: ' : 'Nota: ')) + m.get('detalle'));
 				}
 				Map<String, Object> campos = m.get('campos') instanceof Map<String, Object> ? (Map<String, Object>) m.get('campos') : null;
+				if (tipo == 'alta' && bienes.tipo == 'personas' && (campos == null || String.isBlank(texto(campos.get('categoria'))))) {
+					throw falla('Movimiento ' + num + ': elige la categoría del asegurado.');
+				}
 				if (tipo == 'cambio' && (campos == null || campos.isEmpty())
 						&& (m.get('detalle') == null || String.isBlank(String.valueOf(m.get('detalle'))))) {
 					throw new AuraHandledException('Movimiento ' + num + ': describe qué se cambia.');

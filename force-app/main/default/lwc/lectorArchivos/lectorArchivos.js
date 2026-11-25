@@ -259,7 +259,16 @@ async function abrirXlsx(buffer) {
     if (!hojas.length) { throw new Error('El Excel no tiene hojas.'); }
     const compartidos = tags(xml(await leer('xl/sharedStrings.xml')), 'si')
         .map((si) => tags(si, 't').map((t) => t.textContent).join(''));
-    return { hojas, leer, xml, tags, compartidos };
+    // Estilos con formato de ceros a la izquierda («00»): el 0 se lee como «00», igual que se ve en Excel.
+    const estilos = xml(await leer('xl/styles.xml'));
+    const formatos = {};
+    tags(estilos, 'numFmt').forEach((f) => { formatos[f.getAttribute('numFmtId')] = f.getAttribute('formatCode') || ''; });
+    const xfs = tags(estilos, 'cellXfs')[0];
+    const ceros = (xfs ? tags(xfs, 'xf') : []).map((f) => {
+        const codigo = formatos[f.getAttribute('numFmtId')] || '';
+        return /^0{2,}$/.test(codigo) ? codigo.length : 0;
+    });
+    return { hojas, leer, xml, tags, compartidos, ceros };
 }
 
 async function leerHojaXlsx(x, nombre) {
@@ -279,7 +288,10 @@ async function leerHojaXlsx(x, nombre) {
             if (tipo === 's') { valor = x.compartidos[Number(valor)] ?? ''; }
             else if (tipo === 'inlineStr') { valor = x.tags(c, 't').map((t) => t.textContent).join(''); }
             else if (tipo === 'b') { valor = valor === '1' ? 'VERDADERO' : 'FALSO'; }
-            else if (tipo !== 'str' && tipo !== 'e' && valor !== '' && !isNaN(Number(valor))) { valor = Number(valor); }
+            else if (tipo !== 'str' && tipo !== 'e' && valor !== '' && !isNaN(Number(valor))) {
+                const largo = /^\d+$/.test(valor) ? x.ceros[Number(c.getAttribute('s') || 0)] : 0;
+                valor = largo ? valor.padStart(largo, '0') : Number(valor);
+            }
             if (tipo === 'e') { valor = ''; }
             fila[col] = repararTexto(valor);
         });

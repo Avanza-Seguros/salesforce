@@ -737,6 +737,13 @@
                                             <lightning-combobox label="Sexo" value={form.sexo} options={opcionesSexo} data-campo="sexo" onchange={handleForm} placeholder="Selecciona"></lightning-combobox>
                                         </div>
                                     </template>
+                                    <template lwc:if={enPoliza}>
+                                        <div class="slds-col slds-size_1-of-3">
+                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitudCambio} data-campo="solicitud"
+                                                onchange={handleForm} field-level-help="«Solo corregir» cambia el dato sin registrar otro movimiento. Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
+                                        </div>
+                                    </template>
+                                    <template lwc:if={registraCambio}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="date" label={etiquetaFecha} value={form.fecha} data-campo="fecha" onchange={handleForm} required></lightning-input>
                                     </div>
@@ -745,19 +752,14 @@
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
                                     </template>
-                                    <template lwc:if={enPoliza}>
-                                        <div class="slds-col slds-size_1-of-3">
-                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
-                                                onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
-                                        </div>
-                                    </template>
                                     <div class="slds-col slds-size_1-of-1">
                                         <lightning-input label="Comentario" value={form.comentario} data-campo="comentario" onchange={handleForm} max-length="255"></lightning-input>
                                     </div>
+                                    </template>
                                 </div>
                                 <template if:true={enPoliza}>
                                     <template lwc:if={pideEndoso}>
-                                    <c-datos-endoso></c-datos-endoso>
+                                    <template lwc:if={registraCambio}><c-datos-endoso></c-datos-endoso></template>
                                     </template>
                                 </template>
                             </div>

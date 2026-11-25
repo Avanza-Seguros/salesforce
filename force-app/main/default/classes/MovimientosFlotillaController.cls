@@ -39,6 +39,10 @@ public inherited sharing class MovimientosFlotillaController {
 		public String motivo;
 		public String endoso;
 		public String comentario;
+		// Cambio en la póliza que solo corrige el dato: no registra otro movimiento. Si el registro tiene un movimiento abierto
+		// (movimientoId), lo que se corrigió queda en el detalle de ese movimiento.
+		public Boolean sinMovimiento;
+		public String movimientoId;
 	}
 
 	/**
@@ -384,6 +388,11 @@ public inherited sharing class MovimientosFlotillaController {
 					vehiculos.add(new CustomerProperty(Id = inc.Vehiculo__c, RegistrationNumber = inc.Placas__c));
 				}
 				Movimiento_Poliza__c r = registro(m, CAMBIO, CONTEXTO_ENDOSO, policyId, null, inc);
+				if (m.sinMovimiento == true) {
+					MovimientosColectivoController.corregir(policyId, m.movimientoId, detalle, r.Asegurado__c, r.Certificado__c);
+					cambios++;
+					continue;
+				}
 				r.Detalle__c = String.join(detalle, '\n');
 				registro.add(r);
 				cambios++;

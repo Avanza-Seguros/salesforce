@@ -274,4 +274,28 @@ private class MovimientosUbicacionesControllerTest {
 		System.assertEquals(1, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id AND Motivo_Baja_Ubicacion__c = null],
 			'La baja sin motivo se aplica');
 	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Corregir un registro no crea otro movimiento: queda en el detalle del que sigue abierto.
+	 * @return void
+	 */
+	@isTest
+	static void testCorregirSinMovimiento() {
+		InsurancePolicy pol = poliza();
+		Id reg = bien(pol.Id, 1);
+		Movimiento_Poliza__c alta = new Movimiento_Poliza__c(Poliza__c = pol.Id, Tipo__c = 'Alta', Fecha_Movimiento__c = Date.today(),
+			Solicitud__c = 'SOL-0001', Contexto__c = 'Endoso');
+		insert alta;
+		Test.startTest();
+		Map<String, Object> r = MovimientosUbicacionesController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ new Map<String, Object>{ 'tipo' => 'cambio', 'id' => reg, 'fecha' => String.valueOf(Date.today()),
+				'datos' => new Map<String, Object>{ 'giro' => 'Bodega' }, 'sinMovimiento' => true, 'movimientoId' => alta.Id } } }));
+		Test.stopTest();
+		System.assertEquals(1, r.get('cambios'));
+		List<Movimiento_Poliza__c> movs = [SELECT Tipo__c, Detalle__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id];
+		System.assertEquals(1, movs.size(), 'No se crea otro movimiento');
+		System.assert(String.isNotBlank(movs[0].Detalle__c), 'La corrección queda en el alta');
+	}
 }

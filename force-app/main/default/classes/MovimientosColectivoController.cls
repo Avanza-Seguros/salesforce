@@ -48,6 +48,10 @@ public inherited sharing class MovimientosColectivoController {
 		public String correoPersonal;
 		// Lo que cobra o devuelve la aseguradora por el movimiento (complemento del archivo).
 		public Decimal prima;
+		// Cambio en la póliza que solo corrige el dato: no registra otro movimiento. Si el registro tiene un movimiento abierto
+		// (movimientoId), lo que se corrigió queda en el detalle de ese movimiento.
+		public Boolean sinMovimiento;
+		public String movimientoId;
 	}
 
 	// ============================================================
@@ -519,6 +523,12 @@ public inherited sharing class MovimientosColectivoController {
 				}
 			}
 			if (detalle.isEmpty()) { continue; }
+			if (m.sinMovimiento == true) {
+				corregir(policyId, m.movimientoId, detalle, p.ParticipantName, CensoColectivoController.certificadoLimpio(p.ParticipantCode));
+				actualizar.put(p.Id, p);
+				cambios++;
+				continue;
+			}
 			// El correo del cambio se envía después: queda pendiente.
 			p.Correo_Enviado__c = false;
 			actualizar.put(p.Id, p);
@@ -1873,6 +1883,42 @@ public inherited sharing class MovimientosColectivoController {
 		for (Movimiento m : movs) { if (m.datos != null && String.isNotBlank(m.datos.categoria)) { datos.add(m.datos); } }
 		if (accountId == null || datos.isEmpty()) { return new Map<String, Id>(); }
 		return CensoColectivoController.categoriasDe(accountId, datos);
+	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Corrección de un registro (asegurado, vehículo o ubicación) sin otro movimiento: si su movimiento sigue
+	 *               abierto, guarda ahí lo corregido. En el sitio el cliente solo corrige lo que sigue Solicitado.
+	 * @param policyId: póliza.
+	 * @param movimientoId: movimiento del registro (o null).
+	 * @param detalle: renglones "Campo: antes → después".
+	 * @param nombre: nombre del registro ya corregido.
+	 * @param clave: certificado o inciso ya corregido.
+	 * @return void
+	 */
+	public static void corregir(Id policyId, String movimientoId, List<String> detalle, String nombre, String clave) {
+		Movimiento_Poliza__c mov;
+		if (String.isNotBlank(movimientoId)) {
+			for (Movimiento_Poliza__c x : [
+				SELECT Id, Detalle__c, Solicitud__c, Seguimiento__c FROM Movimiento_Poliza__c
+				WHERE Id = :movimientoId AND Poliza__c = :policyId AND Fecha_Cierre__c = null AND Tipo__c != 'Baja'
+			]) { if (x.Seguimiento__c != 'Rechazado') { mov = x; } }
+		}
+		if (UserInfo.getUserType() != 'Standard') {
+			Boolean solicitado = mov != null && mov.Seguimiento__c == 'Solicitado';
+			if (mov != null && mov.Seguimiento__c == null) {
+				for (Map<String, Object> s : EndosoPoliza.solicitudes(policyId, null)) {
+					if (s.get('folio') == mov.Solicitud__c && s.get('seguimiento') == 'Solicitado') { solicitado = true; }
+				}
+			}
+			if (!solicitado) { throw CensoColectivoController.error('El movimiento ya está en trámite: registra el cambio en una nueva solicitud.'); }
+		}
+		if (mov == null) { return; }
+		mov.Detalle__c = ((String.isBlank(mov.Detalle__c) ? '' : mov.Detalle__c + '\n') + String.join(detalle, '\n')).left(32000);
+		if (String.isNotBlank(nombre)) { mov.Asegurado__c = nombre.left(255); }
+		if (String.isNotBlank(clave)) { mov.Certificado__c = clave.left(80); }
+		update mov;
 	}
 
 	private static List<String> categorias(Id accountId) {

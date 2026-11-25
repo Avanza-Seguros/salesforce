@@ -1431,13 +1431,21 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     abrirCambio(e) {
         const m = this.miembros.find((x) => x.id === e.target.dataset.id);
         if (!m) { return; }
+        // En Salesforce la edición corrige el dato; en el sitio, solo si el movimiento sigue Solicitado.
+        const corrige = this.enPoliza && (this.interno || (!!m.movimientoId && this.seguimientoDe(m) === 'Solicitado'));
         this.form = {
             id: m.id, nombreActual: m.nombre, original: { ...m }, nombreCompleto: m.nombre, certificado: m.certificado || '',
             fechaNacimiento: m.fechaNacimiento || '', fechaAntiguedad: m.fechaAntiguedad || '', categoria: m.categoria || '', sumaAsegurada: m.sumaAsegurada, prima: m.prima,
-            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: 'nueva'
+            rfc: m.rfc || '', sexo: m.sexo || '', email: m.correo || '', fecha: this.fechaDefault, endoso: '', comentario: '', solicitud: corrige ? 'correccion' : 'nueva', corrige,
+            movimientoId: m.movimientoId || null
         };
         this.modal = 'cambio';
     }
+
+    get opcionesSolicitudCambio() {
+        return (this.form.corrige ? [{ label: 'Solo corregir (sin movimiento nuevo)', value: 'correccion' }] : []).concat(this.opcionesSolicitud);
+    }
+    get registraCambio() { return this.form.solicitud !== 'correccion'; }
 
     handleForm(e) {
         const campo = e.target.dataset.campo;
@@ -1524,7 +1532,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.toast('Cambio', 'No modificaste ningún dato.', 'info');
             return;
         }
-        await this.enviar([{ tipo: 'cambio', id: f.id, datos, fecha: f.fecha, endoso: f.endoso, comentario: f.comentario }]);
+        const sinMovimiento = this.enPoliza && f.solicitud === 'correccion';
+        await this.enviar([{ tipo: 'cambio', id: f.id, datos, fecha: f.fecha, endoso: f.endoso, comentario: f.comentario,
+            sinMovimiento, movimientoId: sinMovimiento ? f.movimientoId : null }]);
     }
 
     // primasEndosos: prima de cada número de endoso que trae el archivo de la aseguradora (soporte de recibo de GMM).
@@ -1553,7 +1563,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             if (r.altas) { partes.push(`${r.altas} altas`); }
             if (r.bajas) { partes.push(`${r.bajas} bajas`); }
             if (r.cambios) { partes.push(`${r.cambios} cambios`); }
-            this.toast('Movimientos', (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
+            this.toast('Movimientos', movs.some((x) => x.sinMovimiento) ? 'Datos corregidos, sin registrar un movimiento nuevo.' : (partes.length ? `Aplicados: ${partes.join(', ')}.` : 'No hubo cambios que aplicar.')
                 + (r.endosos > 1 ? ` Quedaron en ${r.endosos} endosos de la póliza.` : (r.transaccionId ? ' Quedaron en el endoso de la póliza.' : ''))
                 + (r.solicitud ? ` Solicitud ${r.solicitud}.` : ''), 'success');
             this.cerrarModal();

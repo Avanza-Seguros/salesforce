@@ -502,4 +502,28 @@ private class MovimientosFlotillaControllerTest {
 		System.assertEquals(true, v.get('activo'));
 		System.assertEquals(false, MovimientosFlotillaController.getDatos(poliza().Id).get('soloLectura'), 'La flotilla con incisos se edita');
 	}
+
+	/**
+	 * @creation date: 24/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Corregir un registro no crea otro movimiento: queda en el detalle del que sigue abierto.
+	 * @return void
+	 */
+	@isTest
+	static void testCorregirSinMovimiento() {
+		InsurancePolicy pol = poliza();
+		Id reg = inciso(pol.Id, SERIE_2);
+		Movimiento_Poliza__c alta = new Movimiento_Poliza__c(Poliza__c = pol.Id, Inciso__c = reg, Tipo__c = 'Alta', Fecha_Movimiento__c = Date.today(),
+			Solicitud__c = 'SOL-0001', Contexto__c = 'Endoso');
+		insert alta;
+		Test.startTest();
+		Map<String, Object> r = MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new Map<String, Object>{
+			'movimientos' => new List<Object>{ new Map<String, Object>{ 'tipo' => 'cambio', 'id' => reg, 'fecha' => String.valueOf(Date.today()),
+				'datos' => new Map<String, Object>{ 'placas' => 'NVA123' }, 'sinMovimiento' => true, 'movimientoId' => alta.Id } } }));
+		Test.stopTest();
+		System.assertEquals(1, r.get('cambios'));
+		List<Movimiento_Poliza__c> movs = [SELECT Tipo__c, Detalle__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id];
+		System.assertEquals(1, movs.size(), 'No se crea otro movimiento');
+		System.assert(String.isNotBlank(movs[0].Detalle__c), 'La corrección queda en el alta');
+	}
 }

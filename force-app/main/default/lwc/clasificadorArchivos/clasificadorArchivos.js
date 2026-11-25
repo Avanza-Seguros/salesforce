@@ -39,7 +39,7 @@ export const CAMPOS_CENSO = [
     { key: 'edad', label: 'Edad', tipo: 'numero', alias: ['edad', 'edad actual', 'edad alcanzada'] },
     { key: 'sexo', label: 'Género', alias: ['sexo', 'genero', 'sex'] },
     { key: 'parentesco', label: 'Parentesco', alias: ['parentesco', 'tipo de asegurado', 'tipo asegurado', 'relacion', 'dependencia', 'tipo de dependiente'] },
-    { key: 'categoria', label: 'Categoría', alias: ['categoria', 'grupo', 'clase', 'nivel', 'grupo asegurado', 'subgrupo', 'regla', 'catego'] },
+    { key: 'categoria', label: 'Categoría', alias: ['categoria', 'categorias', 'grupo', 'clase', 'nivel', 'grupo asegurado', 'subgrupo', 'regla', 'catego'] },
     { key: 'sueldoMensual', label: 'Sueldo mensual', tipo: 'numero', alias: ['sueldo mensual', 'salario mensual', 'sueldo', 'salario', 'sueldo base'] },
     { key: 'sueldoAnual', label: 'Sueldo anual', tipo: 'numero', alias: ['sueldo anual', 'salario anual', 'ingreso anual'] },
     { key: 'sumaAsegurada', label: 'Suma asegurada', tipo: 'numero', alias: ['suma asegurada', 'sa', 's a', 'suma aseg', 'int sa'] },
