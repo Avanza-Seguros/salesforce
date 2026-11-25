@@ -161,9 +161,9 @@
     min-width: 11rem;
 }
 
+/* Sin límite de alto: se muestra todo y solo se desplaza la página; a lo ancho, si no cabe, la tabla. */
 .part-scroll {
-    max-height: 32rem;
-    overflow: auto;
+    overflow-x: auto;
     border: 1px solid #e5e5e5;
     border-radius: 0.25rem;
 }
@@ -449,8 +449,8 @@
 .part-portal .part-filtros { flex: 1 1 360px; gap: 12px; min-width: 0; }
 .part-portal .part-buscar { flex: 1 1 280px; min-width: 0; }
 .part-portal .part-filtro { flex: 0 1 200px; min-width: 10rem; }
-/* Tabla: una sola línea por persona, encabezado gris en mayúsculas; se desplaza dentro de su caja. */
-.part-portal .part-scroll { border: 1px solid #eef1f6; border-radius: 16px; max-height: 34rem; }
+/* Tabla: una sola línea por persona, encabezado gris en mayúsculas; a lo ancho se desplaza dentro de su caja. */
+.part-portal .part-scroll { border: 1px solid #eef1f6; border-radius: 16px; }
 .part-portal .part-tabla { font-size: 0.875rem; color: #0b1f44; border: 0; }
 .part-portal .part-tabla th { background: #f7f9fc; color: #64748b; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     padding: 13px 14px; border: 0; white-space: nowrap; }
@@ -484,3 +484,17 @@
     .part-portal .part-filtros, .part-portal .part-buscar, .part-portal .part-filtro { flex: 1 1 100%; min-width: 0; }
     .part-portal .part-contratante { align-items: flex-start; }
 }
+
+/* Vista compacta (Salesforce), como la de Asegurados: título e indicadores en un renglón y el contratante en otro. */
+.part:not(.part-portal) .part-encabezado { align-items: center; flex-wrap: wrap; gap: 0.25rem 0.5rem; margin-bottom: 0.375rem; }
+.part:not(.part-portal) .part-encabezado > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; margin-right: auto; }
+.part:not(.part-portal) .part-stats { gap: 0.375rem; margin: 0; }
+.part:not(.part-portal) .stat { flex: 0 0 auto; flex-direction: row; align-items: baseline; gap: 0.375rem; padding: 0.0625rem 0.625rem; border-left-width: 3px; border-radius: 0.25rem; }
+.part:not(.part-portal) .stat-num { font-size: 0.9375rem; }
+.part:not(.part-portal) .part-contratante { align-items: center; gap: 0.5rem; padding: 0.125rem 0.5rem; margin-bottom: 0.375rem; border-radius: 0.25rem; --sds-c-icon-size-boundary: 1.25rem; }
+.part:not(.part-portal) .contratante-cuerpo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 1.5rem; }
+.part:not(.part-portal) .contratante-titulo { margin-bottom: 0; }
+.part:not(.part-portal) .datos-linea { margin: 0; }
+.part:not(.part-portal) .part-barra { gap: 0.375rem; align-items: center; margin-bottom: 0.375rem; }
+.part:not(.part-portal) .part-filtros { gap: 0.375rem; }
+.part:not(.part-portal) { padding: 0.5rem 0.75rem; }

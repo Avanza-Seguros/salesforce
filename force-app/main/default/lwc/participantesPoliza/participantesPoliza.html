@@ -9,6 +9,16 @@
                 <h3 class="part-titulo">Participantes de la póliza</h3>
                 <p class="part-subtitulo">{subtitulo}</p>
             </div>
+            <!-- En Salesforce los indicadores van en el mismo renglón del título. -->
+            <template lwc:if={interno}>
+                <template if:true={hayDatos}>
+                    <div class="part-stats">
+                        <template for:each={stats} for:item="s">
+                            <div key={s.key} class={s.clase}><span class="stat-num">{s.num}</span><span class="stat-lbl">{s.lbl}</span></div>
+                        </template>
+                    </div>
+                </template>
+            </template>
             <lightning-button-icon icon-name="utility:refresh" alternative-text="Actualizar" title="Actualizar" onclick={cargar}></lightning-button-icon>
         </div>
 
@@ -47,11 +57,14 @@
                 </div>
             </template>
 
-            <div class="part-stats">
-                <template for:each={stats} for:item="s">
-                    <div key={s.key} class={s.clase}><span class="stat-num">{s.num}</span><span class="stat-lbl">{s.lbl}</span></div>
-                </template>
-            </div>
+            <!-- En el sitio los indicadores van aquí, como tarjetas. -->
+            <template lwc:if={portal}>
+                <div class="part-stats">
+                    <template for:each={stats} for:item="s">
+                        <div key={s.key} class={s.clase}><span class="stat-num">{s.num}</span><span class="stat-lbl">{s.lbl}</span></div>
+                    </template>
+                </div>
+            </template>
 
             <!-- ====================== BARRA ====================== -->
             <div class="part-barra">

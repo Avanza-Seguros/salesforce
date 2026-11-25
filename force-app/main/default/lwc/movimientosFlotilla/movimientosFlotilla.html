@@ -10,6 +10,17 @@
                     <h3 class="mov-titulo">{titulo}</h3>
                     <p class="mov-subtitulo">{subtitulo}</p>
                 </div>
+                <!-- Indicadores: en Salesforce van en el mismo renglón del título. -->
+                <template if:true={mostrarCuerpo}>
+                    <div class="mov-stats">
+                        <div class="stat"><span class="stat-num">{totalVigentes}</span><span class="stat-lbl">Vigentes</span></div>
+                        <div class="stat"><span class="stat-num">{valorVigentes}</span><span class="stat-lbl">Valor asegurado</span></div>
+                        <div class="stat"><span class="stat-num">{primaVigentes}</span><span class="stat-lbl">Prima</span></div>
+                        <template if:true={enPoliza}>
+                            <div class="stat stat-baja"><span class="stat-num">{totalBajas}</span><span class="stat-lbl">Dados de baja</span></div>
+                        </template>
+                    </div>
+                </template>
                 <template if:true={enOportunidad}>
                     <lightning-button label={textoAbrir} onclick={toggleAbierto}></lightning-button>
                 </template>
@@ -23,15 +34,6 @@
             </template>
 
             <template if:true={mostrarCuerpo}>
-                <div class="mov-stats">
-                    <div class="stat"><span class="stat-num">{totalVigentes}</span><span class="stat-lbl">Vigentes</span></div>
-                    <div class="stat"><span class="stat-num">{valorVigentes}</span><span class="stat-lbl">Valor asegurado</span></div>
-                    <div class="stat"><span class="stat-num">{primaVigentes}</span><span class="stat-lbl">Prima</span></div>
-                    <template if:true={enPoliza}>
-                        <div class="stat stat-baja"><span class="stat-num">{totalBajas}</span><span class="stat-lbl">Dados de baja</span></div>
-                    </template>
-                </div>
-
                 <!-- ====================== LISTA ====================== -->
                 <template if:true={enLista}>
                     <template if:true={puedeTraer}>
