@@ -121,9 +121,9 @@
     min-width: 12rem;
 }
 
+/* Sin límite de alto: se muestra todo y solo se desplaza la página; a lo ancho, si no cabe, la tabla. */
 .mov-scroll {
-    max-height: 26rem;
-    overflow: auto;
+    overflow-x: auto;
     border: 1px solid #e5e5e5;
     border-radius: 0.25rem;
 }
@@ -503,8 +503,8 @@
 .mov-portal .mov-nueva { margin-left: auto; }
 .mov-portal .mov-buscar { flex: 1 1 280px; min-width: 0; }
 .mov-portal .mov-filtro { flex: 0 1 200px; min-width: 10rem; }
-/* Tabla: una sola línea por fila, encabezado gris en mayúsculas; se desplaza dentro de su caja. */
-.mov-portal .mov-scroll { border: 1px solid #eef1f6; border-radius: 16px; max-height: 34rem; }
+/* Tabla: una sola línea por fila, encabezado gris en mayúsculas; a lo ancho se desplaza dentro de su caja. */
+.mov-portal .mov-scroll { border: 1px solid #eef1f6; border-radius: 16px; }
 .mov-portal .mov-tabla { font-size: 0.875rem; color: #0b1f44; border: 0; }
 .mov-portal .mov-tabla th { background: #f7f9fc; color: #64748b; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     padding: 13px 14px; border: 0; white-space: nowrap; }
