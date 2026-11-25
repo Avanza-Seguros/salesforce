@@ -19,6 +19,7 @@
                 <lightning-input type="number" formatter="currency" step="0.01" label="Prima total" value={total}
                     data-campo="total" onchange={handleCampo}></lightning-input>
             </div>
+            <template lwc:if={interno}>
             <div class="slds-col slds-size_1-of-1">
                 <label class="slds-form-element__label" for="archivo-endoso">Documento del endoso</label>
                 <div class="endoso-archivo">
@@ -27,6 +28,7 @@
                 </div>
                 <template if:true={errorArchivo}><p class="endoso-error">{errorArchivo}</p></template>
             </div>
+            </template>
         </div>
     </div>
 </template>

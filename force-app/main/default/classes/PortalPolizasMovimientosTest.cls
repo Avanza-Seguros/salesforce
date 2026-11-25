@@ -95,21 +95,26 @@ private class PortalPolizasMovimientosTest {
 		List<Object> endosos = (List<Object>) ejecutar(pol.Id, 'EndosoPoliza.getEndosos', new Map<String, Object>());
 		Map<String, Object> doc = (Map<String, Object>) ejecutar(pol.Id, 'Documento.descargar',
 			new Map<String, Object>{ 'documentId' => documentId });
-		Id subido = (Id) ejecutar(pol.Id, 'MovimientosColectivo.subirArchivo',
-			new Map<String, Object>{ 'recordId' => pol.Id, 'nombre' => 'lista.xlsx', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('x')) });
 		Map<String, Object> otras = (Map<String, Object>) ejecutar(pol.Id, 'OtrasPolizas.buscar',
 			new Map<String, Object>{ 'registroId' => titular.Id, 'contextoId' => pol.Id });
-		// Archivos del asegurado: se adjunta a su contacto, se lista y se descarga.
-		Id archivoAsegurado = (Id) ejecutar(pol.Id, 'Archivos.subir', new Map<String, Object>{ 'participanteId' => titular.Id,
-			'nombre' => 'ine.pdf', 'base64' => EncodingUtil.base64Encode(Blob.valueOf('ine')) });
+		// Archivos del asegurado: en el sitio se listan y se descargan, pero no se cargan.
+		ContentVersion ine = new ContentVersion(Title = 'ine', PathOnClient = 'ine.pdf', VersionData = Blob.valueOf('ine'),
+			FirstPublishLocationId = empleado.Id);
+		insert ine;
+		Id archivoAsegurado = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :ine.Id].ContentDocumentId;
+		List<String> cargas = new List<String>();
+		for (String accion : new List<String>{ 'Archivos.subir', 'MovimientosColectivo.subirArchivo', 'MovimientosColectivo.subirDocumentoBaja' }) {
+			cargas.add(error(pol.Id, accion, new Map<String, Object>{ 'participanteId' => titular.Id, 'recordId' => pol.Id,
+				'nombre' => 'x.pdf', 'base64' => 'eA==' }));
+		}
 		Map<String, Object> deAsegurado = (Map<String, Object>) ejecutar(pol.Id, 'MovimientosColectivo.archivosAsegurado',
 			new Map<String, Object>{ 'registroId' => titular.Id });
 		Map<String, Object> descargaAsegurado = (Map<String, Object>) ejecutar(pol.Id, 'Documento.descargar',
 			new Map<String, Object>{ 'documentId' => archivoAsegurado, 'participanteId' => titular.Id });
 		String archivoAjeno = error(pol.Id, 'Documento.descargar',
 			new Map<String, Object>{ 'documentId' => documentId, 'participanteId' => titular.Id });
-		String deOtraPoliza = error(pol.Id, 'MovimientosColectivo.subirDocumentoBaja',
-			new Map<String, Object>{ 'participanteId' => enAjena.Id, 'nombre' => 'baja.pdf', 'base64' => 'eA==' });
+		String deOtraPoliza = error(pol.Id, 'MovimientosColectivo.archivosAsegurado',
+			new Map<String, Object>{ 'registroId' => enAjena.Id });
 		// Correo a los asegurados desde el sitio: plantillas, sin destinatarios y con un Id inválido.
 		List<Map<String, Object>> plantillas = (List<Map<String, Object>>) ejecutar(pol.Id, 'Participantes.getPlantillas', new Map<String, Object>());
 		String sinDestinatarios = error(pol.Id, 'Participantes.enviarCorreo', new Map<String, Object>{ 'participanteIds' => new List<Object>() });
@@ -136,13 +141,11 @@ private class PortalPolizasMovimientosTest {
 		System.assertEquals('Endoso A0001.pdf', doc.get('nombre'));
 		System.assertEquals('application/pdf', doc.get('mime'));
 		System.assertEquals(EncodingUtil.base64Encode(Blob.valueOf('pdf')), doc.get('base64'));
-		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :pol.Id AND ContentDocumentId = :subido]);
 		for (Object o : (List<Object>) otras.get('polizas')) {
 			System.assertNotEquals(ajena.Id, (Id) ((Map<String, Object>) o).get('polizaId'), 'No muestra pólizas de otros clientes');
 		}
 		System.assertEquals(true, otras.get('portal'));
-		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :empleado.Id AND ContentDocumentId = :archivoAsegurado],
-			'El archivo va al contacto del asegurado');
+		for (String c : cargas) { System.assertEquals('Acción no disponible en el sitio.', c, 'En el sitio no se cargan archivos'); }
 		System.assertEquals(1, ((List<Object>) deAsegurado.get('archivos')).size());
 		System.assertEquals('ine.pdf', descargaAsegurado.get('nombre'));
 		System.assertEquals('El documento no existe o no tienes acceso a él.', archivoAjeno, 'Solo archivos de ese asegurado');

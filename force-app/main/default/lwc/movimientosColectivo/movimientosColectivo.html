@@ -836,22 +836,18 @@
                             </div>
                         </template>
 
-                        <!-- Archivos del asegurado: ver los que existen y adjuntar nuevos. -->
+                        <!-- Archivos del asegurado: ver los que existen y (solo en Salesforce) adjuntar nuevos. -->
                         <template if:true={enModalArchivos}>
                             <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Archivos: {archivos.nombre}</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">
                                 <template if:true={archivos.cargando}>
                                     <lightning-spinner alternative-text="Cargando archivos" size="small"></lightning-spinner>
                                 </template>
-                                <template if:true={archivos.destinoId}>
-                                    <template lwc:if={interno}>
+                                <!-- En el sitio solo se ven: los archivos se adjuntan en Salesforce. -->
+                                <template lwc:if={interno}>
+                                    <template if:true={archivos.destinoId}>
                                         <lightning-file-upload label="Adjuntar archivos" name="archivos" record-id={archivos.destinoId}
                                             onuploadfinished={archivosSubidos} multiple></lightning-file-upload>
-                                    </template>
-                                    <!-- En el sitio el archivo se sube por PortalPolizasMovimientos (mismo destino). -->
-                                    <template lwc:else>
-                                        <lightning-input type="file" label="Adjuntar archivos" multiple disabled={archivos.cargando}
-                                            onchange={subirArchivosSitio}></lightning-input>
                                     </template>
                                 </template>
                                 <h4 class="mov-seccion seccion-alta">{textoArchivos}</h4>

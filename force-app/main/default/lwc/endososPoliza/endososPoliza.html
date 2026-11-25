@@ -120,13 +120,15 @@
                     </div>
                     <div class="slds-modal__content slds-p-around_medium">
                         <p class="sub slds-m-bottom_small">Para endosos de la aseguradora que no dan de alta, baja ni cambian registros
-                            (p. ej. una cláusula o beneficio adicional). Si eliges el PDF se proponen sus datos.</p>
+                            (p. ej. una cláusula o beneficio adicional).<template lwc:if={interno}> Si eliges el PDF se proponen sus datos.</template></p>
+                        <template lwc:if={interno}>
                         <div class="slds-m-bottom_small">
                             <input type="file" class="reg-pdf slds-hide" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange={handlePdf} />
                             <lightning-button label="Elegir documento del endoso" icon-name="utility:upload" onclick={elegirPdf}></lightning-button>
                             <span class="sub slds-m-left_small">{textoArchivoReg}</span>
                             <template if:true={leyendo}><lightning-spinner alternative-text="Leyendo PDF" size="small"></lightning-spinner></template>
                         </div>
+                        </template>
                         <template if:true={regAviso}><div class="end-aviso">{regAviso}</div></template>
                         <div class="slds-grid slds-wrap slds-gutters_x-small reg-form">
                             <div class="slds-col slds-size_1-of-2">

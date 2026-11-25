@@ -24,7 +24,6 @@ import { llamar, fijarPortal } from 'c/portalContexto';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosFlotilla.aplicar', p, aplicar);
 const compararArchivoSitio = (p) => llamar('MovimientosFlotilla.compararArchivo', p, compararArchivo);
-const subirArchivoSitio = (p) => llamar('MovimientosColectivo.subirArchivo', p, subirArchivo);
 const cerrarMovimientoSitio = (p) => llamar('MovimientosColectivo.cerrarMovimiento', p, cerrarMovimiento);
 
 const POR_PAGINA = 50;
@@ -880,8 +879,9 @@ export default class MovimientosFlotilla extends LightningElement {
         });
         return res;
     }
-    // Sube el PDF de cada endoso leído a su endoso (transacción).
+    // Sube el PDF de cada endoso leído a su endoso (transacción). En el sitio no se adjuntan archivos.
     async subirDocumentosEndosos(transacciones) {
+        if (this.portal) { return; }
         const fallas = [];
         for (const x of this._endososLeidos || []) {
             const tId = transacciones && transacciones[x.numero];
@@ -895,7 +895,7 @@ export default class MovimientosFlotilla extends LightningElement {
                     lector.readAsDataURL(x.documento);
                 });
                 // eslint-disable-next-line no-await-in-loop
-                await subirArchivoSitio({ recordId: tId, nombre: x.documento.name, base64 });
+                await subirArchivo({ recordId: tId, nombre: x.documento.name, base64 });
             } catch (err) {
                 fallas.push(x.numero);
             }

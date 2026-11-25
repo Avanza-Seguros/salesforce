@@ -34,8 +34,6 @@ import { llamar, fijarPortal, descargarDocumento } from 'c/portalContexto';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosColectivo.aplicar', p, aplicar);
 const compararArchivoSitio = (p) => llamar('MovimientosColectivo.compararArchivo', p, compararArchivo);
-const subirArchivoSitio = (p) => llamar('MovimientosColectivo.subirArchivo', p, subirArchivo);
-const subirDocumentoBajaSitio = (p) => llamar('MovimientosColectivo.subirDocumentoBaja', p, subirDocumentoBaja);
 const archivosAseguradoSitio = (p) => llamar('MovimientosColectivo.archivosAsegurado', p, archivosAsegurado);
 const getPlantillasSitio = () => llamar('Participantes.getPlantillas', {}, getPlantillas);
 const enviarCorreoSitio = (p) => llamar('Participantes.enviarCorreo', p, enviarCorreo);
@@ -703,9 +701,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 : (this.correoDe(m) ? `Aún no se envía el correo a ${this.correoDe(m)}` : 'El asegurado no tiene correo'),
             puedeCorreo: this.enPoliza && (!!this.correoDe(m) || this.bajaPorEnviar(m)),
             // En el sitio no se adjuntan archivos ni se envían correos.
-            // En el sitio, solo el contratante (quien puede editar) ve y adjunta archivos.
+            // En el sitio, solo el contratante (quien puede editar) ve los archivos, si los hay; no adjunta.
             // Los dependientes, solo si ya tienen (p. ej. su carta de antigüedad).
-            muestraArchivos: (m.esTitular || m.archivos > 0) && (!this.portal || this.puedeEditar),
+            muestraArchivos: this.portal ? m.archivos > 0 && this.puedeEditar : m.esTitular || m.archivos > 0,
             muestraCorreo: this.enPoliza && (!!this.correoDe(m) || this.bajaPorEnviar(m)),
             textoEnviar: m.correoEnviado ? 'Reenviar correo' : 'Enviar correo'
         });
@@ -972,30 +970,6 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             await this.cargar();
         }
     }
-    // Sitio: adjunta los archivos elegidos al asegurado por PortalPolizasMovimientos (hasta 3 MB cada uno).
-    async subirArchivosSitio(e) {
-        const archivos = Array.from((e.detail && e.detail.files) || (e.target && e.target.files) || []);
-        if (!archivos.length) { return; }
-        const id = this.archivos.id;
-        this.archivos = { ...this.archivos, cargando: true };
-        const errores = [];
-        let subidos = 0;
-        for (const f of archivos) {
-            if (f.size > 3 * 1024 * 1024) { errores.push(`${f.name}: pesa más de 3 MB.`); continue; }
-            try {
-                // eslint-disable-next-line no-await-in-loop
-                const base64 = await this.leerBase64(f);
-                // eslint-disable-next-line no-await-in-loop
-                await llamar('Archivos.subir', { participanteId: id, nombre: f.name, base64 }, null);
-                subidos++;
-            } catch (err) {
-                errores.push(`${f.name}: ${this.textoError(err)}`);
-            }
-        }
-        if (subidos) { this.toast('Archivos', `${subidos} archivo(s) adjuntado(s).`, 'success'); }
-        if (errores.length) { this.toast('Archivos', errores.join(' '), 'error'); }
-        await this.cargarArchivos();
-    }
     get archivosLista() {
         return this.archivos.lista.map((a) => ({
             ...a,
@@ -1110,7 +1084,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                     // Se valida también por lo que dice el PDF (su nombre puede no tener nada que ver).
                     this.ponerContenido(n.key, await this.contenidoDe(porKey.get(n.key)));
                     const base64 = await this.leerBase64(porKey.get(n.key));
-                    const documentId = await subirArchivoSitio({ recordId: this._recordId, nombre: n.nombre, base64 });
+                    const documentId = await subirArchivo({ recordId: this._recordId, nombre: n.nombre, base64 });
                     this.actualizarFila(n.key, { estado: 'listo', documentId });
                 } catch (err) {
                     this.actualizarFila(n.key, { estado: 'error',
@@ -1550,7 +1524,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 if (!f) { continue; }
                 try {
                     const base64 = await this.leerBase64(f);
-                    await subirDocumentoBajaSitio({ policyId: this._recordId, participanteId: id, nombre: f.name, base64 });
+                    await subirDocumentoBaja({ policyId: this._recordId, participanteId: id, nombre: f.name, base64 });
                 } catch (err) {
                     errores.push(`${f.name}: ${this.textoError(err)}`);
                 }

@@ -7,7 +7,7 @@
  */
 import { LightningElement, api, track } from 'lwc';
 import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
-import { llamar } from 'c/portalContexto';
+import { enPortal } from 'c/portalContexto';
 
 // Límite del archivo: se manda en base64 a Apex.
 const MAX_BYTES = 3.5 * 1024 * 1024;
@@ -18,6 +18,8 @@ export default class DatosEndoso extends LightningElement {
     archivoNombre = '';
     errorArchivo = '';
 
+    // En el sitio no se adjuntan archivos.
+    get interno() { return !enPortal(); }
     get primaNeta() { return this.valores.primaNeta; }
     get derechos() { return this.valores.derechos; }
     get iva() { return this.valores.iva; }
@@ -87,7 +89,7 @@ export default class DatosEndoso extends LightningElement {
             lector.onerror = () => reject(lector.error);
             lector.readAsDataURL(this.archivo);
         });
-        await llamar('MovimientosColectivo.subirArchivo', { recordId, nombre: this.archivo.name, base64 }, subirArchivo);
+        await subirArchivo({ recordId, nombre: this.archivo.name, base64 });
         return true;
     }
 }

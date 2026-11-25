@@ -5,7 +5,7 @@
  * mismos componentes de Salesforce (altas, bajas, cambios, carga del archivo de la aseguradora, endosos y «otras
  * pólizas»). Valida que la póliza sea del usuario del sitio; los movimientos solo los puede hacer el contratante. Llama
  * a los mismos controladores de Salesforce (inherited sharing, así que aquí corren sin compartir: el usuario del sitio
- * no tiene acceso directo a los registros).
+ * no tiene acceso directo a los registros). Los archivos adjuntos solo se ven: en el sitio no se cargan.
  */
 public without sharing class PortalPolizasMovimientos {
 
@@ -54,14 +54,6 @@ public without sharing class PortalPolizasMovimientos {
 					Id movimientoId = registro(p, 'movimientoId', policyId);
 					return MovimientosColectivoController.cerrarMovimiento(movimientoId);
 				}
-				when 'MovimientosColectivo.subirArchivo' {
-					Id recordId = registro(p, 'recordId', policyId);
-					return MovimientosColectivoController.subirArchivo(recordId, texto(p, 'nombre'), texto(p, 'base64'));
-				}
-				when 'MovimientosColectivo.subirDocumentoBaja' {
-					Id participanteId = registro(p, 'participanteId', policyId);
-					return MovimientosColectivoController.subirDocumentoBaja(policyId, participanteId, texto(p, 'nombre'), texto(p, 'base64'));
-				}
 				when 'EndosoPoliza.getEndosos' {
 					return EndosoPoliza.getEndosos(policyId);
 				}
@@ -78,12 +70,6 @@ public without sharing class PortalPolizasMovimientos {
 				when 'MovimientosColectivo.archivosAsegurado' {
 					Id registroId = registro(p, 'registroId', policyId);
 					return MovimientosColectivoController.archivosAsegurado(registroId);
-				}
-				when 'Archivos.subir' {
-					// Archivo del asegurado: va a su contacto (o cuenta), igual que el botón Adjuntar archivos de Salesforce.
-					Id participanteId = registro(p, 'participanteId', policyId);
-					Id destino = (Id) MovimientosColectivoController.archivosAsegurado(participanteId).get('destinoId');
-					return MovimientosColectivoController.subirArchivo(destino, texto(p, 'nombre'), texto(p, 'base64'));
 				}
 				when 'Documento.descargar' {
 					if (p.get('participanteId') == null) {
