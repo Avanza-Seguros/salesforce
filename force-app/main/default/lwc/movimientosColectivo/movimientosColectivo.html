@@ -708,21 +708,16 @@
                                             field-level-help="Antigüedad reconocida (RA). Vacía: cuenta desde su primera alta."></lightning-input>
                                     </div>
                                     </template>
-                                    <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
-                                        <lightning-input label="RFC" value={form.rfc} data-campo="rfc" onchange={handleForm} max-length="13"></lightning-input>
+                                        <lightning-input label="Categoría" value={form.categoria} data-campo="categoria" onchange={handleForm}
+                                            field-level-help={ayudaCategoria}></lightning-input>
                                     </div>
-                                    </template>
                                     <template if:true={enPoliza}>
                                         <div class="slds-col slds-size_2-of-3">
                                             <lightning-input type="email" label="Correo" value={form.email} data-campo="email" onchange={handleForm}
                                                 field-level-help="Se guarda en el contacto o la cuenta del asegurado."></lightning-input>
                                         </div>
                                     </template>
-                                    <div class="slds-col slds-size_1-of-3">
-                                        <lightning-input label="Categoría" value={form.categoria} data-campo="categoria" onchange={handleForm}
-                                            field-level-help={ayudaCategoria}></lightning-input>
-                                    </div>
                                     <template lwc:if={interno}>
                                     <div class="slds-col slds-size_1-of-3">
                                         <lightning-input type="number" formatter="currency" step="0.01" label="Suma asegurada" value={form.sumaAsegurada}
