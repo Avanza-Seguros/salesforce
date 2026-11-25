@@ -691,8 +691,24 @@ export default class ColectivoPersonas extends NavigationMixin(LightningElement)
     // La IA a veces toma como contratante el nombre de la categoría ("EXP GLOBAL CAT. EMPLEADOS (CONTRATANTE) OPCION 1"):
     // ese texto no es una empresa y se descarta.
     contratanteValido(v) {
-        const t = this.txt(v);
+        const t = this.sinFolio(this.txt(v));
         return /\bcat\b|categ|\bopcion\b|exp global|\(contratante\)|subgrupo|empleados|directivos/.test(fold(t)) ? '' : t;
+    }
+
+    // Quita el folio o número de póliza que la aseguradora pone antes o después del nombre ("5-507687 MATERIALES
+    // SUSTENTABLES PEÑA"). Solo si suma 5 dígitos o más: "3M México" o "24 Horas" se quedan igual.
+    sinFolio(t) {
+        const esFolio = (w) => /^[A-Z]{0,4}[-.#]*\d[\d\-./]*[:,]?$/i.test(w) || /^[-–|:#]+$/.test(w);
+        const digitos = (ws) => ws.join('').replace(/\D/g, '').length;
+        const palabras = (t || '').split(/\s+/).filter(Boolean);
+        let ini = 0;
+        while (ini < palabras.length && esFolio(palabras[ini])) { ini++; }
+        if (ini === palabras.length) { return ''; }   // puro folio: no es un nombre
+        let fin = palabras.length;
+        while (esFolio(palabras[fin - 1])) { fin--; }
+        if (digitos(palabras.slice(0, ini)) < 5) { ini = 0; }
+        if (digitos(palabras.slice(fin)) < 5) { fin = palabras.length; }
+        return palabras.slice(ini, fin).join(' ');
     }
 
     // Tipo de negocio del encabezado de la cotización: 'Renovacion', 'Reexpedicion' o 'Nuevo' ('' si no lo dice).
