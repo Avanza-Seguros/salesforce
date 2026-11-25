@@ -80,6 +80,8 @@ export default class MovimientosUbicaciones extends LightningElement {
     // En el sitio de empresas se agrega «mov-portal» para tomar el estilo del sitio (igual que movimientosColectivo).
     get claseRaiz() { return this.portal ? 'mov mov-portal' : 'mov'; }
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
+    // Folio de la aseguradora de cada movimiento: solo en Salesforce.
+    get conFolioAseguradora() { return !this.portal; }
     get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar; }
 
     @api
@@ -183,7 +185,8 @@ export default class MovimientosUbicaciones extends LightningElement {
         const s = info.get(x.solicitud);
         if (s && s.seguimiento !== 'Solicitado' && s.seguimiento !== 'En proceso') { return false; }
         const seg = this.seguimientoDe(x, info);
-        return seg === 'Solicitado' || seg === 'En proceso';
+        // El estatus de la solicitud es manual: sigue pendiente aunque todos sus registros estén concluidos.
+        return seg === 'Solicitado' || seg === 'En proceso' || (this.agrupado && !!s && !s.abiertos);
     }
     tienePendiente(x, info) { return this.esPendiente(x, info) || (x.movimientos || []).some((y) => this.esPendiente(y, info)); }
     // Pendientes como se ven en la tabla: solicitudes (agrupada) o registros.
@@ -422,6 +425,9 @@ export default class MovimientosUbicaciones extends LightningElement {
             puedeSeguimiento: this.cambiaSeguimiento && !!s && !!seguimiento,
             sinMovimientos: !!s && !s.total,
             puedeEliminar: this.cambiaSeguimiento && !!s && sePuedeEliminar(g.folio, s.seguimiento),
+            editaFolioAseguradora: this.cambiaSeguimiento && !!s && !!g.folio,
+            folioAseguradora: (s && s.folioAseguradora) || '',
+            folioAseguradoraTxt: (s && s.folioAseguradora) || '—',
             ligaCaso: !this.portal && s && s.casoId ? `/lightning/r/Case/${s.casoId}/view` : null,
             casoTxt: s && s.caso ? `Caso ${s.caso}` : '',
             // Respuesta del ejecutivo (motivo del rechazo): la ve el cliente en el sitio.

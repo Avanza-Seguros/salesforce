@@ -63,6 +63,8 @@ public without sharing class EliminarMovimientos {
 		if (movimientoId != null && elegidos.isEmpty()) { throw new EliminarException('El movimiento ya no existe.'); }
 		agregarDependientes(folio);
 		validar(movimientoId == null);
+		// Eliminar registros no le cambia el estatus a la solicitud.
+		EndosoPoliza.fijarEstatus(policyId, new Set<String>{ folio });
 
 		Map<String, Set<Id>> participantes = new Map<String, Set<Id>>{ 'Alta' => new Set<Id>(), 'Baja' => new Set<Id>(), 'Cambio' => new Set<Id>() };
 		Map<String, Set<Id>> incisos = new Map<String, Set<Id>>{ 'Alta' => new Set<Id>(), 'Baja' => new Set<Id>() };
@@ -260,7 +262,7 @@ public without sharing class EliminarMovimientos {
 	}
 
 	// ===== Solicitud =====
-	// Sin movimientos, el caso del sitio se cierra y la solicitud ya no se muestra; con los demás ya cerrados, se concluye.
+	// Sin movimientos, el caso del sitio se cierra y la solicitud ya no se muestra; con los demás ya cerrados, se aprueba su endoso.
 	private void cerrarSolicitud(String folio) {
 		Set<Id> quedan = new Set<Id>();
 		Boolean abiertos = false;

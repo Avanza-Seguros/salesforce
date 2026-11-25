@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Seguimiento_Solicitud__c</fullName>
+    <description>Estatus que eligió el ejecutivo para todo el movimiento (la solicitud): Solicitado, En proceso o Concluido. Solo cambia a mano; en las solicitudes del sitio es el estado de su caso.</description>
+    <externalId>false</externalId>
+    <label>Estatus de la solicitud</label>
+    <length>20</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

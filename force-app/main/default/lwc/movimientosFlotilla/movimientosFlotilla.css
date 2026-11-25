@@ -448,6 +448,7 @@
     font-size: 0.75rem;
     color: #444444;
 }
+.mov:not(.mov-portal) .sol-grid { grid-template-columns: 1.75rem 7rem 8rem 10rem 10rem 10rem 8.5rem 7rem 10rem minmax(0, auto); }
 .enc-solicitudes .sol-grid { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #444444; }
 .sol-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; min-width: 0; }
 .sol-poliza { color: #0176d3; }

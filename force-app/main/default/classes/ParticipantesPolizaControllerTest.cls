@@ -233,22 +233,6 @@ private class ParticipantesPolizaControllerTest {
 		Assert.areEqual(1, r.get(baja.Id).size());
 	}
 
-	// El correo cierra solo el último movimiento del participante y no vuelve a cambiar uno ya cerrado.
-	@isTest
-	static void testCerrarMovimientos() {
-		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-PART-1' LIMIT 1];
-		InsurancePolicyParticipant t = [SELECT Id FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id AND ParticipantCode = '1' AND RelatedInsPolicyParticipantId = null LIMIT 1];
-		Movimiento_Poliza__c mov = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = t.Id, Tipo__c = 'Alta',
-			Contexto__c = 'Endoso', Fecha_Movimiento__c = Date.today());
-		insert mov;
-		ParticipantesPolizaController.cerrarMovimientos(pol.Id, new Set<Id>{ t.Id });
-		Datetime cierre = [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :mov.Id].Fecha_Cierre__c;
-		Assert.isNotNull(cierre);
-		ParticipantesPolizaController.cerrarMovimientos(pol.Id, new Set<Id>{ t.Id });
-		Assert.areEqual(cierre, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :mov.Id].Fecha_Cierre__c);
-		ParticipantesPolizaController.cerrarMovimientos(pol.Id, new Set<Id>());
-	}
-
 	// Marcadores {{...}} de las plantillas: valores, enlaces sin valor y marcadores desconocidos.
 	@isTest
 	static void testLlenarMarcadores() {

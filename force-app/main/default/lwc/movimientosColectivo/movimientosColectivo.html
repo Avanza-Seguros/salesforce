@@ -116,7 +116,7 @@
                                             <th scope="col" colspan={columnasTabla}>
                                                 <div class="sol-grid">
                                                     <span></span><span>Movimiento</span><span>Póliza</span><span>Fecha de apertura</span>
-                                                    <span>Fecha de cierre</span><span>Tiempo de respuesta</span><span>Seguimiento</span><span>Prima</span><span></span>
+                                                    <span>Fecha de cierre</span><span>Tiempo de respuesta</span><span>Seguimiento</span><span>Prima</span><template lwc:if={conFolioAseguradora}><span>Folio Aseguradora</span></template><span></span>
                                                 </div>
                                             </th>
                                         </tr>
@@ -136,7 +136,7 @@
                                 <tbody key={b.key}>
                                     <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
                                     <template lwc:if={b.encabezado}>
-                                        <!-- Movimiento | Póliza | Fecha de apertura | Fecha de cierre | Tiempo de respuesta | Seguimiento | Prima (y el resumen). -->
+                                        <!-- Movimiento | Póliza | Fecha de apertura | Fecha de cierre | Tiempo de respuesta | Seguimiento | Prima | Folio Aseguradora (y el resumen). -->
                                         <tr class="fila-solicitud">
                                             <td colspan={columnasTabla}>
                                                 <div class="sol-grid">
@@ -156,6 +156,12 @@
                                                     </span>
                                                     <!-- Lo que cobra la aseguradora por todo el movimiento. -->
                                                     <span class="sol-prima">{b.primaTxt}</span>
+                                                    <!-- Folio de la aseguradora: del movimiento (no de cada registro); solo en Salesforce. -->
+                                                    <template lwc:if={conFolioAseguradora}><span>
+                                                        <template lwc:if={b.editaFolioAseguradora}><c-folio-aseguradora valor={b.folioAseguradora} policy-id={recordId} folio={b.folio}
+                                                            oncambio={handleCambioSeguimiento}></c-folio-aseguradora></template>
+                                                        <template lwc:else>{b.folioAseguradoraTxt}</template>
+                                                    </span></template>
                                                     <span class="sol-extra">
                                                         <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
                                                         <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
@@ -211,7 +217,8 @@
                                                 <!-- Seguimiento del trámite: Solicitado, En proceso o Concluido. -->
                                                 <td>
                                                     <template lwc:if={m.puedeSeguimiento}><c-seguimiento-selector valor={m.seguimiento} policy-id={recordId} folio={m.solicitud}
-                                                        movimiento-id={m.movimientoId} oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
+                                                        movimiento-id={m.movimientoId} correos-pendientes={m.correosPendientes} onconcluir={handleConcluir}
+                                                        oncambio={handleCambioSeguimiento}></c-seguimiento-selector></template>
                                                     <template lwc:elseif={m.seguimiento}><span class={m.claseSeguimiento}>{m.seguimiento}</span></template>
                                                     <template lwc:if={m.motivoRechazo}><div class="sub motivo-rechazo" title={m.motivoRechazo}>{m.motivoRechazo}</div></template>
                                                 </td>
@@ -566,7 +573,7 @@
                                     <p class="sub slds-m-bottom_x-small">
                                         El correo corporativo suele dejar de existir con la baja: captura el correo personal. Al dar de baja no se envía
                                         ningún correo: queda pendiente y se envía después con «Enviar correo», a esa dirección<template lwc:if={interno}> y con el documento de baja
-                                        (si lo adjuntas) como único archivo</template>. Al enviarlo se cierra el movimiento.
+                                        (si lo adjuntas) como único archivo</template>. El estatus del movimiento no cambia al enviarlo.
                                     </p>
                                     <div class="slds-grid slds-wrap slds-gutters_x-small">
                                         <template for:each={bajaCorreos} for:item="c">
@@ -888,7 +895,7 @@
                                     </div>
                                 </template>
                                 <p class="slds-m-bottom_small">{textoDestinatarios}</p>
-                                <template lwc:if={concluyeFolio}><p class="sub slds-m-bottom_small">{textoConcluir}</p></template>
+                                <template lwc:if={concluye}><p class="sub slds-m-bottom_small">{textoConcluir}</p></template>
                                 <!-- Bajas: a qué correo se envía. -->
                                 <template lwc:if={hayBajasCorreo}>
                                     <div class="mov-correos-baja slds-m-bottom_small">
@@ -916,7 +923,7 @@
                             </div>
                             <div class="slds-modal__footer">
                                 <lightning-button label="Cerrar" onclick={cerrarModal} disabled={correo.enviando}></lightning-button>
-                                <template lwc:if={concluyeFolio}><lightning-button class="slds-m-left_x-small" label="Concluir sin enviar" onclick={concluirSinCorreo}
+                                <template lwc:if={concluye}><lightning-button class="slds-m-left_x-small" label="Concluir sin enviar" onclick={concluirSinCorreo}
                                     disabled={correo.enviando}></lightning-button></template>
                                 <lightning-button class="slds-m-left_x-small" variant="brand" label={textoBotonCorreo} icon-name="utility:send"
                                     onclick={enviarCorreos} disabled={sinEnviarCorreo}></lightning-button>

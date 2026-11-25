@@ -114,6 +114,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get pideEndoso() { return this.interno && !this.esGmm; }
     get correoPendientes() { return this.enPoliza && !this.portal; }
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
+    // Folio de la aseguradora de cada movimiento: solo en Salesforce.
+    get conFolioAseguradora() { return !this.portal; }
     get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar; }
     // En el sitio de empresas se agrega «mov-portal» para tomar el estilo de Oportunidades.
     get claseRaiz() { return this.portal ? 'mov mov-portal' : 'mov'; }
@@ -259,7 +261,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const s = info.get(x.solicitud);
         if (s && s.seguimiento !== 'Solicitado' && s.seguimiento !== 'En proceso') { return false; }
         const seg = this.seguimientoDe(x, info);
-        return seg === 'Solicitado' || seg === 'En proceso';
+        // El estatus de la solicitud es manual: sigue pendiente aunque todos sus registros estén concluidos.
+        return seg === 'Solicitado' || seg === 'En proceso' || (this.agrupado && !!s && !s.abiertos);
     }
     tienePendiente(x, info) { return this.esPendiente(x, info) || (x.movimientos || []).some((y) => this.esPendiente(y, info)); }
     // Pendientes como se ven en la tabla: solicitudes (agrupada) o registros.
@@ -416,27 +419,49 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Concluir la solicitud funciona como «Enviar correo a pendientes» para ella: se eligen la plantilla y los adjuntos y, al
     // enviar, queda concluida (los que no tienen correo o ya lo recibieron solo se concluyen).
     concluyeFolio = '';
+    // Registro que se concluye (null: toda la solicitud): funciona igual, solo con su correo.
+    concluyeRegistro = null;
+    get concluye() { return !!this.concluyeFolio || !!this.concluyeRegistro; }
+    // El registro con correo por enviar: solo el último movimiento del asegurado (el correo es de ese).
+    pendienteDe(movimientoId) { return movimientoId ? this.pendientesCorreo.find((m) => m.movimientoId === movimientoId) : null; }
     pendientesDe(folio) { return folio ? this.pendientesCorreo.filter((m) => m.solicitud === folio) : []; }
     handleConcluir(e) {
-        const { folio } = e.detail;
+        const { folio, movimientoId } = e.detail;
+        if (movimientoId) {
+            const m = this.pendienteDe(movimientoId);
+            if (!m) { return; }
+            this.solicitudesCorreo = [];
+            this.concluyeFolio = '';
+            this.concluyeRegistro = { folio, movimientoId, nombre: m.nombre };
+            this.abrirCorreo([m.id], false);
+            return;
+        }
         const ids = this.pendientesDe(folio).map((m) => m.id);
         if (!ids.length) { return; }
         this.solicitudesCorreo = [];
         this.concluyeFolio = folio;
+        this.concluyeRegistro = null;
         this.abrirCorreo(ids, false);
     }
-    get tituloCorreoModal() { return this.concluyeFolio ? `Concluir el movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : 'Enviar correo'; }
+    get tituloCorreoModal() {
+        if (this.concluyeRegistro) { return `Concluir a ${this.concluyeRegistro.nombre}`; }
+        return this.concluyeFolio ? `Concluir el movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : 'Enviar correo';
+    }
     get textoConcluir() {
+        if (this.concluyeRegistro) { return 'Al enviar, el registro queda Concluido. El estatus del movimiento no cambia.'; }
         return 'Al enviar, el movimiento y sus registros quedan Concluidos y se manda el resumen al cliente. Los registros sin correo, o que ya lo recibieron, solo se concluyen.';
     }
     concluirSinCorreo() { return this.concluirSolicitud(); }
     async concluirSolicitud() {
-        const folio = this.concluyeFolio;
-        this.correo = { ...this.correo, enviando: true, avance: 'Concluyendo el movimiento…' };
+        const reg = this.concluyeRegistro;
+        const folio = reg ? reg.folio : this.concluyeFolio;
+        this.correo = { ...this.correo, enviando: true, avance: reg ? 'Concluyendo el registro…' : 'Concluyendo el movimiento…' };
         try {
-            const aviso = await cambiarSeguimiento({ policyId: this._recordId, folio, movimientoId: null, valor: 'Concluido', motivo: null });
-            this.toast('Seguimiento', `El movimiento ${folio.replace(/^SOL-/i, '')} quedó Concluido.${aviso ? ' ' + aviso : ''}`, 'success');
+            const aviso = await cambiarSeguimiento({ policyId: this._recordId, folio: folio || null, movimientoId: reg ? reg.movimientoId : null,
+                valor: 'Concluido', motivo: null });
+            this.toast('Seguimiento', `${reg ? reg.nombre : 'El movimiento ' + folio.replace(/^SOL-/i, '')} quedó Concluido.${aviso ? ' ' + aviso : ''}`, 'success');
             this.concluyeFolio = '';
+            this.concluyeRegistro = null;
             this.modal = null;
             await this.cargar();
         } catch (err) {
@@ -607,6 +632,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             puedeSeguimiento: this.cambiaSeguimiento && !!s && !!seguimiento,
             sinMovimientos: !!s && !s.total,
             puedeEliminar: this.cambiaSeguimiento && !!s && sePuedeEliminar(g.folio, s.seguimiento),
+            editaFolioAseguradora: this.cambiaSeguimiento && !!s && !!g.folio,
+            folioAseguradora: (s && s.folioAseguradora) || '',
+            folioAseguradoraTxt: (s && s.folioAseguradora) || '—',
             correosPendientes: this.cambiaSeguimiento ? this.pendientesDe(g.folio).length : 0,
             ligaCaso: !this.portal && s && s.casoId ? `/lightning/r/Case/${s.casoId}/view` : null,
             casoTxt: s && s.caso ? `Caso ${s.caso}` : '',
@@ -640,6 +668,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             // Clic para cambiar el estado del registro (en una solicitud rechazada se cambia el de la solicitud).
             puedeSeguimiento: this.cambiaSeguimiento && !!seguimiento && !!m.movimientoId
                 && ((info || this.infoSolicitudes).get(m.solicitud) || {}).seguimiento !== 'Rechazada',
+            // Al concluirlo se envía su correo, si aún no lo recibe.
+            correosPendientes: this.cambiaSeguimiento && this.pendienteDe(m.movimientoId) ? 1 : 0,
             puedeEliminar: this.cambiaSeguimiento && !!m.movimientoId && sePuedeEliminar(m.solicitud, seguimiento),
             seleccionado: this.seleccion.has(m.id),
             // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
@@ -729,6 +759,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             }));
         const primera = this.solicitudesCorreo[0];
         this.concluyeFolio = '';
+        this.concluyeRegistro = null;
         this.abrirCorreo(primera ? primera.ids : [], false);
     }
     elegirSolicitudCorreo(e) {
@@ -743,6 +774,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         if (m) {
             this.solicitudesCorreo = [];
             this.concluyeFolio = '';
+            this.concluyeRegistro = null;
             this.abrirCorreo([m.id], m.correoEnviado);
         }
     }
@@ -792,7 +824,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get hayErroresCorreo() { return this.correo.errores.length > 0; }
     get erroresCorreo() { return this.correo.errores.map((t, i) => ({ key: String(i), texto: t })); }
     get sinEnviarCorreo() { return !this.correo.plantilla || !this.destinatarios.length || this.correo.enviando; }
-    get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : (this.concluyeFolio ? 'Enviar y concluir' : 'Enviar'); }
+    get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : (this.concluye ? 'Enviar y concluir' : 'Enviar'); }
     async enviarCorreos() {
         const validos = [...this.template.querySelectorAll('.correo-baja')].reduce((ok, c) => c.reportValidity() && ok, true);
         if (!validos) { return; }
@@ -831,7 +863,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.correo = { ...this.correo, ids: ids.filter((x) => pendientes.has(x)) };
         }
         if (errores.length) { return; }
-        if (this.concluyeFolio) { await this.concluirSolicitud(); return; }
+        if (this.concluye) { await this.concluirSolicitud(); return; }
         this.modal = null;
     }
     textoError(e) { return (e && e.body && e.body.message) || (e && e.message) || 'Ocurrió un error inesperado.'; }
@@ -1016,6 +1048,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         }
         this.modal = null;
         this.concluyeFolio = '';
+        this.concluyeRegistro = null;
         this.form = {};
         this.varios = { filas: [], cargando: false };
     }

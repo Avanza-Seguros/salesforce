@@ -1,0 +1,22 @@
+.folio {
+    width: 100%;
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid #c9c9c9;
+    border-radius: 0.25rem;
+    background: #ffffff;
+    color: #181818;
+    font-family: inherit;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.folio:hover,
+.folio:focus {
+    border-color: #0176d3;
+    outline: none;
+}
+
+.folio:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}

@@ -732,7 +732,7 @@ private class MovimientosColectivoControllerTest {
 	 * @creation date: 17/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Solicitud del sitio (caso): al aplicar movimientos con su folio el caso sigue Solicitado y la
-	 *               solicitud aparece como del sitio; al cerrar sus movimientos, el caso se concluye. El siguiente folio
+	 *               solicitud aparece como del sitio; cerrar sus movimientos no concluye el caso. El siguiente folio
 	 *               cuenta los de los casos.
 	 * @return void
 	 */
@@ -758,7 +758,8 @@ private class MovimientosColectivoControllerTest {
 		System.assertEquals('En proceso', s.get('estadoPortal'));
 		System.assertEquals('Solicitado', s.get('seguimiento'), 'Nadie la ha atendido');
 		MovimientosColectivoController.cerrarMovimiento([SELECT Id FROM Movimiento_Poliza__c WHERE Solicitud__c = 'SOL-0001' LIMIT 1].Id);
-		System.assertEquals(true, [SELECT IsClosed FROM Case WHERE Id = :c.Id].IsClosed, 'Movimientos cerrados: caso concluido');
+		System.assertEquals(false, [SELECT IsClosed FROM Case WHERE Id = :c.Id].IsClosed, 'Cerrar sus registros no la concluye');
+		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
 	}
 
 	private static Case casoPrueba(Id policyId) {
@@ -771,7 +772,7 @@ private class MovimientosColectivoControllerTest {
 	/**
 	 * @creation date: 23/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Seguimiento por registro: el caso sigue a sus movimientos y los demás conservan su estado; Concluido
+	 * @description: Seguimiento por registro: no cambia el de su solicitud ni el de los demás registros; Concluido
 	 *               cierra el movimiento y se puede reabrir.
 	 * @return void
 	 */
@@ -785,15 +786,80 @@ private class MovimientosColectivoControllerTest {
 		Test.startTest();
 		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso', null);
 		System.assertEquals('En proceso', [SELECT Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Seguimiento__c);
-		System.assertEquals('Solicitado', [SELECT Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :b.Id].Seguimiento__c, 'El otro no cambia');
-		System.assertEquals(EndosoPoliza.estadoCaso('En proceso'), [SELECT Status FROM Case WHERE Id = :c.Id].Status);
-		System.assertEquals('En proceso', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
+		System.assertEquals(null, [SELECT Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :b.Id].Seguimiento__c, 'El otro no cambia');
+		System.assertEquals(EndosoPoliza.estadoCaso('Solicitado'), [SELECT Status FROM Case WHERE Id = :c.Id].Status, 'La solicitud no cambia');
+		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
 		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Solicitado', null);
 		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
 		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Concluido', null);
 		System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Fecha_Cierre__c);
 		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso', null);
 		System.assertEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Fecha_Cierre__c, 'Se reabre');
+		Test.stopTest();
+	}
+
+	/**
+	 * @creation date: 25/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Folio de la aseguradora de un movimiento: con y sin registros, se modifica, se quita y no toca a los demás.
+	 * @return void
+	 */
+	@isTest
+	static void testFolioAseguradora() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Case c = casoPrueba(pol.Id);
+		MovimientosColectivoController.guardarFolioAseguradora(pol.Id, 'SOL-0001', ' FA-1 ');
+		System.assertEquals('FA-1', EndosoPoliza.solicitudes(pol.Id, null)[0].get('folioAseguradora'), 'Sin registros queda en el caso');
+		insert new List<Movimiento_Poliza__c>{ new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta'),
+			new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0002', Tipo__c = 'Alta') };
+		Test.startTest();
+		MovimientosColectivoController.guardarFolioAseguradora(pol.Id, 'SOL-0001', 'FA-2');
+		for (Map<String, Object> s : EndosoPoliza.solicitudes(pol.Id, null)) {
+			System.assertEquals(s.get('folio') == 'SOL-0001' ? 'FA-2' : null, s.get('folioAseguradora'), String.valueOf(s.get('folio')));
+		}
+		System.assertEquals('FA-2', [SELECT Folio_Aseguradora__c FROM Case WHERE Id = :c.Id].Folio_Aseguradora__c);
+		MovimientosColectivoController.guardarFolioAseguradora(pol.Id, 'SOL-0001', '');
+		for (Map<String, Object> s : EndosoPoliza.solicitudes(pol.Id, null)) { System.assertEquals(null, s.get('folioAseguradora')); }
+		Integer errores = 0;
+		for (String folio : new List<String>{ '', 'SOL-9999' }) {
+			try {
+				MovimientosColectivoController.guardarFolioAseguradora(pol.Id, folio, 'X');
+			} catch (AuraHandledException e) {
+				errores++;
+			}
+		}
+		System.assertEquals(2, errores, 'Debe ser de un movimiento que exista');
+		Test.stopTest();
+	}
+
+	/**
+	 * @creation date: 25/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El estatus de un movimiento (solicitud que no es del sitio) solo cambia a mano: no al concluir, agregar
+	 *               o cerrar sus registros; tampoco reabre lo concluido si la solicitud no estaba Concluida.
+	 * @return void
+	 */
+	@isTest
+	static void testEstatusSoloManual() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Movimiento_Poliza__c a = new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta');
+		Movimiento_Poliza__c b = new Movimiento_Poliza__c(Poliza__c = pol.Id, Solicitud__c = 'SOL-0001', Tipo__c = 'Alta');
+		insert new List<Movimiento_Poliza__c>{ a, b };
+		Test.startTest();
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'Concluido', null);
+		MovimientosColectivoController.cerrarMovimiento(b.Id);
+		Map<String, Object> s = EndosoPoliza.solicitudes(pol.Id, null)[0];
+		System.assertEquals('En proceso', s.get('seguimiento'), 'Con todos sus registros cerrados sigue igual');
+		System.assertEquals(null, s.get('cierre'));
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Solicitado', null);
+		System.assertEquals('Solicitado', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'));
+		System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :a.Id].Fecha_Cierre__c, 'Lo concluido no se reabre');
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', null, 'Concluido', null);
+		s = EndosoPoliza.solicitudes(pol.Id, null)[0];
+		System.assertEquals('Concluido', s.get('seguimiento'));
+		System.assertNotEquals(null, s.get('cierre'));
+		MovimientosColectivoController.cambiarSeguimiento(pol.Id, 'SOL-0001', a.Id, 'En proceso', null);
+		System.assertEquals('Concluido', EndosoPoliza.solicitudes(pol.Id, null)[0].get('seguimiento'), 'Reabrir un registro no la reabre');
 		Test.stopTest();
 	}
 

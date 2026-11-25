@@ -112,7 +112,13 @@ public inherited sharing class EndosoPoliza {
 			// El estatus del caso no cambia aquí: el ejecutivo lo cambia a mano en el seguimiento.
 		}
 		if (folio == null) { folio = siguienteFolio(policyId); }
-		for (Movimiento_Poliza__c m : l) { m.Solicitud__c = folio; }
+		Boolean existente = folio == pedida;
+		// Agregar registros a un movimiento no le cambia el estatus.
+		if (existente) { fijarEstatus(policyId, new Set<String>{ folio }); }
+		for (Movimiento_Poliza__c m : l) {
+			m.Solicitud__c = folio;
+			if (!existente) { m.Seguimiento_Solicitud__c = 'En proceso'; }
+		}
 		update l;
 		return folio;
 	}
@@ -175,6 +181,8 @@ public inherited sharing class EndosoPoliza {
 	public static List<Map<String, Object>> solicitudes(Id policyId, String ramo) {
 		Map<String, Map<String, Object>> porFolio = new Map<String, Map<String, Object>>();
 		if (policyId == null) { return new List<Map<String, Object>>(); }
+		// El folio de la aseguradora solo se muestra en Salesforce.
+		Boolean interno = UserInfo.getUserType() == 'Standard';
 		// Total de cada endoso y las solicitudes de sus movimientos.
 		Map<Id, Decimal> totalEndoso = new Map<Id, Decimal>();
 		Map<Id, Set<String>> foliosEndoso = new Map<Id, Set<String>>();
@@ -188,13 +196,14 @@ public inherited sharing class EndosoPoliza {
 				porFolio.put(m.Solicitud__c, s);
 			}
 			s.put('total', (Integer) s.get('total') + 1);
+			if (s.get('estatus') == null) { s.put('estatus', m.Seguimiento_Solicitud__c); }
+			if (interno && String.isNotBlank(m.Folio_Aseguradora__c)) { s.put('folioAseguradora', m.Folio_Aseguradora__c); }
 			String t = m.Tipo__c == 'Alta' ? 'altas' : (m.Tipo__c == 'Baja' ? 'bajas' : 'cambios');
 			s.put(t, (Integer) s.get(t) + 1);
 			if (m.Fecha_Cierre__c == null) {
 				s.put('abiertos', (Integer) s.get('abiertos') + 1);
 				// Seguimiento elegido a mano en el movimiento.
-				String k = m.Seguimiento__c == 'Solicitado' ? 'solicitados' : (m.Seguimiento__c == 'En proceso' ? 'enProceso' : null);
-				if (k != null) { s.put(k, (Integer) s.get(k) + 1); }
+				if (m.Seguimiento__c == 'Solicitado') { s.put('solicitados', (Integer) s.get('solicitados') + 1); }
 			}
 			else if (s.get('cierre') == null || (Datetime) s.get('cierre') < m.Fecha_Cierre__c) { s.put('cierre', m.Fecha_Cierre__c); }
 			// Prima de la solicitud: la suma de lo que cobra la aseguradora por cada movimiento.
@@ -243,12 +252,13 @@ public inherited sharing class EndosoPoliza {
 				s = nuevaSolicitud(c.Solicitud__c, c.CreatedDate, null);
 				porFolio.put(c.Solicitud__c, s);
 			}
+			if (interno && s.get('folioAseguradora') == null) { s.put('folioAseguradora', c.Folio_Aseguradora__c); }
 			Integer total = (Integer) s.get('total');
 			Integer abiertos = (Integer) s.get('abiertos');
 			// Rechazada: con el comentario de rechazo (solicitudes anteriores; ahora se rechaza cada registro).
 			String respuesta = comentarios.get(c.Id);
 			Boolean rechazo = respuesta != null && respuesta.startsWith('Solicitud rechazada:');
-			String estado = c.IsClosed ? (rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : (abiertos > 0 ? 'En proceso' : 'Cerrada'));
+			String estado = c.IsClosed ? (rechazo ? 'Rechazada' : 'Cerrada') : (total == 0 ? 'Recibida' : 'En proceso');
 			s.putAll(new Map<String, Object>{
 				'fecha' => previos ? s.get('fecha') : c.CreatedDate, 'portal' => true, 'casoId' => c.Id, 'caso' => c.CaseNumber,
 				'estadoPortal' => estado, 'pendiente' => estado == 'Recibida', 'estadoCaso' => c.Status, 'casoCerrado' => c.IsClosed,
@@ -259,11 +269,11 @@ public inherited sharing class EndosoPoliza {
 				'documentos' => docs.containsKey(c.Id) ? docs.get(c.Id) : new List<Map<String, Object>>()
 			});
 		}
-		// Seguimiento del trámite y fecha de cierre (cuando ya no tiene movimientos abiertos).
+		// Seguimiento del trámite y fecha de cierre (cuando se concluye).
 		String inicial = porFolio.isEmpty() ? null : estadoCaso('Creado');
 		for (Map<String, Object> s : porFolio.values()) {
 			s.put('seguimiento', seguimiento(s, inicial));
-			if ((Integer) s.get('abiertos') > 0 || (Integer) s.get('total') == 0) { s.put('cierre', null); }
+			if (s.get('seguimiento') != 'Concluido' || (Integer) s.get('total') == 0) { s.put('cierre', null); }
 		}
 		// Más reciente primero.
 		List<SolicitudOrden> orden = new List<SolicitudOrden>();
@@ -277,10 +287,9 @@ public inherited sharing class EndosoPoliza {
 	/**
 	 * @creation date: 20/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Seguimiento del trámite de una solicitud: «Concluido» cuando todos sus movimientos se cerraron con el
-	 *               endoso (o se concluyó el caso), «Solicitado» mientras el caso del sitio sigue en su estado inicial o en
-	 *               «Solicitado» (el ejecutivo lo cambia a mano en el seguimiento), «Rechazada» si se rechazó y, si
-	 *               no, «En proceso».
+	 * @description: Seguimiento del trámite de una solicitud. Solo cambia a mano: en las del sitio es el estado de su caso
+	 *               y en las demás el que eligió el ejecutivo (Seguimiento_Solicitud__c), sin importar el de sus registros.
+	 *               Las anteriores a ese campo, mientras nadie lo cambie, lo toman de sus registros.
 	 * @param s: solicitud (de solicitudes()).
 	 * @param inicial: estado inicial de los casos del org.
 	 * @return Solicitado, En proceso, Concluido o Rechazada.
@@ -290,14 +299,14 @@ public inherited sharing class EndosoPoliza {
 		if (s.get('estadoPortal') == 'Rechazada') { return 'Rechazada'; }
 		Integer total = (Integer) s.get('total');
 		Integer abiertos = (Integer) s.get('abiertos');
-		if ((total > 0 && abiertos == 0) || s.get('casoCerrado') == true) { return 'Concluido'; }
+		if (s.get('casoCerrado') == true) { return 'Concluido'; }
 		Object estado = s.get('estadoCaso');
-		// Movimientos abiertos con seguimiento elegido a mano.
-		Integer enProceso = s.get('enProceso') == null ? 0 : (Integer) s.get('enProceso');
 		Integer solicitados = s.get('solicitados') == null ? 0 : (Integer) s.get('solicitados');
 		if (s.get('portal') == true) {
-			return enProceso == 0 && (estado == 'Solicitado' || (inicial != null && estado == inicial)) ? 'Solicitado' : 'En proceso';
+			return estado == 'Solicitado' || (inicial != null && estado == inicial) ? 'Solicitado' : 'En proceso';
 		}
+		if (s.get('estatus') != null) { return (String) s.get('estatus'); }
+		if (total > 0 && abiertos == 0) { return 'Concluido'; }
 		if (total > 0 && solicitados == abiertos) { return 'Solicitado'; }
 		return 'En proceso';
 	}
@@ -305,7 +314,7 @@ public inherited sharing class EndosoPoliza {
 	private static Map<String, Object> nuevaSolicitud(String folio, Datetime fecha, String usuario) {
 		return new Map<String, Object>{
 			'folio' => folio, 'fecha' => fecha, 'usuario' => usuario, 'portal' => false,
-			'total' => 0, 'altas' => 0, 'bajas' => 0, 'cambios' => 0, 'abiertos' => 0, 'solicitados' => 0, 'enProceso' => 0, 'endosos' => new List<String>()
+			'total' => 0, 'altas' => 0, 'bajas' => 0, 'cambios' => 0, 'abiertos' => 0, 'solicitados' => 0, 'endosos' => new List<String>()
 		};
 	}
 
@@ -327,8 +336,8 @@ public inherited sharing class EndosoPoliza {
 	 * @creation date: 23/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: El ejecutivo cambia a mano el seguimiento de un movimiento o de toda una solicitud. Concluido cierra
-	 *               el movimiento; Rechazado (solo un movimiento, con su motivo) también; Solicitado o En proceso lo reabren. El caso del sitio sigue a sus
-	 *               movimientos: Solicitado mientras ninguno abierto está En proceso.
+	 *               el movimiento; Rechazado (solo un movimiento, con su motivo) también; Solicitado o En proceso lo reabren. El
+	 *               estatus de la solicitud (y su caso) solo cambia al elegirlo en ella, no con el de sus registros.
 	 * @param policyId: póliza.
 	 * @param folio: solicitud (null si el movimiento no tiene).
 	 * @param movimientoId: movimiento, o null para toda la solicitud.
@@ -346,6 +355,36 @@ public inherited sharing class EndosoPoliza {
 		return avisosConclusion.isEmpty() ? null : String.join(avisosConclusion, ' ');
 	}
 
+	/**
+	 * @creation date: 25/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda el folio que dio la aseguradora a un movimiento (toda la solicitud): en sus registros y, si es
+	 *               del sitio, en su caso.
+	 * @param policyId: póliza.
+	 * @param folio: solicitud (SOL-0001).
+	 * @param valor: folio de la aseguradora; vacío lo quita.
+	 * @return void
+	 */
+	public static void guardarFolioAseguradora(Id policyId, String folio, String valor) {
+		if (UserInfo.getUserType() != 'Standard') { throw new IllegalArgumentException('Solo un ejecutivo puede cambiarlo.'); }
+		if (String.isBlank(folio)) { throw new IllegalArgumentException('El folio de la aseguradora es de un movimiento.'); }
+		if ([SELECT COUNT() FROM InsurancePolicy WHERE Id = :policyId] == 0) { throw new IllegalArgumentException('No tienes acceso a la póliza.'); }
+		new SinCompartir().folioAseguradora(policyId, folio, String.isBlank(valor) ? null : valor.trim().left(80));
+	}
+
+	/**
+	 * @creation date: 25/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Guarda el estatus que tienen hoy las solicitudes que aún no lo tienen guardado, para que no cambie al
+	 *               cerrar, agregar o eliminar sus registros (llamar antes de hacerlo).
+	 * @param policyId: póliza.
+	 * @param folios: solicitudes.
+	 * @return void
+	 */
+	public static void fijarEstatus(Id policyId, Set<String> folios) {
+		new SinCompartir().fijarEstatus(policyId, folios);
+	}
+
 	// Avisos de los correos de conclusión que se mandaron en esta transacción (para la pantalla).
 	private static List<String> avisosConclusion = new List<String>();
 
@@ -360,14 +399,14 @@ public inherited sharing class EndosoPoliza {
 		List<Case> casosDe(Id policyId, String folio) {
 			Id rt = tipoCaso();
 			if (rt == null) { return new List<Case>(); }
-			String q = 'SELECT Id, CaseNumber, Solicitud__c, Status, IsClosed, Subject, Description, Comentarios__c, CreatedDate,'
+			String q = 'SELECT Id, CaseNumber, Solicitud__c, Status, IsClosed, Subject, Description, Comentarios__c, Folio_Aseguradora__c, CreatedDate,'
 				+ ' CreatedBy.Name FROM Case WHERE RecordTypeId = :rt AND InsurancePolicy__c = :policyId AND Solicitud__c != null'
 				+ (folio == null ? '' : ' AND Solicitud__c = :folio') + ' ORDER BY CreatedDate DESC LIMIT 500';
 			return Database.queryWithBinds(q, new Map<String, Object>{ 'rt' => rt, 'policyId' => policyId, 'folio' => folio }, AccessLevel.SYSTEM_MODE);
 		}
 		List<Movimiento_Poliza__c> movimientos(Id policyId) {
 			return [
-				SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Seguimiento__c, Participante__c, Inciso__c, Prima__c,
+				SELECT Solicitud__c, Tipo__c, Numero_Endoso__c, CreatedDate, CreatedBy.Name, Fecha_Cierre__c, Seguimiento__c, Participante__c, Inciso__c, Prima__c, Folio_Aseguradora__c, Seguimiento_Solicitud__c,
 					Transaccion__c, Transaccion__r.TotalTransactionAmount
 				FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c != null ORDER BY CreatedDate, Id LIMIT 10000
 			];
@@ -381,6 +420,27 @@ public inherited sharing class EndosoPoliza {
 		List<CaseComment> comentarios(Set<Id> ids) {
 			return [SELECT ParentId, CommentBody FROM CaseComment WHERE ParentId IN :ids AND IsPublished = true ORDER BY CreatedDate DESC];
 		}
+		void folioAseguradora(Id policyId, String folio, String valor) {
+			List<Movimiento_Poliza__c> movs = [SELECT Id FROM Movimiento_Poliza__c WHERE Poliza__c = :policyId AND Solicitud__c = :folio LIMIT 9000];
+			List<Case> casos = casosDeFolio(policyId, folio);
+			if (movs.isEmpty() && casos.isEmpty()) { throw new IllegalArgumentException('El movimiento ya no existe.'); }
+			for (Movimiento_Poliza__c m : movs) { m.Folio_Aseguradora__c = valor; }
+			update movs;
+			List<Case> cambios = new List<Case>();
+			for (Case c : casos) { cambios.add(new Case(Id = c.Id, Folio_Aseguradora__c = valor)); }
+			update cambios;
+		}
+		void fijarEstatus(Id policyId, Set<String> folios) {
+			List<Movimiento_Poliza__c> movs = [
+				SELECT Id, Solicitud__c FROM Movimiento_Poliza__c
+				WHERE Poliza__c = :policyId AND Solicitud__c IN :folios AND Solicitud__c != null AND Seguimiento_Solicitud__c = null LIMIT 9000
+			];
+			if (movs.isEmpty()) { return; }
+			Map<String, String> estatus = new Map<String, String>();
+			for (Map<String, Object> s : solicitudes(policyId, null)) { estatus.put((String) s.get('folio'), (String) s.get('seguimiento')); }
+			for (Movimiento_Poliza__c m : movs) { m.Seguimiento_Solicitud__c = estatus.get(m.Solicitud__c); }
+			update movs;
+		}
 		void cambiar(Id policyId, String folio, Id movimientoId, String nuevo, String motivo) {
 			Boolean completa = movimientoId == null;
 			List<Movimiento_Poliza__c> movs = String.isBlank(folio)
@@ -392,6 +452,16 @@ public inherited sharing class EndosoPoliza {
 			Case caso = casos.isEmpty() ? null : casos[0];
 			if (movs.isEmpty() && caso == null) { throw new IllegalArgumentException('La solicitud ya no existe.'); }
 			List<Movimiento_Poliza__c> elegidos = completa ? movs : new List<Movimiento_Poliza__c>{ porId.get(movimientoId) };
+			String actual = null;
+			if (String.isNotBlank(folio)) {
+				for (Map<String, Object> s : solicitudes(policyId, null)) { if (s.get('folio') == folio) { actual = (String) s.get('seguimiento'); } }
+			}
+			if (completa) {
+				for (Movimiento_Poliza__c m : movs) { m.Seguimiento_Solicitud__c = nuevo; }
+				update movs;
+			} else if (String.isNotBlank(folio)) {
+				fijarEstatus(policyId, new Set<String>{ folio });
+			}
 			if (nuevo == 'Rechazado') {
 				Movimiento_Poliza__c m = elegidos[0];
 				if (m.Fecha_Cierre__c == null) { m.Fecha_Cierre__c = ahora(); }
@@ -407,15 +477,16 @@ public inherited sharing class EndosoPoliza {
 					update new Case(Id = caso.Id, Status = estadoCaso('Concluido'));
 					avisarConclusion(policyId, folio);
 				}
-				else { concluirElegidos(elegidos, completa); }
+				else {
+					concluirElegidos(elegidos, completa);
+					if (completa) { concluir(porId.keySet()); }
+				}
 				return;
 			}
 			Boolean cerrado = caso != null && caso.IsClosed;
-			Boolean todosCerrados = true;
+			// Lo ya concluido solo se reabre si la solicitud estaba Concluida.
+			Boolean todosCerrados = actual == 'Concluido';
 			for (Movimiento_Poliza__c m : movs) { todosCerrados = todosCerrados && m.Fecha_Cierre__c != null; }
-			if (!completa && cerrado && elegidos[0].Fecha_Cierre__c == null) {
-				throw new IllegalArgumentException('El caso de la solicitud está cerrado: cambia primero el estado de la solicitud.');
-			}
 			String base = caso != null && (caso.Status == 'Solicitado' || caso.Status == estadoCaso('Creado')) ? 'Solicitado' : 'En proceso';
 			Map<Id, Movimiento_Poliza__c> cambios = new Map<Id, Movimiento_Poliza__c>();
 			Set<Id> reabiertas = new Set<Id>();
@@ -434,23 +505,9 @@ public inherited sharing class EndosoPoliza {
 			if (completa && cambios.isEmpty() && todosCerrados && !movs.isEmpty()) {
 				throw new IllegalArgumentException('Todos sus registros están rechazados: cambia el estado del registro.');
 			}
-			String estado = nuevo;
-			if (!completa) {
-				// El estado de la solicitud: En proceso si algún movimiento abierto ya lo está.
-				estado = 'Solicitado';
-				for (Movimiento_Poliza__c m : movs) {
-					if (m.Fecha_Cierre__c == null && (m.Seguimiento__c == null ? base : m.Seguimiento__c) == 'En proceso') { estado = 'En proceso'; }
-				}
-				// Los demás movimientos conservan el estado que tenían aunque el caso cambie.
-				for (Movimiento_Poliza__c m : movs) {
-					if (caso != null && estado != base && m.Fecha_Cierre__c == null && m.Seguimiento__c == null) {
-						m.Seguimiento__c = base;
-						cambios.put(m.Id, m);
-					}
-				}
-			}
 			update cambios.values();
-			if (caso != null && (cerrado || estado != base)) { update new Case(Id = caso.Id, Status = estadoCaso(estado)); }
+			// El estatus de la solicitud solo cambia si se eligió en ella.
+			if (completa && caso != null && (cerrado || nuevo != base)) { update new Case(Id = caso.Id, Status = estadoCaso(nuevo)); }
 			String pendiente = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente');
 			if (!reabiertas.isEmpty() && pendiente != null) {
 				List<InsurancePolicyTransaction> l = new List<InsurancePolicyTransaction>();
@@ -473,7 +530,7 @@ public inherited sharing class EndosoPoliza {
 			update l;
 			aprobarCerrados(new Map<Id, Movimiento_Poliza__c>(l).keySet());
 		}
-		// Al cerrar los movimientos de una solicitud del sitio, su caso se concluye.
+		// Al concluir una solicitud se concluye su caso (si es del sitio) y se manda el correo al cliente.
 		void concluir(Set<Id> movimientoIds) {
 			Map<Id, Set<String>> folios = new Map<Id, Set<String>>();
 			for (Movimiento_Poliza__c m : [SELECT Poliza__c, Solicitud__c FROM Movimiento_Poliza__c WHERE Id IN :movimientoIds AND Solicitud__c != null AND Poliza__c != null]) {
@@ -687,8 +744,6 @@ public inherited sharing class EndosoPoliza {
 	 */
 	public static void aprobarCerrados(Set<Id> movimientoIds) {
 		if (movimientoIds == null || movimientoIds.isEmpty()) { return; }
-		// Solicitudes del sitio cuyos movimientos ya están todos cerrados: su caso se concluye.
-		new SinCompartir().concluir(movimientoIds);
 		Set<Id> trans = new Set<Id>();
 		for (Movimiento_Poliza__c m : [SELECT Transaccion__c FROM Movimiento_Poliza__c WHERE Id IN :movimientoIds AND Transaccion__c != null]) {
 			trans.add(m.Transaccion__c);

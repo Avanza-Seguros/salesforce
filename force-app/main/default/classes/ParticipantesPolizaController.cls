@@ -294,7 +294,6 @@ public inherited sharing class ParticipantesPolizaController {
 			}
 			update marcar;
 			enviados = marcar.size();
-			cerrarMovimientos(policyId, new Map<Id, InsurancePolicyParticipant>(marcar).keySet());
 		}
 		return new Map<String, Object>{ 'enviados' => enviados, 'errores' => errores };
 	}
@@ -376,25 +375,6 @@ public inherited sharing class ParticipantesPolizaController {
 			if (c != null && String.isNotBlank((String) c.get('correo'))) { r.put(p.Id, (String) c.get('correo')); }
 		}
 		return r;
-	}
-
-	// Al enviar el correo se cierra el último movimiento de cada participante, si aún no tiene fecha de cierre.
-	@TestVisible
-	private static void cerrarMovimientos(Id policyId, Set<Id> participantes) {
-		if (participantes.isEmpty()) { return; }
-		Set<Id> vistos = new Set<Id>();
-		List<Movimiento_Poliza__c> cerrar = new List<Movimiento_Poliza__c>();
-		for (Movimiento_Poliza__c m : [
-			SELECT Id, Participante__c, Fecha_Cierre__c FROM Movimiento_Poliza__c
-			WHERE Poliza__c = :policyId AND Participante__c IN :participantes
-			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
-		]) {
-			if (!vistos.add(m.Participante__c)) { continue; }
-			if (m.Fecha_Cierre__c == null) { cerrar.add(new Movimiento_Poliza__c(Id = m.Id, Fecha_Cierre__c = Datetime.now())); }
-		}
-		update cerrar;
-		// El endoso cuyos movimientos ya están todos cerrados pasa a Aprobado.
-		EndosoPoliza.aprobarCerrados(new Map<Id, Movimiento_Poliza__c>(cerrar).keySet());
 	}
 
 	// Asunto y cuerpo de la plantilla con los datos del destinatario y de la póliza (o solo del destinatario si la

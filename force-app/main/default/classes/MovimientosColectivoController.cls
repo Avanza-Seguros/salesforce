@@ -1561,10 +1561,12 @@ public inherited sharing class MovimientosColectivoController {
 	 */
 	@AuraEnabled(cacheable=false)
 	public static Datetime cerrarMovimiento(Id movimientoId) {
-		List<Movimiento_Poliza__c> l = [SELECT Id, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :movimientoId LIMIT 1];
+		List<Movimiento_Poliza__c> l = [SELECT Id, Fecha_Cierre__c, Poliza__c, Solicitud__c FROM Movimiento_Poliza__c WHERE Id = :movimientoId LIMIT 1];
 		if (l.isEmpty()) { throw CensoColectivoController.error('El movimiento ya no existe.'); }
 		if (l[0].Fecha_Cierre__c != null) { return l[0].Fecha_Cierre__c; }
 		try {
+			// Cerrar un registro no cambia el estatus de su solicitud.
+			EndosoPoliza.fijarEstatus(l[0].Poliza__c, new Set<String>{ l[0].Solicitud__c });
 			// Al segundo, como se guarda (así la fecha devuelta es igual a la que se lee después).
 			l[0].Fecha_Cierre__c = Datetime.newInstance((Datetime.now().getTime() / 1000) * 1000);
 			update l[0];
@@ -1592,6 +1594,24 @@ public inherited sharing class MovimientosColectivoController {
 			return EndosoPoliza.cambiarSeguimiento(policyId, folio, movimientoId, valor, motivo);
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudo cambiar el seguimiento: ' + mensaje(e));
+		}
+	}
+
+	/**
+	 * @creation date: 25/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: El ejecutivo captura o modifica el folio que dio la aseguradora a un movimiento (toda la solicitud).
+	 * @param policyId: póliza.
+	 * @param folio: solicitud.
+	 * @param valor: folio de la aseguradora; vacío lo quita.
+	 * @return void
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void guardarFolioAseguradora(Id policyId, String folio, String valor) {
+		try {
+			EndosoPoliza.guardarFolioAseguradora(policyId, folio, valor);
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo guardar el folio: ' + mensaje(e));
 		}
 	}
 

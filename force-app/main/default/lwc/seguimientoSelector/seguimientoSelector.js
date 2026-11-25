@@ -18,7 +18,7 @@ export default class SeguimientoSelector extends LightningElement {
     @api movimientoId;
     // Solicitud que aún no tiene movimientos: al concluirla se concluye su caso.
     @api sinMovimientos = false;
-    // Correos por enviar a los asegurados de la solicitud: al concluirla se abre su envío (evento «concluir»).
+    // Correos por enviar a los asegurados de la solicitud (o del registro): al concluir se abre su envío (evento «concluir»).
     @api correosPendientes = 0;
     guardando = false;
 
@@ -36,9 +36,9 @@ export default class SeguimientoSelector extends LightningElement {
     async handleCambio(e) {
         const nuevo = e.target.value;
         if (!nuevo || nuevo === this.valor) { return; }
-        if (nuevo === 'Concluido' && !this.movimientoId && this.correosPendientes > 0) {
+        if (nuevo === 'Concluido' && this.correosPendientes > 0) {
             this.regresar();
-            this.dispatchEvent(new CustomEvent('concluir', { detail: { folio: this.folio } }));
+            this.dispatchEvent(new CustomEvent('concluir', { detail: { folio: this.folio, movimientoId: this.movimientoId } }));
             return;
         }
         this.guardando = true;

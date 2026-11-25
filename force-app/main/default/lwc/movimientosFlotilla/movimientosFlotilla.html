@@ -93,7 +93,7 @@
                                             <th scope="col" colspan={columnasTabla}>
                                                 <div class="sol-grid">
                                                     <span></span><span>Movimiento</span><span>Póliza</span><span>Fecha de apertura</span>
-                                                    <span>Fecha de cierre</span><span>Tiempo de respuesta</span><span>Seguimiento</span><span>Prima</span><span></span>
+                                                    <span>Fecha de cierre</span><span>Tiempo de respuesta</span><span>Seguimiento</span><span>Prima</span><template lwc:if={conFolioAseguradora}><span>Folio Aseguradora</span></template><span></span>
                                                 </div>
                                             </th>
                                         </tr>
@@ -112,7 +112,7 @@
                                 <tbody key={b.key}>
                                     <!-- Encabezado de la solicitud del cliente (folio, fecha, quién la registró, resumen, endosos y estado). -->
                                     <template lwc:if={b.encabezado}>
-                                        <!-- Movimiento | Póliza | Fecha de apertura | Fecha de cierre | Tiempo de respuesta | Seguimiento | Prima (y el resumen). -->
+                                        <!-- Movimiento | Póliza | Fecha de apertura | Fecha de cierre | Tiempo de respuesta | Seguimiento | Prima | Folio Aseguradora (y el resumen). -->
                                         <tr class="fila-solicitud">
                                             <td colspan={columnasTabla}>
                                                 <div class="sol-grid">
@@ -131,6 +131,12 @@
                                                     </span>
                                                     <!-- Lo que cobra la aseguradora por todo el movimiento. -->
                                                     <span class="sol-prima">{b.primaTxt}</span>
+                                                    <!-- Folio de la aseguradora: del movimiento (no de cada registro); solo en Salesforce. -->
+                                                    <template lwc:if={conFolioAseguradora}><span>
+                                                        <template lwc:if={b.editaFolioAseguradora}><c-folio-aseguradora valor={b.folioAseguradora} policy-id={recordId} folio={b.folio}
+                                                            oncambio={handleCambioSeguimiento}></c-folio-aseguradora></template>
+                                                        <template lwc:else>{b.folioAseguradoraTxt}</template>
+                                                    </span></template>
                                                     <span class="sol-extra">
                                                         <span class="sol-resumen" title={b.sub}>{b.resumen}</span>
                                                         <template lwc:if={b.endososTxt}><span class="sol-chip">{b.endososTxt}</span></template>
