@@ -661,7 +661,7 @@ public with sharing class OpportunityController {
 	 * @return Campos separados por coma para la consulta
 	 */
 	private static String camposCuenta(Boolean tieneMiddle) {
-		return 'Id, Name, IsPersonAccount, Phone, FirstName, LastName, ' +
+		return 'Id, Name, IsPersonAccount, RecordType.DeveloperName, Phone, FirstName, LastName, ' +
 			'BillingStreet, BillingPostalCode, PersonEmail, PersonMobilePhone, ' +
 			'PersonMailingStreet, PersonMailingPostalCode, RFC__pc, Correo_electronico__c' +
 			(tieneMiddle ? ', MiddleName' : '');
@@ -678,7 +678,7 @@ public with sharing class OpportunityController {
 	private static AccountResult toAccountResult(Account a, Boolean tieneMiddle) {
 		AccountResult r = new AccountResult();
 		r.Id = a.Id;  r.Name = a.Name;  r.IsPersonAccount = a.IsPersonAccount;
-		r.typeLabel = tipoDeCuenta(a.Name, a.IsPersonAccount);
+		r.typeLabel = tipoDeCuenta(a.IsPersonAccount, a.RecordType?.DeveloperName);
 		if (a.IsPersonAccount) {
 			// Se invierte el mapeo usado al crear la cuenta persona:
 			//   FirstName = Nombre(s), MiddleName = Apellido Paterno, LastName = Apellido Materno.
@@ -811,6 +811,9 @@ public with sharing class OpportunityController {
 				acc.PersonMailingStreet     = getStr(d, 'clienteDireccion');
 				acc.PersonMailingPostalCode = getStr(d, 'clienteCP');
 			} else {
+				// Con su tipo de registro, sin depender del que tenga por defecto quien la crea.
+				Schema.RecordTypeInfo empresa = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
+				if (empresa != null && empresa.isAvailable()) { acc.RecordTypeId = empresa.getRecordTypeId(); }
 				acc.Name = getStr(d, 'AccountName');
 				if (String.isBlank(acc.Name)) {
 					acc.Name = getStr(d, 'clienteNombre');
@@ -1076,47 +1079,21 @@ public with sharing class OpportunityController {
 		return String.join(partes, ' ').trim();
 	}
 
+	// Tipos de registro que no son Person Account pero son de personas: el grupo familiar (Default_Account, «Familia ...»)
+	// y el tipo Individual de los orgs que aún no usan cuentas personales.
+	private static final Set<String> TIPOS_DE_PERSONA = new Set<String>{ 'Default_Account', 'Individual' };
+
 	/**
-	 * @creation date: 15/10/2026
+	 * @creation date: 24/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Tipo de cliente de una cuenta: una cuenta persona es Persona; una cuenta empresa es Empresa, salvo
-	 *               que su nombre sea claramente de una persona (personas mal capturadas como empresa).
-	 * @param nombre: Nombre de la cuenta
+	 * @description: Tipo de cliente de una cuenta: el que tiene en Salesforce (su tipo de registro), sin ver su nombre.
 	 * @param esPersona: IsPersonAccount
+	 * @param tipoRegistro: DeveloperName del tipo de registro
 	 * @return Persona o Empresa
 	 */
 	@TestVisible
-	private static String tipoDeCuenta(String nombre, Boolean esPersona) {
-		if (esPersona == true) { return 'Persona'; }
-		if (pareceEmpresa(nombre)) { return 'Empresa'; }
-		return pareceNombrePersona(nombre) ? 'Persona' : 'Empresa';
-	}
-
-	private static final List<String> RAICES_EMPRESA = new List<String>{ 'PUBLICIDAD', 'CREATIV', 'GRUPO', 'SERVICIO', 'COMERCIAL', 'CONSULTOR', 'CONSTRUC', 'INMOBILIARI', 'DISTRIBUI', 'CORPORATIV', 'INDUSTRIA', 'TRANSPORTE', 'SOLUCION', 'TECNOLOG', 'ASOCIADOS', 'HOTEL', 'RESTAURA', 'CLINICA', 'HOSPITAL', 'COLEGIO', 'ESCUELA', 'INSTITUTO', 'FUNDACION', 'AGENCIA', 'TALLER', 'FARMACIA', 'LABORATORIO', 'IMPORTADORA', 'EXPORTADORA', 'LOGISTIC', 'SISTEMAS', 'INGENIERIA', 'ARQUITECT', 'DESARROLL', 'PRODUCCION', 'PRODUCTOS', 'MARKETING', 'DISENO', 'ESTUDIO', 'CENTRO', 'ALIMENTOS', 'AUTOMOTRIZ', 'MOTORS', 'SEGUROS', 'FINANCIER', 'INVERSION', 'CAPITAL', 'PROMOTORA', 'ADMINISTRA', 'OPERADORA', 'CONSORCIO', 'EMPRESA', 'NEGOCIO', 'COMPANIA', 'HERMANOS', 'ASOCIACION', 'SOCIEDAD', 'COOPERATIVA', 'UNIVERSIDAD', 'ACADEMIA', 'TIENDA', 'ABARROTES', 'PANADERIA', 'MUEBLE', 'FERRETER', 'PAPELER', 'GASOLINER', 'AGRICOLA', 'GANADER', 'MINERA', 'ENERGIA', 'TEXTIL', 'IMPRENTA', 'EDITORIAL', 'GLOBAL', 'INTERNACIONAL', 'NACIONAL', 'MEXICANA', 'SERVICES', 'STUDIO', 'GROUP', 'CONSULTING', 'SOLUTIONS', 'COMUNICACION', 'EVENTOS', 'VIAJES', 'TURISMO', 'BIENES', 'RAICES', 'PROYECTOS', 'EQUIPOS', 'MAQUINARIA', 'SUMINISTROS', 'COMERCIO', 'MERCADO', 'ESTETICA', 'SPA', 'GIMNASIO', 'DESPACHO', 'BUFETE', 'NOTARIA', 'CONTADORES', 'ABOGADOS', 'MEDICOS', 'DENTAL' };
-	private static final Set<String> PALABRAS_EMPRESA_CORTAS = new Set<String>{ 'CIA', 'HNOS', 'CLUB', 'Y', 'E', '&', 'AND', 'INC', 'LLC', 'LTD', 'CO' };
-
-	/**
-	 * @creation date: 15/10/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Indica si el nombre es claramente de una persona: de 2 a 6 palabras, solo letras, sin conectores
-	 *               de razón social (Y, E, &) ni palabras de giro o negocio (Publicidad, Grupo, Servicios...).
-	 * @param nombre: Nombre a revisar
-	 * @return true si parece nombre de persona
-	 */
-	@TestVisible
-	private static Boolean pareceNombrePersona(String nombre) {
-		if (String.isBlank(nombre)) { return false; }
-		String n = nombre.toUpperCase().replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O')
-			.replace('Ú', 'U').replace('Ü', 'U').replace('Ñ', 'N').replace('.', ' ').replace(',', ' ').normalizeSpace();
-		List<String> palabras = n.split(' ');
-		if (palabras.size() < 2 || palabras.size() > 6) { return false; }
-		for (String p : palabras) {
-			if (!Pattern.matches('^[A-Z\'-]+$', p) || PALABRAS_EMPRESA_CORTAS.contains(p)) { return false; }
-			for (String r : RAICES_EMPRESA) {
-				if (p.startsWith(r)) { return false; }
-			}
-		}
-		return true;
+	private static String tipoDeCuenta(Boolean esPersona, String tipoRegistro) {
+		return esPersona == true || TIPOS_DE_PERSONA.contains(tipoRegistro) ? 'Persona' : 'Empresa';
 	}
 
 	/**

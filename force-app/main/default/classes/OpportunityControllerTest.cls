@@ -640,20 +640,22 @@ private class OpportunityControllerTest {
     }
 
     /**
-     * @creation date: 15/10/2026
+     * @creation date: 24/11/2026
      * @author: Sergio Uribe Toledo - Volestra
-     * @description: Valida el tipo de cliente de una cuenta: empresa sin razón social sigue siendo Empresa y una
-     *               persona capturada como empresa se muestra como Persona.
+     * @description: El tipo de cliente de una cuenta es el de Salesforce, aunque su nombre parezca de otro tipo.
      */
     @isTest
     static void testTipoDeCuenta() {
-        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Publicidad y Creatividad Viva', false));
-        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Grupo Industrial Monterrey', false));
-        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Avanza SA de CV', false));
-        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('ABEL PEREZ QUIJANO', false));
-        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('María de la Luz Núñez', false));
-        System.assertEquals('Persona', OpportunityController.tipoDeCuenta('Cualquier Nombre', true));
-        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta('Avanza', false));
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta(true, 'PersonAccount'));
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta(false, 'Business_Account'));
+        System.assertEquals('Empresa', OpportunityController.tipoDeCuenta(false, null));
+        System.assertEquals('Persona', OpportunityController.tipoDeCuenta(false, 'Default_Account'), 'Grupo familiar');
+        Account empresa = new Account(Name = 'MATERIALES SUSTENTABLES PRUEBA');
+        Schema.RecordTypeInfo rt = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Business_Account');
+        if (rt != null) { empresa.RecordTypeId = rt.getRecordTypeId(); }
+        insert empresa;
+        System.assertEquals('Empresa', OpportunityController.searchAccounts('MATERIALES SUSTENTABLES PRUEBA')[0].typeLabel);
+        System.assertEquals('Empresa', OpportunityController.getAccountById(empresa.Id).typeLabel);
     }
 
     @isTest

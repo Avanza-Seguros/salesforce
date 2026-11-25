@@ -136,11 +136,6 @@ const CONCEPTOS_GMM = [
     { concepto: 'Asistencias',                        patrones: ['asistencia', 'telemedicina', 'medico a domicilio', 'check up', 'chequeo'] }
 ];
 
-// Palabras que indican que el nombre de una cuenta es una razón social y no una persona
-// (raíces: se comparan con el inicio de cada palabra). Mismas listas que OpportunityController.
-const RAICES_EMPRESA = ['PUBLICIDAD', 'CREATIV', 'GRUPO', 'SERVICIO', 'COMERCIAL', 'CONSULTOR', 'CONSTRUC', 'INMOBILIARI', 'DISTRIBUI', 'CORPORATIV', 'INDUSTRIA', 'TRANSPORTE', 'SOLUCION', 'TECNOLOG', 'ASOCIADOS', 'HOTEL', 'RESTAURA', 'CLINICA', 'HOSPITAL', 'COLEGIO', 'ESCUELA', 'INSTITUTO', 'FUNDACION', 'AGENCIA', 'TALLER', 'FARMACIA', 'LABORATORIO', 'IMPORTADORA', 'EXPORTADORA', 'LOGISTIC', 'SISTEMAS', 'INGENIERIA', 'ARQUITECT', 'DESARROLL', 'PRODUCCION', 'PRODUCTOS', 'MARKETING', 'DISENO', 'ESTUDIO', 'CENTRO', 'ALIMENTOS', 'AUTOMOTRIZ', 'MOTORS', 'SEGUROS', 'FINANCIER', 'INVERSION', 'CAPITAL', 'PROMOTORA', 'ADMINISTRA', 'OPERADORA', 'CONSORCIO', 'EMPRESA', 'NEGOCIO', 'COMPANIA', 'HERMANOS', 'ASOCIACION', 'SOCIEDAD', 'COOPERATIVA', 'UNIVERSIDAD', 'ACADEMIA', 'TIENDA', 'ABARROTES', 'PANADERIA', 'MUEBLE', 'FERRETER', 'PAPELER', 'GASOLINER', 'AGRICOLA', 'GANADER', 'MINERA', 'ENERGIA', 'TEXTIL', 'IMPRENTA', 'EDITORIAL', 'GLOBAL', 'INTERNACIONAL', 'NACIONAL', 'MEXICANA', 'SERVICES', 'STUDIO', 'GROUP', 'CONSULTING', 'SOLUTIONS', 'COMUNICACION', 'EVENTOS', 'VIAJES', 'TURISMO', 'BIENES', 'RAICES', 'PROYECTOS', 'EQUIPOS', 'MAQUINARIA', 'SUMINISTROS', 'COMERCIO', 'MERCADO', 'ESTETICA', 'SPA', 'GIMNASIO', 'DESPACHO', 'BUFETE', 'NOTARIA', 'CONTADORES', 'ABOGADOS', 'MEDICOS', 'DENTAL'];
-const PALABRAS_EMPRESA_CORTAS = ['CIA', 'HNOS', 'CLUB', 'Y', 'E', '&', 'AND', 'INC', 'LLC', 'LTD', 'CO'];
-
 // Daños / Hogar / Empresarial / Transporte.
 const CONCEPTOS_DANOS = [
     { concepto: 'Fenómenos Hidrometeorológicos',      patrones: ['hidrometeorolog', 'huracan', 'inundacion', 'granizo', 'tormenta', 'fhm'] },
@@ -1120,7 +1115,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             }
             if (!exact && res.length === 1) { exact = res[0]; }
             if (exact) {
-                const tipo = this.tipoDeCuenta(exact.Name || clean, exact.IsPersonAccount);
+                const tipo = this.tipoDeCuenta(exact);
                 this.opportunity = {
                     ...this.opportunity,
                     AccountId: exact.Id,
@@ -1156,31 +1151,13 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         }
     }
 
-    // Tipo de cuenta (misma regla que el Apex, para que la búsqueda y el formulario coincidan):
-    // una cuenta persona es Persona; una cuenta empresa es Empresa, salvo que su nombre sea
-    // claramente de una persona (corrige personas mal marcadas como Empresa, ej. "Abel Perez Quijano";
-    // "Publicidad y Creatividad Viva" sigue siendo Empresa).
-    tipoDeCuenta(nombre, isPersonAccount) {
-        if (isPersonAccount) { return 'Persona'; }
-        if (this.pareceEmpresaNombre(nombre)) { return 'Empresa'; }
-        return this.pareceNombrePersona(nombre) ? 'Persona' : 'Empresa';
-    }
-
-    // Nombre de persona: de 2 a 6 palabras, solo letras, sin conectores de razón social (Y, E, &)
-    // ni palabras de giro o negocio (Publicidad, Grupo, Servicios, Consultores...).
-    pareceNombrePersona(nombre) {
-        if (!nombre) { return false; }
-        const n = String(nombre).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
-        const palabras = n.split(' ').filter(Boolean);
-        if (palabras.length < 2 || palabras.length > 6) { return false; }
-        if (palabras.some(p => !/^[A-Z'-]+$/.test(p))) { return false; }
-        if (palabras.some(p => PALABRAS_EMPRESA_CORTAS.includes(p))) { return false; }
-        return !palabras.some(p => RAICES_EMPRESA.some(r => p.startsWith(r)));
+    // Tipo de una cuenta que ya existe: el que tiene en Salesforce (lo calcula el Apex), sin ver su nombre.
+    tipoDeCuenta(acc) {
+        return (acc && acc.typeLabel) || (acc && acc.IsPersonAccount ? 'Persona' : 'Empresa');
     }
 
     // Determina si un nombre corresponde a una EMPRESA (razón social) o a una PERSONA.
-    // Espejo de la detección del servidor (pareceEmpresa).
+    // Solo para cuentas nuevas. Espejo de la detección del servidor (pareceEmpresa).
     pareceEmpresaNombre(nombre) {
         if (!nombre) { return false; }
         let n = ' ' + String(nombre).toUpperCase().replace(/\./g, '').replace(/,/g, ' ') + ' ';
@@ -1201,8 +1178,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             ...this.opportunity,
             AccountId: acc.Id,
             AccountName: acc.Name,
-            tipoCliente: this.tipoDeCuenta(acc.Name, acc.IsPersonAccount),
-            Mercado__c: this.mercadoPorTipo(this.tipoDeCuenta(acc.Name, acc.IsPersonAccount)),
+            tipoCliente: this.tipoDeCuenta(acc),
+            Mercado__c: this.mercadoPorTipo(this.tipoDeCuenta(acc)),
             ...this.nombrePartesDesdeCuenta(acc),
             clienteRFC: acc.clienteRFC || '',
             clienteEmail: acc.clienteEmail || '',
@@ -3525,7 +3502,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             if (!acc) { return; }
             this.opportunity = {
                 ...this.opportunity,
-                tipoCliente: this.tipoDeCuenta(acc.Name, acc.IsPersonAccount),
+                tipoCliente: this.tipoDeCuenta(acc),
                 ...this.nombrePartesDesdeCuenta(acc),
                 clienteRFC:       acc.clienteRFC       || this.opportunity.clienteRFC       || '',
                 clienteEmail:     acc.clienteEmail     || this.opportunity.clienteEmail     || '',
