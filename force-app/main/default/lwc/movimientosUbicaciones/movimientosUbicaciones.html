@@ -213,6 +213,7 @@
                                 </tbody>
                                 </template>
                             </table>
+                            <template lwc:if={sinResultados}><p class="mov-sin-resultados">{textoSinResultados}</p></template>
                         </div>
                         <div class="mov-paginacion">
                             <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anterior} disabled={sinAnterior}></lightning-button-icon>

@@ -41,7 +41,11 @@ export default class MovimientosFlotilla extends LightningElement {
     cargando = false;
     errorMensaje = '';
     vista = 'lista';
-    filtro = 'vigentes';
+    // Filtro de la lista: en la póliza (Salesforce) abre en «Pendientes» (lo que falta por atender); en el sitio y en la
+    // oportunidad, en los vigentes.
+    filtroElegido = null;
+    get filtroInicial() { return this.enPoliza && this.interno ? 'pendientes' : 'vigentes'; }
+    get filtro() { return this.filtroElegido || this.filtroInicial; }
     busqueda = '';
     busquedaHistorial = '';
     pagina = 1;
@@ -168,12 +172,36 @@ export default class MovimientosFlotilla extends LightningElement {
     // ============================================================
     get opcionesFiltro() {
         return [
-            { label: `Vigentes (${this.totalVigentes})`, value: 'vigentes' },
+            this.interno ? { label: `Pendientes (${this.totalPendientes})`, value: 'pendientes' } : { label: `Vigentes (${this.totalVigentes})`, value: 'vigentes' },
             { label: `Dados de baja (${this.totalBajas})`, value: 'bajas' },
             { label: `Todos (${this.vehiculos.length})`, value: 'todos' }
         ];
     }
-    handleFiltro(e) { this.filtro = e.detail.value; this.pagina = 1; }
+    handleFiltro(e) { this.filtroElegido = e.detail.value; this.pagina = 1; }
+    // Movimiento por atender: Solicitado o En proceso, de una solicitud que tampoco está concluida ni rechazada.
+    esPendiente(x, info) {
+        const s = info.get(x.solicitud);
+        if (s && s.seguimiento !== 'Solicitado' && s.seguimiento !== 'En proceso') { return false; }
+        const seg = this.seguimientoDe(x, info);
+        return seg === 'Solicitado' || seg === 'En proceso';
+    }
+    tienePendiente(x, info) { return this.esPendiente(x, info) || (x.movimientos || []).some((y) => this.esPendiente(y, info)); }
+    // Pendientes como se ven en la tabla: solicitudes (agrupada) o registros.
+    get totalPendientes() {
+        const info = this.infoSolicitudes;
+        if (!this.agrupado) { return this.vehiculos.filter((x) => this.tienePendiente(x, info)).length; }
+        const folios = new Set(this.solicitudes.filter((x) => x.portal && !x.total && (x.seguimiento === 'Solicitado' || x.seguimiento === 'En proceso')).map((x) => x.folio));
+        this.vehiculos.forEach((x) => {
+            const movs = (x.movimientos || []).filter((y) => info.has(y.solicitud));
+            (movs.length ? movs : [x]).filter((y) => this.esPendiente(y, info)).forEach((y) => folios.add(movs.length ? y.solicitud : ''));
+        });
+        return folios.size;
+    }
+    get sinResultados() { return this.agrupado ? !this.filtradosAgrupados.length : !this.filtrados.length; }
+    get textoSinResultados() {
+        return this.filtro === 'pendientes' && !this.fold(this.busqueda).trim() ? 'No hay movimientos pendientes por atender.'
+            : 'No hay registros con este filtro.' + (this.filtro === 'todos' ? '' : ' Elige «Todos» para buscar en toda la póliza.');
+    }
     handleBusqueda(e) {
         const antes = !!this.fold(this.busqueda).trim();
         this.busqueda = e.target.value || '';
@@ -183,7 +211,10 @@ export default class MovimientosFlotilla extends LightningElement {
 
     get filtrados() {
         const q = this.fold(this.busqueda);
+        const pendientes = this.filtro === 'pendientes';
+        const info = pendientes ? this.infoSolicitudes : null;
         return this.vehiculos.filter((v) => {
+            if (pendientes && !this.tienePendiente(v, info)) { return false; }
             if (this.filtro === 'vigentes' && !v.activo) { return false; }
             if (this.filtro === 'bajas' && v.activo) { return false; }
             if (!q) { return true; }
@@ -280,7 +311,8 @@ export default class MovimientosFlotilla extends LightningElement {
             motivoBaja: x.tipoMovimiento === 'Baja' ? v.motivoBaja : null }));
     }
     // Filtro de la tabla para los movimientos de una solicitud («Vigentes» no oculta sus bajas).
-    pasaMovimiento(v) {
+    pasaMovimiento(v, info) {
+        if (this.filtro === 'pendientes') { return this.esPendiente(v, info); }
         if (this.filtro === 'bajas') { return v.tipoMovimiento === 'Baja'; }
         return true;
     }
@@ -294,7 +326,7 @@ export default class MovimientosFlotilla extends LightningElement {
     }
     // Solicitud del sitio que aún no tiene registros (sin buscar ni filtrar): también sale, para poder atenderla.
     vacia(s) {
-        return !!s && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === 'vigentes'
+        return !!s && s.portal && !s.total && !this.fold(this.busqueda).trim() && this.filtro === this.filtroInicial
             && (s.seguimiento === 'Solicitado' || s.seguimiento === 'En proceso' || (this.portal && s.seguimiento === 'Rechazada'));
     }
     get filtradosAgrupados() {
@@ -310,7 +342,7 @@ export default class MovimientosFlotilla extends LightningElement {
                 return;
             }
             if (q && !this.fold(`${v.inciso || ''} ${v.serie || ''} ${v.placas || ''} ${v.descripcion || ''}`).includes(q)) { return; }
-            movs.filter((x) => this.pasaMovimiento(x)).forEach((x) => porFolio.get(x.solicitud).push(x));
+            movs.filter((x) => this.pasaMovimiento(x, infoVacias)).forEach((x) => porFolio.get(x.solicitud).push(x));
         });
         return [...porFolio.entries()].filter(([k, l]) => l.length || this.vacia(infoVacias.get(k))).map(([k, l]) => ({ folio: k, lista: l }));
     }

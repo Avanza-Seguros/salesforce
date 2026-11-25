@@ -684,3 +684,5 @@
 .mov:not(.mov-portal) .mov-filtros, .mov:not(.mov-portal) .mov-acciones { gap: 0.375rem; }
 .mov:not(.mov-portal) .mov-buscar { min-width: 0; width: 13rem; }
 .mov:not(.mov-portal) .mov-filtro { min-width: 0; width: 10rem; }
+
+.mov-sin-resultados { padding: 1rem; text-align: center; color: #5c5c5c; }
