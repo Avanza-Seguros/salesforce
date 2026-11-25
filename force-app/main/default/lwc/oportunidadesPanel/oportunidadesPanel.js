@@ -73,7 +73,7 @@ const TIPOS_VENTA = {
 const FILTROS_TIPO = [
     { valor: 'todas', etiqueta: 'Todas' },
     { valor: 'Individual', etiqueta: 'Individual' },
-    { valor: 'Colectiva', etiqueta: 'Empresarial' }
+    { valor: 'Empresarial', etiqueta: 'Empresarial' }
 ];
 // Colores de avatar (texto blanco con contraste AA).
 const COLORES_AVATAR = ['#1E63E9', '#BE185D', '#0B2559', '#6D28D9', '#0F7A47', '#C2410C', '#0369A1'];
