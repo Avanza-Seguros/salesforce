@@ -468,7 +468,8 @@ private class MovimientosFlotillaControllerTest {
 	/**
 	 * @creation date: 01/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Póliza individual de autos (sin incisos): el vehículo sale del bien ligado a la póliza, solo consulta.
+	 * @description: Póliza de autos sin incisos: el vehículo sale del bien ligado a la póliza. Si el contratante es una
+	 *               empresa (sin oportunidad) se pueden cargar sus vehículos; si es individual, solo consulta.
 	 * @return void
 	 */
 	@isTest
@@ -492,7 +493,8 @@ private class MovimientosFlotillaControllerTest {
 		Test.startTest();
 		Map<String, Object> d = MovimientosFlotillaController.getDatos(pol.Id);
 		Test.stopTest();
-		System.assertEquals(true, d.get('soloLectura'));
+		System.assertEquals(false, d.get('soloLectura'), 'Empresarial: se cargan sus vehículos');
+		System.assertEquals(true, d.get('deBienes'));
 		List<Object> vs = (List<Object>) d.get('vehiculos');
 		System.assertEquals(1, vs.size());
 		Map<String, Object> v = (Map<String, Object>) vs[0];
@@ -501,6 +503,12 @@ private class MovimientosFlotillaControllerTest {
 		System.assertEquals(2019, v.get('modelo'));
 		System.assertEquals(true, v.get('activo'));
 		System.assertEquals(false, MovimientosFlotillaController.getDatos(poliza().Id).get('soloLectura'), 'La flotilla con incisos se edita');
+		Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Opp Renovacion Flotilla' LIMIT 1];
+		opp.Tipo_Contratacion__c = 'Individual';
+		update opp;
+		pol.SourceOpportunityId = opp.Id;
+		update pol;
+		System.assertEquals(true, MovimientosFlotillaController.getDatos(pol.Id).get('soloLectura'), 'Individual: solo consulta');
 	}
 
 	/**

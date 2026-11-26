@@ -81,11 +81,13 @@ public inherited sharing class MovimientosFlotillaController {
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
 				List<Object> vs = vehiculos(incisosPoliza(recordId, false, null));
-				// Póliza individual (o emitida sin incisos): el vehículo es el bien ligado a la póliza. Solo consulta.
+				// Póliza emitida sin incisos: el vehículo es el bien ligado a la póliza. En una individual solo se consulta;
+				// en una empresarial se pueden cargar o dar de alta los vehículos (sus endosos).
 				Boolean deBienes = vs.isEmpty();
 				if (deBienes) { vs = vehiculosDeBienes(recordId); }
 				res.put('vehiculos', vs);
-				res.put('soloLectura', deBienes && !vs.isEmpty());
+				res.put('deBienes', deBienes && !vs.isEmpty());
+				res.put('soloLectura', deBienes && !vs.isEmpty() && !esEmpresarial(recordId));
 				res.put('solicitudes', EndosoPoliza.solicitudes(recordId, 'vehiculos'));
 			} else {
 				Opportunity opp = MovimientosColectivoController.oportunidad(recordId);
@@ -107,6 +109,26 @@ public inherited sharing class MovimientosFlotillaController {
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudieron leer los vehículos: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza empresarial: su oportunidad de origen es «Empresarial» (Colectiva) o, si no viene de una
+	 *               oportunidad, el contratante es una empresa (no persona física). Igual que el aviso de renovación.
+	 * @param policyId: póliza.
+	 * @return true si es empresarial.
+	 */
+	@TestVisible
+	static Boolean esEmpresarial(Id policyId) {
+		for (InsurancePolicy p : [
+			SELECT SourceOpportunityId, SourceOpportunity.Tipo_Contratacion__c, NameInsuredId, NameInsured.IsPersonAccount
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		]) {
+			if (p.SourceOpportunityId != null) { return p.SourceOpportunity.Tipo_Contratacion__c == 'Colectiva'; }
+			return p.NameInsuredId != null && p.NameInsured.IsPersonAccount != true;
+		}
+		return false;
 	}
 
 	// ============================================================

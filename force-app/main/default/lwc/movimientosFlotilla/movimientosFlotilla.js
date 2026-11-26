@@ -132,6 +132,9 @@ export default class MovimientosFlotilla extends LightningElement {
     // Póliza individual: el vehículo se lee del bien ligado a la póliza y solo se consulta.
     get soloLectura() { return !!this.datos && this.datos.soloLectura === true; }
     get puedeEditar() { return !this.readOnly && this.visible && !this.soloLectura; }
+    // Póliza empresarial emitida sin incisos: el vehículo mostrado es el bien de la póliza (solo se consulta); se
+    // cargan o dan de alta los vehículos de sus endosos.
+    get editaFilas() { return this.puedeEditar && !(this.datos && this.datos.deBienes); }
     get titulo() {
         if (this.soloLectura) { return this.vehiculos.length === 1 ? 'Vehículo de la póliza' : 'Vehículos de la póliza'; }
         return this.enPoliza ? 'Vehículos de la póliza' : 'Renovación: altas, bajas y cambios de vehículos';
@@ -462,7 +465,7 @@ export default class MovimientosFlotilla extends LightningElement {
             puedeEliminar: this.cambiaSeguimiento && !!v.movimientoId && sePuedeEliminar(v.solicitud, seguimiento),
             seleccionado: this.seleccion.has(v.id),
             // En el sitio las bajas se piden en Nueva solicitud: no se seleccionan registros.
-            noSeleccionable: this.portal || !v.activo || !this.puedeEditar,
+            noSeleccionable: this.portal || !v.activo || !this.editaFilas,
             claseFila: (v.esMovimiento ? v.tipoMovimiento !== 'Baja' : v.activo) ? '' : 'fila-baja',
             valorTxt: moneda(v.valor),
             primaTxt: moneda(this.primaDe(v, grupo)),
@@ -474,8 +477,8 @@ export default class MovimientosFlotilla extends LightningElement {
             // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
             estado: v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja'),
             claseEstado: `estado estado-${String(v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
-            puedeCerrar: this.enPoliza && this.puedeEditar && !!v.movimientoId && !v.fechaCierre,
-            puedeMover: v.activo && this.puedeEditar
+            puedeCerrar: this.enPoliza && this.editaFilas && !!v.movimientoId && !v.fechaCierre,
+            puedeMover: v.activo && this.editaFilas
         });
     }
     get totalPaginable() {
