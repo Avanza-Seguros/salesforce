@@ -384,6 +384,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>InsurancePolicyParticipant.Edad__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Inciso_Flotilla__c.Fecha_Alta__c</field>
         <readable>true</readable>
     </fieldPermissions>

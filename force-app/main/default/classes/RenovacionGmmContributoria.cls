@@ -198,7 +198,7 @@ public with sharing class RenovacionGmmContributoria {
 		Map<Id, Familia> porTitular = new Map<Id, Familia>();
 		List<InsurancePolicyParticipant> dependientes = new List<InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : [
-			SELECT Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId, RelationshipToInsured, Categoria__c, FechaNacimiento__c,
+			SELECT Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId, RelationshipToInsured, Categoria__c, FechaNacimiento__c, Edad__c,
 				TermPremiumAmount, StandardPremiumAmount, PrimaryParticipantContactId, PrimaryParticipantAccountId,
 				PrimaryParticipantContact.FirstName, PrimaryParticipantContact.Birthdate, IsActiveParticipant
 			FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId AND IsActiveParticipant = true
@@ -257,7 +257,7 @@ public with sharing class RenovacionGmmContributoria {
 	private static Integer edadDe(InsurancePolicyParticipant m) {
 		Date nac = m.FechaNacimiento__c != null ? m.FechaNacimiento__c
 			: (m.PrimaryParticipantContactId != null ? m.PrimaryParticipantContact.Birthdate : null);
-		if (nac == null) { return null; }
+		if (nac == null) { return m.isSet('Edad__c') && m.Edad__c != null ? m.Edad__c.intValue() : null; }
 		Date hoy = Date.today();
 		Integer e = hoy.year() - nac.year();
 		if (hoy.month() < nac.month() || (hoy.month() == nac.month() && hoy.day() < nac.day())) { e--; }

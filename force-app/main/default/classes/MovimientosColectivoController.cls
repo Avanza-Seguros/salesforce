@@ -705,6 +705,11 @@ public inherited sharing class MovimientosColectivoController {
 			detalle.add('Fecha de nacimiento: ' + texto(p.FechaNacimiento__c) + ' → ' + fn.format());
 			p.FechaNacimiento__c = fn;
 		}
+		Decimal edad = edadValida(d.edad);
+		if (edad != null && edad != p.Edad__c) {
+			detalle.add('Edad: ' + (p.Edad__c == null ? '—' : String.valueOf(p.Edad__c.intValue())) + ' → ' + edad);
+			p.Edad__c = edad;
+		}
 		String sx = CensoColectivoController.sexo(d.sexo);
 		if (sx != null && sx != p.Sexo__c) {
 			if (p.Sexo__c != null || sx != CensoColectivoController.sexo(sexoDe(p.RelationshipToInsured))) { detalle.add('Sexo: ' + texto(p.Sexo__c) + ' → ' + sx); }
@@ -970,7 +975,7 @@ public inherited sharing class MovimientosColectivoController {
 	 */
 	private static String camposParticipante() {
 		return 'Id, ParticipantName, ParticipantCode, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,'
-			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Fecha_Antiguedad__c, Sexo__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
+			+ ' RelationshipToInsured, Role, FechaNacimiento__c, Edad__c, Fecha_Antiguedad__c, Sexo__c, Identificacion__c, TermPremiumAmount, EffectiveFromDate,'
 			+ ' EffectiveToDate, IsActiveParticipant, Motivo_Baja__c, Categoria__c, PrimaryParticipantContactId, PrimaryParticipantAccountId,'
 			+ ' Correo_Enviado__c, Fecha_Envio_Correo__c, Plantilla_Correo__c, Correo_Personal__c, CreatedDate'
 			+ (TIENE_CLASE ? ', GroupClassId, GroupClass.Name' : '');
@@ -1007,7 +1012,7 @@ public inherited sharing class MovimientosColectivoController {
 				'titularNombre' => esTitular ? null : p.RelatedInsPolicyParticipant.ParticipantName,
 				'parentesco' => parentesco, 'sexo' => p.Sexo__c != null ? (p.Sexo__c == 'Femenino' ? 'Mujer' : 'Hombre') : sexoDe(p.RelationshipToInsured),
 				'certificado' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
-				'categoria' => nombreClase(p), 'fechaNacimiento' => p.FechaNacimiento__c, 'rfc' => p.Identificacion__c,
+				'categoria' => nombreClase(p), 'fechaNacimiento' => p.FechaNacimiento__c, 'edad' => p.Edad__c, 'rfc' => p.Identificacion__c,
 				'fechaAntiguedad' => p.Fecha_Antiguedad__c, 'sumaAsegurada' => sumas.get(p.Id), 'prima' => p.TermPremiumAmount, 'fechaAlta' => p.EffectiveFromDate,
 				'activo' => p.IsActiveParticipant != false,
 				'fechaBaja' => p.IsActiveParticipant == false ? p.EffectiveToDate : null,
@@ -1805,10 +1810,16 @@ public inherited sharing class MovimientosColectivoController {
 	 * @param d: datos del asegurado.
 	 * @return detalle.
 	 */
+	// Edad del listado en años completos; fuera de rango, null.
+	private static Decimal edadValida(Decimal e) {
+		return e == null || e < 0 || e >= 130 ? null : e.round(System.RoundingMode.DOWN);
+	}
+
 	private static String detalleAlta(CensoColectivoController.MiembroEntrada d) {
 		List<String> l = new List<String>{ 'Parentesco: ' + (String.isBlank(d.parentesco) ? 'Titular' : d.parentesco) };
 		if (String.isNotBlank(d.categoria)) { l.add('Categoría: ' + d.categoria); }
 		if (String.isNotBlank(d.fechaNacimiento)) { l.add('Fecha de nacimiento: ' + texto(CensoColectivoController.fecha(d.fechaNacimiento))); }
+		else if (edadValida(d.edad) != null) { l.add('Edad: ' + edadValida(d.edad)); }
 		if (d.sumaAsegurada != null) { l.add('Suma asegurada: ' + texto(d.sumaAsegurada)); }
 		if (d.prima != null) { l.add('Prima: ' + texto(d.prima)); }
 		return String.join(l, '\n');
@@ -1830,6 +1841,8 @@ public inherited sharing class MovimientosColectivoController {
 		}
 		Date fn = CensoColectivoController.fecha(e.fechaNacimiento);
 		if (fn != null && fn != (Date) a.get('fechaNacimiento')) { l.add(dif('Fecha de nacimiento', texto((Date) a.get('fechaNacimiento')), fn.format())); }
+		Decimal edad = edadValida(e.edad);
+		if (edad != null && fn == null && edad != (Decimal) a.get('edad')) { l.add(dif('Edad', a.get('edad') == null ? '—' : String.valueOf(((Decimal) a.get('edad')).intValue()), String.valueOf(edad))); }
 		if (String.isNotBlank(e.categoria) && CensoColectivoController.llave(e.categoria) != CensoColectivoController.llave((String) a.get('categoria'))) {
 			l.add(dif('Categoría', a.get('categoria'), e.categoria.normalizeSpace()));
 		}

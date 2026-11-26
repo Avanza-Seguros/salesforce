@@ -122,6 +122,9 @@ private class RenovacionGmmContributoriaTest {
 		for (String n : casos.keySet()) { Assert.areEqual(casos.get(n), RenovacionGmmContributoria.primerNombre(n), n); }
 		Assert.areEqual('Ana de la Torre y López', RenovacionGmmContributoria.nombreVisible('ANA DE LA TORRE Y LOPEZ'));
 		Assert.areEqual(null, RenovacionGmmContributoria.edadDe(new InsurancePolicyParticipant()));
+		// Solo con la edad del listado (sin fecha de nacimiento).
+		Assert.areEqual(40, RenovacionGmmContributoria.edadDe(new InsurancePolicyParticipant(Edad__c = 40)));
+		Assert.areEqual(33, CensoColectivoController.participante(new GroupCensusMember(Name = 'X', LastName = 'X', Edad__c = 33), null, null, null).Edad__c);
 		Assert.areEqual(new List<String>{ 'mariana@x.com', 'marco@x.com' }, RenovacionGmmContributoria.correos(' Mariana@x.com,marco@x.com ; mariana@x.com'));
 	}
 }

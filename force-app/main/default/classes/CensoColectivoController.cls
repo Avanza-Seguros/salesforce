@@ -1646,6 +1646,8 @@ public inherited sharing class CensoColectivoController {
 			p.ExpirationDate = pol.ExpirationDate;
 		}
 		if (m.Birthdate != null) { p.FechaNacimiento__c = m.Birthdate; }
+		// Edad del listado (cuando solo trae la edad); el miembro consultado sin el campo no la tiene.
+		if (m.isSet('Edad__c') && m.Edad__c != null) { p.Edad__c = m.Edad__c; }
 		p.Sexo__c = sexoMiembro(m);
 		if (String.isNotBlank(m.RFC__c)) { p.Identificacion__c = m.RFC__c.left(50); }
 		// Prima individual del asegurado (del listado de la aseguradora) como prima del periodo del participante.
