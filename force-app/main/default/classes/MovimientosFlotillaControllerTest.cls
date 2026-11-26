@@ -222,6 +222,7 @@ private class MovimientosFlotillaControllerTest {
 	 */
 	@isTest
 	static void testEndosoComoTransaccion() {
+		MovimientosFlotillaController.conTramiteEnPrueba = true;
 		InsurancePolicy pol = poliza();
 		Date hoy = Date.today();
 		Id inc2 = inciso(pol.Id, SERIE_2);
@@ -280,6 +281,7 @@ private class MovimientosFlotillaControllerTest {
 	 */
 	@isTest
 	static void testEndosoSinCambioDeDatos() {
+		MovimientosFlotillaController.conTramiteEnPrueba = true;
 		InsurancePolicy pol = poliza();
 		Id inc2 = inciso(pol.Id, SERIE_2);
 		Map<String, Object> m = new Map<String, Object>{ 'tipo' => 'cambio', 'id' => inc2, 'fecha' => String.valueOf(Date.today()),
@@ -325,6 +327,7 @@ private class MovimientosFlotillaControllerTest {
 	 */
 	@isTest
 	static void testEstadoYCierreDelMovimiento() {
+		MovimientosFlotillaController.conTramiteEnPrueba = true;
 		InsurancePolicy pol = poliza();
 		Id inc2 = inciso(pol.Id, SERIE_2);
 		MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{
@@ -469,7 +472,8 @@ private class MovimientosFlotillaControllerTest {
 	 * @creation date: 01/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Póliza de autos sin incisos: el vehículo sale del bien ligado a la póliza. Si el contratante es una
-	 *               empresa (sin oportunidad) se pueden cargar sus vehículos; si es individual, solo consulta.
+	 *               empresa (sin oportunidad) el bien pasa a ser un inciso y se pueden cargar sus vehículos; si es
+	 *               individual, solo se consulta.
 	 * @return void
 	 */
 	@isTest
@@ -494,7 +498,11 @@ private class MovimientosFlotillaControllerTest {
 		Map<String, Object> d = MovimientosFlotillaController.getDatos(pol.Id);
 		Test.stopTest();
 		System.assertEquals(false, d.get('soloLectura'), 'Empresarial: se cargan sus vehículos');
-		System.assertEquals(true, d.get('deBienes'));
+		System.assertEquals(false, d.get('deBienes'), 'El vehículo de la emisión ya es un inciso');
+		System.assertEquals(1, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :pol.Id]);
+		// Otra lectura no lo vuelve a crear.
+		MovimientosFlotillaController.getDatos(pol.Id);
+		System.assertEquals(1, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :pol.Id]);
 		List<Object> vs = (List<Object>) d.get('vehiculos');
 		System.assertEquals(1, vs.size());
 		Map<String, Object> v = (Map<String, Object>) vs[0];
@@ -503,12 +511,59 @@ private class MovimientosFlotillaControllerTest {
 		System.assertEquals(2019, v.get('modelo'));
 		System.assertEquals(true, v.get('activo'));
 		System.assertEquals(false, MovimientosFlotillaController.getDatos(poliza().Id).get('soloLectura'), 'La flotilla con incisos se edita');
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza individual de autos (de una oportunidad Individual): el vehículo del bien solo se consulta y no
+	 *               se vuelve inciso.
+	 * @return void
+	 */
+	@isTest
+	static void testFlotillaIndividual() {
+		Account acc = [SELECT Id FROM Account WHERE Name = 'Empresa Flotilla Test' LIMIT 1];
 		Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Opp Renovacion Flotilla' LIMIT 1];
 		opp.Tipo_Contratacion__c = 'Individual';
 		update opp;
-		pol.SourceOpportunityId = opp.Id;
-		update pol;
-		System.assertEquals(true, MovimientosFlotillaController.getDatos(pol.Id).get('soloLectura'), 'Individual: solo consulta');
+		Datetime inicio = Datetime.now();
+		InsurancePolicy ind = new InsurancePolicy(Name = 'POL-AUTO-IND-2', NameInsuredId = acc.Id, Status = 'Inicial', PremiumAmount = 1000,
+			PaymentDueDate = Date.today().addDays(30), EffectiveDate = inicio, ExpirationDate = inicio.addDays(365), SourceOpportunityId = opp.Id);
+		ind.put('Ramo__c', 'Automoviles');
+		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {
+			if (pe.isActive()) { ind.PremiumFrequency = pe.getValue(); break; }
+		}
+		insert ind;
+		CustomerProperty cp = new CustomerProperty(PrimaryOwnerId = acc.Id, Make = 'KIA', MakeYear = 2019, Description = 'RIO');
+		insert cp;
+		insert new InsurancePolicyAsset(InsurancePolicyId = ind.Id, AssetName = 'RIO', CustomerPropertyId = cp.Id, IsActive = true,
+			StandardPremiumAmount = 1000, EffectiveFromDate = Date.today());
+		Test.startTest();
+		Map<String, Object> d = MovimientosFlotillaController.getDatos(ind.Id);
+		Test.stopTest();
+		System.assertEquals(true, d.get('soloLectura'), 'Individual: solo consulta');
+		System.assertEquals(0, [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :ind.Id], 'La individual no crea incisos');
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Flotilla en Salesforce sin el trámite de GMM: el movimiento no lleva solicitud y queda cerrado.
+	 * @return void
+	 */
+	@isTest
+	static void testFlotillaSinTramite() {
+		InsurancePolicy pol = poliza();
+		Id inc2 = inciso(pol.Id, SERIE_2);
+		Test.startTest();
+		Map<String, Object> r = MovimientosFlotillaController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+			mov('cambio', inc2, new Map<String, Object>{ 'prima' => 12500 }, Date.today())
+		}));
+		Test.stopTest();
+		System.assertEquals(null, r.get('solicitud'), 'Sin solicitud');
+		Movimiento_Poliza__c m = [SELECT Solicitud__c, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Inciso__c = :inc2 ORDER BY CreatedDate DESC LIMIT 1];
+		System.assertEquals(null, m.Solicitud__c);
+		System.assertNotEquals(null, m.Fecha_Cierre__c, 'Queda cerrado');
 	}
 
 	/**

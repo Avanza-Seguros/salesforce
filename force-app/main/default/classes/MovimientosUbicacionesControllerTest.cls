@@ -91,6 +91,7 @@ private class MovimientosUbicacionesControllerTest {
 	 */
 	@isTest
 	static void testEndosoGeneral() {
+		MovimientosUbicacionesController.conTramiteEnPrueba = true;
 		InsurancePolicy pol = poliza();
 		Id b1 = bien(pol.Id, 1);
 		Id b2 = bien(pol.Id, 2);
@@ -135,6 +136,7 @@ private class MovimientosUbicacionesControllerTest {
 	 */
 	@isTest
 	static void testEndososPoliza() {
+		MovimientosUbicacionesController.conTramiteEnPrueba = true;
 		InsurancePolicy pol = poliza();
 		Id b1 = bien(pol.Id, 1);
 		Id b2 = bien(pol.Id, 2);
@@ -297,5 +299,27 @@ private class MovimientosUbicacionesControllerTest {
 		List<Movimiento_Poliza__c> movs = [SELECT Tipo__c, Detalle__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id];
 		System.assertEquals(1, movs.size(), 'No se crea otro movimiento');
 		System.assert(String.isNotBlank(movs[0].Detalle__c), 'La corrección queda en el alta');
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Ubicaciones en Salesforce sin el trámite de GMM: el movimiento no lleva solicitud y queda cerrado.
+	 * @return void
+	 */
+	@isTest
+	static void testUbicacionesSinTramite() {
+		InsurancePolicy pol = poliza();
+		Id reg = bien(pol.Id, 1);
+		Test.startTest();
+		Map<String, Object> r = MovimientosUbicacionesController.aplicar(pol.Id, JSON.serialize(new List<Object>{
+			new Map<String, Object>{ 'tipo' => 'cambio', 'id' => reg, 'fecha' => String.valueOf(Date.today()),
+				'datos' => new Map<String, Object>{ 'giro' => 'Bodega' } } }));
+		Test.stopTest();
+		System.assertEquals(null, r.get('solicitud'), 'Sin solicitud');
+		List<Movimiento_Poliza__c> movs = [SELECT Solicitud__c, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Poliza__c = :pol.Id];
+		System.assertEquals(1, movs.size());
+		System.assertEquals(null, movs[0].Solicitud__c);
+		System.assertNotEquals(null, movs[0].Fecha_Cierre__c, 'Queda cerrado');
 	}
 }

@@ -151,8 +151,9 @@ public inherited sharing class MovimientosUbicacionesController {
 		try {
 			if (!MovimientosColectivoController.esPoliza(recordId)) { return aplicarOportunidad(recordId, movs); }
 			Map<String, Object> r = aplicarPoliza(recordId, movs);
-			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados.
-			r.put('solicitud', EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
+			// Endoso de la póliza (transacción de FSC) con los movimientos aplicados. En Salesforce las ubicaciones no
+			// llevan solicitud ni seguimiento (el trámite es solo de GMM): se agregan, dan de baja o cambian y ya.
+			r.put('solicitud', sinTramite() ? null : EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
 			r.put('transaccionId', EndosoPoliza.registrar(recordId, primaEndoso));
 			// Registro de cada movimiento, en su orden (el sitio adjunta ahí los documentos del alta).
 			List<String> ids = new List<String>();
@@ -219,6 +220,22 @@ public inherited sharing class MovimientosUbicacionesController {
 	// ============================================================
 	// Póliza (endoso)
 	// ============================================================
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Los movimientos de ubicaciones registrados en Salesforce no siguen el trámite de GMM (solicitud,
+	 *               seguimiento, pendientes): se aplican y quedan cerrados. Los del sitio sí llevan su solicitud.
+	 * @return true si quien registra es un usuario de Salesforce.
+	 */
+	@TestVisible
+	static Boolean sinTramite() {
+		return UserInfo.getUserType() == 'Standard' && !conTramiteEnPrueba;
+	}
+
+	// Pruebas del trámite (solicitud y seguimiento) con un usuario de Salesforce.
+	@TestVisible
+	private static Boolean conTramiteEnPrueba = false;
 
 	/**
 	 * @creation date: 01/11/2026
@@ -360,6 +377,10 @@ public inherited sharing class MovimientosUbicacionesController {
 				altas++;
 			}
 			if (!desde.isEmpty()) { update desde; }
+		}
+		// En Salesforce el movimiento queda cerrado al aplicarse (solo es el historial de la ubicación, nada por atender).
+		if (sinTramite()) {
+			for (Movimiento_Poliza__c r : registro) { r.Fecha_Cierre__c = Datetime.now(); }
 		}
 		if (!registro.isEmpty()) { insert registro; }
 		EndosoPoliza.agregar(registro);

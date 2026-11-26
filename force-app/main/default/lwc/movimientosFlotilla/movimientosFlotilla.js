@@ -43,7 +43,10 @@ export default class MovimientosFlotilla extends LightningElement {
     // Filtro de la lista: en la póliza (Salesforce) abre en «Pendientes» (lo que falta por atender); en el sitio y en la
     // oportunidad, en los vigentes.
     filtroElegido = null;
-    get filtroInicial() { return this.enPoliza && this.interno ? 'pendientes' : 'vigentes'; }
+    get filtroInicial() { return this.enPoliza && this.interno && !this.sinTramite ? 'pendientes' : 'vigentes'; }
+    // Flotilla en Salesforce: no sigue el trámite de GMM (solicitudes, seguimiento, pendientes); las altas, bajas, cambios
+    // y cargas se aplican y los incisos se van agregando.
+    get sinTramite() { return this.enPoliza && this.interno; }
     get filtro() { return this.filtroElegido || this.filtroInicial; }
     busqueda = '';
     busquedaHistorial = '';
@@ -73,7 +76,7 @@ export default class MovimientosFlotilla extends LightningElement {
     // El seguimiento se cambia con un clic solo en Salesforce (en el sitio el cliente solo lo ve).
     // Folio de la aseguradora de cada movimiento: solo en Salesforce.
     get conFolioAseguradora() { return !this.portal; }
-    get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar; }
+    get cambiaSeguimiento() { return this.enPoliza && !this.portal && this.puedeEditar && !this.sinTramite; }
 
     @api
     get recordId() { return this._recordId; }
@@ -126,7 +129,9 @@ export default class MovimientosFlotilla extends LightningElement {
         return (this.datos.vehiculos || []).length <= 1;
     }
     get conFechasMovimiento() { return !this.esIndividual; }
-    get conFechaCierre() { return this.enPoliza && !this.esIndividual; }
+    get conFechaCierre() { return this.enPoliza && !this.esIndividual && !this.sinTramite; }
+    // Fecha de creación y seguimiento del movimiento: solo con el trámite (el sitio).
+    get conTramite() { return this.enPoliza && !this.sinTramite; }
     // En la oportunidad solo aplica cuando el cliente ya tiene una póliza de autos (renovación).
     get visible() { return !!this.datos && this.datos.aplica === true && (this.enPoliza || !!this.datos.polizaAnteriorId); }
     // Póliza individual: el vehículo se lee del bien ligado a la póliza y solo se consulta.
@@ -176,7 +181,7 @@ export default class MovimientosFlotilla extends LightningElement {
     // ============================================================
     get opcionesFiltro() {
         return [
-            this.interno ? { label: `Pendientes (${this.totalPendientes})`, value: 'pendientes' } : { label: `Vigentes (${this.totalVigentes})`, value: 'vigentes' },
+            this.interno && !this.sinTramite ? { label: `Pendientes (${this.totalPendientes})`, value: 'pendientes' } : { label: `Vigentes (${this.totalVigentes})`, value: 'vigentes' },
             { label: `Dados de baja (${this.totalBajas})`, value: 'bajas' },
             { label: `Todos (${this.vehiculos.length})`, value: 'todos' }
         ];
@@ -282,13 +287,13 @@ export default class MovimientosFlotilla extends LightningElement {
         const l = [col('inciso', 'Inciso'), col('serie', 'Serie'), col('vehiculo', 'Vehículo'), col('modelo', 'Modelo'),
             col('placas', 'Placas'), col('uso', 'Uso'), col('vigencia', 'Vigencia')];
         if (this.conFechasMovimiento) { l.push(col('movimiento', 'Fecha de movimiento')); }
-        if (this.enPoliza) { l.push(col('creacion', 'Fecha de creación')); }
+        if (this.conTramite) { l.push(col('creacion', 'Fecha de creación')); }
         if (this.conFechaCierre) { l.push(col('cierre', 'Fecha de cierre')); }
         l.push(col('valor', 'Valor', 'num'), col('prima', 'Prima', 'num'), col('estado', 'Estado'));
-        if (this.enPoliza) { l.push(col('seguimiento', 'Seguimiento')); }
+        if (this.conTramite) { l.push(col('seguimiento', 'Seguimiento')); }
         return l;
     }
-    get hayAgrupacion() { return this.enPoliza && this.solicitudes.length > 0; }
+    get hayAgrupacion() { return this.conTramite && this.solicitudes.length > 0; }
     get agrupado() { return this.hayAgrupacion && this.agruparSolicitud; }
     toggleAgrupar(e) { this.agruparSolicitud = e.target.checked; this.pagina = 1; }
     toggleSolicitud(e) {
@@ -439,7 +444,7 @@ export default class MovimientosFlotilla extends LightningElement {
         };
     }
     get columnasTabla() {
-        return 12 + (this.conFechasMovimiento ? 1 : 0) + (this.enPoliza ? 4 : 0) + (this.conFechaCierre ? 1 : 0);
+        return 12 + (this.conFechasMovimiento ? 1 : 0) + (this.conTramite ? 4 : 0) + (this.conFechaCierre ? 1 : 0);
     }
 
     get filas() {
@@ -477,7 +482,7 @@ export default class MovimientosFlotilla extends LightningElement {
             // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
             estado: v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja'),
             claseEstado: `estado estado-${String(v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
-            puedeCerrar: this.enPoliza && this.editaFilas && !!v.movimientoId && !v.fechaCierre,
+            puedeCerrar: this.conTramite && this.editaFilas && !!v.movimientoId && !v.fechaCierre,
             puedeMover: v.activo && this.editaFilas
         });
     }
@@ -578,7 +583,12 @@ export default class MovimientosFlotilla extends LightningElement {
         this.modal = 'cambio';
     }
 
+    // Sin trámite (flotilla en Salesforce): el cambio solo corrige el dato o se registra como movimiento (sin solicitud).
+    get etiquetaSolicitudCambio() { return this.sinTramite ? 'Registro' : 'Solicitud'; }
     get opcionesSolicitudCambio() {
+        if (this.sinTramite) {
+            return [{ label: 'Solo corregir (sin movimiento nuevo)', value: 'correccion' }, { label: 'Registrar el cambio', value: 'nueva' }];
+        }
         return (this.form.corrige ? [{ label: 'Solo corregir (sin movimiento nuevo)', value: 'correccion' }] : []).concat(this.opcionesSolicitud);
     }
     get registraCambio() { return this.form.solicitud !== 'correccion'; }

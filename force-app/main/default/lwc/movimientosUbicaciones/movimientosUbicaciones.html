@@ -180,7 +180,7 @@
                                             <td>{u.giro}</td>
                                             <td>{u.altaTxt}</td>
                                             <template if:true={conFechasMovimiento}><td>{u.fechaMovimientoTxt}</td></template>
-                                            <template if:true={enPoliza}><td>{u.fechaCreacionTxt}</td></template>
+                                            <template if:true={conTramite}><td>{u.fechaCreacionTxt}</td></template>
                                             <template if:true={conFechaCierre}><td>{u.fechaCierreTxt}</td></template>
                                             <td class="num">{u.sumaTxt}</td>
                                             <td class="num">{u.primaTxt}</td>
@@ -188,7 +188,7 @@
                                                 <span class={u.claseEstado}>{u.estado}</span>
                                                 <template if:true={u.motivoBaja}><div class="sub">{u.motivoBaja}</div></template>
                                             </td>
-                                            <template if:true={enPoliza}>
+                                            <template if:true={conTramite}>
                                                 <!-- Seguimiento del trámite: Solicitado, En proceso o Concluido. -->
                                                 <td>
                                                     <template lwc:if={u.puedeSeguimiento}><c-seguimiento-selector valor={u.seguimiento} policy-id={recordId} folio={u.solicitud}
@@ -279,7 +279,7 @@
                                 <lightning-input label="Número de endoso" value={comun.endoso} data-campo="endoso" onchange={handleComun}></lightning-input>
                             </div>
                             </template>
-                            <template lwc:if={enPoliza}>
+                            <template lwc:if={conTramite}>
                                 <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
                                     <lightning-combobox label="Solicitud" value={comun.solicitud} options={opcionesSolicitud} data-campo="solicitud"
                                         onchange={handleComun} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
@@ -492,7 +492,7 @@
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
                                     </template>
-                                    <template lwc:if={enPoliza}>
+                                    <template lwc:if={conTramite}>
                                         <div class="slds-col slds-size_1-of-2">
                                             <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
                                                 onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
@@ -551,7 +551,7 @@
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm}></lightning-input>
                                     </div>
                                     </template>
-                                    <template lwc:if={enPoliza}>
+                                    <template lwc:if={conTramite}>
                                         <div class="slds-col slds-size_1-of-2">
                                             <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
                                                 onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
@@ -584,7 +584,7 @@
                                         <lightning-input label="Número de endoso" value={form.endoso} data-campo="endoso" onchange={handleForm} required></lightning-input>
                                     </div>
                                     </template>
-                                    <template lwc:if={enPoliza}>
+                                    <template lwc:if={conTramite}>
                                         <div class="slds-col slds-size_1-of-3">
                                             <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitud} data-campo="solicitud"
                                                 onchange={handleForm} field-level-help="Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
@@ -659,7 +659,7 @@
                                     </template>
                                     <template lwc:if={enPoliza}>
                                         <div class="slds-col slds-size_1-of-3">
-                                            <lightning-combobox label="Solicitud" value={form.solicitud} options={opcionesSolicitudCambio} data-campo="solicitud"
+                                            <lightning-combobox label={etiquetaSolicitudCambio} value={form.solicitud} options={opcionesSolicitudCambio} data-campo="solicitud"
                                                 onchange={handleForm} field-level-help="«Solo corregir» cambia el dato sin registrar otro movimiento. Los movimientos que el cliente pidió juntos van en la misma solicitud."></lightning-combobox>
                                         </div>
                                     </template>

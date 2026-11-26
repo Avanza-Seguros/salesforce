@@ -80,14 +80,17 @@ public inherited sharing class MovimientosFlotillaController {
 				res.put('tipoContratacion', MovimientosColectivoController.tipoContratacion(recordId));
 				res.put('inicio', pol.EffectiveDate == null ? null : pol.EffectiveDate.date());
 				res.put('fin', pol.ExpirationDate == null ? null : pol.ExpirationDate.date());
+				// Flotilla (empresarial): los vehículos de la emisión que solo están como bienes de la póliza pasan a ser
+				// incisos, para verlos junto con los de los endosos y poder darlos de baja o cambiarlos.
+				Boolean empresarial = esEmpresarial(recordId);
+				if (empresarial && esFlotilla(pol.Ramo__c) && UserInfo.getUserType() == 'Standard') { incorporarBienes(recordId); }
 				List<Object> vs = vehiculos(incisosPoliza(recordId, false, null));
-				// Póliza emitida sin incisos: el vehículo es el bien ligado a la póliza. En una individual solo se consulta;
-				// en una empresarial se pueden cargar o dar de alta los vehículos (sus endosos).
+				// Póliza individual sin incisos: el vehículo es el bien ligado a la póliza y solo se consulta.
 				Boolean deBienes = vs.isEmpty();
 				if (deBienes) { vs = vehiculosDeBienes(recordId); }
 				res.put('vehiculos', vs);
 				res.put('deBienes', deBienes && !vs.isEmpty());
-				res.put('soloLectura', deBienes && !vs.isEmpty() && !esEmpresarial(recordId));
+				res.put('soloLectura', deBienes && !vs.isEmpty() && !empresarial);
 				res.put('solicitudes', EndosoPoliza.solicitudes(recordId, 'vehiculos'));
 			} else {
 				Opportunity opp = MovimientosColectivoController.oportunidad(recordId);
@@ -131,6 +134,60 @@ public inherited sharing class MovimientosFlotillaController {
 		return false;
 	}
 
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Los movimientos de flotilla registrados en Salesforce no siguen el trámite de GMM (solicitud,
+	 *               seguimiento, pendientes): se aplican y quedan cerrados. Los del sitio sí llevan su solicitud.
+	 * @return true si quien registra es un usuario de Salesforce.
+	 */
+	@TestVisible
+	static Boolean sinTramite() {
+		return UserInfo.getUserType() == 'Standard' && !conTramiteEnPrueba;
+	}
+
+	// Pruebas del trámite (solicitud y seguimiento) con un usuario de Salesforce.
+	@TestVisible
+	private static Boolean conTramiteEnPrueba = false;
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Vehículos de la emisión que solo están como bienes de la póliza (InsurancePolicyAsset sin inciso):
+	 *               se crea su inciso con los datos del bien (número, serie, placas, descripción, modelo, uso, tipo,
+	 *               valor, prima, alta y baja), sin registrar un movimiento.
+	 * @param policyId: póliza.
+	 * @return void
+	 */
+	@TestVisible
+	static void incorporarBienes(Id policyId) {
+		Set<Id> conInciso = new Set<Id>();
+		for (Inciso_Flotilla__c i : [SELECT Vehiculo__c FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId AND Vehiculo__c != null]) {
+			conInciso.add(i.Vehiculo__c);
+		}
+		List<Inciso_Flotilla__c> nuevos = new List<Inciso_Flotilla__c>();
+		for (Object o : vehiculosDeBienes(policyId)) {
+			Map<String, Object> v = (Map<String, Object>) o;
+			Id vehiculo = (Id) v.get('vehiculoId');
+			if (vehiculo == null || conInciso.contains(vehiculo)) { continue; }
+			conInciso.add(vehiculo);
+			String inciso = String.valueOf(v.get('inciso'));
+			Object modelo = v.get('modelo');
+			nuevos.add(new Inciso_Flotilla__c(Poliza__c = policyId, Vehiculo__c = vehiculo,
+				Numero_Inciso__c = inciso != null && inciso.isNumeric() ? Decimal.valueOf(inciso) : null,
+				Serie__c = texto(v.get('serie'), 30), Placas__c = texto(v.get('placas'), 20), Descripcion__c = texto(v.get('descripcion'), 255),
+				Modelo__c = modelo == null || !String.valueOf(modelo).isNumeric() ? null : Decimal.valueOf(String.valueOf(modelo)),
+				Uso__c = texto(v.get('uso'), 60), Tipo_Vehiculo__c = texto(v.get('tipoVehiculo'), 80),
+				Valor__c = (Decimal) v.get('valor'), Prima__c = (Decimal) v.get('prima'),
+				Fecha_Alta__c = (Date) v.get('fechaAlta'), Fecha_Baja__c = (Date) v.get('fechaBaja')));
+		}
+		if (!nuevos.isEmpty()) { insert nuevos; }
+	}
+
+	private static String texto(Object v, Integer largo) {
+		return v == null || String.isBlank(String.valueOf(v)) ? null : String.valueOf(v).trim().left(largo);
+	}
+
 	// ============================================================
 	// Movimientos
 	// ============================================================
@@ -167,8 +224,9 @@ public inherited sharing class MovimientosFlotillaController {
 		try {
 			if (!MovimientosColectivoController.esPoliza(recordId)) { return aplicarOportunidad(recordId, movs); }
 			Map<String, Object> r = aplicarPoliza(recordId, movs);
-			// Un endoso de la póliza (transacción de FSC) por cada número de endoso de los movimientos aplicados.
-			r.put('solicitud', EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
+			// Un endoso de la póliza (transacción de FSC) por cada número de endoso de los movimientos aplicados. En
+			// Salesforce la flotilla no lleva solicitud ni seguimiento: los incisos se agregan, dan de baja o cambian y ya.
+			r.put('solicitud', sinTramite() ? null : EndosoPoliza.asignarSolicitud(recordId, solicitudPedida));
 			List<Id> endosos = EndosoPoliza.registrarTodos(recordId, primaEndoso, primasEndosos);
 			r.put('transaccionId', endosos.isEmpty() ? null : endosos[0]);
 			r.put('transacciones', EndosoPoliza.ultimosPorNumero);
@@ -505,6 +563,10 @@ public inherited sharing class MovimientosFlotillaController {
 				WHERE InsurancePolicyId = :policyId AND CustomerPropertyId IN :fechaPorVehiculo.keySet()
 			]) { desde.add(new InsurancePolicyAsset(Id = a.Id, EffectiveFromDate = fechaPorVehiculo.get(a.CustomerPropertyId))); }
 			if (!desde.isEmpty()) { update desde; }
+		}
+		// En Salesforce el movimiento queda cerrado al aplicarse (solo es el historial del inciso, nada por atender).
+		if (sinTramite()) {
+			for (Movimiento_Poliza__c r : registro) { r.Fecha_Cierre__c = Datetime.now(); }
 		}
 		if (!registro.isEmpty()) { insert registro; }
 		EndosoPoliza.agregar(registro);
