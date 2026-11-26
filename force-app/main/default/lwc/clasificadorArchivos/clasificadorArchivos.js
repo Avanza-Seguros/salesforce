@@ -1053,7 +1053,8 @@ export function endosoDeTexto(texto, nombreArchivo) {
         const montos = (fila.match(/\$\s*[\d,]+(?:\.\d+)?/g) || []).map(montoNum);
         const de = (k) => { const i = columnas.findIndex((c) => c.k === k); return i >= 0 && i < montos.length ? montos[i] : null; };
         primaNeta = de('neta');
-        derechos = de('derecho');
+        // El recargo (financiamiento) va con los derechos: prima neta + derechos + IVA = total.
+        derechos = de('recargo') !== null ? Math.round(((de('derecho') || 0) + de('recargo')) * 100) / 100 : de('derecho');
         iva = de('iva');
         total = de('total');
     } else {
@@ -1061,9 +1062,11 @@ export function endosoDeTexto(texto, nombreArchivo) {
         derechos = monto('Gastos\\s+(?:de\\s+)?Expedici[oó]n');
         iva = monto('I\\.?\\s*V\\.?\\s*A\\.?');
         const financiamiento = monto('Financiamiento');
+        // La tasa de financiamiento va con los derechos: prima neta + derechos + IVA = total.
+        if (financiamiento !== null) { derechos = Math.round(((derechos || 0) + financiamiento) * 100) / 100; }
         total = monto('Prima\\s+Total');
         if (total === null && [primaNeta, derechos, iva].some((v) => v !== null)) {
-            total = [primaNeta, derechos, iva, financiamiento].reduce((s, v) => s + (v || 0), 0);
+            total = [primaNeta, derechos, iva].reduce((s, v) => s + (v || 0), 0);
         }
     }
     // Con movimientos al inciso, el del endoso es el de sus incisos (si todos son alta, es alta; si todos baja, baja).
@@ -1447,8 +1450,9 @@ export function endosoQualitas(texto) {
         const intermedios = montos.slice(1, k);
         if (igual(montos[0] + intermedios.reduce((a, b) => a + b, 0), montos[k]) && igual(montos[k] + montos[k + 1], montos[k + 2])) {
             [primaNeta, , iva, total] = [montos[0], montos[k], montos[k + 1], montos[k + 2]];
-            // Con Tasa Financiamiento, el último intermedio son los gastos por expedición.
-            derechos = intermedios[intermedios.length - 1];
+            // Derechos: gastos por expedición más la tasa de financiamiento (si la trae), para que prima neta + derechos +
+            // IVA dé el importe total del PDF.
+            derechos = Math.round(intermedios.reduce((a, b) => a + b, 0) * 100) / 100;
             break;
         }
     }
