@@ -116,7 +116,9 @@ private class RenovacionGmmContributoriaTest {
 		Map<String, String> casos = new Map<String, String>{
 			'OCHOA ELIZONDO JOSE RAMON' => 'José Ramón', 'RAMIREZ FREGOSO JOSE DE JESUS' => 'José de Jesús',
 			'CAMARENA LEDESMA MARIA DEL CARMEN' => 'María del Carmen', 'JUAN CARLOS MEDINA HERRERA' => 'Juan Carlos',
-			'ROBLES GIL BERNAL ANA LUISA' => 'Ana Luisa', 'XYZ QWERTY' => 'Xyz Qwerty' };
+			'ROBLES GIL BERNAL ANA LUISA' => 'Ana Luisa', 'XYZ QWERTY' => 'Xyz Qwerty',
+			'FRANCO IBARRA LUZ MARIA DE LOS DOLORES' => 'Luz María de los Dolores', 'VELARDE ARIAS FELIPE DE JESUS' => 'Felipe de Jesús',
+			'CASTREJON JAIME SAMANTHA' => 'Samantha', 'PEREZ LOPEZ XOCHIQUETZAL' => 'Xochiquetzal', 'ABC DEF GHI JKL' => 'Ghi Jkl', 'DE ANDA REYNA VICTOR MANUEL' => 'Víctor Manuel' };
 		for (String n : casos.keySet()) { Assert.areEqual(casos.get(n), RenovacionGmmContributoria.primerNombre(n), n); }
 		Assert.areEqual('Ana de la Torre y López', RenovacionGmmContributoria.nombreVisible('ANA DE LA TORRE Y LOPEZ'));
 		Assert.areEqual(null, RenovacionGmmContributoria.edadDe(new InsurancePolicyParticipant()));

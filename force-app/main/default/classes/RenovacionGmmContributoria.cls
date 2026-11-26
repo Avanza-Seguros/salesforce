@@ -267,22 +267,39 @@ public with sharing class RenovacionGmmContributoria {
 	// Nombres de pila frecuentes, para saber en qué extremo del nombre completo está el nombre (el censo suele traer
 	// «APELLIDOS NOMBRES») y saludar por el nombre.
 	static final Set<String> NOMBRES = new Set<String>{
-		'ABRAHAM', 'ADRIAN', 'ADRIANA', 'AGUSTIN', 'ALAN', 'ALBERTO', 'ALEJANDRA', 'ALEJANDRO', 'ALFONSO', 'ALFREDO', 'ALICIA', 'ALMA',
-		'ANA', 'ANDREA', 'ANDRES', 'ANGEL', 'ANGELICA', 'ANTONIO', 'ARMANDO', 'ARTURO', 'BEATRIZ', 'BENJAMIN', 'BERENICE', 'BLANCA',
-		'BRENDA', 'CARLOS', 'CARMEN', 'CAROLINA', 'CECILIA', 'CESAR', 'CLAUDIA', 'CONSUELO', 'CRISTINA', 'DANIEL', 'DANIELA', 'DAVID',
-		'DIANA', 'DIEGO', 'DOLORES', 'EDUARDO', 'ELENA', 'ELIZABETH', 'EMILIO', 'EMMANUEL', 'ENRIQUE', 'ERIKA', 'ERNESTO', 'ESTEBAN',
-		'ESTELA', 'EUGENIA', 'FABIOLA', 'FERNANDA', 'FERNANDO', 'FRANCISCO', 'GABRIEL', 'GABRIELA', 'GERARDO', 'GILBERTO', 'GLAFIRA', 'GLORIA',
-		'GRACIELA', 'GUADALUPE', 'GUILLERMO', 'GUSTAVO', 'HECTOR', 'HUGO', 'IDALIA', 'IGNACIO', 'IRMA', 'ISABEL', 'ISRAEL', 'IVAN',
-		'JAIME', 'JAVIER', 'JESUS', 'JORGE', 'JOSE', 'JOSEFINA', 'JUAN', 'JUANA', 'JULIA', 'JULIO', 'KARLA', 'KARINA',
-		'LAURA', 'LETICIA', 'LILIANA', 'LORENA', 'LOURDES', 'LUCIA', 'LUIS', 'LUISA', 'LUZ', 'MANUEL', 'MARCELA', 'MARCO',
-		'MARGARITA', 'MARIA', 'MARIANA', 'MARIO', 'MARISOL', 'MARTHA', 'MARTIN', 'MAURICIO', 'MICHELLE', 'MIGUEL', 'MONICA', 'NANCY',
-		'NORMA', 'OCTAVIO', 'OLGA', 'OMAR', 'OSCAR', 'PABLO', 'PATRICIA', 'PAULA', 'PEDRO', 'RAFAEL', 'RAMON', 'RAUL',
-		'REBECA', 'RICARDO', 'ROBERTO', 'RODOLFO', 'ROSA', 'ROSARIO', 'RUBEN', 'SALVADOR', 'SANDRA', 'SANTIAGO', 'SARA', 'SERGIO',
-		'SILVIA', 'SOFIA', 'SONIA', 'SUSANA', 'TERESA', 'TOMAS', 'VALERIA', 'VERONICA', 'VICENTE', 'VICTOR', 'VIRGINIA', 'XOCHITL',
-		'YOLANDA' };
+		'ABRAHAM', 'ADA', 'ADELA', 'ADOLFO', 'ADRIAN', 'ADRIANA', 'AGUSTIN', 'AIDA', 'ALAN', 'ALBERTO', 'ALDO', 'ALEJANDRA',
+		'ALEJANDRO', 'ALEJO', 'ALEXANDER', 'ALEXIS', 'ALFONSO', 'ALFREDO', 'ALICIA', 'ALMA', 'AMALIA', 'AMPARO', 'ANA', 'ANAHI',
+		'ANAID', 'ANDREA', 'ANDRES', 'ANGEL', 'ANGELES', 'ANGELICA', 'ANTONIA', 'ANTONIO', 'ARACELI', 'ARIADNA', 'ARIEL', 'ARMANDO',
+		'ARTURO', 'AURORA', 'AXEL', 'BARBARA', 'BEATRIZ', 'BELEN', 'BENJAMIN', 'BERENICE', 'BERNARDO', 'BERTHA', 'BLANCA', 'BRENDA',
+		'BRIAN', 'BRUNO', 'CAMILA', 'CANDELARIA', 'CARINA', 'CARLA', 'CARLOS', 'CARMEN', 'CAROLINA', 'CATALINA', 'CECILIA', 'CELIA',
+		'CESAR', 'CHRISTIAN', 'CINTHIA', 'CINTHYA', 'CITLALLI', 'CLARA', 'CLAUDIA', 'CLEMENTE', 'CONCEPCION', 'CONSUELO', 'CRISTIAN', 'CRISTINA',
+		'CRISTOBAL', 'CYNTHIA', 'DALIA', 'DAMARIS', 'DANIEL', 'DANIELA', 'DARIO', 'DAVID', 'DELIA', 'DENISE', 'DENISSE', 'DIANA',
+		'DIEGO', 'DOLORES', 'DORA', 'EDGAR', 'EDGARDO', 'EDITH', 'EDNA', 'EDUARDO', 'EDWIN', 'ELENA', 'ELIAS', 'ELISA',
+		'ELIZABETH', 'ELOISA', 'ELSA', 'ELVIA', 'EMILIA', 'EMILIANO', 'EMILIO', 'EMMA', 'EMMANUEL', 'ENRIQUE', 'ERIC', 'ERICK',
+		'ERIKA', 'ERNESTO', 'ESPERANZA', 'ESTEBAN', 'ESTEFANIA', 'ESTELA', 'ESTHER', 'ESTRELLA', 'EUGENIA', 'EVA', 'EVELYN', 'FABIAN',
+		'FABIOLA', 'FATIMA', 'FAUSTO', 'FEDERICO', 'FELIPE', 'FELIX', 'FERNANDA', 'FERNANDO', 'FIDEL', 'FLOR', 'FRANCISCO', 'FRIDA',
+		'GABRIEL', 'GABRIELA', 'GENARO', 'GENOVEVA', 'GEORGINA', 'GERARDO', 'GILBERTO', 'GIOVANNI', 'GISELA', 'GLAFIRA', 'GLORIA',
+		'GRACIELA', 'GREGORIO', 'GUADALUPE', 'GUILLERMO', 'GUSTAVO', 'HECTOR', 'HERIBERTO', 'HILDA', 'HORACIO', 'HUGO', 'HUMBERTO', 'IDALIA',
+		'IGNACIO', 'IMELDA', 'INES', 'INGRID', 'IRENE', 'IRIS', 'IRMA', 'ISAAC', 'ISABEL', 'ISAIAS', 'ISMAEL', 'ISRAEL',
+		'ITZEL', 'IVAN', 'IVONNE', 'JACQUELINE', 'JAIME', 'JAIR', 'JANET', 'JAVIER', 'JAZMIN', 'JENNIFER', 'JESSICA', 'JESUS',
+		'JIMENA', 'JOAQUIN', 'JOEL', 'JONATHAN', 'JORGE', 'JOSE', 'JOSEFINA', 'JOSUE', 'JUAN', 'JUANA', 'JUDITH', 'JULIA',
+		'JULIAN', 'JULIETA', 'JULIO', 'KAREN', 'KARIME', 'KARINA', 'KARLA', 'KATIA', 'LAURA', 'LEONARDO', 'LEONEL', 'LEOPOLDO',
+		'LETICIA', 'LIDIA', 'LILIA', 'LILIANA', 'LIZBETH', 'LORENA', 'LOURDES', 'LUCERO', 'LUCIA', 'LUCINDA', 'LUIS',
+		'LUISA', 'LUZ', 'MAGDALENA', 'MANUEL', 'MANUELA', 'MARCELA', 'MARCO', 'MARCOS', 'MARGARITA', 'MARIA', 'MARIANA',
+		'MARIANO', 'MARIBEL', 'MARIELA', 'MARINA', 'MARIO', 'MARISA', 'MARISELA', 'MARISOL', 'MARTHA', 'MARTIN', 'MAURICIO', 'MAXIMILIANO',
+		'MAYRA', 'MELISSA', 'MERCEDES', 'MICHELLE', 'MIGUEL', 'MIRIAM', 'MOISES', 'MONICA', 'NADIA', 'NANCY', 'NATALIA', 'NAYELI',
+		'NELLY', 'NICOLAS', 'NOE', 'NOEMI', 'NORMA', 'OCTAVIO', 'OLGA', 'OMAR', 'ORLANDO', 'OSCAR', 'OSWALDO', 'PABLO',
+		'PAOLA', 'PATRICIA', 'PATRICIO', 'PAULA', 'PEDRO', 'PERLA', 'PILAR', 'PRISCILA', 'RAFAEL', 'RAMON', 'RAQUEL', 'RAUL',
+		'RAYMUNDO', 'REBECA', 'REGINA', 'RICARDO', 'RIGOBERTO', 'ROBERTO', 'ROCIO', 'RODOLFO', 'RODRIGO', 'ROGELIO', 'ROSA', 'ROSALBA', 'ROSALIA', 'ROSARIO', 'ROXANA', 'RUBEN', 'SALVADOR', 'SAMANTHA', 'SAMUEL', 'SANDRA', 'SANTIAGO', 'SARA', 'SARAHI', 'SARAI', 'SAUL', 'SEBASTIAN', 'SELENE', 'SERGIO', 'SILVESTRE', 'SILVIA', 'SOCORRO', 'SOFIA',
+		'SOLEDAD', 'SONIA', 'SUSANA', 'TANIA', 'TERESA', 'TERESITA', 'THELMA', 'TOMAS', 'ULISES', 'URIEL', 'VALENTIN', 'VALENTINA',
+		'VALERIA', 'VANESSA', 'VERONICA', 'VIANEY', 'VICENTE', 'VICTOR', 'VICTORIA', 'VIOLETA', 'VIRGINIA', 'VIVIANA', 'WENDY', 'XIMENA',
+		'XOCHITL', 'YADIRA', 'YAZMIN', 'YESENIA', 'YETZI', 'YOLANDA', 'ZAIRA' };
 	// Acentos de nombres y apellidos frecuentes (los censos vienen sin acentos).
 	static final Map<String, String> ACENTOS = new Map<String, String>{
-		'JOSE' => 'José', 'VICTOR' => 'Víctor', 'RAMON' => 'Ramón', 'JESUS' => 'Jesús', 'MARIA' => 'María', 'RAUL' => 'Raúl', 'HECTOR' => 'Héctor',
+		'JOSE' => 'José', 'VICTOR' => 'Víctor', 'BELEN' => 'Belén', 'CRISTOBAL' => 'Cristóbal', 'JOAQUIN' => 'Joaquín', 'SEBASTIAN' => 'Sebastián',
+		'FABIAN' => 'Fabián', 'JULIAN' => 'Julián', 'ELIAS' => 'Elías', 'ISAIAS' => 'Isaías', 'MOISES' => 'Moisés', 'NOE' => 'Noé', 'NOEMI' => 'Noemí',
+		'INES' => 'Inés', 'CONCEPCION' => 'Concepción', 'ROCIO' => 'Rocío', 'SAUL' => 'Saúl', 'ANAHI' => 'Anahí', 'FATIMA' => 'Fátima',
+		'GERMAN' => 'Germán', 'ROMAN' => 'Román', 'SIMON' => 'Simón', 'RAMON' => 'Ramón', 'JESUS' => 'Jesús', 'MARIA' => 'María', 'RAUL' => 'Raúl', 'HECTOR' => 'Héctor',
 		'MARTIN' => 'Martín', 'ANGEL' => 'Ángel', 'ANGELICA' => 'Angélica', 'ANDRES' => 'Andrés', 'AGUSTIN' => 'Agustín', 'ADRIAN' => 'Adrián',
 		'BENJAMIN' => 'Benjamín', 'CESAR' => 'César', 'IVAN' => 'Iván', 'LUCIA' => 'Lucía', 'MONICA' => 'Mónica', 'OSCAR' => 'Óscar',
 		'RUBEN' => 'Rubén', 'SOFIA' => 'Sofía', 'TOMAS' => 'Tomás', 'VERONICA' => 'Verónica', 'XOCHITL' => 'Xóchitl', 'PEREZ' => 'Pérez',
@@ -295,27 +312,35 @@ public with sharing class RenovacionGmmContributoria {
 	static final Set<String> PARTICULAS = new Set<String>{ 'DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y' };
 
 	// Nombre de pila para el saludo: los nombres al final («OCHOA ELIZONDO JOSE RAMON» -> «José Ramón») o al principio
-	// («JUAN CARLOS MEDINA HERRERA» -> «Juan Carlos»); si no se reconoce, el nombre completo.
+	// («JUAN CARLOS MEDINA HERRERA» -> «Juan Carlos»). Si no se reconoce ninguno, como el censo trae «PATERNO MATERNO
+	// NOMBRES», lo que sigue de los dos apellidos; con dos palabras o menos, el nombre completo.
 	@TestVisible
 	private static String primerNombre(String completo) {
 		List<String> t = CensoColectivoController.llave(completo).toUpperCase().split(' ');
 		if (t.isEmpty() || String.isBlank(t[0])) { return ''; }
 		Integer desde = t.size();
-		for (Integer i = t.size() - 1; i > 0; i--) {
-			if (NOMBRES.contains(t[i]) || (PARTICULAS.contains(t[i]) && desde < t.size() && i > 1 && NOMBRES.contains(t[i - 1]))) { desde = i; }
-			else { break; }
+		Integer i = t.size() - 1;
+		// Los dos primeros son los apellidos: «CASTREJON JAIME SAMANTHA» -> «Samantha».
+		while (i > 1) {
+			if (NOMBRES.contains(t[i])) { desde = i; i--; continue; }
+			// «DE», «DE LOS»... entre nombres («JOSE DE JESUS», «LUZ MARIA DE LOS DOLORES»).
+			Integer j = i;
+			while (j > 0 && PARTICULAS.contains(t[j])) { j--; }
+			if (j < i && desde < t.size() && j > 1 && NOMBRES.contains(t[j])) { i = j; continue; }
+			break;
 		}
-		if (desde < t.size() && !NOMBRES.contains(t[0])) {
-			List<String> fin = new List<String>();
-			for (Integer i = desde; i < t.size(); i++) { fin.add(t[i]); }
-			return nombreVisible(String.join(fin, ' '));
-		}
-		List<String> ini = new List<String>();
-		for (Integer i = 0; i < t.size() - 1; i++) {
-			if (NOMBRES.contains(t[i]) || (PARTICULAS.contains(t[i]) && !ini.isEmpty() && NOMBRES.contains(t[i + 1]))) { ini.add(t[i]); }
-			else { break; }
-		}
-		return nombreVisible(String.join(ini.isEmpty() ? t : ini, ' '));
+		if (desde < t.size() && !NOMBRES.contains(t[0])) { return nombreVisible(unir(t, desde, t.size())); }
+		Integer hasta = 0;
+		while (hasta < t.size() - 1 && (NOMBRES.contains(t[hasta]) || (hasta > 0 && PARTICULAS.contains(t[hasta])))) { hasta++; }
+		while (hasta > 0 && PARTICULAS.contains(t[hasta - 1])) { hasta--; }
+		if (hasta > 0) { return nombreVisible(unir(t, 0, hasta)); }
+		return nombreVisible(t.size() >= 3 ? unir(t, 2, t.size()) : String.join(t, ' '));
+	}
+
+	private static String unir(List<String> t, Integer desde, Integer hasta) {
+		List<String> r = new List<String>();
+		for (Integer i = desde; i < hasta; i++) { r.add(t[i]); }
+		return String.join(r, ' ');
 	}
 
 	// «VICTOR MANUEL DE ANDA REYNA» -> «Victor Manuel de Anda Reyna».
