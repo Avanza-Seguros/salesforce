@@ -499,6 +499,12 @@ public inherited sharing class MovimientosColectivoController {
 			if (m.tipo == CAMBIO && m.datos != null && String.isNotBlank(m.datos.email)) { conCorreo.add(participantes.get(Id.valueOf(m.id))); }
 		}
 		Map<Id, String> correosActuales = conCorreo.isEmpty() ? new Map<Id, String>() : ParticipantesPolizaController.correosDe(conCorreo);
+		// Contactos de los cambios de nombre por partes (nombre(s), apellido paterno y materno).
+		List<InsurancePolicyParticipant> conNombre = new List<InsurancePolicyParticipant>();
+		for (Movimiento m : movs) {
+			if (m.tipo == CAMBIO && m.datos != null && nombrePorPartes(m.datos)) { conNombre.add(participantes.get(Id.valueOf(m.id))); }
+		}
+		Map<Id, Contact> contactosNombre = conNombre.isEmpty() ? new Map<Id, Contact>() : contactosDe(conNombre);
 		Set<Id> cuentasPersona = new Set<Id>();
 		Set<Id> cuentasCorreo = new Set<Id>();
 		for (InsurancePolicyParticipant p : conCorreo) {
@@ -514,6 +520,8 @@ public inherited sharing class MovimientosColectivoController {
 			// Dependiente que salió con su titular en esta misma carga: ya no se cambia.
 			if (p.IsActiveParticipant == false) { continue; }
 			List<String> detalle = cambiarParticipante(p, m.datos, cats);
+			Contact nombreNuevo = cambiarNombre(p, m.datos, p.PrimaryParticipantContactId == null ? null : contactosNombre.get(p.PrimaryParticipantContactId), detalle);
+			if (nombreNuevo != null) { correosNuevos.add(nombreNuevo); }
 			if (String.isNotBlank(m.datos.email)) {
 				String nuevo = m.datos.email.trim();
 				String antes = correosActuales.get(p.Id);
@@ -546,8 +554,13 @@ public inherited sharing class MovimientosColectivoController {
 		}
 		if (!actualizar.isEmpty()) { update actualizar.values(); }
 		if (!correosNuevos.isEmpty()) {
+			// Un contacto con correo y nombre nuevos se actualiza una vez con los dos.
 			Map<Id, SObject> unicos = new Map<Id, SObject>();
-			for (SObject s : correosNuevos) { unicos.put(s.Id, s); }
+			for (SObject s : correosNuevos) {
+				if (!unicos.containsKey(s.Id)) { unicos.put(s.Id, s); continue; }
+				Map<String, Object> campos = s.getPopulatedFieldsAsMap();
+				for (String f : campos.keySet()) { if (f != 'Id') { unicos.get(s.Id).put(f, campos.get(f)); } }
+			}
 			List<SObject> l = unicos.values();
 			l.sort();
 			update l;
@@ -743,6 +756,93 @@ public inherited sharing class MovimientosColectivoController {
 			if (TIENE_CLASE && nueva != null) { p.put('GroupClassId', nueva); }
 		}
 		return detalle;
+	}
+
+	// El cambio trae el nombre por partes, como lo manda el sitio (sin nombre completo): apellido paterno o materno por
+	// separado, o solo el nombre(s).
+	private static Boolean nombrePorPartes(CensoColectivoController.MiembroEntrada d) {
+		return String.isBlank(d.nombreCompleto)
+			&& (String.isNotBlank(d.paterno) || String.isNotBlank(d.materno) || (String.isNotBlank(d.nombre) && String.isBlank(d.apellidos)));
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cambio de nombre por partes (como lo manda el sitio): lo que no viene se queda como está. Corrige el
+	 *               nombre del participante (en el mismo orden en que lo tiene) y el de su contacto.
+	 * @param p: participante (se modifica).
+	 * @param d: datos nuevos.
+	 * @param c: contacto del asegurado (o null).
+	 * @param detalle: renglones del cambio (se agregan «Apellido materno: antes → después»...).
+	 * @return el contacto a actualizar, o null.
+	 */
+	@TestVisible
+	private static Contact cambiarNombre(InsurancePolicyParticipant p, CensoColectivoController.MiembroEntrada d, Contact c, List<String> detalle) {
+		if (!nombrePorPartes(d)) { return null; }
+		List<String> actual = partesNombre(p, c);
+		String paterno = d.paterno;
+		String materno = d.materno;
+		if (String.isBlank(paterno) && String.isBlank(materno) && String.isNotBlank(d.apellidos)) {
+			List<String> a = d.apellidos.normalizeSpace().split(' ');
+			paterno = a.remove(0);
+			materno = String.join(a, ' ');
+		}
+		List<String> nuevo = new List<String>{ parteNueva(d.nombre, actual[0]), parteNueva(paterno, actual[1]), parteNueva(materno, actual[2]) };
+		List<String> etiquetas = new List<String>{ 'Nombre(s)', 'Apellido paterno', 'Apellido materno' };
+		Boolean cambia = false;
+		for (Integer i = 0; i < 3; i++) {
+			if (!nuevo[i].equalsIgnoreCase(actual[i])) {
+				detalle.add(etiquetas[i] + ': ' + (String.isBlank(actual[i]) ? '—' : actual[i]) + ' → ' + (String.isBlank(nuevo[i]) ? '—' : nuevo[i]));
+				cambia = true;
+			}
+		}
+		if (!cambia) { return null; }
+		// Mismo orden que el nombre que ya tenía: «NOMBRES PATERNO MATERNO» o «PATERNO MATERNO NOMBRES».
+		String natural = unirNombre(actual[0], actual[1], actual[2]);
+		String invertido = unirNombre(actual[1], actual[2], actual[0]);
+		Boolean alReves = CensoColectivoController.llave(p.ParticipantName) == CensoColectivoController.llave(invertido)
+			&& CensoColectivoController.llave(invertido) != CensoColectivoController.llave(natural);
+		p.ParticipantName = (alReves ? unirNombre(nuevo[1], nuevo[2], nuevo[0]) : unirNombre(nuevo[0], nuevo[1], nuevo[2])).left(255);
+		if (c == null) { return null; }
+		Contact u = new Contact(Id = c.Id, Apellido_paterno__c = String.isBlank(nuevo[1]) ? null : nuevo[1].left(80),
+			Apellido_materno__c = String.isBlank(nuevo[2]) ? null : nuevo[2].left(80));
+		if (String.isNotBlank(nuevo[0])) { u.FirstName = nuevo[0].left(40); }
+		String apellidos = unirNombre(nuevo[1], nuevo[2], '');
+		if (String.isNotBlank(apellidos)) { u.LastName = apellidos.left(80); }
+		return u;
+	}
+
+	// Nombre(s), apellido paterno y materno del asegurado: los de su contacto o, sin contacto, del nombre completo
+	// (los dos últimos son los apellidos), como en el Excel de movimientos.
+	private static List<String> partesNombre(InsurancePolicyParticipant p, Contact c) {
+		if (c != null && (String.isNotBlank(c.FirstName) || String.isNotBlank(c.Apellido_paterno__c) || String.isNotBlank(c.LastName))) {
+			String paterno = c.Apellido_paterno__c;
+			String materno = c.Apellido_materno__c;
+			if (String.isBlank(paterno) && String.isNotBlank(c.LastName)) {
+				List<String> partes = c.LastName.normalizeSpace().split(' ');
+				paterno = partes.remove(0);
+				if (String.isBlank(materno)) { materno = String.join(partes, ' '); }
+			}
+			return new List<String>{ limpioNombre(c.FirstName), limpioNombre(paterno), limpioNombre(materno) };
+		}
+		List<String> t = String.isBlank(p.ParticipantName) ? new List<String>() : p.ParticipantName.normalizeSpace().split(' ');
+		if (t.size() >= 3) {
+			List<String> nombres = new List<String>();
+			for (Integer i = 0; i < t.size() - 2; i++) { nombres.add(t[i]); }
+			return new List<String>{ String.join(nombres, ' '), t[t.size() - 2], t[t.size() - 1] };
+		}
+		if (t.size() == 2) { return new List<String>{ t[0], t[1], '' }; }
+		return new List<String>{ t.isEmpty() ? '' : t[0], '', '' };
+	}
+
+	private static String limpioNombre(String s) { return s == null ? '' : s.normalizeSpace(); }
+
+	private static String parteNueva(String nuevo, String actual) {
+		return String.isBlank(nuevo) ? actual : nuevo.normalizeSpace();
+	}
+
+	private static String unirNombre(String a, String b, String c) {
+		return (limpioNombre(a) + ' ' + limpioNombre(b) + ' ' + limpioNombre(c)).normalizeSpace();
 	}
 
 	/**

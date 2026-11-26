@@ -389,6 +389,61 @@ private class PortalPolizasPestanasTest {
 	 * (ni el caso) y el mensaje dice qué renglón es.
 	 * @return void
 	 */
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Cambio de nombre desde el archivo del sitio (nombre y apellidos por separado, por certificado): se
+	 * corrige el apellido materno en el asegurado y en su contacto y queda el movimiento con el detalle. Si el archivo trae
+	 * los mismos datos que ya tiene, se avisa en vez de crear una solicitud sin registros.
+	 * @return void
+	 */
+	@isTest
+	static void testCambioDeNombreDelArchivo() {
+		Account empresa = new Account(Name = 'Empresa Cambio Nombre');
+		insert empresa;
+		Contact gaddi = new Contact(FirstName = 'GADDI AXEL', LastName = 'AGUIRRE LEDEZMA', AccountId = empresa.Id);
+		Contact arturo = new Contact(FirstName = 'ARTURO ALFONSO', LastName = 'GONZALEZ GONZALEZ', AccountId = empresa.Id);
+		insert new List<Contact>{ gaddi, arturo };
+		InsurancePolicy col = poliza(empresa.Id, 'COL-NOMBRE-1', 'GMM');
+		insert col;
+		InsurancePolicyParticipant p1 = new InsurancePolicyParticipant(InsurancePolicyId = col.Id, PrimaryParticipantContactId = gaddi.Id,
+			Role = rol('asegurado'), ParticipantName = 'GADDI AXEL AGUIRRE LEDEZMA', ParticipantCode = '0000095002', IsActiveParticipant = true);
+		InsurancePolicyParticipant p2 = new InsurancePolicyParticipant(InsurancePolicyId = col.Id, PrimaryParticipantContactId = arturo.Id,
+			Role = rol('asegurado'), ParticipantName = 'GONZALEZ GONZALEZ ARTURO ALFONSO', ParticipantCode = '0000095003', IsActiveParticipant = true);
+		insert new List<InsurancePolicyParticipant>{ p1, p2 };
+		PortalPolizasController.cuentaPrueba = empresa.Id;
+		PortalPolizasController.contactoPrueba = null;
+		String hoy = String.valueOf(Date.today());
+		Map<String, Object> archivo = new Map<String, Object>{ 'tipo' => 'varios', 'nombre' => 'CAMBIOS.xlsx', 'total' => 2, 'filas' => new List<Object>(),
+			'registros' => new List<Object>{
+				new Map<String, Object>{ 'tipo' => 'cambio', 'fila' => 2, 'numero' => 1, 'nombre' => 'GADDI AXEL AGUIRRE LEDESMA', 'fecha' => hoy,
+					'comentario' => 'CORRECCION DE APELLIDO MATERNO', 'campos' => new Map<String, Object>{ 'nombre' => 'GADDI AXEL', 'paterno' => 'AGUIRRE',
+					'materno' => 'LEDESMA', 'parentesco' => 'TITULAR', 'certificado' => '0000095002' } },
+				new Map<String, Object>{ 'tipo' => 'cambio', 'fila' => 3, 'numero' => 2, 'nombre' => 'ARTURO ALFONZO GONZALEZ GONZALEZ', 'fecha' => hoy,
+					'campos' => new Map<String, Object>{ 'nombre' => 'ARTURO ALFONZO', 'paterno' => 'GONZALEZ', 'materno' => 'GONZALEZ',
+					'certificado' => '0000095003' } }
+			} };
+		Test.startTest();
+		Map<String, Object> r = PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null);
+		String error;
+		try { PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null); }
+		catch (AuraHandledException e) { error = e.getMessage(); }
+		Test.stopTest();
+
+		System.assertEquals(2, r.get('registrados'), 'Los dos cambios de nombre quedan registrados');
+		System.assertEquals('GADDI AXEL AGUIRRE LEDESMA', [SELECT ParticipantName FROM InsurancePolicyParticipant WHERE Id = :p1.Id].ParticipantName);
+		System.assertEquals('GONZALEZ GONZALEZ ARTURO ALFONZO', [SELECT ParticipantName FROM InsurancePolicyParticipant WHERE Id = :p2.Id].ParticipantName,
+			'Conserva el orden «apellidos nombres» que ya tenía');
+		Contact c1 = [SELECT FirstName, LastName, Apellido_paterno__c, Apellido_materno__c FROM Contact WHERE Id = :gaddi.Id];
+		System.assertEquals('AGUIRRE LEDESMA', c1.LastName);
+		System.assertEquals('LEDESMA', c1.Apellido_materno__c);
+		System.assertEquals('ARTURO ALFONZO', [SELECT FirstName FROM Contact WHERE Id = :arturo.Id].FirstName);
+		Movimiento_Poliza__c m = [SELECT Detalle__c, Tipo__c FROM Movimiento_Poliza__c WHERE Participante__c = :p1.Id AND Tipo__c = 'Cambio' LIMIT 1];
+		System.assertEquals('Apellido materno: LEDEZMA → LEDESMA', m.Detalle__c);
+		System.assert(error != null && error.contains('los datos son iguales'), 'Los mismos datos otra vez: se avisa (' + error + ')');
+		System.assertEquals(1, [SELECT COUNT() FROM Case WHERE InsurancePolicy__c = :col.Id], 'No queda una solicitud sin registros');
+	}
+
 	@isTest
 	static void testSolicitudRegistraMovimientos() {
 		User yo = [SELECT Id, UserRoleId FROM User WHERE Id = :UserInfo.getUserId()];
@@ -569,7 +624,8 @@ private class PortalPolizasPestanasTest {
 		Test.stopTest();
 		System.assertEquals(1, ru.get('registrados'));
 		System.assertEquals(3, [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :danos.Id]);
-		System.assertEquals(1, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :danos.Id AND Solicitud__c = 'SOL-0001']);
+		// Ubicaciones no llevan el trámite de la solicitud: el movimiento queda como historial, sin folio.
+		System.assertEquals(1, [SELECT COUNT() FROM Movimiento_Poliza__c WHERE Poliza__c = :danos.Id]);
 	}
 
 	/**

@@ -1554,11 +1554,48 @@ public without sharing class PortalPolizasPestanas {
 		}
 		List<String> ids = (List<String>) res.get('ids');
 		for (Integer n = 0; ids != null && n < regs.size() && n < ids.size(); n++) { regs[n].put('idRegistrado', ids[n]); }
+		cambiosSinDiferencia(policyId, regs, movs, folio, res);
 		Integer total = 0;
 		for (String k : new List<String>{ 'altas', 'bajas', 'cambios' }) {
 			if (res.get(k) instanceof Integer) { total += (Integer) res.get(k); }
 		}
 		return total;
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Un cambio cuyos datos son iguales a los que ya tiene el registro no se registra; en vez de dejar la
+	 * solicitud sin ese movimiento (o vacía), se avisa al cliente cuál es para que indique los datos nuevos.
+	 * @param policyId: Id de la póliza
+	 * @param regs: movimientos de la solicitud (con su etiqueta)
+	 * @param movs: los mismos, como se mandaron a registrar (con el registro que cambia en 'id')
+	 * @param folio: folio de la solicitud
+	 * @param res: resultado del registro (cuántos cambios quedaron)
+	 */
+	@TestVisible
+	static void cambiosSinDiferencia(Id policyId, List<Map<String, Object>> regs, List<Map<String, Object>> movs, String folio, Map<String, Object> res) {
+		Integer pedidos = 0;
+		for (Map<String, Object> m : movs) { if (m.get('tipo') == 'cambio') { pedidos++; } }
+		Integer hechos = res.get('cambios') instanceof Integer ? (Integer) res.get('cambios') : 0;
+		if (pedidos == 0 || hechos >= pedidos) { return; }
+		// Asegurados que sí quedaron con un cambio en esta solicitud (vehículos y ubicaciones no llevan folio: solo se
+		// dice cuántos).
+		Set<Id> conCambio = new Set<Id>();
+		for (Movimiento_Poliza__c m : [
+			SELECT Participante__c FROM Movimiento_Poliza__c
+			WHERE Poliza__c = :policyId AND Solicitud__c = :folio AND Tipo__c = 'Cambio' AND Participante__c != null
+		]) { conCambio.add(m.Participante__c); }
+		List<String> cuales = new List<String>();
+		for (Integer n = 0; n < movs.size() && n < regs.size(); n++) {
+			Map<String, Object> m = movs[n];
+			if (m.get('tipo') != 'cambio' || m.get('id') == null) { continue; }
+			Id id = (Id) String.valueOf(m.get('id'));
+			if (id.getSObjectType() == InsurancePolicyParticipant.SObjectType && !conCambio.contains(id)) { cuales.add(String.valueOf(regs[n].get('etiqueta'))); }
+		}
+		if (cuales.size() != pedidos - hechos) { cuales.clear(); }
+		String quien = cuales.isEmpty() ? (pedidos - hechos == 1 ? 'Un cambio' : (pedidos - hechos) + ' cambios') : String.join(cuales, '; ');
+		throw falla(quien + ': los datos son iguales a los que ya tiene en la póliza. Indica los datos nuevos (los que cambian).');
 	}
 
 	/**
@@ -1706,6 +1743,9 @@ public without sharing class PortalPolizasPestanas {
 		Map<String, Object> d = new Map<String, Object>();
 		poner(d, 'nombre', texto(c.get('nombre')));
 		poner(d, 'apellidos', (texto(c.get('paterno')) + ' ' + texto(c.get('materno'))).normalizeSpace());
+		// Por separado, para los cambios de nombre (puede venir solo el apellido que se corrige).
+		poner(d, 'paterno', texto(c.get('paterno')));
+		poner(d, 'materno', texto(c.get('materno')));
 		if (!d.containsKey('nombre')) { poner(d, 'nombreCompleto', texto(c.get('nombreCompleto'))); }
 		String nacimiento = texto(c.get('nacimiento'));
 		if (CensoColectivoController.fecha(nacimiento) != null) { d.put('fechaNacimiento', nacimiento.left(10)); }

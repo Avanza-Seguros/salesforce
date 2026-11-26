@@ -38,6 +38,9 @@ public inherited sharing class CensoColectivoController {
 		public String nombreCompleto;
 		public String nombre;
 		public String apellidos;
+		// Apellidos por separado (cambios de nombre del sitio: solo los que se corrigen).
+		public String paterno;
+		public String materno;
 		public String fechaNacimiento;
 		public Decimal edad;
 		public String sexo;
