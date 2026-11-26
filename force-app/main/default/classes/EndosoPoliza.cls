@@ -608,7 +608,7 @@ public inherited sharing class EndosoPoliza {
 		// Movimientos por número de endoso ('' = sin número), en el orden en que se registraron.
 		Map<String, List<Movimiento_Poliza__c>> grupos = new Map<String, List<Movimiento_Poliza__c>>();
 		List<Movimiento_Poliza__c> todos = [
-			SELECT Id, Name, Tipo__c, Fecha_Movimiento__c, Numero_Endoso__c, Asegurado__c, Certificado__c, Participante__c,
+			SELECT Id, Name, Tipo__c, Fecha_Movimiento__c, Fecha_Cierre__c, Numero_Endoso__c, Asegurado__c, Certificado__c, Participante__c,
 				Participante__r.StandardPremiumAmount, Inciso__c, Inciso__r.Vehiculo__c, Inciso__r.Prima__c
 			FROM Movimiento_Poliza__c WHERE Id IN :ids ORDER BY CreatedDate, Id
 		];
@@ -622,6 +622,7 @@ public inherited sharing class EndosoPoliza {
 		if (grupos.isEmpty()) { return res; }
 		String categoria = valor(InsurancePolicyTransaction.Category.getDescribe(), 'Endorsement');
 		String pendiente = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Pendiente');
+		String aprobado = valor(InsurancePolicyTransaction.Status.getDescribe(), 'Aprobado');
 
 		// Mismo número de endoso en la póliza: se completa ese endoso.
 		Map<String, InsurancePolicyTransaction> existentes = new Map<String, InsurancePolicyTransaction>();
@@ -648,8 +649,11 @@ public inherited sharing class EndosoPoliza {
 		List<Boolean> esNueva = new List<Boolean>();
 		for (String k : llaves) {
 			Date fecha = null;
+			// Movimientos que ya quedan cerrados al aplicarse (vehículos y ubicaciones en Salesforce, sin trámite).
+			Boolean cerrados = true;
 			for (Movimiento_Poliza__c m : grupos.get(k)) {
 				if (m.Fecha_Movimiento__c != null && (fecha == null || m.Fecha_Movimiento__c < fecha)) { fecha = m.Fecha_Movimiento__c; }
+				if (m.Fecha_Cierre__c == null) { cerrados = false; }
 			}
 			if (fecha == null) { fecha = Date.today(); }
 			String numero = k == '' ? null : k;
@@ -658,10 +662,11 @@ public inherited sharing class EndosoPoliza {
 			if (t == null) {
 				t = new InsurancePolicyTransaction(InsurancePolicyId = policyId, TransactionNumber = numero, Category = categoria);
 				t.Name = ('Endoso ' + (numero != null ? numero : fechaTexto(fecha)) + ' - ' + poliza).left(80);
-				t.Status = pendiente;
+				// Con todos sus movimientos cerrados el endoso nace Aprobado; si no, Pendiente hasta que se cierren.
+				t.Status = cerrados && aprobado != null ? aprobado : pendiente;
 				t.TransactionEffectiveDate = Datetime.newInstance(fecha, Time.newInstance(12, 0, 0, 0));
 				t.EffectiveFromDate = fecha;
-			} else if (t.Status != pendiente) {
+			} else if (!cerrados && t.Status != pendiente) {
 				// Se le agregan movimientos abiertos: vuelve a quedar pendiente.
 				t.Status = pendiente;
 			}

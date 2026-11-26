@@ -479,7 +479,8 @@ export default class MovimientosUbicaciones extends LightningElement {
             // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
             estado: u.tipoMovimiento || (u.activo ? 'Alta' : 'Baja'),
             claseEstado: `estado estado-${String(u.tipoMovimiento || (u.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
-            puedeCerrar: this.conTramite && this.puedeEditar && !!u.movimientoId && !u.fechaCierre,
+            // Sin trámite los movimientos nacen cerrados; solo los abiertos de antes se cierran aquí.
+            puedeCerrar: this.enPoliza && this.puedeEditar && !!u.movimientoId && !u.fechaCierre,
             puedeMover: u.activo && this.puedeEditar
         });
     }

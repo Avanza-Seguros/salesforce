@@ -482,7 +482,8 @@ export default class MovimientosFlotilla extends LightningElement {
             // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
             estado: v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja'),
             claseEstado: `estado estado-${String(v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
-            puedeCerrar: this.conTramite && this.editaFilas && !!v.movimientoId && !v.fechaCierre,
+            // Sin trámite los movimientos nacen cerrados; solo los abiertos de antes se cierran aquí.
+            puedeCerrar: this.enPoliza && this.editaFilas && !!v.movimientoId && !v.fechaCierre,
             puedeMover: v.activo && this.editaFilas
         });
     }

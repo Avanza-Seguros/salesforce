@@ -126,6 +126,8 @@ private class EliminarMovimientosTest {
 
 	@isTest
 	static void vehiculos() {
+		// Con el trámite (solicitud y seguimiento), como los movimientos del sitio.
+		MovimientosFlotillaController.conTramiteEnPrueba = true;
 		InsurancePolicy p = poliza('FLOT-ELIM-1', 'Automoviles');
 		insert new Inciso_Flotilla__c(Poliza__c = p.Id, Numero_Inciso__c = 1, Descripcion__c = 'NISSAN VERSA', Serie__c = 'AAA111',
 			Modelo__c = 2020, Fecha_Alta__c = Date.today().addDays(-10));
@@ -143,6 +145,8 @@ private class EliminarMovimientosTest {
 
 	@isTest
 	static void ubicaciones() {
+		// Con el trámite (solicitud y seguimiento), como los movimientos del sitio.
+		MovimientosUbicacionesController.conTramiteEnPrueba = true;
 		InsurancePolicy p = poliza('DANOS-ELIM-1', 'Danos');
 		MovimientosUbicacionesController.aplicar(p.Id, JSON.serialize(new List<Object>{
 			mov('alta', null, new Map<String, Object>{ 'nombre' => 'Bodega', 'direccion' => 'Av. Uno 100, Col. Centro, CP 06000' }) }));

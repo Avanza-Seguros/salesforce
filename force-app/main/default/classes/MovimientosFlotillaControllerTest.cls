@@ -561,6 +561,8 @@ private class MovimientosFlotillaControllerTest {
 		}));
 		Test.stopTest();
 		System.assertEquals(null, r.get('solicitud'), 'Sin solicitud');
+		System.assertEquals('Aprobado', [SELECT Status FROM InsurancePolicyTransaction WHERE TransactionNumber = 'END-V1' AND InsurancePolicyId = :pol.Id LIMIT 1].Status,
+			'Con sus movimientos cerrados el endoso nace Aprobado');
 		Movimiento_Poliza__c m = [SELECT Solicitud__c, Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Inciso__c = :inc2 ORDER BY CreatedDate DESC LIMIT 1];
 		System.assertEquals(null, m.Solicitud__c);
 		System.assertNotEquals(null, m.Fecha_Cierre__c, 'Queda cerrado');
