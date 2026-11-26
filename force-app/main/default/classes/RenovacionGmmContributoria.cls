@@ -13,7 +13,7 @@
 public with sharing class RenovacionGmmContributoria {
 
 	public static final String PLANTILLA = 'Renovacion_GMM_Contributoria';
-	public static final String RESPUESTA = 'cotizaciones@avanzaseguro.com';
+	public static final String RESPUESTA = 'gmmfii@avanzaseguro.com';
 	static final Decimal IVA = 0.16;
 	static final List<String> IMAGENES = new List<String>{ 'HERO_FONDO', 'LOGO_AVANZA_BLANCO', 'DRA_SALUDANDO', 'ICONO_CREDENCIAL',
 		'DRA_SENALANDO', 'ICONO_RELOJ', 'ICONO_CORAZON', 'ICONO_PORCENTAJE', 'ICONO_DOCUMENTO', 'DRA_PULGAR', 'ICONO_ESCUDO',
