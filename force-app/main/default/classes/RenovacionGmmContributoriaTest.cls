@@ -85,7 +85,7 @@ private class RenovacionGmmContributoriaTest {
 		Map<String, Object> r;
 		Test.startTest();
 		try {
-			r = RenovacionGmmContributoria.enviar(polId, ids, '2026-12-10', 130);
+			r = RenovacionGmmContributoria.enviar(polId, ids, '2026-12-10', 130, 'Copia@Ejemplo.test; copia@ejemplo.test');
 		} catch (AuraHandledException e) {
 			// Org sin entrega de correo habilitada.
 			Assert.isTrue(e.getMessage().contains('correo'), e.getMessage());
@@ -102,10 +102,12 @@ private class RenovacionGmmContributoriaTest {
 		Id polId = poliza();
 		Id uno = [SELECT Id FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :polId LIMIT 1].Id;
 		for (List<Object> caso : new List<List<Object>>{
-			new List<Object>{ new List<Id>(), '2026-12-10', 130, 'al menos' }, new List<Object>{ new List<Id>{ uno }, null, 130, 'fecha límite' },
-			new List<Object>{ new List<Id>{ uno }, '2026-12-10', -1, 'negativo' } }) {
+			new List<Object>{ new List<Id>(), '2026-12-10', 130, 'al menos', null },
+			new List<Object>{ new List<Id>{ uno }, null, 130, 'fecha límite', null },
+			new List<Object>{ new List<Id>{ uno }, '2026-12-10', -1, 'negativo', null },
+			new List<Object>{ new List<Id>{ uno }, '2026-12-10', 130, 'no es válido', 'a@b.com, malo' } }) {
 			try {
-				RenovacionGmmContributoria.enviar(polId, (List<Id>) caso[0], (String) caso[1], (Decimal) caso[2]);
+				RenovacionGmmContributoria.enviar(polId, (List<Id>) caso[0], (String) caso[1], (Decimal) caso[2], (String) caso[4]);
 				Assert.fail('Debió fallar: ' + caso);
 			} catch (AuraHandledException e) {
 				Assert.isTrue(e.getMessage().contains((String) caso[3]), e.getMessage());
@@ -118,5 +120,6 @@ private class RenovacionGmmContributoriaTest {
 		for (String n : casos.keySet()) { Assert.areEqual(casos.get(n), RenovacionGmmContributoria.primerNombre(n), n); }
 		Assert.areEqual('Ana de la Torre y López', RenovacionGmmContributoria.nombreVisible('ANA DE LA TORRE Y LOPEZ'));
 		Assert.areEqual(null, RenovacionGmmContributoria.edadDe(new InsurancePolicyParticipant()));
+		Assert.areEqual(new List<String>{ 'mariana@x.com', 'marco@x.com' }, RenovacionGmmContributoria.correos(' Mariana@x.com,marco@x.com ; mariana@x.com'));
 	}
 }

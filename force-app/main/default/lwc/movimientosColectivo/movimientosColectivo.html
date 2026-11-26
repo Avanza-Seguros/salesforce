@@ -914,6 +914,9 @@
                                         <div class="slds-col"><lightning-input type="number" formatter="currency" step="0.01" min="0" label="Derecho de póliza por titular"
                                             value={correo.derecho} data-campo="derecho" onchange={cambiarRenovacion} disabled={correo.enviando}></lightning-input></div>
                                     </div>
+                                    <lightning-input class="slds-m-top_x-small" label="Con copia a (opcional)" value={correo.copias} data-campo="copias"
+                                        placeholder="correo@empresa.com, otro@empresa.com" field-level-help="Reciben una copia de cada correo de renovación que se envíe."
+                                        onchange={cambiarRenovacion} disabled={correo.enviando}></lightning-input>
                                 </template>
                                 <template lwc:if={noEsRenovacionGmm}>
                                 <lightning-input type="checkbox" class="slds-m-top_small" label="Adjuntar los archivos del asegurado"

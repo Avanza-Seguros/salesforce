@@ -716,7 +716,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // ============================================================
     // Envío de correo (solo en la póliza)
     // ============================================================
-    @track correo = { ids: [], plantilla: '', adjuntar: true, enviando: false, avance: '', errores: [], reenvio: false, fechaLimite: '', derecho: 130 };
+    @track correo = { ids: [], plantilla: '', adjuntar: true, enviando: false, avance: '', errores: [], reenvio: false, fechaLimite: '', derecho: 130, copias: '' };
     plantillas = [];
     get enModalCorreo() { return this.modal === 'correo'; }
     // Pendientes del filtro actual (todas las páginas): vigentes con correo a los que no se les ha enviado.
@@ -853,7 +853,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             try {
                 const r = this.esRenovacionGmm
                     ? await enviarRenovacionGmmSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote),
-                        fechaLimite: this.correo.fechaLimite, derecho: this.correo.derecho })
+                        fechaLimite: this.correo.fechaLimite, derecho: this.correo.derecho, copias: this.correo.copias })
                     : await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar,
                         correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null });
                 enviados += r.enviados || 0;

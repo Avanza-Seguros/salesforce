@@ -48,10 +48,11 @@ public with sharing class RenovacionGmmContributoria {
 	 * @param participanteIds: asegurados elegidos (máximo 50)
 	 * @param fechaLimite: «Confirma a más tardar» (AAAA-MM-DD)
 	 * @param derecho: derecho de póliza por titular
+	 * @param copias: correos que reciben copia de cada correo (separados por coma o punto y coma; opcional)
 	 * @return {enviados, errores}
 	 */
 	@AuraEnabled
-	public static Map<String, Object> enviar(Id policyId, List<Id> participanteIds, String fechaLimite, Decimal derecho) {
+	public static Map<String, Object> enviar(Id policyId, List<Id> participanteIds, String fechaLimite, Decimal derecho, String copias) {
 		if (participanteIds == null || participanteIds.isEmpty()) { throw CensoColectivoController.error('Selecciona al menos un asegurado.'); }
 		if (participanteIds.size() > 50) { throw CensoColectivoController.error('Envía máximo 50 correos a la vez.'); }
 		Envio e = envioDe(policyId);
@@ -59,6 +60,7 @@ public with sharing class RenovacionGmmContributoria {
 		e.derecho = derecho == null ? 0 : derecho;
 		if (e.fechaLimite == null) { throw CensoColectivoController.error('Captura la fecha límite para confirmar la renovación.'); }
 		if (e.derecho < 0) { throw CensoColectivoController.error('El derecho de póliza no puede ser negativo.'); }
+		List<String> cc = correos(copias);
 		if (e.inicio == null || e.fin == null) { throw CensoColectivoController.error('La póliza no tiene su vigencia completa.'); }
 		List<EmailTemplate> tpls = [SELECT Name, Subject, HtmlValue FROM EmailTemplate WHERE DeveloperName = :PLANTILLA LIMIT 1];
 		if (tpls.isEmpty()) { throw CensoColectivoController.error('No existe la plantilla «' + PLANTILLA + '».'); }
@@ -85,6 +87,7 @@ public with sharing class RenovacionGmmContributoria {
 			m.setToAddresses(new List<String>{ f.correo });
 			if (!owe.isEmpty()) { m.setOrgWideEmailAddressId(owe[0].Id); }
 			m.setReplyTo(RESPUESTA);
+			if (!cc.isEmpty()) { m.setCcAddresses(cc); }
 			m.setSaveAsActivity(false);
 			mensajes.add(m);
 			destinos.add(f);
@@ -327,6 +330,23 @@ public with sharing class RenovacionGmmContributoria {
 			r.add(!r.isEmpty() && menores.contains(b) ? b : (ACENTOS.containsKey(llave) && llave == p.toUpperCase() ? ACENTOS.get(llave) : b.capitalize()));
 		}
 		return String.join(r, ' ');
+	}
+
+	// Correos de copia validados: «a@b.com, c@d.com» -> lista (sin repetidos).
+	@TestVisible
+	private static List<String> correos(String texto) {
+		List<String> r = new List<String>();
+		if (String.isBlank(texto)) { return r; }
+		for (String c : texto.split('[,;\\s]+')) {
+			c = c.trim().toLowerCase();
+			if (c == '' || r.contains(c)) { continue; }
+			if (c.length() > 80 || !Pattern.matches('[^@\\s,;]+@[^@\\s,;]+\\.[^@\\s,;]+', c)) {
+				throw CensoColectivoController.error('El correo de copia «' + c + '» no es válido.');
+			}
+			r.add(c);
+		}
+		if (r.size() > 5) { throw CensoColectivoController.error('Pon máximo 5 correos de copia.'); }
+		return r;
 	}
 
 	// 01/12/2026 (no depende del idioma de quien envía).

@@ -91,7 +91,7 @@ public without sharing class PortalPolizasMovimientos {
 						try { ids.add(Id.valueOf(String.valueOf(o))); } catch (Exception e) { throw aviso('El registro no es de esta póliza.'); }
 					}
 					return RenovacionGmmContributoria.enviar(policyId, ids, texto(p, 'fechaLimite'),
-						p.get('derecho') == null ? null : Decimal.valueOf(String.valueOf(p.get('derecho'))));
+						p.get('derecho') == null ? null : Decimal.valueOf(String.valueOf(p.get('derecho'))), texto(p, 'copias'));
 				}
 				when 'Participantes.enviarCorreo' {
 					// Correo a los asegurados de esta póliza: el controlador solo toma participantes de la póliza.
