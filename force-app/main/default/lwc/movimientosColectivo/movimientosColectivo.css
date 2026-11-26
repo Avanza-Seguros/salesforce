@@ -687,3 +687,12 @@
 .mov:not(.mov-portal) .mov-filtro { min-width: 0; width: 10rem; }
 
 .mov-sin-resultados { padding: 1rem; text-align: center; color: #5c5c5c; }
+
+/* Detalle del cambio (solo consulta). */
+.mov-cambio-tabla { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.mov-cambio-tabla th { text-align: left; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; padding: 0.375rem 0.5rem; border-bottom: 1px solid #e2e8f0; }
+.mov-cambio-tabla td { padding: 0.5rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; word-break: break-word; }
+.mov-cambio-campo { font-weight: 600; white-space: nowrap; }
+.mov-cambio-antes { color: #94a3b8; text-decoration: line-through; }
+.mov-cambio-despues { color: #0f172a; font-weight: 600; }
+.enlace-cambio { font-size: 0.75rem; }

@@ -185,6 +185,9 @@
                                             <td>
                                                 <span class={v.claseEstado}>{v.estado}</span>
                                                 <template if:true={v.motivoBaja}><div class="sub">{v.motivoBaja}</div></template>
+                                                <template if:true={v.conDetalleCambio}><div class="sub"><button class="enlace-otras enlace-cambio"
+                                                    data-detalle={v.detalleMovimiento} data-titulo={v.descripcion} onclick={verDetalleCambio}
+                                                    title="Ver lo que se pidió cambiar">Ver cambio</button></div></template>
                                             </td>
                                             <template if:true={conTramite}>
                                                 <!-- Seguimiento del trámite: Solicitado, En proceso o Concluido. -->
@@ -460,6 +463,30 @@
             <template if:true={hayModal}>
                 <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
                     <div class="slds-modal__container">
+                        <template if:true={enModalDetalleCambio}>
+                            <div class="slds-modal__header">
+                                <h2 class="slds-text-heading_medium">Cambio solicitado</h2>
+                                <p class="sub">{detalleCambio.titulo}</p>
+                            </div>
+                            <div class="slds-modal__content slds-p-around_medium modal-form">
+                                <table class="mov-cambio-tabla">
+                                    <thead><tr><th>Dato</th><th>Antes</th><th>Después</th></tr></thead>
+                                    <tbody>
+                                        <template for:each={detalleCambio.filas} for:item="f">
+                                            <tr key={f.key}>
+                                                <template lwc:if={f.conFlecha}>
+                                                    <td class="mov-cambio-campo">{f.campo}</td><td class="mov-cambio-antes">{f.antes}</td><td class="mov-cambio-despues">{f.despues}</td>
+                                                </template>
+                                                <template lwc:else><td colspan="3">{f.texto}</td></template>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="slds-modal__footer">
+                                <lightning-button label="Cerrar" onclick={cerrarModal}></lightning-button>
+                            </div>
+                        </template>
                         <template if:true={enModalExcel}>
                             <div class="slds-modal__header"><h2 class="slds-text-heading_medium">Excel de vehículos por solicitud</h2></div>
                             <div class="slds-modal__content slds-p-around_medium modal-form">

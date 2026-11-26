@@ -481,6 +481,7 @@ export default class MovimientosFlotilla extends LightningElement {
             fechaCierreTxt: this.fechaHoraTxt(v.fechaCierre),
             // Estado = último movimiento: Alta, Baja o Cambio (igual que en asegurados).
             estado: v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja'),
+            conDetalleCambio: v.tipoMovimiento === 'Cambio' && !!v.detalleMovimiento,
             claseEstado: `estado estado-${String(v.tipoMovimiento || (v.activo ? 'Alta' : 'Baja')).toLowerCase()}`,
             // Sin trámite los movimientos nacen cerrados; solo los abiertos de antes se cierran aquí.
             puedeCerrar: this.enPoliza && this.editaFilas && !!v.movimientoId && !v.fechaCierre,
@@ -534,6 +535,24 @@ export default class MovimientosFlotilla extends LightningElement {
     get enModalBaja() { return this.modal === 'baja'; }
     get enModalAlta() { return this.modal === 'alta'; }
     get enModalCambio() { return this.modal === 'cambio'; }
+    // ============================================================
+    // Detalle del cambio (solo consulta): lo que se pidió cambiar, dato por dato.
+    // ============================================================
+    detalleCambio = null;
+    get enModalDetalleCambio() { return this.modal === 'detalleCambio'; }
+    verDetalleCambio(e) {
+        const { detalle, titulo } = e.currentTarget.dataset;
+        const filas = String(detalle || '').split(/\r?\n/).map((x) => x.trim()).filter((x) => x).map((linea, i) => {
+            const dp = linea.indexOf(': ');
+            const resto = dp > 0 ? linea.slice(dp + 2) : '';
+            const fl = resto.indexOf(' → ');
+            return fl >= 0
+                ? { key: `c${i}`, conFlecha: true, campo: linea.slice(0, dp), antes: resto.slice(0, fl), despues: resto.slice(fl + 3) }
+                : { key: `c${i}`, conFlecha: false, texto: linea };
+        });
+        this.detalleCambio = { titulo: titulo || '', filas };
+        this.modal = 'detalleCambio';
+    }
     get hayModal() { return !!this.modal; }
     cerrarModal() { this.modal = null; this.form = {}; }
 

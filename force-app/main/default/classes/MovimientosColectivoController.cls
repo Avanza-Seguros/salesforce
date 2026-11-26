@@ -1554,6 +1554,8 @@ public inherited sharing class MovimientosColectivoController {
 			if (campos.containsKey('Motivo_Rechazo__c')) { fila.put('motivoRechazo', ultimo.Motivo_Rechazo__c); }
 			// Lo que cobra la aseguradora por el movimiento (complemento de su listado).
 			if (campos.containsKey('Prima__c')) { fila.put('primaMovimiento', ultimo.Prima__c); }
+			// Lo que se cambió (se consulta en la tabla y va en la descripción del Excel).
+			if (campos.containsKey('Detalle__c')) { fila.put('detalleMovimiento', ultimo.Detalle__c); }
 		} else if (!activo) {
 			tipo = 'Baja';
 			fecha = hasta;
