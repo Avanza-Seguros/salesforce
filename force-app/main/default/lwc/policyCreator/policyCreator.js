@@ -44,8 +44,13 @@ import LightningAlert from 'lightning/alert';
 import { abrirTabla } from 'c/lectorArchivos';
 import {
     TIPOS, ETIQUETAS_TIPO, detectarTipoTabla, detectarTipoPdf, mapeoComo, filasComoObjetos, normalizarCenso,
-    miembrosValidos, lotesCenso, vehiculosDesdeTabla, ubicacionesDesdeTabla, unirVehiculos, unirUbicaciones, vehiculosDeCaratulas, MOVIMIENTOS
+    miembrosValidos, lotesCenso, vehiculosDesdeTabla, ubicacionesDesdeTabla, unirVehiculos, unirUbicaciones, vehiculosDeCaratulas, MOVIMIENTOS,
+    endosoDeTexto
 } from 'c/clasificadorArchivos';
+import polizaDeEndoso from '@salesforce/apex/PolizaNumeroUnico.polizaDeEndoso';
+import compararVehiculos from '@salesforce/apex/MovimientosFlotillaController.compararArchivo';
+import aplicarVehiculos from '@salesforce/apex/MovimientosFlotillaController.aplicar';
+import subirArchivoMovimiento from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import getOpportunityDetails from '@salesforce/apex/OpportunityController.getOpportunityDetails';
 import cambiarEtapaAPoliza from '@salesforce/apex/OpportunityController.cambiarEtapaAPoliza';
 
@@ -632,6 +637,17 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         this.mostrarCarga = false;
         this.analizando = true;
         try {
+            // Endosos que se imprimen como la póliza (ej. Quálitas): sin la póliza en la carga, cada uno se registra en
+            // su póliza (ya existente) en lugar de crear otra.
+            const principal = polizas.find((p) => !this.endosoDelPdf(p.texto, p.archivo));
+            if (polizas.length && !principal) {
+                for (const p of polizas) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await this.registrarSiEsEndoso(p.texto, p.file);
+                }
+                return;
+            }
+            if (principal) { polizas.splice(0, polizas.length, principal, ...polizas.filter((p) => p !== principal)); }
             // 1) Carátula principal con IA; los demás PDFs de póliza aportan vehículos y ubicaciones.
             let datos = null;
             if (polizas.length) {
@@ -762,6 +778,90 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
         // Con la carátula, la oportunidad pasa a Póliza (igual que al emitir con el PDF).
         this._pdfCargado = !sinCaratula;
         await this.finalizarEmision();
+    }
+
+    // Endoso de la aseguradora que se imprime como la póliza (ej. Quálitas: mismo encabezado con su número de ENDOSO y
+    // "Movimiento: A-ADICIONAL"). null si el PDF es una póliza.
+    endosoDelPdf(texto, nombre) {
+        const e = endosoDeTexto(texto, nombre);
+        return e && e.poliza ? e : null;
+    }
+
+    // Si el PDF es un endoso (no una póliza), lo registra en la póliza del endoso, la que tiene su número y está vigente
+    // en su fecha, como en la pestaña Vehículos: el alta de cada vehículo con el número, la fecha y la prima del
+    // endoso, y el PDF en el endoso. Nunca crea otra póliza. Devuelve true si era un endoso (ya atendido).
+    async registrarSiEsEndoso(texto, file) {
+        const endoso = this.endosoDelPdf(texto, file && file.name);
+        if (!endoso) { return false; }
+        const fechaTxt = endoso.fecha ? endoso.fecha.split('-').reverse().join('/') : '';
+        const quien = `El PDF es el endoso ${endoso.numero} (${endoso.tipo}) de la póliza ${endoso.poliza}`;
+        const terminar = (mensaje, variante, policyId) => {
+            this.showToast('Endoso', mensaje, variante);
+            if (this._masivo) {
+                if (policyId) { this.policyId = policyId; }
+                this.terminarMasivo(policyId ? 'actualizada' : 'error', mensaje);
+                return;
+            }
+            if (policyId) {
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__recordPage',
+                    attributes: { recordId: policyId, objectApiName: 'InsurancePolicy', actionName: 'view' }
+                });
+            }
+        };
+        const r = await polizaDeEndoso({ numero: endoso.poliza, fechaEndoso: endoso.fecha }) || {};
+        if (r.error || !r.policyId) {
+            terminar(r.error || `${quien}, que no está registrada${fechaTxt ? ' con vigencia al ' + fechaTxt : ''}. `
+                + 'No se crea otra póliza: carga primero la póliza y después registra el endoso en su pestaña Vehículos.', 'error');
+            return true;
+        }
+        const vehiculos = (endoso.vehiculos || []).filter((v) => v.serie);
+        if (endoso.movimiento !== 'alta' || !vehiculos.length) {
+            terminar(`${quien}. No se crea otra póliza: regístralo en la pestaña Vehículos de la póliza ${r.nombre} (Cargar vehículos).`,
+                'warning', r.policyId);
+            return true;
+        }
+        const lista = vehiculos.map((v) => `inciso ${v.inciso} ${v.descripcion} (serie ${v.serie})`.replace(/\s+/g, ' ')).join('; ');
+        const ok = this._masivo ? true : await LightningConfirm.open({
+            message: `${quien}, no una póliza nueva. Se registra en la póliza ${r.nombre} (vigencia ${r.vigencia}): alta de `
+                + `${lista}${fechaTxt ? ' a partir del ' + fechaTxt : ''}, con la prima del endoso y su PDF. ¿Continuar?`,
+            variant: 'header', label: `Endoso ${endoso.numero}`, theme: 'info'
+        });
+        if (!ok) { this.terminarMasivo('error', 'Registro del endoso cancelado.'); return true; }
+        this.progresoCarga = `Registrando el endoso ${endoso.numero} en la póliza ${r.nombre}…`;
+        const num = (v) => (v === '' || v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+        const incisos = vehiculos.map((v, i) => ({ ...v, fila: i + 1, inciso: num(v.inciso), modelo: num(v.modelo), valor: num(v.valor),
+            primaNeta: num(v.primaNeta), prima: num(v.prima) }));
+        // Los vehículos que ya están en la póliza (el endoso ya se registró) no se repiten.
+        const comp = await compararVehiculos({ recordId: r.policyId, incisosJson: JSON.stringify(incisos), censoCompleto: false });
+        const altas = (comp && comp.altas) || [];
+        if (!altas.length) {
+            terminar(`${quien}: sus vehículos ya están en la póliza ${r.nombre}. No se registró nada nuevo.`, 'info', r.policyId);
+            return true;
+        }
+        const comentario = `${endoso.tipo}: ${endoso.detalle || ''}`.substring(0, 255);
+        const movimientos = altas.map((a) => ({ tipo: 'alta', datos: a.datos, fecha: endoso.fecha, endoso: endoso.numero, comentario }));
+        const res = await aplicarVehiculos({
+            recordId: r.policyId,
+            movimientosJson: JSON.stringify({ movimientos, endoso: null, solicitud: 'nueva',
+                endosos: { [endoso.numero]: { primaNeta: endoso.primaNeta, derechos: endoso.derechos, iva: endoso.iva, total: endoso.total } } })
+        });
+        // El PDF va al endoso (transacción) de la póliza.
+        let sinPdf = false;
+        const transaccion = res && res.transacciones && res.transacciones[endoso.numero];
+        if (transaccion && file && file.size <= MAX_ADJUNTO_AUTOMATICO) {
+            try {
+                const base64 = await this.readFileAsBase64(file);
+                await subirArchivoMovimiento({ recordId: transaccion, nombre: file.name, base64 });
+            } catch (e) {
+                sinPdf = true;
+            }
+        } else {
+            sinPdf = true;
+        }
+        terminar(`Endoso ${endoso.numero} registrado en la póliza ${r.nombre}: ${altas.length} alta(s) de vehículo.`
+            + (sinPdf ? ' No se pudo adjuntar el PDF: adjúntalo en el endoso de la póliza.' : ''), sinPdf ? 'warning' : 'success', r.policyId);
+        return true;
     }
 
     // Revisa si ya hay una póliza con el número y la vigencia de la carátula. Si existe y el usuario puede editarla,
@@ -1246,6 +1346,8 @@ export default class PolicyCreator extends NavigationMixin(LightningElement) {
                 this.terminarMasivo('error');
                 return;
             }
+            // Endoso que se imprime como la póliza (ej. Quálitas): se registra en su póliza; no se crea otra.
+            if (await this.registrarSiEsEndoso(texto, file)) { return; }
             const datos = await this.analizarTextoPoliza(texto);
             if (!datos) { this.terminarMasivo('error', 'La IA no devolvió los datos de la póliza.'); return; }
             if (this._masivo) { this._masivo.numero = datos.numeroPoliza || null; }

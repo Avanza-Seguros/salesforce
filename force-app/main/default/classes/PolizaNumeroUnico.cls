@@ -112,6 +112,52 @@ public with sharing class PolizaNumeroUnico {
 	}
 
 	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Crear Póliza con el PDF de un endoso (ej. Quálitas, que lo imprime como la póliza con su número de
+	 * endoso): localiza la póliza del endoso, la del mismo número vigente en la fecha del endoso, para registrarlo ahí en
+	 * lugar de crear otra póliza. Si hay varias (una repetida), la que empezó primero.
+	 * @param numero: Número de póliza leído del PDF
+	 * @param fechaEndoso: Fecha en que surte efecto el endoso (AAAA-MM-DD); vacía toma la vigencia más reciente
+	 * @return Mapa con "policyId", "nombre" y "vigencia" (texto), o "error" si no tiene acceso; vacío si no existe
+	 */
+	@AuraEnabled
+	public static Map<String, Object> polizaDeEndoso(String numero, String fechaEndoso) {
+		Map<String, Object> res = new Map<String, Object>();
+		String n = normalizar(numero);
+		if (n == null) { return res; }
+		Date fecha = null;
+		if (String.isNotBlank(fechaEndoso)) {
+			try { fecha = Date.valueOf(fechaEndoso.left(10)); } catch (Exception e) { fecha = null; }
+		}
+		InsurancePolicy elegida = null;
+		for (InsurancePolicy p : new SinCompartir().porNumero(n)) {
+			Date ini = fecha(p.EffectiveDate);
+			Date fin = p.ExpirationDate == null ? null : p.ExpirationDate.dateGmt();
+			if (fecha != null && ((ini != null && ini > fecha) || (fin != null && fin < fecha))) { continue; }
+			Boolean mejor = elegida == null
+				|| (fecha != null ? ini != null && (fecha(elegida.EffectiveDate) == null || ini < fecha(elegida.EffectiveDate))
+					: ini != null && (fecha(elegida.EffectiveDate) == null || ini > fecha(elegida.EffectiveDate)));
+			if (mejor) { elegida = p; }
+		}
+		if (elegida == null) { return res; }
+		List<UserRecordAccess> acceso = [
+			SELECT RecordId, HasEditAccess FROM UserRecordAccess
+			WHERE UserId = :UserInfo.getUserId() AND RecordId = :elegida.Id LIMIT 1
+		];
+		if (acceso.isEmpty() || !acceso[0].HasEditAccess) {
+			res.put('error', 'La póliza ' + elegida.Name + ' del endoso existe, pero no tienes permiso para modificarla.');
+			return res;
+		}
+		Date ini = fecha(elegida.EffectiveDate);
+		Date fin = elegida.ExpirationDate == null ? null : elegida.ExpirationDate.dateGmt();
+		res.put('policyId', elegida.Id);
+		res.put('nombre', elegida.Name);
+		res.put('vigencia', (ini == null ? '' : ini.format()) + (fin == null ? '' : ' al ' + fin.format()));
+		return res;
+	}
+
+	/**
 	 * @creation date: 09/10/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Arma la llave única de la póliza: número normalizado y fecha de inicio de vigencia
@@ -178,6 +224,27 @@ public with sharing class PolizaNumeroUnico {
 	 * compartidas con el usuario.
 	 */
 	private without sharing class SinCompartir {
+		/**
+		 * @creation date: 26/11/2026
+		 * @author: Sergio Uribe Toledo - Volestra
+		 * @description: Pólizas con el número (normalizado): por su llave o por su nombre (que puede traer ceros a la
+		 * izquierda o espacios).
+		 * @param n: Número normalizado
+		 * @return Pólizas con ese número
+		 */
+		List<InsurancePolicy> porNumero(String n) {
+			String llave = n + '|%';
+			String parte = '%' + n.right(6) + '%';
+			List<InsurancePolicy> res = new List<InsurancePolicy>();
+			for (InsurancePolicy p : [
+				SELECT Id, Name, EffectiveDate, ExpirationDate FROM InsurancePolicy
+				WHERE numeroPolizaUnico__c LIKE :llave OR Name LIKE :parte LIMIT 500
+			]) {
+				if (normalizar(p.Name) == n) { res.add(p); }
+			}
+			return res;
+		}
+
 		/**
 		 * @creation date: 02/10/2026
 		 * @author: Sergio Uribe Toledo - Volestra

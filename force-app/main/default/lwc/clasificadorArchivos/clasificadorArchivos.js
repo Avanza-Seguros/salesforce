@@ -875,6 +875,9 @@ export function vehiculosDeCaratulas(texto, minimo = 2) {
  * vehículo). [] si el PDF no tiene ese formato.
  */
 export function incisosDeCaratulas(texto) {
+    // Endoso de Quálitas: sus carátulas de inciso ya vienen en este formato.
+    const qualitas = endosoQualitas(texto);
+    if (qualitas && qualitas.vehiculos.length) { return qualitas.vehiculos; }
     return vehiculosDeCaratulas(texto, 1).map((v) => ({
         inciso: v.inciso,
         serie: v.serie,
@@ -914,6 +917,8 @@ export function incisosDeCaratulas(texto) {
  */
 export function endosoDeTexto(texto, nombreArchivo) {
     const t = String(texto || '');
+    const qualitas = endosoQualitas(t);
+    if (qualitas) { return qualitas; }
     const hdi = endosoHdi(t);
     if (hdi) { return hdi; }
     if (!/Endoso\s+No\.?\s*:?/i.test(t) || !/(Tipo\s+de\s+Endoso|Endoso\s+de\s+Tipo)/i.test(t)
@@ -1367,4 +1372,134 @@ export function clausulaDeTexto(texto) {
         fecha: iso(plano.match(/vigencia\s+es\s+del\s+(\d{2})\/(\d{2})\/(\d{4})/i)),
         categorias: c
     };
+}
+
+// ============================================================
+// Endosos de Quálitas
+// ============================================================
+
+// Encabezado de cada página de Quálitas: PÓLIZA (10 dígitos), ENDOSO (6) e INCISO (4). Según el lector de PDF los
+// valores salen bajo sus etiquetas ("PÓLIZA ENDOSO INCISO" / "0971582235 151760 0006"), cada uno junto a la suya
+// ("PÓLIZA 0971582235 ENDOSO 151760 INCISO 0006") o en otro orden ("INCISO 0000 ENDOSO 151760 PÓLIZA 0971582235").
+function encabezadosQualitas(t) {
+    const plano = t.replace(/\s+/g, ' ');
+    const res = [];
+    const agregar = (index, poliza, endoso, inciso) => res.push({ index, poliza, endoso, inciso });
+    const patrones = [
+        [/P[OÓ]LIZA ?(\d{10}) ?ENDOSO ?(\d{6}) ?INCISO ?(\d{4})\b/gi, (m) => [m[1], m[2], m[3]]],
+        [/INCISO ?(\d{4}) ?ENDOSO ?(\d{6}) ?P[OÓ]LIZA ?(\d{10})\b/gi, (m) => [m[3], m[2], m[1]]],
+        [/\b(\d{10}) (\d{6}) (\d{4})\b/g, (m) => [m[1], m[2], m[3]]]
+    ];
+    patrones.forEach(([re, valores]) => {
+        let m;
+        while ((m = re.exec(plano)) !== null) {
+            if (!res.some((r) => Math.abs(r.index - m.index) < 40)) { agregar(m.index, ...valores(m)); }
+        }
+    });
+    return res.sort((a, b) => a.index - b.index);
+}
+
+/**
+ * Endoso de Quálitas: se imprime igual que la póliza ("PÓLIZA DE SEGURO DE AUTOMÓVILES") pero su ENDOSO no es 000000
+ * y trae "Movimiento: A-ADICIONAL" (alta), de baja o de cambio. La primera página es el endoso (inciso 0000) y cada
+ * página siguiente es la carátula de un inciso que toca (en un alta, el vehículo nuevo). null si no es un endoso de
+ * Quálitas (la póliza misma trae ENDOSO 000000).
+ * @param texto: texto del PDF.
+ * @return mismo formato que endosoDeTexto, más el número de póliza (poliza) y los vehículos (formato de
+ *         incisosDeCaratulas) de las carátulas de inciso.
+ */
+export function endosoQualitas(texto) {
+    const t = String(texto || '');
+    if (!/Qu[aá]litas/i.test(t)) { return null; }
+    const mov = /Movimiento\s*:[ \t]*([A-Z])\s*-\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ]*)/.exec(t);
+    const cabeceras = encabezadosQualitas(t).filter((c) => !/^0+$/.test(c.endoso));
+    if (!mov || !cabeceras.length) { return null; }
+    const limpio = (v) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+    const dinero = (v) => (v == null || v === '' ? null : Number(String(v).replace(/[$,\s]/g, '')));
+    const palabra = limpio(mov[2]).toUpperCase();
+    const movimiento = /BAJA|CANCELA|DISMINU|EXCLU/.test(palabra) ? 'baja'
+        : (/ADICIONAL|ALTA|INCLU/.test(palabra) ? 'alta' : ({ A: 'alta', B: 'baja', D: 'baja' }[mov[1]] || 'cambio'));
+    const { poliza, endoso } = cabeceras[0];
+
+    // Surte efecto en la fecha "Desde las 12:00 P.M. del 09/OCT/2026".
+    let fecha = null;
+    const desde = /\bDesde\b/i.exec(t);
+    const fm = new RegExp('(\\d{2})\\/(' + Object.keys(MESES_CORTOS).join('|') + ')\\/(\\d{4})', 'i').exec(desde ? t.substring(desde.index) : t);
+    if (fm) { fecha = `${fm[3]}-${MESES_CORTOS[fm[2].toUpperCase()]}-${fm[1]}`; }
+
+    // Primas (las del endoso; cada inciso las repite): los montos desde "Prima Neta" en su orden, sin los de "$" (pagos
+    // de la forma de pago). Según el lector salen junto a su etiqueta o todos después, así que se reconocen por la suma:
+    // prima neta + (financiamiento) + gastos = subtotal y subtotal + IVA = importe total.
+    const iNeta = t.search(/Prima\s+Neta/i);
+    const montos = [];
+    if (iNeta >= 0) {
+        const re = /(\$\s*)?\b(\d{1,3}(?:,\d{3})*\.\d{2})\b/g;
+        re.lastIndex = iNeta;
+        let m;
+        while (montos.length < 8 && (m = re.exec(t)) !== null) { if (!m[1]) { montos.push(dinero(m[2])); } }
+    }
+    const igual = (a, b) => Math.abs(a - b) < 0.05;
+    let primaNeta = null;
+    let derechos = null;
+    let iva = null;
+    let total = null;
+    for (let k = 2; k + 2 < montos.length && k <= 4; k++) {
+        const intermedios = montos.slice(1, k);
+        if (igual(montos[0] + intermedios.reduce((a, b) => a + b, 0), montos[k]) && igual(montos[k] + montos[k + 1], montos[k + 2])) {
+            [primaNeta, , iva, total] = [montos[0], montos[k], montos[k + 1], montos[k + 2]];
+            // Con Tasa Financiamiento, el último intermedio son los gastos por expedición.
+            derechos = intermedios[intermedios.length - 1];
+            break;
+        }
+    }
+
+    // Carátula de cada inciso: el vehículo junto a su "Serie:" (descripción, tipo, modelo, placas, uso, plan y suma).
+    const incisosPag = cabeceras.filter((c) => !/^0+$/.test(c.inciso))
+        .filter((c, i, l) => i === 0 || l[i - 1].inciso !== c.inciso).map((c) => String(Number(c.inciso)));
+    const series = [];
+    const reSerie = /Serie\s*:[ \t]*([A-HJ-NPR-Z0-9]{8,17})\b/g;
+    let ms;
+    while ((ms = reSerie.exec(t)) !== null) { if (!series.some((s) => s.serie === ms[1])) { series.push({ serie: ms[1], index: ms.index }); } }
+    const vehiculos = series.map((s, k) => {
+        const ini = k ? series[k - 1].index + 20 : 0;
+        const fin = k + 1 < series.length ? series[k + 1].index : t.length;
+        const v = t.substring(ini, fin);
+        const uno = (re) => { const m = re.exec(v); return m ? limpio(m[1]) : ''; };
+        // Descripción: "12701 MITSUBISHI L200 ..." (clave de 4 a 6 dígitos y el vehículo; sin etiquetas ni comas).
+        const cerca = v.split('\n').map(limpio).filter((l) => /^\d{4,6} [A-Z][A-Z0-9 .\/-]{4,}$/.test(l) && !/[:,]/.test(l));
+        const desc = cerca.length ? cerca[0] : '';
+        // Suma de Daños Materiales; si no está junto a su etiqueta, la primera suma después de la serie.
+        const dm = /Da[ñn]os\s+Materiales\s*\$\s*([\d,]{5,})/i.exec(v) || /\$\s*(\d{1,3}(?:,\d{3})+)(?!\.\d)/.exec(t.substring(s.index, fin));
+        const modelo = uno(/Modelo\s*:\s*((?:19|20)\d{2})\b/i);
+        return {
+            inciso: incisosPag[k] || '',
+            serie: s.serie,
+            claveVehicular: desc ? desc.split(' ')[0] : '',
+            descripcion: desc ? desc.substring(desc.indexOf(' ') + 1) : '',
+            modelo,
+            placas: uno(/Placas\s*:[ \t]*([A-Z0-9-]{4,10})\b/i),
+            uso: uno(/Uso\s*:[ \t]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ]*?)(?=[ \t]+Servicio\s*:|[ \t\r]*(?:\n|$))/),
+            tipoVehiculo: uno(/\bTipo\s*:[ \t]*([A-Za-zÁÉÍÓÚÑáéíóúñ-]+(?: [A-Za-zÁÉÍÓÚÑáéíóúñ-]+)?)\s+(?:Modelo|Serie)\b/i),
+            paquete: uno(/PLAN\s*:[ \t]*([A-ZÁÉÍÓÚÑ]+)/),
+            tipoValor: '',
+            valor: dm ? dinero(dm[1]) : null
+        };
+    });
+    // Un solo vehículo: la prima del endoso es la suya.
+    if (vehiculos.length === 1) {
+        vehiculos[0].primaNeta = primaNeta;
+        vehiculos[0].prima = total;
+    }
+    const incisos = (vehiculos.length ? vehiculos.map((v) => v.inciso) : incisosPag).filter((i) => i)
+        .map((i) => {
+            const v = vehiculos.find((x) => x.inciso === i);
+            return { inciso: i, descripcion: v ? limpio(`${v.descripcion} ${v.serie}`) : '', movimiento,
+                prima: vehiculos.length === 1 ? primaNeta : null };
+        });
+    const tipo = limpio(`${mov[1]}-${palabra}`);
+    const detalle = incisos.length
+        ? `${tipo}: ${incisos.map((i) => `inciso ${i.inciso}${i.descripcion ? ' ' + i.descripcion : ''}`).join('; ')}`
+        : tipo;
+    return { numero: endoso.replace(/^0+(?=\d)/, ''), tipo, movimiento, general: !incisos.length, fecha, incisos,
+        detalle: detalle.substring(0, 1000), primaNeta, derechos, iva, total, poliza, vehiculos };
 }

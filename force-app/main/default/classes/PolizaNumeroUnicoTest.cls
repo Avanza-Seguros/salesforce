@@ -196,6 +196,35 @@ private class PolizaNumeroUnicoTest {
 	 * @description: Valida que una póliza sin oportunidad se pueda guardar y que también reciba su llave única.
 	 * @return void
 	 */
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza de un endoso: la del número vigente en la fecha del endoso (con ceros a la izquierda o no);
+	 * con una repetida, la que empezó primero; fuera de vigencia o con otro número, ninguna.
+	 * @return void
+	 */
+	@isTest
+	static void testPolizaDeEndoso() {
+		Account cuenta = new Account(Name = 'Cliente Endoso');
+		insert cuenta;
+		InsurancePolicy original = poliza(cuenta.Id, '0971582235');
+		original.ExpirationDate = VIGENCIA.addYears(1);
+		InsurancePolicy repetida = poliza(cuenta.Id, '971582235');
+		repetida.EffectiveDate = VIGENCIA.addMonths(2);
+		repetida.ExpirationDate = VIGENCIA.addYears(1);
+		insert new List<InsurancePolicy>{ original, repetida };
+		Test.startTest();
+		Map<String, Object> r = PolizaNumeroUnico.polizaDeEndoso('0971582235', '2026-03-15');
+		Map<String, Object> sinFecha = PolizaNumeroUnico.polizaDeEndoso('0971582235', null);
+		Map<String, Object> fuera = PolizaNumeroUnico.polizaDeEndoso('0971582235', '2028-01-01');
+		Map<String, Object> otra = PolizaNumeroUnico.polizaDeEndoso('0971582236', '2026-03-15');
+		Test.stopTest();
+		System.assertEquals(original.Id, r.get('policyId'), 'La que empezó primero');
+		System.assertEquals(repetida.Id, sinFecha.get('policyId'), 'Sin fecha, la más reciente');
+		System.assert(fuera.isEmpty(), 'Fuera de vigencia');
+		System.assert(otra.isEmpty(), 'Otro número');
+	}
+
 	@isTest
 	static void testPolizaSinOportunidad() {
 		Account acc = new Account(Name = 'Cuenta Sin Oportunidad');
