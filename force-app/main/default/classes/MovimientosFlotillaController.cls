@@ -705,7 +705,7 @@ public inherited sharing class MovimientosFlotillaController {
 		Set<Id> ids = new Map<Id, Inciso_Flotilla__c>(incisos).keySet();
 		if (!ids.isEmpty()) {
 			for (Movimiento_Poliza__c m : [
-				SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Prima__c, Inciso__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+				SELECT Id, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Prima__c, Inciso__c, Tipo__c, Fecha_Movimiento__c, Detalle__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 				WHERE Inciso__c IN :ids ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 			]) {
 				if (!ultimos.containsKey(m.Inciso__c)) { ultimos.put(m.Inciso__c, m); }

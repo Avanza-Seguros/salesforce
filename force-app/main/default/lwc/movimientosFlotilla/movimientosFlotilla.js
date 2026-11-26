@@ -1014,10 +1014,16 @@ export default class MovimientosFlotilla extends LightningElement {
                 ['Inciso', (r) => (r.inciso == null ? null : Number(r.inciso))], ['Vigencia desde', (r) => fechaVisible(this.vigenciaDesde(r))],
                 ['Vigencia hasta', (r) => fechaVisible(this.vigenciaHasta(r))],
                 ['Valor', (r) => (r.valor == null ? null : Number(r.valor))], ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
-                ['Descripción', (r) => r.motivoBaja || '']
+                ['Descripción', (r) => this.descripcionExcel(r)]
             ];
         descargarExcel(`Vehiculos_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Vehículos',
             columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
+    }
+    // Descripción del Excel a la aseguradora: el motivo de la baja o, en un cambio, lo que se cambió.
+    descripcionExcel(r) {
+        if (r.motivoBaja) { return r.motivoBaja; }
+        if (r.tipoMovimiento !== 'Cambio' || !r.detalleMovimiento) { return ''; }
+        return String(r.detalleMovimiento).split(/\r?\n/).map((x) => x.trim()).filter((x) => x).join(' · ');
     }
     // Vigencia del vehículo: desde su alta (o el inicio de la póliza) hasta su baja (o el fin de la póliza).
     vigenciaDesde(v) { return v.fechaAlta || (this.datos && this.datos.inicio) || null; }

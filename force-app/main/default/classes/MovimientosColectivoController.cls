@@ -1458,7 +1458,7 @@ public inherited sharing class MovimientosColectivoController {
 		Map<Id, Movimiento_Poliza__c> r = new Map<Id, Movimiento_Poliza__c>();
 		if (policyId == null) { return r; }
 		for (Movimiento_Poliza__c m : [
-			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Prima__c, Tipo__c, Fecha_Movimiento__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
+			SELECT Participante__c, Name, Numero_Endoso__c, Solicitud__c, Seguimiento__c, Motivo_Rechazo__c, Prima__c, Tipo__c, Fecha_Movimiento__c, Detalle__c, CreatedDate, Fecha_Cierre__c FROM Movimiento_Poliza__c
 			WHERE Poliza__c = :policyId AND Participante__c != null
 			ORDER BY CreatedDate DESC, Id DESC LIMIT 10000
 		]) {
@@ -1486,7 +1486,9 @@ public inherited sharing class MovimientosColectivoController {
 			l.add(new Map<String, Object>{ 'movimientoId' => m.Id, 'movimientoNumero' => m.Name, 'solicitud' => m.Solicitud__c,
 				'tipoMovimiento' => m.Tipo__c, 'fechaMovimiento' => m.Fecha_Movimiento__c, 'fechaCreacion' => m.CreatedDate,
 				'fechaCierre' => m.Fecha_Cierre__c, 'seguimientoMov' => m.Seguimiento__c, 'motivoRechazo' => m.Motivo_Rechazo__c,
-				'numeroEndoso' => m.Numero_Endoso__c, 'primaMovimiento' => m.Prima__c });
+				'numeroEndoso' => m.Numero_Endoso__c, 'primaMovimiento' => m.Prima__c,
+				// Lo que se cambió (para la descripción del Excel a la aseguradora).
+				'detalleMovimiento' => m.isSet('Detalle__c') ? m.Detalle__c : null });
 		}
 		fila.put('movimientos', l);
 	}

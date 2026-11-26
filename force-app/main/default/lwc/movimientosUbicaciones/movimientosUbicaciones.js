@@ -1073,10 +1073,16 @@ export default class MovimientosUbicaciones extends LightningElement {
                 ['Fecha de alta', (r) => fechaVisible(r.fechaAlta)],
                 ['Suma asegurada', (r) => (r.sumaAsegurada == null ? null : Number(r.sumaAsegurada))],
                 ['Prima', (r) => (r.prima == null ? null : Number(r.prima))],
-                ['Descripción', (r) => r.motivoBaja || '']
+                ['Descripción', (r) => this.descripcionExcel(r)]
             ];
         descargarExcel(`Ubicaciones_${String(this.datos && this.datos.nombre || '').replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Ubicaciones',
             columnas.map((c) => c[0]), registros.map((r) => columnas.map((c) => c[1](r))));
+    }
+    // Descripción del Excel a la aseguradora: el motivo de la baja o, en un cambio, lo que se cambió.
+    descripcionExcel(r) {
+        if (r.motivoBaja) { return r.motivoBaja; }
+        if (r.tipoMovimiento !== 'Cambio' || !r.detalleMovimiento) { return ''; }
+        return String(r.detalleMovimiento).split(/\r?\n/).map((x) => x.trim()).filter((x) => x).join(' · ');
     }
     fechaHoraTxt(v) {
         if (!v) { return ''; }

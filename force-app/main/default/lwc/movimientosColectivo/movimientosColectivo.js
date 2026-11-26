@@ -2040,11 +2040,18 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                 }
                 if (conPorcentaje) { fila.push(0); }
             }
-            const motivos = g.enMovimiento.filter((r) => r.motivoBaja).map((r) => (r.id === t.id ? r.motivoBaja : `${r.nombre}: ${r.motivoBaja}`));
+            const motivos = g.enMovimiento.map((r) => ({ r, d: this.descripcionExcel(r) })).filter((x) => x.d)
+                .map((x) => (x.r.id === t.id ? x.d : `${x.r.nombre}: ${x.d}`));
             fila.push(motivos.join(' | '), this.correoDe(t) || '');
             return fila;
         });
         descargarExcel(`Asegurados_${String(poliza).replace(/[^A-Za-z0-9-]+/g, '_')}_${sufijo}`, 'Asegurados', columnas, filas);
+    }
+    // Descripción del Excel a la aseguradora: el motivo de la baja o, en un cambio, lo que se cambió.
+    descripcionExcel(r) {
+        if (r.motivoBaja) { return r.motivoBaja; }
+        if (r.tipoMovimiento !== 'Cambio' || !r.detalleMovimiento) { return ''; }
+        return String(r.detalleMovimiento).split(/\r?\n/).map((x) => x.trim()).filter((x) => x).join(' · ');
     }
     // Nombre(s) y apellidos por separado: los del contacto; si no hay, del nombre completo (los dos últimos son los apellidos).
     partesNombre(r) {
