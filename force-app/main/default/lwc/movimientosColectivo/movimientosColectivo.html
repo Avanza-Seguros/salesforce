@@ -879,7 +879,11 @@
                             <div class="slds-modal__content slds-p-around_medium modal-form">
                                 <!-- Pendientes: se envía por solicitud, no a todos. -->
                                 <template if:true={correoPorSolicitud}>
-                                    <p class="sub slds-m-bottom_x-small">Elige la solicitud: el correo sale solo a sus asegurados pendientes.</p>
+                                    <p class="sub slds-m-bottom_x-small">{textoElegirSolicitud}</p>
+                                    <template lwc:if={hayReenviables}>
+                                        <lightning-input type="checkbox" class="slds-m-bottom_x-small" label="Incluir a quienes ya lo recibieron (se les envía de nuevo)"
+                                            checked={incluirEnviados} onchange={cambiarIncluirEnviados} disabled={correo.enviando}></lightning-input>
+                                    </template>
                                     <div class="mov-excel-lista slds-m-bottom_small" role="radiogroup" aria-label="Solicitudes">
                                         <template for:each={solicitudesCorreo} for:item="s">
                                             <label key={s.key} class="mov-excel-fecha">

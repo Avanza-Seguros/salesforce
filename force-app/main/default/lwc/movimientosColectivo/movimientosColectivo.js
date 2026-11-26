@@ -739,30 +739,54 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.plantillas = (await getPlantillasSitio()).map((t) => ({ value: t.id, clave: t.clave, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
     }
     get textoEnviarPendientes() { return `Enviar correo a pendientes (${this.pendientesCorreo.length})`; }
-    get sinPendientesCorreo() { return this.pendientesCorreo.length === 0; }
-    // Pendientes por solicitud: se elige la solicitud (la más reciente por omisión) y solo se envía a sus pendientes.
+    // También se abre sin pendientes si hay movimientos ya enviados, para volver a enviarlos.
+    get sinPendientesCorreo() { return this.pendientesCorreo.length === 0 && this.reenviablesCorreo.length === 0; }
+    // Asegurados de una solicitud a los que ya se les envió el correo (se le puede volver a enviar a todo el movimiento).
+    get reenviablesCorreo() {
+        return this.miembros.filter((m) => m.correoEnviado && !!m.solicitud && m.seguimientoMov !== 'Rechazado'
+            && (this.correoDe(m) || this.bajaPorEnviar(m)));
+    }
+    get hayReenviables() { return this.reenviablesCorreo.length > 0; }
+    // Pendientes por solicitud: se elige la solicitud (la más reciente por omisión) y solo se envía a sus pendientes; con
+    // «Incluir a quienes ya lo recibieron», a todos los de la solicitud.
     solicitudesCorreo = [];
+    incluirEnviados = false;
     abrirCorreoPendientes() {
+        this.incluirEnviados = this.pendientesCorreo.length === 0;
+        this.agruparCorreo('');
+        const primera = this.solicitudesCorreo.find((s) => s.sel);
+        this.concluyeFolio = '';
+        this.concluyeRegistro = null;
+        this.abrirCorreo(primera ? primera.ids : [], false);
+    }
+    cambiarIncluirEnviados(e) {
+        const elegida = this.solicitudesCorreo.find((s) => s.sel);
+        this.incluirEnviados = e.target.checked;
+        this.agruparCorreo(elegida ? elegida.key : '');
+        const nueva = this.solicitudesCorreo.find((s) => s.sel);
+        this.correo = { ...this.correo, ids: nueva ? nueva.ids : [], errores: [] };
+    }
+    // Agrupa por solicitud a quienes se les envía; conserva la solicitud elegida si sigue en la lista.
+    agruparCorreo(llave) {
+        const lista = this.incluirEnviados ? [...this.pendientesCorreo, ...this.reenviablesCorreo] : this.pendientesCorreo;
         const porFolio = new Map();
-        this.pendientesCorreo.forEach((m) => {
+        lista.forEach((m) => {
             const folio = m.solicitud || '';
             if (!porFolio.has(folio)) { porFolio.set(folio, []); }
             porFolio.get(folio).push(m.id);
         });
-        this.solicitudesCorreo = [...porFolio.entries()]
+        const grupos = [...porFolio.entries()]
             .sort((a, b) => {
                 if (!a[0] !== !b[0]) { return a[0] ? -1 : 1; }          // "Sin solicitud" al final
                 return b[0].localeCompare(a[0], 'es', { numeric: true });  // folio más reciente primero
-            })
-            .map(([folio, ids], i) => ({
-                key: folio || 'sin-solicitud', folio, ids, sel: i === 0,
-                titulo: folio || 'Sin solicitud',
-                detalle: `${ids.length} ${ids.length === 1 ? 'asegurado pendiente' : 'asegurados pendientes'}`
-            }));
-        const primera = this.solicitudesCorreo[0];
-        this.concluyeFolio = '';
-        this.concluyeRegistro = null;
-        this.abrirCorreo(primera ? primera.ids : [], false);
+            });
+        const hayLlave = grupos.some(([folio]) => (folio || 'sin-solicitud') === llave);
+        const texto = this.incluirEnviados ? ['asegurado', 'asegurados'] : ['asegurado pendiente', 'asegurados pendientes'];
+        this.solicitudesCorreo = grupos.map(([folio, ids], i) => ({
+            key: folio || 'sin-solicitud', folio, ids, sel: hayLlave ? (folio || 'sin-solicitud') === llave : i === 0,
+            titulo: folio || 'Sin solicitud',
+            detalle: `${ids.length} ${ids.length === 1 ? texto[0] : texto[1]}`
+        }));
     }
     elegirSolicitudCorreo(e) {
         const key = e.target.dataset.key;
@@ -827,7 +851,14 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const elegida = this.solicitudesCorreo.find((s) => s.sel);
         const deSolicitud = this.concluyeFolio ? ` del movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : elegida ? ` de ${elegida.folio ? 'la solicitud ' + elegida.folio : 'los registros sin solicitud'}` : '';
         if (d.length === 1) { return `Se enviará a ${d[0].nombre} (${this.correoFinal(d[0])})${deSolicitud}.`; }
+        if (this.correoPorSolicitud && this.incluirEnviados) {
+            return `Se enviará a ${d.length} asegurados${deSolicitud} con correo, también a quienes ya lo recibieron.`;
+        }
         return `Se enviará a ${d.length} asegurados${deSolicitud} con correo que aún no lo reciben.`;
+    }
+    get textoElegirSolicitud() {
+        return this.incluirEnviados ? 'Elige la solicitud: el correo sale a todos sus asegurados con correo.'
+            : 'Elige la solicitud: el correo sale solo a sus asegurados pendientes.';
     }
     get avisoReenvio() { return this.correo.reenvio ? 'A este asegurado ya se le envió un correo; se enviará de nuevo.' : ''; }
     get hayErroresCorreo() { return this.correo.errores.length > 0; }
