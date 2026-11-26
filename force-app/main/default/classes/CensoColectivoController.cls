@@ -965,9 +965,8 @@ public inherited sharing class CensoColectivoController {
 		setTexto(m, 'SourceSystemIdentifier', e.numEmpleado);
 		setTexto(m, 'RFC__c', e.rfc == null ? null : e.rfc.deleteWhitespace().toUpperCase());
 		setTexto(m, 'PhoneNumber', e.telefono);
-		if (String.isNotBlank(e.email) && Pattern.matches('[^@\\s]+@[^@\\s]+\\.[^@\\s]+', e.email.trim())) {
-			m.Email = e.email.trim();
-		}
+		String correo = primerCorreo(e.email);
+		if (correo != null) { m.Email = correo; }
 		if (String.isNotBlank(e.categoria)) { m.GroupClassId = categorias.get(llave(e.categoria)); }
 		return m;
 	}
@@ -1065,6 +1064,22 @@ public inherited sharing class CensoColectivoController {
 	 * @return texto normalizado ('' si viene vacío).
 	 */
 	@TestVisible
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Primer correo válido de una celda que puede traer varios («a@x.com / b@y.com», separados por /, coma,
+	 *               punto y coma o espacios).
+	 * @param texto: celda del listado.
+	 * @return el primer correo válido o null.
+	 */
+	public static String primerCorreo(String texto) {
+		if (String.isBlank(texto)) { return null; }
+		for (String c : texto.trim().split('[\\s,;/|]+')) {
+			if (Pattern.matches('[^@\\s<>()]+@[^@\\s<>()]+\\.[^@\\s<>()]+', c)) { return c; }
+		}
+		return null;
+	}
+
 	public static String llave(String s) {
 		if (String.isBlank(s)) { return ''; }
 		return s.toLowerCase().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o')

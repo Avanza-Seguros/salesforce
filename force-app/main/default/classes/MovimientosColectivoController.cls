@@ -153,7 +153,11 @@ public inherited sharing class MovimientosColectivoController {
 		if (movs.isEmpty()) { throw CensoColectivoController.error('No hay movimientos para aplicar.'); }
 		// «ASIGNAR» y similares no son un certificado: el registro queda sin él hasta que llegan sus documentos.
 		for (Movimiento m : movs) {
-			if (m.datos != null) { m.datos.certificado = CensoColectivoController.certificadoLimpio(m.datos.certificado); }
+			if (m.datos != null) {
+				m.datos.certificado = CensoColectivoController.certificadoLimpio(m.datos.certificado);
+				// Celda con varios correos: se toma el primero.
+				m.datos.email = CensoColectivoController.primerCorreo(m.datos.email);
+			}
 		}
 		validar(movs);
 		Savepoint sp = Database.setSavepoint();
@@ -206,7 +210,10 @@ public inherited sharing class MovimientosColectivoController {
 		} catch (Exception e) {
 			throw CensoColectivoController.error('El archivo no tiene un formato válido: ' + e.getMessage());
 		}
-		for (CensoColectivoController.MiembroEntrada e : entrada) { e.certificado = CensoColectivoController.certificadoLimpio(e.certificado); }
+		for (CensoColectivoController.MiembroEntrada e : entrada) {
+			e.certificado = CensoColectivoController.certificadoLimpio(e.certificado);
+			e.email = CensoColectivoController.primerCorreo(e.email);
+		}
 		List<Map<String, Object>> base = new List<Map<String, Object>>();
 		for (Map<String, Object> a : esPoliza(recordId) ? aseguradosPoliza(recordId, true) : aseguradosCenso(recordId)) {
 			if (a.get('activo') != false) { base.add(a); }

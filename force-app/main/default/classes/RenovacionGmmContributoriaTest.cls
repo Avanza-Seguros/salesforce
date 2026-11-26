@@ -122,6 +122,10 @@ private class RenovacionGmmContributoriaTest {
 		for (String n : casos.keySet()) { Assert.areEqual(casos.get(n), RenovacionGmmContributoria.primerNombre(n), n); }
 		Assert.areEqual('Ana de la Torre y López', RenovacionGmmContributoria.nombreVisible('ANA DE LA TORRE Y LOPEZ'));
 		Assert.areEqual(null, RenovacionGmmContributoria.edadDe(new InsurancePolicyParticipant()));
+		// Celda con varios correos: el primero válido.
+		Assert.areEqual('lucero.franco@apzusa.com', CensoColectivoController.primerCorreo(' lucero.franco@apzusa.com / Lzmrd@hotmail.com'));
+		Assert.areEqual('b@y.com', CensoColectivoController.primerCorreo('sin correo; b@y.com, c@z.com'));
+		Assert.areEqual(null, CensoColectivoController.primerCorreo('N/A'));
 		// Solo con la edad del listado (sin fecha de nacimiento).
 		Assert.areEqual(40, RenovacionGmmContributoria.edadDe(new InsurancePolicyParticipant(Edad__c = 40)));
 		Assert.areEqual(33, CensoColectivoController.participante(new GroupCensusMember(Name = 'X', LastName = 'X', Edad__c = 33), null, null, null).Edad__c);
