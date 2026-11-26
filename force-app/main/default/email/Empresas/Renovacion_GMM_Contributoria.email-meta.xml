@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Renovación de GMM colectivo contributorio: un correo por titular con su familia y su prima (botón «Enviar renovación a asegurados» de la oportunidad de renovación). La clase RenovacionGmmContributoria llena los marcadores con llaves dobles.</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Renovación GMM Contributoria</name>
+    <style>none</style>
+    <subject>{{NOMBRE}}, confirma la renovación de tu póliza de Gastos Médicos Mayores {{PERIODO}}</subject>
+    <type>custom</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

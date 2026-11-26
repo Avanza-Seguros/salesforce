@@ -1,0 +1,171 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NOMBRE}}, confirma la renovación de tu póliza de Gastos Médicos Mayores {{PERIODO}}</title>
+<style type="text/css">
+  @font-face { font-family:'Gilroy'; font-style:normal; font-weight:500; src:url('{{FUENTE_GILROY_MEDIUM}}') format('woff2'); }
+  @font-face { font-family:'Gilroy'; font-style:normal; font-weight:800; src:url('{{FUENTE_GILROY_EXTRABOLD}}') format('woff2'); }
+  @font-face { font-family:'Annifont'; font-style:normal; font-weight:400; src:url('{{FUENTE_ANNIFONT}}') format('woff2'); }
+  body, td, th, p, div, a { font-family:'Gilroy', Arial, Helvetica, sans-serif; }
+  strong, b, th { font-weight:800; }
+  body { margin:0 !important; padding:0; -webkit-text-size-adjust:100%; }
+  table td { border-collapse:collapse; }
+  @media only screen and (max-width:620px) { .container { width:100% !important; } }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#E9EDF5;font-family:'Gilroy', Arial, Helvetica, sans-serif;font-weight:500;">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#E9EDF5;">Tu renovación está lista: revisa a tus asegurados y el monto, y confírmala con un clic antes del {{FECHA_LIMITE}}.</div>
+{{AVISO_PRUEBA}}<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#E9EDF5;">
+<tr><td align="center" style="padding:24px 8px;">
+<table class="container" width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:600px;max-width:600px;background:#FFFFFF;border-radius:14px;overflow:hidden;">
+
+<tr><td background="{{IMG_HERO_FONDO}}" bgcolor="#022843" valign="top" style="background:#022843 url('{{IMG_HERO_FONDO}}') center top / cover no-repeat;padding:0;height:340px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="padding:40px 20px 0 20px;text-align:center;">
+    <img src="{{IMG_LOGO_AVANZA_BLANCO}}" width="210" alt="Avanza Seguro Consultores" style="display:block;margin:0 auto 36px auto;border:0;width:210px;height:auto;">
+    <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:44px;line-height:1.1;font-weight:800;color:#F2F5FB;">¡Es momento de renovar!</div>
+    <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:22px;color:#F2F5FB;padding:14px 0 0 0;">tu Seguro de <strong style="color:#21CCFF;">Gastos Médicos Mayores</strong></div>
+    <div style="font-family:Annifont, Gilroy, Arial, sans-serif;font-weight:normal;font-size:18px;color:#A7BDD2;padding:12px 0 60px 0;">Que nada te detenga</div>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:34px 40px 0 40px;">
+  <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:26px;line-height:1.25;font-weight:800;color:#6C6C6B;text-align:left;">Hola, {{NOMBRE}}: queremos que sigas protegido.</div>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td valign="top" style="padding-right:12px;">
+      <p style="margin:14px 0 0 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:16px;line-height:1.6;color:#6C6C6B;">Tu póliza de <strong style="color:#6C6C6B;">{{CATEGORIA}}</strong> del programa de {{EMPRESA}} se renueva el <strong style="color:#6C6C6B;">{{INICIO}}</strong> y ya tenemos lista tu renovación para el periodo <strong style="color:#6C6C6B;">{{PERIODO}}</strong>.</p>
+      <p style="margin:12px 0 0 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:16px;line-height:1.6;color:#6C6C6B;">Esta póliza es <strong style="color:#6C6C6B;">contributoria</strong>: la prima la cubres tú directamente, por eso necesitamos tu confirmación para mantener protegida a tu familia sin interrupciones.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:18px;"><tr>
+        <td style="background:#EEEEEE;border:1px solid #EEEEEE;border-radius:14px;padding:14px 16px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;line-height:1.5;color:#6C6C6B;">¡Hola! Soy la <strong style="color:#005AB4;">Doctora Dalia</strong> y te acompañaré en tu renovación.</td>
+      </tr></table>
+    </td>
+    <td valign="middle" width="180" align="right"><img src="{{IMG_DRA_SALUDANDO}}" width="180" alt="Doctora Dalia" style="display:block;border:0;width:180px;height:auto;"></td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:30px 40px 0 40px;">
+  <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;font-weight:800;color:#005AB4;letter-spacing:2.5px;text-transform:uppercase;text-align:left;padding-bottom:8px;">Datos de tu renovación</div>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEEE;border-radius:18px;" bgcolor="#EEEEEE"><tr>
+    <td width="52" valign="top" style="padding:22px 0 18px 22px;"><img src="{{IMG_ICONO_CREDENCIAL}}" width="52" height="52" alt="" style="display:block;border:0;width:52px;height:52px;"></td>
+    <td valign="top" style="padding:16px 24px 14px 20px;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;'>Categoría</td><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;color:#6C6C6B;font-weight:800;text-align:right;'>{{CATEGORIA}}</td></tr><tr><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;'>Aseguradora</td><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;color:#6C6C6B;font-weight:800;text-align:right;'>{{ASEGURADORA}}</td></tr><tr><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;'>Nueva vigencia</td><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;color:#6C6C6B;font-weight:800;text-align:right;'>{{INICIO}} al {{FIN}}</td></tr><tr><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;'>Forma de pago</td><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;color:#6C6C6B;font-weight:800;text-align:right;'>Anual, en una sola exhibición</td></tr><tr><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;'>Confirma a más tardar</td><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;color:#6C6C6B;font-weight:800;text-align:right;'>{{FECHA_LIMITE}}</td></tr><tr><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;'>Asegurados</td><td style='padding:6px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;color:#6C6C6B;font-weight:800;text-align:right;'>{{NUM_ASEGURADOS}}</td></tr></table></td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:30px 40px 0 40px;">
+  <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;font-weight:800;color:#005AB4;letter-spacing:2.5px;text-transform:uppercase;text-align:left;padding-bottom:8px;">Quiénes quedan protegidos</div>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #6C6C6B;border-radius:18px;overflow:hidden;">
+    <tr><td style="padding:6px 8px;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#6C6C6B;">
+        <tr><th align="left" style="white-space:nowrap;padding:10px 12px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:11px;font-weight:800;color:#005AB4;text-transform:uppercase;letter-spacing:1px;">Asegurado</th><th align="left" style="white-space:nowrap;padding:10px 12px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:11px;font-weight:800;color:#005AB4;text-transform:uppercase;letter-spacing:1px;">Parentesco</th><th align="center" style="white-space:nowrap;padding:10px 12px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:11px;font-weight:800;color:#005AB4;text-transform:uppercase;letter-spacing:1px;">Edad</th><th align="right" style="white-space:nowrap;padding:10px 12px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:11px;font-weight:800;color:#005AB4;text-transform:uppercase;letter-spacing:1px;">Prima anual</th></tr>
+        {{FILAS}}
+      </table>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#022843;border-radius:18px;margin-top:14px;" bgcolor="#022843"><tr><td style="padding:22px 28px 26px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr><td style='padding:5px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#C6D7E6;'>Prima neta anual</td><td style='padding:5px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#FFFFFF;text-align:right;'>{{PRIMA_NETA}}</td></tr>
+      <tr><td style='padding:5px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#C6D7E6;'>Derecho de póliza</td><td style='padding:5px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#FFFFFF;text-align:right;'>{{DERECHO}}</td></tr>
+      <tr><td style='padding:5px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#C6D7E6;'>IVA 16%</td><td style='padding:5px 0;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#FFFFFF;text-align:right;'>{{IVA}}</td></tr>
+    </table>
+    <div style="border-top:1px solid #1C4A6E;margin:12px 0 14px 0;"></div>
+    <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:13px;color:#21CCFF;font-weight:800;letter-spacing:2px;text-transform:uppercase;text-align:center;">Total anual a pagar</div>
+    <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:38px;font-weight:800;color:#EFBF43;text-align:center;padding:4px 0 2px 0;">{{TOTAL}}</div>
+    <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;color:#C6D7E6;text-align:center;padding-bottom:20px;">Equivale a <strong style="color:#FFFFFF;">{{PRIMA_DIARIA}} al día</strong> por toda tu familia</div>
+    <table cellpadding="0" cellspacing="0" role="presentation" align="center"><tr>
+      <td style="background:#21CCFF;border-radius:40px;" bgcolor="#21CCFF"><a href="mailto:cotizaciones@avanzaseguro.com,esmeralda.lopez@avanzaseguro.com?subject=S%C3%AD%2C%20renuevo%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20{{PERIODO}}%20-%20{{NOMBRE_COMPLETO}}&body=Hola%2C%20equipo%20Avanza%20Seguro%3A%0A%0AConfirmo%20que%20S%C3%8D%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%2C%20categor%C3%ADa%20{{CATEGORIA}}%20del%20programa%20de%20{{EMPRESA}}%2C%20para%20la%20vigencia%20del%20{{INICIO}}%20al%20{{FIN}}.%0A%0AAsegurados%20que%20renuevan%20%28{{NUM_ASEGURADOS}}%29%3A%0A{{LISTA_ASEGURADOS}}%0A%0AAcepto%20el%20monto%20total%20anual%20de%20{{TOTAL}}%2C%20que%20incluye%20prima%20neta%20de%20{{PRIMA_NETA}}%2C%20derecho%20de%20p%C3%B3liza%20de%20{{DERECHO}}%20e%20IVA%20de%20{{IVA}}%2C%20pagadero%20en%20una%20sola%20exhibici%C3%B3n.%0A%0AQuedo%20atento%20a%20las%20instrucciones%20de%20pago.%0A%0AGracias%2C%0A{{NOMBRE_COMPLETO}}" style="display:inline-block;padding:15px 34px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:17px;font-weight:800;color:#022843;text-decoration:none;border-radius:40px;">&#10003; Sí, renovar mi póliza</a></td></tr></table>
+    <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;color:#A7BDD2;text-align:center;padding-top:12px;line-height:1.5;">Se abrirá un correo ya redactado con tu aceptación, los asegurados y el monto.<br>Solo revísalo y envíalo.</div>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:16px 40px 0 40px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td width="96" valign="middle"><img src="{{IMG_DRA_SENALANDO}}" width="96" alt="" style="display:block;border:0;width:96px;height:auto;"></td>
+    <td valign="middle" style="padding-left:24px;"><div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;font-weight:800;color:#005AB4;letter-spacing:2.5px;text-transform:uppercase;text-align:left;padding-bottom:8px;">Lo que conservas al renovar</div><div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:26px;line-height:1.25;font-weight:800;color:#6C6C6B;text-align:left;">Renovar a tiempo tiene muchos beneficios</div></td>
+  </tr></table>
+  
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEEE;border-radius:16px;margin-top:12px;" bgcolor="#EEEEEE"><tr>
+    <td width="48" valign="middle" style="padding:16px 0 16px 18px;"><img src="{{IMG_ICONO_RELOJ}}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;"></td>
+    <td valign="middle" style="padding:14px 20px 14px 22px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:17px;font-weight:800;color:#6C6C6B;">Conservas tu antigüedad</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Los periodos de espera que ya cumpliste no vuelven a empezar.</div></td>
+  </tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEEE;border-radius:16px;margin-top:12px;" bgcolor="#EEEEEE"><tr>
+    <td width="48" valign="middle" style="padding:16px 0 16px 18px;"><img src="{{IMG_ICONO_CORAZON}}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;"></td>
+    <td valign="middle" style="padding:14px 20px 14px 22px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:17px;font-weight:800;color:#6C6C6B;">Continuidad en tus tratamientos</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Los padecimientos cubiertos durante tu póliza actual siguen atendiéndose al renovar.</div></td>
+  </tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEEE;border-radius:16px;margin-top:12px;" bgcolor="#EEEEEE"><tr>
+    <td width="48" valign="middle" style="padding:16px 0 16px 18px;"><img src="{{IMG_ICONO_PORCENTAJE}}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;"></td>
+    <td valign="middle" style="padding:14px 20px 14px 22px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:17px;font-weight:800;color:#6C6C6B;">Condiciones de grupo</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Mantienes las coberturas y tarifas del programa colectivo, difíciles de obtener en una póliza individual.</div></td>
+  </tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEEE;border-radius:16px;margin-top:12px;" bgcolor="#EEEEEE"><tr>
+    <td width="48" valign="middle" style="padding:16px 0 16px 18px;"><img src="{{IMG_ICONO_DOCUMENTO}}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;"></td>
+    <td valign="middle" style="padding:14px 20px 14px 22px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:17px;font-weight:800;color:#6C6C6B;">Sin trámites nuevos</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">No tienes que llenar cuestionarios médicos ni enviar documentos otra vez.</div></td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:40px 0 0 0;"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#022843;" bgcolor="#022843"><tr><td style="padding:34px 34px 38px 34px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+    <td valign="middle" style="padding:0 6px;"><div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;font-weight:800;color:#21CCFF;letter-spacing:2.5px;text-transform:uppercase;text-align:left;padding-bottom:8px;">Más que una póliza</div><div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:26px;line-height:1.25;font-weight:800;color:#FFFFFF;text-align:left;">Seguimos contigo cuando más lo necesitas</div>
+      <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;line-height:1.55;color:#DCE8F3;padding-top:10px;">Renovar con Avanza Seguro es mantener a un equipo de tu lado ante cualquier imprevisto de salud.</div></td>
+    <td width="110" valign="bottom" align="right"><img src="{{IMG_DRA_PULGAR}}" width="104" alt="" style="display:block;border:0;width:104px;height:auto;"></td>
+  </tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:22px;"><tr><td width="50%" valign="top" style="padding:0 6px;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0A3858;border:1px solid #1C4A6E;border-radius:16px;" bgcolor="#0A3858"><tr><td style="padding:18px 18px 20px 18px;font-family:Gilroy, Arial, Helvetica, sans-serif;text-align:center;">
+        <div style="font-size:16px;font-weight:800;color:#FFFFFF;line-height:1.3;">Acompañamiento en cada hospitalización</div>
+        <div style="font-size:14px;line-height:1.5;color:#C6D7E6;padding-top:8px;">Te orientamos en programaciones de cirugía, cartas pase y reembolsos, y damos seguimiento con la aseguradora.</div>
+      </td></tr></table></td><td width="50%" valign="top" style="padding:0 6px;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0A3858;border:1px solid #1C4A6E;border-radius:16px;" bgcolor="#0A3858"><tr><td style="padding:18px 18px 20px 18px;font-family:Gilroy, Arial, Helvetica, sans-serif;text-align:center;">
+        <div style="font-size:16px;font-weight:800;color:#FFFFFF;line-height:1.3;">Atención personal</div>
+        <div style="font-size:14px;line-height:1.5;color:#C6D7E6;padding-top:8px;">Te atiende directamente nuestro equipo que conoce tu póliza y tu historial.</div>
+      </td></tr></table></td></tr></table>
+</td></tr></table></td></tr>
+<tr><td style="padding:38px 40px 0 40px;">
+  <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;font-weight:800;color:#005AB4;letter-spacing:2.5px;text-transform:uppercase;text-align:left;padding-bottom:8px;">Pasos para renovar</div><div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:26px;line-height:1.25;font-weight:800;color:#6C6C6B;text-align:left;">Así de fácil es renovar</div>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px;">
+    <tr><td width="34" valign="top" style="padding:0 0 18px 0;"><div style="width:30px;height:30px;line-height:30px;border-radius:15px;background:#005AB4;color:#FFFFFF;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;font-weight:800;text-align:center;">1</div></td>
+    <td valign="top" style="padding:4px 0 18px 14px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:16px;font-weight:800;color:#6C6C6B;">Confirma tu renovación</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Presiona <strong style='color:#6C6C6B;'>«Sí, renovar mi póliza»</strong> antes del <strong style='color:#6C6C6B;'>{{FECHA_LIMITE}}</strong>, o comunícanoslo por teléfono, WhatsApp o correo.</div></td></tr>
+    <tr><td width="34" valign="top" style="padding:0 0 18px 0;"><div style="width:30px;height:30px;line-height:30px;border-radius:15px;background:#005AB4;color:#FFFFFF;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;font-weight:800;text-align:center;">2</div></td>
+    <td valign="top" style="padding:4px 0 18px 14px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:16px;font-weight:800;color:#6C6C6B;">Renovamos tu póliza</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Con tu confirmación tramitamos la renovación con la aseguradora para la nueva vigencia.</div></td></tr>
+    <tr><td width="34" valign="top" style="padding:0 0 18px 0;"><div style="width:30px;height:30px;line-height:30px;border-radius:15px;background:#005AB4;color:#FFFFFF;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;font-weight:800;text-align:center;">3</div></td>
+    <td valign="top" style="padding:4px 0 18px 14px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:16px;font-weight:800;color:#6C6C6B;">Realiza tu pago</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Te enviamos por correo las instrucciones para cubrir tu prima anual en una sola exhibición y dejar tu póliza activa.</div></td></tr>
+    <tr><td width="34" valign="top" style="padding:0 0 18px 0;"><div style="width:30px;height:30px;line-height:30px;border-radius:15px;background:#005AB4;color:#FFFFFF;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:15px;font-weight:800;text-align:center;">4</div></td>
+    <td valign="top" style="padding:4px 0 18px 14px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:16px;font-weight:800;color:#6C6C6B;">Recibe tu póliza</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:3px;">Te hacemos llegar tu póliza y tus credenciales por correo.</div></td></tr></table>
+</td></tr>
+<tr><td style="padding:6px 40px 0 40px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#005AB4;border-radius:18px;" bgcolor="#005AB4"><tr><td style="padding:24px 28px 28px 28px;font-family:Gilroy, Arial, Helvetica, sans-serif;text-align:center;">
+    <div style="font-size:15px;color:#DCE8F3;">No lo dejes para después. Confirma a más tardar el</div>
+    <div style="font-size:34px;font-weight:800;color:#EFBF43;padding:6px 0 8px 0;">{{FECHA_LIMITE}}</div>
+    <div style="font-size:14px;line-height:1.55;color:#FFFFFF;font-style:italic;padding-bottom:20px;">Si no recibimos tu confirmación a tiempo, tu póliza no podrá renovarse y, al contratar después una póliza nueva, los periodos de espera empezarían de cero.</div>
+    <table cellpadding="0" cellspacing="0" role="presentation" align="center"><tr>
+      <td style="background:#21CCFF;border-radius:40px;" bgcolor="#21CCFF"><a href="mailto:cotizaciones@avanzaseguro.com,esmeralda.lopez@avanzaseguro.com?subject=S%C3%AD%2C%20renuevo%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20{{PERIODO}}%20-%20{{NOMBRE_COMPLETO}}&body=Hola%2C%20equipo%20Avanza%20Seguro%3A%0A%0AConfirmo%20que%20S%C3%8D%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%2C%20categor%C3%ADa%20{{CATEGORIA}}%20del%20programa%20de%20{{EMPRESA}}%2C%20para%20la%20vigencia%20del%20{{INICIO}}%20al%20{{FIN}}.%0A%0AAsegurados%20que%20renuevan%20%28{{NUM_ASEGURADOS}}%29%3A%0A{{LISTA_ASEGURADOS}}%0A%0AAcepto%20el%20monto%20total%20anual%20de%20{{TOTAL}}%2C%20que%20incluye%20prima%20neta%20de%20{{PRIMA_NETA}}%2C%20derecho%20de%20p%C3%B3liza%20de%20{{DERECHO}}%20e%20IVA%20de%20{{IVA}}%2C%20pagadero%20en%20una%20sola%20exhibici%C3%B3n.%0A%0AQuedo%20atento%20a%20las%20instrucciones%20de%20pago.%0A%0AGracias%2C%0A{{NOMBRE_COMPLETO}}" style="display:inline-block;padding:15px 34px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:17px;font-weight:800;color:#022843;text-decoration:none;border-radius:40px;">&#10003; Sí, renovar mi póliza</a></td></tr></table>
+  </td></tr></table>
+  <div style="padding-top:16px;"><table cellpadding="0" cellspacing="0" role="presentation" align="center"><tr>
+      <td style="background:#FFFFFF;border:1px solid #C9D1E3;border-radius:40px;" bgcolor="#FFFFFF"><a href="mailto:cotizaciones@avanzaseguro.com,esmeralda.lopez@avanzaseguro.com?subject=No%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20{{PERIODO}}%20-%20{{NOMBRE_COMPLETO}}&body=Hola%2C%20equipo%20Avanza%20Seguro%3A%0A%0ALes%20informo%20que%20NO%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%2C%20categor%C3%ADa%20{{CATEGORIA}}%20del%20programa%20de%20{{EMPRESA}}%2C%20para%20la%20vigencia%20del%20{{INICIO}}%20al%20{{FIN}}.%0A%0AEntiendo%20que%20la%20cobertura%20de%20mis%20asegurados%20no%20continuar%C3%A1%20en%20la%20nueva%20vigencia.%0A%0AMotivo%20%28opcional%29%3A%20%0A%0AGracias%2C%0A{{NOMBRE_COMPLETO}}" style="display:inline-block;padding:10px 26px;font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:14px;font-weight:800;color:#6C6C6B;text-decoration:none;border-radius:40px;">No deseo renovar</a></td></tr></table></div>
+</td></tr>
+<tr><td style="padding:38px 40px 0 40px;">
+  <div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:12px;font-weight:800;color:#005AB4;letter-spacing:2.5px;text-transform:uppercase;text-align:left;padding-bottom:8px;">Estamos para ayudarte</div><div style="font-family:Gilroy, Arial, Helvetica, sans-serif;font-size:26px;line-height:1.25;font-weight:800;color:#6C6C6B;text-align:left;">Avanza Seguro Consultores</div>
+  
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #6C6C6B;border-radius:16px;margin-top:12px;"><tr>
+    <td width="48" valign="top" style="padding:18px 0 16px 18px;"><img src="{{IMG_ICONO_DOCUMENTO}}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;"></td>
+    <td valign="middle" style="padding:16px 20px 16px 22px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:16px;font-weight:800;color:#6C6C6B;">Aceptación o rechazo de tu renovación</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:4px;">Para cualquier tema relacionado con la aceptación o el rechazo de tu cotización, da clic en el botón <a href='mailto:cotizaciones@avanzaseguro.com,esmeralda.lopez@avanzaseguro.com?subject=S%C3%AD%2C%20renuevo%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20{{PERIODO}}%20-%20{{NOMBRE_COMPLETO}}&body=Hola%2C%20equipo%20Avanza%20Seguro%3A%0A%0AConfirmo%20que%20S%C3%8D%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%2C%20categor%C3%ADa%20{{CATEGORIA}}%20del%20programa%20de%20{{EMPRESA}}%2C%20para%20la%20vigencia%20del%20{{INICIO}}%20al%20{{FIN}}.%0A%0AAsegurados%20que%20renuevan%20%28{{NUM_ASEGURADOS}}%29%3A%0A{{LISTA_ASEGURADOS}}%0A%0AAcepto%20el%20monto%20total%20anual%20de%20{{TOTAL}}%2C%20que%20incluye%20prima%20neta%20de%20{{PRIMA_NETA}}%2C%20derecho%20de%20p%C3%B3liza%20de%20{{DERECHO}}%20e%20IVA%20de%20{{IVA}}%2C%20pagadero%20en%20una%20sola%20exhibici%C3%B3n.%0A%0AQuedo%20atento%20a%20las%20instrucciones%20de%20pago.%0A%0AGracias%2C%0A{{NOMBRE_COMPLETO}}' style='color:#0087DE;font-weight:800;text-decoration:none;white-space:nowrap;'>SÍ, RENOVAR MI PÓLIZA</a> o <a href='mailto:cotizaciones@avanzaseguro.com,esmeralda.lopez@avanzaseguro.com?subject=No%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20{{PERIODO}}%20-%20{{NOMBRE_COMPLETO}}&body=Hola%2C%20equipo%20Avanza%20Seguro%3A%0A%0ALes%20informo%20que%20NO%20deseo%20renovar%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%2C%20categor%C3%ADa%20{{CATEGORIA}}%20del%20programa%20de%20{{EMPRESA}}%2C%20para%20la%20vigencia%20del%20{{INICIO}}%20al%20{{FIN}}.%0A%0AEntiendo%20que%20la%20cobertura%20de%20mis%20asegurados%20no%20continuar%C3%A1%20en%20la%20nueva%20vigencia.%0A%0AMotivo%20%28opcional%29%3A%20%0A%0AGracias%2C%0A{{NOMBRE_COMPLETO}}' style='color:#0087DE;font-weight:800;text-decoration:none;white-space:nowrap;'>NO DESEO RENOVAR</a>, escríbenos por WhatsApp al <a href='https://wa.me/523317404992?text=Hola%2C%20equipo%20Avanza%20Seguro.%20Soy%20{{NOMBRE_COMPLETO}}.%20Recib%C3%AD%20el%20aviso%20de%20renovaci%C3%B3n%20de%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20%28{{CATEGORIA}}%29%20y%20quiero%20comentarles%20sobre%20mi%20renovaci%C3%B3n%3A%20' style='color:#0087DE;font-weight:800;text-decoration:none;white-space:nowrap;'>33 1740 4992</a> o envíanos un correo a <a href='mailto:esmeralda.lopez@avanzaseguro.com' style='color:#0087DE;font-weight:800;text-decoration:none;white-space:nowrap;'>esmeralda.lopez@avanzaseguro.com</a>.</div></td>
+  </tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #6C6C6B;border-radius:16px;margin-top:12px;"><tr>
+    <td width="48" valign="top" style="padding:18px 0 16px 18px;"><img src="{{IMG_ICONO_ESCUDO}}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;"></td>
+    <td valign="middle" style="padding:16px 20px 16px 22px;font-family:Gilroy, Arial, Helvetica, sans-serif;"><div style="font-size:16px;font-weight:800;color:#6C6C6B;">Dudas sobre tus coberturas</div><div style="font-size:15px;line-height:1.5;color:#6C6C6B;padding-top:4px;">Si tienes alguna duda sobre las coberturas de tu póliza, escríbenos por WhatsApp al <a href='https://wa.me/523334416944?text=Hola%2C%20equipo%20Avanza%20Seguro.%20Soy%20{{NOMBRE_COMPLETO}}.%20Recib%C3%AD%20el%20aviso%20de%20renovaci%C3%B3n%20de%20mi%20p%C3%B3liza%20de%20Gastos%20M%C3%A9dicos%20Mayores%20%28{{CATEGORIA}}%29%20y%20tengo%20una%20duda%3A%20' style='color:#0087DE;font-weight:800;text-decoration:none;white-space:nowrap;'>33 3441 6944</a> o envíanos un correo a <a href='mailto:gmm@avanzaseguro.com' style='color:#0087DE;font-weight:800;text-decoration:none;white-space:nowrap;'>gmm@avanzaseguro.com</a>.</div></td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:36px 40px 40px 40px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEEE;border-radius:18px;" bgcolor="#EEEEEE"><tr>
+    <td width="120" valign="middle" align="center" style="padding:18px 0 18px 18px;"><img src="{{IMG_DRA_PORTAPAPELES}}" width="112" alt="" style="display:block;margin:0 auto;border:0;width:112px;height:auto;"></td>
+    <td valign="middle" style="padding:22px 24px 22px 18px;font-family:Gilroy, Arial, Helvetica, sans-serif;">
+      <div style="font-size:20px;font-weight:800;color:#6C6C6B;">¡Gracias por confiar en nosotros!</div>
+      <div style="font-size:15px;line-height:1.55;color:#6C6C6B;padding-top:8px;">Renovar es seguir cuidando lo más importante: tu salud y la de tu familia. Para lo que necesites, estamos contigo.</div>
+      <div style="font-size:14px;font-weight:800;color:#005AB4;padding-top:12px;">— Doctora Dalia y el equipo de Avanza Seguro Consultores</div>
+    </td>
+  </tr></table>
+</td></tr>
+<tr><td bgcolor="#022843" style="background:#022843;padding:36px 32px 34px 32px;text-align:center;font-family:Gilroy, Arial, Helvetica, sans-serif;">
+  <img src="{{IMG_LOGO_AVANZA_BLANCO}}" width="170" alt="Avanza Seguro Consultores" style="display:block;margin:0 auto;border:0;width:170px;height:auto;">
+  <div style="font-family:Annifont, Gilroy, Arial, sans-serif;font-weight:normal;font-size:16px;color:#A7BDD2;padding:22px 0 20px 0;">Que nada te detenga</div>
+  <div style="font-size:14px;line-height:1.7;color:#C6D7E6;"><strong style="color:#FFFFFF;">Avanza Seguro Consultores</strong><br>
+    <a href="https://www.avanzaseguro.com" style="color:#FFFFFF;font-weight:800;text-decoration:none;">www.avanzaseguro.com</a><br>
+    Torre Panorama, Av. Acueducto piso 17-interior 1701 - 01<br>Real Acueducto, 45116, Guadalajara, Jal.</div>
+  <div style="font-size:13px;color:#C6D7E6;padding-top:14px;">Consulta nuestro <a href="https://www.avanzaseguro.com/pages/avisos-de-privacidad" style="color:#21CCFF;font-weight:800;text-decoration:underline;">Aviso de Privacidad</a></div>
+</td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

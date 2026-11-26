@@ -394,7 +394,7 @@ public with sharing class CorreoCotizacionAuto {
 
 	// Cambia los marcadores: dentro de una liga mailto: o wa.me van codificados para URL; fuera, para HTML.
 	@TestVisible
-	private static String llenar(String html, Map<String, String> datos, Map<String, String> bloques) {
+	public static String llenar(String html, Map<String, String> datos, Map<String, String> bloques) {
 		String r = '';
 		Integer pos = 0;
 		Matcher m = Pattern.compile('href=["\'](?:mailto:|https://wa\\.me/)[^"\']*["\']').matcher(html);
@@ -433,7 +433,7 @@ public with sharing class CorreoCotizacionAuto {
 
 	// 14069.33 -> $14,069.33 (no depende del idioma de quien envía).
 	@TestVisible
-	private static String moneda(Decimal v) {
+	public static String moneda(Decimal v) {
 		List<String> p = v.setScale(2, System.RoundingMode.HALF_UP).toPlainString().split('\\.');
 		return '$' + p[0].reverse().replaceAll('([0-9]{3})(?=[0-9])', '$1,').reverse() + '.' + p[1];
 	}

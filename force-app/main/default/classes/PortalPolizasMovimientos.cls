@@ -85,6 +85,14 @@ public without sharing class PortalPolizasMovimientos {
 				when 'Participantes.getPlantillas' {
 					return ParticipantesPolizaController.getPlantillas();
 				}
+				when 'RenovacionGmm.enviar' {
+					List<Id> ids = new List<Id>();
+					for (Object o : (List<Object>) (p.get('participanteIds') == null ? new List<Object>() : p.get('participanteIds'))) {
+						try { ids.add(Id.valueOf(String.valueOf(o))); } catch (Exception e) { throw aviso('El registro no es de esta póliza.'); }
+					}
+					return RenovacionGmmContributoria.enviar(policyId, ids, texto(p, 'fechaLimite'),
+						p.get('derecho') == null ? null : Decimal.valueOf(String.valueOf(p.get('derecho'))));
+				}
 				when 'Participantes.enviarCorreo' {
 					// Correo a los asegurados de esta póliza: el controlador solo toma participantes de la póliza.
 					List<Id> ids = new List<Id>();

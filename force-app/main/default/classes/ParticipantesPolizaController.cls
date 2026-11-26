@@ -165,7 +165,7 @@ public inherited sharing class ParticipantesPolizaController {
 		]) {
 			if (t.Name.startsWith('SAMPLE') || t.Name.startsWith('SUPPORT') || t.Name.startsWith('Experience Cloud')
 				|| t.DeveloperName.startsWith('Community') || t.DeveloperName.endsWith('_OOTB_1')) { continue; }
-			r.add(new Map<String, Object>{ 'id' => t.Id, 'nombre' => t.Name, 'carpeta' => t.Folder == null ? null : t.Folder.Name });
+			r.add(new Map<String, Object>{ 'id' => t.Id, 'nombre' => t.Name, 'clave' => t.DeveloperName, 'carpeta' => t.Folder == null ? null : t.Folder.Name });
 		}
 		return r;
 	}

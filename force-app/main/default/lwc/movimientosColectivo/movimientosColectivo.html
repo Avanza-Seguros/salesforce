@@ -906,8 +906,19 @@
                                 <template if:true={avisoReenvio}><p class="sub slds-m-bottom_small">{avisoReenvio}</p></template>
                                 <lightning-combobox label="Plantilla" placeholder="Selecciona la plantilla" options={plantillas}
                                     value={correo.plantilla} onchange={cambiarPlantilla} required></lightning-combobox>
+                                <template lwc:if={esRenovacionGmm}>
+                                    <p class="sub slds-m-top_x-small">Cada titular recibe un correo con su familia, la prima de cada asegurado y el total a pagar (los dependientes no reciben uno propio).</p>
+                                    <div class="slds-grid slds-gutters_small slds-m-top_x-small">
+                                        <div class="slds-col"><lightning-input type="date" label="Confirmar a más tardar" value={correo.fechaLimite}
+                                            data-campo="fechaLimite" onchange={cambiarRenovacion} required disabled={correo.enviando}></lightning-input></div>
+                                        <div class="slds-col"><lightning-input type="number" formatter="currency" step="0.01" min="0" label="Derecho de póliza por titular"
+                                            value={correo.derecho} data-campo="derecho" onchange={cambiarRenovacion} disabled={correo.enviando}></lightning-input></div>
+                                    </div>
+                                </template>
+                                <template lwc:if={noEsRenovacionGmm}>
                                 <lightning-input type="checkbox" class="slds-m-top_small" label="Adjuntar los archivos del asegurado"
                                     checked={correo.adjuntar} onchange={cambiarAdjuntar}></lightning-input>
+                                </template>
                                 <p class="sub slds-m-top_x-small">El correo sale de info@avanzaseguro.com. A quien tiene un cambio solo se le adjuntan los archivos del cambio. A los dados de baja siempre se les adjunta su baja (el documento subido o una constancia generada). Al enviarse, el asegurado queda marcado como «Enviado».</p>
                                 <template if:true={correo.avance}><p class="slds-m-top_small">{correo.avance}</p></template>
                                 <template if:true={hayErroresCorreo}>

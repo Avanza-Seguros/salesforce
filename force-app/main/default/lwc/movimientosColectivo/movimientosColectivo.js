@@ -30,6 +30,7 @@ import subirDocumentoBaja from '@salesforce/apex/MovimientosColectivoController.
 import getPlantillas from '@salesforce/apex/ParticipantesPolizaController.getPlantillas';
 import cambiarSeguimiento from '@salesforce/apex/MovimientosColectivoController.cambiarSeguimiento';
 import enviarCorreo from '@salesforce/apex/ParticipantesPolizaController.enviarCorreo';
+import enviarRenovacionGmm from '@salesforce/apex/RenovacionGmmContributoria.enviar';
 import { llamar, fijarPortal, descargarDocumento } from 'c/portalContexto';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosColectivo.aplicar', p, aplicar);
@@ -37,6 +38,9 @@ const compararArchivoSitio = (p) => llamar('MovimientosColectivo.compararArchivo
 const archivosAseguradoSitio = (p) => llamar('MovimientosColectivo.archivosAsegurado', p, archivosAsegurado);
 const getPlantillasSitio = () => llamar('Participantes.getPlantillas', {}, getPlantillas);
 const enviarCorreoSitio = (p) => llamar('Participantes.enviarCorreo', p, enviarCorreo);
+const enviarRenovacionGmmSitio = (p) => llamar('RenovacionGmm.enviar', p, enviarRenovacionGmm);
+// Plantilla de renovación de GMM contributorio: un correo por titular con su familia; pide fecha límite y derecho de póliza.
+const PLANTILLA_RENOVACION_GMM = 'Renovacion_GMM_Contributoria';
 // Asegurados por llamada al enviar correo: menos si van con adjuntos (límite de memoria de Apex).
 const LOTE_CORREO = 25;
 const LOTE_CORREO_ADJUNTOS = 5;
@@ -712,7 +716,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // ============================================================
     // Envío de correo (solo en la póliza)
     // ============================================================
-    @track correo = { ids: [], plantilla: '', adjuntar: true, enviando: false, avance: '', errores: [], reenvio: false };
+    @track correo = { ids: [], plantilla: '', adjuntar: true, enviando: false, avance: '', errores: [], reenvio: false, fechaLimite: '', derecho: 130 };
     plantillas = [];
     get enModalCorreo() { return this.modal === 'correo'; }
     // Pendientes del filtro actual (todas las páginas): vigentes con correo a los que no se les ha enviado.
@@ -732,7 +736,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     bajaPorEnviar(m) { return !m.activo && m.tipoMovimiento === 'Baja' && !!m.movimientoId && !m.fechaCierre && /^SOL-/.test(m.solicitud || ''); }
     async cargarPlantillas() {
         if (this.plantillas.length) { return; }
-        this.plantillas = (await getPlantillasSitio()).map((t) => ({ value: t.id, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
+        this.plantillas = (await getPlantillasSitio()).map((t) => ({ value: t.id, clave: t.clave, label: t.carpeta ? `${t.carpeta} · ${t.nombre}` : t.nombre }));
     }
     get textoEnviarPendientes() { return `Enviar correo a pendientes (${this.pendientesCorreo.length})`; }
     get sinPendientesCorreo() { return this.pendientesCorreo.length === 0; }
@@ -811,6 +815,13 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     }
     cambiarPlantilla(e) { this.correo = { ...this.correo, plantilla: e.detail.value }; }
     cambiarAdjuntar(e) { this.correo = { ...this.correo, adjuntar: e.target.checked }; }
+    // Renovación de GMM contributorio: va a cada titular con su familia (los dependientes no reciben uno propio).
+    get esRenovacionGmm() {
+        const t = this.plantillas.find((p) => p.value === this.correo.plantilla);
+        return !!t && t.clave === PLANTILLA_RENOVACION_GMM;
+    }
+    get noEsRenovacionGmm() { return !this.esRenovacionGmm; }
+    cambiarRenovacion(e) { this.correo = { ...this.correo, [e.target.dataset.campo]: e.detail.value }; }
     get textoDestinatarios() {
         const d = this.destinatarios;
         const elegida = this.solicitudesCorreo.find((s) => s.sel);
@@ -821,7 +832,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     get avisoReenvio() { return this.correo.reenvio ? 'A este asegurado ya se le envió un correo; se enviará de nuevo.' : ''; }
     get hayErroresCorreo() { return this.correo.errores.length > 0; }
     get erroresCorreo() { return this.correo.errores.map((t, i) => ({ key: String(i), texto: t })); }
-    get sinEnviarCorreo() { return !this.correo.plantilla || !this.destinatarios.length || this.correo.enviando; }
+    get sinEnviarCorreo() { return !this.correo.plantilla || !this.destinatarios.length || this.correo.enviando || (this.esRenovacionGmm && !this.correo.fechaLimite); }
     get textoBotonCorreo() { return this.correo.enviando ? 'Enviando…' : (this.concluye ? 'Enviar y concluir' : 'Enviar'); }
     async enviarCorreos() {
         const validos = [...this.template.querySelectorAll('.correo-baja')].reduce((ok, c) => c.reportValidity() && ok, true);
@@ -840,8 +851,11 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         for (let i = 0; i < ids.length; i += lote) {
             this.correo = { ...this.correo, avance: `Enviando ${Math.min(i + lote, ids.length)} de ${ids.length}…` };
             try {
-                const r = await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar,
-                    correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null });
+                const r = this.esRenovacionGmm
+                    ? await enviarRenovacionGmmSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote),
+                        fechaLimite: this.correo.fechaLimite, derecho: this.correo.derecho })
+                    : await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar,
+                        correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null });
                 enviados += r.enviados || 0;
                 errores.push(...(r.errores || []));
             } catch (err) {
