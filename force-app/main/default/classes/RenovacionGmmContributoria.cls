@@ -359,7 +359,8 @@ public with sharing class RenovacionGmmContributoria {
 
 	// Correos de copia validados: «a@b.com, c@d.com» -> lista (sin repetidos).
 	@TestVisible
-	private static List<String> correos(String texto) {
+	// Correos de copia (también los usa el envío de cualquier plantilla a los asegurados).
+	public static List<String> correos(String texto) {
 		List<String> r = new List<String>();
 		if (String.isBlank(texto)) { return r; }
 		for (String c : texto.split('[,;\\s]+')) {

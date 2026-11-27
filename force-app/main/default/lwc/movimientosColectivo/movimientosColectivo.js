@@ -22,6 +22,7 @@ import compararArchivo from '@salesforce/apex/MovimientosColectivoController.com
 import traerDePoliza from '@salesforce/apex/MovimientosColectivoController.traerDePoliza';
 import archivosAsegurado from '@salesforce/apex/MovimientosColectivoController.archivosAsegurado';
 import asignarArchivos from '@salesforce/apex/MovimientosColectivoController.asignarArchivos';
+import eliminarArchivo from '@salesforce/apex/MovimientosColectivoController.eliminarArchivo';
 import completarCertificados from '@salesforce/apex/MovimientosColectivoController.completarCertificados';
 import guardarPrimas from '@salesforce/apex/MovimientosColectivoController.guardarPrimas';
 import contenidoPdf from '@salesforce/apex/MovimientosColectivoController.contenidoPdf';
@@ -891,7 +892,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                     ? await enviarRenovacionGmmSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote),
                         fechaLimite: this.correo.fechaLimite, derecho: this.correo.derecho, copias: this.correo.copias })
                     : await enviarCorreoSitio({ policyId: this._recordId, participanteIds: ids.slice(i, i + lote), plantillaId: plantilla, adjuntarArchivos: adjuntar,
-                        correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null });
+                        correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null, copias: this.correo.copias || null });
                 enviados += r.enviados || 0;
                 errores.push(...(r.errores || []));
             } catch (err) {
@@ -901,7 +902,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         }
         this.correo = { ...this.correo, enviando: false, avance: '', errores };
         if (enviados) {
-            this.toast('Correo enviado', `Se envió a ${enviados} asegurado${enviados === 1 ? '' : 's'}`
+            // Al enviarse, el registro de cada uno queda Concluido (lo hace el servidor).
+            const n = `${enviados} asegurado${enviados === 1 ? '' : 's'}`;
+            this.toast('Correo enviado', `Se envió a ${n} y su registro quedó Concluido`
                 + (errores.length ? `; ${errores.length} no se pudieron enviar.` : '.'), errores.length ? 'warning' : 'success');
             await this.cargar();
         }
@@ -1043,11 +1046,30 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             ...a,
             titulo: a.titulo + (a.tipo ? '.' + a.tipo : ''),
             icono: this.iconoArchivo(a.tipo),
+            textoEliminar: `Eliminar ${a.titulo + (a.tipo ? '.' + a.tipo : '')}`,
             detalle: [a.tipo ? a.tipo.toUpperCase() : '', this.tamanoTxt(a.tamano), a.fecha ? fechaVisible(a.fecha) : ''].filter((x) => x).join(' · ')
         }));
     }
     get hayArchivos() { return this.archivos.lista.length > 0; }
     get textoArchivos() { return `Archivos adjuntos (${this.archivos.lista.length})`; }
+    // Elimina un archivo de la ventana del asegurado (solo en Salesforce), con confirmación.
+    async eliminarArchivoAdjunto(e) {
+        const { id, titulo } = e.currentTarget.dataset;
+        if (!id || this.portal) { return; }
+        const ok = await LightningConfirm.open({
+            message: `Se eliminará «${titulo}» de Salesforce y ya no se podrá recuperar. ¿Continuar?`,
+            variant: 'header', label: 'Eliminar archivo', theme: 'warning'
+        });
+        if (!ok) { return; }
+        this.archivos = { ...this.archivos, cargando: true };
+        try {
+            await eliminarArchivo({ registroId: this.archivos.id, documentoId: id });
+            this.toast('Archivos', `Se eliminó «${titulo}».`, 'success');
+        } catch (err) {
+            this.mostrarError(err);
+        }
+        await this.cargarArchivos();
+    }
     // Vista previa de un archivo adjunto (no confundir con verArchivo, que abre la carga del censo).
     async previsualizarArchivo(e) {
         e.preventDefault();

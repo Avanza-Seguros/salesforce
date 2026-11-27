@@ -1162,24 +1162,57 @@ public inherited sharing class MovimientosColectivoController {
 	public static Map<String, Object> archivosAsegurado(Id registroId) {
 		if (registroId == null) { throw CensoColectivoController.error('Falta el asegurado.'); }
 		try {
-			Id contacto;
-			Id cuenta;
-			if (registroId.getSObjectType() == InsurancePolicyParticipant.SObjectType) {
-				InsurancePolicyParticipant p = [SELECT PrimaryParticipantContactId, PrimaryParticipantAccountId FROM InsurancePolicyParticipant
-					WHERE Id = :registroId LIMIT 1];
-				contacto = p.PrimaryParticipantContactId;
-				cuenta = p.PrimaryParticipantAccountId;
-			} else if (registroId.getSObjectType() == GroupCensusMember.SObjectType) {
-				contacto = [SELECT ContactId FROM GroupCensusMember WHERE Id = :registroId LIMIT 1].ContactId;
-			}
-			Map<Id, List<Map<String, Object>>> a = ParticipantesPolizaController.archivosDe(new Set<Id>{ registroId, contacto, cuenta });
+			List<Id> duenos = duenosArchivos(registroId);
+			Id contacto = duenos[0];
+			Id cuenta = duenos[1];
+			Map<Id, List<Map<String, Object>>> a = ParticipantesPolizaController.archivosDe(new Set<Id>(duenos));
 			return new Map<String, Object>{
 				'destinoId' => contacto != null ? contacto : (cuenta != null ? cuenta : registroId),
-				'archivos' => ParticipantesPolizaController.unirArchivos(a, new List<Id>{ contacto, cuenta, registroId })
+				'archivos' => ParticipantesPolizaController.unirArchivos(a, duenos)
 			};
 		} catch (Exception e) {
 			throw CensoColectivoController.error('No se pudieron leer los archivos: ' + e.getMessage());
 		}
+	}
+
+	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Elimina un archivo de la ventana de archivos del asegurado (solo en Salesforce). Solo se elimina si es
+	 *               de ese asegurado (de su contacto, su cuenta o el propio registro); se borra el documento completo.
+	 * @param registroId: InsurancePolicyParticipant o GroupCensusMember.
+	 * @param documentoId: ContentDocument a eliminar.
+	 * @return void
+	 */
+	@AuraEnabled(cacheable=false)
+	public static void eliminarArchivo(Id registroId, Id documentoId) {
+		if (UserInfo.getUserType() != 'Standard') { throw CensoColectivoController.error('Solo un ejecutivo puede eliminar archivos.'); }
+		if (registroId == null || documentoId == null) { throw CensoColectivoController.error('Falta el archivo.'); }
+		Set<Id> duenos = new Set<Id>(duenosArchivos(registroId));
+		duenos.remove(null);
+		if ([SELECT COUNT() FROM ContentDocumentLink WHERE ContentDocumentId = :documentoId AND LinkedEntityId IN :duenos] == 0) {
+			throw CensoColectivoController.error('El archivo no es de este asegurado.');
+		}
+		try {
+			delete new ContentDocument(Id = documentoId);
+		} catch (Exception e) {
+			throw CensoColectivoController.error('No se pudo eliminar el archivo: ' + e.getMessage());
+		}
+	}
+
+	// Registros donde pueden estar los archivos de un asegurado: [contacto, cuenta, registro] (los que no tiene, en null).
+	static List<Id> duenosArchivos(Id registroId) {
+		Id contacto;
+		Id cuenta;
+		if (registroId.getSObjectType() == InsurancePolicyParticipant.SObjectType) {
+			InsurancePolicyParticipant p = [SELECT PrimaryParticipantContactId, PrimaryParticipantAccountId FROM InsurancePolicyParticipant
+				WHERE Id = :registroId LIMIT 1];
+			contacto = p.PrimaryParticipantContactId;
+			cuenta = p.PrimaryParticipantAccountId;
+		} else if (registroId.getSObjectType() == GroupCensusMember.SObjectType) {
+			contacto = [SELECT ContactId FROM GroupCensusMember WHERE Id = :registroId LIMIT 1].ContactId;
+		}
+		return new List<Id>{ contacto, cuenta, registroId };
 	}
 
 	/**

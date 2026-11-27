@@ -171,6 +171,12 @@
     overflow-wrap: anywhere;
 }
 
+/* Eliminar, a la derecha de cada archivo. */
+.archivo-eliminar {
+    margin-left: auto;
+    flex: none;
+}
+
 .col-orden {
     cursor: pointer;
     user-select: none;

@@ -152,7 +152,7 @@ private class ParticipantesPolizaControllerTest {
 		Test.startTest();
 		Map<String, Object> r;
 		try {
-			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ titular.Id, dep.Id }, tpl.Id, true, null);
+			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ titular.Id, dep.Id }, tpl.Id, true, null, 'copia@prueba.test; otra@prueba.test');
 		} catch (AuraHandledException e) {
 			// Org sin entrega de correo habilitada: se informa el motivo.
 			Assert.isNotNull(e.getMessage());
@@ -177,10 +177,10 @@ private class ParticipantesPolizaControllerTest {
 		// Baja del dependiente sin correo propio: le llega a su titular; si se cambia al enviar, queda como su correo personal.
 		update new InsurancePolicyParticipant(Id = dep.Id, IsActiveParticipant = false, EffectiveToDate = Date.today(), Correo_Enviado__c = false);
 		try {
-			Map<String, Object> rb = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ dep.Id }, tpl.Id, false, null);
+			Map<String, Object> rb = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ dep.Id }, tpl.Id, false, null, null);
 			Assert.isFalse(String.join((List<String>) rb.get('errores'), ' ').contains('no tiene correo'), 'El de su titular');
 			rb = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ dep.Id }, tpl.Id, false,
-				JSON.serialize(new Map<String, String>{ (String) dep.Id => 'otro@prueba.test' }));
+				JSON.serialize(new Map<String, String>{ (String) dep.Id => 'otro@prueba.test' }), null);
 			if ((Integer) rb.get('enviados') == 1) {
 				Assert.areEqual('otro@prueba.test', [SELECT Correo_Personal__c FROM InsurancePolicyParticipant WHERE Id = :dep.Id].Correo_Personal__c);
 			}
@@ -188,7 +188,14 @@ private class ParticipantesPolizaControllerTest {
 			Assert.isNotNull(e.getMessage());
 		}
 		try {
-			ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ dep.Id }, tpl.Id, false, JSON.serialize(new Map<String, String>{ (String) dep.Id => 'sin arroba' }));
+			ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ dep.Id }, tpl.Id, false, JSON.serialize(new Map<String, String>{ (String) dep.Id => 'sin arroba' }), null);
+			Assert.fail('Debió fallar');
+		} catch (AuraHandledException e) {
+			Assert.isTrue(e.getMessage().contains('no es válido'), e.getMessage());
+		}
+		// Copia con un correo mal escrito: no se envía nada.
+		try {
+			ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ titular.Id }, tpl.Id, false, null, 'copia sin arroba');
 			Assert.fail('Debió fallar');
 		} catch (AuraHandledException e) {
 			Assert.isTrue(e.getMessage().contains('no es válido'), e.getMessage());
@@ -196,7 +203,7 @@ private class ParticipantesPolizaControllerTest {
 
 		for (List<Object> caso : new List<List<Object>>{ new List<Object>{ new List<Id>(), tpl.Id }, new List<Object>{ new List<Id>{ titular.Id }, null } }) {
 			try {
-				ParticipantesPolizaController.enviarCorreo(pol.Id, (List<Id>) caso[0], (Id) caso[1], false, null);
+				ParticipantesPolizaController.enviarCorreo(pol.Id, (List<Id>) caso[0], (Id) caso[1], false, null, null);
 				Assert.fail('Debió fallar');
 			} catch (AuraHandledException e) {
 				Assert.isNotNull(e.getMessage());

@@ -100,7 +100,7 @@ public without sharing class PortalPolizasMovimientos {
 						try { ids.add(Id.valueOf(String.valueOf(o))); } catch (Exception e) { throw aviso('El registro no es de esta póliza.'); }
 					}
 					return ParticipantesPolizaController.enviarCorreo(policyId, ids, (Id) texto(p, 'plantillaId'),
-						p.get('adjuntarArchivos') == true, texto(p, 'correosJson'));
+						p.get('adjuntarArchivos') == true, texto(p, 'correosJson'), texto(p, 'copias'));
 				}
 				when 'OtrasPolizas.buscar' {
 					Id registroId = registro(p, 'registroId', policyId);

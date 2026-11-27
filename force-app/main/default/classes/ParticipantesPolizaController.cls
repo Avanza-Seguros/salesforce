@@ -181,13 +181,15 @@ public inherited sharing class ParticipantesPolizaController {
 	 * @param adjuntarArchivos: adjunta los archivos del participante (contacto, cuenta o participante).
 	 * @param correosJson: { participanteId: correo } de los dados de baja a los que se les cambió el correo (opcional). Sin
 	 *        cambio, el de un dependiente dado de baja le llega a su titular.
-	 * @return {enviados, errores}.
+	 * @param copias: correos que reciben copia de cada correo (separados por coma o punto y coma; opcional, máximo 5).
+	 * @return {enviados, errores}. A quien se le envió, su registro queda Concluido (el estatus del movimiento no cambia).
 	 */
 	@AuraEnabled
 	public static Map<String, Object> enviarCorreo(Id policyId, List<Id> participanteIds, Id plantillaId, Boolean adjuntarArchivos,
-			String correosJson) {
+			String correosJson, String copias) {
 		if (participanteIds == null || participanteIds.isEmpty()) { throw CensoColectivoController.error('Selecciona al menos un participante.'); }
 		if (participanteIds.size() > 50) { throw CensoColectivoController.error('Envía máximo 50 correos a la vez.'); }
+		List<String> cc = RenovacionGmmContributoria.correos(copias);
 		List<EmailTemplate> tpls = [SELECT Id, Name FROM EmailTemplate WHERE Id = :plantillaId AND IsActive = true LIMIT 1];
 		if (tpls.isEmpty()) { throw CensoColectivoController.error('Selecciona una plantilla de correo activa.'); }
 		EmailTemplate tpl = tpls[0];
@@ -265,6 +267,7 @@ public inherited sharing class ParticipantesPolizaController {
 				'ASEGURADORA' => aseguradora, 'VIGENCIA' => vigencia, 'CORREO_SERVICIO' => 'info@avanzaseguro.com'
 			});
 			m.setToAddresses(new List<String>{ correo });
+			if (!cc.isEmpty()) { m.setCcAddresses(cc); }
 			if (!owe.isEmpty()) { m.setOrgWideEmailAddressId(owe[0].Id); }
 			m.setSaveAsActivity(false);
 			if (adjuntos.containsKey(p.Id)) { m.setFileAttachments(adjuntos.get(p.Id)); }
@@ -294,6 +297,14 @@ public inherited sharing class ParticipantesPolizaController {
 			}
 			update marcar;
 			enviados = marcar.size();
+			// Con el correo enviado, el registro de cada uno queda Concluido (solo el ejecutivo; el estatus del movimiento no cambia).
+			if (!marcar.isEmpty() && UserInfo.getUserType() == 'Standard') {
+				try {
+					EndosoPoliza.concluirConCorreo(policyId, new Map<Id, InsurancePolicyParticipant>(marcar).keySet());
+				} catch (Exception e) {
+					errores.add('El correo se envió, pero no se pudo concluir el registro: ' + e.getMessage());
+				}
+			}
 		}
 		return new Map<String, Object>{ 'enviados' => enviados, 'errores' => errores };
 	}

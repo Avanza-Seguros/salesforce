@@ -892,6 +892,12 @@
                                                     <a href="#" data-id={a.id} onclick={previsualizarArchivo} title="Ver archivo">{a.titulo}</a>
                                                     <div class="sub">{a.detalle}</div>
                                                 </div>
+                                                <!-- Eliminar el archivo: solo en Salesforce. -->
+                                                <template lwc:if={interno}>
+                                                    <lightning-button-icon icon-name="utility:delete" variant="bare" size="small" class="archivo-eliminar"
+                                                        alternative-text={a.textoEliminar} title={a.textoEliminar} data-id={a.id} data-titulo={a.titulo}
+                                                        onclick={eliminarArchivoAdjunto} disabled={archivos.cargando}></lightning-button-icon>
+                                                </template>
                                             </li>
                                         </template>
                                     </ul>
@@ -950,15 +956,16 @@
                                         <div class="slds-col"><lightning-input type="number" formatter="currency" step="0.01" min="0" label="Derecho de póliza por titular"
                                             value={correo.derecho} data-campo="derecho" onchange={cambiarRenovacion} disabled={correo.enviando}></lightning-input></div>
                                     </div>
-                                    <lightning-input class="slds-m-top_x-small" label="Con copia a (opcional)" value={correo.copias} data-campo="copias"
-                                        placeholder="correo@empresa.com, otro@empresa.com" field-level-help="Reciben una copia de cada correo de renovación que se envíe."
-                                        onchange={cambiarRenovacion} disabled={correo.enviando}></lightning-input>
                                 </template>
+                                <!-- Con copia: con cualquier plantilla. -->
+                                <lightning-input class="slds-m-top_x-small" label="Con copia a (opcional)" value={correo.copias} data-campo="copias"
+                                    placeholder="correo@empresa.com, otro@empresa.com" field-level-help="Reciben una copia de cada correo que se envíe (máximo 5, separados por coma)."
+                                    onchange={cambiarRenovacion} disabled={correo.enviando}></lightning-input>
                                 <template lwc:if={noEsRenovacionGmm}>
                                 <lightning-input type="checkbox" class="slds-m-top_small" label="Adjuntar los archivos del asegurado"
                                     checked={correo.adjuntar} onchange={cambiarAdjuntar}></lightning-input>
                                 </template>
-                                <p class="sub slds-m-top_x-small">El correo sale de info@avanzaseguro.com. A quien tiene un cambio solo se le adjuntan los archivos del cambio. A los dados de baja siempre se les adjunta su baja (el documento subido o una constancia generada). Al enviarse, el asegurado queda marcado como «Enviado».</p>
+                                <p class="sub slds-m-top_x-small">El correo sale de info@avanzaseguro.com. A quien tiene un cambio solo se le adjuntan los archivos del cambio. A los dados de baja siempre se les adjunta su baja (el documento subido o una constancia generada). Al enviarse, el asegurado queda marcado como «Enviado» y su registro queda Concluido.</p>
                                 <template if:true={correo.avance}><p class="slds-m-top_small">{correo.avance}</p></template>
                                 <template if:true={hayErroresCorreo}>
                                     <p class="texto-error slds-m-top_small">No se pudo enviar a todos:</p>

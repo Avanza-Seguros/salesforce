@@ -320,6 +320,64 @@ private class MovimientosColectivoControllerTest {
 		try { MovimientosColectivoController.archivosAsegurado(null); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
 	}
 
+	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Eliminar un archivo desde la ventana del asegurado: solo si es de ese asegurado.
+	 * @return void
+	 */
+	@isTest
+	static void testEliminarArchivo() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id juan = participante(pol.Id, 'Juan%');
+		Id maria = participante(pol.Id, 'Mar%');
+		ContentVersion cv = new ContentVersion(Title = 'Acta', PathOnClient = 'acta.pdf', VersionData = Blob.valueOf('pdf'));
+		ContentVersion otro = new ContentVersion(Title = 'INE', PathOnClient = 'ine.pdf', VersionData = Blob.valueOf('pdf'));
+		insert new List<ContentVersion>{ cv, otro };
+		Id docId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id].ContentDocumentId;
+		Id otroId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :otro.Id].ContentDocumentId;
+		insert new List<ContentDocumentLink>{
+			new ContentDocumentLink(ContentDocumentId = docId, LinkedEntityId = juan, ShareType = 'V'),
+			new ContentDocumentLink(ContentDocumentId = otroId, LinkedEntityId = maria, ShareType = 'V')
+		};
+		Test.startTest();
+		// El archivo de otra persona no se elimina desde la ventana de Juan.
+		try { MovimientosColectivoController.eliminarArchivo(juan, otroId); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
+		MovimientosColectivoController.eliminarArchivo(juan, docId);
+		Test.stopTest();
+		System.assertEquals(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :docId], 'Se eliminó');
+		System.assertEquals(1, [SELECT COUNT() FROM ContentDocument WHERE Id = :otroId], 'El de María sigue');
+		System.assertEquals(0, ((List<Object>) MovimientosColectivoController.archivosAsegurado(juan).get('archivos')).size());
+		try { MovimientosColectivoController.eliminarArchivo(juan, null); System.assert(false); } catch (AuraHandledException e) { System.assert(true); }
+	}
+
+	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Al enviar el correo, los registros abiertos del asegurado quedan Concluidos; los rechazados y los de otros
+	 *               asegurados no cambian.
+	 * @return void
+	 */
+	@isTest
+	static void testConcluirConCorreo() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-MOV-1'];
+		Id juan = participante(pol.Id, 'Juan%');
+		Id pedro = participante(pol.Id, 'Pedro%');
+		Movimiento_Poliza__c abierto = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = juan, Solicitud__c = 'SOL-0099', Tipo__c = 'Cambio', Fecha_Movimiento__c = Date.today());
+		Movimiento_Poliza__c rechazado = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = juan, Tipo__c = 'Cambio', Fecha_Movimiento__c = Date.today(),
+			Seguimiento__c = 'Rechazado');
+		Movimiento_Poliza__c otro = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = pedro, Tipo__c = 'Cambio', Fecha_Movimiento__c = Date.today());
+		insert new List<Movimiento_Poliza__c>{ abierto, rechazado, otro };
+		Test.startTest();
+		EndosoPoliza.concluirConCorreo(pol.Id, new Set<Id>{ juan });
+		EndosoPoliza.concluirConCorreo(pol.Id, new Set<Id>());
+		Test.stopTest();
+		System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :abierto.Id].Fecha_Cierre__c, 'Quedó concluido');
+		Movimiento_Poliza__c r = [SELECT Fecha_Cierre__c, Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :rechazado.Id];
+		System.assertEquals('Rechazado', r.Seguimiento__c, 'El rechazado se queda así');
+		System.assertEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :otro.Id].Fecha_Cierre__c, 'El de otro asegurado no cambia');
+	}
+
 	// Subida de archivos uno por uno (sin el límite de 10 del componente estándar).
 	@isTest
 	static void testSubirArchivo() {
@@ -404,7 +462,7 @@ private class MovimientosColectivoControllerTest {
 		Id doc = MovimientosColectivoController.subirDocumentoBaja(pol.Id, pedro, 'baja.pdf', EncodingUtil.base64Encode(Blob.valueOf('baja')));
 		Map<String, Object> r;
 		try {
-			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ pedro }, tpl.Id, true, null);
+			r = ParticipantesPolizaController.enviarCorreo(pol.Id, new List<Id>{ pedro }, tpl.Id, true, null, null);
 		} catch (AuraHandledException e) {
 			System.assertNotEquals(null, e.getMessage(), 'Org sin entrega de correo');
 		}
@@ -413,6 +471,10 @@ private class MovimientosColectivoControllerTest {
 		System.assertEquals(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :movBaja AND ContentDocumentId = :doc],
 			'El documento queda en el movimiento de baja');
 		if (r != null) { System.assertNotEquals(null, r.get('enviados')); }
+		// Con el correo enviado, su registro queda Concluido.
+		if (r != null && (Integer) r.get('enviados') == 1) {
+			System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :movBaja].Fecha_Cierre__c, 'La baja quedó concluida');
+		}
 		try {
 			MovimientosColectivoController.subirDocumentoBaja(pol.Id, participante(pol.Id, 'Juan%'), 'x.pdf', 'eA==');
 			System.assert(false, 'Sin baja no se puede');

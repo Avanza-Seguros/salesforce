@@ -385,6 +385,20 @@ public inherited sharing class EndosoPoliza {
 		new SinCompartir().fijarEstatus(policyId, folios);
 	}
 
+	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Al enviarle el correo a un asegurado, sus registros abiertos de la póliza quedan Concluidos (los
+	 *               rechazados no cambian). El estatus de su solicitud no cambia.
+	 * @param policyId: póliza.
+	 * @param participanteIds: asegurados a los que se les envió el correo.
+	 * @return void
+	 */
+	public static void concluirConCorreo(Id policyId, Set<Id> participanteIds) {
+		if (policyId == null || participanteIds == null || participanteIds.isEmpty()) { return; }
+		new SinCompartir().concluirParticipantes(policyId, participanteIds);
+	}
+
 	// Avisos de los correos de conclusión que se mandaron en esta transacción (para la pantalla).
 	private static List<String> avisosConclusion = new List<String>();
 
@@ -429,6 +443,22 @@ public inherited sharing class EndosoPoliza {
 			List<Case> cambios = new List<Case>();
 			for (Case c : casos) { cambios.add(new Case(Id = c.Id, Folio_Aseguradora__c = valor)); }
 			update cambios;
+		}
+		void concluirParticipantes(Id policyId, Set<Id> participanteIds) {
+			List<Movimiento_Poliza__c> movs = new List<Movimiento_Poliza__c>();
+			Set<String> folios = new Set<String>();
+			for (Movimiento_Poliza__c m : [
+				SELECT Id, Solicitud__c, Fecha_Cierre__c, Seguimiento__c, Transaccion__c FROM Movimiento_Poliza__c
+				WHERE Poliza__c = :policyId AND Participante__c IN :participanteIds AND Fecha_Cierre__c = null LIMIT 9000
+			]) {
+				if (m.Seguimiento__c == 'Rechazado') { continue; }
+				movs.add(m);
+				if (m.Solicitud__c != null) { folios.add(m.Solicitud__c); }
+			}
+			if (movs.isEmpty()) { return; }
+			// Cerrar sus registros no cambia el estatus de la solicitud.
+			if (!folios.isEmpty()) { fijarEstatus(policyId, folios); }
+			concluirElegidos(movs, false);
 		}
 		void fijarEstatus(Id policyId, Set<String> folios) {
 			List<Movimiento_Poliza__c> movs = [
