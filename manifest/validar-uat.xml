@@ -664,8 +664,6 @@
         <members>Case.Solicitud_Movimientos</members>
         <members>Contact.Contact</members>
         <members>InsurancePolicyAsset.Insurance_Policy_Asset</members>
-        <members>Opportunity.Oportunidad_Individual</members>
-        <members>Opportunity.Oportunidades</members>
         <members>PersonAccount.PersonAccount</members>
         <members>Product2.Product</members>
         <members>ProductCoverage.Product_Coverage</members>

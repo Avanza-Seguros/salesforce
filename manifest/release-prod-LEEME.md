@@ -89,7 +89,7 @@ Esto lo encontró la validación en UAT.
 | Pieza | Ajuste |
 |---|---|
 | Tipos de registro `Oportunidades`, `Oportunidad_Colectiva`, `Oportunidad_Individual`, `Product` y `Quote` | Tenían el XML mal cerrado desde que se agregó el ramo Mascotas (26/10); ya no se podían desplegar. Corregido |
-| Esos mismos tipos de registro | Se quitaron los valores que ya no existen en la definición de su campo; por ejemplo, «Ahorro» en Ramo y «Amistad» en Mercado |
+| Esos mismos tipos de registro | En las listas rediseñadas solo muestran los valores nuevos (ver «Decisiones aplicadas») |
 | Tipo de registro `Insurance_Policy_Asset` | Sin el formato compacto `Insurance_Policy_Asset`, que no existe |
 | Formato de Cuenta persona | Sin el botón `ScheduleAppointment`, que no existe |
 | Reglas `Business_Account`, `Person_Account` y `Phone_Format` (Cuenta), y `Bloqueo_quotes_si_existe_aceptada`, `No_change_status` y `No_permite_aceptado` (Cotización) | Inactivas, como en UAT, donde se probó todo; en el repositorio venían activas |
@@ -97,18 +97,30 @@ Esto lo encontró la validación en UAT.
 
 El LWC `portalPagos` va en el paquete porque compila, pero no se llega a él desde el sitio. No hay que crear la página «mis-pagos» en el sitio de PROD.
 
-## Decisiones de Avanza antes del día D
+## Decisiones aplicadas en esta rama
 
-1. **Listas rediseñadas en Gestión comercial.** El paquete trae las listas como están en UAT. En PROD esto quitaría valores que seguramente usan registros existentes:
-   - Mercado de la oportunidad: de 23 valores a 7, con los nuevos Corporativo, Gobierno, Individual y PyME.
-   - Plan producto: de 127 valores a 1.
-   - Categoría GMM, Vida, Dentegra y Adicional del contacto: sin «06».
-   - Ramo y Familia de producto, que reemplazan la lista completa de PROD. En UAT, Ramo además tiene «Salud», que no está en el repositorio.
-   - Hay que elegir entre:
-     - adoptar las listas nuevas y migrar los registros con valores viejos, o
-     - conservar los valores viejos en los campos y que los tipos de registro solo muestren los nuevos.
-2. **Etapas de la oportunidad.** El proceso de ventas «Pólizas» lleva las etapas de PROD («Necesidad», «Propuesta», «Cierre», «Emitido») más «Gestion Comercial» y «En proceso de emision». Esas dos hay que crearlas en PROD antes de desplegar. UAT ya solo tiene 5 etapas; decidir si las viejas se quedan.
-3. **Las 6 reglas de validación** que van apagadas: decidir si se activan en PROD. Si se activan, crear cuentas y cotizaciones va a pedir esos datos.
+Se aplicaron las recomendaciones del plan; falta el visto bueno de Avanza.
+
+1. **Listas rediseñadas en Gestión comercial: se conservan los valores de PROD y los tipos de registro solo muestran los nuevos.** Ningún registro de PROD se queda con un valor borrado.
+
+   | Lista | Valores nuevos | Valores de PROD que se conservan | Total |
+   |---|---|---|---|
+   | Mercado de la oportunidad | 7 | 20 | 27 |
+   | Plan producto | 1 | 126 | 127 |
+   | Categoría GMM, Vida, Dentegra y Adicional del contacto | 9, 6, 3 y 3 | «06» en cada una | 10, 7, 4 y 4 |
+   | Ramo (lista global) | 12 | 9 que tenía el campo Ramo de PROD («Gastos medicos», «Auto», «Accidentes», «Ahorro», «Retiro», «Mascota», «Transportes», «Administrativa», «Flotilla») | 21 |
+
+   - **Tipos de registro de oportunidad:**
+     - Colectiva, que solo existe en PROD, ahora muestra los valores nuevos de Ramo, Mercado y Plan producto, porque el código crea oportunidades con esos valores y las listas son restringidas.
+     - En Individual y Oportunidades, Tipo muestra los valores de PROD («Existing Business» y «New Business»), no los de UAT.
+   - **Familia de producto no se pudo unir:** en el repositorio no hay registro de sus valores en PROD. En la revisión de solo lectura de PROD hay que agregar al archivo los valores que PROD tenga, antes de validar.
+2. **Etapas de la oportunidad: se conservan las de PROD y se agregan las 2 nuevas.** El proceso de ventas «Pólizas» lleva «Necesidad», «Propuesta», «Cierre», «Emitido», «Póliza», «Closed Won» y «Closed Lost», más «Gestion Comercial» y «En proceso de emision». Esas dos hay que crearlas en PROD antes de validar.
+3. **Las 6 reglas de validación van apagadas,** como en UAT, donde se probó todo. Activarlas es otro cambio con su propia prueba.
+
+## Riesgos que solo se ven en PROD
+
+- **Ramo de la oportunidad pasa a la lista global «Ramo».** En PROD es una lista propia del campo, con 15 valores. La lista global ya incluye esos valores, pero si Salesforce no permite el cambio por despliegue, habrá que hacerlo a mano en Configuración («Promover a lista global»).
+- **Tipo de oportunidad:** el código pone `New_Business` cuando el formulario no trae Tipo. En PROD ese valor no existe; como Tipo no es una lista restringida, se guarda igual, pero aparecerá como valor inactivo.
 
 ## Fuera del paquete
 
@@ -132,9 +144,9 @@ AseguradosControllerTest,AvisoMovimientoConcluidoTest,AvisoRenovacionPolizaTest,
 
 En PowerShell hay que pasarlas como lista (`$pruebas = "A,B,…".Split(",")` y luego `--tests $pruebas`). Si se mandan como un solo texto con comas, Salesforce no corre ninguna prueba.
 
-**Validación en UAT el 27/11/2026, sin desplegar** (id `0AfcU00000CIKZFSA5`):
-- **Resultado:** 725 componentes sin errores (el manifiesto con los campos y reglas de cada objeto). Pasan las 325 pruebas de las 40 clases. Cobertura de 91 %; la clase más baja es `PortalSitioController` con 81 %.
-- **Manifiesto de esta corrida:** `manifest/validar-uat.xml`, que no lleva el proceso de ventas «Pólizas» ni el tipo de registro `Oportunidad_Colectiva`. Los dos usan valores que hay en PROD y no en UAT (etapa «Necesidad» y tipo «Existing Business»), y `Oportunidad_Colectiva` no existe en UAT. Esos dos se comprueban en la validación de PROD.
+**Validación en UAT el 27/11/2026, sin desplegar y con las decisiones aplicadas** (id `0AfcU00000CILzxSAH`):
+- **Resultado:** 723 componentes sin errores (el manifiesto con los campos y reglas de cada objeto). Pasan las 325 pruebas de las 40 clases. Cobertura de 91 %; la clase más baja es `PortalSitioController` con 81 %.
+- **Manifiesto de esta corrida:** `manifest/validar-uat.xml`. No lleva el proceso de ventas «Pólizas» ni los tipos de registro `Oportunidad_Colectiva`, `Oportunidad_Individual` y `Oportunidades`, porque usan valores que hay en PROD y no en UAT: la etapa «Necesidad» y el tipo «Existing Business». Además, `Oportunidad_Colectiva` no existe en UAT. Esos cuatro se comprueban en la validación de PROD.
 - **Qué no cubre esta corrida:** que el código funcione sin los triggers de Cobranza. UAT los tiene y PROD no los tendrá.
 
 Con `RunLocalTests` no pasaría, por las 52 pruebas antiguas que ya fallan en UAT.

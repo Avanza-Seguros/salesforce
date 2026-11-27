@@ -60,6 +60,51 @@
         <default>false</default>
         <label>Visión</label>
     </customValue>
+    <customValue>
+        <fullName>Gastos medicos</fullName>
+        <default>false</default>
+        <label>Gastos medicos</label>
+    </customValue>
+    <customValue>
+        <fullName>Auto</fullName>
+        <default>false</default>
+        <label>Auto</label>
+    </customValue>
+    <customValue>
+        <fullName>Accidentes</fullName>
+        <default>false</default>
+        <label>Accidentes</label>
+    </customValue>
+    <customValue>
+        <fullName>Ahorro</fullName>
+        <default>false</default>
+        <label>Ahorro</label>
+    </customValue>
+    <customValue>
+        <fullName>Retiro</fullName>
+        <default>false</default>
+        <label>Retiro</label>
+    </customValue>
+    <customValue>
+        <fullName>Mascota</fullName>
+        <default>false</default>
+        <label>Mascota</label>
+    </customValue>
+    <customValue>
+        <fullName>Transportes</fullName>
+        <default>false</default>
+        <label>Transportes</label>
+    </customValue>
+    <customValue>
+        <fullName>Administrativa</fullName>
+        <default>false</default>
+        <label>Administrativa</label>
+    </customValue>
+    <customValue>
+        <fullName>Flotilla</fullName>
+        <default>false</default>
+        <label>Flotilla</label>
+    </customValue>
     <masterLabel>Ramo</masterLabel>
     <sorted>false</sorted>
 </GlobalValueSet>

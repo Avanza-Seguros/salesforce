@@ -1199,19 +1199,11 @@
     <picklistValues>
         <picklist>Type</picklist>
         <values>
-            <fullName>External_Renewal</fullName>
+            <fullName>Existing Business</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Internal_Renewal</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>New_Business</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Reissue</fullName>
+            <fullName>New Business</fullName>
             <default>false</default>
         </values>
     </picklistValues>

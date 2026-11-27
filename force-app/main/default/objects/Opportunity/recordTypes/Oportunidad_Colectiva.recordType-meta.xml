@@ -584,7 +584,31 @@
     <picklistValues>
         <picklist>Mercado__c</picklist>
         <values>
+            <fullName>Corporativo</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Familiar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gobierno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Individual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Platica Luxoft</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PyME</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Siniestro Luxoft</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -923,6 +947,10 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Automoviles</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Danos</fullName>
             <default>false</default>
         </values>
@@ -931,7 +959,15 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Empresarial</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Fianzas</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>GMM</fullName>
             <default>false</default>
         </values>
         <values>
@@ -939,7 +975,19 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Viajes</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Accidentes Personales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vision</fullName>
             <default>false</default>
         </values>
     </picklistValues>
