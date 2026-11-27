@@ -52,6 +52,8 @@ private class AvisoSolicitudSitioTest {
 			new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Inciso 2 - Planta') };
 		PortalPolizasController.cuentaPrueba = cliente.Id;
 		PortalPolizasController.contactoPrueba = null;
+		// Desde el sitio las ubicaciones llevan trámite (folio); la prueba corre con un usuario de Salesforce, que no lo lleva.
+		MovimientosUbicacionesController.conTramiteEnPrueba = true;
 		PortalPolizasPestanas.crearSolicitud(danos.Id, JSON.serialize(new Map<String, Object>{ 'comentario' => 'Urgente', 'movimientos' => new List<Object>{
 			new Map<String, Object>{ 'tipo' => 'alta', 'fecha' => String.valueOf(Date.today()),
 				'datos' => new List<Object>{ new Map<String, Object>{ 'etiqueta' => 'Nombre', 'valor' => 'Bodega' } },
@@ -89,7 +91,7 @@ private class AvisoSolicitudSitioTest {
 			new Map<String, Object>{ 'etiqueta' => 'Nombre(s)', 'valor' => 'Ana' },
 			new Map<String, Object>{ 'etiqueta' => 'Apellido paterno', 'valor' => 'Ruiz' } },
 			'campos' => new Map<String, Object>{ 'nombre' => 'Ana', 'paterno' => 'Ruiz', 'nacimiento' => '1990-05-04', 'sexo' => 'Mujer',
-				'parentesco' => 'Titular' } };
+				'parentesco' => 'Titular', 'categoria' => 'General' } };
 		Map<String, Object> baja = new Map<String, Object>{ 'tipo' => 'baja', 'registroId' => titular.Id, 'detalle' => 'Renuncia' };
 		PortalPolizasPestanas.crearSolicitud(col.Id, JSON.serialize(new Map<String, Object>{ 'movimientos' => new List<Object>{ alta, baja } }), null);
 		Test.startTest();
