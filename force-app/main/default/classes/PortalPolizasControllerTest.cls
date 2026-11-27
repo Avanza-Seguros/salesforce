@@ -162,8 +162,7 @@ private class PortalPolizasControllerTest {
 	/**
 	 * @creation date: 15/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: El Dashboard suma lo pendiente y lo vencido de las cuotas del usuario, sin contar la cuota
-	 * reemplazada por un recibo nuevo, y pone el pago del mes en la gráfica.
+	 * @description: Sin Cobranza el Dashboard trae las pólizas y sus bienes, y lo de pagos vacío (conPagos en false).
 	 * @return void
 	 */
 	@isTest
@@ -172,26 +171,6 @@ private class PortalPolizasControllerTest {
 		insert mia;
 		InsurancePolicy p = poliza(mia.Id, 'DASH-001');
 		insert p;
-		// La org genera cuotas al crear la póliza: se quitan para controlar las de la prueba.
-		delete [SELECT Id FROM PaymentPlanInstallment__c WHERE paymentPlan__r.insurancePolicy__c = :p.Id];
-		PaymentPlan__c plan = new PaymentPlan__c(insurancePolicy__c = p.Id, planStatus__c = 'Cancelado',
-			premiumFrequency__c = 'Mensual', expectedTotalAmount__c = 1200, firstDueDate__c = Date.today());
-		insert plan;
-		PaymentPlanInstallment__c vieja = new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 1,
-			dueDate__c = Date.today().addDays(-20), expectedAmount__c = 300, installmentStatus__c = 'Vencido');
-		insert vieja;
-		insert new List<PaymentPlanInstallment__c>{
-			new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 1, dueDate__c = Date.today().addDays(-20),
-				expectedAmount__c = 300, installmentStatus__c = 'Vencido', replacesInstallment__c = vieja.Id),
-			new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 2,
-				dueDate__c = Date.today().toStartOfMonth().addMonths(1).addDays(4), expectedAmount__c = 500,
-				installmentStatus__c = 'Pendiente'),
-			new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 3, dueDate__c = Date.today(),
-				expectedAmount__c = 200, installmentStatus__c = 'Cancelado'),
-			// Vence después del fin de vigencia: no se cuenta.
-			new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 4, dueDate__c = Date.today().addDays(400),
-				expectedAmount__c = 1000, installmentStatus__c = 'Pendiente')
-		};
 		PortalPolizasController.cuentaPrueba = mia.Id;
 
 		Test.startTest();
@@ -199,13 +178,11 @@ private class PortalPolizasControllerTest {
 		Test.stopTest();
 
 		System.assertEquals(1, d.polizas.size(), 'Una póliza');
-		System.assertEquals(800, d.totalPendiente, 'Pendiente sin la cuota reemplazada, la cancelada ni la de después de la vigencia');
-		System.assertEquals(300, d.totalVencido, 'Vencido');
-		System.assertEquals(1, d.cuotasVencidas, 'Una cuota vencida');
-		System.assertEquals(6, d.pagosPorMes.size(), 'Seis meses');
-		System.assertEquals(500, d.pagosPorMes[1].monto, 'El pago del mes siguiente');
-		System.assertEquals(2, d.proximasCuotas.size(), 'Cuotas por pagar');
-		System.assertEquals(12, d.pagadoPorMes.size(), 'Doce meses de historial');
+		System.assertEquals(false, d.conPagos, 'Sin Cobranza no hay pagos');
+		System.assertEquals(0, d.totalPendiente, 'Nada pendiente');
+		System.assertEquals(0, d.cuotasVencidas, 'Sin cuotas vencidas');
+		System.assert(d.proximasCuotas.isEmpty(), 'Sin próximos pagos');
+		System.assertEquals(null, d.polizas[0].proximoPago, 'Sin próximo pago');
 		System.assertNotEquals(null, d.bienes.get('personas'), 'Cuenta los bienes');
 	}
 

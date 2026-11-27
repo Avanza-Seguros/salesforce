@@ -17,11 +17,4 @@
         <target>/mi-dashboard</target>
         <type>InternalLink</type>
     </navigationMenuItem>
-    <navigationMenuItem>
-        <label>Pagos</label>
-        <position>3</position>
-        <publiclyAvailable>false</publiclyAvailable>
-        <target>/mis-pagos</target>
-        <type>InternalLink</type>
-    </navigationMenuItem>
 </NavigationMenu>

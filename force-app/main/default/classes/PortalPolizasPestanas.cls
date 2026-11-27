@@ -2,18 +2,14 @@
  * @creation date: 14/11/2026
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Pestañas del detalle de póliza en el sitio Avanza Seguro (componente portalPolizas), las mismas
- *   que la página de la póliza en Salesforce: Información, Pagos, Vigencias, Asegurados / Vehículos / Ubicaciones
- *   y Participantes. Son de solo lectura y muestran solo lo que le sirve al cliente (sin datos internos de
+ *   que la página de la póliza en Salesforce: Información, Vigencias, Asegurados / Vehículos / Ubicaciones
+ *   y Participantes (esta liberación va sin Cobranza: Pagos queda vacía). Son de solo lectura y muestran solo lo que le sirve al cliente (sin datos internos de
  *   sincronización con la aseguradora ni de cobranza interna).
  *   Cada método valida primero, con PortalPolizasController.validarAcceso, que la póliza sea del usuario del
  *   sitio (o de la cuenta elegida en vista previa); por eso la clase no depende de la compartición del sitio.
  */
 public without sharing class PortalPolizasPestanas {
 
-	/** Cuotas que ya no se deben: no suman en los totales. */
-	static final Set<String> ESTADOS_CERRADOS = new Set<String>{ 'Cancelado', 'Condonado' };
-	/** La emisión original llega como endoso vacío o en ceros ("0", "000000"). */
-	static final Pattern ENDOSO_EMISION = Pattern.compile('^0+$');
 	/** Tope de vigencias encadenadas (evita un bucle si un enlace quedara circular). */
 	static final Integer MAX_NIVELES = 30;
 
@@ -42,7 +38,7 @@ public without sharing class PortalPolizasPestanas {
 	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Pestaña Información Póliza: datos de la póliza, vigencia y renovación y estado de pago.
+	 * @description: Pestaña Información Póliza: datos de la póliza y su vigencia y renovación (sin Cobranza no hay estado de pago).
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @return Secciones con sus campos (solo los que tienen valor)
@@ -53,9 +49,8 @@ public without sharing class PortalPolizasPestanas {
 			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
 			InsurancePolicy p = [
 				SELECT Name, Aseguradora__r.Name, toLabel(Ramo__c), Product.Name, NameInsured.Name, toLabel(Status),
-					EffectiveDate, ExpirationDate, CancellationDate, CancellationReason, insuredAssetDescription__c,
-					Moneda__c, SaleDate, PriorPolicy.Name, RenewedFromPolicy.Name, ReferencePolicyNumber, termPeriod__c,
-					toLabel(collectionPaymentStatus__c), collectionNextDueDate__c, PaidToDate, totalRefundedAmount__c
+					EffectiveDate, ExpirationDate, CancellationDate, CancellationReason,
+					Moneda__c, SaleDate, PriorPolicy.Name, RenewedFromPolicy.Name, ReferencePolicyNumber, termPeriod__c
 				FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
 			];
 			Informacion info = new Informacion();
@@ -73,8 +68,6 @@ public without sharing class PortalPolizasPestanas {
 			fecha(datos, 'Fecha de cancelación', p.CancellationDate);
 			Campo motivo = texto(datos, 'Motivo de cancelación', p.CancellationReason);
 			if (motivo != null) { motivo.ancho = true; }
-			Campo bien = texto(datos, 'Bien asegurado', p.insuredAssetDescription__c);
-			if (bien != null) { bien.ancho = true; }
 
 			// En el sitio no se muestra la sección Información de prima (la prima total ya va en el encabezado de la póliza).
 			Seccion renov = seccion(info, 'Vigencia y renovación');
@@ -83,12 +76,6 @@ public without sharing class PortalPolizasPestanas {
 			texto(renov, 'Póliza anterior', p.PriorPolicy?.Name);
 			texto(renov, 'Renovación de', p.RenewedFromPolicy?.Name);
 			texto(renov, 'Número de referencia', p.ReferencePolicyNumber);
-
-			Seccion cobranza = seccion(info, 'Estado de pago');
-			texto(cobranza, 'Estado de pago', p.collectionPaymentStatus__c);
-			fecha(cobranza, 'Próximo pago', p.collectionNextDueDate__c);
-			fecha(cobranza, 'Pagado hasta', p.PaidToDate);
-			moneda(cobranza, 'Total devuelto', p.totalRefundedAmount__c);
 
 			// No se muestran secciones vacías.
 			List<Seccion> conDatos = new List<Seccion>();
@@ -132,8 +119,8 @@ public without sharing class PortalPolizasPestanas {
 	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Pestaña Pagos: una fila por cuota vigente (las que reemplazó un recibo nuevo de la aseguradora
-	 * se cuentan pero no se listan), con los totales de lo que se debe. Misma regla que policyInstallments.
+	 * @description: Pestaña Pagos: las cuotas salen de Cobranza, que no va en esta liberación: regresa la moneda
+	 * de la póliza y ninguna cuota.
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @return Cuotas y totales
@@ -145,55 +132,6 @@ public without sharing class PortalPolizasPestanas {
 			Pagos salida = new Pagos();
 			String moneda = [SELECT Moneda__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1].Moneda__c;
 			salida.moneda = String.isBlank(moneda) ? 'MXN' : moneda;
-
-			List<PaymentPlanInstallment__c> todas = [
-				SELECT Id, Name, sequenceNumber__c, dueDate__c, expectedAmount__c, matchedAmount__c, outstandingAmount__c,
-					toLabel(installmentStatus__c) estadoEtiqueta, installmentStatus__c, daysOverdue__c,
-					carrierReceiptNumber__c, carrierEndorsementNumber__c, carrierInstallmentNumber__c, isEstimated__c,
-					replacesInstallment__c, matchedReceipt__r.receiptDate__c
-				FROM PaymentPlanInstallment__c
-				WHERE paymentPlan__r.insurancePolicy__c = :policyId
-				ORDER BY dueDate__c ASC NULLS LAST, sequenceNumber__c ASC
-				LIMIT 2000
-			];
-			Map<Id, PaymentPlanInstallment__c> porId = new Map<Id, PaymentPlanInstallment__c>(todas);
-			Set<Id> reemplazadas = new Set<Id>();
-			for (PaymentPlanInstallment__c c : todas) {
-				if (c.replacesInstallment__c != null) { reemplazadas.add(c.replacesInstallment__c); }
-			}
-			for (PaymentPlanInstallment__c viva : todas) {
-				if (reemplazadas.contains(viva.Id)) { continue; }
-				// El número de cuota de la aseguradora es el de la emisión original de la cadena.
-				PaymentPlanInstallment__c origen = viva;
-				Integer reemplazos = 0;
-				Set<Id> vistos = new Set<Id>{ viva.Id };
-				while (origen.replacesInstallment__c != null && porId.containsKey(origen.replacesInstallment__c)
-						&& !vistos.contains(origen.replacesInstallment__c)) {
-					origen = porId.get(origen.replacesInstallment__c);
-					vistos.add(origen.Id);
-					reemplazos++;
-				}
-				Cuota q = new Cuota();
-				q.id = viva.Id;
-				q.etiqueta = etiquetaCuota(origen, viva);
-				q.estimada = viva.isEstimated__c == true;
-				q.recibo = String.isNotBlank(viva.carrierReceiptNumber__c) ? viva.carrierReceiptNumber__c
-					: (q.estimada ? 'Sin recibo aún' : null);
-				q.vence = viva.dueDate__c;
-				q.fechaPago = viva.matchedReceipt__r?.receiptDate__c;
-				q.importe = viva.expectedAmount__c;
-				q.pagado = viva.matchedAmount__c;
-				q.pendiente = viva.outstandingAmount__c;
-				q.estado = (String) viva.get('estadoEtiqueta');
-				q.diasMora = viva.daysOverdue__c != null && viva.daysOverdue__c > 0 ? viva.daysOverdue__c.intValue() : null;
-				q.recibosReemplazados = reemplazos;
-				salida.cuotas.add(q);
-				if (!ESTADOS_CERRADOS.contains(viva.installmentStatus__c)) {
-					salida.totalImporte += viva.expectedAmount__c == null ? 0 : viva.expectedAmount__c;
-					salida.totalPagado += viva.matchedAmount__c == null ? 0 : viva.matchedAmount__c;
-					salida.totalPendiente += viva.outstandingAmount__c == null ? 0 : viva.outstandingAmount__c;
-				}
-			}
 			return salida;
 		} catch (AuraHandledException e) {
 			throw e;
@@ -229,7 +167,7 @@ public without sharing class PortalPolizasPestanas {
 	 * renuevan), de la más reciente a la más antigua. Solo se listan las vigencias que también son del usuario.
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
-	 * @return Vigencias con prima, pagado y pendiente
+	 * @return Vigencias con su prima (sin Cobranza, pagado y pendiente en cero)
 	 */
 	@AuraEnabled(cacheable=true)
 	public static Vigencias vigencias(Id policyId, Id cuentaVistaPrevia) {
@@ -283,25 +221,6 @@ public without sharing class PortalPolizasPestanas {
 					: (p.PriorPolicy != null && p.PriorPolicy.Name != p.Name
 						? 'Renumerada · antes ' + p.PriorPolicy.Name : 'Mismo número');
 				porId.put(p.Id, v);
-			}
-
-			// Pagado y pendiente de cada vigencia, con la misma regla que la pestaña Pagos.
-			List<PaymentPlanInstallment__c> cuotas = [
-				SELECT Id, installmentStatus__c, matchedAmount__c, outstandingAmount__c, replacesInstallment__c,
-					paymentPlan__r.insurancePolicy__c
-				FROM PaymentPlanInstallment__c
-				WHERE paymentPlan__r.insurancePolicy__c IN :porId.keySet()
-				LIMIT 10000
-			];
-			Set<Id> reemplazadas = new Set<Id>();
-			for (PaymentPlanInstallment__c c : cuotas) {
-				if (c.replacesInstallment__c != null) { reemplazadas.add(c.replacesInstallment__c); }
-			}
-			for (PaymentPlanInstallment__c c : cuotas) {
-				if (reemplazadas.contains(c.Id) || ESTADOS_CERRADOS.contains(c.installmentStatus__c)) { continue; }
-				Vigencia v = porId.get(c.paymentPlan__r.insurancePolicy__c);
-				v.pagado += c.matchedAmount__c == null ? 0 : c.matchedAmount__c;
-				v.pendiente += c.outstandingAmount__c == null ? 0 : c.outstandingAmount__c;
 			}
 
 			List<Vigencia> ordenadas = porId.values();
@@ -746,18 +665,6 @@ public without sharing class PortalPolizasPestanas {
 		if (a.inicio == null) { return b.inicio != null; }
 		if (b.inicio == null) { return false; }
 		return a.inicio < b.inicio;
-	}
-
-	static String etiquetaCuota(PaymentPlanInstallment__c origen, PaymentPlanInstallment__c viva) {
-		String base;
-		if (origen.carrierInstallmentNumber__c == null) {
-			base = viva.sequenceNumber__c != null ? 'Cuota ' + viva.sequenceNumber__c.intValue() : viva.Name;
-		} else {
-			String endoso = origen.carrierEndorsementNumber__c;
-			base = 'Cuota ' + origen.carrierInstallmentNumber__c.intValue()
-				+ (String.isNotBlank(endoso) && !ENDOSO_EMISION.matcher(endoso.trim()).matches() ? ' · Endoso ' + endoso : '');
-		}
-		return base + (viva.isEstimated__c == true ? ' · Estimada' : '');
 	}
 
 	static Seccion seccion(Informacion info, String titulo) {

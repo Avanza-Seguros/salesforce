@@ -18,6 +18,9 @@ function codigoMoneda(codigo) {
 const DIAS_RENOVACION = 90;
 const MAX_BARRAS = 6;
 
+// Indicadores que salen de las cuotas de Cobranza.
+const INDICADORES_DE_PAGO = ['pendiente', 'vencido', 'pagado'];
+
 export default class PortalDashboard extends LightningElement {
     @api titulo = 'Dashboard';
     @api mensajeVacio = 'Aún no tienes pólizas registradas. Si crees que es un error, contacta a tu asesor.';
@@ -130,7 +133,11 @@ export default class PortalDashboard extends LightningElement {
                 clave: 'pagado', etiqueta: 'Pagado en 12 meses', valor: this.moneda(pagado, mon),
                 detalle: 'pagos aplicados', color: '#b45309', avance: pct(pagado, pendiente + pagado)
             }
-        ];
+        ].filter((k) => this.conPagos || !INDICADORES_DE_PAGO.includes(k.clave));
+    }
+    // Liberación sin Cobranza: el Apex manda conPagos en false y no se muestra nada de pagos.
+    get conPagos() {
+        return !!(this.datos && this.datos.conPagos);
     }
     // Banda azul: pólizas vigentes y prima.
     get indicadoresHero() {

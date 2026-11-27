@@ -16,8 +16,8 @@ private class OportunidadesPanelControllerTest {
 	 */
 	@TestSetup
 	static void setup() {
-		Account cuenta = CollectionsTestDataFactory.createInsuredAccount();
-		Id agenteId = CollectionsTestDataFactory.getOrCreateAgenteId();
+		Account cuenta = DatosPruebaPolizas.createInsuredAccount();
+		Id agenteId = DatosPruebaPolizas.getOrCreateAgenteId();
 		Producer productor = new Producer(Name = 'Agente Panel Prueba');
 		insert productor;
 		Opportunity autos = new Opportunity(
@@ -43,12 +43,12 @@ private class OportunidadesPanelControllerTest {
 		);
 		insert new List<Opportunity>{ autos, gmm };
 
-		InsurancePolicy p1 = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		InsurancePolicy p1 = DatosPruebaPolizas.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
 		p1.SourceOpportunityId = autos.Id;
 		p1.Ramo__c = 'Automoviles';
-		InsurancePolicy p2 = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		InsurancePolicy p2 = DatosPruebaPolizas.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
 		p2.SourceOpportunityId = autos.Id;
-		InsurancePolicy cancelada = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Cancelado', 'Mensual', 1200, Date.today());
+		InsurancePolicy cancelada = DatosPruebaPolizas.buildCompletePolicy(cuenta.Id, 'Cancelado', 'Mensual', 1200, Date.today());
 		cancelada.SourceOpportunityId = gmm.Id;
 		insert new List<InsurancePolicy>{ p1, p2, cancelada };
 	}
@@ -117,13 +117,13 @@ private class OportunidadesPanelControllerTest {
 		// Otro nombre: con el mismo, la regla de duplicados de cuentas de algunas orgs rechaza el alta.
 		Account otra = new Account(Name = 'Otro Cliente Panel Prueba', AnnualRevenue = 1000000);
 		insert otra;
-		InsurancePolicy deOtro = CollectionsTestDataFactory.buildCompletePolicy(otra.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		InsurancePolicy deOtro = DatosPruebaPolizas.buildCompletePolicy(otra.Id, 'Inicial', 'Mensual', 1200, Date.today());
 		deOtro.Name = 'NUM-PANEL-1';
-		InsurancePolicy delCliente = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		InsurancePolicy delCliente = DatosPruebaPolizas.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
 		delCliente.Name = 'NUM-PANEL-1';
-		InsurancePolicy soloOtro = CollectionsTestDataFactory.buildCompletePolicy(otra.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		InsurancePolicy soloOtro = DatosPruebaPolizas.buildCompletePolicy(otra.Id, 'Inicial', 'Mensual', 1200, Date.today());
 		soloOtro.Name = 'NUM-PANEL-2';
-		InsurancePolicy conEspacios = CollectionsTestDataFactory.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
+		InsurancePolicy conEspacios = DatosPruebaPolizas.buildCompletePolicy(cuenta.Id, 'Inicial', 'Mensual', 1200, Date.today());
 		conEspacios.Name = 'GE 4300805';
 		insert new List<InsurancePolicy>{ deOtro, delCliente, soloOtro, conEspacios };
 		Opportunity a = new Opportunity(Id = '006000000000001AAA', AccountId = cuenta.Id, Poliza__c = ' num-panel-1 ');

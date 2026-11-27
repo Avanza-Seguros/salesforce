@@ -45,7 +45,7 @@ public with sharing class AvisoRenovacionPoliza implements Database.Batchable<SO
 		Datetime b1 = a1.addDays(1);
 		Datetime a2 = inicioDia(hoy.addDays(DIAS_AVISO[1]));
 		Datetime b2 = a2.addDays(1);
-		String vigente = PolicyStatusService.STATUS_ACTIVE;
+		String vigente = 'Vigente';
 		return Database.getQueryLocator([
 			SELECT Id FROM InsurancePolicy
 			WHERE Status = :vigente
@@ -78,7 +78,7 @@ public with sharing class AvisoRenovacionPoliza implements Database.Batchable<SO
 	public static String enviarAviso(Id policyId) {
 		try {
 			InsurancePolicy p = [SELECT Status FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
-			if (p.Status == PolicyStatusService.STATUS_CANCELLED) {
+			if (p.Status == 'Cancelado') {
 				throw new AuraHandledException('La póliza está cancelada: no se envía aviso de renovación.');
 			}
 			Map<Id, String> res = enviar(new Set<Id>{ policyId }, true);

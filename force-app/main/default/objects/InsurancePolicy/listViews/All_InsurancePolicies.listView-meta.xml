@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ListView xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>All_InsurancePolicies</fullName>
     <columns>Name</columns>
@@ -9,7 +9,6 @@
     <columns>ExpirationDate</columns>
     <columns>PremiumAmount</columns>
     <columns>Status</columns>
-    <columns>insuredAssetDescription__c</columns>
     <filterScope>Everything</filterScope>
     <label>Todas las Pólizas de seguros</label>
     <sharedTo>

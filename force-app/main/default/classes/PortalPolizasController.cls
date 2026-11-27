@@ -130,14 +130,15 @@ public without sharing class PortalPolizasController {
 		@AuraEnabled public Decimal totalVencido = 0;
 		@AuraEnabled public Integer cuotasVencidas = 0;
 		@AuraEnabled public Decimal pagadoUltimoAnio = 0;
+		/** Liberación sin Cobranza: no hay cuotas, el sitio oculta lo de pagos. */
+		@AuraEnabled public Boolean conPagos = false;
 	}
 
 	/**
 	 * @creation date: 15/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Datos del Dashboard del sitio: las pólizas del usuario y, de sus cuotas (sin las reemplazadas por
-	 * un recibo nuevo ni las canceladas o condonadas), lo pendiente, lo vencido, las próximas a pagar, lo que se
-	 * pagará en cada uno de los próximos 6 meses y lo pagado en los últimos 12.
+	 * @description: Datos del Dashboard del sitio: las pólizas del usuario, sus bienes, endosos y movimientos. En esta
+	 * liberación no va Cobranza: no hay cuotas, así que lo de pagos queda vacío y conPagos en false.
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @return Dashboard
 	 */
@@ -291,20 +292,6 @@ public without sharing class PortalPolizasController {
 				d.polizas.add(o);
 				porId.put(o.id, o);
 			}
-			Date hoy = Date.today();
-			Date primerMes = hoy.toStartOfMonth();
-			for (Integer i = 0; i < 6; i++) {
-				MesDashboard m = new MesDashboard();
-				m.inicio = primerMes.addMonths(i);
-				d.pagosPorMes.add(m);
-			}
-			// Historial: lo pagado en cada uno de los últimos 12 meses (el actual incluido).
-			Date primerHistorial = primerMes.addMonths(-11);
-			for (Integer i = 0; i < 12; i++) {
-				MesDashboard m = new MesDashboard();
-				m.inicio = primerHistorial.addMonths(i);
-				d.pagadoPorMes.add(m);
-			}
 			// Estado (valor, no etiqueta), fin de vigencia y renovaciones de cada póliza.
 			Map<Id, InsurancePolicy> estados = new Map<Id, InsurancePolicy>([
 				SELECT Id, Status, ExpirationDate, PriorPolicyId, RenewedFromPolicyId FROM InsurancePolicy WHERE Id IN :ids
@@ -325,68 +312,6 @@ public without sharing class PortalPolizasController {
 			}
 			d.bienes = PortalPolizasPestanas.contarBienes(ramosBienes, roles, cuentaVistaPrevia);
 			movimientosYEndosos(d, roles, porId);
-			List<PaymentPlanInstallment__c> cuotas = [
-				SELECT Id, dueDate__c, expectedAmount__c, matchedAmount__c, outstandingAmount__c, installmentStatus__c,
-					daysOverdue__c, replacesInstallment__c, paymentPlan__r.insurancePolicy__c, matchedReceipt__r.receiptDate__c
-				FROM PaymentPlanInstallment__c
-				WHERE paymentPlan__r.insurancePolicy__c IN :ids
-				ORDER BY dueDate__c ASC NULLS LAST
-				LIMIT 5000
-			];
-			Set<Id> reemplazadas = new Set<Id>();
-			for (PaymentPlanInstallment__c c : cuotas) {
-				if (c.replacesInstallment__c != null) { reemplazadas.add(c.replacesInstallment__c); }
-			}
-			Date haceUnAnio = hoy.addYears(-1);
-			for (PaymentPlanInstallment__c c : cuotas) {
-				if (reemplazadas.contains(c.Id)) { continue; }
-				String estado = c.installmentStatus__c;
-				if (estado == 'Conciliado') {
-					Date pago = c.matchedReceipt__r?.receiptDate__c;
-					if (pago != null && pago >= haceUnAnio && c.matchedAmount__c != null) { d.pagadoUltimoAnio += c.matchedAmount__c; }
-					if (pago != null && c.matchedAmount__c != null) {
-						Integer mes = primerHistorial.monthsBetween(pago.toStartOfMonth());
-						if (mes >= 0 && mes < 12) {
-							d.pagadoPorMes[mes].monto += c.matchedAmount__c;
-							d.pagadoPorMes[mes].cuotas++;
-						}
-					}
-					continue;
-				}
-				if (estado != 'Pendiente' && estado != 'Vencido') { continue; }
-				// No se cobran cuotas de pólizas canceladas ni las que vencen después de que terminó la póliza.
-				InsurancePolicy e = estados.get(c.paymentPlan__r.insurancePolicy__c);
-				if (e != null && (e.Status == ESTADO_CANCELADO || (e.ExpirationDate != null && c.dueDate__c != null
-						&& c.dueDate__c > e.ExpirationDate.date()))) { continue; }
-				Decimal pendiente = c.outstandingAmount__c == null ? 0 : c.outstandingAmount__c;
-				if (pendiente <= 0) { continue; }
-				Boolean vencida = estado == 'Vencido' || (c.dueDate__c != null && c.dueDate__c < hoy);
-				d.totalPendiente += pendiente;
-				if (vencida) {
-					d.totalVencido += pendiente;
-					d.cuotasVencidas++;
-				} else if (c.dueDate__c != null) {
-					Integer mes = primerMes.monthsBetween(c.dueDate__c.toStartOfMonth());
-					if (mes >= 0 && mes < 6) {
-						d.pagosPorMes[mes].monto += pendiente;
-						d.pagosPorMes[mes].cuotas++;
-					}
-				}
-				if (d.proximasCuotas.size() < 8) {
-					Poliza p = porId.get(c.paymentPlan__r.insurancePolicy__c);
-					CuotaDashboard q = new CuotaDashboard();
-					q.id = c.Id;
-					q.polizaId = p?.id;
-					q.numero = p?.numero;
-					q.ramo = p?.ramo;
-					q.moneda = p == null ? 'MXN' : p.moneda;
-					q.vence = c.dueDate__c;
-					q.pendiente = pendiente;
-					q.vencida = vencida;
-					q.diasMora = c.daysOverdue__c != null && c.daysOverdue__c > 0 ? c.daysOverdue__c.intValue() : null;
-					d.proximasCuotas.add(q);
-				}
-			}
 			return d;
 		} catch (AuraHandledException e) {
 			throw e;
@@ -658,8 +583,8 @@ public without sharing class PortalPolizasController {
 	 */
 	static String consulta() {
 		return 'SELECT Id, Name, toLabel(Ramo__c), toLabel(PolicyType), Aseguradora__r.Name, toLabel(Status), IsActive, '
-			+ 'EffectiveDate, ExpirationDate, PremiumAmount, Moneda__c, toLabel(PremiumFrequency), PaymentDueDate, '
-			+ 'PastDueAmount, CurrentDueAmount, insuredAssetDescription__c, PolicyDescription, NameInsured.Name '
+			+ 'EffectiveDate, ExpirationDate, PremiumAmount, Moneda__c, toLabel(PremiumFrequency), '
+			+ 'PolicyDescription, NameInsured.Name '
 			+ 'FROM InsurancePolicy';
 	}
 
@@ -685,10 +610,7 @@ public without sharing class PortalPolizasController {
 		o.prima = p.PremiumAmount;
 		o.moneda = String.isBlank(p.Moneda__c) ? 'MXN' : p.Moneda__c;
 		o.formaPago = p.PremiumFrequency;
-		o.proximoPago = p.PaymentDueDate == null ? null : p.PaymentDueDate.date();
-		o.montoVencido = p.PastDueAmount;
-		o.montoPorPagar = p.CurrentDueAmount;
-		o.bienAsegurado = p.insuredAssetDescription__c;
+		// Sin Cobranza no hay próximo pago, vencido ni por pagar confiables, y el bien asegurado lo llenaba Cobranza.
 		o.descripcion = p.PolicyDescription;
 		o.titular = p.NameInsured?.Name;
 		o.miRol = rol;

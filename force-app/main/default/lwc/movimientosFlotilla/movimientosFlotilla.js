@@ -22,7 +22,6 @@ import compararArchivo from '@salesforce/apex/MovimientosFlotillaController.comp
 import subirArchivo from '@salesforce/apex/MovimientosColectivoController.subirArchivo';
 import traerDePoliza from '@salesforce/apex/MovimientosFlotillaController.traerDePoliza';
 import { llamar, fijarPortal } from 'c/portalContexto';
-import { abrirNuevoSiniestro } from 'c/siniestroModal';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosFlotilla.aplicar', p, aplicar);
 const compararArchivoSitio = (p) => llamar('MovimientosFlotilla.compararArchivo', p, compararArchivo);
@@ -117,9 +116,6 @@ export default class MovimientosFlotilla extends NavigationMixin(LightningElemen
     // Estado general
     // ============================================================
     get enPoliza() { return !!this.datos && this.datos.contexto === 'poliza'; }
-    // Nuevo siniestro desde el renglón del vehículo (su inciso): solo en Salesforce y en la póliza.
-    get conSiniestro() { return this.interno && this.enPoliza; }
-    nuevoSiniestro(e) { abrirNuevoSiniestro(this, { policyId: this.recordId, bienId: e.currentTarget.dataset.id }); }
     // Petición desde archivo en Salesforce (póliza): no se pide fecha, número de endoso ni comentario; cada movimiento
     // lleva la fecha y el endoso que trae el archivo (sin fecha, la de hoy).
     get pideDatosArchivo() { return !(this.interno && this.enPoliza); }

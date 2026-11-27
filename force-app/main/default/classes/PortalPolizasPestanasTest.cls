@@ -45,8 +45,8 @@ private class PortalPolizasPestanasTest {
 	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Información, Pagos y Vigencias de una póliza del titular: secciones con datos, cuotas sin las
-	 * reemplazadas y la cadena de renovaciones; una póliza ajena se rechaza.
+	 * @description: Información, Pagos y Vigencias de una póliza del titular: secciones con datos (sin
+	 * estado de pago), Pagos sin cuotas (no va Cobranza) y la cadena de renovaciones; una póliza ajena se rechaza.
 	 * @return void
 	 */
 	@isTest
@@ -60,16 +60,6 @@ private class PortalPolizasPestanasTest {
 		actual.PriorPolicyId = anterior.Id;
 		InsurancePolicy ajena = poliza(otra.Id, 'PEST-003', 'GMM');
 		insert new List<InsurancePolicy>{ actual, ajena };
-
-		PaymentPlan__c plan = new PaymentPlan__c(insurancePolicy__c = actual.Id, planStatus__c = 'Cancelado',
-			premiumFrequency__c = 'Mensual', expectedTotalAmount__c = 1200, firstDueDate__c = Date.today());
-		insert plan;
-		PaymentPlanInstallment__c vieja = new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 9,
-			dueDate__c = Date.today(), expectedAmount__c = 500, installmentStatus__c = 'Pendiente');
-		insert vieja;
-		insert new PaymentPlanInstallment__c(paymentPlan__c = plan.Id, sequenceNumber__c = 9, dueDate__c = Date.today(),
-			expectedAmount__c = 500, installmentStatus__c = 'Pendiente', replacesInstallment__c = vieja.Id,
-			carrierReceiptNumber__c = 'R-9');
 
 		PortalPolizasController.cuentaPrueba = mia.Id;
 
@@ -95,14 +85,11 @@ private class PortalPolizasPestanasTest {
 			}
 		}
 
-		PortalPolizasPestanas.Cuota nueva;
-		for (PortalPolizasPestanas.Cuota q : pagos.cuotas) {
-			System.assertNotEquals(vieja.Id, q.id, 'La cuota reemplazada no se lista');
-			if (q.recibo == 'R-9') { nueva = q; }
+		for (PortalPolizasPestanas.Seccion s : info.secciones) {
+			System.assertNotEquals('Estado de pago', s.titulo, 'Sin Cobranza no hay estado de pago');
 		}
-		System.assertNotEquals(null, nueva);
-		System.assertEquals('Cuota 9', nueva.etiqueta);
-		System.assertEquals(1, nueva.recibosReemplazados);
+		System.assert(pagos.cuotas.isEmpty(), 'Sin Cobranza no hay cuotas');
+		System.assertEquals('MXN', pagos.moneda, 'Moneda de la póliza');
 
 		System.assertEquals(2, vig.vigencias.size());
 		System.assertEquals(true, vig.vigencias[0].actual);

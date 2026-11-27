@@ -26,28 +26,28 @@ const MAX_MOVIMIENTOS = 5;
 
 const FUNCIONES = [
     { clave: 'f1', icono: 'utility:clock', titulo: 'Disponible 24/7',
-        texto: 'Consulta tus pólizas, recibos y coberturas a cualquier hora y desde cualquier dispositivo.' },
+        texto: 'Consulta tus pólizas, documentos y coberturas a cualquier hora y desde cualquier dispositivo.' },
     { clave: 'f2', icono: 'utility:einstein', titulo: 'Lectura inteligente',
         texto: 'Leemos tus pólizas y endosos con inteligencia artificial para que tu información esté siempre al día.' },
     { clave: 'f3', icono: 'utility:lock', titulo: 'Información protegida',
         texto: 'Acceso cifrado y personal: solo tú y tu asesor ven los datos de tus seguros.' },
     { clave: 'f4', icono: 'utility:notification', titulo: 'Alertas a tiempo',
-        texto: 'Ve de un vistazo qué pagos vencen y qué pólizas están por renovarse.' },
+        texto: 'Ve de un vistazo qué pólizas están por renovarse.' },
     { clave: 'f5', icono: 'utility:download', titulo: 'Documentos digitales',
-        texto: 'Descarga la carátula, recibos y endosos sin esperar correos ni papeles.' },
+        texto: 'Descarga la carátula y los endosos sin esperar correos ni papeles.' },
     { clave: 'f6', icono: 'utility:chart', titulo: 'Tu historial completo',
-        texto: 'Pagos, endosos, altas y bajas de asegurados, vehículos y ubicaciones en un solo lugar.' }
+        texto: 'Endosos, altas y bajas de asegurados, vehículos y ubicaciones en un solo lugar.' }
 ];
 
 const PASOS = [
     { clave: 'p1', numero: '01', titulo: 'Entra a tu portal', texto: 'Con tu usuario, desde la computadora o el celular.' },
     { clave: 'p2', numero: '02', titulo: 'Revisa tus pólizas', texto: 'Coberturas, vigencias, asegurados y documentos al instante.' },
-    { clave: 'p3', numero: '03', titulo: 'Mantente al corriente', texto: 'Pagos, renovaciones y movimientos siempre a la vista.' }
+    { clave: 'p3', numero: '03', titulo: 'Mantente al corriente', texto: 'Renovaciones y movimientos siempre a la vista.' }
 ];
 
 export default class PortalInicio extends LightningElement {
     @api titulo = 'Tus seguros, en un solo lugar';
-    @api subtitulo = 'Consulta tus pólizas, pagos y documentos en tiempo real, con la tecnología de Avanza Seguro.';
+    @api subtitulo = 'Consulta tus pólizas y documentos en tiempo real, con la tecnología de Avanza Seguro.';
 
     datos;
     cargando = true;
@@ -219,7 +219,12 @@ export default class PortalInicio extends LightningElement {
             ...x,
             estiloPunto: `background: ${x.color}`,
             estiloBarra: `width: ${Math.round(Math.min(100, x.pct) * this.progreso)}%; background: ${x.color}`
-        }));
+        })).filter((x) => this.conPagos || (x.clave !== 'pago' && x.clave !== 'pagado'));
+    }
+
+    // Liberación sin Cobranza: el Dashboard manda conPagos en false y no se muestra nada de pagos.
+    get conPagos() {
+        return !!(this.datos && this.datos.conPagos);
     }
 
     get monedaPrincipal() {
@@ -323,14 +328,14 @@ export default class PortalInicio extends LightningElement {
     get accesos() {
         return [
             { clave: 'a1', icono: 'utility:description', titulo: 'Mis pólizas', url: this.urlMisPolizas,
-                texto: 'Coberturas, vigencias, asegurados, pagos y documentos de cada póliza.' },
+                texto: 'Coberturas, vigencias, asegurados y documentos de cada póliza.' },
             { clave: 'a2', icono: 'utility:moneybag', titulo: 'Pagos y recibos', url: this.urlPagos,
                 texto: 'Próximo pago, cuotas por póliza y recibos ya aplicados.' },
             { clave: 'a3', icono: 'utility:groups', titulo: 'Personas de tu empresa', url: `${basePath || ''}/contactos-empresa`,
                 texto: 'Colaboradores, su cobertura y cómo contactarlos.' },
             { clave: 'a4', icono: 'utility:metrics', titulo: 'Dashboard', url: this.urlDashboard,
-                texto: 'Indicadores, historial de pagos, endosos y movimientos de un vistazo.' }
-        ];
+                texto: 'Indicadores, endosos y movimientos de un vistazo.' }
+        ].filter((a) => this.conPagos || a.clave !== 'a2');
     }
 
     // ---------- Formatos ----------

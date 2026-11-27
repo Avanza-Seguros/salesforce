@@ -209,11 +209,6 @@
                                                     <template lwc:if={interno}><lightning-button-icon icon-name="utility:ban" alternative-text="Dar de baja" title="Dar de baja"
                                                         data-id={v.id} onclick={abrirBaja} size="small" class="slds-m-left_xx-small"></lightning-button-icon></template>
                                                 </template>
-                                                <!-- Nuevo siniestro de este registro: solo en Salesforce, en la póliza. -->
-                                                <template lwc:if={conSiniestro}>
-                                                    <lightning-button-icon icon-name="utility:shield" alternative-text="Nuevo siniestro" title="Nuevo siniestro"
-                                                        data-id={v.id} onclick={nuevoSiniestro} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
-                                                </template>
                                                 <!-- Eliminar el registro: solo en Salesforce y si no está Concluido. -->
                                                 <template lwc:if={v.puedeEliminar}>
                                                     <lightning-button-icon icon-name="utility:delete" alternative-text="Eliminar registro" title="Eliminar registro"

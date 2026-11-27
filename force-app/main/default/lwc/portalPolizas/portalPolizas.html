@@ -350,7 +350,7 @@
                     <template lwc:elseif={pestanaVigencias.datos}>
                         <div class="tbox">
                             <table>
-                                <thead><tr><th>Vigencia</th><th>Número de póliza</th><th>Renovación</th><th>Estado</th><th class="r">Prima</th><th class="r">Pagado</th><th class="r">Pendiente</th></tr></thead>
+                                <thead><tr><th>Vigencia</th><th>Número de póliza</th><th>Renovación</th><th>Estado</th><th class="r">Prima</th><template lwc:if={conPagos}><th class="r">Pagado</th><th class="r">Pendiente</th></template></tr></thead>
                                 <tbody>
                                     <template for:each={pestanaVigencias.datos.vigencias} for:item="v">
                                         <tr key={v.id} class={v.clase}>
@@ -370,8 +370,10 @@
                                             <td>{v.renovacion}</td>
                                             <td><span lwc:if={v.estado} class={v.estadoClase}><span class="dot"></span>{v.estado}</span></td>
                                             <td class="r money">{v.primaTexto}</td>
-                                            <td class="r">{v.pagadoTexto}</td>
-                                            <td class="r money">{v.pendienteTexto}</td>
+                                            <template lwc:if={conPagos}>
+                                                <td class="r">{v.pagadoTexto}</td>
+                                                <td class="r money">{v.pendienteTexto}</td>
+                                            </template>
                                         </tr>
                                     </template>
                                 </tbody>

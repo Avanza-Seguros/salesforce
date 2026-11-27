@@ -28,7 +28,6 @@
     <excludeButtons>RecordShareHierarchy</excludeButtons>
     <excludeButtons>ResumeBilling</excludeButtons>
     <excludeButtons>SalesAIRelationshipGraph</excludeButtons>
-    <excludeButtons>ScheduleAppointment</excludeButtons>
     <excludeButtons>SendSurveyInvitation</excludeButtons>
     <excludeButtons>Share</excludeButtons>
     <excludeButtons>StartOutboundConversation</excludeButtons>

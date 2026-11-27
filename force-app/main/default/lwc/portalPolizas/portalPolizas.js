@@ -28,6 +28,8 @@ const PESTANAS = {
     // Asegurados / Vehículos / Ubicaciones y Participantes usan los componentes de Salesforce (cargan sus datos).
 };
 const ESTADOS_CERRADOS = ['Cancelado', 'Condonado'];
+// Liberación sin Cobranza: no hay cuotas, así que no se muestra la pestaña Pagos ni lo pagado de cada vigencia.
+const CON_PAGOS = false;
 
 // Igual que PortalPolizasController.MAX_BYTES_DESCARGA: arriba de esto se usa el enlace directo del archivo.
 const MAX_BYTES_DESCARGA = 3 * 1024 * 1024;
@@ -312,7 +314,7 @@ export default class PortalPolizas extends LightningElement {
         this.reiniciarPestanas();
         if (pestana && ['info', 'pagos', 'vigencias', 'asegurados', 'participantes', 'solicitudes'].includes(pestana)) {
             // Las solicitudes se ven y se piden en Asegurados, Vehículos o Ubicaciones.
-            this.pestana = pestana === 'solicitudes' ? 'asegurados' : pestana;
+            this.pestana = pestana === 'solicitudes' ? 'asegurados' : (pestana === 'pagos' && !CON_PAGOS ? 'info' : pestana);
         }
         this.seleccionadaId = id;
     }
@@ -350,6 +352,7 @@ export default class PortalPolizas extends LightningElement {
     get pestanaInfo() { return this.pestanas.info; }
     get pestanaPagos() { return this.pestanas.pagos; }
     get pestanaVigencias() { return this.pestanas.vigencias; }
+    get conPagos() { return CON_PAGOS; }
 
     handlePestana(event) {
         const clave = event.currentTarget.dataset.value;
@@ -367,7 +370,7 @@ export default class PortalPolizas extends LightningElement {
             { label: 'Vigencias', value: 'vigencias' },
             { label: this.tituloBienes, value: 'asegurados' },
             { label: 'Participantes', value: 'participantes' }
-        ], this.pestana).map((o) => ({ ...o, estiloPunto: `background:${colores[o.value]}` }));
+        ].filter((o) => CON_PAGOS || o.value !== 'pagos'), this.pestana).map((o) => ({ ...o, estiloPunto: `background:${colores[o.value]}` }));
     }
 
     // Banda azul del detalle: la prima ocupa todo el ancho si no hay segundo indicador (vencido o por pagar).

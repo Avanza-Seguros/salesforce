@@ -145,6 +145,7 @@
                     <div lwc:else class="empty">No tienes pólizas vigentes.</div>
                 </section>
 
+                <template lwc:if={conPagos}>
                 <!-- ===== Pagos: los próximos meses y el historial ===== -->
                 <section class="card">
                     <div>
@@ -201,8 +202,10 @@
                     </template>
                     <div lwc:else class="empty">No hay pagos aplicados en los últimos 12 meses.</div>
                 </section>
+                </template>
 
                 <!-- ===== Próximos pagos y renovaciones ===== -->
+                <template lwc:if={conPagos}>
                 <section class="card">
                     <div>
                         <h2 class="t2">Próximos pagos</h2>
@@ -229,6 +232,7 @@
                     </ul>
                     <div lwc:else class="empty">No tienes cuotas pendientes.</div>
                 </section>
+                </template>
 
                 <section class="card">
                     <div>

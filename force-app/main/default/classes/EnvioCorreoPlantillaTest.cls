@@ -78,9 +78,9 @@ private class EnvioCorreoPlantillaTest {
 
 	@isTest
 	static void elBannerLlevaElRamoDelRegistro() {
-		Account cuenta = CollectionsTestDataFactory.createInsuredAccount();
+		Account cuenta = DatosPruebaPolizas.createInsuredAccount();
 		Opportunity autos = new Opportunity(Name = 'Ramo correo', AccountId = cuenta.Id, StageName = 'Gestion Comercial',
-			CloseDate = Date.today().addDays(10), Agente_Relacionado__c = CollectionsTestDataFactory.getOrCreateAgenteId(),
+			CloseDate = Date.today().addDays(10), Agente_Relacionado__c = DatosPruebaPolizas.getOrCreateAgenteId(),
 			Ramo__c = 'Automoviles');
 		insert autos;
 		String ramo = EnvioCorreoPlantilla.ramoDe(autos.Id);

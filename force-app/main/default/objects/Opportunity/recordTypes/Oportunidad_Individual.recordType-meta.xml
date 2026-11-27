@@ -958,24 +958,12 @@
             <fullName>Mascotas</fullName>
             <default>false</default>
         </values>
-        
+        <values>
             <fullName>Accidentes Personales</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Ahorro</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Asistencia</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>Automoviles</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Construcción</fullName>
             <default>false</default>
         </values>
         <values>
@@ -984,10 +972,6 @@
         </values>
         <values>
             <fullName>Dental</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Embarcaciones</fullName>
             <default>false</default>
         </values>
         <values>
@@ -1003,23 +987,7 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Hogar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Personas</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Profesionistas</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>RC</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Transporte</fullName>
             <default>false</default>
         </values>
         <values>

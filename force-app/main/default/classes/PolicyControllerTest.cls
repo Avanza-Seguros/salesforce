@@ -483,7 +483,7 @@ private class PolicyControllerTest {
      */
     @isTest
     static void testCrearBeneficiariosDesdePdf() {
-        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        Account acc = DatosPruebaPolizas.createInsuredAccount();
         InsurancePolicy pol;
         pol = polizaValida(acc.Id, null, null, 'POL-BEN-001');
         Map<String, Object> d = (Map<String, Object>) JSON.deserializeUntyped(
@@ -514,7 +514,7 @@ private class PolicyControllerTest {
      */
     @isTest
     static void testAseguradoTambienBeneficiarioUnSoloRegistro() {
-        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        Account acc = DatosPruebaPolizas.createInsuredAccount();
         InsurancePolicy pol;
         try {
             pol = polizaValida(acc.Id, null, null, 'POL-BEN-002');
@@ -627,7 +627,7 @@ private class PolicyControllerTest {
      */
     @isTest
     static void testVincularBeneficiariosAGrupo() {
-        Account acc = CollectionsTestDataFactory.createInsuredAccount();
+        Account acc = DatosPruebaPolizas.createInsuredAccount();
         InsurancePolicy pol = polizaValida(acc.Id, null, null, 'POL-BEN-002');
         Contact titular = new Contact(FirstName = 'SOFIA', LastName = 'CORONA PADILLA', Sexo__c = 'Femenino', AccountId = acc.Id);
         insert titular;
