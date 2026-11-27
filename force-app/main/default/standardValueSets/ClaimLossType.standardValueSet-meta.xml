@@ -66,4 +66,14 @@
         <default>false</default>
         <label>Robo total</label>
     </standardValue>
+    <standardValue>
+        <fullName>Robo parcial</fullName>
+        <default>false</default>
+        <label>Robo parcial</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Daños a terceros</fullName>
+        <default>false</default>
+        <label>Daños a terceros</label>
+    </standardValue>
 </StandardValueSet>

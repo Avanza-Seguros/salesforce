@@ -32,6 +32,7 @@ import cambiarSeguimiento from '@salesforce/apex/MovimientosColectivoController.
 import enviarCorreo from '@salesforce/apex/ParticipantesPolizaController.enviarCorreo';
 import enviarRenovacionGmm from '@salesforce/apex/RenovacionGmmContributoria.enviar';
 import { llamar, fijarPortal, descargarDocumento } from 'c/portalContexto';
+import { abrirNuevoSiniestro } from 'c/siniestroModal';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosColectivo.aplicar', p, aplicar);
 const compararArchivoSitio = (p) => llamar('MovimientosColectivo.compararArchivo', p, compararArchivo);
@@ -159,6 +160,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
     // Estado general
     // ============================================================
     get enPoliza() { return !!this.datos && this.datos.contexto === 'poliza'; }
+    // Nuevo siniestro desde el renglón del asegurado: solo en Salesforce y en la póliza.
+    get conSiniestro() { return this.interno && this.enPoliza; }
+    nuevoSiniestro(e) { abrirNuevoSiniestro(this, { policyId: this.recordId, participanteId: e.currentTarget.dataset.id }); }
     // Petición desde archivo en Salesforce (póliza): no se pide fecha, número de endoso ni comentario; cada movimiento
     // lleva la fecha y el endoso que trae el archivo (sin fecha, la de hoy).
     get pideDatosArchivo() { return !(this.interno && this.enPoliza); }

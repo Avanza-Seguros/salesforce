@@ -252,6 +252,11 @@
                                                     <lightning-button-icon icon-name="utility:email" alternative-text={m.textoEnviar} title={m.textoEnviar}
                                                         data-id={m.id} onclick={abrirCorreoAsegurado} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
                                                 </template>
+                                                <!-- Nuevo siniestro de este registro: solo en Salesforce, en la póliza. -->
+                                                <template lwc:if={conSiniestro}>
+                                                    <lightning-button-icon icon-name="utility:shield" alternative-text="Nuevo siniestro" title="Nuevo siniestro"
+                                                        data-id={m.id} onclick={nuevoSiniestro} size="small" class="slds-m-left_xx-small"></lightning-button-icon>
+                                                </template>
                                                 <!-- Eliminar el registro: solo en Salesforce y si no está Concluido. -->
                                                 <template lwc:if={m.puedeEliminar}>
                                                     <lightning-button-icon icon-name="utility:delete" alternative-text="Eliminar registro" title="Eliminar registro"

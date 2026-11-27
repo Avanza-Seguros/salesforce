@@ -1,9 +1,12 @@
 <template>
     <article class="slds-card siniestro-card">
-        <div class="slds-card__header">
-            <h2 class="slds-text-heading_medium">Nuevo siniestro</h2>
-            <p class="sub">Siniestro de personas: Gastos médicos mayores, Vida y Accidentes personales.</p>
-        </div>
+        <template lwc:if={mostrarEncabezado}>
+            <div class="slds-card__header">
+                <h2 class="slds-text-heading_medium">Nuevo siniestro</h2>
+                <p class="sub">{subtitulo}</p>
+            </div>
+        </template>
+        <template lwc:else><p class="sub slds-p-horizontal_medium slds-p-top_small">{subtitulo}</p></template>
         <div class="slds-card__body slds-card__body_inner">
             <template lwc:if={error}><div class="aviso-error slds-m-bottom_small">{error}</div></template>
 
@@ -36,18 +39,18 @@
                         <template lwc:if={puedeCambiarPoliza}><lightning-button variant="base" label="Cambiar" onclick={cambiarPoliza}></lightning-button></template>
                     </div>
 
-                    <!-- 2. Asegurado afectado -->
-                    <h3 class="seccion">Asegurado afectado</h3>
-                    <lightning-input type="search" label="Buscar asegurado" variant="label-hidden" placeholder="Nombre o certificado"
-                        value={textoAsegurado} onchange={handleBuscarAsegurado} is-loading={buscandoAsegurados}></lightning-input>
-                    <template lwc:if={sinAsegurados}><p class="sub slds-m-top_x-small">La póliza no tiene asegurados con ese nombre o certificado.</p></template>
+                    <!-- 2. Lo afectado: asegurado del censo, vehículo o ubicación de la póliza -->
+                    <h3 class="seccion">{tituloAfectado}</h3>
+                    <lightning-input type="search" label="Buscar" variant="label-hidden" placeholder={placeholderAfectado}
+                        value={texto} onchange={handleBuscar} is-loading={buscando}></lightning-input>
+                    <template lwc:if={sinOpciones}><p class="sub slds-m-top_x-small">{textoSinOpciones}</p></template>
                     <template lwc:else>
                         <div class="tabla-asegurados slds-m-top_x-small">
-                            <lightning-datatable key-field="id" data={asegurados} columns={columnasAsegurados} max-row-selection="1"
-                                selected-rows={seleccionAsegurado} onrowselection={handleElegirAsegurado} column-widths-mode="auto"></lightning-datatable>
+                            <lightning-datatable key-field="id" data={opciones} columns={columnas} max-row-selection="1"
+                                selected-rows={seleccion} onrowselection={handleElegir} column-widths-mode="auto"></lightning-datatable>
                         </div>
                     </template>
-                    <p class="sub slds-m-top_xx-small">Si es dependiente, su titular se agrega como reclamante.</p>
+                    <p class="sub slds-m-top_xx-small">{ayudaAfectado}</p>
 
                     <!-- 3. Siniestro -->
                     <h3 class="seccion">Siniestro</h3>
@@ -66,17 +69,25 @@
                                 min={fechaMin} max={fechaMax} message-when-range-underflow="Antes del inicio de la póliza."
                                 message-when-range-overflow="Después del fin de la póliza." required></lightning-input>
                         </div>
-                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-3">
-                            <lightning-input type="date" label="Fecha de atención o ingreso" value={form.fechaAtencion} data-campo="fechaAtencion" onchange={handleCampo}></lightning-input>
-                        </div>
+                        <template lwc:if={esPersonas}>
+                            <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-3">
+                                <lightning-input type="date" label="Fecha de atención o ingreso" value={form.fechaAtencion} data-campo="fechaAtencion" onchange={handleCampo}></lightning-input>
+                            </div>
+                        </template>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
                             <lightning-combobox label="Medio de recepción" options={picklists.medio} value={form.medio} data-campo="medio" onchange={handleCampo}></lightning-combobox>
                         </div>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                            <lightning-input label="Diagnóstico" value={form.diagnostico} data-campo="diagnostico" onchange={handleCampo} max-length="255"></lightning-input>
+                            <lightning-input label={etiquetaDescripcion} value={form.diagnostico} data-campo="diagnostico" onchange={handleCampo} max-length="255"></lightning-input>
                         </div>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                            <lightning-input label="Hospital o lugar de atención" value={form.hospital} data-campo="hospital" onchange={handleCampo}></lightning-input>
+                            <template lwc:if={esPersonas}>
+                                <lightning-input label="Hospital o lugar de atención" value={form.hospital} data-campo="hospital" onchange={handleCampo}></lightning-input>
+                            </template>
+                            <template lwc:else>
+                                <lightning-input label="Lugar del siniestro" value={form.lugar} data-campo="lugar" onchange={handleCampo} max-length="255"
+                                    field-level-help="Calle, número, colonia y ciudad donde ocurrió."></lightning-input>
+                            </template>
                         </div>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                             <lightning-combobox label="Cobertura" options={opcionesCobertura} value={form.coberturaId} data-campo="coberturaId" onchange={handleCampo}></lightning-combobox>
@@ -92,7 +103,7 @@
 
                     <!-- 4. Primera solicitud de pago -->
                     <h3 class="seccion">Solicitud de pago</h3>
-                    <lightning-input type="checkbox" label="Registrar la solicitud de pago (folio del reembolso)" checked={conSolicitud}
+                    <lightning-input type="checkbox" label={textoSolicitud} checked={conSolicitud}
                         onchange={handleConSolicitud}></lightning-input>
                     <template lwc:if={conSolicitud}>
                         <div class="slds-m-top_x-small"><c-datos-solicitud-pago></c-datos-solicitud-pago></div>
@@ -121,6 +132,7 @@
             </template>
             <template lwc:else>
                 <lightning-button label="Registrar otro" onclick={otro}></lightning-button>
+                <template lwc:if={enModal}><lightning-button label="Cerrar" class="slds-m-left_x-small" onclick={cancelar}></lightning-button></template>
                 <lightning-button label="Abrir siniestro" variant="brand" class="slds-m-left_x-small" onclick={abrirSiniestro}></lightning-button>
             </template>
         </footer>

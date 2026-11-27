@@ -1,0 +1,167 @@
+<template>
+    <div class="sin">
+        <template lwc:if={cargando}>
+            <div class="sin-cargando"><lightning-spinner alternative-text="Cargando" size="small"></lightning-spinner></div>
+        </template>
+
+        <div class="sin-encabezado">
+            <div>
+                <h3 class="sin-titulo">Siniestros</h3>
+                <p class="sin-subtitulo">{subtitulo}</p>
+            </div>
+        </div>
+
+        <template lwc:if={error}>
+            <div class="sin-error" role="alert">
+                <lightning-icon icon-name="utility:error" variant="error" size="x-small"></lightning-icon>
+                <span>{error}</span>
+            </div>
+        </template>
+
+        <template lwc:if={sinAcceso}>
+            <div class="sin-vacio">
+                <lightning-icon icon-name="utility:lock" size="small"></lightning-icon>
+                <p>No tienes acceso a los siniestros. Pide el permiso «Siniestros - Consulta» u «Operación».</p>
+            </div>
+        </template>
+
+        <template lwc:if={conAcceso}>
+            <!-- Indicadores de siniestralidad -->
+            <div class="sin-stats">
+                <div class="stat"><span class="stat-num">{totalTxt}</span><span class="stat-lbl">Siniestros</span></div>
+                <div class="stat"><span class="stat-num">{abiertosTxt}</span><span class="stat-lbl">Abiertos</span></div>
+                <div class="stat"><span class="stat-num">{reclamadoTxt}</span><span class="stat-lbl">Reclamado</span></div>
+                <div class="stat stat-pagado"><span class="stat-num">{pagadoTxt}</span><span class="stat-lbl">Pagado</span></div>
+                <div class="stat stat-siniestralidad">
+                    <span class="stat-num">{siniestralidadTxt}</span>
+                    <span class="stat-lbl">Siniestralidad</span>
+                    <span class="stat-sub">{primaTxt}</span>
+                </div>
+            </div>
+
+            <div class="sin-barra">
+                <div class="sin-filtros">
+                    <lightning-input type="search" label="Buscar" variant="label-hidden" class="sin-buscar" value={busqueda}
+                        placeholder="Buscar por folio, afectado, descripción o número de la aseguradora" onchange={handleBusqueda}></lightning-input>
+                    <lightning-combobox label="Mostrar" variant="label-hidden" value={filtro} options={opcionesFiltro} onchange={handleFiltro}
+                        class="sin-filtro"></lightning-combobox>
+                </div>
+                <div class="sin-acciones">
+                    <lightning-button-icon icon-name="utility:refresh" alternative-text="Actualizar" title="Actualizar" onclick={cargar}></lightning-button-icon>
+                    <template lwc:if={puedeCrear}>
+                        <lightning-button label="Nuevo siniestro" icon-name="utility:add" variant="brand" onclick={nuevoSiniestro}></lightning-button>
+                    </template>
+                </div>
+            </div>
+
+            <template lwc:if={sinSiniestros}>
+                <div class="sin-vacio">
+                    <lightning-icon icon-name="utility:shield" size="small"></lightning-icon>
+                    <p>La póliza no tiene siniestros en Claims todavía.</p>
+                </div>
+            </template>
+            <template lwc:if={haySiniestros}>
+                <div class="sin-scroll">
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer sin-tabla">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th scope="col">Folio</th>
+                                <th scope="col">Fecha del siniestro</th>
+                                <th scope="col">{tituloAfectado}</th>
+                                <th scope="col">Tipo y causa</th>
+                                <th scope="col">Descripción</th>
+                                <th scope="col">Estatus</th>
+                                <th scope="col" class="num">Reclamado</th>
+                                <th scope="col" class="num">Pagado</th>
+                                <th scope="col">N.° de la aseguradora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={siniestros} for:item="s">
+                                <tr key={s.id}>
+                                    <td><button class="enlace" data-id={s.id} onclick={abrirSiniestro} title="Abrir el siniestro">{s.folio}</button>
+                                        <div class="sub">{s.ramo}</div></td>
+                                    <td>{s.fechaTxt}<div class="sub">{s.reporteTxt}</div></td>
+                                    <td>{s.afectado}<div class="sub">{s.afectadoDetalle}</div></td>
+                                    <td>{s.tipo}<div class="sub">{s.causa}</div></td>
+                                    <td class="col-texto" title={s.descripcion}>{s.descripcion}</td>
+                                    <td><span class={s.claseEstatus}>{s.estatus}</span><div class="sub">{s.ejecutivo}</div></td>
+                                    <td class="num">{s.reclamadoTxt}</td>
+                                    <td class="num">{s.pagadoTxt}</td>
+                                    <td>{s.numeroAseguradora}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <template lwc:if={sinResultados}><p class="sin-sin-resultados">No hay siniestros con esa búsqueda o filtro.</p></template>
+                </div>
+                <template lwc:if={conPaginas}>
+                    <div class="sin-paginacion">
+                        <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anterior} disabled={sinAnterior}></lightning-button-icon>
+                        <span>{textoPagina}</span>
+                        <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguiente} disabled={sinSiguiente}></lightning-button-icon>
+                    </div>
+                </template>
+            </template>
+        </template>
+
+        <!-- Folios anteriores: solo consulta -->
+        <template lwc:if={conFolios}>
+            <div class="sin-folios">
+                <button class="sin-folios-titulo" onclick={toggleFolios} aria-expanded={foliosAbiertos}>
+                    <lightning-icon icon-name={iconoFolios} size="xx-small"></lightning-icon>
+                    <span>{tituloFolios}</span>
+                </button>
+                <p class="sub">Solo consulta: folios de siniestro de este número de póliza capturados en Control de Folios antes de Claims.</p>
+                <template lwc:if={foliosAbiertos}>
+                    <template lwc:if={hayFolios}>
+                        <div class="sin-scroll slds-m-top_x-small">
+                            <table class="slds-table slds-table_bordered slds-table_cell-buffer sin-tabla">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col">Folio</th>
+                                        <th scope="col">Fecha</th>
+                                        <th scope="col">Movimiento</th>
+                                        <th scope="col">Tipo</th>
+                                        <th scope="col">Evento</th>
+                                        <th scope="col">Asegurado afectado</th>
+                                        <th scope="col">Diagnóstico</th>
+                                        <th scope="col">Estatus</th>
+                                        <th scope="col">Fecha de cierre</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={folios} for:item="f">
+                                        <tr key={f.id}>
+                                            <td><button class="enlace" data-id={f.id} onclick={abrirFolio} title="Abrir el folio">{f.folio}</button>
+                                                <div class="sub">{f.numeroAseguradora}</div></td>
+                                            <td>{f.fechaTxt}</td>
+                                            <td>{f.movimiento}</td>
+                                            <td>{f.tipoTxt}</td>
+                                            <td>{f.evento}</td>
+                                            <td>{f.afectado}<div class="sub">{f.titularTxt}</div></td>
+                                            <td class="col-texto" title={f.diagnostico}>{f.diagnostico}</td>
+                                            <td>{f.estatus}</td>
+                                            <td>{f.cierreTxt}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                            <template lwc:if={sinFoliosFiltrados}><p class="sin-sin-resultados">No hay folios con esa búsqueda.</p></template>
+                        </div>
+                        <template lwc:if={conPaginasFolios}>
+                            <div class="sin-paginacion">
+                                <lightning-button-icon icon-name="utility:chevronleft" alternative-text="Anterior" onclick={anteriorFolios}
+                                    disabled={sinAnteriorFolios}></lightning-button-icon>
+                                <span>{textoPaginaFolios}</span>
+                                <lightning-button-icon icon-name="utility:chevronright" alternative-text="Siguiente" onclick={siguienteFolios}
+                                    disabled={sinSiguienteFolios}></lightning-button-icon>
+                            </div>
+                        </template>
+                    </template>
+                    <template lwc:else><p class="sub slds-m-top_x-small">No hay folios anteriores de este número de póliza.</p></template>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

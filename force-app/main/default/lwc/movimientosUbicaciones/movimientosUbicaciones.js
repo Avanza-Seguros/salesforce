@@ -9,6 +9,7 @@
  *               Usa MovimientosUbicacionesController.
  */
 import { LightningElement, api, track } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 import { sePuedeEliminar, eliminarRegistro, eliminarSolicitud } from 'c/eliminarMovimiento';
@@ -20,6 +21,7 @@ import cerrarMovimiento from '@salesforce/apex/MovimientosColectivoController.ce
 import aplicar from '@salesforce/apex/MovimientosUbicacionesController.aplicar';
 import traerDePoliza from '@salesforce/apex/MovimientosUbicacionesController.traerDePoliza';
 import { llamar, fijarPortal } from 'c/portalContexto';
+import { abrirNuevoSiniestro } from 'c/siniestroModal';
 // En el sitio las llamadas pasan por PortalPolizasMovimientos (valida la póliza y al contratante).
 const aplicarSitio = (p) => llamar('MovimientosUbicaciones.aplicar', p, aplicar);
 const cerrarMovimientoSitio = (p) => llamar('MovimientosColectivo.cerrarMovimiento', p, cerrarMovimiento);
@@ -38,7 +40,7 @@ function ubicacionesDePdf(texto) {
     return numeros.map((n) => ({ inciso: n, ...especificacionUbicacion(texto, n) })).filter((u) => u.direccion);
 }
 
-export default class MovimientosUbicaciones extends LightningElement {
+export default class MovimientosUbicaciones extends NavigationMixin(LightningElement) {
     @api readOnly = false;
     @track datos = null;
     @track form = {};
@@ -124,6 +126,9 @@ export default class MovimientosUbicaciones extends LightningElement {
     // Estado general
     // ============================================================
     get enPoliza() { return !!this.datos && this.datos.contexto === 'poliza'; }
+    // Nuevo siniestro desde el renglón de la ubicación: solo en Salesforce y en la póliza.
+    get conSiniestro() { return this.interno && this.enPoliza; }
+    nuevoSiniestro(e) { abrirNuevoSiniestro(this, { policyId: this.recordId, bienId: e.currentTarget.dataset.id }); }
     // Petición desde archivo en Salesforce (póliza): no se pide fecha, número de endoso ni comentario; cada movimiento
     // lleva la fecha y el endoso que trae el archivo (sin fecha, la de hoy).
     get pideDatosArchivo() { return !(this.interno && this.enPoliza); }

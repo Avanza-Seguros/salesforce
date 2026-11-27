@@ -848,6 +848,16 @@
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
+                <componentName>siniestrosPoliza</componentName>
+                <identifier>c_siniestrosPoliza</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-7b1c2e46-siniestros-poliza</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
                 <componentInstanceProperties>
                     <name>relatedListComponentOverride</name>
                     <value>ADVGRID</value>
@@ -992,6 +1002,20 @@
                         <rightValue>Empresarial</rightValue>
                     </criteria>
                 </visibilityRule>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-7b1c2e46-siniestros-poliza</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>title</name>
+                    <value>Siniestros</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:tab</componentName>
+                <identifier>flexipage_tab_siniestros</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>

@@ -21,4 +21,54 @@
         <default>false</default>
         <label>Maternidad</label>
     </standardValue>
+    <standardValue>
+        <fullName>Colisión</fullName>
+        <default>false</default>
+        <label>Colisión</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Robo</fullName>
+        <default>false</default>
+        <label>Robo</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Rotura de cristales</fullName>
+        <default>false</default>
+        <label>Rotura de cristales</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Incendio</fullName>
+        <default>false</default>
+        <label>Incendio</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Vandalismo</fullName>
+        <default>false</default>
+        <label>Vandalismo</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Responsabilidad civil</fullName>
+        <default>false</default>
+        <label>Responsabilidad civil</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Fenómeno hidrometeorológico</fullName>
+        <default>false</default>
+        <label>Fenómeno hidrometeorológico</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Terremoto</fullName>
+        <default>false</default>
+        <label>Terremoto</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Daños por agua</fullName>
+        <default>false</default>
+        <label>Daños por agua</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Rotura de maquinaria</fullName>
+        <default>false</default>
+        <label>Rotura de maquinaria</label>
+    </standardValue>
 </StandardValueSet>

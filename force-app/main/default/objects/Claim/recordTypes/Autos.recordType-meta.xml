@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Autos</fullName>
+    <active>true</active>
+    <description>Siniestros de vehículos (pólizas de Automóviles, individuales y flotillas), ligados al vehículo de la póliza.</description>
+    <label>Siniestro de automóviles</label>
+    <picklistValues>
+        <picklist>ClaimType</picklist>
+        <values>
+            <fullName>Automóviles</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>ClaimReasonType</picklist>
+        <values>
+            <fullName>Colisión</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Robo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rotura de cristales</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Desastre natural</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Incendio</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vandalismo</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Responsabilidad civil</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>LossType</picklist>
+        <values>
+            <fullName>Pérdida parcial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pérdida total</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Robo total</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Robo parcial</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Daños a terceros</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Status</picklist>
+        <values>
+            <fullName>Abierto</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Bajo evaluación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Concedido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reabierto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cerrado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Anulado</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Motivo_Reproceso__c</picklist>
+        <values>
+            <fullName>Interno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Externo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Segunda_Valoracion__c</picklist>
+        <values>
+            <fullName>Ya asistió</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No ha asistido</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

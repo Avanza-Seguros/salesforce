@@ -25,6 +25,10 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
+                <field>InsuredAssetId</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
                 <field>AccountId</field>
             </layoutItems>
             <layoutItems>
@@ -64,7 +68,7 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>Atención</label>
+        <label>Atención y lugar</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Required</behavior>
@@ -77,6 +81,10 @@
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>VisitSite</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>IncidentSite</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>

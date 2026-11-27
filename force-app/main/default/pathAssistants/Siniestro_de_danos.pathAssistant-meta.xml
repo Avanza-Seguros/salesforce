@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PathAssistant xmlns="http://soap.sforce.com/2006/04/metadata">
+    <active>true</active>
+    <entityName>Claim</entityName>
+    <fieldName>Status</fieldName>
+    <masterLabel>Siniestro de daños</masterLabel>
+    <pathAssistantSteps>
+        <info>Registra la póliza, la ubicación afectada y el tipo de siniestro.</info>
+        <picklistValueName>Abierto</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <info>Ingresado a la aseguradora: anota la fecha de inicio y el número de siniestro.</info>
+        <picklistValueName>Bajo evaluación</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <info>La aseguradora pidió información: solicítala al asegurado.</info>
+        <picklistValueName>Pendiente</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <info>Aceptado: registra el monto aprobado.</info>
+        <picklistValueName>Concedido</picklistValueName>
+    </pathAssistantSteps>
+    <recordTypeName>Danos</recordTypeName>
+</PathAssistant>

@@ -144,4 +144,12 @@
         <recordType>Claim.Personas</recordType>
         <visible>true</visible>
     </recordTypeVisibilities>
+    <recordTypeVisibilities>
+        <recordType>Claim.Autos</recordType>
+        <visible>true</visible>
+    </recordTypeVisibilities>
+    <recordTypeVisibilities>
+        <recordType>Claim.Danos</recordType>
+        <visible>true</visible>
+    </recordTypeVisibilities>
 </PermissionSet>
