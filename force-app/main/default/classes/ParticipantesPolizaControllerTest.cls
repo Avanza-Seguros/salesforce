@@ -297,6 +297,30 @@ private class ParticipantesPolizaControllerTest {
 		Assert.areEqual('Baja', ParticipantesPolizaController.movimientoDeArchivo('0000000371_BAJA_CARTA-ANTIGUEDAD_X', null));
 	}
 
+	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: En el correo de un alta solo van el certificado y la credencial; la carta de antigüedad nunca.
+	 * @return void
+	 */
+	@isTest
+	static void archivosDelAlta() {
+		Datetime ahora = Datetime.now();
+		Map<String, Object> cert = archivo('0000000373_ALTA_CERT_PATRICIAHUERTA_GMG-24857_V1', null, ahora);
+		Map<String, Object> tarjeta = archivo('0000092423_TARJ_ALBERTOGOMEZ_GMG-24857_V1', null, ahora);
+		Map<String, Object> credencial = archivo('Credencial Juan', null, ahora);
+		Map<String, Object> carta = archivo('0000000373_ALTA_CARTA-ANTIGUEDAD_PATRICIAHUERTA_V1', null, ahora);
+		Map<String, Object> cartaAcento = archivo('Carta de antigüedad Juan', null, ahora);
+		Map<String, Object> suelto = archivo('00000760127019', null, ahora);
+		Assert.areEqual(new List<Object>{ cert, tarjeta, credencial }, ParticipantesPolizaController.soloDelAlta(
+			new List<Object>{ cert, carta, tarjeta, cartaAcento, credencial, suelto }));
+		// Sin certificado ni credencial reconocibles por su nombre: los demás, nunca la carta de antigüedad.
+		Assert.areEqual(new List<Object>{ suelto }, ParticipantesPolizaController.soloDelAlta(new List<Object>{ carta, suelto, cartaAcento }));
+		Assert.areEqual(0, ParticipantesPolizaController.soloDelAlta(new List<Object>{ carta }).size());
+		Assert.areEqual('Antigüedad', ParticipantesPolizaController.documentoDeArchivo('CERTIFICADO DE ANTIGÜEDAD'));
+		Assert.isNull(ParticipantesPolizaController.documentoDeArchivo(null));
+	}
+
 	static Map<String, Object> archivo(String titulo, String descripcion, Datetime creado) {
 		return new Map<String, Object>{ 'titulo' => titulo, 'descripcion' => descripcion, 'creado' => creado };
 	}

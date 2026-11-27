@@ -453,6 +453,8 @@ public inherited sharing class ParticipantesPolizaController {
 				? (bajaDe.containsKey(p.Id) ? unirArchivos(archivos, new List<Id>{ bajaDe.get(p.Id) }) : new List<Object>())
 				: unirArchivos(archivos, new List<Id>{ p.PrimaryParticipantContactId, p.PrimaryParticipantAccountId, p.Id });
 			if (!deBaja && cambios.containsKey(p.Id)) { suyos = soloDelCambio(suyos, cambios.get(p.Id)); }
+			// Alta: solo el certificado y la credencial (nunca la carta de antigüedad).
+			else if (!deBaja) { suyos = soloDelAlta(suyos); }
 			if (suyos.isEmpty() && deBaja) {
 				Messaging.EmailFileAttachment c = constanciaBaja(datosBaja.get(p.Id), movBaja.get(p.Id), pol, aseguradora);
 				if (c != null) { r.put(p.Id, new List<Messaging.EmailFileAttachment>{ c }); }
@@ -524,6 +526,32 @@ public inherited sharing class ParticipantesPolizaController {
 			}
 		}
 		return !recientes.isEmpty() ? recientes : (!delCambio.isEmpty() ? delCambio : otros);
+	}
+
+	// Archivos del alta: el certificado y la credencial («…_CERT_…», «…_TARJ_…», «credencial»). La carta de antigüedad
+	// nunca va. Si ningún archivo se reconoce como certificado o credencial por su nombre, van los demás (sin las cartas de
+	// antigüedad), para no mandar el alta sin su certificado cuando la aseguradora lo nombra de otra forma.
+	@TestVisible
+	private static List<Object> soloDelAlta(List<Object> archivos) {
+		List<Object> delAlta = new List<Object>();
+		List<Object> otros = new List<Object>();
+		for (Object o : archivos) {
+			String tipo = documentoDeArchivo((String) ((Map<String, Object>) o).get('titulo'));
+			if (tipo == 'Certificado' || tipo == 'Credencial') { delAlta.add(o); }
+			else if (tipo == null) { otros.add(o); }
+		}
+		return delAlta.isEmpty() ? otros : delAlta;
+	}
+
+	// Certificado, Credencial o Antigüedad (carta de antigüedad) según el nombre del archivo; null si no lo dice.
+	@TestVisible
+	private static String documentoDeArchivo(String titulo) {
+		String limpio = titulo == null ? '' : titulo.replaceAll('[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ]', ' ');
+		Set<String> palabras = new Set<String>(CensoColectivoController.llave(limpio).split(' '));
+		for (String w : new List<String>{ 'antiguedad', 'antig', 'reconocimiento' }) { if (palabras.contains(w)) { return 'Antigüedad'; } }
+		for (String w : new List<String>{ 'cert', 'certif', 'certificado', 'certificados' }) { if (palabras.contains(w)) { return 'Certificado'; } }
+		for (String w : new List<String>{ 'tarj', 'tarjeta', 'tarjetas', 'credencial', 'credenciales' }) { if (palabras.contains(w)) { return 'Credencial'; } }
+		return null;
 	}
 
 	// Alta, Baja o Cambio según el nombre del archivo («0000000364_CAMBIO_CERT_...») o lo que se leyó de él al adjuntarlo
