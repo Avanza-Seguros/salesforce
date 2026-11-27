@@ -47,6 +47,8 @@ public with sharing class SiniestrosController {
 		public String medio;
 		public String numeroAseguradora;
 		public String observaciones;
+		// Correo para avisos (si no se captura, el del titular o, en un bien, el del contratante).
+		public String correo;
 		public Id coberturaId;
 		public DatosSolicitud solicitud;
 	}
@@ -140,7 +142,7 @@ public with sharing class SiniestrosController {
 	@AuraEnabled(cacheable=false)
 	public static Map<String, Object> datosPoliza(Id policyId) {
 		List<InsurancePolicy> l = [
-			SELECT Id, Name, NameInsured.Name, Ramo__c, Status, EffectiveDate, ExpirationDate, Aseguradora__r.Name, Product.Aseguradora__r.Name
+			SELECT Id, Name, NameInsuredId, NameInsured.Name, Ramo__c, Status, EffectiveDate, ExpirationDate, Aseguradora__r.Name, Product.Aseguradora__r.Name
 			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
 		];
 		if (l.isEmpty()) { throw CensoColectivoController.error('No tienes acceso a la póliza.'); }
@@ -154,7 +156,7 @@ public with sharing class SiniestrosController {
 		String familia = familiaDe(l[0].Ramo__c);
 		return new Map<String, Object>{
 			'poliza' => poliza(l[0]), 'familia' => familia, 'recordTypeId' => tipoDe(familia), 'ramo' => ramoDe(l[0].Ramo__c),
-			'coberturas' => coberturas
+			'coberturas' => coberturas, 'correoContratante' => datosCuenta(l[0].NameInsuredId).get('correo')
 		};
 	}
 
@@ -173,22 +175,30 @@ public with sharing class SiniestrosController {
 		List<InsurancePolicyParticipant> l = new List<InsurancePolicyParticipant>();
 		if (elegidoId != null) {
 			l.addAll([
-				SELECT Id, ParticipantName, ParticipantCode, IsActiveParticipant, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName
+				SELECT Id, ParticipantName, ParticipantCode, IsActiveParticipant, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,
+					PrimaryParticipantContactId, PrimaryParticipantAccountId, RelatedInsPolicyParticipant.PrimaryParticipantContactId,
+					RelatedInsPolicyParticipant.PrimaryParticipantAccountId
 				FROM InsurancePolicyParticipant WHERE Id = :elegidoId AND InsurancePolicyId = :policyId LIMIT 1
 			]);
 		}
 		Integer resto = MAX_RESULTADOS - l.size();
 		l.addAll([
-			SELECT Id, ParticipantName, ParticipantCode, IsActiveParticipant, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName
+			SELECT Id, ParticipantName, ParticipantCode, IsActiveParticipant, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,
+					PrimaryParticipantContactId, PrimaryParticipantAccountId, RelatedInsPolicyParticipant.PrimaryParticipantContactId,
+					RelatedInsPolicyParticipant.PrimaryParticipantAccountId
 			FROM InsurancePolicyParticipant
 			WHERE InsurancePolicyId = :policyId AND Id != :elegidoId AND (ParticipantName LIKE :patron OR ParticipantCode LIKE :patron)
 			ORDER BY IsActiveParticipant DESC, ParticipantName ASC LIMIT :resto
 		]);
+		List<InsurancePolicyParticipant> titulares = new List<InsurancePolicyParticipant>();
+		for (InsurancePolicyParticipant p : l) { titulares.add(titularDe(p)); }
+		Map<Id, String> correos = ParticipantesPolizaController.correosDe(titulares);
 		List<Map<String, Object>> res = new List<Map<String, Object>>();
 		for (InsurancePolicyParticipant p : l) {
 			res.add(new Map<String, Object>{
 				'id' => p.Id, 'nombre' => p.ParticipantName, 'certificado' => p.ParticipantCode, 'vigente' => p.IsActiveParticipant,
-				'titular' => p.RelatedInsPolicyParticipantId == null ? null : p.RelatedInsPolicyParticipant.ParticipantName
+				'titular' => p.RelatedInsPolicyParticipantId == null ? null : p.RelatedInsPolicyParticipant.ParticipantName,
+				'correoAvisos' => correos.get(titularDe(p).Id)
 			});
 		}
 		return res;
@@ -268,9 +278,22 @@ public with sharing class SiniestrosController {
 			if (personas) {
 				c.VisitSite = texto(d.hospital, 32000);
 				c.VisitDate = mediodia(d.fechaAtencion);
+				// Titular (el mismo asegurado o, si es dependiente, su titular): su contacto y su correo.
+				InsurancePolicyParticipant t = titularDe(a);
+				Map<String, Object> cuenta = datosCuenta(t.PrimaryParticipantAccountId);
+				c.Titular__c = t.PrimaryParticipantContactId != null ? t.PrimaryParticipantContactId : (Id) cuenta.get('contactoId');
+				c.Correo_Avisos__c = String.isNotBlank(d.correo) ? d.correo.trim()
+					: ParticipantesPolizaController.correosDe(new List<InsurancePolicyParticipant>{ t }).get(t.Id);
+				c.Afectado__c = texto(a.ParticipantName, 255);
 			} else {
 				c.InsuredAssetId = d.bienId;
 				c.IncidentSiteStreet = texto(d.lugar, 255);
+				// Contratante: su contacto (si es persona) y su correo.
+				Map<String, Object> cuenta = datosCuenta(pols[0].NameInsuredId);
+				c.Titular__c = (Id) cuenta.get('contactoId');
+				c.Correo_Avisos__c = String.isNotBlank(d.correo) ? d.correo.trim() : (String) cuenta.get('correo');
+				Bien b = bienElegido(bienesDe(d.policyId), d.bienId);
+				c.Afectado__c = b == null ? null : texto(b.nombre, 255);
 			}
 			insert c;
 			ClaimParticipant principal;
@@ -640,6 +663,32 @@ public with sharing class SiniestrosController {
 			res.add(b);
 		}
 		res.sort();
+		return res;
+	}
+
+	// Titular de un asegurado: él mismo o, si es dependiente, su titular (con su contacto y su cuenta).
+	private static InsurancePolicyParticipant titularDe(InsurancePolicyParticipant p) {
+		if (p.RelatedInsPolicyParticipantId == null) { return p; }
+		return new InsurancePolicyParticipant(Id = p.RelatedInsPolicyParticipantId,
+			PrimaryParticipantContactId = p.RelatedInsPolicyParticipant.PrimaryParticipantContactId,
+			PrimaryParticipantAccountId = p.RelatedInsPolicyParticipant.PrimaryParticipantAccountId);
+	}
+
+	// Correo de una cuenta (el de la persona o su correo electrónico) y su contacto, si es cuenta personal.
+	private static Map<String, Object> datosCuenta(Id cuentaId) {
+		Map<String, Object> res = new Map<String, Object>();
+		if (cuentaId == null) { return res; }
+		Map<String, Schema.SObjectField> fm = Schema.SObjectType.Account.fields.getMap();
+		List<String> campos = new List<String>{ 'Id' };
+		for (String c : new List<String>{ 'PersonEmail', 'Correo_electronico__c', 'PersonContactId' }) {
+			if (fm.containsKey(c.toLowerCase())) { campos.add(c); }
+		}
+		for (SObject a : Database.query('SELECT ' + String.join(campos, ', ') + ' FROM Account WHERE Id = :cuentaId LIMIT 1')) {
+			String correo = campos.contains('PersonEmail') ? (String) a.get('PersonEmail') : null;
+			if (String.isBlank(correo) && campos.contains('Correo_electronico__c')) { correo = (String) a.get('Correo_electronico__c'); }
+			res.put('correo', correo);
+			res.put('contactoId', campos.contains('PersonContactId') ? a.get('PersonContactId') : null);
+		}
 		return res;
 	}
 

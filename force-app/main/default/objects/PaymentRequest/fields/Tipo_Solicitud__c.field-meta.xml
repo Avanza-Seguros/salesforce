@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tipo_Solicitud__c</fullName>
+    <description>Inicial (la primera solicitud del siniestro, folio -01) o Complementario (las siguientes), como el tipo de folio de Control de Folios.</description>
+    <externalId>false</externalId>
+    <formula>IF(RIGHT(Name, 3) = &quot;-01&quot;, &quot;Inicial&quot;, &quot;Complementario&quot;)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Tipo de solicitud</label>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

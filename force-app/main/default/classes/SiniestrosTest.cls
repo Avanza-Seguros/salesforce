@@ -2,7 +2,7 @@
  * @creation date: 26/11/2026
  * @author: Sergio Uribe Toledo - Volestra
  * @description: Pruebas de Siniestros (Claims): folio, datos de la póliza, fecha de cierre, validaciones de vigencia y
- *               de asegurado, y folio de las solicitudes de pago.
+ *               de asegurado, folio de las solicitudes de pago; fecha de acuse, avisos y conteo de la encuesta.
  */
 @isTest
 private class SiniestrosTest {
@@ -116,5 +116,42 @@ private class SiniestrosTest {
 		System.assertEquals(folio + '-01', l[0].Name);
 		System.assertEquals(folio + '-03', l[2].Name);
 		System.assertEquals(pol.Id, l[0].InsurancePolicyId, 'Toma la póliza del siniestro');
+	}
+
+	/**
+	 * @creation date: 26/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Fecha de acuse al pasar a Bajo evaluación; avisos al conceder la programación y al pagar el reembolso;
+	 *               conteo de la encuesta en el contacto del titular al cerrar (sus folios anteriores más sus siniestros).
+	 * @return void
+	 */
+	@isTest
+	static void testAcuseAvisosYEncuesta() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'SIN-POL-1'];
+		Contact titular = [SELECT Id FROM Contact WHERE LastName = 'Asegurado'];
+		Claim prog = siniestro(pol.Id, INICIO.addMonths(2));
+		prog.LossType = 'Programación de cirugía';
+		prog.Titular__c = titular.Id;
+		prog.Correo_Avisos__c = 'titular@prueba.com';
+		Claim reem = siniestro(pol.Id, INICIO.addMonths(3));
+		reem.Titular__c = titular.Id;
+		insert new List<Claim>{ prog, reem };
+		PaymentRequest r = new PaymentRequest(Name = 'Nueva', ClaimId = reem.Id, Status = 'Recibido', SubmissionType = 'Factura');
+		insert r;
+		insert new Control_de_Folios__c(Titular__c = titular.Id, Folio__c = 'F-ANTERIOR',
+			RecordTypeId = Schema.SObjectType.Control_de_Folios__c.getRecordTypeInfosByDeveloperName().get('Siniestros').getRecordTypeId());
+		Test.startTest();
+		update new Claim(Id = prog.Id, Status = 'Bajo evaluación');
+		update new Claim(Id = prog.Id, Status = 'Concedido');
+		update new PaymentRequest(Id = r.Id, Status = 'Pagado');
+		update new Claim(Id = prog.Id, Status = 'Cerrado');
+		Test.stopTest();
+		Claim c = [SELECT InitiationDate, FinalizedDate FROM Claim WHERE Id = :prog.Id];
+		System.assertNotEquals(null, c.InitiationDate, 'Fecha de acuse al ingresar a la aseguradora');
+		System.assertNotEquals(null, c.FinalizedDate);
+		System.assertEquals(2, [SELECT COUNT() FROM AsyncApexJob WHERE ApexClass.Name = 'NotificacionesSiniestro'],
+			'Carta de programación y aviso de reembolso');
+		System.assertEquals(3, [SELECT Conteo_de_Folios__c FROM Contact WHERE Id = :titular.Id].Conteo_de_Folios__c,
+			'1 folio anterior y 2 siniestros');
 	}
 }

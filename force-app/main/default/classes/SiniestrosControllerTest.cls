@@ -79,12 +79,13 @@ private class SiniestrosControllerTest {
 			'solicitudId' => (Id) ((Map<String, Object>) sols[0]).get('id'), 'monto' => 12000, 'fecha' => '2026-04-01', 'identificador' => 'SPEI-1' }));
 		Test.stopTest();
 
-		Claim c = [SELECT Name, LossType, ClaimReason, VisitSite, EstimatedAmount, ActualAmount, AccountId,
+		Claim c = [SELECT Name, LossType, ClaimReason, VisitSite, EstimatedAmount, ActualAmount, AccountId, Afectado__c,
 			(SELECT Roles, InsurancePolicyParticipant.ParticipantName FROM ClaimParticipants ORDER BY CreatedDate),
 			(SELECT Name, InsurancePolicyCoverageId FROM ClaimCoverages)
 			FROM Claim WHERE Id = :claimId];
 		System.assertEquals(r.get('folio'), c.Name);
 		System.assertEquals('Apendicitis', c.ClaimReason);
+		System.assertEquals('HIJA PRUEBA', c.Afectado__c);
 		System.assertEquals('Hospital Ángeles', c.VisitSite);
 		System.assertEquals(2, c.ClaimParticipants.size(), 'La afectada y su titular');
 		System.assertEquals('Paciente', c.ClaimParticipants[0].Roles);
@@ -196,7 +197,7 @@ private class SiniestrosControllerTest {
 		System.assert(((String) ubicaciones[0].get('detalle')).contains('Zapopan'), (String) ubicaciones[0].get('detalle'));
 		Map<String, Object> datos = new Map<String, Object>{
 			'policyId' => autos.Id, 'bienId' => bien.Id, 'ramo' => 'Automóviles', 'causa' => 'Colisión', 'tipo' => 'Pérdida parcial',
-			'fecha' => '2026-03-10', 'diagnostico' => 'Golpe en la defensa', 'lugar' => 'Av. Reforma 100',
+			'fecha' => '2026-03-10', 'diagnostico' => 'Golpe en la defensa', 'lugar' => 'Av. Reforma 100', 'correo' => 'flotilla@prueba.com',
 			'solicitud' => new Map<String, Object>{ 'monto' => 8000 }
 		};
 		Id claimId = (Id) SiniestrosController.crearSiniestro(JSON.serialize(datos)).get('claimId');
@@ -214,13 +215,15 @@ private class SiniestrosControllerTest {
 		Map<String, Object> tab = SiniestrosController.siniestrosDePoliza(autos.Id);
 		Test.stopTest();
 
-		Claim c = [SELECT RecordType.DeveloperName, InsuredAssetId, IncidentSiteStreet, ClaimReason,
+		Claim c = [SELECT RecordType.DeveloperName, InsuredAssetId, IncidentSiteStreet, ClaimReason, Afectado__c, Correo_Avisos__c,
 			(SELECT Roles, ParticipantAccountId, InsurancePolicyParticipantId FROM ClaimParticipants),
 			(SELECT InsurancePolicyAssetId FROM InsuranceClaimAssets), (SELECT InsurancePolicyAssetId FROM ClaimCoverages)
 			FROM Claim WHERE Id = :claimId];
 		System.assertEquals('Autos', c.RecordType.DeveloperName);
 		System.assertEquals(bien.Id, c.InsuredAssetId);
 		System.assertEquals('Av. Reforma 100', c.IncidentSiteStreet);
+		System.assertEquals('VERSA SENSE', c.Afectado__c);
+		System.assertEquals('flotilla@prueba.com', c.Correo_Avisos__c);
 		System.assertEquals(bien.Id, c.InsuranceClaimAssets[0].InsurancePolicyAssetId);
 		System.assertEquals(bien.Id, c.ClaimCoverages[0].InsurancePolicyAssetId);
 		System.assertEquals(1, c.ClaimParticipants.size(), 'El contratante como reclamante');

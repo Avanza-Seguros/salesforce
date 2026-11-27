@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Titular__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Contacto del titular (el reclamante): a quien se dirigen los correos del siniestro, cuenta sus siniestros para la encuesta y es la llave de contacto para Marketing Cloud. Se llena al registrar el siniestro.</description>
+    <externalId>false</externalId>
+    <label>Contacto del titular</label>
+    <referenceTo>Contact</referenceTo>
+    <relationshipLabel>Siniestros como titular</relationshipLabel>
+    <relationshipName>Siniestros_Titular</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

@@ -44,7 +44,7 @@ const SUBTITULOS = {
     danos: 'Siniestro de daños: la ubicación de la póliza.'
 };
 const FORM_VACIO = { ramo: null, causa: null, tipo: null, fecha: null, diagnostico: '', hospital: '', fechaAtencion: null, lugar: '',
-    medio: null, numeroAseguradora: '', observaciones: '', coberturaId: '' };
+    medio: null, numeroAseguradora: '', observaciones: '', coberturaId: '', correo: '' };
 
 const fechaTxt = (d) => (d ? d.split('-').reverse().join('/') : '');
 
@@ -77,6 +77,9 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
     preElegido = null;
     // Siniestro
     form = { ...FORM_VACIO };
+    // Correo para avisos: se propone el del titular (o el del contratante en un bien) hasta que el ejecutivo lo cambie.
+    correoContratante = '';
+    correoEditado = false;
     conSolicitud = false;
     guardando = false;
     error = '';
@@ -142,12 +145,14 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
             }
             this.familia = r.familia || 'personas';
             this.recordTypeId = r.recordTypeId;
+            this.correoContratante = r.correoContratante || '';
             this.form = { ...this.form, ramo: r.ramo || this.form.ramo, coberturaId: '' };
             this.polizas = [];
             this.elegidoId = null;
             this.texto = '';
             await this.buscar();
             this.ajustarCobertura();
+            this.sugerirCorreo();
         } catch (e) {
             this.error = this.mensaje(e);
         }
@@ -214,6 +219,7 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
                 const elegido = this.opciones.find((o) => o.id === pre || o.incisoId === pre);
                 if (elegido) { this.elegidoId = elegido.id; }
                 this.preElegido = null;
+                this.sugerirCorreo();
             }
         } catch (e) {
             this.error = this.mensaje(e);
@@ -225,6 +231,13 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
         const sel = e.detail.selectedRows || [];
         this.elegidoId = sel.length ? sel[0].id : null;
         this.ajustarCobertura();
+        this.sugerirCorreo();
+    }
+    sugerirCorreo() {
+        if (this.correoEditado) { return; }
+        const o = this.opciones.find((x) => x.id === this.elegidoId);
+        const correo = this.esPersonas ? (o && o.correoAvisos) || '' : this.correoContratante;
+        this.form = { ...this.form, correo };
     }
     get seleccion() { return this.elegidoId ? [this.elegidoId] : []; }
     get sinOpciones() { return !this.buscando && !this.opciones.length; }
@@ -234,6 +247,7 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
         const campo = e.target.dataset.campo;
         const valor = e.detail.value;
         this.form = { ...this.form, [campo]: valor };
+        if (campo === 'correo') { this.correoEditado = true; }
         // Un reembolso trae su solicitud de pago; los demás tipos, solo si se pide.
         if (campo === 'tipo' && this.esPersonas) { this.conSolicitud = valor === 'Reembolso'; }
     }
@@ -314,7 +328,9 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
         this.form = { ...this.form, tipo: null, causa: null, fecha: null, diagnostico: '', hospital: '', fechaAtencion: null, lugar: '',
             numeroAseguradora: '', observaciones: '' };
         this.conSolicitud = false;
+        this.correoEditado = false;
         this.ajustarCobertura();
+        this.sugerirCorreo();
     }
     cancelar() {
         if (this.enModal) { this.dispatchEvent(new CustomEvent('cerrar', { detail: { claimId: this.creado ? this.creado.claimId : null } })); return; }

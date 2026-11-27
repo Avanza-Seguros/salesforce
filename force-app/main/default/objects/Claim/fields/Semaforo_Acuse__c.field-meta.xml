@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Semaforo_Acuse__c</fullName>
+    <description>Semáforo de días desde el acuse de la aseguradora mientras el siniestro está en trámite, con los mismos plazos que el indicador de Control de Folios: verde 0 a 1 día, amarillo 2 a 4, rojo 5 o más.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+    OR(ISBLANK(InitiationDate), NOT(OR(ISPICKVAL(Status, &quot;Bajo evaluación&quot;), ISPICKVAL(Status, &quot;Reabierto&quot;)))),
+    NULL,
+    IF(TODAY() - DATEVALUE(InitiationDate) &gt;= 5, IMAGE(&quot;/img/samples/flag_red.gif&quot;, &quot;5 días o más&quot;),
+    IF(TODAY() - DATEVALUE(InitiationDate) &gt;= 2, IMAGE(&quot;/img/samples/flag_yellow.gif&quot;, &quot;2 a 4 días&quot;),
+    IMAGE(&quot;/img/samples/flag_green.gif&quot;, &quot;0 a 1 día&quot;)))
+)</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Semáforo de acuse</label>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -96,6 +96,10 @@
                             <lightning-input label="Número de siniestro de la aseguradora" value={form.numeroAseguradora} data-campo="numeroAseguradora"
                                 onchange={handleCampo} max-length="255" field-level-help="Si la aseguradora ya lo asignó; se puede agregar después."></lightning-input>
                         </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-input type="email" label="Correo para avisos" value={form.correo} data-campo="correo" onchange={handleCampo}
+                                field-level-help="A este correo se envían la carta de programación, la de ingreso hospitalario y el aviso de reembolso."></lightning-input>
+                        </div>
                         <div class="slds-col slds-size_1-of-1">
                             <lightning-textarea label="Observaciones" value={form.observaciones} data-campo="observaciones" onchange={handleCampo}></lightning-textarea>
                         </div>
