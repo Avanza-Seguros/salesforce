@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Inicio</fullName>
+        <default>false</default>
+        <label>Inicio</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Automático</fullName>
+        <default>false</default>
+        <label>Automático</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Vida</fullName>
+        <default>false</default>
+        <label>Vida</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Anualidad</fullName>
+        <default>false</default>
+        <label>Anualidad</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Compensación de trabajadores</fullName>
+        <default>false</default>
+        <label>Compensación de trabajadores</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Gastos médicos mayores</fullName>
+        <default>false</default>
+        <label>Gastos médicos mayores</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Accidentes personales</fullName>
+        <default>false</default>
+        <label>Accidentes personales</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Automóviles</fullName>
+        <default>false</default>
+        <label>Automóviles</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Daños</fullName>
+        <default>false</default>
+        <label>Daños</label>
+    </standardValue>
+</StandardValueSet>

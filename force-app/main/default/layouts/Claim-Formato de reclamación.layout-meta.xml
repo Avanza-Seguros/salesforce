@@ -2,14 +2,26 @@
 <Layout xmlns="http://soap.sforce.com/2006/04/metadata">
     <excludeButtons>Submit</excludeButtons>
     <layoutSections>
-        <customLabel>false</customLabel>
+        <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>Information</label>
+        <label>Siniestro</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Required</behavior>
                 <field>Name</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>RecordTypeId</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Status</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Required</behavior>
+                <field>PolicyNumberId</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -17,19 +29,21 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
+                <field>ProductId</field>
+            </layoutItems>
+        </layoutColumns>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Required</behavior>
                 <field>ClaimType</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>EstimatedAmount</field>
+                <field>ClaimReasonType</field>
             </layoutItems>
             <layoutItems>
-                <behavior>Edit</behavior>
-                <field>ActualAmount</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
-                <field>ApprovedAmount</field>
+                <behavior>Required</behavior>
+                <field>LossType</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -41,25 +55,65 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>IncidentSite</field>
+                <field>OwnerId</field>
+            </layoutItems>
+        </layoutColumns>
+        <style>TwoColumnsTopToBottom</style>
+    </layoutSections>
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Atención</label>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Required</behavior>
+                <field>LossDate</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>FinancialAuthorityStatus</field>
+                <field>VisitDate</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>VisitSite</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>PolicyNumberId</field>
+                <field>ClaimReason</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>InsuredAssetId</field>
+                <field>Summary</field>
+            </layoutItems>
+        </layoutColumns>
+        <style>TwoColumnsTopToBottom</style>
+    </layoutSections>
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Aseguradora</label>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>SourceSystem</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>LossType</field>
+                <field>SourceSystemIdentifier</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>Folio__c</field>
+            </layoutItems>
+        </layoutColumns>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>ReportDate</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -73,40 +127,110 @@
                 <behavior>Edit</behavior>
                 <field>FinalizedDate</field>
             </layoutItems>
+        </layoutColumns>
+        <style>TwoColumnsTopToBottom</style>
+    </layoutSections>
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Montos y resolución</label>
+        <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Status</field>
+                <field>EstimatedAmount</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>ClaimReason</field>
+                <field>ApprovedAmount</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>IncidentId</field>
+                <field>ActualAmount</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>ProductId</field>
+                <field>FinancialAuthorityStatus</field>
+            </layoutItems>
+        </layoutColumns>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Motivo_Rechazo__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Motivo_Reproceso__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Segunda_Valoracion__c</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>
     <layoutSections>
-        <customLabel>false</customLabel>
-        <detailHeading>false</detailHeading>
-        <editHeading>false</editHeading>
-        <label>Custom Links</label>
-        <layoutColumns/>
-        <layoutColumns/>
-        <layoutColumns/>
-        <style>CustomLinks</style>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Información del sistema</label>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>CreatedById</field>
+            </layoutItems>
+        </layoutColumns>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>LastModifiedById</field>
+            </layoutItems>
+        </layoutColumns>
+        <style>TwoColumnsTopToBottom</style>
     </layoutSections>
     <relatedLists>
         <fields>Name</fields>
         <fields>ParticipantAccount</fields>
         <fields>ParticipantContact</fields>
+        <fields>Roles</fields>
         <relatedList>ClaimParticipants</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <fields>Status</fields>
+        <relatedList>ClaimCoverages</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <fields>Status</fields>
+        <fields>TotalRequestedAmount</fields>
+        <fields>ReceivedDate</fields>
+        <relatedList>PaymentRequests</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <fields>PaymentStatus</fields>
+        <fields>PaymentAmount</fields>
+        <fields>PaymentDate</fields>
+        <relatedList>ClaimPaymentSummaries</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <fields>User</fields>
+        <fields>Role</fields>
+        <fields>IsActive</fields>
+        <relatedList>ClaimTeamMembers</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <relatedList>InsuranceClaimAssets</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <fields>Name</fields>
+        <relatedList>ClaimCases</relatedList>
+    </relatedLists>
+    <relatedLists>
+        <relatedList>RelatedFileList</relatedList>
     </relatedLists>
     <relatedLists>
         <fields>TASK.SUBJECT</fields>
@@ -114,24 +238,8 @@
         <fields>ACTIVITY.TASK</fields>
         <fields>TASK.DUE_DATE</fields>
         <fields>TASK.STATUS</fields>
-        <fields>TASK.PRIORITY</fields>
         <fields>CORE.USERS.FULL_NAME</fields>
         <relatedList>RelatedActivityList</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <relatedList>RelatedNoteList</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>Name</fields>
-        <fields>Description</fields>
-        <relatedList>ClaimItems</relatedList>
-    </relatedLists>
-    <relatedLists>
-        <fields>Name</fields>
-        <fields>ActionPlanState</fields>
-        <fields>Owner</fields>
-        <fields>StartDate</fields>
-        <relatedList>ActionPlan</relatedList>
     </relatedLists>
     <showEmailCheckbox>false</showEmailCheckbox>
     <showRunAssignmentRulesCheckbox>false</showRunAssignmentRulesCheckbox>

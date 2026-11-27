@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Documentacion_Ingresada__c</fullName>
+    <description>Documentos que entregó el asegurado con esta solicitud de pago.</description>
+    <externalId>false</externalId>
+    <label>Documentación ingresada</label>
+    <required>false</required>
+    <type>MultiselectPicklist</type>
+    <visibleLines>6</visibleLines>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Identificación</fullName>
+                <default>false</default>
+                <label>Identificación</label>
+            </value>
+            <value>
+                <fullName>Estado de cuenta</fullName>
+                <default>false</default>
+                <label>Estado de cuenta</label>
+            </value>
+            <value>
+                <fullName>Informe médico</fullName>
+                <default>false</default>
+                <label>Informe médico</label>
+            </value>
+            <value>
+                <fullName>Aviso de accidente</fullName>
+                <default>false</default>
+                <label>Aviso de accidente</label>
+            </value>
+            <value>
+                <fullName>Facturas</fullName>
+                <default>false</default>
+                <label>Facturas</label>
+            </value>
+            <value>
+                <fullName>Estudios</fullName>
+                <default>false</default>
+                <label>Estudios</label>
+            </value>
+            <value>
+                <fullName>Desglose</fullName>
+                <default>false</default>
+                <label>Desglose</label>
+            </value>
+            <value>
+                <fullName>Receta</fullName>
+                <default>false</default>
+                <label>Receta</label>
+            </value>
+            <value>
+                <fullName>Carta remanente</fullName>
+                <default>false</default>
+                <label>Carta remanente</label>
+            </value>
+            <value>
+                <fullName>Carta asesor</fullName>
+                <default>false</default>
+                <label>Carta asesor</label>
+            </value>
+            <value>
+                <fullName>Bitácora de asistencia</fullName>
+                <default>false</default>
+                <label>Bitácora de asistencia</label>
+            </value>
+            <value>
+                <fullName>Finiquito</fullName>
+                <default>false</default>
+                <label>Finiquito</label>
+            </value>
+            <value>
+                <fullName>Carta de rechazo</fullName>
+                <default>false</default>
+                <label>Carta de rechazo</label>
+            </value>
+            <value>
+                <fullName>Carta de información</fullName>
+                <default>false</default>
+                <label>Carta de información</label>
+            </value>
+            <value>
+                <fullName>Cotización</fullName>
+                <default>false</default>
+                <label>Cotización</label>
+            </value>
+            <value>
+                <fullName>Historial clínico</fullName>
+                <default>false</default>
+                <label>Historial clínico</label>
+            </value>
+            <value>
+                <fullName>Formato de reembolso</fullName>
+                <default>false</default>
+                <label>Formato de reembolso</label>
+            </value>
+            <value>
+                <fullName>Comprobante de domicilio</fullName>
+                <default>false</default>
+                <label>Comprobante de domicilio</label>
+            </value>
+            <value>
+                <fullName>Orden de estudios</fullName>
+                <default>false</default>
+                <label>Orden de estudios</label>
+            </value>
+            <value>
+                <fullName>Maternidad anticipada</fullName>
+                <default>false</default>
+                <label>Maternidad anticipada</label>
+            </value>
+            <value>
+                <fullName>Cambio de médico</fullName>
+                <default>false</default>
+                <label>Cambio de médico</label>
+            </value>
+            <value>
+                <fullName>Deducible</fullName>
+                <default>false</default>
+                <label>Deducible</label>
+            </value>
+            <value>
+                <fullName>Cambio de hospital</fullName>
+                <default>false</default>
+                <label>Cambio de hospital</label>
+            </value>
+            <value>
+                <fullName>Forma de pago</fullName>
+                <default>false</default>
+                <label>Forma de pago</label>
+            </value>
+            <value>
+                <fullName>Solicitud individual</fullName>
+                <default>false</default>
+                <label>Solicitud individual</label>
+            </value>
+            <value>
+                <fullName>Antigüedad</fullName>
+                <default>false</default>
+                <label>Antigüedad</label>
+            </value>
+            <value>
+                <fullName>Carta de autorización</fullName>
+                <default>false</default>
+                <label>Carta de autorización</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

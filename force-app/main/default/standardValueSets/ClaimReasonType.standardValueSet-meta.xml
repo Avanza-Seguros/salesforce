@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StandardValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sorted>false</sorted>
+    <standardValue>
+        <fullName>Desastre natural</fullName>
+        <default>false</default>
+        <label>Desastre natural</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Accidente</fullName>
+        <default>false</default>
+        <label>Accidente</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Enfermedad</fullName>
+        <default>false</default>
+        <label>Enfermedad</label>
+    </standardValue>
+    <standardValue>
+        <fullName>Maternidad</fullName>
+        <default>false</default>
+        <label>Maternidad</label>
+    </standardValue>
+</StandardValueSet>

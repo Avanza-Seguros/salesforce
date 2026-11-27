@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Folio__c</fullName>
+    <description>Folio interno del siniestro; el trigger lo copia al nombre del siniestro.</description>
+    <displayFormat>SIN-{00000}</displayFormat>
+    <externalId>false</externalId>
+    <label>Folio</label>
+    <trackHistory>false</trackHistory>
+    <type>AutoNumber</type>
+</CustomField>

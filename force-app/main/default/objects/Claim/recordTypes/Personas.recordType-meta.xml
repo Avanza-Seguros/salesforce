@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Personas</fullName>
+    <active>true</active>
+    <description>Siniestros de Gastos médicos mayores, Vida y Accidentes personales. Automóviles y Daños tendrán su propio tipo de registro.</description>
+    <label>Siniestro de personas</label>
+    <picklistValues>
+        <picklist>ClaimType</picklist>
+        <values>
+            <fullName>Gastos médicos mayores</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Vida</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Accidentes personales</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>ClaimReasonType</picklist>
+        <values>
+            <fullName>Enfermedad</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Accidente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Maternidad</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>LossType</picklist>
+        <values>
+            <fullName>Reembolso</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Programación de cirugía</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pago directo hospitalario</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fallecimiento</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Discapacidad total permanente</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Status</picklist>
+        <values>
+            <fullName>Abierto</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Bajo evaluación</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pendiente</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Concedido</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rechazado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Reabierto</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cerrado</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Anulado</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Motivo_Reproceso__c</picklist>
+        <values>
+            <fullName>Interno</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Externo</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Segunda_Valoracion__c</picklist>
+        <values>
+            <fullName>Ya asistió</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No ha asistido</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

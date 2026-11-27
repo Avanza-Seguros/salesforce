@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fecha_En_Vigencia</fullName>
+    <active>true</active>
+    <description>La fecha del siniestro debe caer dentro de la vigencia de la póliza.</description>
+    <errorConditionFormula>AND(
+    NOT(ISBLANK(PolicyNumberId)),
+    NOT(ISBLANK(LossDate)),
+    OR(
+        AND(NOT(ISBLANK(PolicyNumber.EffectiveDate)), DATEVALUE(LossDate) &lt; DATEVALUE(PolicyNumber.EffectiveDate)),
+        AND(NOT(ISBLANK(PolicyNumber.ExpirationDate)), DATEVALUE(LossDate) &gt; DATEVALUE(PolicyNumber.ExpirationDate))
+    )
+)</errorConditionFormula>
+    <errorDisplayField>LossDate</errorDisplayField>
+    <errorMessage>La fecha del siniestro está fuera de la vigencia de la póliza. Elige la póliza vigente en esa fecha.</errorMessage>
+</ValidationRule>
