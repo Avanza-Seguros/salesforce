@@ -1,0 +1,29 @@
+<template>
+    <lightning-quick-action-panel header={titulo}>
+        <template lwc:if={error}><div class="aviso-error slds-m-bottom_small">{error}</div></template>
+        <template lwc:if={enCaptura}>
+            <template lwc:if={cerrado}>
+                <p>El siniestro está cerrado: reábrelo (estatus Reabierto) para registrar otro reembolso.</p>
+            </template>
+            <template lwc:else>
+                <p class="sub slds-m-bottom_small">{anteriores}</p>
+                <c-datos-solicitud-pago></c-datos-solicitud-pago>
+            </template>
+        </template>
+        <template lwc:else>
+            <p class="slds-text-heading_small">Solicitud {creada.folio} registrada.</p>
+            <p class="sub">Adjunta sus documentos (facturas, informe médico, estudios…).</p>
+            <lightning-file-upload class="slds-m-top_small" label="Documentos" name="documentos" record-id={creada.solicitudId}
+                onuploadfinished={handleArchivos} multiple></lightning-file-upload>
+        </template>
+        <template lwc:if={guardando}><lightning-spinner alternative-text="Registrando" size="small"></lightning-spinner></template>
+        <div slot="footer">
+            <template lwc:if={enCaptura}>
+                <lightning-button label="Cancelar" onclick={cerrar}></lightning-button>
+                <lightning-button label="Registrar reembolso" variant="brand" class="slds-m-left_x-small" onclick={guardar}
+                    disabled={guardando}></lightning-button>
+            </template>
+            <template lwc:else><lightning-button label="Listo" variant="brand" onclick={cerrar}></lightning-button></template>
+        </div>
+    </lightning-quick-action-panel>
+</template>

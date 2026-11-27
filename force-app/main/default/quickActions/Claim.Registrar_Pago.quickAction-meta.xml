@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QuickAction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Lo que pagó la aseguradora a una solicitud de pago del siniestro.</description>
+    <label>Registrar pago</label>
+    <lightningWebComponent>siniestroPago</lightningWebComponent>
+    <optionsCreateFeedItem>false</optionsCreateFeedItem>
+    <type>LightningWebComponent</type>
+</QuickAction>

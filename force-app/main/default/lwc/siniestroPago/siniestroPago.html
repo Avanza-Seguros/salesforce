@@ -1,0 +1,30 @@
+<template>
+    <lightning-quick-action-panel header={titulo}>
+        <template lwc:if={error}><div class="aviso-error slds-m-bottom_small">{error}</div></template>
+        <template lwc:if={haySolicitudes}>
+            <lightning-combobox label="Solicitud de pago" options={opciones} value={solicitudId} onchange={handleSolicitud} required></lightning-combobox>
+            <div class="slds-grid slds-wrap slds-gutters_x-small slds-m-top_x-small">
+                <div class="slds-col slds-size_1-of-2">
+                    <lightning-input type="number" formatter="currency" step="0.01" min="0.01" label="Monto pagado por la aseguradora"
+                        value={monto} data-campo="monto" onchange={handleCampo} required></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-2">
+                    <lightning-input type="date" label="Fecha de pago" value={fecha} data-campo="fecha" onchange={handleCampo} required></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-1">
+                    <lightning-input label="Número de transferencia o cheque" value={identificador} data-campo="identificador"
+                        onchange={handleCampo} max-length="255"></lightning-input>
+                </div>
+            </div>
+        </template>
+        <template lwc:else>
+            <p>El siniestro no tiene solicitudes de pago. Registra primero el reembolso con «Reembolso complementario».</p>
+        </template>
+        <template lwc:if={guardando}><lightning-spinner alternative-text="Registrando" size="small"></lightning-spinner></template>
+        <div slot="footer">
+            <lightning-button label="Cancelar" onclick={cerrar}></lightning-button>
+            <lightning-button label="Registrar pago" variant="brand" class="slds-m-left_x-small" onclick={guardar}
+                disabled={guardando}></lightning-button>
+        </div>
+    </lightning-quick-action-panel>
+</template>

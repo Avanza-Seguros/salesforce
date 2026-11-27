@@ -1,0 +1,10 @@
+<!--
+  @creation date: 26/11/2026
+  @author: Sergio Uribe Toledo - Volestra
+  @description: Botón Nuevo de los siniestros (Claim): abre c:nuevoSiniestro en lugar del formulario estándar.
+-->
+<aura:component implements="lightning:actionOverride,lightning:isUrlAddressable">
+    <div class="slds-p-around_small">
+        <c:nuevoSiniestro></c:nuevoSiniestro>
+    </div>
+</aura:component>

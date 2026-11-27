@@ -1,0 +1,129 @@
+<template>
+    <article class="slds-card siniestro-card">
+        <div class="slds-card__header">
+            <h2 class="slds-text-heading_medium">Nuevo siniestro</h2>
+            <p class="sub">Siniestro de personas: Gastos médicos mayores, Vida y Accidentes personales.</p>
+        </div>
+        <div class="slds-card__body slds-card__body_inner">
+            <template lwc:if={error}><div class="aviso-error slds-m-bottom_small">{error}</div></template>
+
+            <template lwc:if={enCaptura}>
+                <!-- 1. Póliza -->
+                <h3 class="seccion">Póliza</h3>
+                <template lwc:if={sinPoliza}>
+                    <lightning-input type="search" label="Buscar póliza" placeholder="Número de póliza o contratante (mínimo 3 letras)"
+                        value={textoPoliza} onchange={handleBuscarPoliza} is-loading={buscandoPolizas}></lightning-input>
+                    <template lwc:if={hayPolizas}>
+                        <ul class="lista-polizas">
+                            <template for:each={polizas} for:item="p">
+                                <li key={p.id}>
+                                    <button class="poliza-opcion" data-id={p.id} onclick={handleElegirPoliza}>
+                                        <span class="poliza-numero">{p.numero}</span>
+                                        <span class="sub">{p.detalle}</span>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                    <template lwc:if={sinResultadosPoliza}><p class="sub slds-m-top_x-small">No hay pólizas con ese número o contratante.</p></template>
+                </template>
+                <template lwc:else>
+                    <div class="poliza-elegida">
+                        <div>
+                            <span class="poliza-numero">{poliza.numero}</span>
+                            <span class="sub">{poliza.detalle}</span>
+                        </div>
+                        <template lwc:if={puedeCambiarPoliza}><lightning-button variant="base" label="Cambiar" onclick={cambiarPoliza}></lightning-button></template>
+                    </div>
+
+                    <!-- 2. Asegurado afectado -->
+                    <h3 class="seccion">Asegurado afectado</h3>
+                    <lightning-input type="search" label="Buscar asegurado" variant="label-hidden" placeholder="Nombre o certificado"
+                        value={textoAsegurado} onchange={handleBuscarAsegurado} is-loading={buscandoAsegurados}></lightning-input>
+                    <template lwc:if={sinAsegurados}><p class="sub slds-m-top_x-small">La póliza no tiene asegurados con ese nombre o certificado.</p></template>
+                    <template lwc:else>
+                        <div class="tabla-asegurados slds-m-top_x-small">
+                            <lightning-datatable key-field="id" data={asegurados} columns={columnasAsegurados} max-row-selection="1"
+                                selected-rows={seleccionAsegurado} onrowselection={handleElegirAsegurado} column-widths-mode="auto"></lightning-datatable>
+                        </div>
+                    </template>
+                    <p class="sub slds-m-top_xx-small">Si es dependiente, su titular se agrega como reclamante.</p>
+
+                    <!-- 3. Siniestro -->
+                    <h3 class="seccion">Siniestro</h3>
+                    <div class="siniestro slds-grid slds-wrap slds-gutters_x-small">
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-combobox label="Ramo" options={picklists.ramo} value={form.ramo} data-campo="ramo" onchange={handleCampo} required></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-combobox label="Tipo de siniestro" options={picklists.tipo} value={form.tipo} data-campo="tipo" onchange={handleCampo} required></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-combobox label="Causa" options={picklists.causa} value={form.causa} data-campo="causa" onchange={handleCampo} required></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-3">
+                            <lightning-input type="date" label="Fecha del siniestro" value={form.fecha} data-campo="fecha" onchange={handleCampo}
+                                min={fechaMin} max={fechaMax} message-when-range-underflow="Antes del inicio de la póliza."
+                                message-when-range-overflow="Después del fin de la póliza." required></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-3">
+                            <lightning-input type="date" label="Fecha de atención o ingreso" value={form.fechaAtencion} data-campo="fechaAtencion" onchange={handleCampo}></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-combobox label="Medio de recepción" options={picklists.medio} value={form.medio} data-campo="medio" onchange={handleCampo}></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-input label="Diagnóstico" value={form.diagnostico} data-campo="diagnostico" onchange={handleCampo} max-length="255"></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-input label="Hospital o lugar de atención" value={form.hospital} data-campo="hospital" onchange={handleCampo}></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-combobox label="Cobertura" options={opcionesCobertura} value={form.coberturaId} data-campo="coberturaId" onchange={handleCampo}></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                            <lightning-input label="Número de siniestro de la aseguradora" value={form.numeroAseguradora} data-campo="numeroAseguradora"
+                                onchange={handleCampo} max-length="255" field-level-help="Si la aseguradora ya lo asignó; se puede agregar después."></lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1">
+                            <lightning-textarea label="Observaciones" value={form.observaciones} data-campo="observaciones" onchange={handleCampo}></lightning-textarea>
+                        </div>
+                    </div>
+
+                    <!-- 4. Primera solicitud de pago -->
+                    <h3 class="seccion">Solicitud de pago</h3>
+                    <lightning-input type="checkbox" label="Registrar la solicitud de pago (folio del reembolso)" checked={conSolicitud}
+                        onchange={handleConSolicitud}></lightning-input>
+                    <template lwc:if={conSolicitud}>
+                        <div class="slds-m-top_x-small"><c-datos-solicitud-pago></c-datos-solicitud-pago></div>
+                    </template>
+                </template>
+            </template>
+
+            <!-- Registrado: documentos sin salir de aquí -->
+            <template lwc:else>
+                <div class="listo">
+                    <lightning-icon icon-name="utility:success" variant="success" size="small"></lightning-icon>
+                    <div>
+                        <p class="slds-text-heading_small">Siniestro {creado.folio} registrado.</p>
+                        <p class="sub">{textoArchivos}</p>
+                    </div>
+                </div>
+                <lightning-file-upload class="slds-m-top_small" label="Documentos" name="documentos" record-id={destinoArchivos}
+                    onuploadfinished={handleArchivos} multiple></lightning-file-upload>
+            </template>
+        </div>
+        <footer class="slds-card__footer pie">
+            <template lwc:if={enCaptura}>
+                <lightning-button label="Cancelar" onclick={cancelar}></lightning-button>
+                <lightning-button label="Registrar siniestro" variant="brand" class="slds-m-left_x-small" onclick={guardar}
+                    disabled={guardando}></lightning-button>
+            </template>
+            <template lwc:else>
+                <lightning-button label="Registrar otro" onclick={otro}></lightning-button>
+                <lightning-button label="Abrir siniestro" variant="brand" class="slds-m-left_x-small" onclick={abrirSiniestro}></lightning-button>
+            </template>
+        </footer>
+        <template lwc:if={guardando}><lightning-spinner alternative-text="Registrando" size="small"></lightning-spinner></template>
+    </article>
+</template>

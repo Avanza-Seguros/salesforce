@@ -76,8 +76,10 @@
     </actionOverrides>
     <actionOverrides>
         <actionName>New</actionName>
+        <content>nuevoSiniestroOverride</content>
         <formFactor>Large</formFactor>
-        <type>Default</type>
+        <skipRecordTypeSelect>true</skipRecordTypeSelect>
+        <type>LightningComponent</type>
     </actionOverrides>
     <actionOverrides>
         <actionName>New</actionName>
