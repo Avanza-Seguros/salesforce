@@ -600,15 +600,7 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Platica Luxoft</fullName>
-            <default>false</default>
-        </values>
-        <values>
             <fullName>PyME</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Siniestro Luxoft</fullName>
             <default>false</default>
         </values>
     </picklistValues>

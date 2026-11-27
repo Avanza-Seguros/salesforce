@@ -343,25 +343,6 @@
         </values>
     </picklistValues>
     <picklistValues>
-        <picklist>Ownership</picklist>
-        <values>
-            <fullName>Other</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Private</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Public</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Subsidiary</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
         <picklist>Pais_de_Nacimiento__c</picklist>
         <values>
             <fullName>Afganistán</fullName>
@@ -1509,21 +1490,6 @@
         </values>
     </picklistValues>
     <picklistValues>
-        <picklist>Rating</picklist>
-        <values>
-            <fullName>Cold</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Hot</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Warm</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
         <picklist>Sexo__pc</picklist>
         <values>
             <fullName>Femenino</fullName>
@@ -1549,10 +1515,6 @@
         <picklist>Type</picklist>
         <values>
             <fullName>Colectivo</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Financial</fullName>
             <default>false</default>
         </values>
     </picklistValues>

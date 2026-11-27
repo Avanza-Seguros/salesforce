@@ -567,7 +567,6 @@
     </types>
     <types>
         <members>Account-Business Account Layout</members>
-        <members>AccountFinancialSummary-Formato de Resumen financiero de cuenta</members>
         <members>Aseguradora__c-Formato Aseguradora</members>
         <members>Case-Case Layout</members>
         <members>Contact-Contact Layout</members>
@@ -677,10 +676,6 @@
         <members>Quote.Quote</members>
         <members>Quote_Coverage__c.Quote_Coverage</members>
         <name>RecordType</name>
-    </types>
-    <types>
-        <members>Relaciones_del_cliente</members>
-        <name>RelationshipGraphDefinition</name>
     </types>
     <types>
         <members>AccountContactMultiRoles</members>

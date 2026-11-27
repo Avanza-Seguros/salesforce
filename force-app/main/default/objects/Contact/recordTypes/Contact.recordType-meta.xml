@@ -156,73 +156,7 @@
             <fullName>Viudo</fullName>
             <default>false</default>
         </values>
-    </picklistValues>
-    <picklistValues>
-        <picklist>GenderIdentity</picklist>
-        <values>
-            <fullName>Hombre</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Mujer</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>No binario</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>No enumerado</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
-        <picklist>LeadSource</picklist>
-        <values>
-            <fullName>Advertisement</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Customer Event</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Employee Referral</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>External Referral</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Google AdWords</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Other</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Partner</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Purchased List</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Trade Show</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Webinar</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Website</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
+    </picklistValues>
     <picklistValues>
         <picklist>Nacionalidad__c</picklist>
         <values>
@@ -414,33 +348,6 @@
         </values>
         <values>
             <fullName>08 Hijo</fullName>
-            <default>false</default>
-        </values>
-    </picklistValues>
-    <picklistValues>
-        <picklist>Pronouns</picklist>
-        <values>
-            <fullName>Ella</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Ella%2FEllos</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Ellos</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>No enumerado</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Él</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Él%2FEllos</fullName>
             <default>false</default>
         </values>
     </picklistValues>
