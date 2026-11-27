@@ -41,8 +41,10 @@
 
                     <!-- 2. Lo afectado: asegurado del censo, vehículo o ubicación de la póliza -->
                     <h3 class="seccion">{tituloAfectado}</h3>
-                    <lightning-input type="search" label="Buscar" variant="label-hidden" placeholder={placeholderAfectado}
-                        value={texto} onchange={handleBuscar} is-loading={buscando}></lightning-input>
+                    <template lwc:if={conBuscador}>
+                        <lightning-input type="search" label="Buscar" variant="label-hidden" placeholder={placeholderAfectado}
+                            value={texto} onchange={handleBuscar} is-loading={buscando}></lightning-input>
+                    </template>
                     <template lwc:if={sinOpciones}><p class="sub slds-m-top_x-small">{textoSinOpciones}</p></template>
                     <template lwc:else>
                         <div class="tabla-asegurados slds-m-top_x-small">

@@ -163,10 +163,11 @@ public with sharing class SiniestrosController {
 	/**
 	 * @creation date: 26/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Asegurados de la póliza por nombre o certificado (los vigentes primero).
+	 * @description: Asegurados de la póliza por nombre o certificado (los vigentes primero). Desde el renglón de un
+	 *               asegurado (elegidoId) solo se ofrece ese asegurado y, si es titular, sus dependientes.
 	 * @param policyId: póliza.
-	 * @param texto: nombre o certificado; vacío = los primeros.
-	 * @param elegidoId: asegurado que ya viene elegido (desde su renglón en Asegurados): va primero.
+	 * @param texto: nombre o certificado; vacío = los primeros. No aplica cuando viene elegidoId.
+	 * @param elegidoId: asegurado que ya viene elegido (desde su renglón en Asegurados): va primero y solo con sus dependientes.
 	 * @return asegurados con su certificado, si es titular o de quién es dependiente y si sigue vigente.
 	 */
 	@AuraEnabled(cacheable=false)
@@ -181,15 +182,33 @@ public with sharing class SiniestrosController {
 				FROM InsurancePolicyParticipant WHERE Id = :elegidoId AND InsurancePolicyId = :policyId LIMIT 1
 			]);
 		}
-		Integer resto = MAX_RESULTADOS - l.size();
+		if (!l.isEmpty()) {
+			// Desde su renglón: el asegurado y, si es titular, sus dependientes.
+			if (l[0].RelatedInsPolicyParticipantId == null) {
+				l.addAll([
+					SELECT Id, ParticipantName, ParticipantCode, IsActiveParticipant, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,
+						PrimaryParticipantContactId, PrimaryParticipantAccountId, RelatedInsPolicyParticipant.PrimaryParticipantContactId,
+						RelatedInsPolicyParticipant.PrimaryParticipantAccountId
+					FROM InsurancePolicyParticipant
+					WHERE InsurancePolicyId = :policyId AND RelatedInsPolicyParticipantId = :elegidoId AND Id != :elegidoId
+					ORDER BY IsActiveParticipant DESC, ParticipantName ASC LIMIT :MAX_RESULTADOS
+				]);
+			}
+			return aseguradosDe(l);
+		}
 		l.addAll([
 			SELECT Id, ParticipantName, ParticipantCode, IsActiveParticipant, RelatedInsPolicyParticipantId, RelatedInsPolicyParticipant.ParticipantName,
 					PrimaryParticipantContactId, PrimaryParticipantAccountId, RelatedInsPolicyParticipant.PrimaryParticipantContactId,
 					RelatedInsPolicyParticipant.PrimaryParticipantAccountId
 			FROM InsurancePolicyParticipant
-			WHERE InsurancePolicyId = :policyId AND Id != :elegidoId AND (ParticipantName LIKE :patron OR ParticipantCode LIKE :patron)
-			ORDER BY IsActiveParticipant DESC, ParticipantName ASC LIMIT :resto
+			WHERE InsurancePolicyId = :policyId AND (ParticipantName LIKE :patron OR ParticipantCode LIKE :patron)
+			ORDER BY IsActiveParticipant DESC, ParticipantName ASC LIMIT :MAX_RESULTADOS
 		]);
+		return aseguradosDe(l);
+	}
+
+	// Renglones de asegurados para la lista de lo afectado, con el correo del titular para los avisos.
+	private static List<Map<String, Object>> aseguradosDe(List<InsurancePolicyParticipant> l) {
 		List<InsurancePolicyParticipant> titulares = new List<InsurancePolicyParticipant>();
 		for (InsurancePolicyParticipant p : l) { titulares.add(titularDe(p)); }
 		Map<Id, String> correos = ParticipantesPolizaController.correosDe(titulares);
@@ -208,22 +227,23 @@ public with sharing class SiniestrosController {
 	 * @creation date: 26/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Bienes de la póliza (vehículos con los datos de su inciso, o ubicaciones) por nombre, serie, placas
-	 *               o número de inciso (los vigentes primero).
+	 *               o número de inciso (los vigentes primero). Desde el renglón de un bien (elegidoId) solo se ofrece ese bien.
 	 * @param policyId: póliza.
-	 * @param texto: lo que se busca; vacío = los primeros.
-	 * @param elegidoId: bien (InsurancePolicyAsset) o inciso (Inciso_Flotilla__c) que ya viene elegido: va primero.
+	 * @param texto: lo que se busca; vacío = los primeros. No aplica cuando viene elegidoId.
+	 * @param elegidoId: bien (InsurancePolicyAsset) o inciso (Inciso_Flotilla__c) que ya viene elegido: solo ese.
 	 * @return bienes con su id (InsurancePolicyAsset), inciso, nombre, detalle y si sigue vigente.
 	 */
 	@AuraEnabled(cacheable=false)
 	public static List<Map<String, Object>> buscarBienes(Id policyId, String texto, Id elegidoId) {
 		List<Bien> bienes = bienesDe(policyId);
 		Bien elegido = bienElegido(bienes, elegidoId);
+		// Desde su renglón: solo ese vehículo o esa ubicación.
+		if (elegido != null) { return new List<Map<String, Object>>{ elegido.datos() }; }
 		String t = normal(texto);
 		List<Map<String, Object>> res = new List<Map<String, Object>>();
-		if (elegido != null) { res.add(elegido.datos()); }
 		for (Bien b : bienes) {
 			if (res.size() >= MAX_RESULTADOS) { break; }
-			if (b !== elegido && (String.isBlank(t) || b.busqueda.contains(t))) { res.add(b.datos()); }
+			if (String.isBlank(t) || b.busqueda.contains(t)) { res.add(b.datos()); }
 		}
 		return res;
 	}

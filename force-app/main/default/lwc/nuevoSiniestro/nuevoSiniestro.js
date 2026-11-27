@@ -6,7 +6,7 @@
 // - Automóviles (Vehículos) y Daños (Ubicaciones): el bien de la póliza; descripción del daño y lugar del siniestro.
 // Reemplaza el botón Nuevo de los siniestros (c:nuevoSiniestroOverride); desde la póliza se abre en una ventana
 // (c-siniestro-modal) con la póliza fija y, desde un renglón de Asegurados, Vehículos o Ubicaciones, con lo afectado
-// ya elegido.
+// ya elegido: la lista solo trae ese asegurado (y sus dependientes si es titular) o ese bien, sin buscador.
 import { LightningElement, api, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -75,6 +75,8 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
     buscando = false;
     elegidoId = null;
     preElegido = null;
+    // Desde un renglón: solo ese asegurado (y sus dependientes si es titular) o ese bien; sin buscador.
+    delRenglon = null;
     // Siniestro
     form = { ...FORM_VACIO };
     // Correo para avisos: se propone el del titular (o el del contratante en un bien) hasta que el ejecutivo lo cambie.
@@ -87,7 +89,8 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
     creado = null;
 
     connectedCallback() {
-        this.preElegido = this.participanteId || this.bienId || null;
+        this.delRenglon = this.participanteId || this.bienId || null;
+        this.preElegido = this.delRenglon;
         const fija = this.polizaFija;
         if (fija) { this.elegirPoliza(fija); }
     }
@@ -162,6 +165,7 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
         this.opciones = [];
         this.elegidoId = null;
         this.preElegido = null;
+        this.delRenglon = null;
     }
     get sinPoliza() { return !this.poliza; }
     get hayPolizas() { return this.polizas.length > 0; }
@@ -189,8 +193,12 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
         return 'La póliza no tiene asegurados con ese nombre o certificado.';
     }
     get ayudaAfectado() {
-        return this.esPersonas ? 'Si es dependiente, su titular se agrega como reclamante.' : 'El contratante de la póliza queda como reclamante.';
+        if (!this.esPersonas) { return 'El contratante de la póliza queda como reclamante.'; }
+        return this.delRenglon
+            ? 'El asegurado de su renglón y, si es titular, sus dependientes. Si es dependiente, su titular se agrega como reclamante.'
+            : 'Si es dependiente, su titular se agrega como reclamante.';
     }
+    get conBuscador() { return !this.delRenglon; }
     get columnas() { return this.esPersonas ? COLUMNAS_ASEGURADOS : (COLUMNAS_BIENES[this.familia] || COLUMNAS_BIENES.danos); }
     handleBuscar(e) {
         this.texto = e.target.value || '';
@@ -202,12 +210,13 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
         if (!this.poliza) { return; }
         const t = this.texto;
         const pre = this.preElegido;
+        const desde = this.delRenglon;
         this.buscando = true;
         try {
             const personas = this.esPersonas;
             const l = personas
-                ? await buscarAsegurados({ policyId: this.poliza.id, texto: t, elegidoId: pre })
-                : await buscarBienes({ policyId: this.poliza.id, texto: t, elegidoId: pre });
+                ? await buscarAsegurados({ policyId: this.poliza.id, texto: t, elegidoId: desde })
+                : await buscarBienes({ policyId: this.poliza.id, texto: t, elegidoId: desde });
             if (t !== this.texto) { return; }
             this.opciones = l.map((a) => ({
                 ...a,
@@ -217,7 +226,8 @@ export default class NuevoSiniestro extends NavigationMixin(LightningElement) {
             // Lo que viene elegido desde su renglón queda seleccionado (una sola vez).
             if (pre) {
                 const elegido = this.opciones.find((o) => o.id === pre || o.incisoId === pre);
-                if (elegido) { this.elegidoId = elegido.id; }
+                // Si ya no está en la póliza, llega la lista completa: se vuelve a mostrar el buscador.
+                if (elegido) { this.elegidoId = elegido.id; } else { this.delRenglon = null; }
                 this.preElegido = null;
                 this.sugerirCorreo();
             }

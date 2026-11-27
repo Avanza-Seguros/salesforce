@@ -55,6 +55,11 @@ private class SiniestrosControllerTest {
 	@isTest
 	static void testReembolsoCompleto() {
 		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'GMM-REEMB-1'];
+		// Otro titular de la póliza: no aparece cuando se abre desde el renglón de TITULAR PRUEBA.
+		insert new InsurancePolicyParticipant(InsurancePolicyId = pol.Id, ParticipantName = 'OTRO TITULAR', ParticipantCode = '200',
+			Role = InsurancePolicyParticipant.Role.getDescribe().getPicklistValues()[0].getValue(), IsActiveParticipant = true);
+		Id titularId = [SELECT Id FROM InsurancePolicyParticipant WHERE ParticipantName = 'TITULAR PRUEBA'].Id;
+		Id hijaId = [SELECT Id FROM InsurancePolicyParticipant WHERE ParticipantName = 'HIJA PRUEBA'].Id;
 		Test.startTest();
 		System.assertEquals(1, SiniestrosController.buscarPolizas('REEMB').size(), 'Busca por número');
 		System.assertEquals(1, SiniestrosController.buscarPolizas('Empresa Reemb').size(), 'Busca por contratante');
@@ -64,10 +69,14 @@ private class SiniestrosControllerTest {
 		Id coberturaId = (Id) ((Map<String, Object>) ((List<Object>) dp.get('coberturas'))[0]).get('id');
 		List<Map<String, Object>> hijos = SiniestrosController.buscarAsegurados(pol.Id, 'HIJA', null);
 		System.assertEquals('TITULAR PRUEBA', hijos[0].get('titular'), 'Dice de quién es dependiente');
-		System.assertEquals(2, SiniestrosController.buscarAsegurados(pol.Id, '', null).size());
-		List<Map<String, Object>> elegido = SiniestrosController.buscarAsegurados(pol.Id, 'HIJA', [SELECT Id FROM InsurancePolicyParticipant WHERE ParticipantName = 'TITULAR PRUEBA'].Id);
+		System.assertEquals(3, SiniestrosController.buscarAsegurados(pol.Id, '', null).size());
+		List<Map<String, Object>> elegido = SiniestrosController.buscarAsegurados(pol.Id, 'OTRO', titularId);
+		System.assertEquals(2, elegido.size(), 'Desde su renglón: el titular y su dependiente, sin el otro titular');
 		System.assertEquals('TITULAR PRUEBA', elegido[0].get('nombre'), 'El que viene elegido va primero');
-		System.assertEquals(2, elegido.size());
+		System.assertEquals('HIJA PRUEBA', elegido[1].get('nombre'));
+		List<Map<String, Object>> soloHija = SiniestrosController.buscarAsegurados(pol.Id, '', hijaId);
+		System.assertEquals(1, soloHija.size(), 'Desde el renglón de un dependiente: solo él');
+		System.assertEquals('HIJA PRUEBA', soloHija[0].get('nombre'));
 
 		Map<String, Object> r = SiniestrosController.crearSiniestro(JSON.serialize(datos(pol.Id, (Id) hijos[0].get('id'), coberturaId, 15000)));
 		Id claimId = (Id) r.get('claimId');
@@ -167,14 +176,17 @@ private class SiniestrosControllerTest {
 		InsurancePolicy danos = polizaDe('DAN-UBIC-1', 'Danos', empresa.Id);
 		insert new List<InsurancePolicy>{ autos, danos };
 		CustomerProperty vehiculo = new CustomerProperty(PrimaryOwnerId = empresa.Id, Make = 'NISSAN', Vin = 'SERIEPRUEBA00001');
+		CustomerProperty otroVehiculo = new CustomerProperty(PrimaryOwnerId = empresa.Id, Make = 'TOYOTA', Vin = 'SERIEPRUEBA00002');
 		CustomerProperty domicilio = new CustomerProperty(PrimaryOwnerId = empresa.Id, Street = 'Av. Industria 10', City = 'Zapopan');
-		insert new List<CustomerProperty>{ vehiculo, domicilio };
+		insert new List<CustomerProperty>{ vehiculo, otroVehiculo, domicilio };
 		InsurancePolicyAsset bien = new InsurancePolicyAsset(InsurancePolicyId = autos.Id, AssetName = 'NISSAN VERSA', CustomerPropertyId = vehiculo.Id);
+		// Otro vehículo de la flotilla: no aparece cuando se abre desde el renglón del inciso de NISSAN VERSA.
+		InsurancePolicyAsset otro = new InsurancePolicyAsset(InsurancePolicyId = autos.Id, AssetName = 'TOYOTA HILUX', CustomerPropertyId = otroVehiculo.Id);
 		InsurancePolicyAsset bodega = new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Inciso 2 - Bodega Norte',
 			CustomerPropertyId = domicilio.Id, Suma_Asegurada__c = 1000000);
 		// Sin bien del cliente: no se ofrece (como en la pestaña Ubicaciones).
 		InsurancePolicyAsset suelto = new InsurancePolicyAsset(InsurancePolicyId = danos.Id, AssetName = 'Bodega sin domicilio');
-		insert new List<InsurancePolicyAsset>{ bien, bodega, suelto };
+		insert new List<InsurancePolicyAsset>{ bien, otro, bodega, suelto };
 		Inciso_Flotilla__c inciso = new Inciso_Flotilla__c(Poliza__c = autos.Id, Vehiculo__c = vehiculo.Id, Numero_Inciso__c = 1,
 			Serie__c = 'SERIEPRUEBA00001', Placas__c = 'ABC123', Descripcion__c = 'VERSA SENSE', Modelo__c = 2024);
 		insert inciso;
@@ -191,7 +203,10 @@ private class SiniestrosControllerTest {
 		List<Map<String, Object>> porPlacas = SiniestrosController.buscarBienes(autos.Id, 'abc123', null);
 		System.assertEquals(1, porPlacas.size(), 'Busca por placas');
 		System.assertEquals(inciso.Id, porPlacas[0].get('incisoId'));
-		System.assertEquals(bien.Id, SiniestrosController.buscarBienes(autos.Id, 'nada', inciso.Id)[0].get('id'), 'Desde el renglón del inciso');
+		System.assertEquals(2, SiniestrosController.buscarBienes(autos.Id, '', null).size(), 'Los dos vehículos de la flotilla');
+		List<Map<String, Object>> delRenglon = SiniestrosController.buscarBienes(autos.Id, '', inciso.Id);
+		System.assertEquals(1, delRenglon.size(), 'Desde el renglón del inciso: solo ese vehículo');
+		System.assertEquals(bien.Id, delRenglon[0].get('id'), 'Desde el renglón del inciso');
 		List<Map<String, Object>> ubicaciones = SiniestrosController.buscarBienes(danos.Id, '', null);
 		System.assertEquals(1, ubicaciones.size(), 'Solo la ubicación con su bien del cliente');
 		System.assert(((String) ubicaciones[0].get('detalle')).contains('Zapopan'), (String) ubicaciones[0].get('detalle'));
