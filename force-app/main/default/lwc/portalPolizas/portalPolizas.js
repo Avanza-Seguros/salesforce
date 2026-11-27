@@ -360,18 +360,14 @@ export default class PortalPolizas extends LightningElement {
 
     // Pestañas del detalle con el mismo estilo que los filtros (botones de color, la activa rellena).
     get opcionesPestanas() {
-        const colores = { info: '#1d4ed8', pagos: '#0e9488', vigencias: '#7c3aed', asegurados: '#d97706', participantes: '#4f46e5',
-            siniestros: '#e11d48' };
-        const lista = [
+        const colores = { info: '#1d4ed8', pagos: '#0e9488', vigencias: '#7c3aed', asegurados: '#d97706', participantes: '#4f46e5' };
+        return this.opciones([
             { label: 'Información Póliza', value: 'info' },
             { label: 'Pagos', value: 'pagos' },
             { label: 'Vigencias', value: 'vigencias' },
             { label: this.tituloBienes, value: 'asegurados' },
             { label: 'Participantes', value: 'participantes' }
-        ];
-        // Siniestros: solo el contratante de una póliza empresarial.
-        if (this.detalle && this.detalle.poliza && this.detalle.poliza.conSiniestros) { lista.push({ label: 'Siniestros', value: 'siniestros' }); }
-        return this.opciones(lista, this.pestana).map((o) => ({ ...o, estiloPunto: `background:${colores[o.value]}` }));
+        ], this.pestana).map((o) => ({ ...o, estiloPunto: `background:${colores[o.value]}` }));
     }
 
     // Banda azul del detalle: la prima ocupa todo el ancho si no hay segundo indicador (vencido o por pagar).
@@ -396,7 +392,6 @@ export default class PortalPolizas extends LightningElement {
     get verVigencias() { return this.pestana === 'vigencias'; }
     get verAsegurados() { return this.pestana === 'asegurados'; }
     get verParticipantes() { return this.pestana === 'participantes'; }
-    get verSiniestros() { return this.pestana === 'siniestros'; }
 
     // Solicitud nueva (Nueva solicitud, Alta o Baja): el formulario toma el lugar de la tabla hasta enviarlo o cancelar.
     solicitudNueva = null;

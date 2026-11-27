@@ -413,12 +413,6 @@
                     <c-participantes-poliza portal={siempre} cuenta-vista-previa={cuentaVistaPrevia}
                         record-id={seleccionadaId}></c-participantes-poliza>
                 </div>
-
-                <!-- Siniestros: el mismo componente de Salesforce, de solo consulta (contratante de una póliza empresarial). -->
-                <div lwc:if={verSiniestros} class="panel pestana_sf" role="tabpanel">
-                    <c-siniestros-poliza portal={siempre} cuenta-vista-previa={cuentaVistaPrevia}
-                        record-id={seleccionadaId}></c-siniestros-poliza>
-                </div>
             </template>
         </template>
     </div>

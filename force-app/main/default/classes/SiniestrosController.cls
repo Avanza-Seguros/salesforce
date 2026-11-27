@@ -15,8 +15,6 @@
  *               (ClaimPaymentSummary). El siniestro lleva el total reclamado (EstimatedAmount) y el pagado (ActualAmount).
  *               La pestaña Siniestros de la póliza muestra sus siniestros, su siniestralidad (pagado contra prima neta)
  *               y, de solo consulta, los folios de siniestro anteriores de ese número de póliza en Control de Folios.
- *               En el sitio de empresas (siniestrosDelSitio) el contratante consulta los siniestros de su póliza sin datos
- *               internos: sin diagnóstico, ejecutivo, siniestralidad, anulados ni folios anteriores.
  */
 public with sharing class SiniestrosController {
 
@@ -403,59 +401,6 @@ public with sharing class SiniestrosController {
 			'puedeCrear' => acceso && Schema.SObjectType.Claim.isCreateable(), 'siniestros' => siniestros, 'resumen' => resumen,
 			'conFolios' => conFolios, 'folios' => conFolios ? foliosAnteriores(p.Name) : new List<Map<String, Object>>()
 		};
-	}
-
-	/**
-	 * @creation date: 27/11/2026
-	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Siniestros de la póliza para la pestaña Siniestros del sitio de empresas. Quien llama
-	 *               (PortalPolizasPestanas.siniestros) ya validó que la póliza es empresarial y que el usuario es su
-	 *               contratante; el usuario del sitio no tiene acceso a Claims, por eso la consulta es sin compartición.
-	 * @param policyId: póliza.
-	 * @return familia, numero, portal, siniestros (sin diagnóstico ni ejecutivo) y resumen (sin siniestralidad).
-	 */
-	public static Map<String, Object> siniestrosDelSitio(Id policyId) {
-		return new ConsultaSitio().siniestros(policyId);
-	}
-
-	// Siniestros que ve el contratante en el sitio: sin anulados (errores de captura) ni datos internos.
-	private without sharing class ConsultaSitio {
-		Map<String, Object> siniestros(Id policyId) {
-			List<InsurancePolicy> pols = [SELECT Id, Name, Ramo__c FROM InsurancePolicy WHERE Id = :policyId LIMIT 1];
-			if (pols.isEmpty()) { throw CensoColectivoController.error('La póliza no existe.'); }
-			List<Map<String, Object>> siniestros = new List<Map<String, Object>>();
-			Integer abiertos = 0;
-			Decimal reclamado = 0;
-			Decimal pagado = 0;
-			for (Claim c : [
-				SELECT Id, Name, Status, IsClosed, LossDate, ReportDate, ClaimType, LossType, ClaimReasonType, Afectado__c,
-					EstimatedAmount, ActualAmount, SourceSystemIdentifier, InsuredAssetId,
-					(SELECT Roles, InsurancePolicyParticipantId, InsurancePolicyParticipant.ParticipantName, ParticipantAccountId,
-						ParticipantAccount.Name FROM ClaimParticipants ORDER BY CreatedDate),
-					(SELECT InsurancePolicyAssetId FROM InsuranceClaimAssets ORDER BY CreatedDate LIMIT 1)
-				FROM Claim WHERE PolicyNumberId = :policyId AND Status != 'Anulado'
-				ORDER BY LossDate DESC NULLS LAST, CreatedDate DESC LIMIT :MAX_LISTA
-			]) {
-				Map<String, Object> s = new Map<String, Object>{
-					'id' => c.Id, 'folio' => c.Name, 'estatus' => c.Status, 'cerrado' => c.IsClosed,
-					'fecha' => c.LossDate == null ? null : c.LossDate.dateGmt(), 'reporte' => c.ReportDate == null ? null : c.ReportDate.date(),
-					'ramo' => c.ClaimType, 'tipo' => c.LossType, 'causa' => c.ClaimReasonType,
-					'reclamado' => c.EstimatedAmount, 'pagado' => c.ActualAmount, 'numeroAseguradora' => c.SourceSystemIdentifier
-				};
-				afectadoDe(c, new Map<Id, Bien>(), s);
-				// El afectado guardado al registrar el siniestro (asegurado, vehículo o ubicación) manda.
-				if (String.isNotBlank(c.Afectado__c)) { s.put('afectado', c.Afectado__c); }
-				siniestros.add(s);
-				if (!c.IsClosed) { abiertos++; }
-				reclamado += c.EstimatedAmount == null ? 0 : c.EstimatedAmount;
-				pagado += c.ActualAmount == null ? 0 : c.ActualAmount;
-			}
-			return new Map<String, Object>{
-				'familia' => familiaDe(pols[0].Ramo__c), 'numero' => pols[0].Name, 'portal' => true, 'acceso' => true,
-				'puedeCrear' => false, 'conFolios' => false, 'folios' => new List<Map<String, Object>>(), 'siniestros' => siniestros,
-				'resumen' => new Map<String, Object>{ 'total' => siniestros.size(), 'abiertos' => abiertos, 'reclamado' => reclamado, 'pagado' => pagado }
-			};
-		}
 	}
 
 	/**

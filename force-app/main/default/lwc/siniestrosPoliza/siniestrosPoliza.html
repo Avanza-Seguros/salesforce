@@ -32,19 +32,17 @@
                 <div class="stat"><span class="stat-num">{abiertosTxt}</span><span class="stat-lbl">Abiertos</span></div>
                 <div class="stat"><span class="stat-num">{reclamadoTxt}</span><span class="stat-lbl">Reclamado</span></div>
                 <div class="stat stat-pagado"><span class="stat-num">{pagadoTxt}</span><span class="stat-lbl">Pagado</span></div>
-                <template lwc:if={interno}>
-                    <div class="stat stat-siniestralidad">
-                        <span class="stat-num">{siniestralidadTxt}</span>
-                        <span class="stat-lbl">Siniestralidad</span>
-                        <span class="stat-sub">{primaTxt}</span>
-                    </div>
-                </template>
+                <div class="stat stat-siniestralidad">
+                    <span class="stat-num">{siniestralidadTxt}</span>
+                    <span class="stat-lbl">Siniestralidad</span>
+                    <span class="stat-sub">{primaTxt}</span>
+                </div>
             </div>
 
             <div class="sin-barra">
                 <div class="sin-filtros">
                     <lightning-input type="search" label="Buscar" variant="label-hidden" class="sin-buscar" value={busqueda}
-                        placeholder={textoBuscar} onchange={handleBusqueda}></lightning-input>
+                        placeholder="Buscar por folio, afectado, descripción o número de la aseguradora" onchange={handleBusqueda}></lightning-input>
                     <lightning-combobox label="Mostrar" variant="label-hidden" value={filtro} options={opcionesFiltro} onchange={handleFiltro}
                         class="sin-filtro"></lightning-combobox>
                 </div>
@@ -71,7 +69,7 @@
                                 <th scope="col">Fecha del siniestro</th>
                                 <th scope="col">{tituloAfectado}</th>
                                 <th scope="col">Tipo y causa</th>
-                                <template lwc:if={interno}><th scope="col">Descripción</th></template>
+                                <th scope="col">Descripción</th>
                                 <th scope="col">Estatus</th>
                                 <th scope="col" class="num">Reclamado</th>
                                 <th scope="col" class="num">Pagado</th>
@@ -81,15 +79,13 @@
                         <tbody>
                             <template for:each={siniestros} for:item="s">
                                 <tr key={s.id}>
-                                    <td>
-                                        <template lwc:if={interno}><button class="enlace" data-id={s.id} onclick={abrirSiniestro} title="Abrir el siniestro">{s.folio}</button></template>
-                                        <template lwc:else><span class="folio">{s.folio}</span></template>
+                                    <td><button class="enlace" data-id={s.id} onclick={abrirSiniestro} title="Abrir el siniestro">{s.folio}</button>
                                         <div class="sub">{s.ramo}</div></td>
                                     <td>{s.fechaTxt}<div class="sub">{s.reporteTxt}</div></td>
                                     <td>{s.afectado}<div class="sub">{s.afectadoDetalle}</div></td>
                                     <td>{s.tipo}<div class="sub">{s.causa}</div></td>
-                                    <template lwc:if={interno}><td class="col-texto" title={s.descripcion}>{s.descripcion}</td></template>
-                                    <td><span class={s.claseEstatus}>{s.estatus}</span><template lwc:if={interno}><div class="sub">{s.ejecutivo}</div></template></td>
+                                    <td class="col-texto" title={s.descripcion}>{s.descripcion}</td>
+                                    <td><span class={s.claseEstatus}>{s.estatus}</span><div class="sub">{s.ejecutivo}</div></td>
                                     <td class="num">{s.reclamadoTxt}</td>
                                     <td class="num">{s.pagadoTxt}</td>
                                     <td>{s.numeroAseguradora}</td>
