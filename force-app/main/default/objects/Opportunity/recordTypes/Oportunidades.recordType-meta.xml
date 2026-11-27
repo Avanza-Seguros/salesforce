@@ -967,7 +967,7 @@
             <fullName>Mascotas</fullName>
             <default>false</default>
         </values>
-        
+        <values>
             <fullName>Automoviles</fullName>
             <default>false</default>
         </values>
