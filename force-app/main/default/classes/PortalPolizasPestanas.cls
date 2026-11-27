@@ -1786,6 +1786,53 @@ public without sharing class PortalPolizasPestanas {
 	// ---------------------------------------------------------------- Pestañas con los componentes de Salesforce
 
 	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Pestaña Siniestros del sitio: los siniestros (Claims) de una póliza empresarial, de solo consulta y solo
+	 *   para su contratante (sin diagnóstico, ejecutivo ni siniestralidad; ver SiniestrosController.siniestrosDelSitio).
+	 * @param policyId: Id de la póliza
+	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
+	 * @return Los mismos datos que la pestaña Siniestros de Salesforce, sin lo interno
+	 */
+	@AuraEnabled
+	public static Map<String, Object> siniestros(Id policyId, Id cuentaVistaPrevia) {
+		try {
+			Map<Id, String> roles = PortalPolizasController.validarAcceso(policyId, cuentaVistaPrevia);
+			if (roles.get(policyId) != 'Titular' || !polizaEmpresarial(policyId)) {
+				throw new AuraHandledException('Los siniestros los consulta el contratante de una póliza empresarial.');
+			}
+			return SiniestrosController.siniestrosDelSitio(policyId);
+		} catch (AuraHandledException e) {
+			throw e;
+		} catch (Exception e) {
+			throw PortalPolizasController.errorSitio(e);
+		}
+	}
+
+	/**
+	 * @creation date: 27/11/2026
+	 * @author: Sergio Uribe Toledo - Volestra
+	 * @description: Póliza empresarial (para la pestaña Siniestros del sitio): flotilla en Automóviles; en los demás ramos,
+	 *   la que viene de una oportunidad colectiva, la de una empresa sin oportunidad o la que tiene más de un asegurado o
+	 *   ubicación. La misma idea que esEmpresarial, sin los registros de la pestaña.
+	 * @param policyId: Id de la póliza
+	 * @return true si es empresarial
+	 */
+	public static Boolean polizaEmpresarial(Id policyId) {
+		List<InsurancePolicy> pol = [
+			SELECT Ramo__c, SourceOpportunityId, SourceOpportunity.Tipo_Contratacion__c, NameInsuredId, NameInsured.IsPersonAccount
+			FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
+		];
+		if (pol.isEmpty()) { return false; }
+		String ramo = pol[0].Ramo__c == null ? '' : pol[0].Ramo__c.toLowerCase();
+		if (ramo.startsWith('auto')) { return [SELECT COUNT() FROM Inciso_Flotilla__c WHERE Poliza__c = :policyId] > 0; }
+		if (pol[0].SourceOpportunityId != null && pol[0].SourceOpportunity.Tipo_Contratacion__c == 'Colectiva') { return true; }
+		if (pol[0].SourceOpportunityId == null && pol[0].NameInsuredId != null && pol[0].NameInsured.IsPersonAccount != true) { return true; }
+		return [SELECT COUNT() FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :policyId] > 1
+			|| [SELECT COUNT() FROM InsurancePolicyAsset WHERE InsurancePolicyId = :policyId] > 1;
+	}
+
+	/**
 	 * @creation date: 18/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Datos de las pestañas Asegurados / Vehículos / Ubicaciones y Participantes tal cual las muestra

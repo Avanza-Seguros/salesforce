@@ -213,6 +213,7 @@ private class SiniestrosControllerTest {
 		SiniestrosController.crearSiniestro(JSON.serialize(new Map<String, Object>{ 'policyId' => danos.Id, 'bienId' => bodega.Id,
 			'ramo' => 'Daños', 'causa' => 'Incendio', 'tipo' => 'Pérdida total', 'fecha' => '2026-02-01' }));
 		Map<String, Object> tab = SiniestrosController.siniestrosDePoliza(autos.Id);
+		Map<String, Object> sitio = SiniestrosController.siniestrosDelSitio(autos.Id);
 		Test.stopTest();
 
 		Claim c = [SELECT RecordType.DeveloperName, InsuredAssetId, IncidentSiteStreet, ClaimReason, Afectado__c, Correo_Avisos__c,
@@ -241,6 +242,9 @@ private class SiniestrosControllerTest {
 		System.assertEquals(6000, (Decimal) resumen.get('pagado'));
 		System.assertEquals(8000, (Decimal) resumen.get('reclamado'));
 		System.assertEquals(15.0, (Decimal) resumen.get('siniestralidad'), '6,000 de 40,000 de prima neta');
+		Map<String, Object> enSitio = (Map<String, Object>) ((List<Object>) sitio.get('siniestros'))[0];
+		System.assertEquals('VERSA SENSE', enSitio.get('afectado'), 'En el sitio, el afectado guardado');
+		System.assertEquals(false, enSitio.containsKey('descripcion'), 'Sin la descripción');
 		List<Object> folios = (List<Object>) tab.get('folios');
 		System.assertEquals(1, folios.size(), 'Folio anterior del mismo número');
 		System.assertEquals('F-100', ((Map<String, Object>) folios[0]).get('folio'));

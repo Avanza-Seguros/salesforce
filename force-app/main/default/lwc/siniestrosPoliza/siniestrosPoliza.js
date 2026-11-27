@@ -2,10 +2,12 @@
 // Pestaña Siniestros de la póliza: sus siniestros (Claims) con lo afectado, el estatus, lo reclamado y lo pagado; los
 // indicadores de siniestralidad (pagado contra la prima neta de la póliza y sus endosos); el botón «Nuevo siniestro»
 // (c-siniestro-modal con la póliza fija) y, de solo consulta, los folios de siniestro anteriores de ese número de póliza
-// en Control de Folios.
+// en Control de Folios. En el sitio de empresas (portal) es de solo consulta para el contratante: sin Nuevo siniestro,
+// siniestralidad, descripción, ejecutivo ni folios anteriores (PortalPolizasPestanas.siniestros).
 import { LightningElement, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import siniestrosDePoliza from '@salesforce/apex/SiniestrosController.siniestrosDePoliza';
+import siniestrosDelSitio from '@salesforce/apex/PortalPolizasPestanas.siniestros';
 import { abrirNuevoSiniestro } from 'c/siniestroModal';
 
 const POR_PAGINA = 20;
@@ -29,6 +31,9 @@ const normal = (v) => String(v || '').toLowerCase().normalize('NFD').replace(/[�
 
 export default class SiniestrosPoliza extends NavigationMixin(LightningElement) {
     @api recordId;
+    // En el sitio de empresas: la cuenta de la vista previa del administrador (o null).
+    @api portal = false;
+    @api cuentaVistaPrevia;
 
     datos = null;
     cargando = false;
@@ -46,7 +51,9 @@ export default class SiniestrosPoliza extends NavigationMixin(LightningElement) 
         this.cargando = true;
         this.error = '';
         try {
-            this.datos = await siniestrosDePoliza({ policyId: this.recordId });
+            this.datos = this.portal
+                ? await siniestrosDelSitio({ policyId: this.recordId, cuentaVistaPrevia: this.cuentaVistaPrevia || null })
+                : await siniestrosDePoliza({ policyId: this.recordId });
         } catch (e) {
             this.error = (e && e.body && e.body.message) || (e && e.message) || 'No se pudieron leer los siniestros.';
         } finally {
@@ -65,8 +72,13 @@ export default class SiniestrosPoliza extends NavigationMixin(LightningElement) 
         return s === null || s === undefined ? '—' : `${Number(s).toLocaleString('es-MX', { maximumFractionDigits: 1 })} %`;
     }
     get primaTxt() { return this.resumen.prima ? `de ${moneda(this.resumen.prima)} de prima neta` : 'Sin prima neta'; }
+    get interno() { return !this.portal; }
+    get textoBuscar() {
+        return this.portal ? 'Buscar por folio, afectado o número de la aseguradora' : 'Buscar por folio, afectado, descripción o número de la aseguradora';
+    }
     get subtitulo() {
         const n = this.datos ? this.datos.numero : '';
+        if (this.portal) { return `Siniestros de la póliza ${n}: su estatus con la aseguradora, lo reclamado y lo pagado.`; }
         return `Siniestros registrados en Claims de la póliza ${n}. La siniestralidad es lo pagado por la aseguradora entre la prima neta (con endosos).`;
     }
 

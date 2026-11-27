@@ -39,6 +39,8 @@ public without sharing class PortalPolizasController {
 		@AuraEnabled public String descripcion;
 		@AuraEnabled public String titular;
 		@AuraEnabled public String miRol;
+		/** Pestaña Siniestros: solo el contratante de una póliza empresarial (se llena en el detalle). */
+		@AuraEnabled public Boolean conSiniestros = false;
 	}
 
 	public class Documento {
@@ -481,6 +483,7 @@ public without sharing class PortalPolizasController {
 			Detalle d = new Detalle();
 			InsurancePolicy p = Database.query(consulta() + ' WHERE Id = :policyId LIMIT 1');
 			d.poliza = convertir(p, roles.get(policyId));
+			d.poliza.conSiniestros = roles.get(policyId) == 'Titular' && PortalPolizasPestanas.polizaEmpresarial(policyId);
 			// Solo los archivos que se publicaron para usuarios externos.
 			for (ContentDocumentLink l : [
 				SELECT ContentDocumentId, ContentDocument.Title, ContentDocument.FileExtension,

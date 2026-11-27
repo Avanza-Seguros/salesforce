@@ -145,6 +145,10 @@
     white-space: nowrap;
 }
 
+.folio {
+    font-weight: 600;
+}
+
 .enlace {
     background: none;
     border: 0;
