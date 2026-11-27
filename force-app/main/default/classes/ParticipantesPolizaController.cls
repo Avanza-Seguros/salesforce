@@ -182,7 +182,8 @@ public inherited sharing class ParticipantesPolizaController {
 	 * @param correosJson: { participanteId: correo } de los dados de baja a los que se les cambió el correo (opcional). Sin
 	 *        cambio, el de un dependiente dado de baja le llega a su titular.
 	 * @param copias: correos que reciben copia de cada correo (separados por coma o punto y coma; opcional, máximo 5).
-	 * @return {enviados, errores}. A quien se le envió, su registro queda Concluido (el estatus del movimiento no cambia).
+	 * @return {enviados, errores, concluidos, aviso}. A quien se le envió, su registro queda Concluido; el movimiento que se
+	 *         queda sin registros abiertos también (concluidos: sus folios; aviso: el del resumen al cliente).
 	 */
 	@AuraEnabled
 	public static Map<String, Object> enviarCorreo(Id policyId, List<Id> participanteIds, Id plantillaId, Boolean adjuntarArchivos,
@@ -275,6 +276,7 @@ public inherited sharing class ParticipantesPolizaController {
 			destinos.add(p);
 		}
 		Integer enviados = 0;
+		Map<String, Object> conclusion = new Map<String, Object>();
 		if (!mensajes.isEmpty()) {
 			List<Messaging.SendEmailResult> res;
 			try {
@@ -297,16 +299,18 @@ public inherited sharing class ParticipantesPolizaController {
 			}
 			update marcar;
 			enviados = marcar.size();
-			// Con el correo enviado, el registro de cada uno queda Concluido (solo el ejecutivo; el estatus del movimiento no cambia).
+			// Con el correo enviado, el registro de cada uno queda Concluido y, si su movimiento ya no tiene registros abiertos,
+			// el movimiento también (solo el ejecutivo).
 			if (!marcar.isEmpty() && UserInfo.getUserType() == 'Standard') {
 				try {
-					EndosoPoliza.concluirConCorreo(policyId, new Map<Id, InsurancePolicyParticipant>(marcar).keySet());
+					conclusion = EndosoPoliza.concluirConCorreo(policyId, new Map<Id, InsurancePolicyParticipant>(marcar).keySet());
 				} catch (Exception e) {
 					errores.add('El correo se envió, pero no se pudo concluir el registro: ' + e.getMessage());
 				}
 			}
 		}
-		return new Map<String, Object>{ 'enviados' => enviados, 'errores' => errores };
+		return new Map<String, Object>{ 'enviados' => enviados, 'errores' => errores,
+			'concluidos' => conclusion.containsKey('concluidos') ? conclusion.get('concluidos') : new List<String>(), 'aviso' => conclusion.get('aviso') };
 	}
 
 	// Titulares (con su correo) de los dependientes.

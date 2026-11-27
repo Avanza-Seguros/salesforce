@@ -355,7 +355,7 @@ private class MovimientosColectivoControllerTest {
 	 * @creation date: 27/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Al enviar el correo, los registros abiertos del asegurado quedan Concluidos; los rechazados y los de otros
-	 *               asegurados no cambian.
+	 *               asegurados no cambian. El movimiento que se queda sin registros abiertos también queda Concluido.
 	 * @return void
 	 */
 	@isTest
@@ -366,12 +366,23 @@ private class MovimientosColectivoControllerTest {
 		Movimiento_Poliza__c abierto = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = juan, Solicitud__c = 'SOL-0099', Tipo__c = 'Cambio', Fecha_Movimiento__c = Date.today());
 		Movimiento_Poliza__c rechazado = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = juan, Tipo__c = 'Cambio', Fecha_Movimiento__c = Date.today(),
 			Seguimiento__c = 'Rechazado');
-		Movimiento_Poliza__c otro = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = pedro, Tipo__c = 'Cambio', Fecha_Movimiento__c = Date.today());
-		insert new List<Movimiento_Poliza__c>{ abierto, rechazado, otro };
+		// SOL-0098 tiene un registro de Juan y otro de Pedro: al enviarle solo a Juan, el movimiento sigue abierto.
+		Movimiento_Poliza__c deJuan = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = juan, Solicitud__c = 'SOL-0098', Tipo__c = 'Cambio',
+			Fecha_Movimiento__c = Date.today());
+		Movimiento_Poliza__c otro = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = pedro, Solicitud__c = 'SOL-0098', Tipo__c = 'Cambio',
+			Fecha_Movimiento__c = Date.today());
+		insert new List<Movimiento_Poliza__c>{ abierto, rechazado, deJuan, otro };
 		Test.startTest();
-		EndosoPoliza.concluirConCorreo(pol.Id, new Set<Id>{ juan });
-		EndosoPoliza.concluirConCorreo(pol.Id, new Set<Id>());
+		Map<String, Object> r1 = EndosoPoliza.concluirConCorreo(pol.Id, new Set<Id>{ juan });
+		Map<String, Object> r2 = EndosoPoliza.concluirConCorreo(pol.Id, new Set<Id>());
 		Test.stopTest();
+		System.assertEquals(new List<String>{ 'SOL-0099' }, (List<String>) r1.get('concluidos'), 'Solo el movimiento que ya no tiene registros abiertos');
+		System.assertEquals(0, ((List<String>) r2.get('concluidos')).size());
+		System.assertEquals('Concluido', [SELECT Seguimiento_Solicitud__c FROM Movimiento_Poliza__c WHERE Id = :abierto.Id].Seguimiento_Solicitud__c,
+			'El movimiento quedó Concluido');
+		System.assertNotEquals('Concluido', [SELECT Seguimiento_Solicitud__c FROM Movimiento_Poliza__c WHERE Id = :otro.Id].Seguimiento_Solicitud__c,
+			'SOL-0098 sigue abierto');
+		System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :deJuan.Id].Fecha_Cierre__c, 'El registro de Juan sí');
 		System.assertNotEquals(null, [SELECT Fecha_Cierre__c FROM Movimiento_Poliza__c WHERE Id = :abierto.Id].Fecha_Cierre__c, 'Quedó concluido');
 		Movimiento_Poliza__c r = [SELECT Fecha_Cierre__c, Seguimiento__c FROM Movimiento_Poliza__c WHERE Id = :rechazado.Id];
 		System.assertEquals('Rechazado', r.Seguimiento__c, 'El rechazado se queda así');

@@ -965,7 +965,7 @@
                                 <lightning-input type="checkbox" class="slds-m-top_small" label="Adjuntar los archivos del asegurado"
                                     checked={correo.adjuntar} onchange={cambiarAdjuntar}></lightning-input>
                                 </template>
-                                <p class="sub slds-m-top_x-small">El correo sale de info@avanzaseguro.com. A quien tiene un cambio solo se le adjuntan los archivos del cambio. A los dados de baja siempre se les adjunta su baja (el documento subido o una constancia generada). Al enviarse, el asegurado queda marcado como «Enviado» y su registro queda Concluido.</p>
+                                <p class="sub slds-m-top_x-small">El correo sale de info@avanzaseguro.com. A quien tiene un cambio solo se le adjuntan los archivos del cambio. A los dados de baja siempre se les adjunta su baja (el documento subido o una constancia generada). Al enviarse, el asegurado queda marcado como «Enviado» y su registro queda Concluido; cuando ya se les envió a todos los de un movimiento, el movimiento también queda Concluido y se manda el resumen al cliente.</p>
                                 <template if:true={correo.avance}><p class="slds-m-top_small">{correo.avance}</p></template>
                                 <template if:true={hayErroresCorreo}>
                                     <p class="texto-error slds-m-top_small">No se pudo enviar a todos:</p>

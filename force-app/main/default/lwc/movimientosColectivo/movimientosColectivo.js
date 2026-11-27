@@ -455,7 +455,7 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         return this.concluyeFolio ? `Concluir el movimiento ${this.concluyeFolio.replace(/^SOL-/i, '')}` : 'Enviar correo';
     }
     get textoConcluir() {
-        if (this.concluyeRegistro) { return 'Al enviar, el registro queda Concluido. El estatus del movimiento no cambia.'; }
+        if (this.concluyeRegistro) { return 'Al enviar, el registro queda Concluido. Si era el último abierto de su movimiento, el movimiento también queda Concluido y se manda el resumen al cliente.'; }
         return 'Al enviar, el movimiento y sus registros quedan Concluidos y se manda el resumen al cliente. Los registros sin correo, o que ya lo recibieron, solo se concluyen.';
     }
     concluirSinCorreo() { return this.concluirSolicitud(); }
@@ -884,6 +884,9 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const lote = adjuntar ? LOTE_CORREO_ADJUNTOS : LOTE_CORREO;
         let enviados = 0;
         const errores = [];
+        // Movimientos que quedaron Concluidos al enviar (ya no tienen registros abiertos) y el aviso del resumen al cliente.
+        const concluidos = [];
+        const avisos = [];
         this.correo = { ...this.correo, enviando: true, errores: [] };
         for (let i = 0; i < ids.length; i += lote) {
             this.correo = { ...this.correo, avance: `Enviando ${Math.min(i + lote, ids.length)} de ${ids.length}…` };
@@ -895,6 +898,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
                         correosJson: Object.keys(correos).length ? JSON.stringify(correos) : null, copias: this.correo.copias || null });
                 enviados += r.enviados || 0;
                 errores.push(...(r.errores || []));
+                concluidos.push(...(r.concluidos || []));
+                if (r.aviso) { avisos.push(r.aviso); }
             } catch (err) {
                 errores.push(this.textoError(err));
                 break;
@@ -902,10 +907,15 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         }
         this.correo = { ...this.correo, enviando: false, avance: '', errores };
         if (enviados) {
-            // Al enviarse, el registro de cada uno queda Concluido (lo hace el servidor).
+            // Al enviarse, el registro de cada uno queda Concluido y el movimiento que ya no tiene registros abiertos también (lo
+            // hace el servidor).
             const n = `${enviados} asegurado${enviados === 1 ? '' : 's'}`;
+            const movs = concluidos.map((f) => f.replace(/^SOL-/i, ''));
+            const textoMovs = movs.length ? ` ${movs.length === 1 ? 'El movimiento' : 'Los movimientos'} ${movs.join(', ')}`
+                + ` quedó${movs.length === 1 ? '' : 'aron'} Concluido${movs.length === 1 ? '' : 's'}.` : '';
             this.toast('Correo enviado', `Se envió a ${n} y su registro quedó Concluido`
-                + (errores.length ? `; ${errores.length} no se pudieron enviar.` : '.'), errores.length ? 'warning' : 'success');
+                + (errores.length ? `; ${errores.length} no se pudieron enviar.` : '.') + textoMovs + (avisos.length ? ' ' + avisos.join(' ') : ''),
+                errores.length ? 'warning' : 'success');
             await this.cargar();
         }
         if (errores.length && !this.correo.reenvio) {
@@ -914,7 +924,10 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
             this.correo = { ...this.correo, ids: ids.filter((x) => pendientes.has(x)) };
         }
         if (errores.length) { return; }
-        if (this.concluye) { await this.concluirSolicitud(); return; }
+        // Si el movimiento ya quedó Concluido al enviar, no se vuelve a concluir (ni se repite el resumen al cliente).
+        if (this.concluye && !(this.concluyeFolio && concluidos.includes(this.concluyeFolio))) { await this.concluirSolicitud(); return; }
+        this.concluyeFolio = '';
+        this.concluyeRegistro = null;
         this.modal = null;
     }
     textoError(e) { return (e && e.body && e.body.message) || (e && e.message) || 'Ocurrió un error inesperado.'; }

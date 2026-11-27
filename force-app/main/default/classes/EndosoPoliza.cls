@@ -389,14 +389,20 @@ public inherited sharing class EndosoPoliza {
 	 * @creation date: 27/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
 	 * @description: Al enviarle el correo a un asegurado, sus registros abiertos de la póliza quedan Concluidos (los
-	 *               rechazados no cambian). El estatus de su solicitud no cambia.
+	 *               rechazados no cambian). Si con eso a su movimiento (solicitud) ya no le quedan registros abiertos, el
+	 *               movimiento también queda Concluido, como al concluirlo a mano: se concluye su caso y se manda el
+	 *               resumen al cliente.
 	 * @param policyId: póliza.
 	 * @param participanteIds: asegurados a los que se les envió el correo.
-	 * @return void
+	 * @return {concluidos: folios de los movimientos que quedaron Concluidos, aviso: aviso del resumen al cliente o null}
 	 */
-	public static void concluirConCorreo(Id policyId, Set<Id> participanteIds) {
-		if (policyId == null || participanteIds == null || participanteIds.isEmpty()) { return; }
-		new SinCompartir().concluirParticipantes(policyId, participanteIds);
+	public static Map<String, Object> concluirConCorreo(Id policyId, Set<Id> participanteIds) {
+		List<String> concluidos = new List<String>();
+		if (policyId != null && participanteIds != null && !participanteIds.isEmpty()) {
+			concluidos = new SinCompartir().concluirParticipantes(policyId, participanteIds);
+		}
+		return new Map<String, Object>{ 'concluidos' => concluidos,
+			'aviso' => avisosConclusion.isEmpty() ? null : String.join(avisosConclusion, ' ') };
 	}
 
 	// Avisos de los correos de conclusión que se mandaron en esta transacción (para la pantalla).
@@ -444,7 +450,7 @@ public inherited sharing class EndosoPoliza {
 			for (Case c : casos) { cambios.add(new Case(Id = c.Id, Folio_Aseguradora__c = valor)); }
 			update cambios;
 		}
-		void concluirParticipantes(Id policyId, Set<Id> participanteIds) {
+		List<String> concluirParticipantes(Id policyId, Set<Id> participanteIds) {
 			List<Movimiento_Poliza__c> movs = new List<Movimiento_Poliza__c>();
 			Set<String> folios = new Set<String>();
 			for (Movimiento_Poliza__c m : [
@@ -455,10 +461,28 @@ public inherited sharing class EndosoPoliza {
 				movs.add(m);
 				if (m.Solicitud__c != null) { folios.add(m.Solicitud__c); }
 			}
-			if (movs.isEmpty()) { return; }
-			// Cerrar sus registros no cambia el estatus de la solicitud.
+			List<String> concluidos = new List<String>();
+			if (movs.isEmpty()) { return concluidos; }
+			// Cerrar sus registros no cambia el estatus de la solicitud...
 			if (!folios.isEmpty()) { fijarEstatus(policyId, folios); }
 			concluirElegidos(movs, false);
+			if (folios.isEmpty()) { return concluidos; }
+			// ...salvo que ya no le queden registros abiertos: entonces el movimiento queda Concluido (si no estaba rechazado).
+			for (AggregateResult a : [
+				SELECT Solicitud__c f FROM Movimiento_Poliza__c
+				WHERE Poliza__c = :policyId AND Solicitud__c IN :folios AND Fecha_Cierre__c = null GROUP BY Solicitud__c
+			]) { folios.remove((String) a.get('f')); }
+			if (folios.isEmpty()) { return concluidos; }
+			Map<String, String> estatus = new Map<String, String>();
+			for (Map<String, Object> s : solicitudes(policyId, null)) { estatus.put((String) s.get('folio'), (String) s.get('seguimiento')); }
+			for (String folio : folios) {
+				String actual = estatus.get(folio);
+				if (actual == 'Concluido' || actual == 'Rechazada') { continue; }
+				cambiar(policyId, folio, null, 'Concluido', null);
+				concluidos.add(folio);
+			}
+			concluidos.sort();
+			return concluidos;
 		}
 		void fijarEstatus(Id policyId, Set<String> folios) {
 			List<Movimiento_Poliza__c> movs = [
