@@ -224,6 +224,8 @@ public inherited sharing class ParticipantesPolizaController {
 		List<OrgWideEmailAddress> owe = [SELECT Id FROM OrgWideEmailAddress WHERE Address = 'info@avanzaseguro.com' LIMIT 1];
 		// A los dados de baja siempre se les adjunta su documento de baja (el subido o una constancia generada).
 		Map<Id, List<Messaging.EmailFileAttachment>> adjuntos = adjuntos(ps, adjuntarArchivos == true, pol, aseguradora);
+		// Lo que se cambió en el último cambio de cada uno (marcador {{DETALLE_CAMBIO}} de la plantilla de cambio).
+		Map<Id, String> detalles = detallesDeCambio(new Map<Id, InsurancePolicyParticipant>(ps).keySet());
 
 		List<String> errores = new List<String>();
 		List<Messaging.SingleEmailMessage> mensajes = new List<Messaging.SingleEmailMessage>();
@@ -265,7 +267,8 @@ public inherited sharing class ParticipantesPolizaController {
 			}
 			llenarMarcadores(m, new Map<String, String>{
 				'NOMBRE_ASEGURADO' => p.ParticipantName, 'POLIZA' => pol.Name, 'CERTIFICADO' => CensoColectivoController.certificadoLimpio(p.ParticipantCode),
-				'ASEGURADORA' => aseguradora, 'VIGENCIA' => vigencia, 'CORREO_SERVICIO' => 'info@avanzaseguro.com'
+				'ASEGURADORA' => aseguradora, 'VIGENCIA' => vigencia, 'CORREO_SERVICIO' => 'info@avanzaseguro.com',
+				'DETALLE_CAMBIO' => String.isNotBlank(detalles.get(p.Id)) ? detalles.get(p.Id) : 'Los datos que solicitaste.'
 			});
 			m.setToAddresses(new List<String>{ correo });
 			if (!cc.isEmpty()) { m.setCcAddresses(cc); }
@@ -313,6 +316,20 @@ public inherited sharing class ParticipantesPolizaController {
 			'concluidos' => conclusion.containsKey('concluidos') ? conclusion.get('concluidos') : new List<String>(), 'aviso' => conclusion.get('aviso') };
 	}
 
+	// Detalle del último cambio de cada asegurado («Nombre: antes → después», un renglón por dato).
+	@TestVisible
+	private static Map<Id, String> detallesDeCambio(Set<Id> participanteIds) {
+		Map<Id, String> r = new Map<Id, String>();
+		if (participanteIds == null || participanteIds.isEmpty()) { return r; }
+		for (Movimiento_Poliza__c m : [
+			SELECT Participante__c, Detalle__c FROM Movimiento_Poliza__c
+			WHERE Participante__c IN :participanteIds AND Tipo__c = 'Cambio' ORDER BY CreatedDate DESC, Id DESC LIMIT 5000
+		]) {
+			if (!r.containsKey(m.Participante__c)) { r.put(m.Participante__c, m.Detalle__c); }
+		}
+		return r;
+	}
+
 	// Titulares (con su correo) de los dependientes.
 	private static Map<Id, InsurancePolicyParticipant> titularesDe(Set<Id> ids) {
 		if (ids.isEmpty()) { return new Map<Id, InsurancePolicyParticipant>(); }
@@ -353,7 +370,8 @@ public inherited sharing class ParticipantesPolizaController {
 		String r = texto;
 		for (String k : valores.keySet()) {
 			String v = valores.get(k) == null ? '' : valores.get(k);
-			if (html) { v = v.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;'); }
+			// En HTML se escapa y cada renglón (p. ej. del detalle del cambio) va en su línea.
+			if (html) { v = v.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace('\n', '<br>'); }
 			r = r.replace('{{' + k + '}}', v);
 		}
 		r = r.replaceAll('\\{\\{LINK_[A-Z0-9_]+\\}\\}', '#');

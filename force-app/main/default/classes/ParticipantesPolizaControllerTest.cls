@@ -248,6 +248,25 @@ private class ParticipantesPolizaControllerTest {
 		Assert.areEqual('Hola José &lt;Pérez&gt; POL-1 <a href="#">x</a>', html);
 		Assert.areEqual('Hola José <Pérez>', ParticipantesPolizaController.llenar('Hola {{NOMBRE_ASEGURADO}}', v, false));
 		Assert.areEqual('Sin marcadores', ParticipantesPolizaController.llenar('Sin marcadores', v, true));
+		// El detalle del cambio: un renglón por dato.
+		Map<String, String> d = new Map<String, String>{ 'DETALLE_CAMBIO' => 'Nombre: Ana → Ana María\nSuma asegurada: 1 → 2' };
+		Assert.areEqual('Nombre: Ana → Ana María<br>Suma asegurada: 1 → 2', ParticipantesPolizaController.llenar('{{DETALLE_CAMBIO}}', d, true));
+	}
+
+	// Detalle del último cambio de cada asegurado, para la plantilla de cambio.
+	@isTest
+	static void testDetallesDeCambio() {
+		InsurancePolicy pol = [SELECT Id FROM InsurancePolicy WHERE Name = 'POL-PART-1' LIMIT 1];
+		InsurancePolicyParticipant p = [SELECT Id FROM InsurancePolicyParticipant WHERE InsurancePolicyId = :pol.Id LIMIT 1];
+		Movimiento_Poliza__c viejo = new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = p.Id, Tipo__c = 'Cambio', Detalle__c = 'Nombre: A → B');
+		insert viejo;
+		Test.setCreatedDate(viejo.Id, Datetime.now().addDays(-2));
+		insert new Movimiento_Poliza__c(Poliza__c = pol.Id, Participante__c = p.Id, Tipo__c = 'Cambio', Detalle__c = 'Sexo: F → M');
+		Test.startTest();
+		Map<Id, String> r = ParticipantesPolizaController.detallesDeCambio(new Set<Id>{ p.Id });
+		Test.stopTest();
+		Assert.areEqual('Sexo: F → M', r.get(p.Id), 'El del último cambio');
+		Assert.isTrue(ParticipantesPolizaController.detallesDeCambio(new Set<Id>()).isEmpty());
 	}
 
 	/**
