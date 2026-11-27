@@ -82,6 +82,11 @@ export default class PortalDashboard extends LightningElement {
     get urlMisPolizas() {
         return `${basePath || ''}/mis-polizas`;
     }
+    // Liga al detalle de una póliza en «Mis pólizas» (?poliza= y, si se da, ?pestana=).
+    urlPoliza(id, pestana) {
+        if (!id) return null;
+        return `${this.urlMisPolizas}?poliza=${encodeURIComponent(id)}${pestana ? `&pestana=${pestana}` : ''}`;
+    }
 
     // ---------- Indicadores ----------
 
@@ -371,6 +376,9 @@ export default class PortalDashboard extends LightningElement {
     get proximasCuotas() {
         return ((this.datos && this.datos.proximasCuotas) || []).map((q) => ({
             ...q,
+            // El número abre la póliza en «Mis pólizas», en su pestaña de pagos.
+            urlDetalle: this.urlPoliza(q.polizaId, 'pagos'),
+            textoDetalle: `Ver detalle de la póliza ${q.numero}`,
             venceTexto: this.fecha(q.vence),
             montoTexto: this.moneda(q.pendiente, q.moneda),
             estadoTexto: q.vencida ? (q.diasMora ? `Vencida · ${q.diasMora} día${q.diasMora === 1 ? '' : 's'}` : 'Vencida') : 'Pendiente',
@@ -396,6 +404,8 @@ export default class PortalDashboard extends LightningElement {
             .map((p) => ({
                 ...p,
                 titulo: [p.ramo, p.aseguradora].filter(Boolean).join(' · ') || 'Póliza',
+                urlDetalle: this.urlPoliza(p.id),
+                textoDetalle: `Ver detalle de la póliza ${p.numero}`,
                 venceTexto: this.fecha(p.finVigencia),
                 diasTexto: p.dias === 0 ? 'Vence hoy' : `En ${p.dias} día${p.dias === 1 ? '' : 's'}`,
                 diasClase: `badge ${p.dias <= 30 ? 'b-amber' : 'b-blue'}`

@@ -105,7 +105,7 @@
                                             <div class="who">
                                                 <span class="chip" aria-hidden="true">{p.chip}</span>
                                                 <div>
-                                                    <div class="nm">Póliza {p.numero}</div>
+                                                    <div class="nm"><button class="link link_poliza" data-id={p.id} onclick={handleAbrir} title={p.textoAbrir}>Póliza {p.numero}</button></div>
                                                     <div lwc:if={p.subPoliza} class="sb ell" title={p.subPoliza}>{p.subPoliza}</div>
                                                 </div>
                                             </div>

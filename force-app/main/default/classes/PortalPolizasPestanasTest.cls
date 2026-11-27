@@ -87,13 +87,13 @@ private class PortalPolizasPestanasTest {
 
 		System.assert(!info.secciones.isEmpty());
 		System.assertEquals('Detalles de la póliza', info.secciones[0].titulo);
-		Boolean hayPrimerPago = false;
+		// En el sitio no va la sección Información de prima ni sus campos.
 		for (PortalPolizasPestanas.Seccion s : info.secciones) {
+			System.assertNotEquals('Información de prima', s.titulo, 'No se muestra la información de prima');
 			for (PortalPolizasPestanas.Campo c : s.campos) {
-				if (c.etiqueta == 'Primer pago') { hayPrimerPago = c.numero == 250 && c.tipo == 'moneda'; }
+				System.assertNotEquals('Primer pago', c.etiqueta, 'No se muestra el primer pago');
 			}
 		}
-		System.assert(hayPrimerPago, 'Debe mostrar el primer pago como moneda');
 
 		PortalPolizasPestanas.Cuota nueva;
 		for (PortalPolizasPestanas.Cuota q : pagos.cuotas) {

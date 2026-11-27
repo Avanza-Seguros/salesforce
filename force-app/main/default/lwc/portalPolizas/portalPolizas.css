@@ -270,6 +270,8 @@ th.r, td.r { text-align: right; }
 .ell { max-width: 230px; overflow: hidden; text-overflow: ellipsis; display: block; }
 .link { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--pp-acento); cursor: pointer; text-align: left; min-height: 32px; }
 .link:hover { color: #1e3a8a; text-decoration: underline; }
+/* El número de póliza de la lista abre su detalle, sin hacer más alto el renglón. */
+.link_poliza { min-height: 0; }
 
 /* Estados con punto */
 .badge {

@@ -42,7 +42,7 @@ public without sharing class PortalPolizasPestanas {
 	/**
 	 * @creation date: 14/11/2026
 	 * @author: Sergio Uribe Toledo - Volestra
-	 * @description: Pestaña Información Póliza: datos de la póliza, prima, vigencia y renovación y estado de pago.
+	 * @description: Pestaña Información Póliza: datos de la póliza, vigencia y renovación y estado de pago.
 	 * @param policyId: Id de la póliza
 	 * @param cuentaVistaPrevia: Cuenta a simular (solo vista previa de administrador); null para el usuario real
 	 * @return Secciones con sus campos (solo los que tienen valor)
@@ -54,8 +54,6 @@ public without sharing class PortalPolizasPestanas {
 			InsurancePolicy p = [
 				SELECT Name, Aseguradora__r.Name, toLabel(Ramo__c), Product.Name, NameInsured.Name, toLabel(Status),
 					EffectiveDate, ExpirationDate, CancellationDate, CancellationReason, insuredAssetDescription__c,
-					PremiumAmount, toLabel(PremiumFrequency), Numero_Pagos__c, Primer_Pago__c, Pago_Subsecuente__c,
-					Pagos_Subsecuentes__c, Subtotal__c, Derecho_Poliza__c, Financiamiento__c, IVA__c, Descuento__c,
 					Moneda__c, SaleDate, PriorPolicy.Name, RenewedFromPolicy.Name, ReferencePolicyNumber, termPeriod__c,
 					toLabel(collectionPaymentStatus__c), collectionNextDueDate__c, PaidToDate, totalRefundedAmount__c
 				FROM InsurancePolicy WHERE Id = :policyId LIMIT 1
@@ -78,20 +76,7 @@ public without sharing class PortalPolizasPestanas {
 			Campo bien = texto(datos, 'Bien asegurado', p.insuredAssetDescription__c);
 			if (bien != null) { bien.ancho = true; }
 
-			Seccion prima = seccion(info, 'Información de prima');
-			moneda(prima, 'Prima total', p.PremiumAmount);
-			texto(prima, 'Forma de pago', p.PremiumFrequency);
-			numero(prima, 'Número de pagos', p.Numero_Pagos__c);
-			moneda(prima, 'Primer pago', p.Primer_Pago__c);
-			moneda(prima, 'Pago subsecuente', p.Pago_Subsecuente__c);
-			numero(prima, 'Pagos subsecuentes', p.Pagos_Subsecuentes__c);
-			moneda(prima, 'Prima neta', p.Subtotal__c);
-			moneda(prima, 'Derecho de póliza', p.Derecho_Poliza__c);
-			moneda(prima, 'Financiamiento', p.Financiamiento__c);
-			moneda(prima, 'Descuento', p.Descuento__c);
-			moneda(prima, 'IVA', p.IVA__c);
-			texto(prima, 'Moneda', info.moneda);
-
+			// En el sitio no se muestra la sección Información de prima (la prima total ya va en el encabezado de la póliza).
 			Seccion renov = seccion(info, 'Vigencia y renovación');
 			texto(renov, 'Vigencia', p.termPeriod__c);
 			fecha(renov, 'Fecha de venta', p.SaleDate);
@@ -792,11 +777,6 @@ public without sharing class PortalPolizasPestanas {
 	static void moneda(Seccion s, String etiqueta, Decimal valor) {
 		if (valor == null) { return; }
 		campo(s, etiqueta, 'moneda').numero = valor;
-	}
-
-	static void numero(Seccion s, String etiqueta, Decimal valor) {
-		if (valor == null) { return; }
-		campo(s, etiqueta, 'numero').numero = valor;
 	}
 
 	static void fecha(Seccion s, String etiqueta, Date valor) {
