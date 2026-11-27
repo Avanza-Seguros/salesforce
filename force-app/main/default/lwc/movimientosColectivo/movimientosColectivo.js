@@ -43,6 +43,8 @@ const enviarCorreoSitio = (p) => llamar('Participantes.enviarCorreo', p, enviarC
 const enviarRenovacionGmmSitio = (p) => llamar('RenovacionGmm.enviar', p, enviarRenovacionGmm);
 // Plantilla de renovación de GMM contributorio: un correo por titular con su familia; pide fecha límite y derecho de póliza.
 const PLANTILLA_RENOVACION_GMM = 'Renovacion_GMM_Contributoria';
+// Plantilla de cambio de datos (se elige sola al enviar a quienes tienen un cambio; la versión más reciente).
+const PREFIJO_PLANTILLA_CAMBIO = 'Cambio_GMM';
 // Asegurados por llamada al enviar correo: menos si van con adjuntos (límite de memoria de Apex).
 const LOTE_CORREO = 25;
 const LOTE_CORREO_ADJUNTOS = 5;
@@ -770,7 +772,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.incluirEnviados = e.target.checked;
         this.agruparCorreo(elegida ? elegida.key : '');
         const nueva = this.solicitudesCorreo.find((s) => s.sel);
-        this.correo = { ...this.correo, ids: nueva ? nueva.ids : [], errores: [] };
+        const ids = nueva ? nueva.ids : [];
+        this.correo = { ...this.correo, ids, errores: [], plantilla: this.plantillaPara(ids, this.correo.plantilla) };
     }
     // Agrupa por solicitud a quienes se les envía; conserva la solicitud elegida si sigue en la lista.
     agruparCorreo(llave) {
@@ -798,7 +801,8 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         const key = e.target.dataset.key;
         this.solicitudesCorreo = this.solicitudesCorreo.map((s) => ({ ...s, sel: s.key === key }));
         const elegida = this.solicitudesCorreo.find((s) => s.sel);
-        this.correo = { ...this.correo, ids: elegida ? elegida.ids : [], errores: [] };
+        const ids = elegida ? elegida.ids : [];
+        this.correo = { ...this.correo, ids, errores: [], plantilla: this.plantillaPara(ids, this.correo.plantilla) };
     }
     get correoPorSolicitud() { return this.solicitudesCorreo.length > 0; }
     abrirCorreoAsegurado(e) {
@@ -815,9 +819,21 @@ export default class MovimientosColectivo extends NavigationMixin(LightningEleme
         this.modal = 'correo';
         try {
             await this.cargarPlantillas();
+            this.correo = { ...this.correo, plantilla: this.plantillaPara(this.correo.ids, this.correo.plantilla) };
         } catch (err) {
             this.correo = { ...this.correo, errores: [this.textoError(err)] };
         }
+    }
+    // Si todos a quienes se envía tienen un cambio, se elige sola la plantilla de cambio. Si estaba elegida y ya no son
+    // cambios, se quita (para no enviarla a un alta o una baja); si no, se deja la que estaba.
+    plantillaPara(ids, actual) {
+        const cambio = this.plantillas.filter((p) => (p.clave || '').startsWith(PREFIJO_PLANTILLA_CAMBIO))
+            .sort((a, b) => b.clave.localeCompare(a.clave, 'es', { numeric: true }))[0];
+        if (!cambio) { return actual; }
+        const elegidos = new Set(ids || []);
+        const lista = this.miembros.filter((m) => elegidos.has(m.id));
+        if (lista.length && lista.every((m) => m.tipoMovimiento === 'Cambio')) { return cambio.value; }
+        return actual === cambio.value ? '' : actual;
     }
     // Bajas: el correo al que se envía se puede cambiar (el de un dependiente es, por omisión, el de su titular).
     get bajasCorreo() {
