@@ -2,7 +2,8 @@
 
 - **Rama:** `release/prod-sitio-empresas`, hecha a partir de `Siniestros-en-Claims` en el commit `ae656d1`.
 - **Manifiesto:** `manifest/release-prod.xml`, con 632 componentes y API 68.0.
-- **Validado en PROD sin desplegar el 27/11/2026** (id `0AfUn000001S5KLKA0`): 729 componentes y 325 pruebas bien, con 90.3 % de cobertura. Ese id sirve para el Quick Deploy durante 10 días (hasta el 7/12/2026), siempre que PROD no cambie antes.
+- **Validado en PROD sin desplegar el 27/11/2026** (id `0AfUn000001S5KLKA0`): 729 componentes y 325 pruebas bien, con 90.3 % de cobertura.
+- **Desplegado en PROD el 27/11/2026, de 20:07 a 20:10** (Quick Deploy `0AfUn000001S5LxKAK`): los 729 componentes, sin errores. Ver «Despliegue en PROD».
 - **Contenido:** solo lo que va a PROD.
   - Lo nuevo de Cobranza y Claims se borró de la rama.
   - Lo que Cobranza o Claims modificaron regresó a la versión de PROD (`main`).
@@ -201,3 +202,20 @@ Una prueba sin guardar en PROD de los campos de la oportunidad, sus 3 tipos de r
 Los otros errores vienen de esos:
 - **De `Aseguradora__c`:** 42 clases no compilan porque usan `Aseguradora__r`. De ahí fallan los LWC, la página de la póliza, el flujo de solicitudes, los perfiles y conjuntos de permisos, el filtro de `Quote.Product__c` y, probablemente, la acción de correo en el formato de oportunidad.
 - **De `Ramo__c`:** los tipos de registro `Oportunidad_Individual` y `Oportunidades` no encuentran «Mascotas».
+
+## Despliegue en PROD
+
+**Quick Deploy el 27/11/2026, de 20:07 a 20:10** (id `0AfUn000001S5LxKAK`, con la validación `0AfUn000001S5KLKA0`): los 729 componentes, sin errores. Lo pidió el usuario sabiendo que seguían pendientes el visto bueno de Avanza a las decisiones, el ensayo en un sandbox copiado de PROD y las plantillas finales.
+
+- **Respaldo para la reversa:** antes del despliegue se recuperó de PROD la versión anterior de todo lo del manifiesto, en `C:\Salesforce\Avanza\respaldos-prod\2026-11-27-antes-del-quick-deploy`. Tiene los 154 componentes que ya existían; los demás eran nuevos.
+- **Revisión en PROD después del despliegue:** están las clases del sitio y de pólizas, los 5 objetos nuevos y los triggers `BienPolizaVigenciaTrigger` y `PolizaReglasTrigger`, activos. Las 6 reglas quedaron apagadas y el menú del sitio quedó en la red «Avanza Empresas», que sigue en construcción.
+- **Campos sin acceso:** de los 198 campos nuevos, 195 quedaron sin lectura para el perfil Administrador, porque el perfil del paquete solo llevaba lo nuevo. Se agregó el conjunto de permisos `Polizas_Sitio_Empresas_Campos` («Pólizas y Sitio de Empresas: campos nuevos», despliegue `0AfUn000001S5PBKA0`). Da lectura en 194 campos y edición en 190; los 4 restantes son fórmulas. Deja fuera 4 campos obligatorios, que no admiten permiso. Además da crear, leer, editar y borrar en los 5 objetos nuevos. Está asignado a los 2 administradores activos (Abraham Gonzalez y Administrador Avanza); falta asignarlo a los demás usuarios internos que operen pólizas y cotizaciones. Su archivo está en `force-app/main/default/permissionsets/` y no está en `release-prod.xml`, porque se desplegó aparte.
+
+**Pendiente en PROD:**
+1. Crear la aseguradora GNP y asignársela a «Capitaliza» y «Profesional».
+2. Volver a poner la acción Enviar correo en la lista de pólizas del formato de oportunidad.
+3. Asignar los conjuntos de permisos (hoy sin asignar): a los internos, `Polizas_Sitio_Empresas_Campos`, `Portal_Polizas_Vista_Previa`, `Censo_Colectivo`, `Vehiculos_FSC` y `Logos_Correos`; a los usuarios del sitio, `Portal_Polizas_Cliente`.
+4. Sitio «Avanza Empresas»: miembros, usuario invitado, licencias y publicarlo.
+5. Plantillas de alta, baja y cambio: siguen como «Prueba V1»; un movimiento real las mandaría a asegurados.
+6. Decidir si se programa el aviso de renovación.
+7. Visto bueno de Avanza a las decisiones de listas, etapas y reglas, que ya están en PROD.
