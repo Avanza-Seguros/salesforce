@@ -1,0 +1,12 @@
+{
+  "activeViewId" : "ce1babdf-0fe8-499e-8ee1-d551b25436ec",
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "configurationTags" : [ ],
+  "devName" : "Contactos_Empresa__c",
+  "id" : "f86e4f83-cffa-4395-aa08-a33f4cfefc87",
+  "label" : "Personas de la empresa",
+  "pageAccess" : "UseParent",
+  "routeType" : "custom-contactos-empresa",
+  "type" : "route",
+  "urlPrefix" : "contactos-empresa"
+}

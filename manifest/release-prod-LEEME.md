@@ -1,7 +1,8 @@
 # Liberación a PROD: Sitio de Empresas e Insurance Policy, sin Cobranza ni Claims
 
 - **Rama:** `release/prod-sitio-empresas`, hecha a partir de `Siniestros-en-Claims` en el commit `ae656d1`.
-- **Manifiesto:** `manifest/release-prod.xml`, con 627 componentes y API 68.0.
+- **Manifiesto:** `manifest/release-prod.xml`, con 632 componentes y API 68.0.
+- **Validado en PROD sin desplegar el 27/11/2026** (id `0AfUn000001S5KLKA0`): 729 componentes y 325 pruebas bien, con 90.3 % de cobertura. Ese id sirve para el Quick Deploy durante 10 días (hasta el 7/12/2026), siempre que PROD no cambie antes.
 - **Contenido:** solo lo que va a PROD.
   - Lo nuevo de Cobranza y Claims se borró de la rama.
   - Lo que Cobranza o Claims modificaron regresó a la versión de PROD (`main`).
@@ -16,21 +17,21 @@
 | Tipo | Cantidad | Tipo | Cantidad |
 |---|---|---|---|
 | Campos | 362 | Tipos de registro | 14 |
-| Clases Apex | 79 (40 de prueba) | Reglas de validación | 14 |
+| Clases Apex | 83 (42 de prueba) | Reglas de validación | 14 |
 | Componentes LWC | 36 | Flujos | 11 |
 | Documentos (logos de correos) | 16 | Prompts de IA | 10 |
 | Formatos de página | 15 | Vistas de lista | 10 |
 | Objetos (los 5 nuevos, Póliza y Cobertura de producto) | 7 | Formatos compactos | 8 |
 | Plantillas de correo (carpeta Empresas) | 7 | Conjuntos de permisos | 5 |
 | Perfiles (solo lo nuevo) | 4 | Listas de valores (globales 3, estándar 4) | 7 |
-| Otros (páginas VF, triggers, proceso de ventas, permisos, pestaña, páginas, menú, acciones, etc.) | 22 | **Total** | **627** |
+| Otros (páginas VF, triggers, proceso de ventas, permisos, pestaña, páginas, menú, contenido del sitio, acciones, etc.) | 23 | **Total** | **632** |
 
 Esto cubre:
 - Pólizas empresariales: asegurados, vehículos y ubicaciones, movimientos, solicitudes, seguimiento y correos a asegurados.
 - Crear Póliza y Crear Oportunidad, con el comparativo.
 - Gestión comercial.
 - Vigencias, renovación y avisos.
-- El Sitio de Empresas: controladores, LWC y menú de navegación.
+- El Sitio de Empresas: controladores, LWC, menú de navegación y el contenido del sitio (`ExperienceBundle` `Avanza_Empresas1`, recuperado de UAT sin la página «mis-pagos»).
 
 ## Qué queda fuera
 
@@ -103,8 +104,15 @@ Esto lo encontró la validación en PROD del 27/11/2026.
 | Tipo de registro `Contact` | Sin las listas GenderIdentity, Pronouns y LeadSource, que no existen en PROD |
 | Tipo de registro `Oportunidad_Colectiva` | Sin «Platica Luxoft» ni «Siniestro Luxoft» en Mercado, que en PROD están inactivos |
 | Formato `AccountFinancialSummary` y relación `Relaciones_del_cliente` | Fuera del paquete: sus objetos (Resumen financiero de cuenta y Relación entre cuentas) no están activados en PROD |
+| `Opportunity.Agente_Relacionado__c` | El filtro sigue opcional, como en PROD, aunque ya excluye «Descartado» e «Inactivo». Obligatorio da un error interno de Salesforce: hay 383 oportunidades ligadas a agentes así (374 «Inactivo» y 9 «Descartado»). Conserva el historial de cambios del campo, que la rama le quitaba |
+| Página `Insurance_Policy_Record_Page` | Sin la pestaña Vigencias: su componente `policyTerms` es de Cobranza (lee las cuotas) |
+| Formato de oportunidad | Sin la acción Enviar correo en la lista de pólizas. **Después del despliegue** se puede volver a poner a mano, ya con la acción creada |
+| `BienvenidasPoliza`, `BienvenidaPolizaTest`, `PdfProcessorController` y `TriggerControlTest` | Se agregaron al manifiesto: cambiaron respecto a PROD y faltaban. Sin ellas corría la prueba vieja de PROD, que crea una oportunidad con Ramo «Auto», valor que los tipos de registro nuevos ya no aceptan |
+| `CorreoOportunidadIATest` | La fecha de pago de prueba va a mediodía local; a medianoche GMT, en la zona horaria de México caía un día antes |
+| `PortalPolizasPestanasTest` | Sube el documento de prueba solo con el sitio publicado; uno en construcción no tiene miembros y no acepta archivos |
+| Contenido del sitio | Entró al paquete para que el menú encuentre sus páginas, sin la ruta ni la vista «mis-pagos» |
 
-El LWC `portalPagos` va en el paquete porque compila, pero no se llega a él desde el sitio. No hay que crear la página «mis-pagos» en el sitio de PROD.
+El LWC `portalPagos` va en el paquete porque compila, pero no se llega a él desde el sitio: el contenido del sitio va sin la página «mis-pagos».
 
 ## Decisiones aplicadas en esta rama
 
@@ -129,14 +137,15 @@ Se aplicaron las recomendaciones del plan; falta el visto bueno de Avanza.
 ## Riesgos que solo se ven en PROD
 
 - **Ramo de la oportunidad queda con lista propia en PROD** y en UAT y DEV usa la lista global «Ramo». Un despliegue futuro desde develop que lleve `Opportunity.Ramo__c` va a fallar en PROD por lo mismo; ese campo hay que dejarlo fuera o igualar UAT y DEV a PROD.
+- **Flujos de oportunidad que solo están activos en PROD:** `Flujo_Oportunidades_Avanza`, `Poliza_de_oportunidad`, `Oportunidad_Telefono` y `Prospecto_Oportunidad` crean pólizas de `Polizas__c` y reescriben datos de la oportunidad; en UAT están apagados. Las 325 pruebas pasaron con ellos activos, pero conviene revisarlos en el ensayo.
 - **Tipo de oportunidad:** el código pone `New_Business` cuando el formulario no trae Tipo. En PROD ese valor no existe; como Tipo no es una lista restringida, se guarda igual, pero aparecerá como valor inactivo.
 
 ## Fuera del paquete
 
 - **Carpeta de plantillas «Empresas»:** ya existe en PROD.
 - **Etapas nuevas de la oportunidad:** «Gestion Comercial» y «En proceso de emision» (punto 2); ya creadas en PROD.
-- **El sitio Avanza Empresas** (ya creado en PROD el 27/11/2026, vacío y sin publicar):
-  - Experience Cloud, sus páginas sin «mis-pagos» y su usuario invitado.
+- **El sitio Avanza Empresas** (ya creado en PROD el 27/11/2026, sin publicar; su contenido va en el paquete):
+  - Miembros, usuario invitado y publicarlo.
   - Las licencias Partner Community.
   - Los 3 procesos programados.
   - Las asignaciones de permisos.
@@ -155,7 +164,7 @@ En PowerShell hay que pasarlas como lista (`$pruebas = "A,B,…".Split(",")` y l
 
 **Validación en UAT el 27/11/2026, sin desplegar y con las decisiones aplicadas** (id `0AfcU00000CILzxSAH`):
 - **Resultado:** 723 componentes sin errores (el manifiesto con los campos y reglas de cada objeto). Pasan las 325 pruebas de las 40 clases. Cobertura de 91 %; la clase más baja es `PortalSitioController` con 81 %.
-- **Manifiesto de esta corrida:** `manifest/validar-uat.xml`. No lleva el proceso de ventas «Pólizas» ni los tipos de registro `Oportunidad_Colectiva`, `Oportunidad_Individual` y `Oportunidades`, porque usan valores que hay en PROD y no en UAT: la etapa «Necesidad» y el tipo «Existing Business». Además, `Oportunidad_Colectiva` no existe en UAT. Esos cuatro se comprueban en la validación de PROD. Tampoco lleva `Opportunity.Ramo__c`, que en UAT usa la lista global y no se puede cambiar a lista propia.
+- **Manifiesto de esta corrida:** `manifest/validar-uat.xml`. No lleva el proceso de ventas «Pólizas» ni los tipos de registro `Oportunidad_Colectiva`, `Oportunidad_Individual` y `Oportunidades`, porque usan valores que hay en PROD y no en UAT: la etapa «Necesidad» y el tipo «Existing Business». Además, `Oportunidad_Colectiva` no existe en UAT. Esos cuatro se comprueban en la validación de PROD. Tampoco lleva `Opportunity.Ramo__c`, que en UAT usa la lista global y no se puede cambiar a lista propia, ni el contenido del sitio, que en UAT sí tiene la página «mis-pagos».
 - **Qué no cubre esta corrida:** que el código funcione sin los triggers de Cobranza. UAT los tiene y PROD no los tendrá.
 
 Con `RunLocalTests` no pasaría, por las 52 pruebas antiguas que ya fallan en UAT.
@@ -176,9 +185,18 @@ sf project deploy validate --manifest manifest/release-prod.xml --target-org Ava
 | `Opportunity.Ramo__c` no puede pasar a la lista global | Lista propia del campo con 15 valores. PROD no ofrece «Promover a conjunto de valores global» para ese campo | En la rama, `Ramo__c` conserva su lista propia con los 21 valores que tiene la lista global en UAT, que incluyen los 15 de PROD. La lista global `Ramo` salió del paquete porque ningún otro campo la usa |
 | Proceso de ventas «Pólizas»: no existe «En proceso de emision» | No estaban las 2 etapas nuevas | Se crearon en PROD (despliegue `0AfUn000001S4uXKAS`): «Gestion Comercial» (40 %) después de «Propuesta» y «En proceso de emision» (75 %) después de «Emitido», abiertas y en Canalización, como en UAT. Las 6 etapas inactivas siguen igual |
 | Menú `SFDC_Default_Navigation_Avanza_Empresas`: no existe el sitio | No existía el sitio «Avanza Empresas» | Se creó en PROD con la plantilla Customer Service y el prefijo `empresas`, como en UAT. Está en construcción, sin publicar y sin contenido |
-| `Opportunity.Agente_Relacionado__c`: error interno de Salesforce | El filtro es opcional y solo excluye «Descartado». La rama lo hace obligatorio y excluye también «Inactivo», que sí existe en PROD | Volver a validar; si se repite, dejar el filtro como está en PROD |
+| `Opportunity.Agente_Relacionado__c`: error interno de Salesforce | El filtro es opcional y solo excluye «Descartado». La rama lo hace obligatorio y excluye también «Inactivo», que sí existe en PROD | Se repitió; el filtro queda opcional (ver «Ajustes hechos en esta rama») |
 
-Una prueba sin guardar en PROD de los campos de la oportunidad, sus 3 tipos de registro, el proceso de ventas «Pólizas» y el formato compacto `Financial_Opportunities` pasó con los 29 componentes. Falta volver a validar el paquete completo.
+Una prueba sin guardar en PROD de los campos de la oportunidad, sus 3 tipos de registro, el proceso de ventas «Pólizas» y el formato compacto `Financial_Opportunities` pasó con los 29 componentes.
+
+**Siguientes validaciones, el mismo 27/11/2026:**
+
+| Id | Resultado | Qué se corrigió después |
+|---|---|---|
+| `0AfUn000001S55pKAC` | 4 errores en 724 componentes; no corrieron pruebas | El filtro del agente, la pestaña Vigencias de Cobranza, la acción de correo del formato de oportunidad y el contenido del sitio, que el menú necesita |
+| `0AfUn000001S5CHKA0` | 725 componentes bien; 319 de 323 pruebas | La zona horaria de `CorreoOportunidadIATest` y el documento de `PortalPolizasPestanasTest` |
+| `0AfUn000001S5DtKAK`, `0AfUn000001S5FVKA0` y `0AfUn000001S5H7KAK` | 321 de 323 pruebas | Fallaba `BienvenidaPolizaTest`, que no estaba en el manifiesto, así que corría su versión vieja de PROD. Se agregaron esa clase, `BienvenidasPoliza`, `PdfProcessorController` y `TriggerControlTest`. En la primera de las tres hubo un registro de depuración temporal en PROD, ya borrado (las pruebas de un despliegue no generan log) |
+| **`0AfUn000001S5KLKA0`** | **Pasó: 729 componentes, 325 pruebas bien y 90.3 % de cobertura.** Las clases más bajas tienen 81 % (`PortalSitioController` y `PdfProcessorController`) | Nada. Este id sirve para el Quick Deploy durante 10 días |
 
 Los otros errores vienen de esos:
 - **De `Aseguradora__c`:** 42 clases no compilan porque usan `Aseguradora__r`. De ahí fallan los LWC, la página de la póliza, el flujo de solicitudes, los perfiles y conjuntos de permisos, el filtro de `Quote.Product__c` y, probablemente, la acción de correo en el formato de oportunidad.

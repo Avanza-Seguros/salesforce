@@ -458,12 +458,16 @@ private class PortalPolizasPestanasTest {
 		};
 		User sitio;
 		Boolean comoEnElSitio = EndosoPoliza.estadoCaso('Solicitado') == 'Solicitado';
+		// El documento solo se sube con el sitio publicado: uno en construcción no tiene miembros y no acepta archivos.
+		Id redSitio;
+		for (Network red : [SELECT Id FROM Network WHERE Name = 'Avanza Empresas' AND Status = 'Live' LIMIT 1]) { redSitio = red.Id; }
+		Boolean subeDocumento = comoEnElSitio && redSitio != null;
 		System.runAs(yo) {
 			// Perfil y permiso de los usuarios del sitio de empresas (en DEV no hay estado «Solicitado» y una regla de los
 			// casos no deja usar ese perfil: se usa otro, que no sube archivos).
 			Profile perfil = comoEnElSitio ? [SELECT Id FROM Profile WHERE Name = 'Standard Partner Community' LIMIT 1]
 				: [SELECT Id FROM Profile WHERE UserLicense.Name = 'Partner Community' ORDER BY Name LIMIT 1];
-			for (Network red : [SELECT Id FROM Network WHERE Name = 'Avanza Empresas' LIMIT 1]) { PortalPolizasPestanas.redPrueba = red.Id; }
+			PortalPolizasPestanas.redPrueba = redSitio;
 			sitio = new User(ProfileId = perfil.Id, ContactId = contacto.Id, LastName = 'Contratante', Alias = 'contsit',
 				Email = 'contratante@prueba.test', Username = 'contratante.sitio.' + Datetime.now().getTime() + '@prueba.test',
 				TimeZoneSidKey = 'America/Mexico_City', LocaleSidKey = 'es_MX', EmailEncodingKey = 'UTF-8', LanguageLocaleKey = 'es');
@@ -492,7 +496,7 @@ private class PortalPolizasPestanasTest {
 			r = PortalPolizasPestanas.crearSolicitud(auto.Id, JSON.serialize(new Map<String, Object>{ 'listado' => archivo }), null);
 			// El usuario del sitio adjunta la factura al vehículo del alta.
 			Map<String, Object> alta1 = (Map<String, Object>) ((List<Object>) r.get('movimientos'))[0];
-			if (comoEnElSitio) {
+			if (subeDocumento) {
 				PortalPolizasPestanas.adjuntarDocumento(auto.Id, 'SOL-0001', (String) alta1.get('registroId'), 'Factura', 'f.pdf',
 					EncodingUtil.base64Encode(Blob.valueOf('x')), null);
 			}
@@ -511,7 +515,7 @@ private class PortalPolizasPestanasTest {
 		Inciso_Flotilla__c nuevo = [SELECT Descripcion__c, Modelo__c, Placas__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'JTDKT9D38ED585824'];
 		System.assert(nuevo.Descripcion__c.startsWith('TOYOTA YARIS CORE'), nuevo.Descripcion__c);
 		System.assertEquals(2014, nuevo.Modelo__c);
-		System.assertEquals(comoEnElSitio ? 1 : 0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :nuevo.Id], 'La factura queda en el vehículo');
+		System.assertEquals(subeDocumento ? 1 : 0, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :nuevo.Id], 'La factura queda en el vehículo');
 		System.assertNotEquals(null, [SELECT Fecha_Baja__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'AAA111'].Fecha_Baja__c);
 		System.assertEquals('NEW123', [SELECT Placas__c FROM Inciso_Flotilla__c WHERE Poliza__c = :auto.Id AND Serie__c = 'BBB222'].Placas__c);
 		System.assert(error != null && error.contains('Renglón 5 del archivo'), error);

@@ -1,0 +1,49 @@
+{
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "ce1babdf-0fe8-499e-8ee1-d551b25436ec",
+  "label" : "Personas de la empresa",
+  "regions" : [ {
+    "id" : "319b4708-3f03-437a-bcab-2009fefa1052",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "subtitulo" : "Colaboradores y dependientes asegurados en el censo de tu empresa.",
+        "titulo" : "Personas de tu empresa"
+      },
+      "componentName" : "c:portalContactos",
+      "id" : "905fcb56-95bf-456e-82a5-d5e3158f1dc3",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "e8bfdb47-aa86-43b3-8dac-34294687f820",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "caaecde1-1126-46be-9f25-5c54a8b67459",
+    "regionName" : "footer",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customHeadTags" : "",
+        "description" : "",
+        "title" : "Personas de la empresa"
+      },
+      "componentName" : "forceCommunity:seoAssistant",
+      "id" : "806c0ce6-a07a-4fa2-8d1e-8f029170e8c2",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "00233c16-b9cc-48d0-8f6b-2cc088b68e65",
+    "regionName" : "sfdcHiddenRegion",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "custom-contactos-empresa"
+}

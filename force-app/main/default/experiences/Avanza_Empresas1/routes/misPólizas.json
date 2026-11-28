@@ -1,0 +1,12 @@
+{
+  "activeViewId" : "2944aac8-8e24-46f1-9e88-96501be780e7",
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "configurationTags" : [ ],
+  "devName" : "Mis_Polizas__c",
+  "id" : "bec3f0bc-6f83-41bb-902c-445546b6d852",
+  "label" : "Mis pólizas",
+  "pageAccess" : "UseParent",
+  "routeType" : "custom-mis-polizas",
+  "type" : "route",
+  "urlPrefix" : "mis-polizas"
+}

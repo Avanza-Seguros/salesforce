@@ -1,0 +1,49 @@
+{
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "2944aac8-8e24-46f1-9e88-96501be780e7",
+  "label" : "Mis pólizas",
+  "regions" : [ {
+    "id" : "6e5fc1c5-a9e0-44e2-a0cc-1ead81542198",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "mensajeVacio" : "Aún no tienes pólizas registradas. Si crees que es un error, contacta a tu asesor.",
+        "titulo" : "Mis pólizas"
+      },
+      "componentName" : "c:portalPolizas",
+      "id" : "209b2c9a-88ca-42c0-ab1a-f8be933303fa",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "c58e2f73-0c92-4a37-b65a-f4352ce74464",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "03f56029-6bfc-4d3d-94e5-8dd96f548a66",
+    "regionName" : "footer",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customHeadTags" : "",
+        "description" : "",
+        "title" : "Mis pólizas"
+      },
+      "componentName" : "forceCommunity:seoAssistant",
+      "id" : "377c5f13-8348-4987-93a9-eabd214aa36b",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "4c81c321-8efc-4de7-a0de-00aceae2de9c",
+    "regionName" : "sfdcHiddenRegion",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "custom-mis-polizas"
+}

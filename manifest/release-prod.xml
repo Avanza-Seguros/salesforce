@@ -9,6 +9,8 @@
         <members>AvisoRenovacionPolizaTest</members>
         <members>AvisoSolicitudSitio</members>
         <members>AvisoSolicitudSitioTest</members>
+        <members>BienvenidaPolizaTest</members>
+        <members>BienvenidasPoliza</members>
         <members>BienVigencia</members>
         <members>BienVigenciaTest</members>
         <members>CensoColectivoController</members>
@@ -56,6 +58,7 @@
         <members>ParticipantesPolizaControllerTest</members>
         <members>PdfOpportunityCreatorController</members>
         <members>PdfOpportunityCreatorControllerTest</members>
+        <members>PdfProcessorController</members>
         <members>PolicyController</members>
         <members>PolicyControllerTest</members>
         <members>PolizaNumeroUnico</members>
@@ -78,6 +81,7 @@
         <members>QuoteCreatorControllerTest</members>
         <members>RenovacionGmmContributoria</members>
         <members>RenovacionGmmContributoriaTest</members>
+        <members>TriggerControlTest</members>
         <members>VisualforcePdfRenderer</members>
         <members>VisualforcePdfRendererTest</members>
         <name>ApexClass</name>
@@ -520,6 +524,10 @@
         <members>Empresas/Cotizacion_Auto_Una_Opcion</members>
         <members>Empresas/Renovacion_GMM_Contributoria</members>
         <name>EmailTemplate</name>
+    </types>
+    <types>
+        <members>Avanza_Empresas1</members>
+        <name>ExperienceBundle</name>
     </types>
     <types>
         <members>Aseguradora_P_gina_de_registro</members>

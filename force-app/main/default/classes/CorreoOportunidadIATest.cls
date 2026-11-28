@@ -105,7 +105,9 @@ private class CorreoOportunidadIATest {
 	private static InsurancePolicy poliza() {
 		Account a = [SELECT Id FROM Account LIMIT 1];
 		InsurancePolicy p = new InsurancePolicy(Name = 'POL-IA-001', NameInsuredId = a.Id, Status = 'Vigente',
-			PremiumAmount = 15000, PaymentDueDate = Date.today().addDays(5), Moneda__c = 'PESOS', Primer_Pago__c = 3750,
+			// Mediodía local: a medianoche GMT, en la zona horaria de México la fecha cae un día antes.
+			PremiumAmount = 15000, PaymentDueDate = Datetime.newInstance(Date.today().addDays(5), Time.newInstance(12, 0, 0, 0)),
+			Moneda__c = 'PESOS', Primer_Pago__c = 3750,
 			EffectiveDate = Datetime.newInstanceGmt(Date.newInstance(2026, 1, 15), Time.newInstance(12, 0, 0, 0)),
 			ExpirationDate = Datetime.newInstanceGmt(Date.newInstance(2027, 1, 15), Time.newInstance(12, 0, 0, 0)));
 		for (Schema.PicklistEntry pe : InsurancePolicy.PremiumFrequency.getDescribe().getPicklistValues()) {

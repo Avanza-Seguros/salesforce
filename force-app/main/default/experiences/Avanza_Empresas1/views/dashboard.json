@@ -1,0 +1,49 @@
+{
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "7379b31e-d7b7-4d1c-9f8c-c83e6d0eb196",
+  "label" : "Dashboard",
+  "regions" : [ {
+    "id" : "8aa5edec-15dd-436f-99d9-2f205dd2a6df",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "mensajeVacio" : "Aún no tienes pólizas registradas. Si crees que es un error, contacta a tu asesor.",
+        "titulo" : "Dashboard"
+      },
+      "componentName" : "c:portalDashboard",
+      "id" : "17271c53-a90a-4157-a49c-82f03066ab99",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "073c08df-6b43-4e92-ae66-0ea2cb358d99",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "b4991414-2873-4915-b33c-91b280c72cf2",
+    "regionName" : "footer",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customHeadTags" : "",
+        "description" : "",
+        "title" : "Dashboard"
+      },
+      "componentName" : "forceCommunity:seoAssistant",
+      "id" : "f13c01f8-de63-4ea4-b0e4-664dfd82a6be",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "4011054c-d938-4fd6-ad8b-b28e84edf371",
+    "regionName" : "sfdcHiddenRegion",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "custom-mi-dashboard"
+}

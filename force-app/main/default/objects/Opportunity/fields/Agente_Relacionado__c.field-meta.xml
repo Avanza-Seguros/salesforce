@@ -11,12 +11,13 @@
             <operation>notEqual</operation>
             <value>Descartado, Inactivo</value>
         </filterItems>
-        <isOptional>false</isOptional>
+        <isOptional>true</isOptional>
     </lookupFilter>
     <referenceTo>Agente__c</referenceTo>
     <relationshipLabel>Oportunidades (Agente Relacionado)</relationshipLabel>
     <relationshipName>Oportunidades1</relationshipName>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
     <type>Lookup</type>
 </CustomField>

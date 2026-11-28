@@ -1,0 +1,12 @@
+{
+  "activeViewId" : "7379b31e-d7b7-4d1c-9f8c-c83e6d0eb196",
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "configurationTags" : [ ],
+  "devName" : "Mi_Dashboard__c",
+  "id" : "a9e074ef-c194-433e-a19f-16ef94758e1e",
+  "label" : "Dashboard",
+  "pageAccess" : "UseParent",
+  "routeType" : "custom-mi-dashboard",
+  "type" : "route",
+  "urlPrefix" : "mi-dashboard"
+}

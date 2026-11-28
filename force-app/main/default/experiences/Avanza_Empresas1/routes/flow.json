@@ -1,0 +1,12 @@
+{
+  "activeViewId" : "aacb5146-3cf6-48b9-b753-5e982ea4c1cd",
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "configurationTags" : [ ],
+  "devName" : "Flow",
+  "id" : "3b35fde9-86ce-4ffc-8039-74dc206a15c2",
+  "label" : "Flow",
+  "pageAccess" : "UseParent",
+  "routeType" : "flow",
+  "type" : "route",
+  "urlPrefix" : "flow"
+}

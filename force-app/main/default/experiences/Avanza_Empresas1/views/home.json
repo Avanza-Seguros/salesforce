@@ -1,0 +1,57 @@
+{
+  "appPageId" : "b62b0e74-2995-4e35-82f5-b272f0dd47c8",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "2e0f351d-a042-4038-acce-b048d8f95ceb",
+  "label" : "Home",
+  "regions" : [ {
+    "id" : "4edfed56-d8da-4e8c-b7b2-0a3f32df493e",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "id" : "1a7d5899-ac6b-4fb5-85de-8b350b582443",
+    "regionName" : "featured",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "subtitulo" : "Consulta tus pólizas, pagos y documentos en tiempo real, con la tecnología de Avanza Seguro.",
+        "titulo" : "Tus seguros, en un solo lugar"
+      },
+      "componentName" : "c:portalInicio",
+      "id" : "06531a23-d3a6-4149-8604-dc8894cb3119",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "c00f5380-f12f-480b-9280-677feaf6e601",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "10b7d134-5fd5-4162-9152-ad9a3ee25069",
+    "regionName" : "sidebar",
+    "type" : "region"
+  }, {
+    "id" : "8aa6f222-26cb-48cf-9e89-f4244b85423f",
+    "regionName" : "footer",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customHeadTags" : "",
+        "description" : "",
+        "title" : "Home"
+      },
+      "componentName" : "forceCommunity:seoAssistant",
+      "id" : "ddaae867-2c76-4426-b980-0074ede6ee7f",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "e7aacb2b-a0ed-4d35-828d-30f8d4cb8f95",
+    "regionName" : "sfdcHiddenRegion",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "home"
+}
