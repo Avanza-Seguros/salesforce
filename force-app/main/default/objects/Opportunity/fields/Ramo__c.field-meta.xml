@@ -8,6 +8,113 @@
     <type>Picklist</type>
     <valueSet>
         <restricted>true</restricted>
-        <valueSetName>Ramo</valueSetName>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Mascotas</fullName>
+                <default>false</default>
+                <label>Mascotas</label>
+            </value>
+            <value>
+                <fullName>Automoviles</fullName>
+                <default>false</default>
+                <label>Automóviles</label>
+            </value>
+            <value>
+                <fullName>Danos</fullName>
+                <default>false</default>
+                <label>Daños</label>
+            </value>
+            <value>
+                <fullName>Dental</fullName>
+                <default>false</default>
+                <label>Dental</label>
+            </value>
+            <value>
+                <fullName>Empresarial</fullName>
+                <default>false</default>
+                <label>Empresarial</label>
+            </value>
+            <value>
+                <fullName>Fianzas</fullName>
+                <default>false</default>
+                <label>Fianzas</label>
+            </value>
+            <value>
+                <fullName>GMM</fullName>
+                <default>false</default>
+                <label>Gastos Médicos Mayores</label>
+            </value>
+            <value>
+                <fullName>RC</fullName>
+                <default>false</default>
+                <label>Responsabilidad Civil</label>
+            </value>
+            <value>
+                <fullName>Viajes</fullName>
+                <default>false</default>
+                <label>Viajes</label>
+            </value>
+            <value>
+                <fullName>Vida</fullName>
+                <default>false</default>
+                <label>Vida</label>
+            </value>
+            <value>
+                <fullName>Accidentes Personales</fullName>
+                <default>false</default>
+                <label>Accidentes Personales</label>
+            </value>
+            <value>
+                <fullName>Vision</fullName>
+                <default>false</default>
+                <label>Visión</label>
+            </value>
+            <value>
+                <fullName>Gastos medicos</fullName>
+                <default>false</default>
+                <label>Gastos medicos</label>
+            </value>
+            <value>
+                <fullName>Auto</fullName>
+                <default>false</default>
+                <label>Auto</label>
+            </value>
+            <value>
+                <fullName>Accidentes</fullName>
+                <default>false</default>
+                <label>Accidentes</label>
+            </value>
+            <value>
+                <fullName>Ahorro</fullName>
+                <default>false</default>
+                <label>Ahorro</label>
+            </value>
+            <value>
+                <fullName>Retiro</fullName>
+                <default>false</default>
+                <label>Retiro</label>
+            </value>
+            <value>
+                <fullName>Mascota</fullName>
+                <default>false</default>
+                <label>Mascota</label>
+            </value>
+            <value>
+                <fullName>Transportes</fullName>
+                <default>false</default>
+                <label>Transportes</label>
+            </value>
+            <value>
+                <fullName>Administrativa</fullName>
+                <default>false</default>
+                <label>Administrativa</label>
+            </value>
+            <value>
+                <fullName>Flotilla</fullName>
+                <default>false</default>
+                <label>Flotilla</label>
+            </value>
+        </valueSetDefinition>
     </valueSet>
 </CustomField>

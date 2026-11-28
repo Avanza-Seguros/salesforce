@@ -1,7 +1,7 @@
 # Liberación a PROD: Sitio de Empresas e Insurance Policy, sin Cobranza ni Claims
 
 - **Rama:** `release/prod-sitio-empresas`, hecha a partir de `Siniestros-en-Claims` en el commit `ae656d1`.
-- **Manifiesto:** `manifest/release-prod.xml`, con 628 componentes y API 68.0.
+- **Manifiesto:** `manifest/release-prod.xml`, con 627 componentes y API 68.0.
 - **Contenido:** solo lo que va a PROD.
   - Lo nuevo de Cobranza y Claims se borró de la rama.
   - Lo que Cobranza o Claims modificaron regresó a la versión de PROD (`main`).
@@ -22,8 +22,8 @@
 | Formatos de página | 15 | Vistas de lista | 10 |
 | Objetos (los 5 nuevos, Póliza y Cobertura de producto) | 7 | Formatos compactos | 8 |
 | Plantillas de correo (carpeta Empresas) | 7 | Conjuntos de permisos | 5 |
-| Perfiles (solo lo nuevo) | 4 | Listas de valores (globales 4, estándar 4) | 8 |
-| Otros (páginas VF, triggers, proceso de ventas, permisos, pestaña, páginas, menú, acciones, etc.) | 22 | **Total** | **628** |
+| Perfiles (solo lo nuevo) | 4 | Listas de valores (globales 3, estándar 4) | 7 |
+| Otros (páginas VF, triggers, proceso de ventas, permisos, pestaña, páginas, menú, acciones, etc.) | 22 | **Total** | **627** |
 
 Esto cubre:
 - Pólizas empresariales: asegurados, vehículos y ubicaciones, movimientos, solicitudes, seguimiento y correos a asegurados.
@@ -117,25 +117,25 @@ Se aplicaron las recomendaciones del plan; falta el visto bueno de Avanza.
    | Mercado de la oportunidad | 7 | 20 | 27 |
    | Plan producto | 1 | 126 | 127 |
    | Categoría GMM, Vida, Dentegra y Adicional del contacto | 9, 6, 3 y 3 | «06» en cada una | 10, 7, 4 y 4 |
-   | Ramo (lista global) | 12 | 9 que tenía el campo Ramo de PROD («Gastos medicos», «Auto», «Accidentes», «Ahorro», «Retiro», «Mascota», «Transportes», «Administrativa», «Flotilla») | 21 |
+   | Ramo de la oportunidad (lista propia del campo, con los mismos valores que la lista global de UAT) | 12 | 9 que tenía el campo Ramo de PROD («Gastos medicos», «Auto», «Accidentes», «Ahorro», «Retiro», «Mascota», «Transportes», «Administrativa», «Flotilla») | 21 |
 
    - **Tipos de registro de oportunidad:**
      - Colectiva, que solo existe en PROD, ahora muestra los valores nuevos de Ramo, Mercado y Plan producto, porque el código crea oportunidades con esos valores y las listas son restringidas.
      - En Individual y Oportunidades, Tipo muestra los valores de PROD («Existing Business» y «New Business»), no los de UAT.
    - **Familia de producto:** en PROD solo tiene «None» y ningún producto lo usa (los 110 están vacíos). El archivo se queda con los 11 valores nuevos.
-2. **Etapas de la oportunidad: se conservan las de PROD y se agregan las 2 nuevas.** El proceso de ventas «Pólizas» lleva «Necesidad», «Propuesta», «Cierre», «Emitido», «Póliza», «Closed Won» y «Closed Lost», más «Gestion Comercial» y «En proceso de emision». Esas dos hay que crearlas en PROD antes de validar.
+2. **Etapas de la oportunidad: se conservan las de PROD y se agregan las 2 nuevas.** El proceso de ventas «Pólizas» lleva «Necesidad», «Propuesta», «Cierre», «Emitido», «Póliza», «Closed Won» y «Closed Lost», más «Gestion Comercial» y «En proceso de emision». Esas dos ya se crearon en PROD el 27/11/2026.
 3. **Las 6 reglas de validación van apagadas,** como en UAT, donde se probó todo. Activarlas es otro cambio con su propia prueba.
 
 ## Riesgos que solo se ven en PROD
 
-- **Ramo de la oportunidad pasa a la lista global «Ramo».** La validación en PROD confirmó que no se puede por despliegue; hay que hacerlo a mano (ver «Validación en PROD»).
+- **Ramo de la oportunidad queda con lista propia en PROD** y en UAT y DEV usa la lista global «Ramo». Un despliegue futuro desde develop que lleve `Opportunity.Ramo__c` va a fallar en PROD por lo mismo; ese campo hay que dejarlo fuera o igualar UAT y DEV a PROD.
 - **Tipo de oportunidad:** el código pone `New_Business` cuando el formulario no trae Tipo. En PROD ese valor no existe; como Tipo no es una lista restringida, se guarda igual, pero aparecerá como valor inactivo.
 
 ## Fuera del paquete
 
 - **Carpeta de plantillas «Empresas»:** ya existe en PROD.
-- **Etapas nuevas de la oportunidad:** «Gestion Comercial» y «En proceso de emision» (punto 2).
-- **El sitio Avanza Empresas:**
+- **Etapas nuevas de la oportunidad:** «Gestion Comercial» y «En proceso de emision» (punto 2); ya creadas en PROD.
+- **El sitio Avanza Empresas** (ya creado en PROD el 27/11/2026, vacío y sin publicar):
   - Experience Cloud, sus páginas sin «mis-pagos» y su usuario invitado.
   - Las licencias Partner Community.
   - Los 3 procesos programados.
@@ -155,7 +155,7 @@ En PowerShell hay que pasarlas como lista (`$pruebas = "A,B,…".Split(",")` y l
 
 **Validación en UAT el 27/11/2026, sin desplegar y con las decisiones aplicadas** (id `0AfcU00000CILzxSAH`):
 - **Resultado:** 723 componentes sin errores (el manifiesto con los campos y reglas de cada objeto). Pasan las 325 pruebas de las 40 clases. Cobertura de 91 %; la clase más baja es `PortalSitioController` con 81 %.
-- **Manifiesto de esta corrida:** `manifest/validar-uat.xml`. No lleva el proceso de ventas «Pólizas» ni los tipos de registro `Oportunidad_Colectiva`, `Oportunidad_Individual` y `Oportunidades`, porque usan valores que hay en PROD y no en UAT: la etapa «Necesidad» y el tipo «Existing Business». Además, `Oportunidad_Colectiva` no existe en UAT. Esos cuatro se comprueban en la validación de PROD.
+- **Manifiesto de esta corrida:** `manifest/validar-uat.xml`. No lleva el proceso de ventas «Pólizas» ni los tipos de registro `Oportunidad_Colectiva`, `Oportunidad_Individual` y `Oportunidades`, porque usan valores que hay en PROD y no en UAT: la etapa «Necesidad» y el tipo «Existing Business». Además, `Oportunidad_Colectiva` no existe en UAT. Esos cuatro se comprueban en la validación de PROD. Tampoco lleva `Opportunity.Ramo__c`, que en UAT usa la lista global y no se puede cambiar a lista propia.
 - **Qué no cubre esta corrida:** que el código funcione sin los triggers de Cobranza. UAT los tiene y PROD no los tendrá.
 
 Con `RunLocalTests` no pasaría, por las 52 pruebas antiguas que ya fallan en UAT.
@@ -168,15 +168,17 @@ Solo con autorización para tocar PROD:
 sf project deploy validate --manifest manifest/release-prod.xml --target-org AvanzaPRD --test-level RunSpecifiedTests --tests $pruebas
 ```
 
-**Primera validación, 27/11/2026, sin desplegar** (id `0AfUn000001S4rJKAS`): no pasó. Hubo 72 errores en 740 componentes, y por eso no corrió ninguna prueba. Lo que no necesitaba decisión ya se corrigió en la rama (ver «Ajustes hechos en esta rama»). Lo demás necesita un paso en PROD antes de volver a validar:
+**Primera validación, 27/11/2026, sin desplegar** (id `0AfUn000001S4rJKAS`): no pasó. Hubo 72 errores en 740 componentes, y por eso no corrió ninguna prueba. Lo que no necesitaba decisión ya se corrigió en la rama (ver «Ajustes hechos en esta rama»). Lo demás se resolvió el mismo 27/11/2026, con autorización:
 
-| Error | Qué hay en PROD | Paso antes de volver a validar |
+| Error | Qué había en PROD | Qué se hizo |
 |---|---|---|
-| `Product2.Aseguradora__c` no puede pasar a búsqueda | Lista de selección con 16 valores. 2 productos tienen «GNP» y los otros 108 están vacíos. Solo la usa el formato de producto | Borrar el campo en PROD y quitarlo también de los campos borrados, para que el despliegue lo cree como búsqueda a Aseguradora. Después, poner la aseguradora GNP a esos 2 productos |
-| `Opportunity.Ramo__c` no puede pasar a la lista global | Lista propia del campo con 15 valores; no hay ninguna lista global «Ramo» | En Configuración, «Promover a conjunto de valores global» con el nombre `Ramo`. El despliegue le agrega los valores nuevos |
-| Proceso de ventas «Pólizas»: no existe «En proceso de emision» | No están las 2 etapas nuevas | Crear «Gestion Comercial» (40 %, Canalización, abierta) y «En proceso de emision» (75 %, Canalización, abierta), como en UAT |
-| Menú `SFDC_Default_Navigation_Avanza_Empresas`: no existe el sitio | No existe el sitio «Avanza Empresas» | Crear el sitio antes de desplegar |
+| `Product2.Aseguradora__c` no puede pasar a búsqueda | Lista de selección con 16 valores. 2 productos tenían «GNP» y los otros 108 estaban vacíos. Solo la usaba el formato de producto | Se borró el campo en PROD (despliegue `0AfUn000001S4xlKAC`). Quedó en los campos borrados como `Aseguradora_del` y el nombre quedó libre: una prueba sin guardar confirmó que la búsqueda de la rama se puede crear, así que no hizo falta borrarlo para siempre. Respaldo en `C:\Salesforce\Avanza\respaldos-prod\2026-11-27-aseguradora-producto`. **Después del despliegue:** crear la aseguradora GNP, que en PROD no existe (solo hay SMNYL e INSIGNIA LIFE), y asignársela a «Capitaliza» y «Profesional» |
+| `Opportunity.Ramo__c` no puede pasar a la lista global | Lista propia del campo con 15 valores. PROD no ofrece «Promover a conjunto de valores global» para ese campo | En la rama, `Ramo__c` conserva su lista propia con los 21 valores que tiene la lista global en UAT, que incluyen los 15 de PROD. La lista global `Ramo` salió del paquete porque ningún otro campo la usa |
+| Proceso de ventas «Pólizas»: no existe «En proceso de emision» | No estaban las 2 etapas nuevas | Se crearon en PROD (despliegue `0AfUn000001S4uXKAS`): «Gestion Comercial» (40 %) después de «Propuesta» y «En proceso de emision» (75 %) después de «Emitido», abiertas y en Canalización, como en UAT. Las 6 etapas inactivas siguen igual |
+| Menú `SFDC_Default_Navigation_Avanza_Empresas`: no existe el sitio | No existía el sitio «Avanza Empresas» | Se creó en PROD con la plantilla Customer Service y el prefijo `empresas`, como en UAT. Está en construcción, sin publicar y sin contenido |
 | `Opportunity.Agente_Relacionado__c`: error interno de Salesforce | El filtro es opcional y solo excluye «Descartado». La rama lo hace obligatorio y excluye también «Inactivo», que sí existe en PROD | Volver a validar; si se repite, dejar el filtro como está en PROD |
+
+Una prueba sin guardar en PROD de los campos de la oportunidad, sus 3 tipos de registro, el proceso de ventas «Pólizas» y el formato compacto `Financial_Opportunities` pasó con los 29 componentes. Falta volver a validar el paquete completo.
 
 Los otros errores vienen de esos:
 - **De `Aseguradora__c`:** 42 clases no compilan porque usan `Aseguradora__r`. De ahí fallan los LWC, la página de la póliza, el flujo de solicitudes, los perfiles y conjuntos de permisos, el filtro de `Quote.Product__c` y, probablemente, la acción de correo en el formato de oportunidad.

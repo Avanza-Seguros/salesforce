@@ -562,7 +562,6 @@
         <members>Motivo_Baja_Colectivo</members>
         <members>Motivo_Baja_Ubicacion</members>
         <members>Motivo_Baja_Vehiculo</members>
-        <members>Ramo</members>
         <name>GlobalValueSet</name>
     </types>
     <types>

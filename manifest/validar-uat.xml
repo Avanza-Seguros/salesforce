@@ -359,7 +359,6 @@
         <members>Opportunity.Prospectadorr__c</members>
         <members>Opportunity.Prospecto__c</members>
         <members>Opportunity.ROI_Analysis_Completed__c</members>
-        <members>Opportunity.Ramo__c</members>
         <members>Opportunity.Recargo_por_Pago_Fraccionado__c</members>
         <members>Opportunity.Referido_por_Agente__c</members>
         <members>Opportunity.Referido_por_cliente__c</members>
@@ -558,7 +557,6 @@
         <members>Motivo_Baja_Colectivo</members>
         <members>Motivo_Baja_Ubicacion</members>
         <members>Motivo_Baja_Vehiculo</members>
-        <members>Ramo</members>
         <name>GlobalValueSet</name>
     </types>
     <types>
