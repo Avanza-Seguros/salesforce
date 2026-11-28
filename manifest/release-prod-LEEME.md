@@ -107,7 +107,7 @@ Esto lo encontró la validación en PROD del 27/11/2026.
 | Formato `AccountFinancialSummary` y relación `Relaciones_del_cliente` | Fuera del paquete: sus objetos (Resumen financiero de cuenta y Relación entre cuentas) no están activados en PROD |
 | `Opportunity.Agente_Relacionado__c` | El filtro sigue opcional, como en PROD, aunque ya excluye «Descartado» e «Inactivo». Obligatorio da un error interno de Salesforce: hay 383 oportunidades ligadas a agentes así (374 «Inactivo» y 9 «Descartado»). Conserva el historial de cambios del campo, que la rama le quitaba |
 | Página `Insurance_Policy_Record_Page` | Sin la pestaña Vigencias: su componente `policyTerms` es de Cobranza (lee las cuotas) |
-| Formato de oportunidad | Sin la acción Enviar correo en la lista de pólizas. **Después del despliegue** se puede volver a poner a mano, ya con la acción creada |
+| Formato de oportunidad | Sin la acción Enviar correo en la lista de pólizas, porque la acción no existía aún en PROD. Se volvió a poner después del despliegue, el 27/11/2026 |
 | `BienvenidasPoliza`, `BienvenidaPolizaTest`, `PdfProcessorController` y `TriggerControlTest` | Se agregaron al manifiesto: cambiaron respecto a PROD y faltaban. Sin ellas corría la prueba vieja de PROD, que crea una oportunidad con Ramo «Auto», valor que los tipos de registro nuevos ya no aceptan |
 | `CorreoOportunidadIATest` | La fecha de pago de prueba va a mediodía local; a medianoche GMT, en la zona horaria de México caía un día antes |
 | `PortalPolizasPestanasTest` | Sube el documento de prueba solo con el sitio publicado; uno en construcción no tiene miembros y no acepta archivos |
@@ -213,7 +213,7 @@ Los otros errores vienen de esos:
 
 **Pendiente en PROD:**
 1. ~~Crear la aseguradora GNP y asignársela a «Capitaliza» y «Profesional».~~ Hecho el 27/11/2026: GNP es `a0uUn00000CrAC1IAN` y ya está en los 2 productos.
-2. Volver a poner la acción Enviar correo en la lista de pólizas del formato de oportunidad.
+2. ~~Volver a poner la acción Enviar correo en la lista de pólizas del formato de oportunidad.~~ Hecho el 27/11/2026 (despliegue `0AfUn000001S5SPKA0`); el formato de la rama ya la trae otra vez.
 3. Asignar los conjuntos de permisos (hoy sin asignar): a los internos, `Polizas_Sitio_Empresas_Campos`, `Portal_Polizas_Vista_Previa`, `Censo_Colectivo`, `Vehiculos_FSC` y `Logos_Correos`; a los usuarios del sitio, `Portal_Polizas_Cliente`.
 4. Sitio «Avanza Empresas»: miembros, usuario invitado, licencias y publicarlo.
 5. Plantillas de alta, baja y cambio: siguen como «Prueba V1»; un movimiento real las mandaría a asegurados.

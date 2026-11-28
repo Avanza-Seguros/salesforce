@@ -304,6 +304,7 @@
         <fields>PolicyType</fields>
         <fields>Product</fields>
         <fields>Status</fields>
+        <quickActions>InsurancePolicy.Enviar_Correo</quickActions>
         <relatedList>InsurancePolicy</relatedList>
     </relatedLists>
     <relatedLists>
