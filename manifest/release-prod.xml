@@ -517,9 +517,9 @@
     </types>
     <types>
         <members>Empresas/Aviso_Renovacion_Poliza</members>
-        <members>Empresas/Baja_GMM_Prueba_V1</members>
-        <members>Empresas/Bienvenida_GMM_Prueba_V1</members>
-        <members>Empresas/Cambio_GMM_Prueba_V1</members>
+        <members>Empresas/Baja_GMM</members>
+        <members>Empresas/Bienvenida_GMM</members>
+        <members>Empresas/Cambio_GMM</members>
         <members>Empresas/Cotizacion_Auto_Comparativo</members>
         <members>Empresas/Cotizacion_Auto_Una_Opcion</members>
         <members>Empresas/Renovacion_GMM_Contributoria</members>

@@ -145,13 +145,11 @@ Se aplicaron las recomendaciones del plan; falta el visto bueno de Avanza.
 
 - **Carpeta de plantillas «Empresas»:** ya existe en PROD.
 - **Etapas nuevas de la oportunidad:** «Gestion Comercial» y «En proceso de emision» (punto 2); ya creadas en PROD.
-- **El sitio Avanza Empresas** (ya creado en PROD el 27/11/2026, sin publicar; su contenido va en el paquete):
-  - Miembros, usuario invitado y publicarlo.
-  - Las licencias Partner Community.
+- **El sitio Avanza Empresas** (creado en PROD el 27/11/2026; su contenido va en el paquete). Ya tiene miembros y está publicado (ver «Despliegue en PROD»). Falta:
   - Los 3 procesos programados.
   - Las asignaciones de permisos.
 - **Frecuencia de prima:** confirmar en PROD los valores que usa Crear Póliza (Mensual, Quincenal, Trimestral, Semestral, Anual).
-- **Plantillas «Prueba»:** poner los textos finales.
+- **Plantillas de alta, baja y cambio:** ya no son de prueba («Bienvenida GMM», «Baja GMM» y «Cambio GMM»); van en el paquete.
 
 ## Pruebas y validación en UAT
 
@@ -185,7 +183,7 @@ sf project deploy validate --manifest manifest/release-prod.xml --target-org Ava
 | `Product2.Aseguradora__c` no puede pasar a búsqueda | Lista de selección con 16 valores. 2 productos tenían «GNP» y los otros 108 estaban vacíos. Solo la usaba el formato de producto | Se borró el campo en PROD (despliegue `0AfUn000001S4xlKAC`). Quedó en los campos borrados como `Aseguradora_del` y el nombre quedó libre: una prueba sin guardar confirmó que la búsqueda de la rama se puede crear, así que no hizo falta borrarlo para siempre. Respaldo en `C:\Salesforce\Avanza\respaldos-prod\2026-11-27-aseguradora-producto`. **Después del despliegue:** crear la aseguradora GNP, que en PROD no existe (solo hay SMNYL e INSIGNIA LIFE), y asignársela a «Capitaliza» y «Profesional» |
 | `Opportunity.Ramo__c` no puede pasar a la lista global | Lista propia del campo con 15 valores. PROD no ofrece «Promover a conjunto de valores global» para ese campo | En la rama, `Ramo__c` conserva su lista propia con los 21 valores que tiene la lista global en UAT, que incluyen los 15 de PROD. La lista global `Ramo` salió del paquete porque ningún otro campo la usa |
 | Proceso de ventas «Pólizas»: no existe «En proceso de emision» | No estaban las 2 etapas nuevas | Se crearon en PROD (despliegue `0AfUn000001S4uXKAS`): «Gestion Comercial» (40 %) después de «Propuesta» y «En proceso de emision» (75 %) después de «Emitido», abiertas y en Canalización, como en UAT. Las 6 etapas inactivas siguen igual |
-| Menú `SFDC_Default_Navigation_Avanza_Empresas`: no existe el sitio | No existía el sitio «Avanza Empresas» | Se creó en PROD con la plantilla Customer Service y el prefijo `empresas`, como en UAT. Está en construcción, sin publicar y sin contenido |
+| Menú `SFDC_Default_Navigation_Avanza_Empresas`: no existe el sitio | No existía el sitio «Avanza Empresas» | Se creó en PROD con la plantilla Customer Service y el prefijo `empresas`, como en UAT. Quedó en construcción, sin publicar y sin contenido; se publicó después del despliegue (ver «Pendiente en PROD», punto 4) |
 | `Opportunity.Agente_Relacionado__c`: error interno de Salesforce | El filtro es opcional y solo excluye «Descartado». La rama lo hace obligatorio y excluye también «Inactivo», que sí existe en PROD | Se repitió; el filtro queda opcional (ver «Ajustes hechos en esta rama») |
 
 Una prueba sin guardar en PROD de los campos de la oportunidad, sus 3 tipos de registro, el proceso de ventas «Pólizas» y el formato compacto `Financial_Opportunities` pasó con los 29 componentes.
@@ -208,14 +206,24 @@ Los otros errores vienen de esos:
 **Quick Deploy el 27/11/2026, de 20:07 a 20:10** (id `0AfUn000001S5LxKAK`, con la validación `0AfUn000001S5KLKA0`): los 729 componentes, sin errores. Lo pidió el usuario sabiendo que seguían pendientes el visto bueno de Avanza a las decisiones, el ensayo en un sandbox copiado de PROD y las plantillas finales.
 
 - **Respaldo para la reversa:** antes del despliegue se recuperó de PROD la versión anterior de todo lo del manifiesto, en `C:\Salesforce\Avanza\respaldos-prod\2026-11-27-antes-del-quick-deploy`. Tiene los 154 componentes que ya existían; los demás eran nuevos.
-- **Revisión en PROD después del despliegue:** están las clases del sitio y de pólizas, los 5 objetos nuevos y los triggers `BienPolizaVigenciaTrigger` y `PolizaReglasTrigger`, activos. Las 6 reglas quedaron apagadas y el menú del sitio quedó en la red «Avanza Empresas», que sigue en construcción.
+- **Revisión en PROD después del despliegue:** están las clases del sitio y de pólizas, los 5 objetos nuevos y los triggers `BienPolizaVigenciaTrigger` y `PolizaReglasTrigger`, activos. Las 6 reglas quedaron apagadas y el menú del sitio quedó en la red «Avanza Empresas», que entonces seguía en construcción y se publicó después (punto 4 de «Pendiente en PROD»).
 - **Campos sin acceso:** de los 198 campos nuevos, 195 quedaron sin lectura para el perfil Administrador, porque el perfil del paquete solo llevaba lo nuevo. Se agregó el conjunto de permisos `Polizas_Sitio_Empresas_Campos` («Pólizas y Sitio de Empresas: campos nuevos», despliegue `0AfUn000001S5PBKA0`). Da lectura en 194 campos y edición en 190; los 4 restantes son fórmulas. Deja fuera 4 campos obligatorios, que no admiten permiso. Además da crear, leer, editar y borrar en los 5 objetos nuevos. Está asignado a los 2 administradores activos (Abraham Gonzalez y Administrador Avanza); falta asignarlo a los demás usuarios internos que operen pólizas y cotizaciones. Su archivo está en `force-app/main/default/permissionsets/` y no está en `release-prod.xml`, porque se desplegó aparte.
 
 **Pendiente en PROD:**
 1. ~~Crear la aseguradora GNP y asignársela a «Capitaliza» y «Profesional».~~ Hecho el 27/11/2026: GNP es `a0uUn00000CrAC1IAN` y ya está en los 2 productos.
 2. ~~Volver a poner la acción Enviar correo en la lista de pólizas del formato de oportunidad.~~ Hecho el 27/11/2026 (despliegue `0AfUn000001S5SPKA0`); el formato de la rama ya la trae otra vez.
 3. Asignar los conjuntos de permisos (hoy sin asignar): a los internos, `Polizas_Sitio_Empresas_Campos`, `Portal_Polizas_Vista_Previa`, `Censo_Colectivo`, `Vehiculos_FSC` y `Logos_Correos`; a los usuarios del sitio, `Portal_Polizas_Cliente`.
-4. Sitio «Avanza Empresas»: miembros, usuario invitado, licencias y publicarlo.
-5. Plantillas de alta, baja y cambio: siguen como «Prueba V1»; un movimiento real las mandaría a asegurados.
+4. ~~Sitio «Avanza Empresas»: miembros, usuario invitado, licencias y publicarlo.~~ Hecho el 27/11/2026, con respaldo previo en `C:\Salesforce\Avanza\respaldos-prod\2026-11-27-sitio-empresas`:
+   - **Miembros, como en UAT** (despliegue `0AfUn000001S5U1KAK`): los perfiles Administrador, Standard Partner Community, Partner Community User y Partner Community Avanza, y el conjunto `Reportes_y_tableros`. Entran los 28 usuarios de empresas que ya usan el sitio Avanza Seguro, con su misma clave. No ven sus pólizas hasta que se les asigne `Portal_Polizas_Cliente` (punto 3).
+   - **Correo de bienvenida apagado**, como en UAT, para que no les llegara nada a esos 28 usuarios.
+   - **Publicado** (trabajo `08PUn00000lueniMAA`) **y activo** (despliegue `0AfUn000001S5VdKAK`) en https://avanzaseguro.my.site.com/empresas.
+   - **Remitente:** se cambió a info@avanzaseguro.com. Salesforce mandó un correo de verificación a esa dirección; hasta que se confirme, el sitio sigue mandando desde sergio.uribe@volestra.com. En UAT se queda sergio.uribe@volestra.com.
+   - **Usuario invitado:** su perfil es igual al de UAT (sin objetos ni clases); no hubo que cambiar nada.
+   - **Licencias Partner Community:** quedan 19 libres de 47.
+5. ~~Plantillas de alta, baja y cambio: siguen como «Prueba V1»; un movimiento real las mandaría a asegurados.~~ Hecho el 27/11/2026 (despliegue `0AfUn000001S5YrKAK`). Ahora son «Bienvenida GMM», «Baja GMM» y «Cambio GMM». Se les quitaron:
+   - la franja «CORREO DE PRUEBA» y el «(PRUEBA)» del asunto;
+   - en la bienvenida, las secciones de condiciones generales, red dental y red de visión, y el enlace al video, que no tenían enlace.
+
+   Las de prueba se borraron. Lo mismo se hizo en DEV y UAT, desde Siniestros-en-Claims.
 6. Decidir si se programa el aviso de renovación.
 7. Visto bueno de Avanza a las decisiones de listas, etapas y reglas, que ya están en PROD.

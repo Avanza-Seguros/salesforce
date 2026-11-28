@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Plantilla para el correo de cambio de datos desde Asegurados de la póliza. Se envía con los archivos del cambio adjuntos. Los marcadores {{NOMBRE_ASEGURADO}}, {{POLIZA}}, {{CERTIFICADO}}, {{ASEGURADORA}}, {{VIGENCIA}}, {{CORREO_SERVICIO}} y {{DETALLE_CAMBIO}} (lo que se cambió) se llenan al enviar.</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Cambio GMM</name>
+    <style>none</style>
+    <subject>Actualización de tus datos en tu Seguro de Gastos Médicos Mayores</subject>
+    <type>custom</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>
