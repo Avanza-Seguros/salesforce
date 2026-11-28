@@ -212,7 +212,7 @@ Los otros errores vienen de esos:
 - **Campos sin acceso:** de los 198 campos nuevos, 195 quedaron sin lectura para el perfil Administrador, porque el perfil del paquete solo llevaba lo nuevo. Se agregó el conjunto de permisos `Polizas_Sitio_Empresas_Campos` («Pólizas y Sitio de Empresas: campos nuevos», despliegue `0AfUn000001S5PBKA0`). Da lectura en 194 campos y edición en 190; los 4 restantes son fórmulas. Deja fuera 4 campos obligatorios, que no admiten permiso. Además da crear, leer, editar y borrar en los 5 objetos nuevos. Está asignado a los 2 administradores activos (Abraham Gonzalez y Administrador Avanza); falta asignarlo a los demás usuarios internos que operen pólizas y cotizaciones. Su archivo está en `force-app/main/default/permissionsets/` y no está en `release-prod.xml`, porque se desplegó aparte.
 
 **Pendiente en PROD:**
-1. Crear la aseguradora GNP y asignársela a «Capitaliza» y «Profesional».
+1. ~~Crear la aseguradora GNP y asignársela a «Capitaliza» y «Profesional».~~ Hecho el 27/11/2026: GNP es `a0uUn00000CrAC1IAN` y ya está en los 2 productos.
 2. Volver a poner la acción Enviar correo en la lista de pólizas del formato de oportunidad.
 3. Asignar los conjuntos de permisos (hoy sin asignar): a los internos, `Polizas_Sitio_Empresas_Campos`, `Portal_Polizas_Vista_Previa`, `Censo_Colectivo`, `Vehiculos_FSC` y `Logos_Correos`; a los usuarios del sitio, `Portal_Polizas_Cliente`.
 4. Sitio «Avanza Empresas»: miembros, usuario invitado, licencias y publicarlo.
